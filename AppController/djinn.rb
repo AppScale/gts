@@ -580,16 +580,10 @@ class Djinn
       return "Error: Can't relocate the #{appid} app."
     end
 
-    if my_node.is_login? and !my_node.is_appengine?
-      http_outbound_port = @app_info_map[appid]['nginx_outbound']
-      https_outbound_port = @app_info_map[appid]['nginx_https_outbound']
-      Nginx.write_fullproxy_app_config(appid, http_port, https_port,
-        http_outbound_port, https_outbound_port, my_public, my_private,
-        proxy_port, login_ip, get_all_appengine_nodes())
-    else
+    if my_node.is_login?
       static_handlers = HelperFunctions.parse_static_data(appid)
-      Nginx.write_app_config(appid, http_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip)
+      Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
+        my_private, proxy_port, static_handlers, login_ip, get_all_appengine_nodes())
     end
 
     Djinn.log_debug("Done writing new nginx config files!")
@@ -3468,15 +3462,14 @@ HOSTS
       http_port = @app_info_map[app]['nginx']
       https_port = @app_info_map[app]['nginx_https']
       proxy_port = @app_info_map[app]['haproxy']
-      http_outbound_port = @app_info_map[app]['nginx_outbound']
-      https_outbound_port = @app_info_map[app]['nginx_https_outbound']
       Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
         "port #{http_port}, https port #{https_port}, and haproxy port " +
-        "#{proxy_port}. Sending traffic to outbound ports " +
-        "#{http_outbound_port} and #{https_outbound_port}.")
+        "#{proxy_port}.")
+
+      static_handlers = HelperFunctions.parse_static_data(app)
       Nginx.write_fullproxy_app_config(app, http_port, https_port,
-        http_outbound_port, https_outbound_port, my_public, my_private,
-        proxy_port, login_ip, get_all_appengine_nodes())
+        my_public, my_private, proxy_port, static_handlers, login_ip,
+        get_all_appengine_nodes())
     }
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
@@ -3819,11 +3812,8 @@ HOSTS
     # We only need a new full proxy config file for new apps, on the machine
     # that runs the login service (but not in a one node deploy, where we don't
     # do a full proxy config).
-    if is_new_app and my_node.is_login? and !my_node.is_appengine?
-      write_full_proxy_nginx_file(app, nginx_port, proxy_port)
-    end
-
-    if my_node.is_appengine?
+    login_ip = get_login.private_ip
+    if is_new_app and my_node.is_login?
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
         Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
@@ -3835,16 +3825,12 @@ HOSTS
         static_handlers = []
       end
 
-      login_ip = get_login.private_ip
-      http_port = nginx_port
-      success = Nginx.write_app_config(app, http_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip)
-      if !success
-        error_msg = "ERROR: Failure to create valid nginx config file " + \
-                    "for application #{app}."
-        place_error_app(app, error_msg)
-      end
+      Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
+        my_private, proxy_port, static_handlers, login_ip,
+        get_all_appengine_nodes())
+    end
 
+    if my_node.is_appengine?
       # send a warmup request to the app to get it loaded - can shave a
       # number of seconds off the initial request if it's java or go
       # go provides a default warmup route
@@ -3884,10 +3870,10 @@ HOSTS
 
       HAProxy.update_app_config(app, proxy_port,
         @app_info_map[app]['appengine'], my_private)
-      Nginx.reload
       HAProxy.reload
 
-      if is_new_app
+      if is_new_app and my_node.is_appengine?
+        # TODO(cgb): What should this be?
         loop {
           Kernel.sleep(5)
           success = uac.add_instance(app, my_public, nginx_port)
@@ -3929,38 +3915,6 @@ HOSTS
         @apps_to_restart.delete(app)
       end
     }
-  end
-
-
-  # Writes a nginx configuration file that tells nginx to act as a full proxy,
-  # to one or more machines that host app servers.
-  #
-  # Args:
-  #   app: A String representing the appid of the app to write an nginx config
-  #     file for.
-  def write_full_proxy_nginx_file(app, http_port, proxy_port)
-    https_port = Nginx.get_ssl_port_for_app(http_port)
-    login_ip = get_login.private_ip
-
-    Djinn.log_debug("Writing full proxy nginx file for app #{app} on http " +
-      "port #{http_port}, https port #{https_port}, and haproxy port " +
-      "#{proxy_port}")
-    success = Nginx.write_fullproxy_app_config(app, http_port, https_port,
-      http_port, https_port, my_node.public_ip, my_node.private_ip, proxy_port,
-      login_ip, get_all_appengine_nodes())
-    if success
-      Nginx.reload
-    else
-      err_msg = "ERROR: Failure to create valid nginx config file" + \
-                " for application #{app} full proxy."
-      place_error_app(app, err_msg)
-    end
-
-    @app_info_map[app]['nginx'] = http_port
-    @app_info_map[app]['nginx_https'] = https_port
-    @app_info_map[app]['nginx_outbound'] = http_port
-    @app_info_map[app]['nginx_https_outbound'] = https_port
-    @app_info_map[app]['haproxy'] = proxy_port
   end
 
 

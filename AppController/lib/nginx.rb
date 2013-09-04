@@ -237,8 +237,9 @@ CONFIG
 
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
-    http_outbound_port, https_outbound_port, my_public_ip, my_private_ip,
-    proxy_port, login_ip, appengine_server_ips)
+    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
+    appengine_server_ips)
+
     Djinn.log_debug("Writing full proxy app config for app #{app_name}")
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
@@ -254,10 +255,10 @@ CONFIG
     servers = []
     ssl_servers = []
     appengine_server_ips.each do |ip|
-      servers << "    server #{ip}:#{http_outbound_port};\n"
+      servers << "    server #{ip}:#{proxy_port};\n"
     end
     appengine_server_ips.each do |ip|
-      ssl_servers << "    server #{ip}:#{https_outbound_port};\n"
+      ssl_servers << "    server #{ip}:#{proxy_port};\n"
     end
     appengine_server_ips.each do |ip|
       blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"
@@ -272,7 +273,7 @@ CONFIG
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
       proxy_redirect off;
-      proxy_pass https://gae_ssl_#{app_name};
+      proxy_pass http://gae_ssl_#{app_name};
       client_max_body_size 2G;
       proxy_connect_timeout 60;
       client_body_timeout 60;
