@@ -256,6 +256,26 @@ CONFIG
       HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
 
+    secure_static_handlers = []
+    non_secure_static_handlers = []
+    static_handlers.map { |handler|
+      if handler["secure"] == "always"
+        secure_static_handlers << handler
+      elsif handler["secure"] == "never"
+        non_secure_static_handlers << handler
+      else
+        secure_static_handlers << handler
+        non_secure_static_handlers << handler
+      end
+    }
+
+    secure_static_locations = secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+    non_secure_static_locations = non_secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+
     blob_servers = []
     servers = []
     ssl_servers = []
@@ -336,8 +356,11 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    #{always_secure_locations}
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
 
+    #{always_secure_locations}
+    #{non_secure_static_locations}
     #{non_secure_default_location}
 
     location /reserved-channel-appscale-path {
@@ -405,7 +428,7 @@ server {
     set $cache_dir /var/apps/#{app_name}/cache;
 
     #{never_secure_locations}
-
+    #{secure_static_locations}
     #{secure_default_location}
 
     location /reserved-channel-appscale-path {
