@@ -413,6 +413,12 @@ class Djinn
   MAX_PORT = 65535
 
 
+  # An Array of Strings, where each String is an appid that corresponds to an
+  # application that cannot be relocated within AppScale, because system
+  # services assume that they run at a specific location.
+  RESERVED_APPS = [AppDashboard::APP_NAME, "apichecker"]
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -570,8 +576,8 @@ class Djinn
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
-    if appid == "appscaledashboard"
-      return "Error: Can't relocate the appscaledashboard app."
+    if RESERVED_APPS.include?(appid)
+      return "Error: Can't relocate the #{appid} app."
     end
 
     if my_node.is_login? and !my_node.is_appengine?
