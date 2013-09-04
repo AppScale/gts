@@ -318,7 +318,7 @@ class LogsBuffer(object):
       'logs' : formatted_logs
     })
 
-    conn = httplib.HTTPSConnection(self.get_login_ip() + ":443")
+    conn = httplib.HTTPSConnection(self.get_login_ip() + ":1443")
     headers = {'Content-Type' : 'application/json'}
     conn.request('POST', '/logs/upload', payload, headers)
     response = conn.getresponse()

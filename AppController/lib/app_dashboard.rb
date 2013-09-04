@@ -17,18 +17,13 @@ module AppDashboard
 
 
   # The port which requests to this app will be served from
-  LISTEN_PORT = 80
+  LISTEN_PORT = 1080
 
 
-  LISTEN_SSL_PORT = 443
+  LISTEN_SSL_PORT = 1443
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
-
-
-  # The name that nginx uses when writing configuration files for the Dashboard.
-  # TODO(cgb): Consolidate this with APP_NAME.
-  NGINX_APP_NAME = "as_adb"
 
 
   # The Google App Engine appid for the Dashboard app.
