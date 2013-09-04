@@ -36,7 +36,12 @@ module Nginx
   # app would have the set of ports (8080, 3700), (8081, 3701), and so on.
   SSL_PORT_OFFSET = 3700 
 
-  BLOBSERVER_PORT = 6106
+
+  BLOBSERVER_LISTEN_PORT = 6106
+
+
+  BLOBSERVER_PORT = 6107
+
 
   CHANNELSERVER_PORT = 5280
 
@@ -350,7 +355,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{BLOBSERVER_PORT};
+    listen #{BLOBSERVER_LISTEN_PORT};
     server_name #{my_public_ip}-#{app_name}-blobstore;
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
