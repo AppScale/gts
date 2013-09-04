@@ -3790,14 +3790,16 @@ HOSTS
 
     if is_new_app
       @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
+      @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app]['nginx'])
     end
 
     # Only take a new port for this application if there's no data about
     # this app. Use the existing port if there is info about it.
     nginx_port = @app_info_map[app]['nginx']
+    https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
-    Djinn.log_debug("App #{app} will be using nginx port #{nginx_port} and " +
-      "haproxy port #{proxy_port}")
+    Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
+      "https port #{https_port}, and haproxy port #{proxy_port}")
 
     app_number = nginx_port - Nginx::START_PORT
 
@@ -3829,7 +3831,6 @@ HOSTS
 
       login_ip = get_login.private_ip
       http_port = nginx_port
-      https_port = Nginx.get_ssl_port_for_app(http_port)
       success = Nginx.write_app_config(app, http_port, https_port, my_public,
         my_private, proxy_port, static_handlers, login_ip)
       if !success
@@ -3875,7 +3876,7 @@ HOSTS
         result = app_manager.kill_app_instances_for_app(app)
       end
 
-      HAProxy.update_app_config(app, app_number,
+      HAProxy.update_app_config(app, proxy_port,
         @app_info_map[app]['appengine'], my_private)
       Nginx.reload
       HAProxy.reload

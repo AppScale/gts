@@ -187,7 +187,7 @@ module HAProxy
   # point to all the ports currently the application. In contrast with
   # write_app_config, these ports can be non-contiguous.
   # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.
-  def self.update_app_config(app_name, app_number, ports, private_ip)
+  def self.update_app_config(app_name, listen_port, ports, private_ip)
     # Add a prefix to the app name to avoid collisions with non-GAE apps
     full_app_name = "gae_#{app_name}"
     index = 0
@@ -199,7 +199,6 @@ module HAProxy
       servers << server
     }
 
-    listen_port = HAProxy.app_listen_port(app_number)
     config = "# Create a load balancer for the app #{app_name} \n"
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
     config << servers.join("\n")
