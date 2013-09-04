@@ -166,6 +166,9 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
+
     #{always_secure_locations}
     #{non_secure_static_locations}
 
@@ -555,6 +558,9 @@ CONFIG
 server {
   chunkin on;
  
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
+
   error_page 411 = @my_411_error;
   location @my_411_error {
       chunkin_resume;
@@ -567,6 +573,9 @@ server {
 server {
     chunkin on;
  
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 497 https://$host:$server_port$request_uri;
+
     error_page 411 = @my_411_error;
     location @my_411_error {
       chunkin_resume;
