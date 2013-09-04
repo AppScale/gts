@@ -557,7 +557,7 @@ class Djinn
     }
 
     # next, rewrite the nginx config file with the new ports
-    Djinn.log_debug("Regenerating nginx config for app #{appid}")
+    Djinn.log_info("Regenerating nginx config for relocated app #{appid}")
     @app_info_map[appid]['nginx'] = http_port
     @app_info_map[appid]['nginx_https'] = https_port
     proxy_port = @app_info_map[appid]['haproxy']
@@ -3952,6 +3952,16 @@ HOSTS
   end
 
 
+  # Finds the next available ports that can be used for nginx and haproxy.
+  # Historically, it was safe to use an increasing counter in lieu of this
+  # method, but since apps can be moved between arbitrary ports now, we have to
+  # check that a port we are about to hand out for use is not actually in use by
+  # a different application.
+  #
+  # Returns:
+  #   Two Fixnums, where the first corresponds to a port that is free for use
+  #   with nginx, and the second corresponds to a port that is free for use with
+  #   haproxy.
   def get_nginx_and_haproxy_ports()
     loop {
       nginx_port_in_use = false
