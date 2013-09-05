@@ -3821,6 +3821,18 @@ HOSTS
       Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
         my_private, proxy_port, static_handlers, login_ip,
         get_all_appengine_nodes())
+
+      loop {
+        Kernel.sleep(5)
+        success = uac.add_instance(app, my_public, nginx_port)
+        Djinn.log_debug("Add instance returned #{success}")
+        if success
+          # tell ZK that we are hosting the app in case we die, so that
+          # other nodes can update the UserAppServer on its behalf
+          ZKInterface.add_app_instance(app, my_public, nginx_port)
+          break
+        end
+      }
     end
 
     if my_node.is_appengine?
@@ -3865,20 +3877,7 @@ HOSTS
         @app_info_map[app]['appengine'], my_private)
       HAProxy.reload
 
-      if is_new_app and my_node.is_appengine?
-        # TODO(cgb): What should this be?
-        loop {
-          Kernel.sleep(5)
-          success = uac.add_instance(app, my_public, nginx_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
-            break
-          end
-        }
-
+      if is_new_app
         Thread.new {
           haproxy_location = "http://#{my_private}:#{proxy_port}#{warmup_url}"
           nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
