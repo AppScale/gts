@@ -762,17 +762,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected, actual)
   end
 
-  def test_start_roles_on_nodes_in_xen_on_one_node
-    # currently there is a bug in appscale where we can't scale up
-    # from a one node deployment - take out this test case once we
-    # fix that bug.
-    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
-    djinn = Djinn.new()
-    djinn.nodes = [1]
-    expected = Djinn::CANT_SCALE_FROM_ONE_NODE
-    actual = djinn.start_roles_on_nodes(ips_hash, @secret)
-    assert_equal(expected, actual)
-  end
 
   def test_start_roles_on_nodes_in_xen
     ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
