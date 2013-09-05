@@ -3878,17 +3878,6 @@ HOSTS
       HAProxy.reload
 
       if is_new_app
-        Thread.new {
-          haproxy_location = "http://#{my_private}:#{proxy_port}#{warmup_url}"
-          nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
-
-          wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
-          wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
-
-          Djinn.log_run(wget_haproxy)
-          Djinn.log_run(wget_nginx)
-        }
-
         # now doing this at the real end so that the tools will
         # wait for the app to actually be running before returning
         done_uploading(app, app_path, @@secret)
@@ -4269,17 +4258,6 @@ HOSTS
     @appengine_port += 1
 
     HAProxy.reload
-
-    Thread.new {
-      haproxy_location = "http://#{my_private}:#{haproxy_port}#{warmup_url}"
-      nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
-
-      wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
-      wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
- 
-      Djinn.log_run(wget_haproxy)
-      Djinn.log_run(wget_nginx)
-    }
   end
 
 
