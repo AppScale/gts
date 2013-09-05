@@ -917,6 +917,8 @@ class TestDjinn < Test::Unit::TestCase
 
     # next, nginx will rewrite its config files for the one app we
     # have running
+    flexmock(HelperFunctions).should_receive(:parse_static_data).with('booapp').
+      and_return([])
     app_dir = "/var/apps/booapp/app"
     app_yaml = "#{app_dir}/app.yaml"
     flexmock(YAML).should_receive(:load_file).with(app_yaml).
