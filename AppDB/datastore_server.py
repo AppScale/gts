@@ -44,6 +44,8 @@ from google.appengine.datastore import sortable_pb_encoder
 
 from google.appengine.runtime import apiproxy_errors
 
+from google.appengine.ext import db
+from google.appengine.ext.db.metadata import Namespace
 from google.appengine.ext.remote_api import remote_api_pb
 
 from M2Crypto import SSL
@@ -1683,7 +1685,18 @@ class DatastoreDistributed():
       elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
         endrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__ 
     return startrow, endrow, start_inclusive, end_inclusive
-   
+
+  def namespace_query(self):
+    """ Performs a metadata namespace query.
+ 
+    Returns:
+      A list of entity protos holding Namespace kinds.
+    """
+    #TODO implement where we return all active namespaces.
+    default_namespace = Namespace(id=1)
+    protobuf = db.model_to_protobuf(default_namespace)
+    return [protobuf.Encode()]
+
   def __kind_query(self, query, filter_info, order_info):
     """ Performs kind only queries, kind and ancestor, and ancestor queries
         https://developers.google.com/appengine/docs/python/datastore/queries.
@@ -1708,7 +1721,9 @@ class DatastoreDistributed():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
       return self.kindless_query(query, filter_info, order_info)
-    
+    elif query.kind() == "__namespace__":
+      return self.namespace_query()
+ 
     startrow, endrow, start_inclusive, end_inclusive = \
           self.kind_query_range(query, filter_info, order_info)
     if startrow == None or endrow == None:
