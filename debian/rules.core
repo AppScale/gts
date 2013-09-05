@@ -53,7 +53,6 @@ install: build
 #	$(MAKE) DESTDIR=$(CURDIR)/debian/appscale install
 	py_compilefiles AppController/*.py
 	py_compilefiles AppDB/*.py
-	py_compilefiles AppDB/hadoop/*.py
 	py_compilefiles AppDB/zkappscale/*.py
 	# we should use python2.5 for AppServer
 	find AppServer -name *.py -exec python2.5 /usr/bin/py_compilefiles -f {} +
@@ -62,7 +61,6 @@ install: build
 	mkdir -p $(APPSCALE)/AppDB
 	cp -r AppDB/*.py $(APPSCALE)/AppDB
 	cp -r AppDB/*.pyc $(APPSCALE)/AppDB
-	cp -r AppDB/hadoop $(APPSCALE)/AppDB
 	cp -r AppDB/zkappscale $(APPSCALE)/AppDB
 	cp -r AppDashboard $(APPSCALE)
 	cp -r AppMonitoring $(APPSCALE)

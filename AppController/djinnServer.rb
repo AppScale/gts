@@ -36,7 +36,6 @@ $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'helperfunctions'
 require 'cron_helper'
 require 'haproxy'
-require 'collectd'
 require 'nginx'
 
 

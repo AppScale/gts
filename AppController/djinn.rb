@@ -17,7 +17,6 @@ require 'yaml'
 require 'rubygems'
 require 'httparty'
 require 'json'
-require 'right_aws'
 require 'zookeeper'
 
 
@@ -30,13 +29,11 @@ require 'blobstore'
 require 'custom_exceptions'
 require 'ejabberd'
 require 'error_app'
-require 'collectd'
 require 'cron_helper'
 require 'godinterface'
 require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
-require 'neptune_manager_client'
 require 'datastore_server'
 require 'nginx'
 require 'taskqueue'
@@ -182,18 +179,6 @@ class Djinn
   attr_accessor :restored
 
 
-  # A Hash that maps information about each successfully completed Neptune
-  # job to information about the job, that will one day be used to provide
-  # hints to future jobs about how to schedule them optimally.
-  attr_accessor :neptune_jobs
-  
-  
-  # An Array of DjinnJobData objects that correspond to nodes used for
-  # Neptune computation. Nodes are reclaimed every hour if they are not in
-  # use (to avoid being charged for them for another hour).
-  attr_accessor :neptune_nodes
-  
-  
   # A Hash that lists the status of each Google App Engine API made available
   # within AppScale. Keys are the names of the APIs (e.g., memcache), and
   # values are the statuses of those APIs (e.g., running).
@@ -205,11 +190,6 @@ class Djinn
   # generated in response to AppDashboard requests.
   attr_accessor :all_stats
 
-
-  # For Babel jobs via Neptune, we keep a list of queues that may have tasks
-  # stored for execution, as well as the parameters needed to execute them
-  # (e.g., input location, output location, cloud credentials).
-  attr_accessor :queues_to_read
 
   # An integer timestamp that corresponds to the last time this AppController
   # has updated @nodes, which we use to compare with a similar timestamp in
@@ -270,12 +250,6 @@ class Djinn
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
   CONFIG_FILE_LOCATION = "/etc/appscale"
-
-
-  # The location on the local filesystem where the AppController writes
-  # information about Neptune jobs that have finished. One day this information
-  # may be used to more intelligently schedule jobs on the fly.
-  NEPTUNE_INFO = "#{CONFIG_FILE_LOCATION}/neptune_info.txt"
 
 
   # The location on the local filesystem where the AppController writes
@@ -461,11 +435,8 @@ class Djinn
     @state = "AppController just started"
     @num_appengines = 1
     @restored = false
-    @neptune_jobs = {}
-    @neptune_nodes = []
     @api_status = {}
     @all_stats = []
-    @queues_to_read = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
     @app_info_map = {}
@@ -475,7 +446,7 @@ class Djinn
     @initialized_apps = {}
     @total_req_rate = {}
     @last_sampling_time = {}
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
   end
 
 
@@ -578,7 +549,6 @@ class Djinn
       TaskQueue.stop_flower if my_node.is_login?
 
       stop_app_manager_server
-      stop_neptune_manager
       stop_infrastructure_manager
     end
 
@@ -673,6 +643,11 @@ class Djinn
 
     if @creds['verbose'].downcase == "false"
       @@log.level = Logger::INFO
+    end
+
+    begin
+      @creds['zone'] = JSON.load(@creds['zone'])
+    rescue JSON::ParserError
     end
 
     Djinn.log_run("mkdir -p /opt/appscale/apps")
@@ -854,10 +829,8 @@ class Djinn
     }
 
     stats['apps'] = {}
-    APPS_LOCK.synchronize {
-      @app_names.each { |name|
-        stats['apps'][name] = @apps_loaded.include?(name)
-      }
+    @app_names.each { |name|
+      stats['apps'][name] = @apps_loaded.include?(name)
     }
     return stats
   end
@@ -969,10 +942,8 @@ class Djinn
           end
 
           Nginx.remove_app(app_name)
-          Collectd.remove_app(app_name)
           HAProxy.remove_app(app_name)
           Nginx.reload
-          Collectd.restart
           ZKInterface.remove_app_entry(app_name, my_node.public_ip)
 
           # If this node has any information about AppServers for this app,
@@ -1137,8 +1108,6 @@ class Djinn
       change_job
     end
 
-    start_neptune_manager
-    
     @done_loading = true
     write_our_node_info
     wait_for_nodes_to_finish_loading(@nodes)
@@ -1149,7 +1118,6 @@ class Djinn
       update_firewall
       write_memcache_locations
       write_zookeeper_locations
-      write_neptune_info 
       update_api_status
       flush_log_buffer
 
@@ -1236,33 +1204,6 @@ class Djinn
   end
 
 
-  # Starts the NeptuneManager service on this machine, which exposes
-  # a SOAP interface by which we can run programs in arbitrary languages 
-  # in this AppScale deployment.
-  def start_neptune_manager
-    write_cloud_info()
-
-    if HelperFunctions.is_port_open?("localhost", 
-      NeptuneManagerClient::SERVER_PORT, HelperFunctions::USE_SSL)
-
-      Djinn.log_debug("NeptuneManager is already running locally - " +
-        "don't start it again.")
-      return
-    end
-
-    start_cmd = "ruby #{APPSCALE_HOME}/Neptune/neptune_manager_server.rb"
-    stop_cmd = "pkill -9 neptune_manager_server"
-    port = [NeptuneManagerClient::SERVER_PORT]
-    env_vars = {
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'DATABASE_USED' => @creds['table']
-    }
-
-    GodInterface.start(:neptune_manager, start_cmd, stop_cmd, port, env_vars)
-    Djinn.log_info("Started NeptuneManager successfully!")
-  end
-
-
   def write_cloud_info()
     cloud_info = {
       'is_cloud?' => is_cloud?(), 
@@ -1270,12 +1211,6 @@ class Djinn
     }
 
     HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
-  end
-
-
-  def stop_neptune_manager
-    Djinn.log_info("Stopping NeptuneManager")
-    GodInterface.stop(:neptune_manager)
   end
 
 
@@ -1661,7 +1596,6 @@ class Djinn
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
     Nginx.clear_sites_enabled
-    Collectd.clear_sites_enabled
     HAProxy.clear_sites_enabled
     Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
     CronHelper.clear_crontab
@@ -1761,12 +1695,10 @@ class Djinn
     return if message.empty?
     return if level < @@log.level
     time = Time.now
-    APPS_LOCK.synchronize {
-      @@logs_buffer << {
-        'timestamp' => time.to_i,
-        'level' => level + 1,  # Python and Java are one higher than Ruby
-        'message' => message
-      }
+    @@logs_buffer << {
+      'timestamp' => time.to_i,
+      'level' => level + 1,  # Python and Java are one higher than Ruby
+      'message' => message
     }
     return
   end
@@ -2026,14 +1958,6 @@ class Djinn
     return uuid
   end
 
-  # TODO: add neptune file, which will have this function
-  def run_neptune_in_cloud?(neptune_info)
-    Djinn.log_debug("Activecloud_info = #{neptune_info}")
-    return true if is_cloud? && !neptune_info["nodes"].nil?
-    return true if !is_cloud? && !neptune_info["nodes"].nil? && !neptune_info["machine"].nil?
-    return false
-  end
-
 
   def write_database_info()
     table = @creds["table"]
@@ -2065,48 +1989,6 @@ class Djinn
     end
   end
 
-  # Dumps all the info about Neptune jobs that have executed into a file,
-  # that can be recovered later via load_neptune_info.
-  def write_neptune_info(file_to_write=NEPTUNE_INFO)
-    info = { "num_jobs" => @neptune_jobs.length }
-    @neptune_jobs.each_with_index { |job, index|
-      info["job_#{index}"] = job.to_hash
-    }
-
-    json_info = JSON.dump(info)
-    HelperFunctions.write_file(file_to_write, json_info)
-    return json_info
-  end
-
-  # Loads Neptune data (stored in JSON format) into the instance variable
-  # @neptune_info. Used to restore Neptune job data from a previously
-  # running AppScale instance.
-  def load_neptune_info(file_to_load=NEPTUNE_INFO)
-    if !File.exists?(file_to_load)
-      Djinn.log_info("No neptune data found - no need to restore")
-      return
-    end
-
-    Djinn.log_info("Restoring neptune data!")
-    jobs_info = (File.open(file_to_load) { |f| f.read }).chomp
-    jobs = []
-
-    json_data = JSON.load(jobs_info)
-    return if json_data.nil?
-    num_jobs = json_data["num_jobs"]
-
-    num_jobs.times { |i|
-      info = json_data["job_#{i}"]
-      this_job = NeptuneJobData.from_hash(info)
-      job_name = this_job.name
-
-      if @neptune_jobs[job_name].nil?
-        @neptune_jobs[job_name] = [this_job]
-      else
-        @neptune_jobs[job_name] = [this_job]
-      end
-    }
-  end
 
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
@@ -2198,15 +2080,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-        v = Djinn.convert_location_array_to_class(v, keyname)
-      elsif k == "@neptune_nodes"
-        new_v = []
-
-        v.each { |data|
-          new_v << NeptuneJobData.from_hash(data)
-        }        
-
-        v = new_v
+        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
 
       instance_variable_set(k, v)
@@ -2496,6 +2370,12 @@ class Djinn
           "roles on this node")
         roles_to_start.each { |role|
           Djinn.log_info("Starting role #{role}")
+
+          # When starting the App Engine role, we need to make sure that we load
+          # all the App Engine apps on this machine.
+          if role == "appengine"
+            @apps_loaded = []
+          end
           send("start_#{role}".to_sym)
         }
       end
@@ -2515,6 +2395,12 @@ class Djinn
       @done_loading = true
 
       @last_updated = zk_ips_info['last_updated']
+
+      # Finally, since the node layout changed, there may be a change in the
+      # list of AppServers, so update nginx / haproxy accordingly.
+      if my_node.is_login?
+        regenerate_nginx_config_files()
+      end
     }
 
     return "UPDATED"
@@ -2629,8 +2515,6 @@ class Djinn
 
     write_database_info
     update_firewall
-    load_neptune_info
-    write_neptune_info
   end
 
   def got_all_data()
@@ -2784,9 +2668,8 @@ class Djinn
     write_hypersoap
     start_api_services()
 
-    # for neptune jobs, start a place where they can save output to
-    # also, since apichecker does health checks on the app engine apis, 
-    # start it up there too.
+    # since apichecker does health checks on the app engine apis, 
+    # start it up there.
 
     apichecker_ip = get_shadow.public_ip
     apichecker_private_ip = get_shadow.private_ip
@@ -3260,7 +3143,6 @@ class Djinn
     server = "#{APPSCALE_HOME}/AppServer"
     loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
     appdb = "#{APPSCALE_HOME}/AppDB"
-    neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
     app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
@@ -3273,8 +3155,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
     HelperFunctions.shell("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
-    HelperFunctions.shell("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
-    HelperFunctions.shell("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
+    HelperFunctions.shell("rsync #{options} --exclude='logs/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
     HelperFunctions.shell("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
@@ -3503,8 +3384,6 @@ HOSTS
 
     HAProxy.initialize_config
     Nginx.initialize_config
-    Collectd.initialize_config(my_public_ip, head_node_ip)
-    Monitoring.reset
 
     if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
@@ -3596,7 +3475,7 @@ HOSTS
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    start_cmd = "/usr/bin/memcached -d -m 32 -p 11211 -u root"
+    start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
     stop_cmd = "pkill memcached"
     GodInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
@@ -3638,21 +3517,6 @@ HOSTS
     AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.start
     Nginx.restart
-    Collectd.restart
-
-    if my_node.is_login?
-      Djinn.log_info("Starting AppMonitoring on this machine")
-      HAProxy.create_app_monitoring_config(my_public, my_private, 
-        Monitoring.proxy_port)
-      Nginx.create_app_monitoring_config(my_public, my_private, 
-        Monitoring.proxy_port)
-      Monitoring.start
-      HAProxy.reload
-      Nginx.restart
-      Collectd.restart
-    else
-      Djinn.log_info("Not starting AppMonitoring on this machine")
-    end
   end
 
   # Stop the AppDashboard web service.
@@ -3818,6 +3682,7 @@ HOSTS
     if my_node.is_appengine?
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
+        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
       rescue Exception => e
         # This specific exception may be a json parse error
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
@@ -3835,7 +3700,6 @@ HOSTS
                     "for application #{app}."
         place_error_app(app, error_msg)
       end
-      Collectd.write_app_config(app)
 
       # send a warmup request to the app to get it loaded - can shave a
       # number of seconds off the initial request if it's java or go
@@ -3879,7 +3743,6 @@ HOSTS
         @app_info_map[app]['appengine'], my_private)
       Nginx.reload
       HAProxy.reload
-      Collectd.restart
 
       if is_new_app
         loop {
@@ -3924,7 +3787,6 @@ HOSTS
       end
     end
 
-    Monitoring.restart if my_node.is_shadow?
     APPS_LOCK.synchronize {
       if @app_names.include?("none")
         @apps_loaded = @apps_loaded - ["none"]
@@ -4002,13 +3864,13 @@ HOSTS
         # AppDashboard for users to view.
         case get_scaling_info_for_app(app_name)
         when :scale_up
-          Djinn.log_info("Considering scaling up app #{app_name}.")
+          Djinn.log_debug("Considering scaling up app #{app_name}.")
           try_to_scale_up(app_name)
         when :scale_down
-          Djinn.log_info("Considering scaling down app #{app_name}.")
+          Djinn.log_debug("Considering scaling down app #{app_name}.")
           try_to_scale_down(app_name)
         else
-          Djinn.log_info("Not scaling app #{app_name} up or down right now.")
+          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
         end
       }
     }
@@ -4171,7 +4033,7 @@ HOSTS
     appservers_running = @app_info_map[app_name]['appengine'].length
 
     if appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The minimum number of AppServers for this app " +
+      Djinn.log_debug("The minimum number of AppServers for this app " +
         "are already running, so don't remove any more off this machine.")
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
       return
@@ -4255,7 +4117,6 @@ HOSTS
 
     # Nginx.reload 
     HAProxy.reload
-    Collectd.restart
 
     Thread.new {
       haproxy_location = "http://#{my_private}:#{haproxy_port}#{warmup_url}"
@@ -4391,7 +4252,7 @@ HOSTS
       return examine_scale_down_requests(all_scaling_requests)
     end
 
-    if Time.now - @last_scaling_time < SCALEUP_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < SCALEUP_TIME_THRESHOLD
       Djinn.log_info("Not scaling up right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -4408,7 +4269,7 @@ HOSTS
     end
 
     regenerate_nginx_config_files()
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
     return nodes_needed.length
   end
 
@@ -4427,12 +4288,12 @@ HOSTS
   def examine_scale_down_requests(all_scaling_votes)
     # First, only scale down in cloud environments.
     if !is_cloud?
-      Djinn.log_info("Not scaling down VMs, because we aren't in a cloud.")
+      Djinn.log_debug("Not scaling down VMs, because we aren't in a cloud.")
       return 0
     end
 
     if @nodes.length <= Integer(@creds['min_images'])
-      Djinn.log_info("Not scaling down VMs right now, as we are at the " +
+      Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
     end
@@ -4466,7 +4327,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -4492,7 +4353,7 @@ HOSTS
     imc = InfrastructureManagerClient.new(@@secret)
     imc.terminate_instances(@creds, node_to_remove.instance_id)
     regenerate_nginx_config_files()
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
     return -1
   end
 
@@ -4601,18 +4462,6 @@ HOSTS
     stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
     Djinn.log_run(stop_cmd)
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
-  end
-
-  def self.neptune_parse_creds(storage, job_data)
-    creds = {}
-
-    if storage == "s3"
-      ['EC2_ACCESS_KEY', 'EC2_SECRET_KEY', 'S3_URL'].each { |item|
-        creds[item] = job_data["@#{item}"]
-      }
-    end
-
-    return creds
   end
 
   def start_open

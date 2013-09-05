@@ -21,14 +21,6 @@ class DjinnJobData
  
 
   def initialize(json_data, keyname)
-    if json_data.class == String
-      json_data = JSON.load(json_data)
-    end
-
-    if json_data.class == Array and json_data.length == 1
-      json_data = json_data[0]
-    end
-
     if json_data.class != Hash
       HelperFunctions.log_and_crash("Roles must be a Hash, not a " +
         "#{json_data.class} containing #{json_data}")
@@ -36,7 +28,17 @@ class DjinnJobData
 
     @public_ip = json_data['public_ip']
     @private_ip = json_data['private_ip']
-    @jobs = json_data['jobs']
+
+    jobs = json_data['jobs']
+    if jobs.class == Array
+      @jobs = jobs
+    elsif jobs.class == String
+      @jobs = [jobs]
+    else
+      HelperFunctions.log_and_crash("Jobs must be an Array or String, not " +
+        "a #{jobs.class} containing #{jobs}")
+    end
+
     @cloud = "cloud1"
     @instance_id = json_data['instance_id']
     @disk = json_data['disk']
@@ -46,7 +48,7 @@ class DjinnJobData
 
   def add_roles(roles)
     new_jobs = roles.split(":")
-    @jobs = ([@jobs] + new_jobs).flatten.uniq
+    @jobs = (@jobs + new_jobs).uniq
     @jobs.delete("open")
   end
 
