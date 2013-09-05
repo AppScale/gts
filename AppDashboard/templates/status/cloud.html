@@ -207,8 +207,6 @@
                                                 <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_slave.png">
                                             {% elif role == 'db_slave' %}
                                                 <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_slave.png">
-                                            {% else %}
-                                                <img id="unknown_role" alt="{{ role }}" data-toggle="tooltip" title="The unknown role has been named: {{ role }}" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">
                                             {% endif %}
                                             {% endfor %}
                                           </div>
