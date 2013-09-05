@@ -1695,7 +1695,6 @@ class DatastoreDistributed():
     #TODO implement where we return all active namespaces.
     default_namespace = Namespace(id=1)
     protobuf = db.model_to_protobuf(default_namespace)
-    logging.error("Namespace result: {0}".format(protobuf))
     return [protobuf.Encode()]
 
   def __kind_query(self, query, filter_info, order_info):
