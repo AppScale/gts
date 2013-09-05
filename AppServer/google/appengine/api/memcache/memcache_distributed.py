@@ -73,7 +73,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     memcache_file.close()
 
     memcaches = [ip + ":" + self.MEMCACHE_PORT for ip in all_ips if ip != '']
-
+    memcaches.sort()    
     self._memcache = memcache.Client(memcaches, debug=0)
 
   def _Dynamic_Get(self, request, response):
@@ -86,7 +86,6 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     for key in set(request.key_list()):
       internal_key = self._GetKey(request.name_space(), key)
       value = self._memcache.get(internal_key)
-      logging.debug("GET: Key: %s value: %s" % (internal_key, value))
       if value is None:
         continue
       flags = 0
@@ -114,7 +113,6 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       if old_entry:
         _, cas_id, _ = cPickle.loads(old_entry)
       set_status = MemcacheSetResponse.NOT_STORED
-      logging.debug("Key: %s value: %s" % (key, item.value()))
 
       if ((set_policy == MemcacheSetRequest.SET) or
         (set_policy == MemcacheSetRequest.ADD and old_entry is None) or
@@ -154,7 +152,6 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     """
     for item in request.item_list():
       key = self._GetKey(request.name_space(), item.key())
-      logging.debug("Memcache delete: Key: %s" % key)
       entry = self._memcache.get(key)
       delete_status = MemcacheDeleteResponse.DELETED
 

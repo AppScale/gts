@@ -9,7 +9,7 @@ fi
 
 for comp in\
  core all\
- cassandra hbase hypertable\
+ cassandra\
 
 do
     ./debian/makedeb.sh $comp $RELEASE

@@ -4,7 +4,57 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.9.0, released on July 22, 2013.
+The current release is 1.10.0, released on August 28, 2013.
+
+Bugs fixed in this release:
+- Automatically persisting data across AppScale runs in EC2/Eucalyptus if EBS volumes are provided
+- Automatically persisting data across AppScale runs in GCE if PD volumes are provided
+- Automatically persisting data across AppScale runs in VirtualBox
+- AppScale now restarts if machines were halted or powered off
+- Allowing users to specify what availability zone instances are spawned in
+- Serving static files via nginx for Java App Engine apps
+- Simplified autoscaling system
+- Passing over more detailed information about why the AppController crashes when a non-recoverable error ocurrs
+- Improved Java Datastore API fidelity
+- createLogoutURL in Java Users API now redirects users back to the specified URL
+- 'appscale clean' no longer sometimes requires 'force: True' on subsequent 'appscale up's
+- Added support for CAS in Python Memcache API
+- Politely shutting down database to avoid data loss / corruption
+- Enabling tools to take in signed OAuth2 credentials, so that web apps can use the AppScale Tools with GCE
+- Added ability to reset user passwords via the Dashboard
+- Verbose: True in AppScalefile now produces more logging in the AppController automatically
+- Enabling users to import Remote API Shell in their apps
+- Fixed memory leak where apichecker and appscaledashboard apps would endlessly collect logs
+- Fixed Task Queue API to not enqueue tasks with the same name as previously enqueued tasks
+- Tools no longer crash if they can't set the locale
+- Adding keyname and group in AppScalefile is no longer whitespace sensitive
+- AppController no longer crashes if cron.yaml is invalid
+- Updated AppScalefile templates to include new flags
+- No longer serving tar.gz'ed apps in the apps directory, since it could be accidentally served to users in some cases
+- Storing apps in /opt/appscale/apps, so that we persist them across AppScale deployments
+- Specifying toPort and fromPort when authorizing ICMP traffic (to work on Eucalyptus 3.3)
+- 'appscale logs' now works if the AppController has failed
+- Using IP addresses in Eucalyptus deployments instead of DNS names.
+- AppDashboard no longer crashes if the Console page is viewed while an app is loading
+- Added link to App Engine Admin Console on AppDashboard
+- No longer reporting negative requests per second in AppDashboard for apps
+- Stripping leading and trailing whitespace on username when users log into AppDashboard
+- AppDashboard no longer infinitely retries when talking to AppController
+- Create random keyname and group 
+- Link to header in AppDashboard now works again
+- AppController retries requests to AppDashboard that fail b/c of transient errors
+- Updated GCE support to use v1beta15 instead of the now unsupported v1beta14
+- Telling users that appscale clean deletes their data
+- Providing ability to remove nameservers from /etc/resolv.conf to potentially speed up IP resolution
+- appscale deploy yields a more useful error message if users give it something that isn't a directory or .tar.gz file
+- Kind stats in AppDashboard have hover text, to make it more readable when many entities are present
+- AppScale no longer allows apichecker or appscaledashboard to be used as appids by users
+- Removed m2crypto from OS X build script
+- Installing dig on VMs
+- Terminating GCE instances in parallel, instead of in serial
+
+
+AppScale version 1.9.0 was released on July 22, 2013.
 
 Bugs fixed in this release:
 - Autoscaling within machines for Python and Java App Engine apps
