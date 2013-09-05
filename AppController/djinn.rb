@@ -3800,8 +3800,6 @@ HOSTS
     Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
       "https port #{https_port}, and haproxy port #{proxy_port}")
 
-    app_number = nginx_port - Nginx::START_PORT
-
     # TODO(cgb): Make sure we don't add the same cron lines in twice for the same
     # app, and only start xmpp if it isn't already started
     if my_node.is_shadow?
@@ -4251,24 +4249,24 @@ HOSTS
     haproxy_port = @app_info_map[app]['haproxy']
     @app_info_map[app]['appengine'] << @appengine_port
 
-    app_number = nginx_port - Nginx::START_PORT
-
     my_private = my_node.private_ip
-    Djinn.log_debug("port apps error contains - #{@app_info_map[app]['appengine']}")
-    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
-      my_private)     
+    Djinn.log_debug("This app will be running on ports: " +
+      "#{@app_info_map[app]['appengine']}")
+    HAProxy.update_app_config(app, haproxy_port,
+      @app_info_map[app]['appengine'], my_private)
 
-    Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
+    Djinn.log_debug("Adding #{app_language} app #{app} on " +
+      "#{HelperFunctions.local_ip}:#{@appengine_port} ")
 
     xmpp_ip = get_login.public_ip
 
-    pid = app_manager.start_app(app, @appengine_port, 
-            get_load_balancer_ip(), nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip()],
-            HelperFunctions.get_app_env_vars(app))
+    pid = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
+      nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
+      HelperFunctions.get_app_env_vars(app))
 
     if pid == -1
-      Djinn.log_error("ERROR: Unable to start application #{app} on port #{@appengine_port}.")
+      Djinn.log_error("ERROR: Unable to start application #{app} on port " +
+        "#{@appengine_port}.")
       next
     end
     pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
@@ -4276,7 +4274,6 @@ HOSTS
 
     @appengine_port += 1
 
-    # Nginx.reload 
     HAProxy.reload
 
     Thread.new {
@@ -4308,7 +4305,6 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
 
     app_data = uac.get_app_data(app)
 
@@ -4331,8 +4327,9 @@ HOSTS
     # Delete the port number from the app_info_map
     @app_info_map[app]['appengine'].delete(port)
 
-    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
-      my_private)
+    haproxy_port = @app_info_map[app]['haproxy']
+    HAProxy.update_app_config(app, haproxy_port,
+      @app_info_map[app]['appengine'], my_private)
     HAProxy.reload
 
     # And tell the AppDashboard that the AppServer has been killed.
