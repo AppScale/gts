@@ -589,6 +589,37 @@ class Djinn
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
 
+    # Once we've relocated the app, we need to tell the XMPPReceiver about the
+    # app's new location.
+    app_language = @app_info_map[appid]['language']
+    stop_xmpp_for_app(appid)
+    start_xmpp_for_app(appid, http_port, app_language)
+
+    # Same for any cron jobs the user has set up.
+    # TODO(cgb): We do this on the login node, but the cron jobs are initially
+    # set up on the shadow node. In all supported cases, these are the same
+    # node, but there may be an issue if they are on different nodes in
+    # the future.
+    # TODO(cgb): This doesn't remove the old cron jobs that were accessing the
+    # previously used port. This isn't a problem if nothing else runs on that
+    # port, or if anything else there.
+    CronHelper.update_cron(my_public, http_port, app_language, appid)
+
+    # Finally, the AppServer takes in the port to send Task Queue tasks to
+    # from a file. Update the file and restart the AppServers so they see
+    # the new port.
+    port_file = "/etc/appscale/port-#{appid}.txt"
+    HelperFunctions.write_file(port_file, http_port)
+    @nodes.each { |node|
+      next if not node.is_appengine?
+      if node.private_ip != my_node.private_ip
+        HelperFunctions.scp_file(port_file, port_file, node.private_ip,
+          node.ssh_key)
+      end
+      app_manager = AppManagerClient.new(node.private_ip)
+      app_manager.kill_app_instances_for_app(appid)
+    }
+
     return "OK"
   end
 
@@ -1039,7 +1070,7 @@ class Djinn
       APPS_LOCK.synchronize {
         if my_node.is_appengine?
           Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
-          app_manager = AppManagerClient.new()
+          app_manager = AppManagerClient.new(my_node.private_ip)
           if !app_manager.stop_app(app_name)
             Djinn.log_error("(stop_app) ERROR: Unable to stop app #{app_name}")
           else
@@ -3785,6 +3816,9 @@ HOSTS
     if is_new_app
       @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
       @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app]['nginx'])
+
+      port_file = "/etc/appscale/port-#{app}.txt"
+      HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
     end
 
     # Only take a new port for this application if there's no data about
@@ -3842,7 +3876,7 @@ HOSTS
       # TODO: if the user specifies a warmup route, call it instead of /
       warmup_url = "/"
 
-      app_manager = AppManagerClient.new()
+      app_manager = AppManagerClient.new(my_node.private_ip)
       # TODO(cgb): What happens if the user updates their env vars between app
       # deploys?
       if is_new_app
@@ -4200,7 +4234,7 @@ HOSTS
     @state = "Adding an AppServer for #{app}"
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(my_node.private_ip)
 
     warmup_url = "/"
 
@@ -4272,7 +4306,7 @@ HOSTS
     Djinn.log_debug("Deleting appserver instance to free up unused resources")
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(my_node.private_ip)
     warmup_url = "/"
 
     my_public = my_node.public_ip

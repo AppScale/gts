@@ -65,7 +65,11 @@ class ApiChecker
     app = "apichecker"
     app_language = "python"
 
-    app_manager = AppManagerClient.new()
+    # Tell the app what nginx port sits in front of it.
+    port_file = "/etc/appscale/port-#{app}.txt"
+    HelperFunctions.write_file(port_file, "#{SERVER_PORT}")
+
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
 
     app_location = "/var/apps/#{app}/app"
     Djinn.log_run("mkdir -p #{app_location}")
@@ -109,7 +113,7 @@ class ApiChecker
   #
   def self.stop
     Djinn.log_info("Stopping apichecker on #{HelperFunctions.local_ip}")
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
     if app_manager.stop_app("apichecker")
       Djinn.log_error("Failed to stop apichecker on #{HelperFunctions.local_ip}")
     end
