@@ -44,6 +44,7 @@ from google.appengine.datastore import sortable_pb_encoder
 
 from google.appengine.runtime import apiproxy_errors
 
+from google.appengine.ext import db
 from google.appengine.ext.db.metadata import Namespace
 from google.appengine.ext.remote_api import remote_api_pb
 
@@ -1693,7 +1694,7 @@ class DatastoreDistributed():
     """
     #TODO implement where we return all active namespaces.
     default_namespace = Namespace(id=1)
-    protobuf = db.mode_to_protobuf(default_namespace)
+    protobuf = db.model_to_protobuf(default_namespace)
     logging.error("Namespace result: {0}".format(protobuf))
     return [protobuf.Encode()]
 
