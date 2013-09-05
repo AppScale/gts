@@ -2151,11 +2151,17 @@ class DatastoreDistributed():
           index_key = indexes.keys()[0]
           index_value = indexes[index_key]['reference']
           last_keys_of_scans[prop_name] = index_value
-      
-      # Purge keys which did not intersect from all equality filters:
+
+      # Purge keys which did not intersect from all equality filters. You 
+      # cannot loop on a dictionary and delete from it at the same time.
+      keys_to_delete = []
       for key in reference_counter_hash:
         if reference_counter_hash[key] != len(filter_info.keys()):
-          del reference_counter_hash[key]
+          keys_to_delete.append(key)
+
+      for key in keys_to_delete:
+        del reference_counter_hash[key]
+
 
       # We are looking for the earliest (alphabetically) of the keys.
       start_key = ""
