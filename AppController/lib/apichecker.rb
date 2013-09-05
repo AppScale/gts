@@ -63,7 +63,7 @@ class ApiChecker
     num_servers = 3
     app_number = -1
     app = "apichecker"
-    app_language = "python"
+    app_language = "python27"
 
     app_manager = AppManagerClient.new()
 
