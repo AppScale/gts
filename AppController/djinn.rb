@@ -1440,11 +1440,6 @@ class Djinn
       return BAD_INPUT_MSG
     end
 
-    if @nodes.length == 1
-      Djinn.log_warn("Can't scale up in a one node deployment.")
-      return CANT_SCALE_FROM_ONE_NODE
-    end
-
     Djinn.log_info("Received a request to start additional roles on " +
       "new machines, with the following placement strategy: " +
       "#{ips_hash.inspect}")
