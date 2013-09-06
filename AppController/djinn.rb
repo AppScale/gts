@@ -607,17 +607,19 @@ class Djinn
 
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
-    # the new port.
-    port_file = "/etc/appscale/port-#{appid}.txt"
-    HelperFunctions.write_file(port_file, http_port)
-    @nodes.each { |node|
-      next if not node.is_appengine?
-      if node.private_ip != my_node.private_ip
-        HelperFunctions.scp_file(port_file, port_file, node.private_ip,
-          node.ssh_key)
-      end
-      app_manager = AppManagerClient.new(node.private_ip)
-      app_manager.kill_app_instances_for_app(appid)
+    # the new port. Do this in a separate thread to avoid blocking the caller.
+    Thread.new {
+      port_file = "/etc/appscale/port-#{appid}.txt"
+      HelperFunctions.write_file(port_file, http_port)
+      @nodes.each { |node|
+        next if not node.is_appengine?
+        if node.private_ip != my_node.private_ip
+          HelperFunctions.scp_file(port_file, port_file, node.private_ip,
+            node.ssh_key)
+        end
+        app_manager = AppManagerClient.new(node.private_ip)
+        app_manager.kill_app_instances_for_app(appid)
+      }
     }
 
     return "OK"
