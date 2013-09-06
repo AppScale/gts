@@ -387,6 +387,9 @@ server {
     access_log off;
     #error_log /dev/null crit;
 
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
+
     rewrite_log off;
     error_page 404 = /404.html;
 
