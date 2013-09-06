@@ -523,6 +523,21 @@ class Djinn
   end
 
 
+  # A SOAP-exposed method that callers can use to tell this AppController that
+  # an app hosted in this cloud needs to have its nginx reverse proxy serving
+  # HTTP and HTTPS traffic on different ports.
+  #
+  # Args:
+  #   appid: A String that names the application already running in this
+  #     deployment that should be relocated.
+  #   http_port: A String or Fixnum that names the port that should be used to
+  #     serve HTTP traffic for this app.
+  #   https_port: A String or Fixnum that names the port that should be used to
+  #     serve HTTPS traffic for this app.
+  #   secret: A String that authenticates callers.
+  # Returns:
+  #   "OK" if the relocation occurred successfully, and a String containing the
+  #   reason why the relocation failed in all other cases.
   def relocate_app(appid, http_port, https_port, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -626,6 +641,14 @@ class Djinn
   end
 
 
+  # A SOAP-exposed method that tells the AppController to terminate all services
+  # in this AppScale deployment.
+  #
+  # Args:
+  #   secret: A String used to authenticate callers.
+  # Returns:
+  #   A String indicating that the termination has started, or the reason why it
+  #   failed.
   def kill(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG

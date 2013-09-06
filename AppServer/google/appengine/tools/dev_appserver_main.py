@@ -570,6 +570,15 @@ def ParseArguments(argv):
   return args, option_dict
 
 def get_nginx_port(appid):
+  """ An AppScale-specific method that callers can use to find out what port
+  Task Queue API calls should be routed through.
+
+  Args:
+    appid: A str that names this application.
+  Returns:
+    A str that names the port that is used by nginx as a reverse proxy to this
+    app.
+  """
   filename = "/etc/appscale/port-" + appid + ".txt"
   file_handle = open(filename)
   port = file_handle.read()
