@@ -11,7 +11,7 @@ require 'helperfunctions'
 module BlobServer
 
 
-  SERVER_PORTS = [6106]
+  SERVER_PORTS = [6107]
 
 
   def self.start(db_local_ip, db_local_port)

@@ -224,7 +224,7 @@ def main():
       continue_url = "http://" + nginx_url + ":" + \
                      nginx_port + suffix.group(1)
 
-  login_service_endpoint = "https://"+LOGIN_SERVER+"/login"
+  login_service_endpoint = "https://" + LOGIN_SERVER + ":1443/login"
   if action.lower() == LOGOUT_ACTION.lower():
     Logout(continue_url, sys.stdout)
   else:

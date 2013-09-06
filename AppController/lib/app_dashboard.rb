@@ -17,18 +17,13 @@ module AppDashboard
 
 
   # The port which requests to this app will be served from
-  LISTEN_PORT = 80
+  LISTEN_PORT = 1080
 
 
-  LISTEN_SSL_PORT = 443
+  LISTEN_SSL_PORT = 1443
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
-
-
-  # The name that nginx uses when writing configuration files for the Dashboard.
-  # TODO(cgb): Consolidate this with APP_NAME.
-  NGINX_APP_NAME = "as_adb"
 
 
   # The Google App Engine appid for the Dashboard app.
@@ -61,13 +56,17 @@ module AppDashboard
   def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
     # TODO: tell the tools to disallow uploading apps called 'apichecker'
     # or APP_NAME, and have start_appengine to do the same.   
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
 
     app_location = "/var/apps/#{APP_NAME}/app"
     Djinn.log_run("mkdir -p #{app_location}")
     Djinn.log_run("cp -r #{APPSCALE_HOME}/AppDashboard/* #{app_location}")
     Djinn.log_run("mkdir -p /var/apps/#{APP_NAME}/log")
     Djinn.log_run("touch /var/apps/#{APP_NAME}/log/server.log")
+
+    # Tell the app what nginx port sits in front of it.
+    port_file = "/etc/appscale/port-#{APP_NAME}.txt"
+    HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
     # Pass the secret key and our public IP address (needed to connect to the
     # AppController) to the app.
@@ -115,7 +114,7 @@ module AppDashboard
   #   true if the AppDashboard was stopped successfully, and false otherwise.
   def self.stop
     Djinn.log_info("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip}")
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
     if app_manager.stop_app(APP_NAME)
       Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip}")
       return false
