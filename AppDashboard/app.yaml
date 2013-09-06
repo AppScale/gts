@@ -37,6 +37,7 @@ handlers:
 
 - url: /.*
   script: dashboard.app
+  secure: always
 
 libraries:
 - name: jinja2

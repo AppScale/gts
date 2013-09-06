@@ -86,7 +86,7 @@ module HAProxy
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      AppDashboard::SERVER_PORTS, AppDashboard::NGINX_APP_NAME)
+      AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
   end
 
   # Create the config file for Datastore Server applications
@@ -108,7 +108,7 @@ module HAProxy
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
     # can take some time 
-    if name == AppDashboard::NGINX_APP_NAME
+    if name == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
   
@@ -187,7 +187,7 @@ module HAProxy
   # point to all the ports currently the application. In contrast with
   # write_app_config, these ports can be non-contiguous.
   # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.
-  def self.update_app_config(app_name, app_number, ports, private_ip)
+  def self.update_app_config(app_name, listen_port, ports, private_ip)
     # Add a prefix to the app name to avoid collisions with non-GAE apps
     full_app_name = "gae_#{app_name}"
     index = 0
@@ -199,7 +199,6 @@ module HAProxy
       servers << server
     }
 
-    listen_port = HAProxy.app_listen_port(app_number)
     config = "# Create a load balancer for the app #{app_name} \n"
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
     config << servers.join("\n")

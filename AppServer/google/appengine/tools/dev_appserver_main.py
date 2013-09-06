@@ -224,7 +224,6 @@ ARG_CONSOLE = 'console'
 
 ARG_LOGIN_SERVER = 'login_server'
 ARG_COOKIE_SECRET = 'cookie_secret'
-ARG_NGINX_PORT = 'nginx_port'
 ARG_NGINX_HOST = 'nginx_host'
 ARG_XMPP_PATH = 'xmpp_path'
 ARG_UASERVER_PATH = 'uaserver_path'
@@ -285,7 +284,6 @@ DEFAULT_ARGS = {
   ARG_LOGIN_SERVER: "0.0.0.0",
   ARG_COOKIE_SECRET: "secret",
   ARG_NGINX_HOST: '127.0.0.1',
-  ARG_NGINX_PORT: '8080',
 }
 
 
@@ -552,10 +550,6 @@ def ParseArguments(argv):
       option_dict["COOKIE_SECRET"] = value
       secret = value
 
-    if option == '--nginx_port':
-      option_dict["NGINX_PORT"] = value
-      nginx_port = value
-
     if option == '--nginx_host':
       option_dict["NGINX_HOST"] = value
       nginx_host = value
@@ -570,12 +564,26 @@ def ParseArguments(argv):
   os.environ['MY_PORT'] = port
   os.environ['COOKIE_SECRET'] = secret
   os.environ['NGINX_HOST'] = nginx_host
-  os.environ['NGINX_PORT'] = nginx_port
 
   option_dict.setdefault(ARG_CONSOLE,
                          option_dict[ARG_ADDRESS] == DEFAULT_ARGS[ARG_ADDRESS])
   return args, option_dict
 
+def get_nginx_port(appid):
+  """ An AppScale-specific method that callers can use to find out what port
+  Task Queue API calls should be routed through.
+
+  Args:
+    appid: A str that names this application.
+  Returns:
+    A str that names the port that is used by nginx as a reverse proxy to this
+    app.
+  """
+  filename = "/etc/appscale/port-" + appid + ".txt"
+  file_handle = open(filename)
+  port = file_handle.read()
+  file_handle.close()
+  return port
 
 def _ParsePort(port, description):
   """Parses a port number from a string.
@@ -652,9 +660,6 @@ def main(argv):
     dev_appserver.DEFAULT_ENV["LOGIN_SERVER"] = option_dict["LOGIN_SERVER"]
   if 'NGINX_HOST' in option_dict:
     dev_appserver.DEFAULT_ENV['NGINX_HOST'] = option_dict['NGINX_HOST']
-  if "NGINX_PORT" in option_dict:
-    dev_appserver.DEFAULT_ENV["NGINX_PORT"] = option_dict["NGINX_PORT"]
-
 
   log_level = option_dict[ARG_LOG_LEVEL]
 
@@ -713,6 +718,12 @@ def main(argv):
   static_caching = option_dict[ARG_STATIC_CACHING]
   skip_sdk_update_check = option_dict[ARG_SKIP_SDK_UPDATE_CHECK]
   interactive_console = option_dict[ARG_CONSOLE]
+
+  nginx_port = get_nginx_port(appinfo.application)
+  os.environ['NGINX_PORT'] = nginx_port
+  option_dict['NGINX_PORT'] = nginx_port
+  dev_appserver.DEFAULT_ENV["NGINX_PORT"] = nginx_port
+  logging.info("Setting nginx port to " + str(nginx_port))
 
   if option_dict[ARG_ADMIN_CONSOLE_SERVER]: #!= '' and
   #    not dev_process.IsSubprocess()):
