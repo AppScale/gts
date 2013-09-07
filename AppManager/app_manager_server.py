@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import SOAPpy
+import socket
 import subprocess
 import sys
 import time
@@ -23,9 +24,6 @@ import file_io
 import god_app_configuration
 import god_interface 
 import misc 
-
-# IP used for binding AppManager SOAP service
-DEFAULT_IP = '127.0.0.1'
 
 # Most attempts to see if an application server comes up before failing
 MAX_FETCH_ATTEMPTS = 7
@@ -219,7 +217,7 @@ def kill_app_instances_for_app(app_name):
   Returns:
     A list of the process IDs whose instances were terminated.
   """
-  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*')
+  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*.pid')
   pids_killed = []
   for pid_file in pid_files:
     pid = file_io.read(pid_file)
@@ -228,6 +226,8 @@ def kill_app_instances_for_app(app_name):
     else:
       logging.error("Unable to kill app process %s with pid %s" % \
                     (app_name, str(pid)))
+  logging.info("Killed the following processes for app {0}: {1}".format(
+    app_name, ','.join(pids_killed)))
   return pids_killed
 
 def stop_app(app_name):
@@ -399,7 +399,6 @@ def create_python_start_cmd(app_name,
          "--login_server " + login_ip,
          "--admin_console_server ''",
          "--enable_console",
-         "--nginx_port " + str(load_balancer_port),
          "--nginx_host " + str(load_balancer_host),
          "--require_indexes",
          "--enable_sendmail",
@@ -581,7 +580,8 @@ if __name__ == "__main__":
       usage()
       sys.exit()
   
-  server = SOAPpy.SOAPServer((DEFAULT_IP, constants.APP_MANAGER_PORT))
+  internal_ip = socket.gethostbyname(socket.gethostname())
+  server = SOAPpy.SOAPServer((internal_ip, constants.APP_MANAGER_PORT))
  
   server.registerFunction(start_app)
   server.registerFunction(stop_app)

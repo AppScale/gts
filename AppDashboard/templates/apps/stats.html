@@ -153,9 +153,10 @@ function update_stats_info() {
         if (this_timestamp == newest_timestamp) {
           var entity_stats = entity_info[this_timestamp];
           for (var entity_name in entity_stats) {
-          var entity_size = entity_stats[entity_name]["bytes"];
-            data.push({ label: entity_name + " (" + entity_size + " bytes)", data: [[1, entity_size]] });
-
+            var entity_count = entity_stats[entity_name]["count"];
+            var entity_size = entity_stats[entity_name]["bytes"];
+            data.push({ label: entity_name + " (" + entity_count + " items, " +
+              entity_size + " bytes)", data: [[1, entity_size]] });
           }
         }
       }

@@ -7,7 +7,6 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
-require 'monitoring'
 
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
@@ -53,28 +52,20 @@ module HAProxy
   ALB_SERVER_TIMEOUT = 300000
 
   
-  # The location of the script that god uses to see if haproxy is running,
-  # restarting it if necessary.
-  START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "/scripts/start_haproxy.sh"
-
   def self.start
-    start_cmd = "bash #{START_HAPROXY_SCRIPT}"
-    stop_cmd = "service haproxy stop"
-    port = 9999
-    GodInterface.start(:haproxy, start_cmd, stop_cmd, port)
+    Djinn.log_run("service haproxy start")
   end
 
   def self.stop
-    GodInterface.stop(:haproxy)
+    Djinn.log_run("service haproxy stop")
   end
 
   def self.restart
-    `service haproxy restart`
+    Djinn.log_run("service haproxy restart")
   end
 
   def self.reload
-    `service haproxy reload`
+    Djinn.log_run("service haproxy reload")
   end
 
   def self.is_running?
@@ -95,13 +86,7 @@ module HAProxy
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      AppDashboard::SERVER_PORTS, AppDashboard::NGINX_APP_NAME)
-  end
-
-  # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_public_ip, my_private_ip, listen_port)
-    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      Monitoring.server_ports, Monitoring.name)
+      AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
   end
 
   # Create the config file for Datastore Server applications
@@ -123,7 +108,7 @@ module HAProxy
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
     # can take some time 
-    if name == AppDashboard::NGINX_APP_NAME
+    if name == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
   
@@ -202,7 +187,7 @@ module HAProxy
   # point to all the ports currently the application. In contrast with
   # write_app_config, these ports can be non-contiguous.
   # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.
-  def self.update_app_config(app_name, app_number, ports, private_ip)
+  def self.update_app_config(app_name, listen_port, ports, private_ip)
     # Add a prefix to the app name to avoid collisions with non-GAE apps
     full_app_name = "gae_#{app_name}"
     index = 0
@@ -214,7 +199,6 @@ module HAProxy
       servers << server
     }
 
-    listen_port = HAProxy.app_listen_port(app_number)
     config = "# Create a load balancer for the app #{app_name} \n"
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
     config << servers.join("\n")

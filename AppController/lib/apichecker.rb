@@ -65,7 +65,11 @@ class ApiChecker
     app = "apichecker"
     app_language = "python"
 
-    app_manager = AppManagerClient.new()
+    # Tell the app what nginx port sits in front of it.
+    port_file = "/etc/appscale/port-#{app}.txt"
+    HelperFunctions.write_file(port_file, "#{SERVER_PORT}")
+
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
 
     app_location = "/var/apps/#{app}/app"
     Djinn.log_run("mkdir -p #{app_location}")
@@ -79,9 +83,11 @@ class ApiChecker
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, @@ip, @@private_ip, proxy_port, static_handlers, login_ip)
+    http_port = SERVER_PORT
+    https_port = Nginx.get_ssl_port_for_app(http_port)
+    Nginx.write_app_config(app, http_port, https_port, @@ip, @@private_ip,
+      proxy_port, static_handlers, login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
-    Collectd.write_app_config(app)
 
     Djinn.log_info("Starting #{app_language} app #{app}")
     [19997, 19998, 19999].each { |port|
@@ -99,7 +105,6 @@ class ApiChecker
     }
 
     Nginx.reload
-    Collectd.restart
     return true
   end
 
@@ -108,7 +113,7 @@ class ApiChecker
   #
   def self.stop
     Djinn.log_info("Stopping apichecker on #{HelperFunctions.local_ip}")
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
     if app_manager.stop_app("apichecker")
       Djinn.log_error("Failed to stop apichecker on #{HelperFunctions.local_ip}")
     end

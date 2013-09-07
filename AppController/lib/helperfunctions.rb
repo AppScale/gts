@@ -34,7 +34,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.9.0"
+  VER_NUM = "1.10.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -120,6 +120,11 @@ module HelperFunctions
   # about the exception that killed it, for the tools to retrieve and pass
   # along to the user.
   APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
+
+
+  # The location on the filesystem where the AppController backs up its
+  # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
+  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller-state.json"
 
 
   # The location on the filesystem where the resolv.conf file can be found,
@@ -885,11 +890,11 @@ module HelperFunctions
 
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
-      result = "\n    location #{handler['url']} {"
+      result = "\n    location \"#{handler['url']}\" {"
       result << "\n\t" << "root $cache_dir;"
       result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
-      result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
+      result << "\n\t" << "rewrite \"#{handler['url']}\" \"/#{handler['static_files']}\" break;"
     end
     
     result << "\n" << "    }" << "\n"
@@ -1412,6 +1417,16 @@ module HelperFunctions
   # Copies the backed-up resolv.conf file back to its original location.
   def self.restore_etc_resolv()
     self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
+  end
+
+
+  def self.write_local_appcontroller_state(state)
+    self.write_json_file(APPCONTROLLER_STATE_LOCATION, state)
+  end
+
+
+  def self.get_local_appcontroller_state()
+    return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
   end
 
 

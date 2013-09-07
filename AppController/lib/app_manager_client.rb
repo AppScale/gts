@@ -23,17 +23,12 @@ class AppManagerClient
   # The connection to use and IP to connect to
   attr_reader :conn, :ip
 
-  # Connect to localhost for the AppManager. Outside connections are not 
-  # allowed for security reasons.
-  SERVER_IP = 'localhost'
-
-  # The port that the AppManager binds to
+  # The port that the AppManager binds to, by default.
   SERVER_PORT = 49934
 
   # Initialization function for AppManagerClient
-  #
-  def initialize()
-    @conn = SOAP::RPC::Driver.new("http://#{SERVER_IP}:#{SERVER_PORT}")
+  def initialize(ip)
+    @conn = SOAP::RPC::Driver.new("http://#{ip}:#{SERVER_PORT}")
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
