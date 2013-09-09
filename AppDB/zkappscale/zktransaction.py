@@ -108,6 +108,9 @@ class ZKTransaction:
   # The number of seconds to wait before we consider a zk call a failure.
   DEFAULT_ZK_TIMEOUT = 3
 
+  # When we have this many failures trying to connect to ZK, abort execution.
+  MAX_CONNECTION_FAILURES = 10 
+
   def __init__(self, host=DEFAULT_HOST, start_gc=True):
     """ Creates a new ZKTransaction, which will communicate with Zookeeper
     on the given host.
@@ -123,6 +126,7 @@ class ZKTransaction:
 
     # Connection instance variables.
     self.needs_connection = True
+    self.failure_count = 0
     self.host = host
     self.handle = kazoo.client.KazooClient(hosts=host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
@@ -1131,8 +1135,14 @@ class ZKTransaction:
     if reconnect_error:
       logging.error("Error re-establishing ZooKeeper connection!")
       self.needs_connection = True
+      self.failure_count += 1
     else:
       self.needs_connection = False
+      self.failure_count = 0
+
+    if self.failure_count > self.MAX_CONNECTION_FAILURES:
+      logging.critical("Too many connection errors to ZooKeeper. Aborting")
+      sys.exit(1)
 
   def gc_runner(self):
     """ Transaction ID garbage collection (GC) runner.
