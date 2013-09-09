@@ -2306,11 +2306,9 @@ class Djinn
     if File.exists?(APPSERVER_STATE_FILE)
       Djinn.log_debug("Restoring AppServer state from local filesystem")
       @app_info_map = HelperFunctions.read_json_file(APPSERVER_STATE_FILE)
-      return
+    else
+      Djinn.log_debug("Didn't see any AppServer state, so not restoring it.")
     end
-
-    Djinn.log_debug("Restoring AppServer state from ZooKeeper")
-    @app_info_map = ZKInterface.get_appserver_state(my_node.public_ip)
   end
 
 
@@ -3645,6 +3643,15 @@ HOSTS
         Djinn.log_info("Mounted persistent disk #{device_name}, without " +
           "needing to format it.")
         Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+        # In cloud deployments, information about what ports are being used gets
+        # persisted to an external disk, which isn't available to us when we
+        # initially try to restore the AppController's state. Now that this info
+        # is available, try again.
+        if my_node.is_login? or my_node.is_appengine?
+          restore_appserver_state
+        end
+
         return
       end
 
