@@ -238,6 +238,8 @@ purge your previous test data with --clear_datastore.
 NON_PUBLIC_CACHE_CONTROLS = frozenset(['private', 'no-cache', 'no-store'])
 
 
+DASHBOARD_HTTPS_PORT = '1443'
+
 
 class Error(Exception):
   """Base-class for exceptions in this module."""
@@ -3518,9 +3520,6 @@ def SetupStubs(app_id, **config):
   uaserver_path = config['uaserver_path']
   login_server = config['login_server']
   cookie_secret = config['COOKIE_SECRET']
-  dashboard_https_port = '1443'
-
-
 
 
   os.environ['APPLICATION_ID'] = app_id
@@ -3601,7 +3600,7 @@ def SetupStubs(app_id, **config):
   fixed_login_url = '%s?%s=%%s' % (login_url,
                                    dev_appserver_login.CONTINUE_PARAM)
   fixed_logout_url = 'https://%s:%s/logout?%s=%%s' % (login_server,
-                      dashboard_https_port, dev_appserver_login.CONTINUE_PARAM)
+                      DASHBOARD_HTTPS_PORT, dev_appserver_login.CONTINUE_PARAM)
                                                  
 
   apiproxy_stub_map.apiproxy.RegisterStub(
