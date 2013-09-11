@@ -19,11 +19,12 @@ public final class LocalLoginServlet extends HttpServlet
     private static final String NGINX_ADDR_PROPERTY = "NGINX_ADDR";
     private static final String NGINX_PORT_PROPERTY = "NGINX_PORT";
     private static final String PATH_INFO_PROPERTY  = "PATH_INFO";
+    private final String DASHBOARD_HTTPS_PORT = "1443";
 
     public void doGet( HttpServletRequest req, HttpServletResponse resp ) throws IOException
     {
         LoginCookieUtils.removeCookie(req, resp);
-        String login_service_endpoint = "http://" + LOGIN_SERVER + "/login";
+        String login_service_endpoint = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/login";
 
         String continue_url = req.getParameter(CONTINUE_PARAM);
         String host = "http://" + System.getProperty(NGINX_ADDR_PROPERTY);
