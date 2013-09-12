@@ -704,7 +704,10 @@ def main():
     # time.tzet() should be called on Unix, but doesn't exist on Windows.
     time.tzset()
   options = PARSER.parse_args()
+  os.environ['MY_IP_ADDRESS'] = options.host
+  os.environ['MY_PORT'] = str(options.port)
   os.environ['COOKIE_SECRET'] = options.cookie_secret
+  os.environ['NGINX_HOST'] = options.nginx_host
   dev_server = DevelopmentServer()
   try:
     dev_server.start(options)
