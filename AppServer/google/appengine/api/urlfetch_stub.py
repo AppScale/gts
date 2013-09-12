@@ -22,6 +22,7 @@ import httplib
 import logging
 import socket
 import StringIO
+import sys
 import urllib
 import urlparse
 
@@ -31,6 +32,7 @@ from google.appengine.api import urlfetch_errors
 from google.appengine.api import urlfetch_service_pb
 from google.appengine.runtime import apiproxy_errors
 
+MAX_REQUEST_SIZE = 10 << 20
 
 MAX_RESPONSE_SIZE = 2 ** 24
 
@@ -45,6 +47,10 @@ REDIRECT_STATUSES = frozenset([
 
 _API_CALL_DEADLINE = 5.0
 
+_API_CALL_VALIDATE_CERTIFICATE_DEFAULT = True
+
+_CONNECTION_SUPPORTS_TIMEOUT = sys.version_info >= (2, 6)
+
 _UNTRUSTED_REQUEST_HEADERS = frozenset([
   'content-length',
   'host',
@@ -52,6 +58,8 @@ _UNTRUSTED_REQUEST_HEADERS = frozenset([
   'via',
   'x-forwarded-for',
 ])
+
+_MAX_URL_LENGTH = 2048
 
 """
  Ports from
@@ -90,13 +98,23 @@ def _IsAllowedPort(port):
 class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
   """Stub version of the urlfetch API to be used with apiproxy_stub_map."""
 
-  def __init__(self, service_name='urlfetch'):
+  def __init__(self,
+    service_name='urlfetch',
+    urlmatchers_to_fetch_functions=None):
     """Initializer.
 
     Args:
       service_name: Service name expected for all calls.
+      urlmatchers_to_fetch_functions: A list of two-element tuples.
+        The first element is a urlmatcher predicate function that takes
+        a url and determines a match. The second is a function that
+        can retrieve result for that url. If no match is found, a url is
+        handled by the default _RetrieveURL function.
+        When more than one match is possible, the first match is used.
     """
-    super(URLFetchServiceStub, self).__init__(service_name)
+    super(URLFetchServiceStub, self).__init__(service_name,
+                                              max_request_size=MAX_REQUEST_SIZE)
+    self._urlmatchers_to_fetch_functions = urlmatchers_to_fetch_functions or []
 
   def _Dynamic_Fetch(self, request, response):
     """Trivial implementation of URLFetchService::Fetch().

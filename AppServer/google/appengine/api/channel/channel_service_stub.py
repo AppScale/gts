@@ -57,15 +57,18 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
   XMPP_PUBLIC_PORT = 80
 
   def __init__(self, log=logging.debug, service_name='channel',
-               time_func=time.time):
+               time_func=time.time, request_data=None):
     """Initializer.
 
     Args:
       log: A logger, used for dependency injection.
       service_name: Service name expected for all calls.
       time_func: function to get the current time in seconds.
+      request_data: A request_info.RequestInfo instance. If None, a
+        request_info._LocalRequestInfo instance will be used.
     """
-    apiproxy_stub.APIProxyStub.__init__(self, service_name)
+    apiproxy_stub.APIProxyStub.__init__(self, service_name,
+                                        request_data=request_data)
     self._log = log
     self._time_func = time_func
     self._connected_channel_messages = {}

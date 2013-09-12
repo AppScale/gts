@@ -432,6 +432,33 @@ def create_command_line_parser():
       help='skip checking for SDK updates (if false, use .appcfg_nag to '
       'decide)')
 
+  # AppScale
+  appscale_group = parser.add_argument_group('AppScale')
+  appscale_group.add_argument(
+    '--cookie_secret',
+    help='a str that is used to authenticate SOAP requests to AppScale '
+    'services.')
+  appscale_group.add_argument(
+    '--login_server',
+    help='the FQDN or IP address where users should be redirected to when the '
+    'app needs them to log in on a given URL.')
+  appscale_group.add_argument(
+    '--nginx_host',
+    help='the FQDN or IP address where Task Queue tasks should sent to, so '
+    'that they are evenly distributed amongst AppServers.')
+  appscale_group.add_argument(
+    '--xmpp_path',
+    help='the FQDN or IP address where ejabberd is running, so that we know '
+    'where XMPP connections should be made to.')
+  appscale_group.add_argument(
+    '--uaserver_path',
+    help='the FQDN or IP address where the UserAppServer runs.')
+  appscale_group.add_argument(
+    '--trusted',
+    action=boolean_action.BooleanAction,
+    const=True,
+    default=False,
+    help='if this application can read data stored by other applications.')
 
   return parser
 
@@ -677,6 +704,7 @@ def main():
     # time.tzet() should be called on Unix, but doesn't exist on Windows.
     time.tzset()
   options = PARSER.parse_args()
+  os.environ['COOKIE_SECRET'] = options.cookie_secret
   dev_server = DevelopmentServer()
   try:
     dev_server.start(options)

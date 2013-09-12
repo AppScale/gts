@@ -341,7 +341,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'logservice',
-      logservice_stub.LogServiceStub(logs_path=logs_path))
+      logservice_stub.LogServiceStub(persist=True))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'mail',
