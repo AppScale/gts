@@ -389,7 +389,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     # To make it API compliant.
     pass
 
-  def _Dynamic_Flush(self, request, unused_response):
+  def _Dynamic_Flush(self, request, unused_response, request_id=None):
     """Writes application-level log messages for a request to the Datastore."""
     if self.persist:
       group = log_service_pb.UserAppLogGroup(request.logs())
