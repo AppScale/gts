@@ -33,6 +33,8 @@ import cgi
 import Cookie
 import hashlib
 import logging
+import os
+import sha
 import urllib
 
 import google
@@ -90,15 +92,29 @@ def _get_user_info_from_dict(cookie_dict, cookie_name=_COOKIE_NAME):
       admin: True if the user is an admin; False otherwise.
       user_id: The user ID, if any.
   """
+  cookie_secret = os.environ['COOKIE_SECRET']
+
   cookie_value = cookie_dict.get(cookie_name, '')
+  cookie_value = cookie_value.replace("%3A",":")
+  cookie_value = cookie_value.replace("%40",'@')
+  cookie_value = cookie_value.replace("%2C",",")
 
-  email, admin, user_id = (cookie_value.split(':') + ['', '', ''])[:3]
-  if '@' not in email:
-    if email:
-      logging.warning('Ignoring invalid login cookie: %s', cookie_value)
+  email, nickname, admin, hsh = (cookie_value.split(':') + ['', '', '', ''])[:4]
+
+  if email == '':
+    nickname = ''
+    admin = ''
     return '', False, ''
-  return email, (admin == 'True'), user_id
+  else:
+    vhsh = sha.new(email+nickname+admin+cookie_secret).hexdigest()
+    if hsh != vhsh:
+      logging.info("{0} has an invalid cookie, so ignoring it.".format(email))
+      return '', False, ''
 
+  admin_apps = admin.split(',')
+  current_app = os.environ['APPLICATION_ID']
+  is_admin = current_app in admin_apps
+  return email, is_admin, nickname
 
 def _create_cookie_data(email, admin):
   """Creates cookie payload data.
