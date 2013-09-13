@@ -511,6 +511,15 @@ def _setup_environ(app_id):
   """
   os.environ['APPLICATION_ID'] = app_id
 
+  # In AppScale, we need to know what port nginx binds to when sending traffic
+  # to this app. Since we need to know the appid to know what port we're on,
+  # this is a good place to set that value.
+  stripped_appid = app_id.replace("dev~", "")
+  filename = "/etc/appscale/port-{0}.txt".format(stripped_appid)
+  with open(filename) as file_handle:
+    port = file_handle.read()
+    os.environ['NGINX_PORT'] = port
+
 
 class DevelopmentServer(object):
   """Encapsulates the logic for the development server.
@@ -670,8 +679,10 @@ class DevelopmentServer(object):
         search_index_path=search_index_path,
         taskqueue_auto_run_tasks=options.enable_task_running,
         taskqueue_default_http_server=application_address,
+        uaserver_path=options.uaserver_path,
         user_login_url=user_login_url,
-        user_logout_url=user_logout_url)
+        user_logout_url=user_logout_url,
+        xmpp_path=options.xmpp_path)
 
     # The APIServer must bind to localhost because that is what the runtime
     # instances talk to.
