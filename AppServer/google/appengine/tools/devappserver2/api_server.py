@@ -315,23 +315,18 @@ def setup_stubs(
       'channel',
       channel_service_stub.ChannelServiceStub(request_data=request_data))
 
-  datastore_stub = datastore_sqlite_stub.DatastoreSqliteStub(
-      app_id,
-      datastore_path,
-      datastore_require_indexes,
-      trusted,
-      root_path=application_root,
-      auto_id_policy=datastore_auto_id_policy)
-
-  datastore_stub.SetConsistencyPolicy(datastore_consistency)
+  datastore = datastore_distributed.DatastoreDistributed(app_id, datastore_path,
+      require_indexes=datastore_require_indexes, trusted=trusted)
 
   apiproxy_stub_map.apiproxy.ReplaceStub(
-      'datastore_v3', datastore_stub)
+      'datastore_v3', datastore)
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'file',
       file_service_stub.FileServiceStub(blob_storage))
 
+  serve_address = os.environ['NGINX_HOST']
+  serve_port = int(os.environ['NGINX_PORT'])
   try:
     from google.appengine.api.images import images_stub
   except ImportError:
@@ -345,9 +340,10 @@ def setup_stubs(
         images_not_implemented_stub.ImagesNotImplementedServiceStub(
             host_prefix=images_host_prefix))
   else:
+    host_prefix = 'http://{0}:{1}'.format(serve_address, serve_port)
     apiproxy_stub_map.apiproxy.RegisterStub(
         'images',
-        images_stub.ImagesServiceStub(host_prefix=images_host_prefix))
+        images_stub.ImagesServiceStub(host_prefix=host_prefix))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'logservice',
@@ -378,8 +374,6 @@ def setup_stubs(
       'system',
       system_stub.SystemServiceStub(request_data=request_data))
 
-  serve_address = os.environ['NGINX_HOST']
-  serve_port = int(os.environ['NGINX_PORT'])
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
       taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address,
