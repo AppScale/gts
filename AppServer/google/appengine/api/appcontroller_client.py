@@ -7,7 +7,7 @@
 import json
 import logging
 import re
-import signal
+#import signal
 import socket
 import ssl
 import sys
@@ -123,14 +123,14 @@ class AppControllerClient():
       """
       raise TimeoutException()
 
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(timeout_time)  # trigger alarm in timeout_time seconds
+    #signal.signal(signal.SIGALRM, timeout_handler)
+    #signal.alarm(timeout_time)  # trigger alarm in timeout_time seconds
     try:
       retval = function(*args)
     except TimeoutException:
       return default
     except socket.error as exception:
-      signal.alarm(0)  # turn off the alarm before we retry
+      #signal.alarm(0)  # turn off the alarm before we retry
       if num_retries > 0:
         sys.stderr.write("Saw socket exception {0} when communicating with the " \
           "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
@@ -142,7 +142,7 @@ class AppControllerClient():
       if http_error_is_success:
         return "true"
       else:
-        signal.alarm(0)  # turn off the alarm before we retry
+        #signal.alarm(0)  # turn off the alarm before we retry
         sys.stderr.write("Saw HTTPError {0} when communicating with the " \
           "AppController. Message is {1}".format(exception, exception.msg))
         return default
@@ -153,10 +153,11 @@ class AppControllerClient():
       # fix this when we update our SDK to that version.
       sys.stderr.write("Saw exception {0} when communicating with the " \
         "AppController.".format(str(exception)))
-      signal.alarm(0)  # turn off the alarm before we retry
+      #signal.alarm(0)  # turn off the alarm before we retry
       return default
     finally:
-      signal.alarm(0)  # turn off the alarm
+      pass
+      #signal.alarm(0)  # turn off the alarm
 
     if retval == self.BAD_SECRET_MESSAGE:
       raise AppControllerException("Could not authenticate successfully" + \
