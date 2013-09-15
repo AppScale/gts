@@ -1,11 +1,6 @@
 package com.google.appengine.api.memcache.dev;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
@@ -96,34 +91,24 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     }
 
     /*
-     * AppScale - This method handles a set (but not cas). If the type is incrementable, 
-     * it uses other private functions to handle deserialization, serialization, and type
-     * conversion. 
+     * AppScale - removed getWithExpiration private method
      */
 
     private void internalSet( String namespace, Key key, CacheEntry entry )
     {
-        logger.fine("Memcache set, key= [" + keyToString(key) + "]");
+        /*
+         * AppScale - replaced entire method body with memcache insert
+         */
+        logger.info("Memcache set, key= [" + keyToString(key) + "]");
         int exp = (int)((entry.getExpires() - System.currentTimeMillis()) / 1000 + 1);
-        
-        Object valueObj = getIncrObjectFromCacheEntry(entry);
         if(exp < 0)
         {
             exp = 0;
         }
         try
         {
-            Object response = memcacheClient.set(keyToString(key), exp, valueObj);
-            logger.fine("Memcache set response for key [" + keyToString(key) + "] was [" + response + "]");
-            if(isIncrementableType(entry.getFlags()))
-            {
-                Object typeResponse = memcacheClient.set(getTypeKey(key), exp, entry.getFlags());
-            }
-            else
-            {   
-                //do this delete just in case they change types with the same key and the old one was incrementable
-                memcacheClient.delete(getTypeKey(key));
-            }
+            Object response = memcacheClient.set(keyToString(key), exp, entry);
+            logger.info("Memcache set response for key [" + keyToString(key) + "] was [" + response + "]");
         }
         catch(TimeoutException e)
         {
@@ -279,7 +264,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             String internalKey = getInternalKey(namespace, key);
             MemcacheServicePb.MemcacheGetResponse.Item.Builder item = MemcacheServicePb.MemcacheGetResponse.Item.newBuilder();
 
-            CacheEntry entry = null;
+            CacheEntry entry;
 
             // handle cas
             if ((req.hasForCas()) && (req.getForCas()))
@@ -289,22 +274,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 {
                     res = memcacheClient.gets(internalKey);
                     item.setCasId(res.getCas());
-                    //now get the type so we can return the correct object
-                    Integer type = (Integer)(memcacheClient.get(getTypeKey(internalKey)));
-                    Object getsVal = res.getValue();
-                    if(getsVal != null)
-                    {
-                        if(type != null || getsVal instanceof String)
-                        {
-                            //if type isn't null, we know it was stored as a String so it could be incrementable
-                            if(getsVal instanceof String) type = 1;
-                            getsVal = convertToReturnType((String)getsVal, type);
-                            entry = getCacheEntryFromObject(getsVal, internalKey);
-                        } //if type was null, it was stored as a CacheEntry object
-                        else entry = (CacheEntry)getsVal;
-                        item.setKey(ByteString.copyFrom(key.getBytes())).setFlags(entry.getFlags()).setValue(ByteString.copyFrom(entry.getValue()));
-                        result.addItem(item.build()); 
-                    }   
+                    entry = (CacheEntry)res.getValue();
                 }
                 catch(TimeoutException e)
                 {
@@ -394,7 +364,26 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                     }
                     else
                     {
-                        boolean res = internalCheckAndSet(internalKey, ce, item);
+                        boolean res = false;
+                        try
+                        {
+                            //get cas id for key
+                            GetsResponse<Object> getsResp = memcacheClient.gets(internalKey);
+                            //do cas operation for key:ce
+                            res = memcacheClient.cas(internalKey, (int)expiry, ce, getsResp.getCas());
+                        }
+                        catch(TimeoutException e)
+                        {
+                            logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
+                        }
+                        catch(InterruptedException e)
+                        {
+                            logger.warning("InterruptedException doing gets/cas for key [" + internalKey + "]");
+                        }
+                        catch(MemcachedException e)
+                        {
+                            logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
+                        } 
                         if (res == false)
                         {
                             result.addSetStatus(MemcacheServicePb.MemcacheSetResponse.SetStatusCode.NOT_STORED);
@@ -420,7 +409,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     {
         /*
          * AppScale - not sure how to take care of failed deletes since google
-         * doesn't use exception handling on this method, going to throw a
+         * doesn't have use exception handling on this method, going to throw a
          * MemcacheServiceException with message containing the key that failed
          * to delete if there's an issue
          */
@@ -436,6 +425,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
             result.addDeleteStatus(ce == null ? MemcacheServicePb.MemcacheDeleteResponse.DeleteStatusCode.NOT_FOUND : MemcacheServicePb.MemcacheDeleteResponse.DeleteStatusCode.DELETED);
 
+            // Spymemcache doesn't support deletes with hold time
             if (item.hasDeleteTime())
             {
                 int millisNoReAdd = item.getDeleteTime() * 1000;
@@ -462,9 +452,23 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * otherwise we do a delete and make sure the asynchronous delete
          * returns true. Otherwise we throw an exception.
          */
-        CacheEntry res = null;
-        res = internalGet(internalKey);
-        
+        Object res = null;
+        try
+        {
+            res = memcacheClient.get(internalKey);
+        }
+        catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing get for key [" + internalKey + "]");
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InterruptedException doing get for key [" + internalKey + "]");
+        }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing get for key [" + internalKey + "], message [" + e.getMessage() + "]");
+        }        
         if (res == null)
         {
             logger.fine("Memcache key [" + internalKey + "] not found, returning null");
@@ -474,8 +478,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         boolean deleted = false;
         try
         {
-            deleted = memcacheClient.delete(internalKey);
-            memcacheClient.delete(getTypeKey(internalKey));
+            deleted = memcacheClient.delete(internalKey);;
         }
         catch(TimeoutException e)
         {
@@ -495,8 +498,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         {
             throw new MemcacheServiceException("Failed to delete cache entry with internalKey [" + internalKey + "]");
         }
-        
-        return res;
+        return (CacheEntry)res;
     }
 
     public MemcacheServicePb.MemcacheIncrementResponse increment( LocalRpcService.Status status, MemcacheServicePb.MemcacheIncrementRequest req )
@@ -504,8 +506,8 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         MemcacheServicePb.MemcacheIncrementResponse.Builder result = MemcacheServicePb.MemcacheIncrementResponse.newBuilder();
         String namespace = req.getNameSpace();
         Key key = new Key(req.getKey().toByteArray());
-        long delta = req.getDelta();
-        
+        long delta = req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT ? -req.getDelta() : req.getDelta();
+        String internalKey = getInternalKey(namespace, key);
         /*
          * AppScale - Added declaration of BigInteger value;
          */
@@ -514,109 +516,121 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - changed some of this method body to use our memcache
          * client
          */
-        String internalKey = getInternalKey(namespace, key);
-        if (req.hasInitialValue())
+        // Do a gets because we can't increment CacheEntry objects, so we do cas instead.
+        GetsResponse<Object> getsResp = null;
+        try
         {
-            /*
-             * AppScale - removed type declaration for value
-             */
-            value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
-            long initLongVal = value.longValue();
-            if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
+            getsResp = memcacheClient.gets(internalKey);
+        }
+	catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InterruptedException doing gets/cas for key [" + internalKey + "]");
+        }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
+        }
+        CacheEntry ce = null;
+        long casId = 0l;
+        if(getsResp != null)
+        {
+            ce = (CacheEntry)getsResp.getValue();
+            casId = getsResp.getCas();
+        }
+        if (ce == null)
+        {
+            if (req.hasInitialValue())
             {
-                try
-                {
-                    long res = memcacheClient.decr(internalKey, delta, initLongVal - delta);
-                    result.setNewValue(res);
-                    status.setSuccessful(true);
-                    return result.build();
-                }
-                catch(TimeoutException e)
-                {
-                    logger.warning("TimeoutException doing decr for key [" + internalKey + "]");
-                }
-                catch(InterruptedException e)
-                {
-                    logger.warning("InterruptedException doing decr for key [" + internalKey + "]");
-                }
-                catch(MemcachedException e)
-                {
-                    logger.warning("MemcachedException doing decr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                }
-            }        
+                /*
+                 * AppScale - removed type declaration for value
+                 */
+		// Doing an increment for something with an initial value, just do a regular set. 
+		System.out.println("inside increment, ce null and req has init value");
+                value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
+                value = value.add(new BigInteger(String.valueOf(delta)));
+                System.out.println("value: " + value);
+                int flags = req.hasInitialFlags() ? req.getInitialFlags() : MemcacheSerialization.Flag.LONG.ordinal();
+
+                ce = new CacheEntry(namespace, key, value.toString().getBytes(), flags, 0L, clock.getCurrentTime());
+                internalSet(namespace, stringToKey(internalKey), ce);
+                result.setNewValue(value.longValue());
+        	status.setSuccessful(true);
+        	return result.build();
+            }
             else
-            {   
-                try
-                {
-                    long res = memcacheClient.incr(internalKey, delta, initLongVal + delta);
-                    result.setNewValue(res);
-                    status.setSuccessful(true);
-                    return result.build();
-                }
-                catch(TimeoutException e)
-                {
-                    logger.warning("TimeoutException doing incr for key [" + internalKey + "]");
-                }
-                catch(InterruptedException e)
-                {
-                    logger.warning("InterruptedException doing incr for key [" + internalKey + "]");
-                }
-                catch(MemcachedException e)
-                {
-                    logger.warning("MemcachedException doing incr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                }
+            {
+                // Doing an increment for something not present should return null.
+ 		status.setSuccessful(false);
+                return result.build();
             }
         }
-        long res = -1;
-        if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
+        try
         {
-            try
-            {
-                res = memcacheClient.decr(internalKey, delta);
-            }
-            catch(TimeoutException e)
-            {   
-                logger.warning("TimeoutException doing decr for key [" + internalKey + "]");
-            }
-            catch(InterruptedException e)
-            {
-                logger.warning("InterruptedException doing decr for key [" + internalKey + "]");
-            }
-            catch(MemcachedException e)
-            {
-                logger.warning("MemcachedException doing decr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-            }
+            value = new BigInteger(new String(ce.getValue(), UTF8));
         }
-        else
+        catch (NumberFormatException e)
         {
-            try
-            {
-                res = memcacheClient.incr(internalKey, delta);
-            }
-            catch(TimeoutException e)
-            {
-                logger.warning("TimeoutException doing incr for key [" + internalKey + "]");
-            }
-            catch(InterruptedException e)
-            {
-                logger.warning("InterruptedException doing incr for key [" + internalKey + "]");
-            }
-            catch(MemcachedException e)
-            {
-                logger.warning("MemcachedException doing incr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-            }
+            status.setSuccessful(false);
+            throw new ApiProxy.ApplicationException(MemcacheServicePb.MemcacheServiceError.ErrorCode.INVALID_VALUE.ordinal(), "Format error");
         }
-        if (res == -1)
+        catch (UnsupportedEncodingException e)
+        {
+            throw new ApiProxy.UnknownException("UTF-8 encoding was not found.");
+        }
+        if ((value.compareTo(UINT64_MAX_VALUE) > 0) || (value.signum() < 0))
+        {
+            status.setSuccessful(false);
+            throw new ApiProxy.ApplicationException(MemcacheServicePb.MemcacheServiceError.ErrorCode.INVALID_VALUE.ordinal(), "Value to be incremented must be in the range of an unsigned 64-bit number");
+        }
+
+        value = value.add(BigInteger.valueOf(delta));
+        if (value.signum() < 0)
+            value = UINT64_MIN_VALUE;
+        else if (value.compareTo(UINT64_MAX_VALUE) > 0)
+        {
+            value = value.and(UINT64_MAX_VALUE);
+        }
+        try
+        {
+            ce.setValue(value.toString().getBytes(UTF8));
+        }
+        catch (UnsupportedEncodingException e)
+        {
+            throw new ApiProxy.UnknownException("UTF-8 encoding was not found.");
+        }
+
+        boolean res = false;
+        // Value is set now, now do a cas. 
+	try
+        {
+            res = memcacheClient.cas(internalKey, 0, ce, casId);
+        }
+        catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InterruptedException doing gets/cas for key [" + internalKey + "]");
+        }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
+        }	
+        if (res == false)
         {
             logger.log(Level.WARNING, "Increment call failed");
             status.setSuccessful(false);
         }
         else
         {
+            result.setNewValue(value.longValue());
             status.setSuccessful(true);
         }
-        result.setNewValue(res);
-        status.setSuccessful(true);
         return result.build();
     }
 
@@ -636,115 +650,139 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
             Key key = new Key(req.getKey().toByteArray());
             long delta = req.getDelta();
+            if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
+            {
+                delta = -delta;
+            }
 
             String internalKey = getInternalKey(namespace, key);
-            BigInteger value;
-            if (req.hasInitialValue())
+
+	    GetsResponse<Object> getsResp = null;
+            try
             {
-                /*
-                 * AppScale - removed type declaration for value
-                 */
-                value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
-                long initLongVal = value.longValue();
-                if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
+                getsResp = memcacheClient.gets(internalKey);
+            }
+            catch(TimeoutException e)
+            {
+                logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
+            }
+            catch(InterruptedException e)
+            {
+                logger.warning("InterruptedException doing gets/cas for key [" + internalKey + "]");
+            }
+            catch(MemcachedException e)
+            {
+                logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
+            }
+            CacheEntry ce = null;
+            long casId = 0l;
+            if(getsResp != null)
+            {
+                ce = (CacheEntry)getsResp.getValue();
+                casId = getsResp.getCas();
+            }
+
+            if (ce == null)
+            {
+                if (req.hasInitialValue())
                 {
+                    MemcacheSerialization.ValueAndFlags value;
                     try
                     {
-                        long res = memcacheClient.decr(internalKey, delta, initLongVal - delta);
-                        resp.setNewValue(res);
-                        resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
-                        result.addItem(resp);
+                        value = MemcacheSerialization.serialize(Long.toString(req.getInitialValue() + delta));
                     }
-                    catch(TimeoutException e)
+                    catch (IOException e)
                     {
-                        logger.warning("TimeoutException doing decr for key [" + internalKey + "]");
+                        throw new ApiProxy.UnknownException("Serialzation error: " + e);
                     }
-                    catch(InterruptedException e)
-                    {
-                        logger.warning("InterruptedException doing decr for key [" + internalKey + "]");
-                    }
-                    catch(MemcachedException e)
-                    {
-                        logger.warning("MemcachedException doing decr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                    }
+                    ce = new CacheEntry(namespace, key, value.value, value.flags.ordinal(), 0L, clock.getCurrentTime());
+                    internalSet(namespace, stringToKey(internalKey), ce);
+                    resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
+                    resp.setNewValue(req.getInitialValue() + delta);
+                    result.addItem(resp);
+                    continue;
                 }
                 else
                 {
-                    try
-                    {
-                        long res = memcacheClient.incr(internalKey, delta, initLongVal + delta);
-                        resp.setNewValue(res);
-                        resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
-                        result.addItem(resp);
-                    }
-                    catch(TimeoutException e)
-                    {
-                        logger.warning("TimeoutException doing incr for key [" + internalKey + "]");
-                    }
-                    catch(InterruptedException e)
-                    {
-                        logger.warning("InterruptedException doing incr for key [" + internalKey + "]");
-                    }
-                    catch(MemcachedException e)
-                    {
-                        logger.warning("MemcachedException doing incr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                    }
-                } 
+                    resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
+                    result.addItem(resp);
+                    continue;
+                }
+            }
+
+            Long longval;
+            try
+            {
+                longval = Long.valueOf(Long.parseLong(new String(ce.getValue(), "UTF-8")));
+            }
+            catch (NumberFormatException e)
+            {
+                resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
+                result.addItem(resp);
+                continue;
+            }
+            catch (UnsupportedEncodingException e)
+            {
+                resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
+                result.addItem(resp);
+                /*
+                 * AppScale - moved continue into catch
+                 */
+                logger.info("AppScale - Caught UnsupportedEncodingException, continuing for loop");
+                continue;
+            }
+
+            if (longval.longValue() < 0L)
+            {
+                resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
+                result.addItem(resp);
+                continue;
+            }
+
+            long newValue = longval.longValue();
+            newValue += delta;
+            if ((delta < 0L) && (newValue < 0L))
+            {
+                newValue = 0L;
+            }
+            try
+            {
+                ce.setValue(Long.toString(newValue).getBytes("UTF-8"));
+            }
+            catch (UnsupportedEncodingException e)
+            {
+                throw new ApiProxy.UnknownException("UTF-8 encoding was not found.");
+            }
+
+	    boolean res = false;
+	    try
+            {
+                res = memcacheClient.cas(internalKey, 0, ce, casId);
+            }
+            catch(TimeoutException e)
+            {
+                logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
+            }
+            catch(InterruptedException e)
+            {
+                logger.warning("InterruptedException doing gets/cas for key [" + internalKey + "]");
+            }
+            catch(MemcachedException e)
+            {
+                logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
+            }
+            if (res == false)
+            {
+                logger.log(Level.WARNING, "Increment call failed");
+		resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
             }
             else
             {
-                long res = -1;
-                if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
-                {
-                    try
-                    {
-                        res = memcacheClient.decr(internalKey, delta);
-                    }
-                    catch(TimeoutException e)
-                    {
-                        logger.warning("TimeoutException doing decr for key [" + internalKey + "]");
-                    }
-                    catch(InterruptedException e)
-                    {
-                        logger.warning("InterruptedException doing decr for key [" + internalKey + "]");
-                    }
-                    catch(MemcachedException e)
-                    {
-                        logger.warning("MemcachedException doing decr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                    }
-                }
-                else
-                {
-		    try
-                    {
-                        res = memcacheClient.incr(internalKey, delta);
-                    }
-                    catch(TimeoutException e)
-                    {
-                        logger.warning("TimeoutException doing incr for key [" + internalKey + "]");
-                    }
-                    catch(InterruptedException e)
-                    {
-                        logger.warning("InterruptedException doing incr for key [" + internalKey + "]");
-                    }
-                    catch(MemcachedException e)
-                    {
-                        logger.warning("MemcachedException doing incr for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                    }
-                }
-                if (res == -1)
-                {
-                    logger.log(Level.WARNING, "Increment call failed");
-                    status.setSuccessful(false);
-                }
-                else
-                {
-                    status.setSuccessful(true);
-                }
-                resp.setNewValue(res);
                 resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
-                result.addItem(resp);
+		resp.setNewValue(newValue);
             }
+            result.addItem(resp);
+
         }
 
         status.setSuccessful(true);
@@ -862,19 +900,15 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      */
 
     /*
-     * AppScale - This method does a get using the xmemcached client, also does
-     * a get to check if the type was converted from a Integer, Long, Byte or Short
-     * to a String. If it was then the return object is changed to its original type. 
+     * AppScale - added private method below
      */
     private CacheEntry internalGet( String internalKey )
     {
-        logger.fine("Memcache internalGet(), key = [" + internalKey + "]");
+        logger.info("Memcache internalGet(), key = [" + internalKey + "]");
         Object res = null;
-        Integer type = null;
         try
         {
             res = memcacheClient.get(internalKey);
-            type = (Integer)(memcacheClient.get(getTypeKey(internalKey)));
         }
         catch(TimeoutException e)
         {
@@ -890,24 +924,18 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         if (res != null)
         {
-            if(type != null || res instanceof String)
-            {
-                if(res instanceof String) type = 1;
-                res = convertToReturnType((String)res, type);
-                CacheEntry ce = getCacheEntryFromObject(res, internalKey);
-                return ce;
-            }//if type is null we know it's a CacheEntry object
-            else return (CacheEntry)res;
+            logger.info("Memcache internalGet() returning cache entry [" + res + "]");
+            return (CacheEntry)res;
         }
         else
         {
-            logger.fine("Memcache internalGet() returning null");
+            logger.info("Memcache internalGet() returning null");
             return null;
         }
     }
 
     /*
-     * AppScale - Checks if a given String is an ip address
+     * AppScale - added this private method
      */
     private boolean isIp( String ip )
     {
@@ -925,7 +953,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     }
 
     /*
-     * AppScale - Creates a key from a String
+     * AppScale - added private method
      */
     private Key stringToKey( String keyString )
     {
@@ -933,40 +961,19 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     }
 
     /*
-     * AppScale - encoding the key because the sdk allows spaces and 
-     * lots of other special characters and our memcache client does 
-     * not.
+     * AppScale - added this private method
      */
     private String getInternalKey( String namespace, Key key )
     {
+        /*
+         * AppScale - encoding the key because the sdk allows spaces and 
+         * lots of other special characters and our memcache client does 
+         * not. 
+         */
         String encodedKey = DatatypeConverter.printBase64Binary(key.getBytes());
         String internalKey = "__" + appName + "__" + namespace + "__" + encodedKey;
         return internalKey;
     }
-
-    /*
-     * AppScale - This method retrieves the namespace from an internalKey. 
-     * The format of an internalKey is __appname__namespace__encodedkey.
-     */
-    private String getNamespaceFromInternalKey(String internalKey)
-    {
-        String[] splits = internalKey.split("__");
-        return splits[1];
-    } 
- 
-    /*
-     * AppScale - This method retrieves the key from an internalKey. When it is
-     * made into an eternal key, it is encoded, so this method does parsing for the
-     * encoded key, then decodes it. 
-     */
-    private Key getKeyFromInternalKey(String internalKey)
-    {
-        String[] splits = internalKey.split("__");
-        String encodedKey = splits[3];
-        byte[] keyBytes = DatatypeConverter.parseBase64Binary(encodedKey);
-        Key key = new Key(keyBytes);
-        return key;
-    } 
 
     /*
      * AppScale - added this private method
@@ -980,193 +987,4 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      * AppScale - removed inner CacheEntry class
      */
 
-
-    /*
-     * AppScale - This method is used to convert a Flag into an int.
-     */
-    private int getFlagVal(MemcacheSerialization.Flag flag)
-    {
-        if(flag == MemcacheSerialization.Flag.BYTES) return 0;
-        else if(flag == MemcacheSerialization.Flag.UTF8) return 1;
-        else if(flag == MemcacheSerialization.Flag.OBJECT) return 2;
-        else if(flag == MemcacheSerialization.Flag.INTEGER) return 3;
-        else if(flag == MemcacheSerialization.Flag.LONG) return 4;
-        else if(flag == MemcacheSerialization.Flag.BOOLEAN) return 5;
-        else if(flag == MemcacheSerialization.Flag.BYTE) return 6;
-        else if(flag == MemcacheSerialization.Flag.SHORT) return 7;
-        logger.warning("Failed to translate Flag enum to int, defaulting to object value");
-        return 2;
-    }
- 
-    /*
-     * AppScale - Using the above Flag->int values, incrementable types are: 
-     * SHORT, LONG, INTEGER, and BYTE. 
-     */    
-    private boolean isIncrementableType(int type)
-    {
-        if(type == 1 || type == 3 || type == 4 || type == 6 || type == 7) return true;
-        else return false; 
-    }
-
-    /*
-     * AppScale - This method is used to convert a incrementable type from a String
-     * back to its original value. 
-     */
-    private Object convertToReturnType(String obj, int type)
-    {   
-        Object returnObj = null;
-        if(type == 3) returnObj = Integer.parseInt(obj);
-        else if(type == 4) returnObj = Long.parseLong(obj);
-        else if(type == 6) returnObj = Byte.parseByte(obj);
-        else if(type == 7) returnObj = Short.parseShort(obj);
-        else if(type == 1) returnObj = obj;
-        return returnObj;
-    }
-
-    /*
-     * AppScale - These methods are used because we store Integers, Longs, Shorts, 
-     * and Bytes as Strings so they are incrementable in xmemcached. Because of that, 
-     * we must also store a separate key which is just the internalKey + __type. 
-     */
-    private String getTypeKey(String key)
-    {
-        return key + "__type";
-    }
-
-    private String getTypeKey(Key key)
-    {
-        return keyToString(key) + "__type";
-    }
-
-    /*
-     * AppScale - This method takes an object and its memcache key and converts it into 
-     * a CacheEntry object. This is used because originally objects were stored as CacheEntry's,
-     * but in order for incr to work, we needed to store them as regular Objects. Before calling
-     * this method, you should make sure that if your object was originally an incrementable type, 
-     * that you did the correct conversion using "convertToReturnType()". 
-     */
-    private CacheEntry getCacheEntryFromObject(Object obj, String internalKey)
-    {
-        CacheEntry ce = null;
-        MemcacheSerialization.ValueAndFlags vf = null;
-        try
-        {
-            vf = MemcacheSerialization.serialize(obj);
-        }
-        catch(IOException e)
-        {
-            logger.severe("Failed to serialize object to create CacheEntry object, message: " + e.getMessage());
-        }
-        int flagVal = getFlagVal(vf.flags);
-        String namespace = getNamespaceFromInternalKey(internalKey);
-        Key key = getKeyFromInternalKey(internalKey);
-        ce = new CacheEntry(namespace, key, vf.value, flagVal, 0, 0L);
-        return ce;
-    }
-
-    /*
-     * AppScale - This method takes in a CacheEntry object and returns a regular object if it's incrementable. 
-     * The objects are stored in the CacheEntry as a byte array so this method handles the
-     * deserialization. Also, if the object is an incrementable type, it will return it as
-     * a String because xmemcached can only do increments on String objects. 
-     */ 
-    private Object getIncrObjectFromCacheEntry(CacheEntry entry)
-    {
-        byte[] value = entry.getValue();
-        boolean incrementable = isIncrementableType(entry.getFlags());
-        Object valueObj = entry;
-        if(incrementable)
-        {
-            try
-            {
-                valueObj = MemcacheSerialization.deserialize(value, entry.getFlags());
-                valueObj = valueObj.toString();
-            }
-            catch(IOException e)
-            {
-                logger.warning("Failed to deserialize CacheEntry byte array value, error:" + e.getMessage());
-                e.printStackTrace();
-                valueObj = entry;
-            }
-            catch(ClassNotFoundException e)
-            {
-                logger.warning("Failed to deserialize CacheEntry byte array value, error:" + e.getMessage());
-                e.printStackTrace();
-                valueObj = entry;
-            }
-        }
-        return valueObj;            
-    }
-
-    /*
-     * AppScale - This method will use the casId passed in from the application
-     * and do a cas using xmemcached. If the entry is an incrementable type, xmemcached
-     * requires it to be a String so it is converted to a String and the original type
-     * is stored as a separate entry. 
-     */
-    private boolean internalCheckAndSet(String internalKey, CacheEntry ce, MemcacheServicePb.MemcacheSetRequest.Item item)
-    {
-        long expiry = item.hasExpirationTime() ? item.getExpirationTime() : 0L;
-        boolean res = false;
-        Object valueObj = getIncrObjectFromCacheEntry(ce);
-        try
-        {
-            res = memcacheClient.cas(internalKey, (int)expiry, valueObj, item.getCasId());
-        }
-        catch(TimeoutException e)
-        {
-            logger.warning("TimeoutException doing cas for key [" + internalKey + "]");
-        }
-        catch(InterruptedException e)
-        {
-             logger.warning("InterruptedException doing cas for key [" + internalKey + "]");
-        }
-        catch(MemcachedException e)
-        {
-            logger.warning("MemcachedException doing cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
-        }
-        if (res == true)
-        {
-             if(isIncrementableType(ce.getFlags()))
-             {
-                 try
-                 {
-                      memcacheClient.set(getTypeKey(internalKey), (int)expiry, ce.getFlags());
-                 }
-                 catch(TimeoutException e)
-                 {
-                      logger.warning("TimeoutException doing type set for key [" + internalKey + "]");
-                 }
-                 catch(InterruptedException e)
-                 {
-                       logger.warning("InterruptedException doing type set for key [" + internalKey + "]");
-                 }
-                 catch(MemcachedException e)
-                 {
-                       logger.warning("MemcachedException doing type set for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                 }
-             }
-             else
-             {
-                 //if the new value isn't incrementable, make sure to delete the old type value
-                 try
-                 {
-                      memcacheClient.delete(getTypeKey(internalKey));
-                 }
-                 catch(TimeoutException e)
-                 {
-                      logger.warning("TimeoutException doing type delete for key [" + internalKey + "]");
-                 }
-                 catch(InterruptedException e)
-                 {
-                       logger.warning("InterruptedException doing type delete for key [" + internalKey + "]");
-                 }
-                 catch(MemcachedException e)
-                 {
-                       logger.warning("MemcachedException doing type delete for key [" + internalKey + "], message [" + e.getMessage() + "]");
-                 }
-             }
-         }
-         return res;
-    }
 }
