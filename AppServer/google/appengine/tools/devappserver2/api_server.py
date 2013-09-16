@@ -43,7 +43,6 @@ from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
 from google.appengine.api.app_identity import app_identity_stub
 from google.appengine.api.blobstore import blobstore_stub
-from google.appengine.api.blobstore import file_blob_storage
 from google.appengine.api.capabilities import capability_stub
 from google.appengine.api.channel import channel_service_stub
 from google.appengine.api.files import file_service_stub
@@ -301,7 +300,7 @@ def setup_stubs(
       'app_identity_service',
       app_identity_stub.AppIdentityServiceStub())
 
-  blob_storage = file_blob_storage.FileBlobStorage(blobstore_path, app_id)
+  blob_storage = datastore_blob_storage.DatastoreBlobStorage(app_id)
   apiproxy_stub_map.apiproxy.RegisterStub(
       'blobstore',
       blobstore_stub.BlobstoreServiceStub(blob_storage,
