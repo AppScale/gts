@@ -254,7 +254,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - replaced some of this method body to use just memcache and
          * remove unneeded gae code
          */
-        logger.fine("Memcache - get() called with [" + req.getKeyCount() + "] keys");
+        logger.info("Memcache - get() called with [" + req.getKeyCount() + "] keys");
         MemcacheServicePb.MemcacheGetResponse.Builder result = MemcacheServicePb.MemcacheGetResponse.newBuilder();
 
         for (int i = 0; i < req.getKeyCount(); i++)
@@ -269,12 +269,17 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             // handle cas
             if ((req.hasForCas()) && (req.getForCas()))
             {
+		System.out.println("handling cas");
                 GetsResponse<Object> res;
                 try
                 {
                     res = memcacheClient.gets(internalKey);
+		    System.out.println("res: " + res);
                     item.setCasId(res.getCas());
                     entry = (CacheEntry)res.getValue();
+		    System.out.println("entry: " + entry);
+                    item.setKey(ByteString.copyFrom(key.getBytes())).setFlags(entry.getFlags()).setValue(ByteString.copyFrom(entry.getValue()));
+                    result.addItem(item.build());
                 }
                 catch(TimeoutException e)
                 {
@@ -367,10 +372,8 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                         boolean res = false;
                         try
                         {
-                            //get cas id for key
-                            GetsResponse<Object> getsResp = memcacheClient.gets(internalKey);
                             //do cas operation for key:ce
-                            res = memcacheClient.cas(internalKey, (int)expiry, ce, getsResp.getCas());
+                            res = memcacheClient.cas(internalKey, (int)expiry, ce, item.getCasId());
                         }
                         catch(TimeoutException e)
                         {
@@ -503,6 +506,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
     public MemcacheServicePb.MemcacheIncrementResponse increment( LocalRpcService.Status status, MemcacheServicePb.MemcacheIncrementRequest req )
     {
+        logger.info("regular increment called");
         MemcacheServicePb.MemcacheIncrementResponse.Builder result = MemcacheServicePb.MemcacheIncrementResponse.newBuilder();
         String namespace = req.getNameSpace();
         Key key = new Key(req.getKey().toByteArray());
@@ -640,7 +644,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - changed a lot of this method body to use our memcached
          * client
          */
-        logger.fine("Memcache - batchIncrement called");
+        logger.info("Memcache - batchIncrement called");
         MemcacheServicePb.MemcacheBatchIncrementResponse.Builder result = MemcacheServicePb.MemcacheBatchIncrementResponse.newBuilder();
         String namespace = batchReq.getNameSpace();
 
@@ -684,22 +688,19 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
             if (ce == null)
             {
+		System.out.println("ce was null");
                 if (req.hasInitialValue())
                 {
-                    MemcacheSerialization.ValueAndFlags value;
-                    try
-                    {
-                        value = MemcacheSerialization.serialize(Long.toString(req.getInitialValue() + delta));
-                    }
-                    catch (IOException e)
-                    {
-                        throw new ApiProxy.UnknownException("Serialzation error: " + e);
-                    }
-                    ce = new CacheEntry(namespace, key, value.value, value.flags.ordinal(), 0L, clock.getCurrentTime());
+		    System.out.println("request had init value");
+		    BigInteger value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
+		    value = value.add(new BigInteger(String.valueOf(delta)));
+		    int flags = req.hasInitialFlags() ? req.getInitialFlags() : MemcacheSerialization.Flag.LONG.ordinal();
+                    ce = new CacheEntry(namespace, key, value.toString().getBytes(), flags, 0L, clock.getCurrentTime());
                     internalSet(namespace, stringToKey(internalKey), ce);
                     resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
                     resp.setNewValue(req.getInitialValue() + delta);
                     result.addItem(resp);
+                    System.out.println("added entry, value was: " + req.getInitialValue() + delta);
                     continue;
                 }
                 else
@@ -905,10 +906,10 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     private CacheEntry internalGet( String internalKey )
     {
         logger.info("Memcache internalGet(), key = [" + internalKey + "]");
-        Object res = null;
+        CacheEntry res = null;
         try
         {
-            res = memcacheClient.get(internalKey);
+            res = (CacheEntry)memcacheClient.get(internalKey);
         }
         catch(TimeoutException e)
         {
@@ -924,8 +925,8 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         if (res != null)
         {
-            logger.info("Memcache internalGet() returning cache entry [" + res + "]");
-            return (CacheEntry)res;
+            logger.info("Memcache internalGet() returning cache entry [" + res + "], value: " + new String(res.value) + ", flags: " + res.flags);
+            return res;
         }
         else
         {
