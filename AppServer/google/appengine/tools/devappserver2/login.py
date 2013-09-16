@@ -255,8 +255,16 @@ def login_redirect(application_url, continue_url, start_response):
   """
   if not application_url.endswith('/'):
     application_url += '/'
-  redirect_url = '%s%s?%s=%s' % (application_url, LOGIN_URL_RELATIVE,
-                                 CONTINUE_PARAM, urllib.quote(continue_url))
+
+  hostname = os.environ['NGINX_HOST']
+  port = os.environ['NGINX_PORT']
+  dest_url = "http://%s:%s%s" % (hostname, port, continue_url)
+  redirect_url = 'http://%s:%s%s?%s=%s' % (hostname,
+                                           port,
+                                           application_url,
+                                           CONTINUE_PARAM,
+                                           urllib.quote(dest_url))
+
   start_response('302 Requires login',
                  [('Location', redirect_url)])
   return []
@@ -290,11 +298,15 @@ class Handler(webapp2.RequestHandler):
       self.response.status_message = 'Redirecting to continue URL'
       self.response.headers['Location'] = redirect_url
     else:
-      email, admin, _ = _get_user_info_from_dict(self.request.cookies)
-      self.response.status = 200
-      self.response.headers['Content-Type'] = 'text/html'
-      body = _render_login_template(login_url, continue_url, email, admin)
-      self.response.write(body)
+      # Send the user to the AppDashboard to log in before letting them view the
+      # specified URL.
+      appscale_login_url = "https://{0}:1443/login".format(
+        os.environ['NGINX_HOST'])
+      redirect_url = '{0}?{1}={2}'.format(appscale_login_url, CONTINUE_PARAM,
+        continue_url)
+      self.response.status = 302
+      self.response.status_message = 'Redirecting to login service URL'
+      self.response.headers['Location'] = redirect_url
 
 
 application = webapp2.WSGIApplication([('/.*', Handler)], debug=True)

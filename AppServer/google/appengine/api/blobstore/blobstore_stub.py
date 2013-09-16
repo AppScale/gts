@@ -74,7 +74,7 @@ def CreateUploadSession(creation, success_path, user):
     String encoded key of new Datastore entity.
   """
   entity = datastore.Entity(_UPLOAD_SESSION_KIND, namespace='')
-  path = "http://%s:%s%s" % (os.environ["SERVER_NAME"],
+  path = "http://%s:%s%s" % (os.environ["NGINX_HOST"],
                              os.environ["NGINX_PORT"],
                              success_path)
 
