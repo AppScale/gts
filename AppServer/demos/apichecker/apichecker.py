@@ -116,7 +116,7 @@ class HealthChecker(webapp2.RequestHandler):
 
     if capability == "all" or capability == "urlfetch":
       try:
-        urlfetch.fetch("http://localhost")
+        urlfetch.fetch("http://localhost:1080")
         health['urlfetch'] = RUNNING
       except Exception, e:
         health['urlfetch'] = FAILED
