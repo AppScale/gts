@@ -34,6 +34,7 @@ public final class LocalUserService extends AbstractLocalRpcService
     private boolean oauthIsAdmin = false;
     private final String NGINX_ADDR = "NGINX_ADDR";
     private final String NGINX_PORT = "NGINX_PORT";
+    private final String DASHBOARD_HTTPS_PORT = "1443";
 
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
     {
@@ -51,7 +52,7 @@ public final class LocalUserService extends AbstractLocalRpcService
     public UserServicePb.CreateLogoutURLResponse createLogoutURL( LocalRpcService.Status status, UserServicePb.CreateLogoutURLRequest request )
     {
         UserServicePb.CreateLogoutURLResponse response = new UserServicePb.CreateLogoutURLResponse();
-        String redirect_url = "http://" + LOGIN_SERVER + "/logout?continue=http://" + LOGIN_SERVER + ":" + getAppPort();
+        String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=http://" + LOGIN_SERVER + ":" + getAppPort();
         response.setLogoutUrl(redirect_url);
 
         return response;
