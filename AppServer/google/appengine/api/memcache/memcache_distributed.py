@@ -68,9 +68,12 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
   def setupMemcacheClient(self):
     """ Sets up the memcache client. """
-    memcache_file = open(self.APPSCALE_MEMCACHE_FILE, "r")
-    all_ips = memcache_file.read().split("\n")
-    memcache_file.close()
+    if os.path.exists(self.APPSCALE_MEMCACHE_FILE):
+      memcache_file = open(self.APPSCALE_MEMCACHE_FILE, "r")
+      all_ips = memcache_file.read().split("\n")
+      memcache_file.close()
+    else:
+      all_ips = ['localhost']
 
     memcaches = [ip + ":" + self.MEMCACHE_PORT for ip in all_ips if ip != '']
     memcaches.sort()    

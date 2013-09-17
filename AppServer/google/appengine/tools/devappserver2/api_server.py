@@ -482,8 +482,10 @@ def test_setup_stubs(
     search_index_path=None,
     taskqueue_auto_run_tasks=False,
     taskqueue_default_http_server='http://localhost:8080',
+    uaserver_path='localhost',
     user_login_url='/_ah/login?continue=%s',
-    user_logout_url='/_ah/login?continue=%s'):
+    user_logout_url='/_ah/login?continue=%s',
+    xmpp_path='localhost'):
   """Similar to setup_stubs with reasonable test defaults and recallable."""
 
   # Reset the stub map between requests because a stub map only allows a
@@ -515,8 +517,10 @@ def test_setup_stubs(
               search_index_path,
               taskqueue_auto_run_tasks,
               taskqueue_default_http_server,
+              uaserver_path,
               user_login_url,
-              user_logout_url)
+              user_logout_url,
+              xmpp_path)
 
 
 def cleanup_stubs():
