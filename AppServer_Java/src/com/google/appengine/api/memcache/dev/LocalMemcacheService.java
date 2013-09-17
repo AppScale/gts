@@ -161,7 +161,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          */
         List<String> ipList = new ArrayList<String>();
         String ipListString = new String("");
-	
+
         try
         {
             ResourceLoader res = ResourceLoader.getResourceLoader();
@@ -397,7 +397,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     {
         /*
          * AppScale - not sure how to take care of failed deletes since google
-         * doesn't have use exception handling on this method, going to throw a
+         * doesn't use exception handling on this method, going to throw a
          * MemcacheServiceException with message containing the key that failed
          * to delete if there's an issue
          */
@@ -501,7 +501,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         {
             getsResp = memcacheClient.gets(internalKey);
         }
-	catch(TimeoutException e)
+        catch(TimeoutException e)
         {
             logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
         }
@@ -534,13 +534,13 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 ce = new CacheEntry(namespace, key, value.toString().getBytes(), flags, 0L, clock.getCurrentTime());
                 internalSet(namespace, stringToKey(internalKey), ce);
                 result.setNewValue(value.longValue());
-        	status.setSuccessful(true);
-        	return result.build();
+                status.setSuccessful(true);
+                return result.build();
             }
             else
             {
                 // Doing an increment for something not present should return null.
- 		status.setSuccessful(false);
+                status.setSuccessful(false);
                 return result.build();
             }
         }
@@ -581,7 +581,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
         boolean res = false;
         // Value is set now, now do a cas. 
-	try
+        try
         {
             res = memcacheClient.cas(internalKey, 0, ce, casId);
         }
@@ -596,7 +596,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         catch(MemcachedException e)
         {
             logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
-        }	
+        }
         if (res == false)
         {
             logger.log(Level.WARNING, "Increment call failed");
@@ -632,7 +632,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
             String internalKey = getInternalKey(namespace, key);
 
-	    GetsResponse<Object> getsResp = null;
+            GetsResponse<Object> getsResp = null;
             try
             {
                 getsResp = memcacheClient.gets(internalKey);
@@ -661,9 +661,9 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             {
                 if (req.hasInitialValue())
                 {
-		    BigInteger value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
-		    value = value.add(new BigInteger(String.valueOf(delta)));
-		    int flags = req.hasInitialFlags() ? req.getInitialFlags() : MemcacheSerialization.Flag.LONG.ordinal();
+                    BigInteger value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
+                    value = value.add(new BigInteger(String.valueOf(delta)));
+                    int flags = req.hasInitialFlags() ? req.getInitialFlags() : MemcacheSerialization.Flag.LONG.ordinal();
                     ce = new CacheEntry(namespace, key, value.toString().getBytes(), flags, 0L, clock.getCurrentTime());
                     internalSet(namespace, stringToKey(internalKey), ce);
                     resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
@@ -723,8 +723,8 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 throw new ApiProxy.UnknownException("UTF-8 encoding was not found.");
             }
 
-	    boolean res = false;
-	    try
+            boolean res = false;
+            try
             {
                 res = memcacheClient.cas(internalKey, 0, ce, casId);
             }
@@ -743,12 +743,12 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             if (res == false)
             {
                 logger.log(Level.WARNING, "Increment call failed");
-		resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
+                resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.NOT_CHANGED);
             }
             else
             {
                 resp.setIncrementStatus(MemcacheServicePb.MemcacheIncrementResponse.IncrementStatusCode.OK);
-		resp.setNewValue(newValue);
+                resp.setNewValue(newValue);
             }
             result.addItem(resp);
 
