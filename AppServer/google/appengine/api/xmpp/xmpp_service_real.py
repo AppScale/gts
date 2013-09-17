@@ -106,7 +106,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     for jid in request.jid_list():
-      message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, 
+      stripped_to = jid.strip()
+      message = xmpppy.protocol.Message(frm=xmpp_username, to=stripped_to,
                                         body=request.body(), typ=request.type())
       client.send(message)
       response.add_status(xmpp_service_pb.XmppMessageResponse.NO_ERROR)
