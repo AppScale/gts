@@ -413,15 +413,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
             result.addDeleteStatus(ce == null ? MemcacheServicePb.MemcacheDeleteResponse.DeleteStatusCode.NOT_FOUND : MemcacheServicePb.MemcacheDeleteResponse.DeleteStatusCode.DELETED);
 
-            // Spymemcache doesn't support deletes with hold time
-            if (item.hasDeleteTime())
-            {
-                int millisNoReAdd = item.getDeleteTime() * 1000;
-                if (deleteHold.get(namespace) != null)
-                {
-                    deleteHold.get(namespace).put(stringToKey(getInternalKey(namespace, key)), Long.valueOf(this.clock.getCurrentTime() + millisNoReAdd));
-                }
-            }
+            // xmemcached doesn't support deletes with hold time
         }
 
         status.setSuccessful(true);
@@ -504,7 +496,6 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - changed some of this method body to use our memcache
          * client
          */
-        // Do a gets because we can't increment CacheEntry objects, so we do cas instead.
         GetsResponse<Object> getsResp = null;
         try
         {
@@ -536,7 +527,6 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 /*
                  * AppScale - removed type declaration for value
                  */
-		// Doing an increment for something with an initial value, just do a regular set. 
                 value = BigInteger.valueOf(req.getInitialValue()).and(UINT64_MAX_VALUE);
                 value = value.add(new BigInteger(String.valueOf(delta)));
                 int flags = req.hasInitialFlags() ? req.getInitialFlags() : MemcacheSerialization.Flag.LONG.ordinal();
