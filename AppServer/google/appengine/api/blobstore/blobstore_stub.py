@@ -28,7 +28,7 @@ Class:
 
 
 
-
+import base64
 import os
 import time
 from google.appengine.api import apiproxy_stub
@@ -148,6 +148,8 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
   This is very similar to what the URL is on a production server.  The session
   info is the string encoded version of the session entity
   """
+
+  GS_BLOBKEY_PREFIX = 'encoded_gs_file:'
 
   def __init__(self,
                blob_storage,
@@ -336,4 +338,65 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__block_key_cache = str(block_key)
     data += self.__block_cache[0: fetch_size - data_size]
     response.set_data(data)
- 
+
+  def _Dynamic_DecodeBlobKey(self, request, response, unused_request_id):
+    """Decode a given blob key: data is simply base64-decoded.
+
+    Args:
+      request: A fully-initialized DecodeBlobKeyRequest instance
+      response: A DecodeBlobKeyResponse instance.
+    """
+    for blob_key in request.blob_key_list():
+      response.add_decoded(blob_key.decode('base64'))
+
+  @classmethod
+  def CreateEncodedGoogleStorageKey(cls, filename):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Note this encoding is easily reversible and is not encryption.
+
+    Args:
+      filename: gs filename of form '/gs/bucket/filename'
+
+    Returns:
+      blobkey string of encoded filename.
+    """
+    return cls.GS_BLOBKEY_PREFIX + base64.urlsafe_b64encode(filename)
+
+  def _Dynamic_CreateEncodedGoogleStorageKey(self, request, response):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Args:
+      request: A fully-initialized CreateEncodedGoogleStorageKeyRequest
+        instance.
+      response: A CreateEncodedGoogleStorageKeyResponse instance.
+    """
+    response.set_blob_key(
+        self.CreateEncodedGoogleStorageKey(request.filename()))
+
+  def CreateBlob(self, blob_key, content):
+    """Create new blob and put in storage and Datastore.
+
+    This is useful in testing where you have access to the stub.
+
+    Args:
+      blob_key: String blob-key of new blob.
+      content: Content of new blob as a string.
+
+    Returns:
+      New Datastore entity without blob meta-data fields.
+    """
+    entity = datastore.Entity(blobstore.BLOB_INFO_KIND,
+                              name=blob_key, namespace='')
+    entity['size'] = len(content)
+    datastore.Put(entity)
+    self.storage.CreateBlob(blob_key, content)
+    return entity
