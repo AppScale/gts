@@ -26,9 +26,13 @@ from google.appengine.tools.devappserver2 import constants
 from google.appengine.tools.devappserver2 import url_handler
 from google.appengine.tools.devappserver2 import wsgi_test_utils
 
-COOKIE = 'dev_appserver_login=johnny@example.com:False:115914779145204185301'
-COOKIE_ADMIN = ('dev_appserver_login=johnny@example.com:True:'
-                '115914779145204185301')
+HASHED_COOKIE = 'ebb296832f1243863c7a9357e0fbd2e007ab2f4c'
+HASHED_ADMIN_COOKIE = '85a635ab115ed55bfb56c3f7883fb989a7c0be02'
+
+COOKIE = 'dev_appserver_login=johnny@example.com:johnny:badapp:{0}'.format(
+  HASHED_COOKIE)
+COOKIE_ADMIN = ('dev_appserver_login=johnny@example.com:johnny:goodapp:' + \
+                HASHED_ADMIN_COOKIE)
 
 
 class TestURLHandler(unittest.TestCase):
@@ -159,23 +163,27 @@ class TestAuthorization(wsgi_test_utils.WSGITestCase):
     self.assertResponse(expected_status, expected_headers, expected_content,
                         h.handle_authorization, self.environ)
 
-  def test_required_succeed_fake_is_admin(self):
-    """Test with login: required, and a valid cookie, with fake-is-admin."""
-    url_map = appinfo.URLMap(url='/',
-                             login='required')
-
-    h = url_handler.UserConfiguredURLHandler(url_map, '/$')
-
-    self.environ['HTTP_COOKIE'] = COOKIE
-    self.environ[constants.FAKE_IS_ADMIN_HEADER] = '1'
-
-    def start_response(unused_status, unused_response_headers,
-                       unused_exc_info=None):
-      # Successful authorization should not call start_response
-      self.fail('start_response was called')
-
-    r = h.handle_authorization(self.environ, start_response)
-    self.assertEqual(None, r)
+  # NOTE: In the SDK, the FAKE_IS_ADMIN header can be set to bypass
+  # authentication. In AppScale, we don't want to obey that, so this test is
+  # invalid for us. It is commented out (as opposed to removed) to remind us of
+  # this as we advance to new versions of the Python AppServer.
+  #def test_required_succeed_fake_is_admin(self):
+  #  """Test with login: required, and a valid cookie, with fake-is-admin."""
+  #  url_map = appinfo.URLMap(url='/',
+  #                           login='required')
+  # 
+  #  h = url_handler.UserConfiguredURLHandler(url_map, '/$')
+  #
+  #  self.environ['HTTP_COOKIE'] = COOKIE
+  #  self.environ[constants.FAKE_IS_ADMIN_HEADER] = '1'
+  #
+  #  def start_response(unused_status, unused_response_headers,
+  #                     unused_exc_info=None):
+  #    # Successful authorization should not call start_response
+  #    self.fail('start_response was called')
+  #
+  #  r = h.handle_authorization(self.environ, start_response)
+  #  self.assertEqual(None, r)
 
   def test_admin_redirect_no_login(self):
     """Test page with login: admin; redirect, and no cookie."""

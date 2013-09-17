@@ -20,6 +20,7 @@
 import argparse
 import cStringIO
 import logging
+import os
 import os.path
 import random
 import sys
@@ -44,6 +45,13 @@ TEST_LIBRARY_PATHS = [
 
 
 def main():
+  # AppScale uses some special environment variables - set them before any tests
+  # run.
+  os.environ['APPLICATION_ID'] = 'bazapp'
+  os.environ['COOKIE_SECRET'] = 'secret'
+  os.environ['NGINX_HOST'] = 'localhost'
+  os.environ['NGINX_PORT'] = '8080'
+
   sys.path.extend(TEST_LIBRARY_PATHS)
 
   parser = argparse.ArgumentParser(
