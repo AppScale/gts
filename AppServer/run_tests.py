@@ -49,6 +49,7 @@ def main():
   # run.
   os.environ['APPLICATION_ID'] = 'bazapp'
   os.environ['COOKIE_SECRET'] = 'secret'
+  os.environ['MY_PORT'] = '8080'
   os.environ['NGINX_HOST'] = 'localhost'
   os.environ['NGINX_PORT'] = '8080'
 

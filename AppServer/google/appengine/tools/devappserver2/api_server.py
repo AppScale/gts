@@ -525,10 +525,6 @@ def test_setup_stubs(
 
 def cleanup_stubs():
   """Do any necessary stub cleanup e.g. saving data."""
-  # Saving datastore
-  logging.info('Applying all pending transactions and saving the datastore')
-  datastore_stub = apiproxy_stub_map.apiproxy.GetStub('datastore_v3')
-  datastore_stub.Write()
-  logging.info('Saving search indexes')
-  apiproxy_stub_map.apiproxy.GetStub('search').Write()
-  apiproxy_stub_map.apiproxy.GetStub('taskqueue').Shutdown()
+  # Not necessary in AppScale, since the API services exist outside of the
+  # AppServer.
+  pass
