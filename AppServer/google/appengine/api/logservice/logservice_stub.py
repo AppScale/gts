@@ -292,7 +292,9 @@ class RequestLogWriter(object):
       log.finished = False
 
     log.app_logs = []
-    log.put()
+    # AppScale
+    # TODO: We need to implement the logs API.
+    #log.put()
 
   def get_time_now(self):
     """Get the current time in microseconds since epoch."""
@@ -300,9 +302,13 @@ class RequestLogWriter(object):
 
   def write(self, method, resource, status, size, http_version):
     """Writes all request-level information to the Datastore."""
-    if self.persist:
-      _run_in_namespace(self._write, method, resource, status, size,
-                        http_version)
+    return
+    # AppScale
+    # Do not persist logs for the time being until we fully implement the logs
+    # API.
+    #if self.persist:
+    #  _run_in_namespace(self._write, method, resource, status, size,
+    #                    http_version)
 
   def _write(self, method, resource, status, size, http_version):
     """Implements write if called by _run_in_namespace."""
@@ -318,7 +324,9 @@ class RequestLogWriter(object):
       log.latency = log.end_time - (log.start_time or 0)
       log.finished = True
 
-    log.put()
+    # AppScale
+    # TODO: We need to implement the logs API.
+    #log.put()
 
 
 class LogServiceStub(apiproxy_stub.APIProxyStub):
@@ -381,7 +389,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     # To make it API compliant.
     pass
 
-  def _Dynamic_Flush(self, request, unused_response):
+  def _Dynamic_Flush(self, request, unused_response, request_id=None):
     """Writes application-level log messages for a request to the Datastore."""
     if self.persist:
       group = log_service_pb.UserAppLogGroup(request.logs())
@@ -420,7 +428,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     log = _LogRecord.get_or_create()
     for app_log in new_app_logs:
       log.app_logs.append(app_log)
-    log.put()
+    # AppScale
+    # TODO: We need to implement the logs API.
+    #log.put()
 
   def _Dynamic_SetStatus(self, request, unused_response):
     """Record the recently seen status."""

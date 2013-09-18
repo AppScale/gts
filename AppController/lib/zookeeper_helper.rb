@@ -19,6 +19,8 @@ dataDir=#{DATA_LOCATION}
 clientPort=2181
 leaderServes=yes
 maxClientsCnxns=0
+forceSync=no
+skipACL=yes
 EOF
   myid = ""
 
@@ -50,31 +52,25 @@ EOF
   Djinn.log_debug(`sed -i s/^JAVA_OPTS=.*/JAVA_OPTS=\"-Xmx1024m\"/ /etc/zookeeper/conf/environment`)
 end
 
-def start_zookeeper(initialize = true)
+def start_zookeeper
   Djinn.log_info("starting ZooKeeper")
-  if initialize
+  if @creds['clear_datastore']
     Djinn.log_debug(`rm -rfv /var/lib/zookeeper`)
     Djinn.log_debug(`rm -rfv #{DATA_LOCATION}`)
-    Djinn.log_debug(`mkdir -pv #{DATA_LOCATION}`)
-    Djinn.log_debug(`chown -v zookeeper:zookeeper #{DATA_LOCATION}`)
   end
+  Djinn.log_debug(`mkdir -pv #{DATA_LOCATION}`)
+  Djinn.log_debug(`chown -v zookeeper:zookeeper #{DATA_LOCATION}`)
+
   # myid is needed for multi node configuration.
   Djinn.log_debug(`ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}`)
 
-  start_cmd = "service zookeeper start"
-  stop_cmd = "service zookeeper stop"
-  env = {'JAVA_HOME' => ENV['JAVA_HOME']}
-  GodInterface.start(:zoo_keeper, start_cmd, 
-                     stop_cmd, ZOOKEEPER_PORT, env)
+  Djinn.log_run("service zookeeper start")
   Djinn.log_info('Started ZooKeeper')
 end
 
 def stop_zookeeper
   Djinn.log_info("Stopping ZooKeeper")
-  GodInterface.stop(:zoo_keeper)  
-  # God has problems correctly shutting down processes, 
-  # so we double up on stopping ZK here.
-  Djinn.log_debug(`service zookeeper stop`)
+  Djinn.log_run("service zookeeper stop")
 end
 
 # This method returns ZooKeeper connection string like:

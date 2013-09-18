@@ -1,12 +1,13 @@
 #!/usr/bin/ruby
 
 
+require 'rubygems'
+require 'json'
+
+
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
-
-
-ONE_HOUR = 3600 # seconds
-HEARTBEAT_THRESHOLD = 10
+require 'helperfunctions'
 
 
 # A class that represents a single node running in AppScale. It provides methods
@@ -16,48 +17,32 @@ HEARTBEAT_THRESHOLD = 10
 # costs, which may charge on an hourly basis).
 class DjinnJobData
   attr_accessor :public_ip, :private_ip, :jobs, :instance_id, :cloud, :ssh_key
-  attr_accessor :creation_time, :destruction_time
+  attr_accessor :disk
  
 
-  def initialize(roles, keyname)
-    # format: "publicIP:privateIP:load_balancer:appengine:table-master:table-slave:instance_id:cloud"
-
-    if roles.class != String
-      abort("Roles must be a string, not a #{roles.class} containing #{roles}")
+  def initialize(json_data, keyname)
+    if json_data.class != Hash
+      HelperFunctions.log_and_crash("Roles must be a Hash, not a " +
+        "#{json_data.class} containing #{json_data}")
     end
 
-    split_roles = roles.split(":")
+    @public_ip = json_data['public_ip']
+    @private_ip = json_data['private_ip']
 
-    @public_ip = split_roles[0]
-    @private_ip = split_roles[1]
-    @jobs = []
-    @instance_id = split_roles[-2]
-
-    # TODO: this is a bit hackey - would like to fix this someday
-    if split_roles[-1].include?(".key")
-      @cloud = split_roles[-2]
+    jobs = json_data['jobs']
+    if jobs.class == Array
+      @jobs = jobs
+    elsif jobs.class == String
+      @jobs = [jobs]
     else
-      @cloud = split_roles[-1]
+      HelperFunctions.log_and_crash("Jobs must be an Array or String, not " +
+        "a #{jobs.class} containing #{jobs}")
     end
 
+    @cloud = "cloud1"
+    @instance_id = json_data['instance_id']
+    @disk = json_data['disk']
     @ssh_key = File.expand_path("/etc/appscale/keys/#{@cloud}/#{keyname}.key")
-    @creation_time = nil
-    @destruction_time = nil  # best variable name EVER
-
-    appscale_jobs = ["load_balancer", "shadow"]
-    appscale_jobs += ["db_master", "db_slave"]
-    appscale_jobs += ["zookeeper"]
-    appscale_jobs += ["login"]
-    appscale_jobs += ["memcache"]
-    appscale_jobs += ["open"]
-    appscale_jobs += ["taskqueue_master", "taskqueue_slave"]
-    appscale_jobs += ["babel_master", "babel_slave"]
-    appscale_jobs += ["appengine"] # appengine must go last
-    
-        
-    appscale_jobs.each { |job|
-      @jobs << job if roles.include?(job)
-    }
   end
 
 
@@ -80,22 +65,6 @@ class DjinnJobData
   end
 
 
-  # not the best name for this but basically correct
-  def serialize
-    keyname = @ssh_key.split("/")[-1]
-    serialized = "#{@public_ip}:#{@private_ip}:#{@jobs.join(':')}:#{@instance_id}:#{@cloud}:#{keyname}"
-    return serialized
-  end
-
-
-  def self.deserialize(serialized)
-    split_data = serialized.split(":")
-    roles = split_data[0..-2].join(":")
-    keyname = split_data[-1].split(".")[0]
-    return DjinnJobData.new(roles, keyname)
-  end
-
-
   # Produces a Hash that contains all the information contained in this
   # object.
   def to_hash
@@ -106,8 +75,7 @@ class DjinnJobData
       'instance_id' => @instance_id,
       'cloud' => @cloud,
       'ssh_key' => @ssh_key,
-      'creation_time' => @creation_time,
-      'destruction_time' => @destruction_time
+      'disk' => @disk
     }
   end
 
@@ -119,46 +87,17 @@ class DjinnJobData
       jobs = @jobs.join(', ')
     end
 
-    
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
       " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," +
-      " priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}." +
-      " It was created at #{@creation_time} and should be destroyed at " +
-      " #{@destruction_time}."
+      " priv IP #{@private_ip}, and is currently #{jobs}. "
+
+    if @disk.nil?
+      status += "It does not back up its data to a persistent disk."
+    else
+      status += "It backs up data to a persistent disk with name #{@disk}."
+    end
+
     return status  
-  end
-
-
-  def set_time_info(creation_time, destruction_time)
-    @creation_time = creation_time
-    @destruction_time = destruction_time
-  end
-
-
-  def should_destroy?
-    return false if @creation_time.nil? or @destruction_time.nil?
-    if Time.now > @destruction_time
-      return true
-    else
-      return false
-    end
-  end
-
-
-  def should_extend?
-    return false if @creation_time.nil? or @destruction_time.nil?
-    # if we are about to kill the VM, don't do it if it's being used
-    if should_destroy? and !@jobs.include?("open")
-      return true
-    else
-      return false
-    end
-  end
-
-
-  def extend_time
-    return if @creation_time.nil? or @destruction_time.nil?
-    @destruction_time += ONE_HOUR
   end
 
 

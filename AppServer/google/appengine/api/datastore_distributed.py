@@ -41,7 +41,7 @@ from google.appengine.runtime import apiproxy_errors
 from google.net.proto import ProtocolBuffer
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
-from google.appengine.datastore import datastore_stub_util
+from google.appengine.datastore import old_datastore_stub_util
 
 # Where the SSL certificate is placed for encrypted communication
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
@@ -252,14 +252,15 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """ Does Nothing   """
     return 
 
-  def MakeSyncCall(self, service, call, request, response):
+  def MakeSyncCall(self, service, call, request, response, request_id=None):
     """ The main RPC entry point. service must be 'datastore_v3'.
     """
     self.assertPbIsInitialized(request)
     super(DatastoreDistributed, self).MakeSyncCall(service,
                                                 call,
                                                 request,
-                                                response)
+                                                response,
+                                                request_id)
     self.assertPbIsInitialized(response)
 
   def assertPbIsInitialized(self, pb):
@@ -347,10 +348,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     (filters, orders) = datastore_index.Normalize(query.filter_list(),
                                                   query.order_list(), [])
     
-    datastore_stub_util.FillUsersInQuery(filters)
+    old_datastore_stub_util.FillUsersInQuery(filters)
 
     query_response = datastore_pb.QueryResult()
-    query.set_app(self.__app_id)
+    if not query.has_app():
+      query.set_app(self.__app_id)
+    self.__ValidateAppId(query.app())
     self._RemoteSend(query, query_response, "RunQuery")
 
     skipped_results = 0
@@ -435,15 +438,13 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         return cmp(x_type, y_type)
 
     results = query_response.result_list()
-    results = [datastore.Entity._FromPb(r) for r in results]
-    results = [r._ToPb() for r in results]
     for result in results:
-      datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
+      old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
-    datastore_stub_util.ValidateQuery(query, filters, orders,
+    old_datastore_stub_util.ValidateQuery(query, filters, orders,
           _MAX_QUERY_COMPONENTS)
 
-    cursor = datastore_stub_util.ListCursor(query, results,
+    cursor = old_datastore_stub_util.ListCursor(query, results,
                                             order_compare_entities_pb)
     self.__cleanup_old_cursors() 
     self.__queries[cursor.cursor] = cursor, datetime.datetime.now()

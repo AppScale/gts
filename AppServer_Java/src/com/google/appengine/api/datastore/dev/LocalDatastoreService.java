@@ -483,10 +483,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     public DatastoreV3Pb.GetResponse get( LocalRpcService.Status status, DatastoreV3Pb.GetRequest request )
     {
         DatastoreV3Pb.GetResponse response = new DatastoreV3Pb.GetResponse();
-        logger.log(Level.INFO, "Get Request: " + request.toFlatString());
         proxy.doPost(request.getKey(0).getApp(), "Get", request, response);
         if (response.entitySize() == 0) response.addEntity(new GetResponse.Entity());
-        logger.log(Level.INFO, "Get Response: " + response.toFlatString());
 
         return response;
     }
@@ -532,56 +530,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         {
             return response;
         }
-        DatastoreV3Pb.Cost totalCost = response.getMutableCost();
-        String app = ((OnestoreEntity.EntityProto)request.entitys().get(0)).getKey().getApp();
-        List clones = new ArrayList();
-        for (OnestoreEntity.EntityProto entity : request.entitys())
-        {
-            validateAndProcessEntityProto(entity);
-            OnestoreEntity.EntityProto clone = (OnestoreEntity.EntityProto)entity.clone();
-            clones.add(clone);
-            Preconditions.checkArgument(clone.hasKey());
-            OnestoreEntity.Reference key = clone.getKey();
-            Preconditions.checkArgument(key.getPath().elementSize() > 0);
-
-            clone.getMutableKey().setApp(app);
-
-            OnestoreEntity.Path.Element lastPath = Utils.getLastElement(key);
-
-            
-            
-            if ((lastPath.getId() == 0L) && (!lastPath.hasName())) {
-                if (this.autoIdAllocationPolicy == AutoIdAllocationPolicy.SEQUENTIAL)
-                    lastPath.setId(this.entityIdSequential.getAndIncrement());
-                else       
-                {
-                    lastPath.setId(toScatteredId(this.entityIdScattered.getAndIncrement()));
-                }
-            }
-            
-
-            processEntityForSpecialProperties(clone, true);
-
-            if (clone.getEntityGroup().elementSize() == 0)
-            {
-                OnestoreEntity.Path group = clone.getMutableEntityGroup();
-                OnestoreEntity.Path.Element root = (OnestoreEntity.Path.Element)key.getPath().elements().get(0);
-                OnestoreEntity.Path.Element pathElement = group.addElement();
-                pathElement.setType(root.getType());
-                if (root.hasName())
-                    pathElement.setName(root.getName());
-                else
-                    pathElement.setId(root.getId());
-            }
-            else
-            {
-                Preconditions.checkState((clone.hasEntityGroup()) && (clone.getEntityGroup().elementSize() > 0));
-            }
-        }
-
-        /*
-         * AppScale - remainder of body replaced
-         */
+        String app = ((OnestoreEntity.EntityProto)request.entitys().get(0)).getKey().getApp(); 
         proxy.doPost(app, "Put", request, response);
         if (!request.hasTransaction())
         {
@@ -907,7 +856,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                     count = 20;
                 }
             }
-
             DatastoreV3Pb.QueryResult result = liveQuery.nextResult(query.hasOffset() ? Integer.valueOf(query.getOffset()) : null, count, query.isCompile());
             if (query.isCompile())
             {
@@ -1851,7 +1799,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.QueryResult nextResult(Integer offset, Integer count, boolean compile) {
       DatastoreV3Pb.QueryResult result = new DatastoreV3Pb.QueryResult();
-
       if (count == null) {
         if (this.query.hasCount())
           count = Integer.valueOf(this.query.getCount());
@@ -1859,7 +1806,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
           count = Integer.valueOf(20);
         }
       }
-
       if (this.query.isPersistOffset()) {
         if ((offset != null) && (offset.intValue() != this.remainingOffset)) {
           throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "offset mismatch");
@@ -1868,11 +1814,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       } else if (offset == null) {
         offset = Integer.valueOf(0);
       }
-
-      if (offset.intValue() > 0) {
-        result.setSkippedResults(offsetResults(offset.intValue()));
-      }
-
       if (offset.intValue() == result.getSkippedResults())
       {
         result.mutableResults().addAll(removeEntities(Math.min(300, count.intValue())));

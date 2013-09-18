@@ -33,6 +33,9 @@ from google.appengine.api.channel import channel_service_pb
 from google.appengine.runtime import apiproxy_errors
 
 
+SECRET_KEY_FILE = "/etc/appscale/secret.key"
+
+
 class XmppService(apiproxy_stub.APIProxyStub):
   """Python only xmpp service stub. Ejabberd as the backend. Channel API
      support is also in this file.
@@ -57,9 +60,12 @@ class XmppService(apiproxy_stub.APIProxyStub):
     self.login = "https://localhost:17443"
 
     if not uasecret:
-      secret_file = open("/etc/appscale/secret.key", 'r')
-      uasecret = secret_file.read().rstrip('\n')
-      secret_file.close()
+      if os.path.exists(SECRET_KEY_FILE):
+        secret_file = open(SECRET_KEY_FILE, 'r')
+        uasecret = secret_file.read().rstrip('\n')
+        secret_file.close()
+      else:
+        uasecret = "secret"
 
     self.uasecret = uasecret
 
@@ -96,9 +102,6 @@ class XmppService(apiproxy_stub.APIProxyStub):
       request: An XmppMessageRequest.
       response: An XmppMessageResponse .
     """
-    for jid in request.jid_list():
-      self.log('       ' + jid)
-
     appname = os.environ['APPNAME']
 
     xmpp_username = appname + "@" + self.xmpp_domain
@@ -109,7 +112,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     for jid in request.jid_list():
-      message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, 
+      stripped_to = jid.strip()
+      message = xmpppy.protocol.Message(frm=xmpp_username, to=stripped_to,
                                         body=request.body(), typ=request.type())
       client.send(message)
       response.add_status(xmpp_service_pb.XmppMessageResponse.NO_ERROR)

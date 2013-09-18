@@ -7,7 +7,6 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
-require 'monitoring'
 require 'datastore_server'
 
 
@@ -37,7 +36,12 @@ module Nginx
   # app would have the set of ports (8080, 3700), (8081, 3701), and so on.
   SSL_PORT_OFFSET = 3700 
 
-  BLOBSERVER_PORT = 6106
+
+  BLOBSERVER_LISTEN_PORT = 6106
+
+
+  BLOBSERVER_PORT = 6107
+
 
   CHANNELSERVER_PORT = 5280
 
@@ -77,6 +81,10 @@ module Nginx
     START_PORT + app_number
   end
 
+  def self.get_ssl_port_for_app(http_port)
+    http_port - SSL_PORT_OFFSET
+  end
+
   # Return true if the configuration is good, false o.w.
   def self.check_config
     HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
@@ -84,16 +92,15 @@ module Nginx
   end
 
   # Creates a Nginx config file for the provided app name
-  def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
-    listen_port = Nginx.app_listen_port(app_number)
-    ssl_listen_port = listen_port - SSL_PORT_OFFSET
+  def self.write_app_config(app_name, http_port, https_port, my_public_ip,
+    my_private_ip, proxy_port, static_handlers, login_ip)
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
     Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
     always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+      HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
     never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, listen_port)
+      HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
 
     secure_static_handlers = []
@@ -151,7 +158,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{listen_port};
+    listen #{http_port};
     server_name #{my_public_ip};
     root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -163,6 +170,9 @@ server {
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
+
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
 
     #{always_secure_locations}
     #{non_secure_static_locations}
@@ -188,7 +198,7 @@ server {
     location @my_411_error {
         chunkin_resume;
     }
-    listen #{ssl_listen_port};
+    listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
     ssl_certificate /usr/local/nginx/conf/mycert.pem;
@@ -231,29 +241,49 @@ CONFIG
   end
 
   # Creates a Nginx config file for the provided app name on the load balancer
-  def self.write_fullproxy_app_config(app_name, app_number, my_public_ip, 
-    my_private_ip, proxy_port, login_ip, appengine_server_ips)
+  def self.write_fullproxy_app_config(app_name, http_port, https_port,
+    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
+    appengine_server_ips)
+
     Djinn.log_debug("Writing full proxy app config for app #{app_name}")
-    listen_port = Nginx.app_listen_port(app_number)
-    ssl_listen_port = listen_port - SSL_PORT_OFFSET
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
     Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
     always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+      HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
     never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, listen_port)
+      HelperFunctions.generate_secure_location_config(handler, http_port)
+    }.join
+
+    secure_static_handlers = []
+    non_secure_static_handlers = []
+    static_handlers.map { |handler|
+      if handler["secure"] == "always"
+        secure_static_handlers << handler
+      elsif handler["secure"] == "never"
+        non_secure_static_handlers << handler
+      else
+        secure_static_handlers << handler
+        non_secure_static_handlers << handler
+      end
+    }
+
+    secure_static_locations = secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+    non_secure_static_locations = non_secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
     }.join
 
     blob_servers = []
     servers = []
     ssl_servers = []
     appengine_server_ips.each do |ip|
-      servers << "    server #{ip}:#{listen_port};\n"
+      servers << "    server #{ip}:#{proxy_port};\n"
     end
     appengine_server_ips.each do |ip|
-      ssl_servers << "    server #{ip}:#{ssl_listen_port};\n"
+      ssl_servers << "    server #{ip}:#{proxy_port};\n"
     end
     appengine_server_ips.each do |ip|
       blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"
@@ -268,7 +298,7 @@ CONFIG
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
       proxy_redirect off;
-      proxy_pass https://gae_ssl_#{app_name};
+      proxy_pass http://gae_ssl_#{app_name};
       client_max_body_size 2G;
       proxy_connect_timeout 60;
       client_body_timeout 60;
@@ -313,7 +343,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{listen_port};
+    listen #{http_port};
     server_name #{my_public_ip}-#{app_name};
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -326,8 +356,11 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    #{always_secure_locations}
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
 
+    #{always_secure_locations}
+    #{non_secure_static_locations}
     #{non_secure_default_location}
 
     location /reserved-channel-appscale-path {
@@ -345,7 +378,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{BLOBSERVER_PORT};
+    listen #{BLOBSERVER_LISTEN_PORT};
     server_name #{my_public_ip}-#{app_name}-blobstore;
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -353,6 +386,9 @@ server {
     error_log  /var/log/nginx/#{app_name}-blobstore.error.log;
     access_log off;
     #error_log /dev/null crit;
+
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
 
     rewrite_log off;
     error_page 404 = /404.html;
@@ -377,7 +413,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{ssl_listen_port};
+    listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
@@ -395,7 +431,7 @@ server {
     set $cache_dir /var/apps/#{app_name}/cache;
 
     #{never_secure_locations}
-
+    #{secure_static_locations}
     #{secure_default_location}
 
     location /reserved-channel-appscale-path {
@@ -449,14 +485,8 @@ CONFIG
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     proxy_port)
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      AppDashboard::LISTEN_PORT, AppDashboard::NGINX_APP_NAME,
+      AppDashboard::LISTEN_PORT, AppDashboard::APP_NAME,
       AppDashboard::PUBLIC_DIRECTORY, AppDashboard::LISTEN_SSL_PORT)
-  end
-
-  # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_public_ip, my_private_ip, proxy_port)
-    self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      Monitoring.listen_port, Monitoring.name, Monitoring.public_directory)
   end
 
   # Create the configuration file for the datastore_server
@@ -560,6 +590,9 @@ CONFIG
 server {
   chunkin on;
  
+    #If they come here using HTTPS, bounce them to the correct scheme
+    error_page 400 http://$host:$server_port$request_uri;
+
   error_page 411 = @my_411_error;
   location @my_411_error {
       chunkin_resume;
@@ -572,6 +605,9 @@ server {
 server {
     chunkin on;
  
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 497 https://$host:$server_port$request_uri;
+
     error_page 411 = @my_411_error;
     location @my_411_error {
       chunkin_resume;
@@ -612,7 +648,7 @@ CONFIG
       client_body_timeout 360;
       proxy_read_timeout 360;
 CONFIG
-    if name == AppDashboard::NGINX_APP_NAME
+    if name == AppDashboard::APP_NAME
       config += <<CONFIG
  
       # Increase file size for alb so larger applications can be uploaded

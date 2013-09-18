@@ -117,6 +117,27 @@ def ClearUserInfoCookie(cookie_name=COOKIE_NAME):
   set_cookie[cookie_name]['max-age'] = '0'
   return '%s\r\n' % set_cookie
 
+def CreateCookieData(email, admin):
+  """ Creates cookie payload data.
+
+  Args:
+    email, admin: Parameters to incorporate into the cookie.
+
+  Returns:
+    String containing the cookie payload.
+  """
+  nickname = email.split("@")[0]
+
+  if admin:
+    app_list = os.environ['APPLICATION_ID']
+  else:
+    app_list = ''
+
+  secret = os.environ['COOKIE_SECRET']
+
+  hashed = sha.new(email+nickname+app_list+secret).hexdigest()
+  return urllib.quote_plus("{0}:{1}:{2}:{3}".format(email, nickname, app_list, hashed))
+
 def LoginRedirect(login_url,
                   hostname,
                   port,
@@ -131,10 +152,8 @@ def LoginRedirect(login_url,
     relative_url: String containing the URL accessed.
     outfile: File-like object to which the response should be written.
   """
-  NGINX_HOST = os.environ['NGINX_HOST']
-  NGINX_PORT = os.environ['NGINX_PORT']
-  hostname = NGINX_HOST
-  port = NGINX_PORT
+  hostname = os.environ['NGINX_HOST']
+  port = os.environ['NGINX_PORT']
   dest_url = "http://%s:%s%s" % (hostname, port, relative_url)
   redirect_url = 'http://%s:%s%s?%s=%s' % (hostname,
                                            port,
@@ -203,7 +222,7 @@ def main():
       continue_url = "http://" + nginx_url + ":" + \
                      nginx_port + suffix.group(1)
 
-  login_service_endpoint = "https://"+LOGIN_SERVER+"/login"
+  login_service_endpoint = "https://" + LOGIN_SERVER + ":1443/login"
   if action.lower() == LOGOUT_ACTION.lower():
     Logout(continue_url, sys.stdout)
   else:

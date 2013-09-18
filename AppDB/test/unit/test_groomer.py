@@ -66,12 +66,12 @@ class TestGroomer(unittest.TestCase):
   """
   def test_init(self):
     zookeeper = flexmock()
-    dsg = groomer.DatastoreGroomer(zookeeper, "hypertable", "localhost:8888") 
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888") 
 
   def test_get_groomer_lock(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_datastore_groomer_lock").and_return(True)
-    dsg = groomer.DatastoreGroomer(zookeeper, "hypertable", "localhost:8888")
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertEquals(True, dsg.get_groomer_lock())
 
   def test_hard_delete_row(self):
@@ -89,12 +89,12 @@ class TestGroomer(unittest.TestCase):
       get_root_key_from_entity_key("hi/!otherstuff!moar"))
 
   def test_get_prefix_from_entity(self):
-    self.assertEquals("hi/bye", groomer.DatastoreGroomer.\
-      get_prefix_from_entity_key("hi/bye/some/other/stuff"))
+    self.assertEquals("hi\x00bye", groomer.DatastoreGroomer.\
+      get_prefix_from_entity_key("hi\x00bye\x00some\x00other\x00stuff"))
 
     # Test empty namespace (very common).
-    self.assertEquals("hi/", groomer.DatastoreGroomer.\
-      get_prefix_from_entity_key("hi//some/other/stuff"))
+    self.assertEquals("hi\x00", groomer.DatastoreGroomer.\
+      get_prefix_from_entity_key("hi\x00\x00some\x00other\x00stuff"))
 
   def test_run_groomer(self):
     zookeeper = flexmock()

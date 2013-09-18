@@ -8,6 +8,19 @@ require 'logger'
 require 'soap/rpc/driver'
 require 'yaml'
 
+require 'net/http'
+require 'openssl'
+
+class Net::HTTP
+  alias_method :old_initialize, :initialize
+  def initialize(*args)
+    old_initialize(*args)
+    @ssl_context = OpenSSL::SSL::SSLContext.new
+    @ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  end
+end
+
+
 environment = YAML.load_file('/etc/appscale/environment.yaml')
 environment.each { |k,v| ENV[k] = v }
 
@@ -23,7 +36,6 @@ $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'helperfunctions'
 require 'cron_helper'
 require 'haproxy'
-require 'collectd'
 require 'nginx'
 
 
@@ -50,8 +62,12 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "is_done_initializing", "secret")
     add_method(@djinn, "is_done_loading", "secret")
     add_method(@djinn, "get_role_info", "secret")
+    add_method(@djinn, "get_app_info_map", "secret")
+    add_method(@djinn, "relocate_app", "appid", "http_port", "https_port",
+      "secret")
     add_method(@djinn, "kill", "secret")    
-    add_method(@djinn, "set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
+    add_method(@djinn, "set_parameters", "djinn_locations",
+      "database_credentials", "app_names", "secret")
     add_method(@djinn, "set_apps", "app_names", "secret")
     add_method(@djinn, "status", "secret")
     add_method(@djinn, "get_stats", "secret")
@@ -70,6 +86,8 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "add_role", "new_role", "secret")
     add_method(@djinn, "remove_role", "old_role", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
+    add_method(@djinn, "gather_logs", "secret")
+    add_method(@djinn, "run_groomer", "secret")
   end
 end
 
@@ -92,6 +110,10 @@ loop {
   Djinn.log_debug("Waiting on certs")
   sleep(5)
 }
+
+# Before we try to bind, make sure that another AppController hasn't already
+# started another AppController here, and if so, kill it.
+`ps ax | grep djinnServer.rb | grep ruby | grep -v #{Process.pid} | awk '{print $1}' | xargs kill -9`
 
 server = DjinnServer.new(
   :BindAddress => "0.0.0.0",

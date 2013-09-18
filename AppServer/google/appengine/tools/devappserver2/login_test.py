@@ -18,6 +18,7 @@
 
 
 import Cookie
+import sha
 import unittest
 import urllib
 import wsgiref.util
@@ -26,28 +27,39 @@ from google.appengine.tools.devappserver2 import login
 
 # Values used by many tests
 COOKIE_NAME = 'my_fancy_cookie'
+NICKNAME = 'johnny'
 EMAIL = 'johnny@example.com'
 USER_ID = '115914779145204185301'
+SECRET = 'secret'
 
 
 class CookieTest(unittest.TestCase):
   """Tests for the cookie handling functions."""
 
+  def get_cookie_value(self, email, nick, is_admin):
+    if is_admin:
+      app_id = "bazapp"
+    else:
+      app_id = "otherapp"
+
+    hashed_value = sha.new(email + nick + app_id + SECRET).hexdigest()
+    cookie_value = "{0}:{1}:{2}:{3}".format(email, nick, app_id, hashed_value)
+    return cookie_value
+
   def test_get_user_info_admin(self):
     """Tests the get_user_info function when the admin field is True."""
-    cookie_value = '%s:True:%s' % (EMAIL, USER_ID)
+    cookie_value = self.get_cookie_value(EMAIL, NICKNAME, True)
 
     http_cookie = 'one=two; %s=%s; three=four' % (COOKIE_NAME, cookie_value)
-    email, admin, user_id = login.get_user_info(http_cookie,
-                                                cookie_name=COOKIE_NAME)
+    email, admin, _ = login.get_user_info(http_cookie,
+                                          cookie_name=COOKIE_NAME)
 
     self.assertEqual(EMAIL, email)
     self.assertTrue(admin)
-    self.assertEqual(USER_ID, user_id)
 
   def test_get_user_info_not_admin(self):
     """Tests the get_user_info function when the admin field is False."""
-    cookie_value = '%s:False:%s' % (EMAIL, USER_ID)
+    cookie_value = self.get_cookie_value(EMAIL, NICKNAME, False)
 
     http_cookie = 'one=two; %s=%s; three=four' % (COOKIE_NAME, cookie_value)
     email, admin, user_id = login.get_user_info(http_cookie,
@@ -55,10 +67,10 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual(EMAIL, email)
     self.assertFalse(admin)
-    self.assertEqual(USER_ID, user_id)
 
   def test_get_user_info_invalid_email(self):
     """Tests the get_user_info function when the admin field is False."""
+    cookie_value = self.get_cookie_value('foo', NICKNAME, False)
     cookie_value = 'foo:True:%s' % USER_ID
 
     http_cookie = 'one=two; %s=%s; three=four' % (COOKIE_NAME, cookie_value)
@@ -67,7 +79,6 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual('', email)
     self.assertFalse(admin)
-    self.assertEqual('', user_id)
 
   def test_get_user_info_does_not_exist(self):
     """Tests the get_user_info function when the cookie is not present."""
@@ -77,7 +88,6 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual('', email)
     self.assertFalse(admin)
-    self.assertEqual('', user_id)
 
   def test_get_user_info_bad_cookie(self):
     """Tests the get_user_info function when the cookie is malformed."""
@@ -90,11 +100,10 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual('', email)
     self.assertFalse(admin)
-    self.assertEqual('', user_id)
 
   def test_get_user_info_from_dict_admin(self):
     """Tests the get_user_info function when the admin field is True."""
-    cookie_value = '%s:True:%s' % (EMAIL, USER_ID)
+    cookie_value = self.get_cookie_value(EMAIL, NICKNAME, True)
 
     cookie_dict = {'one': 'two', COOKIE_NAME: cookie_value, 'three': 'four'}
     email, admin, user_id = login._get_user_info_from_dict(
@@ -102,11 +111,10 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual(EMAIL, email)
     self.assertTrue(admin)
-    self.assertEqual(USER_ID, user_id)
 
   def test_get_user_info_from_dict_not_admin(self):
     """Tests the get_user_info function when the admin field is False."""
-    cookie_value = '%s:False:%s' % (EMAIL, USER_ID)
+    cookie_value = self.get_cookie_value(EMAIL, NICKNAME, False)
 
     cookie_dict = {'one': 'two', COOKIE_NAME: cookie_value, 'three': 'four'}
     email, admin, user_id = login._get_user_info_from_dict(
@@ -114,7 +122,6 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual(EMAIL, email)
     self.assertFalse(admin)
-    self.assertEqual(USER_ID, user_id)
 
   def test_get_user_info_from_dict_does_not_exist(self):
     """Tests the get_user_info function when the cookie is not present."""
@@ -124,7 +131,6 @@ class CookieTest(unittest.TestCase):
 
     self.assertEqual('', email)
     self.assertFalse(admin)
-    self.assertEqual('', user_id)
 
   def test_set_user_info_cookie(self):
     """Tests the set_user_info_cookie function."""
@@ -183,10 +189,9 @@ class LoginPageTest(unittest.TestCase):
     status, location, set_cookie, content_type = self._run_test(
         host, path_info, cookie_dict, action, set_email, set_admin,
         continue_url)
-    self.assertEqual(200, status)
-    self.assertFalse(location)
+    self.assertEqual(302, status)
     self.assertFalse(set_cookie)
-    self.assertEqual('text/html', content_type)
+    self.assertEqual('text/html; charset=utf-8', content_type)
 
   def test_login(self):
     """Tests when setting the user info with and without continue URL."""
@@ -269,8 +274,7 @@ class LoginPageTest(unittest.TestCase):
     status, location, set_cookie, content_type = self._run_test(
         host, path_info, cookie_dict, action, set_email, set_admin,
         continue_url)
-    self.assertEqual(200, status)
-    self.assertFalse(location)
+    self.assertEqual(302, status)
     self.assertFalse(set_cookie)
     self.assertEqual('text/html; charset=utf-8', content_type)
     self.assertIsInstance(content_type, str)

@@ -4,7 +4,123 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.7.0, released on May 13, 2013.
+The current release is 1.10.0, released on August 28, 2013.
+
+Bugs fixed in this release:
+- Automatically persisting data across AppScale runs in EC2/Eucalyptus if EBS volumes are provided
+- Automatically persisting data across AppScale runs in GCE if PD volumes are provided
+- Automatically persisting data across AppScale runs in VirtualBox
+- AppScale now restarts if machines were halted or powered off
+- Allowing users to specify what availability zone instances are spawned in
+- Serving static files via nginx for Java App Engine apps
+- Simplified autoscaling system
+- Passing over more detailed information about why the AppController crashes when a non-recoverable error ocurrs
+- Improved Java Datastore API fidelity
+- createLogoutURL in Java Users API now redirects users back to the specified URL
+- 'appscale clean' no longer sometimes requires 'force: True' on subsequent 'appscale up's
+- Added support for CAS in Python Memcache API
+- Politely shutting down database to avoid data loss / corruption
+- Enabling tools to take in signed OAuth2 credentials, so that web apps can use the AppScale Tools with GCE
+- Added ability to reset user passwords via the Dashboard
+- Verbose: True in AppScalefile now produces more logging in the AppController automatically
+- Enabling users to import Remote API Shell in their apps
+- Fixed memory leak where apichecker and appscaledashboard apps would endlessly collect logs
+- Fixed Task Queue API to not enqueue tasks with the same name as previously enqueued tasks
+- Tools no longer crash if they can't set the locale
+- Adding keyname and group in AppScalefile is no longer whitespace sensitive
+- AppController no longer crashes if cron.yaml is invalid
+- Updated AppScalefile templates to include new flags
+- No longer serving tar.gz'ed apps in the apps directory, since it could be accidentally served to users in some cases
+- Storing apps in /opt/appscale/apps, so that we persist them across AppScale deployments
+- Specifying toPort and fromPort when authorizing ICMP traffic (to work on Eucalyptus 3.3)
+- 'appscale logs' now works if the AppController has failed
+- Using IP addresses in Eucalyptus deployments instead of DNS names.
+- AppDashboard no longer crashes if the Console page is viewed while an app is loading
+- Added link to App Engine Admin Console on AppDashboard
+- No longer reporting negative requests per second in AppDashboard for apps
+- Stripping leading and trailing whitespace on username when users log into AppDashboard
+- AppDashboard no longer infinitely retries when talking to AppController
+- Create random keyname and group 
+- Link to header in AppDashboard now works again
+- AppController retries requests to AppDashboard that fail b/c of transient errors
+- Updated GCE support to use v1beta15 instead of the now unsupported v1beta14
+- Telling users that appscale clean deletes their data
+- Providing ability to remove nameservers from /etc/resolv.conf to potentially speed up IP resolution
+- appscale deploy yields a more useful error message if users give it something that isn't a directory or .tar.gz file
+- Kind stats in AppDashboard have hover text, to make it more readable when many entities are present
+- AppScale no longer allows apichecker or appscaledashboard to be used as appids by users
+- Removed m2crypto from OS X build script
+- Installing dig on VMs
+- Terminating GCE instances in parallel, instead of in serial
+
+
+AppScale version 1.9.0 was released on July 22, 2013.
+
+Bugs fixed in this release:
+- Autoscaling within machines for Python and Java App Engine apps
+- Autoscaling to new machines for Python and Java App Engine apps
+- Downscaling for Python and Java App Engine apps
+- Updated Cassandra to 1.2.5
+- Java App Engine fixes to improve API fidelity with App Engine
+- AppController shouldn't crash if cron.yaml specifies no jobs
+- AppController logs shouldn't print 'warning: peer certificate' messages
+- Re-uploading same application shouldn't result in duplicate cron jobs
+- Blobstore should parse string entities correctly
+- AppController shouldn't crash if no queues are specified in queue.yaml
+- InfrastructureManager should report when requests fail
+- Add memcache stats to AppDashboard
+- Add flower link on AppDashboard
+- TaskQueue should not report status as failed when it is working fine
+- AppDashboard should show new nodes on status page when upscaling occurs
+- Increased number of concurrent requests to VMs
+- Handling SSH keys more intelligently in GCE
+- Handle Unavailable exceptions better with pycassa
+- Installing wget before it is used in build script
+- AppController shouldn't crash if other AppControllers are down
+- AppDashboard should list instance information for AppServers
+- XMPP receiver should reconnect to ejabberd if it loses its connection
+- Ensure all AppController logging goes to AppDashboard
+- Parsing queue.xml file for Java App Engine apps
+- Added ability to generate kind statistics on demand in AppDashboard
+- IP addresses no longer disappear when window resize occurs in AppDashboard
+- AppController shouldn't crash if it can't find app.yaml or appengine-web.xml
+- Added Java 7 into AppScale image
+
+AppScale version 1.8.0 was released on June 17, 2013.
+
+Bugs fixed in this release:
+- Google Compute Engine support
+- Upgrade Python App Server to support 1.8.0 APIs
+- Upgrade Java App Server to 1.8.0
+- Improved performance of ZooKeeper within AppScale
+- Displaying Kind stats for each app in Dashboard
+- Displaying requests per second for each app in Dashboard
+- Remove MySQL from AppScale images
+- AppScale Tools now writes an informative crash log if an uncaught exception is thrown
+- Fixed Channel API on 1.8.0 Python App Server
+- Apps should be able to specify queues without a rate specified.
+- Use private IPs when storing ZooKeeper locations
+- Fix install script so that 2nd install attempt will pass
+- Pushing tasks to queues that don't exist no longer kill the Task Queue Server
+- Enabling users to specify queue names with dashes in them
+- Java App Server properly checks if user cookies are valid before telling user they are / are not logged in
+- Task queue tasks can be run as admin in Java App Server
+- Fixed regression where app list refresh was broken, and JSON was being printed to status page
+- Added clarification on how to use force flag in AppScalefile
+- Fixed broken continue URLs in Java App Server
+- Better exception handling for ZooKeeper client in AppDB
+- Moved ZooKeeper data to /opt/appscale/zookeeper
+- Moved Cassandra data to /opt/appscale/cassandra
+- Fixed regression where groomer was broken
+- Left aligning logs in Dashboard
+- Properly rendering Dashboard icons
+- AppController now starts successfully even if other failed AppController processes are present
+- Dashboard now handles compressed file uploads with single directory better
+- Removed datastore_writes from API Checker and Dashboard
+- Updated cloud AppScalefile template to tell users how to use it with GCE
+- Printing crash log info more intelligently
+
+AppScale version 1.7.0 was released on May 13, 2013.
 
 Bugs fixed in this release:
 - System-level logging for admin user

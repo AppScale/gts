@@ -2,11 +2,13 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 require 'base64'
-require 'json'
 require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
 require 'helperfunctions'
+
+require 'rubygems'
+require 'json'
 
 # Number of seconds to wait before timing out when doing a SOAP call.
 # This number should be higher than the maximum time required for remote calls
@@ -21,17 +23,12 @@ class AppManagerClient
   # The connection to use and IP to connect to
   attr_reader :conn, :ip
 
-  # Connect to localhost for the AppManager. Outside connections are not 
-  # allowed for security reasons.
-  SERVER_IP = 'localhost'
-
-  # The port that the AppManager binds to
+  # The port that the AppManager binds to, by default.
   SERVER_PORT = 49934
 
   # Initialization function for AppManagerClient
-  #
-  def initialize()
-    @conn = SOAP::RPC::Driver.new("http://#{SERVER_IP}:#{SERVER_PORT}")
+  def initialize(ip)
+    @conn = SOAP::RPC::Driver.new("http://#{ip}:#{SERVER_PORT}")
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
@@ -72,12 +69,14 @@ class AppManagerClient
         retry
       else
         trace = except.backtrace.join("\n")
-        abort("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
+        HelperFunctions.log_and_crash("We saw an unexpected error of the " +
+          "type #{except.class} with the following message:\n#{except}, with" +
+          " trace: #{trace}")
       end 
    rescue Exception => except
       if except.class == Interrupt
         Djinn.log_fatal("Saw an Interrupt exception")
-        abort
+        HelperFunctions.log_and_crash("Saw an Interrupt Exception")
       end
 
       Djinn.log_error("An exception of type #{except.class} was thrown: #{except}.")
@@ -141,7 +140,7 @@ class AppManagerClient
   def stop_app_instance(app_name, port)
     result = ""
     make_call(MAX_TIME_OUT, false, "stop_app_instance") {
-      result = @conn.stop_app(app_name, port)
+      result = @conn.stop_app_instance(app_name, port)
     }
     return result
   end

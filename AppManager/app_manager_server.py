@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import SOAPpy
+import socket
 import subprocess
 import sys
 import time
@@ -23,9 +24,6 @@ import file_io
 import god_app_configuration
 import god_interface 
 import misc 
-
-# IP used for binding AppManager SOAP service
-DEFAULT_IP = '127.0.0.1'
 
 # Most attempts to see if an application server comes up before failing
 MAX_FETCH_ATTEMPTS = 7
@@ -121,10 +119,7 @@ def start_app(config):
   env_vars = config['env_vars']
   watch = "app___" + config['app_name']
  
-  if config['language'] == constants.PYTHON or \
-        config['language'] == constants.PYTHON27 or \
-        config['language'] == constants.GO or \
-        config['language'] == constants.PHP:
+  if config['language'] == constants.PYTHON:
     start_cmd = create_python_start_cmd(config['app_name'],
                             config['load_balancer_ip'],
                             config['app_port'],
@@ -137,6 +132,22 @@ def start_app(config):
     stop_cmd = create_python_stop_cmd(config['app_port'], config['language'])
     env_vars.update(create_python_app_env(config['load_balancer_ip'],
                             config['load_balancer_port'],
+                            config['app_name']))
+  elif config['language'] == constants.PYTHON27 or \
+       config['language'] == constants.GO or \
+       config['language'] == constants.PHP:
+    start_cmd = create_python27_start_cmd(config['app_name'],
+                            config['load_balancer_ip'],
+                            config['app_port'],
+                            config['load_balancer_ip'],
+                            config['load_balancer_port'],
+                            config['xmpp_ip'],
+                            config['dblocations'],
+                            config['language'])
+    logging.info(start_cmd)
+    stop_cmd = create_python27_stop_cmd(config['app_port'], config['language'])
+    env_vars.update(create_python_app_env(config['load_balancer_ip'],
+                            config['load_balancer_port'], 
                             config['app_name']))
   elif config['language'] == constants.JAVA:
     copy_successful = copy_modified_jars(config['app_name'])
@@ -202,7 +213,7 @@ def stop_app_instance(app_name, port):
 
   # hack: God fails to shutdown processes so we do it via a system command
   # TODO: fix it or find an alternative to god
-  pid_file = constants.APP_PID_DIR + app_name + '-' + port
+  pid_file = constants.APP_PID_DIR + app_name + '-' + str(port)
   pid = file_io.read(pid_file)
 
   if str(port).isdigit(): 
@@ -223,7 +234,7 @@ def kill_app_instances_for_app(app_name):
   Returns:
     A list of the process IDs whose instances were terminated.
   """
-  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*')
+  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*.pid')
   pids_killed = []
   for pid_file in pid_files:
     pid = file_io.read(pid_file)
@@ -232,6 +243,8 @@ def kill_app_instances_for_app(app_name):
     else:
       logging.error("Unable to kill app process %s with pid %s" % \
                     (app_name, str(pid)))
+  logging.info("Killed the following processes for app {0}: {1}".format(
+    app_name, ','.join(pids_killed)))
   return pids_killed
 
 def stop_app(app_name):
@@ -290,7 +303,7 @@ def get_pid_from_port(port):
   """ 
   if not str(port).isdigit(): return BAD_PID
 
-  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'}")
+  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'} | head -1")
   pid = s.read().rstrip()
   if pid:
     return int(pid)
@@ -403,7 +416,6 @@ def create_python_start_cmd(app_name,
          "--login_server " + login_ip,
          "--admin_console_server ''",
          "--enable_console",
-         "--nginx_port " + str(load_balancer_port),
          "--nginx_host " + str(load_balancer_host),
          "--require_indexes",
          "--enable_sendmail",
@@ -417,6 +429,52 @@ def create_python_start_cmd(app_name,
                + "/data/app.datastore.history",
          "/var/apps/" + app_name + "/app",
          "-a " + appscale_info.get_private_ip()]
+ 
+  if app_name in TRUSTED_APPS:
+    cmd.extend([TRUSTED_FLAG])
+ 
+  return ' '.join(cmd)
+
+def create_python27_start_cmd(app_name,
+                              login_ip, 
+                              port, 
+                              load_balancer_host, 
+                              load_balancer_port,
+                              xmpp_ip,
+                              db_locations,
+                              py_version):
+  """ Creates the start command to run the python application server.
+  
+  Args:
+    app_name: The name of the application to run
+    login_ip: The public IP
+    port: The local port the application server will bind to
+    load_balancer_host: The host of the load balancer
+    load_balancer_port: The port of the load balancer
+    xmpp_ip: The IP of the XMPP service
+    py_version: The version of python to use
+  Returns:
+    A string of the start command.
+  """
+  db_location = choose_db_location(db_locations)
+  python = choose_python_executable(py_version)
+  cmd = [python,
+         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         "--port " + str(port),
+         "--admin_port " + str(port + 10000),
+         "--cookie_secret " + appscale_info.get_secret(),
+         "--login_server " + login_ip,
+         "--skip_sdk_update_check",
+         "--nginx_host " + str(load_balancer_host),
+         "--require_indexes",
+         "--enable_sendmail",
+         "--xmpp_path " + xmpp_ip,
+         "--uaserver_path " + db_location + ":"\
+               + str(constants.UA_SERVER_PORT),
+         "--datastore_path " + db_location + ":"\
+               + str(constants.DB_SERVER_PORT),
+         "/var/apps/" + app_name + "/app",
+         "--host " + appscale_info.get_private_ip()]
  
   if app_name in TRUSTED_APPS:
     cmd.extend([TRUSTED_FLAG])
@@ -533,6 +591,29 @@ def create_python_stop_cmd(port, py_version):
              "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
   return stop_cmd
 
+def create_python27_stop_cmd(port, py_version):
+  """ This creates the stop command for an application which is 
+  uniquely identified by a port number. Additional portions of the 
+  start command are included to prevent the termination of other 
+  processes. 
+  
+  Args: 
+    port: The port which the application server is running
+    py_version: The python version the app is currently using
+  Returns:
+    A string of the stop command.
+  """
+  python = choose_python_executable(py_version)
+  cmd = [python, 
+         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         "-p " + str(port),
+         "--cookie_secret " + appscale_info.get_secret()]
+  cmd = ' '.join(cmd)
+
+  stop_cmd = "ps aux | grep '" + cmd +\
+             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
+  return stop_cmd
+
 def create_java_stop_cmd(port):
   """ This creates the stop command for an application which is 
   uniquely identified by a port number. Additional portions of the 
@@ -585,7 +666,8 @@ if __name__ == "__main__":
       usage()
       sys.exit()
   
-  server = SOAPpy.SOAPServer((DEFAULT_IP, constants.APP_MANAGER_PORT))
+  internal_ip = socket.gethostbyname(socket.gethostname())
+  server = SOAPpy.SOAPServer((internal_ip, constants.APP_MANAGER_PORT))
  
   server.registerFunction(start_app)
   server.registerFunction(stop_app)

@@ -11,7 +11,6 @@ Architecture: any
 Depends: appscale-tools,
 # App Server/AppScale Server/SOAP Server
  openssl,
- openjdk-6-jdk,
  python2.6, python-yaml,
 # python2.5 is not provided from lucid
  python2.5,
@@ -26,21 +25,16 @@ Depends: appscale-tools,
  ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,
  libopenssl-ruby, libopenssl-ruby1.8, libruby1.8,
  iptables, cron,
- curl, lsof, tcpdump,
- memcached, python-memcache,
+ curl, lsof,
+ memcached,
  socat,
+ dnsutils,
 # nginx 
  libpcre++-dev
 # haproxy
  libpcre3,
-# Monitoring
- collectd, rrdtool,
- sqlite3,
 # Thrift
  libevent-1.4-2,
- libboost-filesystem1.40.0, libboost-serialization1.40.0,
- libboost-thread1.40.0, libboost-program-options1.40.0,
- libboost-iostreams1.40.0, libboost-python1.40.0,
 # ZooKeeper
  liblog4j1.2-java, libjline-java,
 # unknown

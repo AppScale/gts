@@ -5,6 +5,7 @@
 """
 
 import json
+import logging
 import os
 import re
 import sys 
@@ -38,6 +39,10 @@ queue:
 - name: default
   rate: 5/s
 """
+ 
+  # The default rate for a queue if not specified in the queue.yaml. 
+  # In Google App Engine it is unlimited so we use a high rate here.
+  DEFAULT_RATE = "10000/s"
   
   # The application id used for storing queue info.
   APPSCALE_QUEUES = "__appscale_queues__"
@@ -93,6 +98,7 @@ queue:
       broker: The broker to use.
       app_id: Application id.
     """
+    file_io.set_logging_format()
     self._broker = broker
     self._broker_location = self.__broker_location(broker)
     self._app_id = app_id
@@ -111,7 +117,7 @@ queue:
       an empty string if it could not be found.
     """
     queue_yaml = appscale_info.get_app_path(app_id) + 'queue.yaml'
-    queue_xml = appscale_info.get_app_path(app_id) + '/war/queue.xml' 
+    queue_xml = appscale_info.get_app_path(app_id) + '/war/WEB-INF/queue.xml'
     if file_io.exists(queue_yaml):
       return queue_yaml
     elif file_io.exists(queue_xml):
@@ -135,7 +141,10 @@ queue:
     using_default = False
     try:
       info = file_io.read(queue_file)
+      logging.info("Found queue file for app {0}".format(app_id))
     except IOError:
+      logging.info("No queue file found for app {0}, using default queue" \
+        .format(app_id))
       info = self.DEFAULT_QUEUE_YAML
       using_default = True
     queue_info = ""
@@ -153,6 +162,9 @@ queue:
 
     # We add in the default queue if its not already in there.
     has_default = False
+    if 'queue' not in queue_info or len(queue_info['queue']) == 0:
+      queue_info = {'queue' : [{'rate':'5/s', 'name': 'default'}]}
+
     for queue in queue_info['queue']:
       if queue['name'] == 'default':
         has_default = True
@@ -160,6 +172,7 @@ queue:
       queue_info['queue'].append({'rate':'5/s', 'name': 'default'})
 
     self._queue_info_file = queue_info
+    logging.info("AppID {0} -- Loaded queue {1}".format(app_id, queue_info))
     return queue_info 
 
   def parse_queue_xml(self, xml_string):
@@ -174,10 +187,14 @@ queue:
     xml_dict = xmltodict.parse(xml_string)
     # Now we convert it to look the same as the yaml dictionary
     converted = {'queue':[]}
-    for queue in xml_dict['queue-entries']['queue']:
+    if isinstance(xml_dict['queue-entries']['queue'], list):
+      all_queues = xml_dict['queue-entries']['queue']
+    else:
+      all_queues = [xml_dict['queue-entries']['queue']]
+
+    for queue in all_queues:
       single_queue = {}
-      for tag in queue:
-        value = queue[tag]
+      for tag, value in queue.iteritems():
         if tag in self.YAML_TO_XML_TAGS_TO_CONVERT:
           tag = tag.replace('-','_')
         if tag == "retry_parameters":
@@ -193,6 +210,8 @@ queue:
           single_queue[str(tag)] = str(value).strip('\n ')
 
       converted['queue'].append(single_queue)
+
+    logging.debug("XML queue info is {0}".format(converted))
     return converted
 
   def get_file_queue_info(self):
@@ -304,6 +323,8 @@ queue:
     Returns:
       The string representing the function name.
     """
+    # Remove '-' because that character is not valid for a function name.
+    queue_name = queue_name.replace('-', '_')
     return "queue___%s" % queue_name 
 
   @staticmethod
@@ -384,7 +405,10 @@ queue:
          "', Exchange('" + self._app_id + \
          "'), routing_key='" + celery_queue_name  + "'),")
 
-      rate_limit = queue['rate']
+      rate_limit = self.DEFAULT_RATE
+      if 'rate' in queue:
+        rate_limit = queue['rate']
+
       annotation_name = \
         TaskQueueConfig.get_celery_annotation_name(self._app_id,
                                                    queue['name'])

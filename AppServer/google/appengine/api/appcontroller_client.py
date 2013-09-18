@@ -5,8 +5,8 @@
 
 # General-purpose Python library imports
 import json
+import logging
 import re
-import signal
 import socket
 import ssl
 import sys
@@ -122,14 +122,11 @@ class AppControllerClient():
       """
       raise TimeoutException()
 
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(timeout_time)  # trigger alarm in timeout_time seconds
     try:
       retval = function(*args)
     except TimeoutException:
       return default
     except socket.error as exception:
-      signal.alarm(0)  # turn off the alarm before we retry
       if num_retries > 0:
         sys.stderr.write("Saw socket exception {0} when communicating with the " \
           "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
@@ -141,24 +138,19 @@ class AppControllerClient():
       if http_error_is_success:
         return "true"
       else:
-        signal.alarm(0)  # turn off the alarm before we retry
         sys.stderr.write("Saw HTTPError {0} when communicating with the " \
-          "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
-        return self.run_with_timeout(timeout_time, default, num_retries,
-          http_error_is_success, function, *args)
+          "AppController. Message is {1}".format(exception, exception.msg))
+        return default
     except Exception as exception:
       # This 'except' should be catching ssl.SSLError, but that error isn't
       # available when running in the App Engine sandbox.
       # TODO(cgb): App Engine 1.7.7 adds ssl support, so we should be able to
       # fix this when we update our SDK to that version.
-      # Don't decrement our retry count for intermittent errors.
       sys.stderr.write("Saw exception {0} when communicating with the " \
-        "AppController, retrying momentarily.".format(str(exception)))
-      signal.alarm(0)  # turn off the alarm before we retry
-      return self.run_with_timeout(timeout_time, default, num_retries,
-        http_error_is_success, function, *args)
+        "AppController.".format(str(exception)))
+      return default
     finally:
-      signal.alarm(0)  # turn off the alarm
+      pass
 
     if retval == self.BAD_SECRET_MESSAGE:
       raise AppControllerException("Could not authenticate successfully" + \
@@ -199,13 +191,9 @@ class AppControllerClient():
       A list of the public IP addresses of each machine in this AppScale
       deployment.
     """
-    all_ips = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "[]",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.get_all_public_ips, self.secret)
-    if all_ips == "":
-      return []
-    else:
-      return json.loads(all_ips)
+      self.server.get_all_public_ips, self.secret))
 
 
   def get_role_info(self):
@@ -216,54 +204,9 @@ class AppControllerClient():
       A dict that contains the public IP address, private IP address, and a list
       of the API services that each node runs in this AppScale deployment.
     """
-    role_info = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_role_info,
-      self.secret)
-    if role_info == "":
-      return {}
-    else:
-      return json.loads(role_info)
-
-
-  def get_uaserver_host(self, is_verbose):
-    """Queries the AppController to see which machine is hosting the
-    UserAppServer, and at what IP it can be reached.
-
-    Args:
-      is_verbose: A bool that indicates if we should print out the first
-        AppController's status when we query it.
-    Returns:
-      The IP address where a UserAppServer can be located (although it is not
-      guaranteed to be running).
-    """
-    last_known_state = None
-    while True:
-      try:
-        status = self.get_status()
-        sys.stderr.write('Received status from head node: ' + status)
-
-        if status == self.BAD_SECRET_MESSAGE:
-          raise AppControllerException("Could not authenticate successfully" + \
-            " to the AppController. You may need to change the keyname in use.")
-
-        match = re.search(r'Database is at (.*)', status)
-        if match and match.group(1) != 'not-up-yet':
-          return match.group(1)
-        else:
-          match = re.search(r'Current State: (.*)', status)
-          if match:
-            if last_known_state != match.group(1):
-              last_known_state = match.group(1)
-              sys.stderr.write(last_known_state)
-          else:
-            sys.stderr.write("Waiting for AppScale nodes to complete the " + \
-              "initialization process")
-      except AppControllerException as exception:
-        raise exception
-      except Exception as exception:
-        sys.stderr.write('Saw {0}, waiting a few moments to try again' \
-          .format(str(exception)))
-      time.sleep(self.WAIT_TIME)
+      self.secret))
 
 
   def get_status(self):
@@ -293,7 +236,7 @@ class AppControllerClient():
     Returns:
       A dict that maps each API name (a str) to its status (also a str).
     """
-    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_api_status,
       self.secret))
 
@@ -308,7 +251,7 @@ class AppControllerClient():
       'table', for historical reasons) and the replication factor (with the
       key 'replication').
     """
-    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
       self.server.get_database_information, self.secret))
 
@@ -340,7 +283,7 @@ class AppControllerClient():
       A list of dicts, where each dict contains server-level statistics (e.g.,
         CPU, memory, disk usage) about one machine.
     """
-    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "[]",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_stats_json,
       self.secret))
 
@@ -424,3 +367,23 @@ class AppControllerClient():
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.update,
       apps_to_run, self.secret)
+
+
+  def gather_logs(self):
+    """ Tells the AppController to copy logs from all machines to a tar.gz file
+    stored in the AppDashboard's static file directory, so that users can
+    download it.
+    """
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, (False, ""),
+      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.gather_logs,
+      self.secret)
+
+
+  def run_groomer(self):
+    """ Tells the AppController to clean up entities in the Datastore that have
+    been soft deleted, and to generate statistics about the entities still in
+    the Datastore (which can be viewed in the AppDashboard).
+    """
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.run_groomer,
+      self.secret)

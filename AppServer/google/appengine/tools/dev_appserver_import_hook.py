@@ -1036,13 +1036,14 @@ class HardenedModulesHook(object):
 
 
       'signal': [
-          'signal',#added by BDrawert on 2013.03.20
+          'signal',
           'alarm',
           'SIGALRM',
       ],
 
       'ssl': [
       ],
+
   }
 
 
@@ -1348,7 +1349,6 @@ class HardenedModulesHook(object):
       search_path = [None] + sys.path
 
       search_path += ['/usr/local/lib/python2.6/dist-packages/lxml-3.1.0-py2.6-linux-x86_64.egg']
-
 
     py27_optional = False
     py27_enabled = False

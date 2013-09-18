@@ -26,7 +26,10 @@ module TaskQueue
  
   # The port where the TaskQueue server runs on, by default. 
   TASKQUEUE_SERVER_PORT = 64839
-  
+
+  # The port where the Flower server runs on, by default.
+  FLOWER_SERVER_PORT = 5555
+
   # The python executable path.
   PYTHON_EXEC = "/usr/bin/python2.6"
 
@@ -59,16 +62,7 @@ module TaskQueue
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
     self.erase_local_files()
-    # Because god cannot keep track of RabbitMQ because of it's changing 
-    # PIDs, we put in a guard on the start command to not start it if 
-    # its already running.
-    start_cmd = "bash #{RABBITMQ_START_SCRIPT} " +\
-                "#{HelperFunctions.get_secret()}"
-    stop_cmd = "rabbitmqctl stop"
-    env_vars = {}
-    GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
-    # TODO: Investigate why do we run this twice? Once with god and once here.
-    Djinn.log_run("#{start_cmd}")
+    Djinn.log_run("bash #{RABBITMQ_START_SCRIPT} #{HelperFunctions.get_secret()}")
 
     start_taskqueue_server()
     HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
@@ -142,19 +136,18 @@ module TaskQueue
 
   # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
   def self.stop()
-    Djinn.log_run("Shutting down celery workers")
+    Djinn.log_debug("Shutting down celery workers")
     stop_cmd = "python -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
     Djinn.log_run(stop_cmd)
     Djinn.log_debug("Shutting down RabbitMQ")
-    GodInterface.stop(:rabbitmq)
+    Djinn.log_run("rabbitmqctl stop")
     self.stop_taskqueue_server()
   end
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    stop_cmd = TASKQUEUE_STOP_CMD
-    Djinn.log_run(stop_cmd)
+    Djinn.log_run(TASKQUEUE_STOP_CMD)
     GodInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
@@ -177,6 +170,22 @@ module TaskQueue
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
     Djinn.log_run("rm -rf /etc/appscale/celery/")
   end
-    
+
+
+  # Starts the Flower Server on this machine, which provides a web UI to celery
+  # and RabbitMQ. A link to Flower is given in the AppDashboard, for users to
+  # monitor their Task Queue tasks.
+  def self.start_flower()
+    start_cmd = "flower"
+    stop_cmd = "ps ax | grep flower | grep -v grep | awk '{print $1}' | xargs kill -9"
+    GodInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
+  end
+
+
+  # Stops the Flower Server on this machine.
+  def self.stop_flower()
+    GodInterface.stop(:flower)
+  end
+
 
 end

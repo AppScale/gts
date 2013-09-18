@@ -201,7 +201,7 @@ class InfrastructureManager:
     try:
       agent.assert_required_parameters(parameters, BaseAgent.OPERATION_RUN)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, exception.message)
+      return self.__generate_response(False, str(exception))
 
     reservation_id = utils.get_random_alphanumeric()
     status_info = {
@@ -213,11 +213,23 @@ class InfrastructureManager:
     self.reservations.put(reservation_id, status_info)
     utils.log('Generated reservation id {0} for this request.'.format(
       reservation_id))
-    if self.blocking:
-      self.__spawn_vms(agent, num_vms, parameters, reservation_id)
-    else:
-      thread.start_new_thread(self.__spawn_vms,
-        (agent, num_vms, parameters, reservation_id))
+    try:
+      if self.blocking:
+        self.__spawn_vms(agent, num_vms, parameters, reservation_id)
+      else:
+        thread.start_new_thread(self.__spawn_vms,
+          (agent, num_vms, parameters, reservation_id))
+    except AgentConfigurationException as exception:
+      status_info = {
+        'success' : False,
+        'reason' : str(exception),
+        'state' : self.STATE_FAILED,
+        'vm_info' : None
+      }
+      self.reservations.put(reservation_id, status_info)
+      utils.log('Updated reservation id {0} with failed status because: {1}' \
+        .format(reservation_id, str(exception)))
+
     utils.log('Successfully started request {0}.'.format(reservation_id))
     return self.__generate_response(True,
       self.REASON_NONE, {'reservation_id': reservation_id})
@@ -268,13 +280,38 @@ class InfrastructureManager:
       agent.assert_required_parameters(parameters,
         BaseAgent.OPERATION_TERMINATE)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, exception.message)
+      return self.__generate_response(False, str(exception))
 
     if self.blocking:
       self.__kill_vms(agent, parameters)
     else:
       thread.start_new_thread(self.__kill_vms, (agent, parameters))
     return self.__generate_response(True, self.REASON_NONE)
+
+  def attach_disk(self, parameters, disk_name, instance_id, secret):
+    """ Contacts the infrastructure named in 'parameters' and tells it to
+    attach a persistent disk to this machine.
+
+    Args:
+      parameters: A dict containing the credentials necessary to send requests
+        to the underlying cloud infrastructure.
+      disk_name: A str corresponding to the name of the persistent disk that
+        should be attached to this machine.
+      instance_id: A str naming the instance id that the disk should be attached
+        to (typically this machine).
+      secret: A str that authenticates the caller.
+    """
+    parameters, secret = self.__validate_args(parameters, secret)
+
+    if self.secret != secret:
+      return self.__generate_response(False, self.REASON_BAD_SECRET)
+
+    infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
+    agent = self.agent_factory.create_agent(infrastructure)
+    disk_location = agent.attach_disk(parameters, disk_name, instance_id)
+    return self.__generate_response(True, self.REASON_NONE,
+      {'location' : disk_location})
+
 
   def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
     """
@@ -303,7 +340,7 @@ class InfrastructureManager:
       utils.log('Successfully finished request {0}.'.format(reservation_id))
     except AgentRuntimeException as exception:
       status_info['state'] = self.STATE_FAILED
-      status_info['reason'] = exception.message
+      status_info['reason'] = str(exception)
     self.reservations.put(reservation_id, status_info)
 
 
@@ -329,6 +366,7 @@ class InfrastructureManager:
     Returns:
       A dictionary containing the operation response
     """
+    utils.log("Sending success = {0}, reason = {1}".format(status, msg))
     response = {'success': status, 'reason': msg}
     if extra is not None:
       for key, value in extra.items():

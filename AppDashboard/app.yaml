@@ -32,8 +32,12 @@ handlers:
   upload: img/favicon.ico
   mime_type: image/x-icon
 
+- url: /download-logs
+  static_dir: static/download-logs
+
 - url: /.*
   script: dashboard.app
+  secure: always
 
 libraries:
 - name: jinja2

@@ -28,7 +28,7 @@ Class:
 
 
 
-
+import base64
 import os
 import time
 from google.appengine.api import apiproxy_stub
@@ -59,7 +59,8 @@ class ConfigurationError(Error):
 _UPLOAD_SESSION_KIND = '__BlobUploadSession__'
 _GS_INFO_KIND = '__Gs_Info__'
 
-def CreateUploadSession(creation, success_path, user):
+def CreateUploadSession(creation, success_path, user, max_bytes_per_blob,
+  max_bytes_total, bucket_name=None):
   """Create upload session in datastore.
 
   Creates an upload session and puts it in Datastore to be referenced by
@@ -69,19 +70,28 @@ def CreateUploadSession(creation, success_path, user):
     creation: Creation timestamp.
     success_path: Path in users application to call upon success.
     user: User that initiated this upload, if any.
+    max_bytes_per_blob: Maximum number of bytes for any blob in the upload.
+    max_bytes_total: Maximum aggregate bytes for all blobs in the upload.
+    bucket_name: Name of the Google Storage bucket to upload the files.
 
   Returns:
     String encoded key of new Datastore entity.
   """
   entity = datastore.Entity(_UPLOAD_SESSION_KIND, namespace='')
-  path = "http://%s:%s%s" % (os.environ["SERVER_NAME"],
+  path = "http://%s:%s%s" % (os.environ["NGINX_HOST"],
                              os.environ["NGINX_PORT"],
                              success_path)
 
-  entity.update({'creation': creation,
-                 'success_path': path,
+  entity_dict = {'creation': creation,
+                 'success_path': success_path,
                  'user': user,
-                 'state': 'init'})
+                 'state': 'init',
+                 'max_bytes_per_blob': max_bytes_per_blob,
+                 'max_bytes_total': max_bytes_total}
+  if bucket_name:
+    entity_dict['gs_bucket_name'] = bucket_name
+
+  entity.update(entity_dict)
 
   datastore.Put(entity)
   return str(entity.key())
@@ -149,11 +159,14 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
   info is the string encoded version of the session entity
   """
 
+  GS_BLOBKEY_PREFIX = 'encoded_gs_file:'
+
   def __init__(self,
                blob_storage,
                time_function=time.time,
                service_name='blobstore',
-               uploader_path='_ah/upload/'):
+               uploader_path='_ah/upload/',
+               request_data=None):
     """Constructor.
 
     Args:
@@ -162,8 +175,11 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       service_name: Service name expected for all calls.
       uploader_path: Path to upload handler pointed to by URLs generated
         by this service stub.
+      request_data: A apiproxy_stub.RequestData instance used to look up state
+              associated with the request that generated an API call.
     """
-    super(BlobstoreServiceStub, self).__init__(service_name)
+    super(BlobstoreServiceStub, self).__init__(service_name,
+                                               request_data=request_data)
     self.__storage = blob_storage
     self.__time_function = time_function
     self.__next_session_id = 1
@@ -196,19 +212,27 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     except KeyError:
       raise ConfigurationError('%s is not set in environment.' % name)
 
-  def _CreateSession(self, success_path, user):
+  def _CreateSession(self, success_path, user, max_bytes_per_blob=None,
+    max_bytes_total=None, bucket_name=None):
     """Create new upload session.
 
     Args:
       success_path: Application path to call upon successful POST.
       user: User that initiated the upload session.
+      max_bytes_per_blob: Maximum number of bytes for any blob in the upload.
+      max_bytes_total: Maximum aggregate bytes for all blobs in the upload.
+      bucket_name: The name of the Cloud Storage bucket where the files will be
+        uploaded.
 
     Returns:
       String encoded key of a new upload session created in the datastore.
     """
     return CreateUploadSession(self.__time_function(),
                                success_path,
-                               user)
+                               user,
+                               max_bytes_per_blob,
+                               max_bytes_total,
+                               bucket_name)
 
   def _Dynamic_CreateUploadURL(self, request, response):
     """Create upload URL implementation.
@@ -221,8 +245,24 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       request: A fully initialized CreateUploadURLRequest instance.
       response: A CreateUploadURLResponse instance.
     """
+    max_bytes_per_blob = None
+    max_bytes_total = None
+    bucket_name = None
+
+    if request.has_max_upload_size_per_blob_bytes():
+      max_bytes_per_blob = request.max_upload_size_per_blob_bytes()
+
+    if request.has_max_upload_size_bytes():
+      max_bytes_total = request.max_upload_size_bytes()
+
+    if request.has_gs_bucket_name():
+      bucket_name = request.gs_bucket_name()
+
     session = self._CreateSession(request.success_path(),
-                                  users.get_current_user())
+                                  users.get_current_user(),
+                                  max_bytes_per_blob,
+                                  max_bytes_total,
+                                  bucket_name)
     response.set_url('http://%s:%s/%s%s/%s' % (self._GetEnviron('NGINX_HOST'),
                                             BLOB_PORT,
                                             self.__uploader_path,
@@ -330,6 +370,67 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
 
     self.__block_cache = block["block"]
     self.__block_key_cache = str(block_key)
-    data.append(self.__block_cache[0, fetch_size - data_size])
+    data += self.__block_cache[0: fetch_size - data_size]
     response.set_data(data)
- 
+
+  def _Dynamic_DecodeBlobKey(self, request, response, unused_request_id):
+    """Decode a given blob key: data is simply base64-decoded.
+
+    Args:
+      request: A fully-initialized DecodeBlobKeyRequest instance
+      response: A DecodeBlobKeyResponse instance.
+    """
+    for blob_key in request.blob_key_list():
+      response.add_decoded(blob_key.decode('base64'))
+
+  @classmethod
+  def CreateEncodedGoogleStorageKey(cls, filename):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Note this encoding is easily reversible and is not encryption.
+
+    Args:
+      filename: gs filename of form '/gs/bucket/filename'
+
+    Returns:
+      blobkey string of encoded filename.
+    """
+    return cls.GS_BLOBKEY_PREFIX + base64.urlsafe_b64encode(filename)
+
+  def _Dynamic_CreateEncodedGoogleStorageKey(self, request, response):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Args:
+      request: A fully-initialized CreateEncodedGoogleStorageKeyRequest
+        instance.
+      response: A CreateEncodedGoogleStorageKeyResponse instance.
+    """
+    response.set_blob_key(
+        self.CreateEncodedGoogleStorageKey(request.filename()))
+
+  def CreateBlob(self, blob_key, content):
+    """Create new blob and put in storage and Datastore.
+
+    This is useful in testing where you have access to the stub.
+
+    Args:
+      blob_key: String blob-key of new blob.
+      content: Content of new blob as a string.
+
+    Returns:
+      New Datastore entity without blob meta-data fields.
+    """
+    entity = datastore.Entity(blobstore.BLOB_INFO_KIND,
+                              name=blob_key, namespace='')
+    entity['size'] = len(content)
+    datastore.Put(entity)
+    self.storage.CreateBlob(blob_key, content)
+    return entity

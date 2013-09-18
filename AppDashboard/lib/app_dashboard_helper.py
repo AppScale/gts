@@ -11,16 +11,16 @@ import tempfile
 import urllib
 
 
-import SOAPpy
-
-
+from google.appengine.api import SOAPpy
 from google.appengine.api.appcontroller_client import AppControllerClient
+from google.appengine.api import users
+
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
 from local_host import MY_PUBLIC_IP
+from uaserver_host import UA_SERVER_IP
 
 
-from google.appengine.api import users
 
 
 class AppHelperException(Exception):
@@ -168,9 +168,7 @@ class AppDashboardHelper():
       An SOAPpy object, representing a connection to the UserAppServer.
     """
     if self.uaserver is None:
-      acc = self.get_appcontroller_client()
-      uaserver_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(uaserver_host,
+      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(UA_SERVER_IP,
         self.UA_SERVER_PORT))
     return self.uaserver
 
@@ -848,3 +846,68 @@ class AppDashboardHelper():
       logging.exception(err)
       return False
     return True
+
+
+  def gather_logs(self):
+    """ Tells the AppController on this node to collect all log files we've
+    accumulated so far in this AppScale deployment.
+
+    Returns:
+      A tuple containing two items. The first item is a bool that indicates if
+        we were able to tell the AppController to gather the logs successfully,
+        and the second item is a str that refers to the unique id that the logs'
+        status can be queried at via REST, and can be used to construct a URL to
+        download the logs once they are ready to download.
+    """
+    try:
+      acc = self.get_appcontroller_client()
+      uuid = acc.gather_logs()
+      return True, uuid
+    except Exception as err:
+      logging.exception(err)
+      return False, ""
+
+
+  def run_groomer(self):
+    """ Tells the AppController on this node to contact the machine running the
+    Datastore on it, and instruct it to generate Kind statistics, for later
+    viewing in the AppDashboard.
+
+    Returns:
+      'OK' if the request was successful, and in case of failures, the reason
+      why the failure occurred.
+    """
+    try:
+      acc = self.get_appcontroller_client()
+      return acc.run_groomer()
+    except Exception as err:
+      logging.exception(err)
+      return str(err)
+
+
+  def change_password(self, email, password):
+    """ Instructs the UserAppServer to set the given user's password to the
+    given value.
+
+    Args:
+      email: A string indicating the email address of the user whose password
+        should be reset.
+      password: A string containing the cleartext password that should be set for
+        the given user.
+    Returns:
+      A tuple containing a boolean and string. The boolean indicates whether the
+      password reset was successful and the string indicates the reason why in
+      the case of failure.
+    """
+    hashed_password = hashlib.sha1(email + password).hexdigest()
+
+    try:
+      user_app_server = self.get_uaserver()
+      ret = user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
+      if ret == "true":
+        return True, "The user password was successfully changed."
+      else:
+        return False, ret
+    except Exception as err:
+      logging.exception(err)
+      raise False, "There was an error changing the user password."
