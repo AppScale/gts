@@ -420,7 +420,6 @@ def create_python_start_cmd(app_name,
          "--require_indexes",
          "--enable_sendmail",
          "--xmpp_path " + xmpp_ip,
-         "--php_executable_path=" + str(PHP_CGI_LOCATION),
          "--uaserver_path " + db_location + ":"\
                + str(constants.UA_SERVER_PORT),
          "--datastore_path " + db_location + ":"\
@@ -469,6 +468,7 @@ def create_python27_start_cmd(app_name,
          "--require_indexes",
          "--enable_sendmail",
          "--xmpp_path " + xmpp_ip,
+         "--php_executable_path=" + str(PHP_CGI_LOCATION),
          "--uaserver_path " + db_location + ":"\
                + str(constants.UA_SERVER_PORT),
          "--datastore_path " + db_location + ":"\
