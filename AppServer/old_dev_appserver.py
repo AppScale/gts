@@ -93,14 +93,14 @@ EXTRA_PATHS = [
   os.path.join(DIR_PATH, 'lib', 'webapp2-2.5.2'),
   os.path.join(DIR_PATH, 'lib', 'yaml', 'lib'),
   os.path.join(DIR_PATH, 'lib', 'simplejson'),
-  '/usr/lib/python2.6/dist-packages/',
+  '/usr/lib/python2.7/dist-packages/',
   '/usr/share/pyshared',
   '/usr/local/lib/python2.7/site-packages',
-  glob.glob('/usr/local/lib/python2.6/dist-packages/xmpppy-*-py2.6.egg')[0],
-  '/usr/lib/pymodules/python2.6/',
-  glob.glob('/usr/local/lib/python2.6/dist-packages/termcolor-*-py2.6.egg')[0],
-  glob.glob('/usr/local/lib/python2.6/dist-packages/lxml-*-py2.6-linux-x86_64.egg')[0],
-  glob.glob('/usr/local/lib/python2.6/dist-packages/python_memcached-*-py2.6.egg')[0]
+  glob.glob('/usr/local/lib/python2.7/dist-packages/xmpppy-*.egg')[0],
+  '/usr/lib/pymodules/python2.7/',
+  glob.glob('/usr/local/lib/python2.7/dist-packages/termcolor-*.egg')[0],
+  glob.glob('/usr/local/lib/python2.7/dist-packages/lxml-*-linux-x86_64.egg')[0],
+  glob.glob('/usr/local/lib/python2.7/dist-packages/python_memcached-*.egg')[0]
 ]
 
 API_SERVER_EXTRA_PATHS = [

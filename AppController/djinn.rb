@@ -279,7 +279,7 @@ class Djinn
 
   # The location where we can find the Python 2.7 executable, included because
   # it is not the default version of Python installed on AppScale VMs.
-  PYTHON27 = "/usr/local/Python-2.7.3/python"
+  PYTHON27 = "python"
 
 
   # The message that we display to the user if they call a SOAP-accessible
@@ -1345,7 +1345,7 @@ class Djinn
       return
     end
 
-    start_cmd = "python2.6 #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
@@ -2986,7 +2986,7 @@ class Djinn
     retries = 10
     loop {
       Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
-        "LOCAL_DB_IP='localhost' python2.6 #{prime_script} " +
+        "LOCAL_DB_IP='localhost' python #{prime_script} " +
         "#{@creds['replication']}; echo $? > /tmp/retval")
       retval = `cat /tmp/retval`.to_i
       return if retval.zero?
@@ -3060,7 +3060,7 @@ class Djinn
   def start_app_manager_server
     @state = "Starting up AppManager"
     env_vars = {}
-    start_cmd = ["/usr/bin/python2.6 #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
+    start_cmd = ["python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
     stop_cmd = "pkill -9 app_manager_server"
     port = [AppManagerClient::SERVER_PORT]
     GodInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
@@ -3088,7 +3088,7 @@ class Djinn
       env_vars['SIMPLEDB_SECRET_KEY'] = @creds['SIMPLEDB_SECRET_KEY']
     end
 
-    start_cmd = ["/usr/bin/python2.6 #{APPSCALE_HOME}/AppDB/soap_server.py",
+    start_cmd = ["python #{APPSCALE_HOME}/AppDB/soap_server.py",
             "-t #{table} -s #{HelperFunctions.get_secret}"].join(' ')
     stop_cmd = "pkill -9 soap_server"
     port = [4343]

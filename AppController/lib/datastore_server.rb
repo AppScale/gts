@@ -52,7 +52,7 @@ module DatastoreServer
     }
   
     ports.each { |port|
-      start_cmd = "/usr/bin/python2.6 #{datastore_server} -p #{port} " +
+      start_cmd = "python #{datastore_server} -p #{port} " +
           "--no_encryption --type #{table} -z \'#{zklocations}\' "
       # stop command doesn't work, relies on terminate.rb
       stop_cmd = "pkill -9 datastore_server"
