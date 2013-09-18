@@ -9,7 +9,7 @@
 module AppDashboard
 
 
-  SERVER_PORTS = [8000, 8001, 8002]
+  SERVER_PORTS = [8000]
 
 
   # The port which nginx will use to send requests to haproxy
