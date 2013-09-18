@@ -56,6 +56,9 @@ LOGIN_ACTION = 'login'
 # Name of the cookie that stores the user info.
 _COOKIE_NAME = 'dev_appserver_login'
 
+# The port that the AppDashboard serves HTTPS traffic on.
+DASHBOARD_HTTPS_PORT = "1443"
+
 
 def get_user_info(http_cookie, cookie_name=_COOKIE_NAME):
   """Gets the requestor's user info from an HTTP Cookie header.
@@ -253,17 +256,11 @@ def login_redirect(application_url, continue_url, start_response):
   Returns:
     An (empty) iterable over strings containing the body of the HTTP response.
   """
-  if not application_url.endswith('/'):
-    application_url += '/'
-
   hostname = os.environ['NGINX_HOST']
-  port = os.environ['NGINX_PORT']
-  dest_url = "http://%s:%s%s" % (hostname, port, continue_url)
-  redirect_url = 'http://%s:%s%s?%s=%s' % (hostname,
-                                           port,
-                                           application_url,
+  redirect_url = 'https://%s:%s/login?%s=%s' % (hostname,
+                                           DASHBOARD_HTTPS_PORT,
                                            CONTINUE_PARAM,
-                                           urllib.quote(dest_url))
+                                           urllib.quote(continue_url))
 
   start_response('302 Requires login',
                  [('Location', redirect_url)])
@@ -300,8 +297,8 @@ class Handler(webapp2.RequestHandler):
     else:
       # Send the user to the AppDashboard to log in before letting them view the
       # specified URL.
-      appscale_login_url = "https://{0}:1443/login".format(
-        os.environ['NGINX_HOST'])
+      appscale_login_url = "https://{0}:{1}/login".format(
+        os.environ['NGINX_HOST'], DASHBOARD_HTTPS_PORT)
       redirect_url = '{0}?{1}={2}'.format(appscale_login_url, CONTINUE_PARAM,
         continue_url)
       self.response.status = 302

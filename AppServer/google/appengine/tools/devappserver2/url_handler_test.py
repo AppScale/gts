@@ -84,7 +84,7 @@ class TestAuthorization(wsgi_test_utils.WSGITestCase):
 
     expected_status = '302 Requires login'
     expected_location = (
-        'http://localhost:8080/_ah/login?continue=http%3A//localhost%3A8080'
+        'https://localhost:1443/login?continue=http%3A//localhost%3A8080'
         '/my/album/of/pictures%3Fwith%3Dsome%26query%3Dparameters')
     expected_headers = {'Location': expected_location}
 
@@ -137,7 +137,7 @@ class TestAuthorization(wsgi_test_utils.WSGITestCase):
 
     expected_status = '302 Requires login'
     expected_location = (
-        'http://localhost:8080/_ah/login?continue=http%3A//localhost%3A8080'
+        'https://localhost:1443/login?continue=http%3A//localhost%3A8080'
         '/my/album/of/pictures%3Fwith%3Dsome%26query%3Dparameters')
     expected_headers = {'Location': expected_location}
 
@@ -194,7 +194,7 @@ class TestAuthorization(wsgi_test_utils.WSGITestCase):
 
     expected_status = '302 Requires login'
     expected_location = (
-        'http://localhost:8080/_ah/login?continue=http%3A//localhost%3A8080'
+        'https://localhost:1443/login?continue=http%3A//localhost%3A8080'
         '/my/album/of/pictures%3Fwith%3Dsome%26query%3Dparameters')
     expected_headers = {'Location': expected_location}
 
