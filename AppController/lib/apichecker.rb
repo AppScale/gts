@@ -90,7 +90,7 @@ class ApiChecker
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
 
     Djinn.log_info("Starting #{app_language} app #{app}")
-    [19997, 19998, 19999].each { |port|
+    [19999].each { |port|
       Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
       pid = app_manager.start_app(app, port, uaserver_ip, 
                                   SERVER_PORT, app_language, login_ip,
