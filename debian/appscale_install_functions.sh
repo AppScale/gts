@@ -69,18 +69,6 @@ installnumpy()
     rm -fr numpy-1.7.0
 }
 
-installPIL()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/Imaging-1.1.7.tar.gz
-    tar zxvf Imaging-1.1.7.tar.gz
-    cd Imaging-1.1.7
-    python setup.py install
-    cd ..
-    rm -fr Imaging-1.1.7*
-}
-
 installpycrypto()
 {
     cd ${APPSCALE_HOME}/downloads

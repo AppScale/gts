@@ -68,9 +68,12 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
   def setupMemcacheClient(self):
     """ Sets up the memcache client. """
-    memcache_file = open(self.APPSCALE_MEMCACHE_FILE, "r")
-    all_ips = memcache_file.read().split("\n")
-    memcache_file.close()
+    if os.path.exists(self.APPSCALE_MEMCACHE_FILE):
+      memcache_file = open(self.APPSCALE_MEMCACHE_FILE, "r")
+      all_ips = memcache_file.read().split("\n")
+      memcache_file.close()
+    else:
+      all_ips = ['localhost']
 
     memcaches = [ip + ":" + self.MEMCACHE_PORT for ip in all_ips if ip != '']
     memcaches.sort()    
@@ -285,7 +288,10 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     stats.set_items(items_total)
     stats.set_bytes(bytes_total)
    
-    stats.set_oldest_item_age(time.time() - time_total / num_servers)
+    # With the Python 2.7 GAE runtime, it expects all fields here to be ints.
+    # Python 2.5 was fine with this being a float, so callers in that runtime
+    # may not be expecting an int.
+    stats.set_oldest_item_age(int(time.time() - time_total / num_servers))
    
   def _GetKey(self, namespace, key):
     """Used to get the Memcache key. It is encoded because the sdk

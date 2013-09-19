@@ -63,6 +63,11 @@ class RequestHandler(object):
         'SERVER_SOFTWARE': http_runtime_constants.SERVER_SOFTWARE,
         'TZ': 'UTC',
         'wsgi.multithread': config.threadsafe,
+
+        # AppScale-specific environment variables
+        # Used by the Logs API to send logs to the AppDashboard
+        'MY_IP_ADDRESS' : os.environ['MY_IP_ADDRESS'],
+        'NGINX_HOST' : os.environ['NGINX_HOST'],
         }
     self._command_globals = {}  # Use to evaluate interactive requests.
     self.environ_template.update((env.key, env.value) for env in config.environ)

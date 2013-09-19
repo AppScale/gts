@@ -123,6 +123,14 @@ def main():
                                                       str(e),
                                                       traceback.format_exc())
 
+  my_ip_address = None
+  with open('/etc/appscale/my_public_ip') as file_handle:
+    my_ip_address = file_handle.read()
+
+  nginx_host = None
+  with open('/etc/appscale/login_ip') as file_handle:
+    nginx_host = file_handle.read()
+
   if debugging_app:
     server = wsgi_server.WsgiServer(
         ('localhost', 0),
@@ -134,6 +142,8 @@ def main():
     # implementation imports the sandboxed version of the logging module.
     from google.appengine.tools.devappserver2.python import request_handler
 
+    os.environ['MY_IP_ADDRESS'] = my_ip_address
+    os.environ['NGINX_HOST'] = nginx_host
     server = wsgi_server.WsgiServer(
         ('localhost', 0),
         request_rewriter.runtime_rewriter_middleware(
