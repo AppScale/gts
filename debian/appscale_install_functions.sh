@@ -69,6 +69,12 @@ installnumpy()
     rm -fr numpy-1.7.0
 }
 
+installPIL()
+{
+    pip uninstall -y PIL
+    pip install -y pillow
+}
+
 installpycrypto()
 {
     cd ${APPSCALE_HOME}/downloads

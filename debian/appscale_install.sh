@@ -24,6 +24,7 @@ case "$1" in
 	installnginx
 	postinstallnginx
         installnumpy
+        installPIL
         installpythonmemcache
         installpycrypto
         installlxml
@@ -83,6 +84,7 @@ case "$1" in
 	installnginx
 	postinstallnginx
         installnumpy
+        installPIL
         installpythonmemcache
         installpycrypto
         installlxml
