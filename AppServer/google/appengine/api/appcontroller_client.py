@@ -149,8 +149,6 @@ class AppControllerClient():
       sys.stderr.write("Saw exception {0} when communicating with the " \
         "AppController.".format(str(exception)))
       return default
-    finally:
-      pass
 
     if retval == self.BAD_SECRET_MESSAGE:
       raise AppControllerException("Could not authenticate successfully" + \

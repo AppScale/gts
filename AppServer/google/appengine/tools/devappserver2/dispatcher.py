@@ -582,9 +582,6 @@ class Dispatcher(request_info.Dispatcher):
       return self._get_server(prefix, None), None
 
     else:
-      # TODO(cgb): This looks like it forwards all requests to the main server,
-      # avoiding the API server and the admin server. Investigate this further
-      # before merging this in.
       port = int(os.environ['MY_PORT'])
       try:
         servr, inst = self._port_registry.get(port)
