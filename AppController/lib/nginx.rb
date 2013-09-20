@@ -205,6 +205,7 @@ server {
     ssl_certificate_key /usr/local/nginx/conf/mykey.pem;
 
     #If they come here using HTTP, bounce them to the correct scheme
+    error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
  
     #root /var/apps/#{app_name}/app;
@@ -606,6 +607,7 @@ server {
     chunkin on;
  
     #If they come here using HTTP, bounce them to the correct scheme
+    error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
     error_page 411 = @my_411_error;
