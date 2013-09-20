@@ -571,7 +571,7 @@ def create_python_stop_cmd(port, py_version):
   processes. 
   
   Args: 
-    port: The port which the application server is running
+    port: The port which the application server is running.
     py_version: The python version the app is currently using
   Returns:
     A string of the stop command.
