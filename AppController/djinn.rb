@@ -1556,8 +1556,9 @@ class Djinn
     begin
       new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, disks)
     rescue AppScaleException => exception
-      HelperFunctions.log_and_crash("Couldn't spawn #{num_of_vms} VMs with " +
-        "roles #{roles} because: #{exception.message}")
+      Djinn.log_error("Couldn't spawn #{num_of_vms} VMs with roles #{roles} " +
+        "because: #{exception.message}")
+      return []
     end
 
     # initialize them and wait for them to start up
@@ -1684,8 +1685,9 @@ class Djinn
         begin
           new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", disks)
         rescue AppScaleException => exception
-          HelperFunctions.log_and_crash("Couldn't spawn #{vms_to_spawn} VMs " +
-            "with roles open because: #{exception.message}")
+          Djinn.log_error("Couldn't spawn #{vms_to_spawn} VMs with roles " +
+            "open because: #{exception.message}")
+          return exception.message
         end
 
 
