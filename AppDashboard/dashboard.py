@@ -853,9 +853,10 @@ class AppConsolePage(AppDashboard):
 
   def get(self):
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_owned_apps()
-    if (not is_cloud_admin) and (not apps_user_is_admin_on):
-      self.redirect("/")
+    if is_cloud_admin:
+      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+    else:
+      apps_user_is_admin_on = self.helper.get_owned_apps()
 
     self.render_page(page='console', template_file=self.TEMPLATE, values = {
       'all_apps_this_user_owns' : apps_user_is_admin_on
@@ -1050,8 +1051,13 @@ class StatsPage(AppDashboard):
     # Only let the cloud admin and users who own this app see this page.
     app_id = self.request.get('appid')
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_owned_apps()
-    if (not is_cloud_admin) and (not apps_user_is_admin_on):
+
+    if is_cloud_admin:
+      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+    else:
+      apps_user_is_admin_on = self.helper.get_owned_apps()
+
+    if (not apps_user_is_admin_on):
       self.redirect('/', self.response)
 
     if app_id not in apps_user_is_admin_on:
