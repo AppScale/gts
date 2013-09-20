@@ -432,6 +432,33 @@ def create_command_line_parser():
       help='skip checking for SDK updates (if false, use .appcfg_nag to '
       'decide)')
 
+  # AppScale
+  appscale_group = parser.add_argument_group('AppScale')
+  appscale_group.add_argument(
+    '--cookie_secret',
+    help='a str that is used to authenticate SOAP requests to AppScale '
+    'services.')
+  appscale_group.add_argument(
+    '--login_server',
+    help='the FQDN or IP address where users should be redirected to when the '
+    'app needs them to log in on a given URL.')
+  appscale_group.add_argument(
+    '--nginx_host',
+    help='the FQDN or IP address where Task Queue tasks should sent to, so '
+    'that they are evenly distributed amongst AppServers.')
+  appscale_group.add_argument(
+    '--xmpp_path',
+    help='the FQDN or IP address where ejabberd is running, so that we know '
+    'where XMPP connections should be made to.')
+  appscale_group.add_argument(
+    '--uaserver_path',
+    help='the FQDN or IP address where the UserAppServer runs.')
+  appscale_group.add_argument(
+    '--trusted',
+    action=boolean_action.BooleanAction,
+    const=True,
+    default=False,
+    help='if this application can read data stored by other applications.')
 
   return parser
 
@@ -483,6 +510,14 @@ def _setup_environ(app_id):
     app_id: The id of the application.
   """
   os.environ['APPLICATION_ID'] = app_id
+
+  # In AppScale, we need to know what port nginx binds to when sending traffic
+  # to this app. Since we need to know the appid to know what port we're on,
+  # this is a good place to set that value.
+  filename = "/etc/appscale/port-{0}.txt".format(app_id)
+  with open(filename) as file_handle:
+    port = file_handle.read()
+    os.environ['NGINX_PORT'] = port
 
 
 class DevelopmentServer(object):
@@ -643,8 +678,10 @@ class DevelopmentServer(object):
         search_index_path=search_index_path,
         taskqueue_auto_run_tasks=options.enable_task_running,
         taskqueue_default_http_server=application_address,
+        uaserver_path=options.uaserver_path,
         user_login_url=user_login_url,
-        user_logout_url=user_logout_url)
+        user_logout_url=user_logout_url,
+        xmpp_path=options.xmpp_path)
 
     # The APIServer must bind to localhost because that is what the runtime
     # instances talk to.
@@ -677,6 +714,10 @@ def main():
     # time.tzet() should be called on Unix, but doesn't exist on Windows.
     time.tzset()
   options = PARSER.parse_args()
+  os.environ['MY_IP_ADDRESS'] = options.host
+  os.environ['MY_PORT'] = str(options.port)
+  os.environ['COOKIE_SECRET'] = options.cookie_secret
+  os.environ['NGINX_HOST'] = options.nginx_host
   dev_server = DevelopmentServer()
   try:
     dev_server.start(options)

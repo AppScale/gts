@@ -34,7 +34,7 @@ from google.appengine.api.channel import channel_service_stub
 CHANNEL_URL_PATTERN = '_ah/channel/(?:jsapi|dev)'
 
 _JSAPI_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                           'dev-channel-js.js')
+                           'appscale-channel-js-min.js')
 
 # These error statuses (including the message) are explicitly mandated in the
 # Channel JavaScript documentation.

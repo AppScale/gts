@@ -34,7 +34,7 @@ from google.appengine.tools.devappserver2 import http_runtime_constants
 from google.appengine.tools.devappserver2 import thread_executor
 
 
-_HAS_POLL = hasattr(select, 'poll')
+_HAS_POLL = False
 
 _PORT_0_RETRIES = 5
 

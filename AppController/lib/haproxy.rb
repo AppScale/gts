@@ -153,8 +153,10 @@ module HAProxy
   # that are thread safe will have a higher connection limit. 
   def self.server_config app_name, index, ip, port
     if HelperFunctions.get_app_thread_safe(app_name)
+      Djinn.log_debug("[#{app_name}] Writing Threadsafe HAProxy config")
       return "  server #{app_name}-#{index} #{ip}:#{port} #{THREADED_SERVER_OPTIONS}"
     else
+      Djinn.log_debug("[#{app_name}] Writing Non-Threadsafe HAProxy config")
       return "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
     end
   end

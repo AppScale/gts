@@ -28,7 +28,7 @@ Class:
 
 
 
-
+import base64
 import os
 import time
 from google.appengine.api import apiproxy_stub
@@ -74,7 +74,7 @@ def CreateUploadSession(creation, success_path, user):
     String encoded key of new Datastore entity.
   """
   entity = datastore.Entity(_UPLOAD_SESSION_KIND, namespace='')
-  path = "http://%s:%s%s" % (os.environ["SERVER_NAME"],
+  path = "http://%s:%s%s" % (os.environ["NGINX_HOST"],
                              os.environ["NGINX_PORT"],
                              success_path)
 
@@ -149,11 +149,14 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
   info is the string encoded version of the session entity
   """
 
+  GS_BLOBKEY_PREFIX = 'encoded_gs_file:'
+
   def __init__(self,
                blob_storage,
                time_function=time.time,
                service_name='blobstore',
-               uploader_path='_ah/upload/'):
+               uploader_path='_ah/upload/',
+               request_data=None):
     """Constructor.
 
     Args:
@@ -162,8 +165,11 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       service_name: Service name expected for all calls.
       uploader_path: Path to upload handler pointed to by URLs generated
         by this service stub.
+      request_data: A apiproxy_stub.RequestData instance used to look up state
+              associated with the request that generated an API call.
     """
-    super(BlobstoreServiceStub, self).__init__(service_name)
+    super(BlobstoreServiceStub, self).__init__(service_name,
+                                               request_data=request_data)
     self.__storage = blob_storage
     self.__time_function = time_function
     self.__next_session_id = 1
@@ -332,4 +338,65 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__block_key_cache = str(block_key)
     data += self.__block_cache[0: fetch_size - data_size]
     response.set_data(data)
- 
+
+  def _Dynamic_DecodeBlobKey(self, request, response, unused_request_id):
+    """Decode a given blob key: data is simply base64-decoded.
+
+    Args:
+      request: A fully-initialized DecodeBlobKeyRequest instance
+      response: A DecodeBlobKeyResponse instance.
+    """
+    for blob_key in request.blob_key_list():
+      response.add_decoded(blob_key.decode('base64'))
+
+  @classmethod
+  def CreateEncodedGoogleStorageKey(cls, filename):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Note this encoding is easily reversible and is not encryption.
+
+    Args:
+      filename: gs filename of form '/gs/bucket/filename'
+
+    Returns:
+      blobkey string of encoded filename.
+    """
+    return cls.GS_BLOBKEY_PREFIX + base64.urlsafe_b64encode(filename)
+
+  def _Dynamic_CreateEncodedGoogleStorageKey(self, request, response):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Args:
+      request: A fully-initialized CreateEncodedGoogleStorageKeyRequest
+        instance.
+      response: A CreateEncodedGoogleStorageKeyResponse instance.
+    """
+    response.set_blob_key(
+        self.CreateEncodedGoogleStorageKey(request.filename()))
+
+  def CreateBlob(self, blob_key, content):
+    """Create new blob and put in storage and Datastore.
+
+    This is useful in testing where you have access to the stub.
+
+    Args:
+      blob_key: String blob-key of new blob.
+      content: Content of new blob as a string.
+
+    Returns:
+      New Datastore entity without blob meta-data fields.
+    """
+    entity = datastore.Entity(blobstore.BLOB_INFO_KIND,
+                              name=blob_key, namespace='')
+    entity['size'] = len(content)
+    datastore.Put(entity)
+    self.storage.CreateBlob(blob_key, content)
+    return entity

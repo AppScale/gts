@@ -152,10 +152,8 @@ def LoginRedirect(login_url,
     relative_url: String containing the URL accessed.
     outfile: File-like object to which the response should be written.
   """
-  NGINX_HOST = os.environ['NGINX_HOST']
-  NGINX_PORT = os.environ['NGINX_PORT']
-  hostname = NGINX_HOST
-  port = NGINX_PORT
+  hostname = os.environ['NGINX_HOST']
+  port = os.environ['NGINX_PORT']
   dest_url = "http://%s:%s%s" % (hostname, port, relative_url)
   redirect_url = 'http://%s:%s%s?%s=%s' % (hostname,
                                            port,

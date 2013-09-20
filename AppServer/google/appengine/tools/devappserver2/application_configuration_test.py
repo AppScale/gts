@@ -75,7 +75,7 @@ class TestServerConfiguration(unittest.TestCase):
     self.mox.VerifyAll()
 
     self.assertEqual(os.path.realpath('/appdir'), config.application_root)
-    self.assertEqual('dev~app', config.application)
+    self.assertEqual('app', config.application)
     self.assertEqual('server1', config.server_name)
     self.assertEqual('1', config.major_version)
     self.assertRegexpMatches(config.version_id, r'server1:1\.\d+')
@@ -199,7 +199,7 @@ class TestServerConfiguration(unittest.TestCase):
     self.assertSequenceEqual(set(), config.check_for_updates())
     self.mox.VerifyAll()
 
-    self.assertEqual('dev~app', config.application)
+    self.assertEqual('app', config.application)
     self.assertEqual('default', config.server_name)
     self.assertEqual('version', config.major_version)
     self.assertRegexpMatches(config.version_id, r'^version\.\d+$')
@@ -502,7 +502,7 @@ class TestBackendConfiguration(unittest.TestCase):
     self.mox.VerifyAll()
 
     self.assertEqual(os.path.realpath('/appdir'), config.application_root)
-    self.assertEqual('dev~app', config.application)
+    self.assertEqual('app', config.application)
     self.assertEqual('static', config.server_name)
     self.assertEqual('1', config.major_version)
     self.assertRegexpMatches(config.version_id, r'static:1\.\d+')
@@ -573,7 +573,7 @@ class TestBackendConfiguration(unittest.TestCase):
     self.mox.VerifyAll()
 
     self.assertEqual(os.path.realpath('/appdir'), config.application_root)
-    self.assertEqual('dev~app', config.application)
+    self.assertEqual('app', config.application)
     self.assertEqual('dynamic', config.server_name)
     self.assertEqual('1', config.major_version)
     self.assertRegexpMatches(config.version_id, r'dynamic:1\.\d+')
