@@ -2760,7 +2760,7 @@ def CreateRequestHandler(root_path,
     application configuration file in the directory specified by the root_path
     argument is invalid.
     """
-    server_version = 'AppScaleServer/1.8'
+    server_version = 'AppScaleServer/1.10'
 
 
 

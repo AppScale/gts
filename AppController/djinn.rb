@@ -3685,11 +3685,11 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
+    AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.create_app_load_balancer_config(my_public, my_private, 
       AppDashboard::PROXY_PORT)
     Nginx.create_app_load_balancer_config(my_public, my_private, 
       AppDashboard::PROXY_PORT)
-    AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.start
     Nginx.restart
     @app_info_map[AppDashboard::APP_NAME] = {

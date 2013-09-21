@@ -670,7 +670,7 @@ _MODULE_OVERRIDE_POLICIES = {
             'system': stubs.return_minus_one,
             },
         deletes=['execv', 'execve']),
-    'signal': ModuleOverridePolicy(overrides={'__doc__': None}),
+    #'signal': ModuleOverridePolicy(overrides={'__doc__': None}),
     'locale': ModuleOverridePolicy(
         overrides={'setlocale': stubs.fake_set_locale},
         default_pass_through=True),
@@ -788,10 +788,13 @@ _WHITE_LIST_C_MODULES = [
     '_sha256',  # Python2.5 compatibility
     '_sha512',  # Python2.5 compatibility
     '_sha',  # Python2.5 compatibility
+    'signal',
     '_sre',
     'strop',
     '_struct',
     '_symtable',
+    'ssl',
+    '_ssl',
     'sys',
     'thread',
     'time',

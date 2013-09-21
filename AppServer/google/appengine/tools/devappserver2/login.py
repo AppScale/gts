@@ -33,6 +33,8 @@ import cgi
 import Cookie
 import hashlib
 import logging
+import os
+import sha
 import urllib
 
 import google
@@ -53,6 +55,9 @@ LOGIN_ACTION = 'login'
 
 # Name of the cookie that stores the user info.
 _COOKIE_NAME = 'dev_appserver_login'
+
+# The port that the AppDashboard serves HTTPS traffic on.
+DASHBOARD_HTTPS_PORT = "1443"
 
 
 def get_user_info(http_cookie, cookie_name=_COOKIE_NAME):
@@ -90,15 +95,29 @@ def _get_user_info_from_dict(cookie_dict, cookie_name=_COOKIE_NAME):
       admin: True if the user is an admin; False otherwise.
       user_id: The user ID, if any.
   """
+  cookie_secret = os.environ['COOKIE_SECRET']
+
   cookie_value = cookie_dict.get(cookie_name, '')
+  cookie_value = cookie_value.replace("%3A",":")
+  cookie_value = cookie_value.replace("%40",'@')
+  cookie_value = cookie_value.replace("%2C",",")
 
-  email, admin, user_id = (cookie_value.split(':') + ['', '', ''])[:3]
-  if '@' not in email:
-    if email:
-      logging.warning('Ignoring invalid login cookie: %s', cookie_value)
+  email, nickname, admin, hsh = (cookie_value.split(':') + ['', '', '', ''])[:4]
+
+  if email == '':
+    nickname = ''
+    admin = ''
     return '', False, ''
-  return email, (admin == 'True'), user_id
+  else:
+    vhsh = sha.new(email+nickname+admin+cookie_secret).hexdigest()
+    if hsh != vhsh:
+      logging.info("{0} has an invalid cookie, so ignoring it.".format(email))
+      return '', False, ''
 
+  admin_apps = admin.split(',')
+  current_app = os.environ['APPLICATION_ID']
+  is_admin = current_app in admin_apps
+  return email, is_admin, nickname
 
 def _create_cookie_data(email, admin):
   """Creates cookie payload data.
@@ -237,10 +256,12 @@ def login_redirect(application_url, continue_url, start_response):
   Returns:
     An (empty) iterable over strings containing the body of the HTTP response.
   """
-  if not application_url.endswith('/'):
-    application_url += '/'
-  redirect_url = '%s%s?%s=%s' % (application_url, LOGIN_URL_RELATIVE,
-                                 CONTINUE_PARAM, urllib.quote(continue_url))
+  hostname = os.environ['NGINX_HOST']
+  redirect_url = 'https://%s:%s/login?%s=%s' % (hostname,
+                                           DASHBOARD_HTTPS_PORT,
+                                           CONTINUE_PARAM,
+                                           urllib.quote(continue_url))
+
   start_response('302 Requires login',
                  [('Location', redirect_url)])
   return []
@@ -274,11 +295,15 @@ class Handler(webapp2.RequestHandler):
       self.response.status_message = 'Redirecting to continue URL'
       self.response.headers['Location'] = redirect_url
     else:
-      email, admin, _ = _get_user_info_from_dict(self.request.cookies)
-      self.response.status = 200
-      self.response.headers['Content-Type'] = 'text/html'
-      body = _render_login_template(login_url, continue_url, email, admin)
-      self.response.write(body)
+      # Send the user to the AppDashboard to log in before letting them view the
+      # specified URL.
+      appscale_login_url = "https://{0}:{1}/login".format(
+        os.environ['NGINX_HOST'], DASHBOARD_HTTPS_PORT)
+      redirect_url = '{0}?{1}={2}'.format(appscale_login_url, CONTINUE_PARAM,
+        continue_url)
+      self.response.status = 302
+      self.response.status_message = 'Redirecting to login service URL'
+      self.response.headers['Location'] = redirect_url
 
 
 application = webapp2.WSGIApplication([('/.*', Handler)], debug=True)
