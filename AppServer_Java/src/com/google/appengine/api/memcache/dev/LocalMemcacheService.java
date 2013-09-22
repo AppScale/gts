@@ -893,7 +893,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         if (res != null)
         {
-            logger.fine("Memcache internalGet() returning cache entry [" + res + "], value: " + new String(res.value) + ", flags: " + res.flags);
+            logger.fine("Memcache internalGet() returning cache entry [" + res + "]");
             return res;
         }
         else
