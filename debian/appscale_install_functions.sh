@@ -72,7 +72,7 @@ installnumpy()
 installPIL()
 {
     pip uninstall -y PIL
-    pip install -y pillow
+    pip --upgrade install pillow
 }
 
 installpycrypto()
