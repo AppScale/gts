@@ -19,7 +19,7 @@ def setup_app_dir(appname):
   os.system('cp -r ./apps/' + appname + '/* /var/apps/' + appname + '/app')
 
 def teardown_app_dir(appname):
-  os.system('rm -rdf /var/apps/' + appname)
+  os.system('rm -rf /var/apps/' + appname)
 
 class RunPythonAppTestCase(unittest.TestCase):
   def setUp(self):

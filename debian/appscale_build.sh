@@ -42,21 +42,6 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-if [ "$DIST" = "lucid" ]; then
-    echo "Running lucid specific commands"
-    # install add-apt-repository command
-    apt-get -y install python-software-properties
-    # add repository
-    add-apt-repository "deb http://ppa.launchpad.net/fkrull/deadsnakes/ubuntu lucid main"
-    add-apt-repository "deb-src http://ppa.launchpad.net/fkrull/deadsnakes/ubuntu lucid main" 
-    add-apt-repository "deb http://archive.canonical.com/ lucid partner"
-
-    # For rabbitmq
-    add-apt-repository "deb http://www.rabbitmq.com/debian/ testing main"
-    wget -O - http://www.rabbitmq.com/rabbitmq-signing-key-public.asc | sudo apt-key add -
-
-fi
-
 apt-get update
 
 # Solves the localization error messages 
@@ -121,8 +106,6 @@ fi
 
 # remove conflict package
 apt-get -y purge haproxy
-apt-get -y remove consolekit
-
 if [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
     bash debian/appscale_install.sh core || exit 1

@@ -23,10 +23,9 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
-        installpython27
         installnumpy
-        installpythonmemcache
         installPIL
+        installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
@@ -84,10 +83,9 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
-        installpython27
         installnumpy
-        installpythonmemcache
         installPIL
+        installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
