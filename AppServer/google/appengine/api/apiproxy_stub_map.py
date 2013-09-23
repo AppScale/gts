@@ -272,7 +272,13 @@ class APIProxyStubMap(object):
       service: string
       stub: stub
     """
-    assert not self.__stub_map.has_key(service), repr(service)
+    # AppScale
+    # This is commented out because the blobstore server uses 
+    # the stub map and it re-registers the service that 
+    # already exists. It was written with the hope of being 
+    # multithreaded, but there is only one datastore entry
+    # when uploading multiple blobs. 
+    # assert not self.__stub_map.has_key(service), repr(service)
     self.ReplaceStub(service, stub)
 
   def GetStub(self, service):
@@ -439,7 +445,12 @@ class UserRPC(object):
 
 
 
-      raise apiproxy_errors.InterruptedError(None, self.__rpc)
+      # AppScale: This Error will erroneously be thrown if the ndb library is
+      # used. Commenting it out to allow that library to work.
+      # TODO(nlake44): Consider the ramifications upon other possible API calls
+      # of doing this.
+      # raise apiproxy_errors.InterruptedError(None, self.__rpc)
+      pass
 
   @property
   def service(self):

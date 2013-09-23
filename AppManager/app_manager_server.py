@@ -574,11 +574,11 @@ def create_python_stop_cmd(port, py_version):
   start command are included to prevent the termination of other 
   processes. 
   
-  Args:
-    port: the port which the application server is running
-    py_version: the python version the app is currently using
-  returns:
-    a string of the stop command.
+  Args: 
+    port: The port which the application server is running.
+    py_version: The python version the app is currently using
+  Returns:
+    A string of the stop command.
   """
   python = choose_python_executable(py_version)
   cmd = [python, 

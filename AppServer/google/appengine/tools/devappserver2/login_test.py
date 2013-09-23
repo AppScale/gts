@@ -160,7 +160,7 @@ class LoginRedirectTest(unittest.TestCase):
                     'with=some&query=parameters')
 
     expected_location = (
-        'http://foo.com:1234/_ah/login?continue='
+        'https://localhost:1443/login?continue='
         'http%3A//foo.com%3A1234'
         '/my/album/of/pictures%3Fwith%3Dsome%26query%3Dparameters')
 

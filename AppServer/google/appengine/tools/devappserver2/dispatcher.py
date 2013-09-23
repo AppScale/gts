@@ -153,7 +153,7 @@ class Dispatcher(request_info.Dispatcher):
                    self._dispatch_server.port)
       self._update_checking_thread.start()
       if port:
-        port += 1
+        port += 100
       self._port_registry.add(self._dispatch_server.port, None, None)
     for server_configuration in self._configuration.servers:
       self._server_configurations[
@@ -231,7 +231,7 @@ class Dispatcher(request_info.Dispatcher):
       servr = server.AutoScalingServer(*server_args)
 
     if port != 0:
-      port += 1
+      port += 1000
     return servr, port
 
   @property
@@ -582,9 +582,6 @@ class Dispatcher(request_info.Dispatcher):
       return self._get_server(prefix, None), None
 
     else:
-      # TODO(cgb): This looks like it forwards all requests to the main server,
-      # avoiding the API server and the admin server. Investigate this further
-      # before merging this in.
       port = int(os.environ['MY_PORT'])
       try:
         servr, inst = self._port_registry.get(port)

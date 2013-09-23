@@ -82,7 +82,7 @@ class APIProxyStub(object):
     Returns:
       a instance of RPC.
     """
-    return apiproxy_rpc.RPC(stub=self)
+    return apiproxy_rpc.RealRPC(stub=self)
 
   def MakeSyncCall(self, service, call, request, response, request_id=None):
     """The main RPC entry point.
