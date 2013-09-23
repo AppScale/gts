@@ -94,17 +94,10 @@ case "$1" in
         installpycrypto
         installlxml
         installxmpppy
-<<<<<<< HEAD
         installphp
-	installappserverjava
-	postinstallappserverjava
-	installmonitoring
-	postinstallmonitoring
-=======
 	installjavajdk
         installappserverjava
         postinstallappserverjava
->>>>>>> multithreaded-dev-appserver
 	installthrift_fromsource
 	postinstallthrift_fromsource
         installtornado
