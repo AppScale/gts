@@ -34,7 +34,7 @@ from google.appengine.tools.devappserver2 import http_runtime_constants
 from google.appengine.tools.devappserver2 import thread_executor
 
 
-_HAS_POLL = False
+_HAS_POLL = hasattr(select, 'poll')
 
 _PORT_0_RETRIES = 5
 
@@ -130,15 +130,18 @@ class SelectThread(object):
       fd_to_callback = self._file_descriptor_to_callback
     if fds:
       if _HAS_POLL:
-        # With 100 file descriptors, it is approximately 5x slower to
-        # recreate and reinitialize the Poll object on every call to _select
-        # rather reuse one. But the absolute cost of contruction,
-        # initialization and calling poll(0) is ~25us so code simplicity
-        # wins.
-        poll = select.poll()
-        for fd in fds:
-          poll.register(fd, select.POLLIN)
-        ready_file_descriptors = [fd for fd, _ in poll.poll(1)]
+        # Do this lazily to allow _HAS_POLL to be set after construction to
+        # minimize changes to unit test.
+        if not hasattr(self, '_poll'):
+          self._poll = select.poll()
+          self._poll_registered_fds = set()
+        current_fds = set(fds)
+        for fd in self._poll_registered_fds - current_fds:
+          self._poll.unregister(fd)
+        for fd in current_fds - self._poll_registered_fds:
+          self._poll.register(fd, select.POLLIN)
+        self._poll_registered_fds = current_fds
+        ready_file_descriptors = [fd for fd, _ in self._poll.poll(1000)]
       else:
         ready_file_descriptors, _, _ = select.select(fds, [], [], 1)
       for fd in ready_file_descriptors:
