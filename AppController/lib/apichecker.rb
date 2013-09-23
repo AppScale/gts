@@ -63,7 +63,7 @@ class ApiChecker
     num_servers = 3
     app_number = -1
     app = "apichecker"
-    app_language = "python"
+    app_language = "python27"
 
     # Tell the app what nginx port sits in front of it.
     port_file = "/etc/appscale/port-#{app}.txt"
@@ -90,7 +90,7 @@ class ApiChecker
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
 
     Djinn.log_info("Starting #{app_language} app #{app}")
-    [19997, 19998, 19999].each { |port|
+    [19999].each { |port|
       Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
       pid = app_manager.start_app(app, port, uaserver_ip, 
                                   SERVER_PORT, app_language, login_ip,

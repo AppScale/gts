@@ -375,13 +375,13 @@ class Djinn
   # CPU limits that determine when to stop adding AppServers on a node. Because
   # AppServers in different languages consume different amounts of CPU, set
   # different limits per language.
-  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'python27' => 90.00, 'java' => 75.00, 'go' => 70.00}
+  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'python27' => 90.00, 'java' => 75.00, 'go' => 70.00, 'php' => 80.00}
 
 
   # Memory limits that determine when to stop adding AppServers on a node. 
   # Because AppServers in different languages consume different amounts of 
   # memory, set different limits per language.
-  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
+  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00, 'php' => 90.00 }
 
 
   # A regular expression that can be used to match any character that is not
@@ -1569,8 +1569,9 @@ class Djinn
     begin
       new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, disks)
     rescue AppScaleException => exception
-      HelperFunctions.log_and_crash("Couldn't spawn #{num_of_vms} VMs with " +
-        "roles #{roles} because: #{exception.message}")
+      Djinn.log_error("Couldn't spawn #{num_of_vms} VMs with roles #{roles} " +
+        "because: #{exception.message}")
+      return []
     end
 
     # initialize them and wait for them to start up
@@ -1697,8 +1698,9 @@ class Djinn
         begin
           new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", disks)
         rescue AppScaleException => exception
-          HelperFunctions.log_and_crash("Couldn't spawn #{vms_to_spawn} VMs " +
-            "with roles open because: #{exception.message}")
+          Djinn.log_error("Couldn't spawn #{vms_to_spawn} VMs with roles " +
+            "open because: #{exception.message}")
+          return exception.message
         end
 
 
@@ -3754,11 +3756,11 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
+    AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.create_app_load_balancer_config(my_public, my_private, 
       AppDashboard::PROXY_PORT)
     Nginx.create_app_load_balancer_config(my_public, my_private, 
       AppDashboard::PROXY_PORT)
-    AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.start
     Nginx.restart
     @app_info_map[AppDashboard::APP_NAME] = {

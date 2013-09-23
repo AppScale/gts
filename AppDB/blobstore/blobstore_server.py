@@ -170,7 +170,7 @@ def get_session(session_id):
 
 def setup_env():
   """ Sets required environment variables for GAE datastore library """
-  os.environ['AUTH_DOMAIN'] = "appscale.cs.ucsb.edu"
+  os.environ['AUTH_DOMAIN'] = "appscale.com"
   os.environ['USER_EMAIL'] = ""
   os.environ['USER_NICKNAME'] = ""
   os.environ['APPLICATION_ID'] = ""
