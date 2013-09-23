@@ -37,7 +37,7 @@ module CronHelper
   def self.update_cron(ip, port, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
-    if lang == "python" or lang == "python27" or lang == "go"
+    if lang == "python" or lang == "python27" or lang == "go" or lang == "php"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
 
       begin

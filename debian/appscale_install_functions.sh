@@ -64,6 +64,14 @@ installpython27()
     rm /usr/local/Python-2.7.3.tgz
 }
 
+installphp()
+{
+    cd /usr/local
+    wget $APPSCALE_PACKAGE_MIRROR/php-5.4.15-prebuilt.tar.gz
+    tar zxvf php-5.4.15-prebuilt.tar.gz
+    rm /usr/local/php-5.4.15-prebuilt.tar.gz
+}
+
 installnumpy()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
