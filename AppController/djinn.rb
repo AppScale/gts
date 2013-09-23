@@ -547,7 +547,17 @@ class Djinn
     http_port = Integer(http_port)
     https_port = Integer(https_port)
 
-    # First, make sure that no other app is using either of these ports for
+    # First, only let users relocate apps to ports that the firewall has open
+    # for App Engine apps.
+    if http_port != 80 and (http_port < 8080 or http_port > 8100)
+      return "Error: HTTP port must be 80, or in the range 8080-8100."
+    end
+
+    if https_port != 443 and (http_port < 4380 or http_port > 4400)
+      return "Error: HTTPS port must be 443, or in the range 4380-4440."
+    end
+
+    # Next, make sure that no other app is using either of these ports for
     # nginx, haproxy, or the AppServer itself.
     @app_info_map.each { |app, info|
       # Of course, it's fine if it's our app on a given port, since we're
