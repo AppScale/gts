@@ -34,7 +34,7 @@ from google.appengine.tools.devappserver2 import http_runtime_constants
 from google.appengine.tools.devappserver2 import thread_executor
 
 
-_HAS_POLL = False
+_HAS_POLL = hasattr(select, 'poll')
 
 _PORT_0_RETRIES = 5
 
@@ -138,7 +138,7 @@ class SelectThread(object):
         poll = select.poll()
         for fd in fds:
           poll.register(fd, select.POLLIN)
-        ready_file_descriptors = [fd for fd, _ in poll.poll(1)]
+        ready_file_descriptors = [fd for fd, _ in poll.poll(1000)]
       else:
         ready_file_descriptors, _, _ = select.select(fds, [], [], 1)
       for fd in ready_file_descriptors:
