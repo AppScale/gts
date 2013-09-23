@@ -273,10 +273,17 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 try
                 {
                     res = memcacheClient.gets(internalKey);
-                    item.setCasId(res.getCas());
-                    entry = (CacheEntry)res.getValue();
-                    item.setKey(ByteString.copyFrom(key.getBytes())).setFlags(entry.getFlags()).setValue(ByteString.copyFrom(entry.getValue()));
-                    result.addItem(item.build());
+                    if(res == null)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        item.setCasId(res.getCas());
+                        entry = (CacheEntry)res.getValue();
+                        item.setKey(ByteString.copyFrom(key.getBytes())).setFlags(entry.getFlags()).setValue(ByteString.copyFrom(entry.getValue()));
+                        result.addItem(item.build());
+                    }
                 }
                 catch(TimeoutException e)
                 {
