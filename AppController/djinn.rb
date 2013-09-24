@@ -554,7 +554,7 @@ class Djinn
     end
 
     if https_port != 443 and (http_port < 4380 or http_port > 4400)
-      return "Error: HTTPS port must be 443, or in the range 4380-4440."
+      return "Error: HTTPS port must be 443, or in the range 4380-4400."
     end
 
     # Next, make sure that no other app is using either of these ports for
