@@ -582,6 +582,10 @@ class Djinn
       end
     }
 
+    if RESERVED_APPS.include?(appid)
+      return "Error: Can't relocate the #{appid} app."
+    end
+
     # Next, remove the old port from the UAServer and add the new one.
     my_public = my_node.public_ip
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
@@ -596,9 +600,10 @@ class Djinn
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
-    if RESERVED_APPS.include?(appid)
-      return "Error: Can't relocate the #{appid} app."
-    end
+    # Since we've changed what ports the app runs on, we should persist this
+    # immediately, instead of waiting for the main thread to do this
+    # out-of-band.
+    backup_appserver_state
 
     if my_node.is_login?
       static_handlers = HelperFunctions.parse_static_data(appid)
