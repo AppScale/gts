@@ -1103,6 +1103,11 @@ class Djinn
       Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       APPS_LOCK.synchronize {
+        if my_node.is_login?
+          Nginx.remove_app(app_name)
+          Nginx.reload
+        end
+
         if my_node.is_appengine?
           Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
           app_manager = AppManagerClient.new(my_node.private_ip)
@@ -1112,9 +1117,7 @@ class Djinn
             Djinn.log_info("(stop_app) AppManager shut down app #{app_name}")
           end
 
-          Nginx.remove_app(app_name)
           HAProxy.remove_app(app_name)
-          Nginx.reload
           ZKInterface.remove_app_entry(app_name, my_node.public_ip)
 
           # If this node has any information about AppServers for this app,
