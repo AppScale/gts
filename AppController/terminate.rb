@@ -19,7 +19,6 @@ module TerminateHelper
     `rm -f /var/log/appscale/*.log`
     `rm -rdf /var/log/appscale/celery_workers`
     `rm -f /var/appscale/*.pid`
-    `rm -f /etc/appscale/appcontroller-state.json`
     `rm -f /usr/local/nginx/conf/sites-enabled/*.conf`
 
     # TODO(cgb): It may be wise to save the apps for when AppScale starts up
@@ -58,6 +57,8 @@ module TerminateHelper
     `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
+    `rm -f /opt/appscale/appcontroller-state.json`
+    `rm -f /opt/appscale/appserver-state.json`
   end
 
 
