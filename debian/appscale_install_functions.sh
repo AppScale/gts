@@ -376,8 +376,6 @@ installgems()
     # ZK 1.0 breaks our existing code - upgrade later
     gem install -v=0.9.3 zookeeper
     sleep 1
-    gem install god ${GEMOPT}
-    sleep 1
     gem install json ${GEMOPT}
     sleep 1
     gem install -v=0.8.3 httparty ${GEMOPT}
