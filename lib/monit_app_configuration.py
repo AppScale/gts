@@ -50,7 +50,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
   for port in ports:
     template = template.format(watch, start_cmd, stop_cmd, port, env)
     temp_file_name = "/etc/monit/conf.d/" + watch + '-' + \
-                     str(port) + ".conf"
+                     str(port) + ".cfg"
     file_io.write(temp_file_name, template) 
 
   return

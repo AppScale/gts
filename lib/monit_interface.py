@@ -13,6 +13,8 @@ monitoring of processes using monit. Each component is in
 charge of creating configuration files for the process they want started. 
 """
 
+MONIT = "/usr/local/bin/monit"
+
 def start(watch):
   """ Starts a watch on monit given a configuration file.
 
@@ -25,7 +27,7 @@ def start(watch):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
 
-  return_status = subprocess.call(['monit', 'start', '-g', watch])
+  return_status = subprocess.call([MONIT, 'start', '-g', watch])
   if return_status != 0:
     logging.error("Monit start command returned with status %d when setting " \
       "up watch %s" % (return_status, watch))
@@ -47,13 +49,13 @@ def stop(watch):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
   
-  return_status = subprocess.call(['monit', 'stop', '-g', watch])
+  return_status = subprocess.call([MONIT, 'stop', '-g', watch])
   if return_status != 0:
     logging.error("Monit stop command returned with status %d when stopping " \
       "watch %s" % (return_status, watch))
     return False
 
-  return_status = subprocess.call(['monit', 'unmonitor', '-g', watch])
+  return_status = subprocess.call([MONIT, 'unmonitor', '-g', watch])
   if return_status != 0:
     logging.error("Monit unmonitor command returned with status %d when " \
       "unmonitoring watch %s" % (return_status, watch)) 

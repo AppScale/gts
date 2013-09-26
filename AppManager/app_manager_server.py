@@ -587,7 +587,7 @@ def create_python_stop_cmd(port, py_version):
          "--cookie_secret " + appscale_info.get_secret()]
   cmd = ' '.join(cmd)
 
-  stop_cmd = "ps aux | grep '" + cmd +\
+  stop_cmd = "/bin/ps aux | grep '" + cmd +\
              "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
   return stop_cmd
 
@@ -610,7 +610,7 @@ def create_python27_stop_cmd(port, py_version):
          "--cookie_secret " + appscale_info.get_secret()]
   cmd = ' '.join(cmd)
 
-  stop_cmd = "ps aux | grep '" + cmd +\
+  stop_cmd = "/bin/ps aux | grep '" + cmd +\
              "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
   return stop_cmd
 
@@ -631,7 +631,7 @@ def create_java_stop_cmd(port):
          "--cookie_secret=" + appscale_info.get_secret()]
 
   cmd = ' '.join(cmd)
-  stop_cmd = "ps aux | grep '" + cmd + \
+  stop_cmd = "/bin/ps aux | grep '" + cmd + \
              "' | grep -v grep | awk '{print $2'}' xargs -d '\n' kill -9"
   return stop_cmd
 

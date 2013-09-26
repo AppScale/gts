@@ -190,7 +190,7 @@ class DistributedTaskQueue():
       A string which, if run, will kill celery workers for a 
       given application id.
     """
-    stop_command = "ps auxww | grep 'celery worker ' | grep '"+ \
+    stop_command = "/bin/ps auxww | grep 'celery worker ' | grep '"+ \
                    str(app_id) + \
                    "' | awk '{print $2}' | xargs kill -9"
     return stop_command
