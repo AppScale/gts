@@ -244,7 +244,7 @@ class TestDjinn < Test::Unit::TestCase
     # the block actually contains
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
-    flexmock(GodInterface).should_receive(:start).and_return()
+    flexmock(MonitInterface).should_receive(:start).and_return()
 
     file = flexmock(File)
     file.should_receive(:open).and_return()
@@ -294,7 +294,7 @@ class TestDjinn < Test::Unit::TestCase
 
     # mock out and commands
     flexmock(Djinn).should_receive(:log_run).and_return()
-    flexmock(GodInterface).should_receive(:start).and_return()
+    flexmock(MonitInterface).should_receive(:start).and_return()
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
@@ -470,7 +470,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:get_all_local_ips).
       and_return(["private_ip"])
 
-    flexmock(GodInterface).should_receive(:start).and_return()
+    flexmock(MonitInterface).should_receive(:start).and_return()
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
