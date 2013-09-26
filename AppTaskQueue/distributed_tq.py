@@ -226,7 +226,7 @@ class DistributedTaskQueue():
       return json.dumps({"error": True, "reason": str(name_error)}) 
  
     log_file = self.LOG_DIR + app_id + ".log"
-    command = ["celery",
+    command = ["/usr/local/bin/celery",
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
