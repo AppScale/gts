@@ -89,6 +89,11 @@ APP_UPLOAD_TIMEOUT = 180
 ZK_LOCATIONS_FILE = "/etc/appscale/zookeeper_locations.json"
 
 
+# The location on the local filesystem where we store information about what
+# ports this machine is using for nginx, haproxy, and AppServers.
+APPSERVER_STATE_FILE = "/opt/appscale/appserver-state.json"
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -547,7 +552,17 @@ class Djinn
     http_port = Integer(http_port)
     https_port = Integer(https_port)
 
-    # First, make sure that no other app is using either of these ports for
+    # First, only let users relocate apps to ports that the firewall has open
+    # for App Engine apps.
+    if http_port != 80 and (http_port < 8080 or http_port > 8100)
+      return "Error: HTTP port must be 80, or in the range 8080-8100."
+    end
+
+    if https_port != 443 and (https_port < 4380 or https_port > 4400)
+      return "Error: HTTPS port must be 443, or in the range 4380-4400."
+    end
+
+    # Next, make sure that no other app is using either of these ports for
     # nginx, haproxy, or the AppServer itself.
     @app_info_map.each { |app, info|
       # Of course, it's fine if it's our app on a given port, since we're
@@ -577,6 +592,10 @@ class Djinn
       end
     }
 
+    if RESERVED_APPS.include?(appid)
+      return "Error: Can't relocate the #{appid} app."
+    end
+
     # Next, remove the old port from the UAServer and add the new one.
     my_public = my_node.public_ip
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
@@ -591,9 +610,10 @@ class Djinn
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
-    if RESERVED_APPS.include?(appid)
-      return "Error: Can't relocate the #{appid} app."
-    end
+    # Since we've changed what ports the app runs on, we should persist this
+    # immediately, instead of waiting for the main thread to do this
+    # out-of-band.
+    backup_appserver_state
 
     if my_node.is_login?
       static_handlers = HelperFunctions.parse_static_data(appid)
@@ -1093,6 +1113,11 @@ class Djinn
       Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       APPS_LOCK.synchronize {
+        if my_node.is_login?
+          Nginx.remove_app(app_name)
+          Nginx.reload
+        end
+
         if my_node.is_appengine?
           Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
           app_manager = AppManagerClient.new(my_node.private_ip)
@@ -1102,9 +1127,7 @@ class Djinn
             Djinn.log_info("(stop_app) AppManager shut down app #{app_name}")
           end
 
-          Nginx.remove_app(app_name)
           HAProxy.remove_app(app_name)
-          Nginx.reload
           ZKInterface.remove_app_entry(app_name, my_node.public_ip)
 
           # If this node has any information about AppServers for this app,
@@ -1288,6 +1311,14 @@ class Djinn
         # Since we now backup state to ZK, don't make everyone do it.
         # The Shadow has the most up-to-date info, so let it handle this
         backup_appcontroller_state
+      end
+
+      # The Shadow doesn't have information about how many AppServers run
+      # on each node, what apps they're hosting, and so on. Therefore,
+      # have login nodes (which have nginx and haproxy info) and AppServer nodes
+      # back up info themselves.
+      if my_node.is_login? or my_node.is_appengine?
+        backup_appserver_state
       end
 
       # Login nodes host the AppDashboard app, which has links to each
@@ -2148,6 +2179,7 @@ class Djinn
   end
 
 
+
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
 
@@ -2172,7 +2204,6 @@ class Djinn
   end
 
 
- 
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
@@ -2182,55 +2213,28 @@ class Djinn
   #   from either ZooKeeper or locally, and (2) if we need to start the roles
   #   on this machine or not.
   def restore_appcontroller_state()
-    Djinn.log_info("Restoring AppController state from local file")
+    Djinn.log_info("Restoring AppController state")
 
     restoring_from_local = true
-    if !File.exists?(ZK_LOCATIONS_FILE)
-      Djinn.log_info("No recovery data found - skipping recovery process")
-      return false, restoring_from_local
-    end
-
-    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-    json_state = {}
-    zookeeper_data['locations'].each { |ip|
-      begin
-        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-        Timeout.timeout(10) do
-          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
-          json_state = ZKInterface.get_appcontroller_state()
-        end
-      rescue Exception => e
-        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
-          "trying next ZooKeeper node")
-        next
+    if File.exists?(ZK_LOCATIONS_FILE)
+      Djinn.log_info("Trying to restore data from ZooKeeper.")
+      json_state = restore_from_zookeeper
+      if json_state.empty?
+        Djinn.log_info("Failed to restore data from ZooKeeper, trying locally.")
+        json_state = restore_from_local_data
+      else
+        Djinn.log_info("Restored data from ZooKeeper.")
+        restoring_from_local = false
       end
-
-      Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
-      restoring_from_local = false
-      break
-    }
-
-    if json_state.empty?
-      Djinn.log_warn("Couldn't get data from any ZooKeeper node - instead " +
-        "restoring from local data.")
-      json_state = HelperFunctions.get_local_appcontroller_state()
-      Djinn.log_info("Got data #{json_state} successfully from local" +
-        " backup")
-      restoring_from_local = true
-
-      # Because we're restoring from our local state, that means we need to
-      # start up Cassandra and ZooKeeper. The user may have told us to erase
-      # all data on initial startup, but we don't want to erase any data we've
-      # accumulated in the meanwhile.
-      json_state['@creds']['clear_datastore'] = false
-
-      # Similarly, if the machine was halted, then no App Engine apps are
-      # running, so we need to start them all back up again.
-      json_state['@nginx_port'] = Nginx::START_PORT
-      json_state['@haproxy_port'] = HAProxy::START_PORT
-      json_state['@appengine_port'] = 20000
-      json_state['@apps_loaded'] = []
-  end
+    else
+      if File.exists?(HelperFunctions::APPCONTROLLER_STATE_LOCATION)
+        Djinn.log_info("Restoring from local data")
+        json_state = restore_from_local_data
+      else
+        Djinn.log_info("No recovery data found - skipping recovery process")
+        return false, restoring_from_local
+      end
+    end
 
     @@secret = json_state['@@secret']
     keyname = json_state['@creds']['keyname']
@@ -2248,7 +2252,83 @@ class Djinn
     # which node in @nodes is ours
     find_me_in_locations
 
+    # Finally, if we're running nginx, haproxy, or dev_appservers, restore
+    # info about what ports everything should run on (and only if it was in
+    # ZooKeeper).
+    if my_node.is_login? or my_node.is_appengine?
+      restore_appserver_state
+    end
+
     return true, restoring_from_local
+  end
+
+
+  def restore_from_zookeeper
+    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
+    json_state = {}
+    zookeeper_data['locations'].each { |ip|
+      begin
+        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
+        Timeout.timeout(10) do
+          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
+          json_state = ZKInterface.get_appcontroller_state()
+        end
+      rescue Exception => e
+        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
+          "trying next ZooKeeper node")
+        next
+      end
+
+      Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
+      return json_state
+    }
+
+    return json_state
+  end
+
+
+  def restore_from_local_data
+    Djinn.log_warn("Couldn't get data from any ZooKeeper node - instead " +
+      "restoring from local data.")
+    json_state = HelperFunctions.get_local_appcontroller_state()
+    Djinn.log_info("Got data #{json_state} successfully from local" +
+      " backup")
+
+    # Because we're restoring from our local state, that means we need to
+    # start up Cassandra and ZooKeeper. The user may have told us to erase
+    # all data on initial startup, but we don't want to erase any data we've
+    # accumulated in the meanwhile.
+    json_state['@creds']['clear_datastore'] = false
+
+    # Similarly, if the machine was halted, then no App Engine apps are
+    # running, so we need to start them all back up again.
+    json_state['@nginx_port'] = Nginx::START_PORT
+    json_state['@haproxy_port'] = HAProxy::START_PORT
+    json_state['@appengine_port'] = 20000
+    json_state['@apps_loaded'] = []
+
+    return json_state
+  end
+
+
+  # Saves a copy of the Hash that indicates where each App Engine app is
+  # running on this machine to ZooKeeper, in case this AppController crashes.
+  def backup_appserver_state()
+    HelperFunctions.write_json_file(APPSERVER_STATE_FILE, @app_info_map)
+    ZKInterface.write_appserver_state(my_node.public_ip, @app_info_map)
+  end
+
+
+  # Contacts ZooKeeper to acquire information about the AppServers running on
+  # this machine, including what nginx, haproxy, and dev_appservers are running
+  # and bound to ports on this node.
+  def restore_appserver_state()
+    if File.exists?(APPSERVER_STATE_FILE)
+      Djinn.log_debug("Restoring AppServer state from local filesystem")
+      @app_info_map = HelperFunctions.read_json_file(APPSERVER_STATE_FILE)
+    else
+      Djinn.log_debug("Didn't see any AppServer state, so not restoring it.")
+    end
   end
 
 
@@ -3583,6 +3663,15 @@ HOSTS
         Djinn.log_info("Mounted persistent disk #{device_name}, without " +
           "needing to format it.")
         Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+        # In cloud deployments, information about what ports are being used gets
+        # persisted to an external disk, which isn't available to us when we
+        # initially try to restore the AppController's state. Now that this info
+        # is available, try again.
+        if my_node.is_login? or my_node.is_appengine?
+          restore_appserver_state
+        end
+
         return
       end
 
@@ -3805,7 +3894,7 @@ HOSTS
     my_private = my_node.private_ip
     app_language = app_data.scan(/language:(\w+)/).flatten.to_s
     
-    if is_new_app
+    if is_new_app and @app_info_map[app].nil?
       @app_info_map[app] = {}
       @app_info_map[app]['language'] = app_language
     end
@@ -3840,12 +3929,9 @@ HOSTS
       maybe_start_taskqueue_worker(app)
     end
 
-    if is_new_app
+    if is_new_app and @app_info_map[app]['nginx'].nil?
       @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
       @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app]['nginx'])
-
-      port_file = "/etc/appscale/port-#{app}.txt"
-      HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
     end
 
     # Only take a new port for this application if there's no data about
@@ -3853,6 +3939,8 @@ HOSTS
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
+    port_file = "/etc/appscale/port-#{app}.txt"
+    HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
     Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
       "https port #{https_port}, and haproxy port #{proxy_port}")
 
