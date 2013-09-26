@@ -21,8 +21,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 import file_io
-import god_app_configuration
-import god_interface 
+import monit_app_configuration
+import monit_interface 
 import misc 
 
 # Most attempts to see if an application server comes up before failing
@@ -169,20 +169,20 @@ def start_app(config):
   logging.info("Stop command: " + str(stop_cmd))
   logging.info("Environment variables: " +str(env_vars))
 
-  config_file_loc = god_app_configuration.create_config_file(str(watch),
-                                                     str(start_cmd), 
-                                                     str(stop_cmd), 
-                                                     [config['app_port']],
-                                                     env_vars)
+  monit_app_configuration.create_config_file(str(watch),
+                                             str(start_cmd), 
+                                             str(stop_cmd), 
+                                             [config['app_port']],
+                                             env_vars)
 
-  if not god_interface.start(config_file_loc, watch):
-    logging.error("Unable to start application server with god")
+  if not monit_interface.start(watch):
+    logging.error("Unable to start application server with monit")
     return BAD_PID
 
   if not wait_on_app(int(config['app_port'])):
     logging.error("Application server did not come up in time, " + \
-                   "removing god watch")
-    god_interface.stop(watch)
+                   "removing monit watch")
+    monit_interface.stop(watch)
     return BAD_PID
 
   pid = get_pid_from_port(config['app_port'])
@@ -209,10 +209,10 @@ def stop_app_instance(app_name, port):
 
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name + "-" + str(port)
-  god_result = god_interface.stop(watch)
+  monit_result = monit_interface.stop(watch)
 
   # hack: God fails to shutdown processes so we do it via a system command
-  # TODO: fix it or find an alternative to god
+  # TODO: fix it or find an alternative to monit
   pid_file = constants.APP_PID_DIR + app_name + '-' + str(port)
   pid = file_io.read(pid_file)
 
@@ -223,7 +223,7 @@ def stop_app_instance(app_name, port):
 
   file_io.delete(pid_file)
 
-  return god_result
+  return monit_result
 
 def kill_app_instances_for_app(app_name):
   """ Kills all instances of a Google App Engine application on this machine.
@@ -263,10 +263,10 @@ def stop_app(app_name):
 
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name 
-  god_result = god_interface.stop(watch)
+  monit_result = monit_interface.stop(watch)
  
-  if not god_result:
-    logging.error("Unable to shut down god interface for watch %s"%watch)
+  if not monit_result:
+    logging.error("Unable to shut down monit interface for watch %s"%watch)
     return False
 
   # Hack: God fails to shutdown processes so we do it via a system command.
