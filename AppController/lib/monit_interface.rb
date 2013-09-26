@@ -4,66 +4,64 @@
 require 'helperfunctions'
 
 
-# AppScale uses monit to start processes, restart them if they die, or kill and
+# AppScale uses #{MONIT} to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
-# away interfacing with monit directly.
+# away interfacing with #{MONIT} directly.
 module MonitInterface
+
+  
+  # The location on the local filesystem of the #{MONIT} executable.
+  MONIT = "/usr/local/bin/monit"
+
 
   def self.start_monit(remote_ip, remote_key)
     # TODO(cgb): Write startup=1 in /etc/default/monit
-    # TODO(cgb): Write monit config with webserver on
-    self.run_god_command("monit", remote_ip, remote_key)
+    # TODO(cgb): Write #{MONIT} config with webserver on
+    self.run_god_command("#{MONIT} -c /etc/monit/monitrc", remote_ip, remote_key)
   end
   
-  def self.start(watch, process_name, start_cmd, stop_cmd, ports, env_vars=nil,
+  def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
     remote_ip=nil, remote_key=nil)
 
     ports = [ports] unless ports.class == Array
     ports.each { |port|
-      self.write_monit_config(watch, process_name, start_cmd, stop_cmd, port,
+      self.write_monit_config(watch, start_cmd, stop_cmd, port,
         env_vars, remote_ip, remote_key)
     }
 
-    self.run_god_command("monit start #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} start #{watch}", remote_ip, remote_key)
   end
 
-  def self.write_monit_config(watch, process_name, start_cmd, stop_cmd, port,
+  def self.write_monit_config(watch, start_cmd, stop_cmd, port,
     env_vars, remote_ip, remote_key)
 
+    # Monit doesn't support environment variables in its DSL, so if the caller
+    # wants environment variables passed to the app, we have to collect them and
+    # prepend it to the executable string.
+    env_vars_str = ""
+    if !env_vars.nil? and env_vars.length > 0
+      env_vars.each { |key, value|
+        env_vars_str += "#{key}=#{value} "
+      }
+    end
+
+    logfile = "/var/log/appscale/#{watch}-#{port}.log"
+    
+    # To get #{MONIT} to capture standard out and standard err from processes it
+    # monitors, we have to have bash exec it, and pipe stdout/stderr to a file.
+    # Note that we can't just do 2>&1 - #{MONIT} won't capture stdout or stderr if
+    # we do this.
+    full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
+      "1>>#{logfile} 2>>#{logfile}'"
+
     contents = <<BOO
-check process #{process_name} with pidfile /var/appscale/#{watch}-#{port}.pid
+check process #{watch}-#{port} matching "#{start_cmd}"
   group #{watch}
-  start program = "#{start_cmd}"
+  start program = "#{full_start_command}"
   stop program = "#{stop_cmd}"
   if cpu is greater than 50% for 5 cycles then restart
   if memory is greater than 50% for 5 cycles then restart
 BOO
-=begin
-    prologue = <<BOO
-watch_name = "#{watch}"
-BOO
-  w.log = "/var/log/appscale/#{watch_name}-#{port}.log"
-
-    if !env_vars.nil? and !env_vars.empty?
-      env_vars_str = ""
-
-      env_vars.each { |k, v|
-        env_vars_str += "     \"#{k}\" => \"#{v}\",\n"
-      }
-
-      body += <<BOO
-
-  w.env = {
-    #{env_vars_str}
-  }
-BOO
-    end
-
-    epilogue = <<BAZ
-end
-end
-BAZ
-=end
 
     monit_file = "/etc/monit/conf.d/#{watch}-#{port}.cfg"
     if remote_ip
@@ -75,37 +73,37 @@ BAZ
       HelperFunctions.write_file(monit_file, contents)
     end
 
-    self.run_god_command("monit reload", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} reload", remote_ip, remote_key)
 
+    ip = remote_ip || HelperFunctions.local_ip
     Djinn.log_info("Starting #{watch} on ip #{ip}, port #{port}" +
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
   end
 
   def self.stop(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("monit stop #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} stop #{watch}", remote_ip, remote_key)
   end
 
   def self.remove(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("monit stop #{watch}", remote_ip, remote_key)
-    self.run_god_command("monit unmonitor #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} stop #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} unmonitor #{watch}", remote_ip, remote_key)
   end
 
   def self.shutdown(remote_ip=nil, remote_key=nil)
-    self.run_god_command("monit stop all", remote_ip, remote_key)
-    self.run_god_command("monit unmonitor all", remote_ip, remote_key)
-    self.run_god_command("monit quit", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} stop all", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} unmonitor all", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} quit", remote_ip, remote_key)
   end
 
   private
   def self.run_god_command(cmd, ip, ssh_key)
-    raise Exception.new("asfka")
-    #local = ip.nil?
+    local = ip.nil?
     
-    #if local
-    #  Djinn.log_run(cmd)
-    #else
-    #  output = HelperFunctions.run_remote_command(ip, cmd, ssh_key, WANT_OUTPUT)
-    #  Djinn.log_debug("running command #{cmd} on ip #{ip} returned #{output}")
-    #end
+    if local
+      Djinn.log_run(cmd)
+    else
+      output = HelperFunctions.run_remote_command(ip, cmd, ssh_key, WANT_OUTPUT)
+      Djinn.log_debug("running command #{cmd} on ip #{ip} returned #{output}")
+    end
   end
 end

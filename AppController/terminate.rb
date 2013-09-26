@@ -66,6 +66,9 @@ module TerminateHelper
   # associated with AppScale.
   def self.force_kill_processes
     `iptables -F`  # turn off the firewall
+    `monit stop all`
+    `monit unmonitor all`
+    `monit quit`
 
     ["memcached",
      "nginx", "haproxy",
@@ -85,7 +88,7 @@ module TerminateHelper
      "ThriftServer",
 
      "rabbitmq",
-     "god", "djinn", "xmpp_receiver",
+     "monit", "djinn", "xmpp_receiver",
      "InfrastructureManager", "Neptune",
 
      # RabbitMQ, ejabberd
