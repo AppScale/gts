@@ -4,20 +4,19 @@
 require 'helperfunctions'
 
 
-# AppScale uses #{MONIT} to start processes, restart them if they die, or kill and
+# AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
-# away interfacing with #{MONIT} directly.
+# away interfacing with monit directly.
 module MonitInterface
 
   
-  # The location on the local filesystem of the #{MONIT} executable.
+  # The location on the local filesystem of the monit executable.
   MONIT = "/usr/local/bin/monit"
 
 
   def self.start_monit(remote_ip, remote_key)
-    # TODO(cgb): Write startup=1 in /etc/default/monit
-    # TODO(cgb): Write #{MONIT} config with webserver on
-    self.run_god_command("#{MONIT} -c /etc/monit/monitrc", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} -c /etc/monit/monitrc", remote_ip,
+      remote_key)
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
@@ -29,7 +28,7 @@ module MonitInterface
         env_vars, remote_ip, remote_key)
     }
 
-    self.run_god_command("#{MONIT} start #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
@@ -47,9 +46,9 @@ module MonitInterface
 
     logfile = "/var/log/appscale/#{watch}-#{port}.log"
     
-    # To get #{MONIT} to capture standard out and standard err from processes it
+    # To get monit to capture standard out and standard err from processes it
     # monitors, we have to have bash exec it, and pipe stdout/stderr to a file.
-    # Note that we can't just do 2>&1 - #{MONIT} won't capture stdout or stderr if
+    # Note that we can't just do 2>&1 - monit won't capture stdout or stderr if
     # we do this.
     full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
       "1>>#{logfile} 2>>#{logfile}'"
@@ -81,12 +80,12 @@ BOO
   end
 
   def self.stop(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("#{MONIT} stop #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
   end
 
   def self.remove(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("#{MONIT} stop #{watch}", remote_ip, remote_key)
-    self.run_god_command("#{MONIT} unmonitor #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
+    self.run_god_command("#{MONIT} unmonitor -g #{watch}", remote_ip, remote_key)
   end
 
   def self.shutdown(remote_ip=nil, remote_key=nil)
