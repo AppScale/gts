@@ -29,6 +29,7 @@ application-level logs should be included, and so on.
 
 
 
+import httplib
 import os
 import time
 
@@ -41,6 +42,10 @@ from google.appengine.api.logservice import logservice
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
 
+try:
+  import json
+except ImportError:
+  import simplejson as json
 
 LOG_NAMESPACE = '_Logs'
 _FUTURE_TIME = 2**34
@@ -391,10 +396,34 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_Flush(self, request, unused_response, request_id=None):
     """Writes application-level log messages for a request to the Datastore."""
-    if self.persist:
-      group = log_service_pb.UserAppLogGroup(request.logs())
-      new_app_logs = self.put_log_lines(group.log_line_list())
-      self.write_app_logs(new_app_logs)
+    group = log_service_pb.UserAppLogGroup(request.logs())
+    logs = group.log_line_list()
+
+    appid = os.environ['APPLICATION_ID']
+    if appid in ['apichecker', 'appscaledashboard']:
+      return
+
+    formatted_logs = [{'timestamp' : log.timestamp_usec() / 1e6,
+      'level' : log.level(),
+      'message' : log.message()} for log in logs]
+
+    payload = json.dumps({
+      'service_name' : appid,
+      'host' : os.environ['MY_IP_ADDRESS'],
+      'logs' : formatted_logs
+    })
+
+    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
+    headers = {'Content-Type' : 'application/json'}
+    conn.request('POST', '/logs/upload', payload, headers)
+    response = conn.getresponse()
+
+    # AppScale: The following appear to cause a memory leak under high load.
+    # Investigate this once we wish to support the Logs API.
+    #if self.persist:
+    #  group = log_service_pb.UserAppLogGroup(request.logs())
+    #  new_app_logs = self.put_log_lines(group.log_line_list())
+    #  self.write_app_logs(new_app_logs)
 
   def put_log_lines(self, lines):
     """Creates application-level log lines and stores them in the Datastore.
