@@ -29,7 +29,6 @@ Depends: appscale-tools,
  memcached,
  socat,
  dnsutils,
- monit,
 # nginx 
  libpcre++-dev
 # haproxy

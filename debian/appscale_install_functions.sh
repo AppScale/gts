@@ -418,6 +418,25 @@ postinstallnginx()
     chmod +x /root
 }
 
+installmonit()
+{
+    # First, install monit.
+    cd ${APPSCALE_HOME}
+    wget $APPSCALE_PACKAGE_MIRROR/monit-5.6-prebuilt.tar.gz
+    tar zxvf monit-5.6-prebuilt.tar.gz
+    cd monit-5.6
+    make install
+    cd ..
+    rm -rf monit monit-5.6-prebuilt.tar.gz
+
+    # Next, monit won't start unless there's a config file that enables it,
+    # so copy that over as well as our AppScale-specific monit file.
+    cd ${APPSCALE_HOME}
+    cp monit /etc/default/monit
+    cp monitrc /etc/monitrc
+    mkdir -p /etc/monit/conf.d
+}
+
 installcassandra()
 {
     CASSANDRA_VER=1.2.5

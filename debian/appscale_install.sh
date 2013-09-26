@@ -23,6 +23,7 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
+	installmonit
         installpython27
         installnumpy
         installpythonmemcache
