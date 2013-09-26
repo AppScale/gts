@@ -4,6 +4,16 @@
 require 'helperfunctions'
 
 
+# A constant that we use to indicate that we want the output produced
+# by remotely executed SSH commands.
+WANT_OUTPUT = true
+
+
+# A constant that we use to indicate that we do not want the output
+# produced by remotely executed SSH commands.
+NO_OUTPUT = false
+
+
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
 # away interfacing with monit directly.
@@ -15,8 +25,7 @@ module MonitInterface
 
 
   def self.start_monit(remote_ip, remote_key)
-    self.run_god_command("#{MONIT} -c /etc/monit/monitrc", remote_ip,
-      remote_key)
+    self.run_god_command("#{MONIT}", remote_ip, remote_key)
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
