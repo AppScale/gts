@@ -435,6 +435,10 @@ installmonit()
     cp monit /etc/default/monit
     cp monitrc /etc/monitrc
     mkdir -p /etc/monit/conf.d
+
+    # Finally, monit requires the monitrc file to be 0700, otherwise it won't
+    # use it.
+    chmod 0700 /etc/monitrc
 }
 
 installcassandra()
