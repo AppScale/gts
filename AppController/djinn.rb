@@ -3691,12 +3691,13 @@ HOSTS
 
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
     env = {
+      'HOME' => '/root',
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "ruby #{remote_home}/AppController/djinnServer.rb"
-    stop = "ruby #{remote_home}/AppController/terminate.rb"
+    start = "/usr/bin/ruby #{remote_home}/AppController/djinnServer.rb"
+    stop = "/usr/bin/ruby #{remote_home}/AppController/terminate.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
@@ -4723,7 +4724,7 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{port} #{@@secret}"
-      stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+      stop_cmd = "/bin/ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       watch_name = "xmpp-#{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
@@ -4740,7 +4741,7 @@ HOSTS
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
     watch_name = "xmpp-#{app}"
     MonitInterface.remove(watch_name)
-    stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+    stop_cmd = "/bin/ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
     Djinn.log_run(stop_cmd)
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end

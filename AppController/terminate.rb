@@ -20,6 +20,7 @@ module TerminateHelper
     `rm -rdf /var/log/appscale/celery_workers`
     `rm -f /var/appscale/*.pid`
     `rm -f /usr/local/nginx/conf/sites-enabled/*.conf`
+    `rm -f /etc/monit/conf.d/*.cfg`
 
     # TODO(cgb): It may be wise to save the apps for when AppScale starts up
     # later.
