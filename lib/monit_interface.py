@@ -27,6 +27,12 @@ def start(watch):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
 
+  return_status = subprocess.call([MONIT, 'reload'])
+  if return_status != 0:
+    logging.error("Monit reload command returned with status %d when setting " \
+      "up watch %s" % (return_status, watch))
+    return False
+
   return_status = subprocess.call([MONIT, 'start', '-g', watch])
   if return_status != 0:
     logging.error("Monit start command returned with status %d when setting " \
