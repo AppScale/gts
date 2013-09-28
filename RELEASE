@@ -4,7 +4,53 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.10.0, released on August 28, 2013.
+The current release is 1.11.0, released on September 30, 2013.
+
+Bugs fixed in this release:
+- Updated license to Apache 2.0
+- Use devappserver2 for multithreaded Python 2.7 apps
+- (Experimental) AppScale should run on Ubuntu Precise
+- Enable users to scale up from a single node
+- Allow users to dynamically change the port their app runs on
+- Support PHP App Engine apps
+- Do not let users start AppScale if there are terminated instances with the same keyname
+- Providing AppScale with invalid credentials on EC2 or Eucalyptus should fail with a more descriptive error message
+- Validate that XMPP, Cron, and Task Queue works on relocated apps
+- Fix bulk loader to use new ports for AppDashboard
+- Upload app page should include text explaining how to upload apps by default
+- 'appscale tail' should tail files across AppScale deployments
+- Relocating apps should not cause upload-app to return the wrong port on multinode deployments
+- Disable app relocation to firewalled ports
+- AppController should persist AppServer info to ZooKeeper
+- Relocating apps should result in the correct port being propogated to the AppDashboard
+- Removing apps shouldn't cause 502s from nginx
+- Give users a better error message if the keyname or group is in use
+- 'appscale down' then 'appscale up' should automatically restart apps on the same ports
+- Make sure logs get sent to the AppDashboard on Python 2.7 apps
+- Add relocate info to AppScale tools usage
+- Don't use dashes in keyname and group, since GCE doesn't allow it
+- AppDB should reestablish ZooKeeper connections when they are broken
+- Don't use appscale.cs.ucsb.edu in blobstore connection string
+- Nginx should serve static files with spaces correctly
+- Fix Python MapReduce API
+- Fidelity fixes for Java Memcache API
+- Java App Engine should indicate that its server mode is 'Production'
+- Support for Zigzag queries
+- Remove TimesTen build files
+- Upgrade API checker to Python 2.7
+- Use stack size of 226k with Cassandra
+- Use updated port on API checker when performing urlfetch on AppDashboard
+- Cloud admins should be able to view the App Console for all apps, not just apps they own
+- 'appscale down' or 'appscale clean' should remove local AppController state
+- Not displaying unknown role on status page
+- 'appscale --version' should print version number instead of usage
+- lxml should be importable for Python 2.7 apps with new devappserver
+- Sleep after VMs have been started in GCE to allow for SSH key injection
+- 'appscale up' and 'appscale down' check the same files to see if AppScale is running
+- Require Python 2.7 when using GCE, since the Google library requires it
+- Include gflags in build script
+
+AppScale version 1.10.0 was released on August 28, 2013.
 
 Bugs fixed in this release:
 - Automatically persisting data across AppScale runs in EC2/Eucalyptus if EBS volumes are provided
