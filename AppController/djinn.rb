@@ -1129,14 +1129,12 @@ class Djinn
 
           HAProxy.remove_app(app_name)
           ZKInterface.remove_app_entry(app_name, my_node.public_ip)
+        end
 
-          # If this node has any information about AppServers for this app,
-          # clear that information out.
-          if !@app_info_map[app_name].nil?
-            @app_info_map.delete(app_name)
-          end
-
-          result = "true"
+        # If this node has any information about AppServers for this app,
+        # clear that information out.
+        if !@app_info_map[app_name].nil?
+          @app_info_map.delete(app_name)
         end
 
         @apps_loaded = @apps_loaded - [app_name]    
@@ -4073,7 +4071,7 @@ HOSTS
 
         if all_ports_for_app.include?(@nginx_port)
           Djinn.log_debug("Couldn't use port #{@nginx_port} for a new " +
-            "app because it was in the list #{info.inspect}")
+            "app because #{app} is using it: #{info.inspect}")
           nginx_port_in_use = true
           break
         end
