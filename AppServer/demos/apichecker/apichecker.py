@@ -2,18 +2,18 @@
 #
 """ Checks different APIs. See http://appscale.com for more info.
 """
-
-from __future__ import with_statement
-
-import wsgiref.handlers
+import logging
+import webapp2
 import uuid 
 
-from django.utils import simplejson as json
-
-from google.appengine.ext import db
-from google.appengine.ext import webapp
+try:
+  import json
+except ImportError:
+  import simplejson as json
 
 from google.appengine.ext import blobstore
+from google.appengine.ext import db
+
 from google.appengine.api import files
 from google.appengine.api import images
 from google.appengine.api import memcache
@@ -22,7 +22,6 @@ from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.api import xmpp
 
-import logging
 
 SECRET = "PLACE SECRET HERE"
 
@@ -35,7 +34,7 @@ class StatusText(db.Model):
   """
   content = db.StringProperty(multiline=False)
 
-class Home(webapp.RequestHandler):
+class Home(webapp2.RequestHandler):
   """ Paths for seeing if the API Checker app is up. """
   def get(self):
     """ GET request handler which returns text to notify caller it is up. """
@@ -45,7 +44,7 @@ class Home(webapp.RequestHandler):
     """ POST request handler which returns text to notify caller it is up. """
     self.response.out.write("baz")
 
-class HealthChecker(webapp.RequestHandler):
+class HealthChecker(webapp2.RequestHandler):
   def get(self, capability):
     health = {}
 
@@ -117,7 +116,7 @@ class HealthChecker(webapp.RequestHandler):
 
     if capability == "all" or capability == "urlfetch":
       try:
-        urlfetch.fetch("http://localhost")
+        urlfetch.fetch("http://localhost:1080")
         health['urlfetch'] = RUNNING
       except Exception, e:
         health['urlfetch'] = FAILED
@@ -144,13 +143,8 @@ class HealthChecker(webapp.RequestHandler):
 
     self.response.out.write(json.dumps(health))
 
-application = webapp.WSGIApplication([
+app = webapp2.WSGIApplication([
   ('/', Home),
   (r'/health/(.*)', HealthChecker),
 ], debug=True)
 
-def main():
-  wsgiref.handlers.CGIHandler().run(application)
-
-if __name__ == '__main__':
-  main()

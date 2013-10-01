@@ -17,7 +17,7 @@
 """Constants used for communicating with the Python devappserver2 runtime."""
 
 
-SERVER_SOFTWARE = 'Development/2.0'
+SERVER_SOFTWARE = 'AppScaleServer/1.10'
 
 INTERNAL_HEADER_PREFIX = 'X-Appengine-Internal-'
 INTERNAL_ENVIRON_PREFIX = 'HTTP_X_APPENGINE_INTERNAL_'

@@ -22,6 +22,7 @@ __all__ = []
 
 import datetime
 import logging
+import os.path
 import random
 import string
 
@@ -101,8 +102,13 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
 
   def __GetTQLocation(self):
     """ Gets the nearest AppScale TaskQueue server. """
-    tq_file = open(TASKQUEUE_LOCATION_FILE)
-    location = tq_file.read() 
+    if os.path.exists(TASKQUEUE_LOCATION_FILE):
+      tq_file = open(TASKQUEUE_LOCATION_FILE)
+      location = tq_file.read() 
+      tq_file.close()
+    else:
+      location = "localhost"
+
     location += ":" + str(TASKQUEUE_SERVER_PORT)
     return location
 

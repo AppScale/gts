@@ -4,7 +4,7 @@ This file contains constants used throughout AppScale.
 import os 
 
 # The current version of AppScale.
-APPSCALE_VERSION = "1.10.0"
+APPSCALE_VERSION = "1.11.0"
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
@@ -51,6 +51,9 @@ JAVA = "java"
 # Go programs.
 GO = "go"
 
+# PHP programs.
+PHP = "php"
+
 # Location where applications are stored.
 APPS_PATH = "/var/apps/"
 
@@ -71,4 +74,3 @@ API_CHECKER_ID = "apichecker"
 
 # Reserved application identifiers which are only internal for AppScale.
 RESERVED_APP_IDS = [DASHBOARD_APP_ID, API_CHECKER_ID]
-

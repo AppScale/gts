@@ -16,7 +16,7 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=1.10.0
+export APPSCALE_VERSION=1.11.0
 
 increaseconnections()
 {
@@ -62,6 +62,14 @@ installpython27()
     wget $APPSCALE_PACKAGE_MIRROR/Python-2.7.3.tgz
     tar zxvf Python-2.7.3.tgz
     rm /usr/local/Python-2.7.3.tgz
+}
+
+installphp()
+{
+    cd /usr/local
+    wget $APPSCALE_PACKAGE_MIRROR/php-5.4.15-prebuilt.tar.gz
+    tar zxvf php-5.4.15-prebuilt.tar.gz
+    rm /usr/local/php-5.4.15-prebuilt.tar.gz
 }
 
 installnumpy()

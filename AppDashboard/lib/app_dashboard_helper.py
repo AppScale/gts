@@ -11,17 +11,16 @@ import tempfile
 import urllib
 
 
-import SOAPpy
-
-
+from google.appengine.api import SOAPpy
 from google.appengine.api.appcontroller_client import AppControllerClient
+from google.appengine.api import users
+
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
 from local_host import MY_PUBLIC_IP
 from uaserver_host import UA_SERVER_IP
 
 
-from google.appengine.api import users
 
 
 class AppHelperException(Exception):

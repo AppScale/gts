@@ -108,6 +108,7 @@ EXTRA_PATHS = _STUB_DEPENDENCIES + [
     '/usr/lib/pymodules/python2.6/',
     glob.glob('/usr/local/lib/python2.6/dist-packages/termcolor-*-py2.6.egg')[0],
     glob.glob('/usr/local/lib/python2.6/dist-packages/lxml-*-py2.6-linux-x86_64.egg')[0],
+    glob.glob('/usr/local/lib/python2.6/dist-packages/python_memcached-*-py2.6.egg')[0]
     ]
 
 _DEVAPPSERVER2_PATHS = _STUB_DEPENDENCIES + [
@@ -168,7 +169,7 @@ def fix_sys_path(extra_extra_paths=()):
 def _run_file(file_path, globals_, script_dir=_SCRIPT_DIR):
   """Execute the file at the specified path with the passed-in globals."""
   script_name = os.path.basename(file_path)
-  sys.path = _SYS_PATH_ADDITIONS[script_name] + sys.path
+  sys.path = _SYS_PATH_ADDITIONS[script_name] + sys.path + EXTRA_PATHS
 
 
 

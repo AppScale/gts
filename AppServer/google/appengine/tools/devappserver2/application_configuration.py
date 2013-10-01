@@ -81,7 +81,7 @@ class ServerConfiguration(object):
     self._app_info_external, files_to_check = self._parse_configuration(
         self._yaml_path)
     self._mtimes = self._get_mtimes([self._yaml_path] + files_to_check)
-    self._application = 'dev~%s' % self._app_info_external.application
+    self._application = self._app_info_external.application
     self._api_version = self._app_info_external.api_version
     self._server_name = self._app_info_external.server
     self._version = self._app_info_external.version

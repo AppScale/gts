@@ -284,7 +284,9 @@ class GCEAgent(BaseAgent):
     # Construct the request body
     for index in range(count):
       instances = {
-        'name': "appscale-{0}-{1}".format(group, uuid.uuid4()),
+        # Truncate the name down to the first 62 characters, since GCE doesn't
+        # let us use arbitrarily long instance names.
+        'name': "appscale-{0}-{1}".format(group, uuid.uuid4())[:62],
         'machineType': machine_type_url,
         'image': image_url,
         'networkInterfaces': [{

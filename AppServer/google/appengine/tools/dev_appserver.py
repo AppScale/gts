@@ -238,6 +238,8 @@ purge your previous test data with --clear_datastore.
 NON_PUBLIC_CACHE_CONTROLS = frozenset(['private', 'no-cache', 'no-store'])
 
 
+DASHBOARD_HTTPS_PORT = '1443'
+
 
 class Error(Exception):
   """Base-class for exceptions in this module."""
@@ -2758,7 +2760,7 @@ def CreateRequestHandler(root_path,
     application configuration file in the directory specified by the root_path
     argument is invalid.
     """
-    server_version = 'AppScaleServer/1.8'
+    server_version = 'AppScaleServer/1.10'
 
 
 
@@ -3520,9 +3522,6 @@ def SetupStubs(app_id, **config):
   cookie_secret = config['COOKIE_SECRET']
 
 
-
-
-
   os.environ['APPLICATION_ID'] = app_id
 
 
@@ -3600,8 +3599,8 @@ def SetupStubs(app_id, **config):
 
   fixed_login_url = '%s?%s=%%s' % (login_url,
                                    dev_appserver_login.CONTINUE_PARAM)
-  fixed_logout_url = 'http://%s/logout?%s=%%s' % (login_server,
-                                   dev_appserver_login.CONTINUE_PARAM)
+  fixed_logout_url = 'https://%s:%s/logout?%s=%%s' % (login_server,
+                      DASHBOARD_HTTPS_PORT, dev_appserver_login.CONTINUE_PARAM)
                                                  
 
   apiproxy_stub_map.apiproxy.RegisterStub(

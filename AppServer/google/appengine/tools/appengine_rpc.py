@@ -288,7 +288,7 @@ class AbstractRpcServer(object):
       HTTPError: If there was an error fetching the authentication cookies.
     """
 
-    continue_location = "http://%s/" % self._GetAppDashboardPublicIP()
+    continue_location = "http://%s:1080/" % self._GetAppDashboardPublicIP()
     args = {"continue": continue_location, "auth": auth_token}
     login_path = os.environ.get("APPCFG_LOGIN_PATH", "/_ah")
     req = self._CreateRequest("%s://%s%s/login?%s" %
@@ -423,7 +423,8 @@ class AbstractRpcServer(object):
       A str of the URL for the AppScale Dashboard's authentication page
     """
     host = self._GetAppScaleDashboardHost()
-    return "%s://%s/%s" % (self.scheme + "s", host, self._APPSCALE_AUTH_PAGE)
+    return "%s://%s:1443/%s" % (self.scheme + "s", host,
+      self._APPSCALE_AUTH_PAGE)
 
   def _RunCommand(self, command):
     """ Runs a system command and reports failures.

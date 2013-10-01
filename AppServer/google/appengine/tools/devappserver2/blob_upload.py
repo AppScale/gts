@@ -475,6 +475,11 @@ class Application(object):
 
     # Retrieve upload session.
     try:
+      # When running unit tests, we see that the appid gets prepended to the
+      # upload key. Strip it off before we try the request.
+      if '/' in upload_key:
+        upload_key = upload_key.split('/')[1]
+
       upload_session = datastore.Get(upload_key)
     except datastore_errors.EntityNotFoundError:
       detail = 'No such upload session: %s' % upload_key

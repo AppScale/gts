@@ -107,7 +107,7 @@ class GetStoragePathTest(unittest.TestCase):
     self.mox.ReplayAll()
     self.assertEqual(
         path,
-        devappserver2._get_storage_path(None, 'dev~example.com:myapp'))
+        devappserver2._get_storage_path(None, 'example.com:myapp'))
     self.mox.VerifyAll()
     self.assertTrue(os.path.isdir(path))
 
@@ -126,7 +126,7 @@ class GetStoragePathTest(unittest.TestCase):
       expected_path = path2
     self.assertEqual(
         expected_path,
-        devappserver2._get_storage_path(None, 'dev~example.com:myapp'))
+        devappserver2._get_storage_path(None, 'example.com:myapp'))
     self.mox.VerifyAll()
 
   def test_path_given_does_not_exist(self):
@@ -135,7 +135,7 @@ class GetStoragePathTest(unittest.TestCase):
 
     self.assertEqual(
         path,
-        devappserver2._get_storage_path(path, 'dev~example.com:myapp'))
+        devappserver2._get_storage_path(path, 'example.com:myapp'))
     self.assertTrue(os.path.isdir(path))
 
   def test_path_given_not_directory(self):
@@ -143,14 +143,14 @@ class GetStoragePathTest(unittest.TestCase):
 
     self.assertRaises(
         IOError,
-        devappserver2._get_storage_path, path, 'dev~example.com:myapp')
+        devappserver2._get_storage_path, path, 'example.com:myapp')
 
   def test_path_given_exists(self):
     path = tempfile.mkdtemp()
 
     self.assertEqual(
         path,
-        devappserver2._get_storage_path(path, 'dev~example.com:myapp'))
+        devappserver2._get_storage_path(path, 'example.com:myapp'))
 
 
 class PortParserTest(unittest.TestCase):

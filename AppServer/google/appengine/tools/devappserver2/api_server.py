@@ -43,19 +43,18 @@ from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
 from google.appengine.api.app_identity import app_identity_stub
 from google.appengine.api.blobstore import blobstore_stub
-from google.appengine.api.blobstore import file_blob_storage
 from google.appengine.api.capabilities import capability_stub
 from google.appengine.api.channel import channel_service_stub
 from google.appengine.api.files import file_service_stub
 from google.appengine.api.logservice import logservice_stub
 from google.appengine.api.search import simple_search_stub
-from google.appengine.api.taskqueue import taskqueue_stub
+from google.appengine.api.taskqueue import taskqueue_distributed # AS
 from google.appengine.api.prospective_search import prospective_search_stub
-from google.appengine.api.memcache import memcache_stub
+from google.appengine.api.memcache import memcache_distributed # AS
 from google.appengine.api.remote_socket import _remote_socket_stub
 from google.appengine.api.servers import servers_stub
 from google.appengine.api.system import system_stub
-from google.appengine.api.xmpp import xmpp_service_stub
+from google.appengine.api.xmpp import xmpp_service_real # AS
 from google.appengine.datastore import datastore_sqlite_stub
 from google.appengine.datastore import datastore_stub_util
 
@@ -66,6 +65,10 @@ from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.ext.remote_api import remote_api_services
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.tools.devappserver2 import wsgi_server
+
+# AppScale
+from google.appengine.api import datastore_distributed
+from google.appengine.api.blobstore import datastore_blob_storage
 
 
 # TODO: Remove this lock when stubs have been audited for thread
@@ -232,8 +235,10 @@ def setup_stubs(
     search_index_path,
     taskqueue_auto_run_tasks,
     taskqueue_default_http_server,
+    uaserver_path,
     user_login_url,
-    user_logout_url):
+    user_logout_url,
+    xmpp_path):
   """Configures the APIs hosted by this server.
 
   Args:
@@ -282,16 +287,20 @@ def setup_stubs(
         be run automatically or it the must be manually triggered.
     taskqueue_default_http_server: A str containing the address of the http
         server that should be used to execute tasks.
+    uaserver_path: (AppScale-specific) A str containing the FQDN or IP address
+        of the machine that runs a UserAppServer.
     user_login_url: A str containing the url that should be used for user login.
     user_logout_url: A str containing the url that should be used for user
         logout.
+    xmpp_path: (AppScale-specific) A str containing the FQDN or IP address of
+        the machine that runs ejabberd, where XMPP clients should connect to.
   """
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'app_identity_service',
       app_identity_stub.AppIdentityServiceStub())
 
-  blob_storage = file_blob_storage.FileBlobStorage(blobstore_path, app_id)
+  blob_storage = datastore_blob_storage.DatastoreBlobStorage(app_id)
   apiproxy_stub_map.apiproxy.RegisterStub(
       'blobstore',
       blobstore_stub.BlobstoreServiceStub(blob_storage,
@@ -305,23 +314,18 @@ def setup_stubs(
       'channel',
       channel_service_stub.ChannelServiceStub(request_data=request_data))
 
-  datastore_stub = datastore_sqlite_stub.DatastoreSqliteStub(
-      app_id,
-      datastore_path,
-      datastore_require_indexes,
-      trusted,
-      root_path=application_root,
-      auto_id_policy=datastore_auto_id_policy)
-
-  datastore_stub.SetConsistencyPolicy(datastore_consistency)
+  datastore = datastore_distributed.DatastoreDistributed(app_id, datastore_path,
+      require_indexes=datastore_require_indexes, trusted=trusted)
 
   apiproxy_stub_map.apiproxy.ReplaceStub(
-      'datastore_v3', datastore_stub)
+      'datastore_v3', datastore)
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'file',
       file_service_stub.FileServiceStub(blob_storage))
 
+  serve_address = os.environ['NGINX_HOST']
+  serve_port = int(os.environ['NGINX_PORT'])
   try:
     from google.appengine.api.images import images_stub
   except ImportError:
@@ -335,13 +339,14 @@ def setup_stubs(
         images_not_implemented_stub.ImagesNotImplementedServiceStub(
             host_prefix=images_host_prefix))
   else:
+    host_prefix = 'http://{0}:{1}'.format(serve_address, serve_port)
     apiproxy_stub_map.apiproxy.RegisterStub(
         'images',
-        images_stub.ImagesServiceStub(host_prefix=images_host_prefix))
+        images_stub.ImagesServiceStub(host_prefix=host_prefix))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'logservice',
-      logservice_stub.LogServiceStub(logs_path=logs_path))
+      logservice_stub.LogServiceStub(persist=True))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'mail',
@@ -354,7 +359,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'memcache',
-      memcache_stub.MemcacheServiceStub())
+      memcache_distributed.MemcacheService())
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'search',
@@ -370,12 +375,8 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
-      taskqueue_stub.TaskQueueServiceStub(
-          root_path=application_root,
-          auto_task_running=taskqueue_auto_run_tasks,
-          default_http_server=taskqueue_default_http_server,
-          request_data=request_data))
-  apiproxy_stub_map.apiproxy.GetStub('taskqueue').StartBackgroundExecution()
+      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address,
+      serve_port))
 
   urlmatchers_to_fetch_functions = []
   urlmatchers_to_fetch_functions.extend(
@@ -393,7 +394,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'xmpp',
-      xmpp_service_stub.XmppServiceStub())
+      xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'matcher',
@@ -481,8 +482,10 @@ def test_setup_stubs(
     search_index_path=None,
     taskqueue_auto_run_tasks=False,
     taskqueue_default_http_server='http://localhost:8080',
+    uaserver_path='localhost',
     user_login_url='/_ah/login?continue=%s',
-    user_logout_url='/_ah/login?continue=%s'):
+    user_logout_url='/_ah/login?continue=%s',
+    xmpp_path='localhost'):
   """Similar to setup_stubs with reasonable test defaults and recallable."""
 
   # Reset the stub map between requests because a stub map only allows a
@@ -514,16 +517,14 @@ def test_setup_stubs(
               search_index_path,
               taskqueue_auto_run_tasks,
               taskqueue_default_http_server,
+              uaserver_path,
               user_login_url,
-              user_logout_url)
+              user_logout_url,
+              xmpp_path)
 
 
 def cleanup_stubs():
   """Do any necessary stub cleanup e.g. saving data."""
-  # Saving datastore
-  logging.info('Applying all pending transactions and saving the datastore')
-  datastore_stub = apiproxy_stub_map.apiproxy.GetStub('datastore_v3')
-  datastore_stub.Write()
-  logging.info('Saving search indexes')
-  apiproxy_stub_map.apiproxy.GetStub('search').Write()
-  apiproxy_stub_map.apiproxy.GetStub('taskqueue').Shutdown()
+  # Not necessary in AppScale, since the API services exist outside of the
+  # AppServer.
+  pass

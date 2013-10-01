@@ -50,6 +50,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.is_done_initializing(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.is_done_loading(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
+    assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_apps([], @secret))
@@ -761,17 +762,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected, actual)
   end
 
-  def test_start_roles_on_nodes_in_xen_on_one_node
-    # currently there is a bug in appscale where we can't scale up
-    # from a one node deployment - take out this test case once we
-    # fix that bug.
-    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
-    djinn = Djinn.new()
-    djinn.nodes = [1]
-    expected = Djinn::CANT_SCALE_FROM_ONE_NODE
-    actual = djinn.start_roles_on_nodes(ips_hash, @secret)
-    assert_equal(expected, actual)
-  end
 
   def test_start_roles_on_nodes_in_xen
     ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
@@ -916,6 +906,8 @@ class TestDjinn < Test::Unit::TestCase
 
     # next, nginx will rewrite its config files for the one app we
     # have running
+    flexmock(HelperFunctions).should_receive(:parse_static_data).with('booapp').
+      and_return([])
     app_dir = "/var/apps/booapp/app"
     app_yaml = "#{app_dir}/app.yaml"
     flexmock(YAML).should_receive(:load_file).with(app_yaml).
@@ -1291,5 +1283,82 @@ class TestDjinn < Test::Unit::TestCase
     # Finally, make sure that we added a node
     assert_equal(1, djinn.scale_appservers_across_nodes())
   end
+
+
+  def test_relocate_app_but_port_in_use_by_nginx
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by nginx for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 80, 4380, @secret))
+  end
+
+
+  def test_relocate_app_but_port_in_use_by_nginx_https
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by nginx for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 8080, 443, @secret))
+  end
+
+
+  def test_relocate_app_but_port_in_use_by_haproxy
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 4380,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by haproxy for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
+  end
+
+
+  def test_relocate_app_but_port_in_use_by_appserver
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [8080]
+      }
+    }
+
+    expected = "Error: Port in use by AppServer for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
+  end
+
 
 end
