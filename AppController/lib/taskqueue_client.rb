@@ -86,9 +86,10 @@ class TaskQueueClient
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
-    if response == nil:
+    if response.nil?
       return {"error" => true, "reason" => "Unable to get a response"}
     end
+
     return JSON.load(response.body)
   end
 
@@ -109,9 +110,10 @@ class TaskQueueClient
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
-    if response == nil:
+    if response.nil?
       return {"error" => true, "reason" => "Unable to get a response"}
     end
+
     return JSON.load(response.body)
   end
 

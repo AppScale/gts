@@ -34,7 +34,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.10.0"
+  VER_NUM = "1.11.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -124,7 +124,7 @@ module HelperFunctions
 
   # The location on the filesystem where the AppController backs up its
   # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
-  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller_state.json"
+  APPCONTROLLER_STATE_LOCATION = "/opt/appscale/appcontroller-state.json"
 
 
   # The location on the filesystem where the resolv.conf file can be found,
@@ -890,11 +890,11 @@ module HelperFunctions
 
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
-      result = "\n    location #{handler['url']} {"
+      result = "\n    location \"#{handler['url']}\" {"
       result << "\n\t" << "root $cache_dir;"
       result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
-      result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
+      result << "\n\t" << "rewrite \"#{handler['url']}\" \"/#{handler['static_files']}\" break;"
     end
     
     result << "\n" << "    }" << "\n"
@@ -1356,7 +1356,7 @@ module HelperFunctions
   # Returns:
   #   Boolean true if the app is thread safe. Boolean false if it is not.
   def self.get_app_thread_safe(app)
-    if app.start_with?(GAE_PREFIX) == false
+    if app != "appscaledashboard" and app.start_with?(GAE_PREFIX) == false
       return false
     end
     app = app.sub(GAE_PREFIX, '')    
@@ -1364,9 +1364,8 @@ module HelperFunctions
     appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
-      return false
-      # We can use the below line when we support python threading.
-      # return tree['threadsafe'] || false
+      Djinn.log_debug("[#{app}] Threadsafe is set to #{tree['threadsafe']}")
+      return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"
       xml = HelperFunctions.read_file(appengine_web_xml_file)
@@ -1378,6 +1377,8 @@ module HelperFunctions
       }
       return return_val == "true"
     else
+      Djinn.log_warn("Couldn't find an app configuration file for app " +
+        "#{app}, so assuming it is not threadsafe.")
       return false
     end
   end

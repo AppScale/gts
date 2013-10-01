@@ -48,6 +48,12 @@ class ZKInterface
   APPCONTROLLER_STATE_PATH = "#{APPCONTROLLER_PATH}/state"
 
 
+  # The location in ZooKeeper where the AppServer nodes will back up information
+  # about each AppServer they host (e.g., the nginx, haproxy, and dev_appserver
+  # ports that each AppServer binds to).
+  APPSERVER_STATE_PATH = "#{APPCONTROLLER_PATH}/appservers"
+
+
   # The location in ZooKeeper that contains a list of the IP addresses that
   # are currently running within AppScale.
   IP_LIST = "#{APPCONTROLLER_PATH}/ips"
@@ -205,6 +211,42 @@ class ZKInterface
     # our data
     self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
     self.set(APPCONTROLLER_STATE_PATH, JSON.dump(state), NOT_EPHEMERAL)
+  end
+
+
+  # Contacts ZooKeeper to get the information about App Engine apps hosted
+  # on the named machine.
+  #
+  # Args:
+  #   public_ip: A String that names the public IP or FQDN where the machine
+  #     we should acquire AppServer info for runs.
+  #
+  # Returns:
+  #   A Hash mapping Strings to Hashes. Here, each String is an appid of an
+  #   app that should be running on this machine, and the Hash it maps to
+  #   contains keys for the nginx, haproxy, and dev_appserver ports the app
+  #   is supposed to be running on.
+  def self.get_appserver_state(public_ip)
+    return JSON.load(self.get("#{APPSERVER_STATE_PATH}/#{public_ip}"))
+  end
+
+
+  # Writes the given AppServer state to ZooKeeper, on behalf of the named
+  # machine.
+  #
+  # It also creates any higher-level directories in ZooKeeper that may be
+  # needed to save this info.
+  #
+  # Args:
+  #   public_ip: A String that names the public IP or FQDN where the machine
+  #     we should save AppServer info for runs.
+  #   state: A Hash that maps each appid running on this machine to a Hash
+  #     indicating what ports the app binds to on that machine.
+  def self.write_appserver_state(public_ip, state)
+    self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
+    self.set(APPSERVER_STATE_PATH, DUMMY_DATA, NOT_EPHEMERAL)
+    self.set("#{APPSERVER_STATE_PATH}/#{public_ip}", JSON.dump(state),
+      NOT_EPHEMERAL)
   end
 
 

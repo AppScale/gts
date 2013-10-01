@@ -63,9 +63,13 @@ class ApiChecker
     num_servers = 3
     app_number = -1
     app = "apichecker"
-    app_language = "python"
+    app_language = "python27"
 
-    app_manager = AppManagerClient.new()
+    # Tell the app what nginx port sits in front of it.
+    port_file = "/etc/appscale/port-#{app}.txt"
+    HelperFunctions.write_file(port_file, "#{SERVER_PORT}")
+
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
 
     app_location = "/var/apps/#{app}/app"
     Djinn.log_run("mkdir -p #{app_location}")
@@ -79,11 +83,14 @@ class ApiChecker
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, @@ip, @@private_ip, proxy_port, static_handlers, login_ip)
+    http_port = SERVER_PORT
+    https_port = Nginx.get_ssl_port_for_app(http_port)
+    Nginx.write_app_config(app, http_port, https_port, @@ip, @@private_ip,
+      proxy_port, static_handlers, login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
 
     Djinn.log_info("Starting #{app_language} app #{app}")
-    [19997, 19998, 19999].each { |port|
+    [19999].each { |port|
       Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
       pid = app_manager.start_app(app, port, uaserver_ip, 
                                   SERVER_PORT, app_language, login_ip,
@@ -106,7 +113,7 @@ class ApiChecker
   #
   def self.stop
     Djinn.log_info("Stopping apichecker on #{HelperFunctions.local_ip}")
-    app_manager = AppManagerClient.new()
+    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
     if app_manager.stop_app("apichecker")
       Djinn.log_error("Failed to stop apichecker on #{HelperFunctions.local_ip}")
     end

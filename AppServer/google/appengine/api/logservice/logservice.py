@@ -281,24 +281,6 @@ class LogsBuffer(object):
     """
     self._lock_and_call(self._flush)
 
-  def get_login_ip(self):
-    file_handle = open(LOGIN_IP_FILENAME, 'r')
-    host = file_handle.read()
-    file_handle.close()
-    if host[-1] == "\n":
-      return host[:-1]
-    else:
-      return host
-
-  def get_my_public_ip(self):
-    file_handle = open(MY_PUBLIC_IP_FILENAME, 'r')
-    host = file_handle.read()
-    file_handle.close()
-    if host[-1] == "\n":
-      return host[:-1]
-    else:
-      return host
-
   def _flush(self):
     """Internal version of flush() with no locking."""
 
@@ -314,11 +296,11 @@ class LogsBuffer(object):
 
     payload = json.dumps({
       'service_name' : appid,
-      'host' : self.get_my_public_ip(),
+      'host' : os.environ['MY_IP_ADDRESS'],
       'logs' : formatted_logs
     })
 
-    conn = httplib.HTTPSConnection(self.get_login_ip() + ":443")
+    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
     headers = {'Content-Type' : 'application/json'}
     conn.request('POST', '/logs/upload', payload, headers)
     response = conn.getresponse()

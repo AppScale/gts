@@ -36,7 +36,7 @@ class LogSender():
     log['host'] = cls.get_my_public_hostname()
     complete_payload = json.dumps(log)
 
-    conn = httplib.HTTPSConnection('{0}:443'.format(cls.get_login_host()))
+    conn = httplib.HTTPSConnection('{0}:1443'.format(cls.get_login_host()))
     headers = {'Content-Type' : 'application/json'}
     conn.request('POST', '/logs/upload', complete_payload, headers)
     response = conn.getresponse()

@@ -18,6 +18,7 @@
 
 
 import __builtin__
+import glob
 import imp
 import os
 import re
@@ -64,6 +65,7 @@ _THIRD_PARTY_LIBRARY_FORMAT_STRING = (
 # Store all the modules removed from sys.modules so they don't get cleaned up.
 _removed_modules = []
 
+LXML_PATH = glob.glob('/usr/local/lib/python2.6/dist-packages/lxml-*-py2.6-linux-x86_64.egg')[0]
 
 def _make_request_id_aware_start_new_thread(base_start_new_thread):
   """Returns a replacement for start_new_thread that inherits request id.
@@ -292,7 +294,7 @@ class BaseImportHook(object):
     Raises:
       ImportError: The module could not be imported.
     """
-    for path_entry in path + [None]:
+    for path_entry in path + [None] + [LXML_PATH]:
       result = self._find_path_hook(submodule_name, fullname, path_entry)
       if result is not None:
         break
@@ -670,7 +672,7 @@ _MODULE_OVERRIDE_POLICIES = {
             'system': stubs.return_minus_one,
             },
         deletes=['execv', 'execve']),
-    'signal': ModuleOverridePolicy(overrides={'__doc__': None}),
+    #'signal': ModuleOverridePolicy(overrides={'__doc__': None}),
     'locale': ModuleOverridePolicy(
         overrides={'setlocale': stubs.fake_set_locale},
         default_pass_through=True),
@@ -788,10 +790,13 @@ _WHITE_LIST_C_MODULES = [
     '_sha256',  # Python2.5 compatibility
     '_sha512',  # Python2.5 compatibility
     '_sha',  # Python2.5 compatibility
+    'signal',
     '_sre',
     'strop',
     '_struct',
     '_symtable',
+    'ssl',
+    '_ssl',
     'sys',
     'thread',
     'time',
