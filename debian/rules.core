@@ -54,8 +54,6 @@ install: build
 	py_compilefiles AppController/*.py
 	py_compilefiles AppDB/*.py
 	py_compilefiles AppDB/zkappscale/*.py
-	# we should use python2.5 for AppServer
-	#find AppServer -name *.py -exec python2.5 /usr/bin/py_compilefiles -f {} +
 	mkdir -p $(APPSCALE)
 	cp -r AppController $(APPSCALE)
 	mkdir -p $(APPSCALE)/AppDB
