@@ -3,6 +3,7 @@ import logging
 import os 
 import subprocess
 import sys
+import time
 
 import file_io
 import misc 
@@ -33,6 +34,7 @@ def start(watch):
       "up watch %s" % (return_status, watch))
     return False
 
+  time.sleep(5)
   return_status = subprocess.call([MONIT, 'start', '-g', watch])
   if return_status != 0:
     logging.error("Monit start command returned with status %d when setting " \
