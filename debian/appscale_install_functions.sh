@@ -453,20 +453,6 @@ installprotobuf_fromsource()
     rm -rv protobuf-${PROTOBUF_VER}
 }
 
-installprotobuf()
-{
-# make protobuf module loadable
-# this is not needed when we use egg to install protobuf.
-    mkdir -pv ${APPSCALE_HOME}/AppServer/google
-    # this should be absolute path of runtime.
-    ln -sfv /var/lib/python-support/python2.7/google/protobuf ${APPSCALE_HOME}/AppServer/google/
-}
-
-postinstallprotobuf()
-{
-    :;
-}
-
 installservice()
 {
     # this must be absolete path of runtime
