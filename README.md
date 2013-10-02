@@ -1,4 +1,4 @@
-![AppScale Logo](http://www.appscale.com/img/appscale-logo.png)
+![AppScale Logo](http://www.appscale.com/img/logos/appscale-logo-349x83.jpg)
 
 AppScale is a platform that allows users to deploy and host their 
 own Google App Engine applications. It executes automatically over 
@@ -13,7 +13,7 @@ Google App Engine platforms.
 To find out more visit http://appscale.com
 
 ## Latest Release ##
-The latest stable release is AppScale 1.10.0, released August 28, 2013.
+The latest stable release is AppScale 1.11.0, released September 30, 2013.
 Feature requests and pull requests gladly welcomed.
 
 ## Mailing List ##

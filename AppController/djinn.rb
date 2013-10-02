@@ -1129,14 +1129,12 @@ class Djinn
 
           HAProxy.remove_app(app_name)
           ZKInterface.remove_app_entry(app_name, my_node.public_ip)
+        end
 
-          # If this node has any information about AppServers for this app,
-          # clear that information out.
-          if !@app_info_map[app_name].nil?
-            @app_info_map.delete(app_name)
-          end
-
-          result = "true"
+        # If this node has any information about AppServers for this app,
+        # clear that information out.
+        if !@app_info_map[app_name].nil?
+          @app_info_map.delete(app_name)
         end
 
         @apps_loaded = @apps_loaded - [app_name]    
@@ -3327,6 +3325,12 @@ class Djinn
       enable_root_login = "sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
     elsif @creds["infrastructure"] == "gce"
+      # Since GCE v1beta15, SSH keys don't immediately get injected to newly
+      # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
+      # sure.
+      Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
+      Kernel.sleep(60)
+
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
       enable_root_login = "sudo cp /home/#{@creds['gce_user']}/.ssh/authorized_keys /root/.ssh/"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{@creds['gce_user']}@#{ip} '#{enable_root_login}'")
@@ -4068,7 +4072,7 @@ HOSTS
 
         if all_ports_for_app.include?(@nginx_port)
           Djinn.log_debug("Couldn't use port #{@nginx_port} for a new " +
-            "app because it was in the list #{info.inspect}")
+            "app because #{app} is using it: #{info.inspect}")
           nginx_port_in_use = true
           break
         end
