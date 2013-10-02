@@ -67,8 +67,7 @@ check process #{watch}-#{port} matching "#{start_cmd}"
   group #{watch}
   start program = "#{full_start_command}"
   stop program = "#{stop_cmd}"
-  if cpu is greater than 50% for 5 cycles then restart
-  if memory is greater than 50% for 5 cycles then restart
+  if memory is greater than 250 MB for 5 cycles then restart
 BOO
 
     monit_file = "/etc/monit/conf.d/#{watch}-#{port}.cfg"
