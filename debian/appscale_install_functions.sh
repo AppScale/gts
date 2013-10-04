@@ -172,55 +172,9 @@ EOF
     mkdir -pv /var/appscale/
 }
 
-installthrift_fromsource()
-{
-    export THRIFT_VER=0.5.0
-
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    # apache 0.2.0
-    wget $APPSCALE_PACKAGE_MIRROR/thrift-${THRIFT_VER}.tar.gz
-    tar zxfv thrift-${THRIFT_VER}.tar.gz
-    rm -v thrift-${THRIFT_VER}.tar.gz
-    pushd thrift-${THRIFT_VER}
-    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --without-php_extension --prefix=/usr/local
-    make
-# install native library and include files to DESTDIR.
-    make install
-# python library
-    pushd lib/py
-    python setup.py install --prefix=${DESTDIR}/usr
-    popd
-
-    popd
-    rm -rfv thrift-${THRIFT_VER}
-}
-
-postinstallthrift_fromsource()
-{
-  :;
-}
-
-# using egg
-
 installthrift()
 {
     easy_install -U thrift
-    DISTP=/usr/local/lib/python2.7/dist-packages
-    if [ -z "$(find ${DISTP} -name Thrift-*.egg)" ]; then
-	echo "Fail to install python thrift client. Please retry."
-	exit 1
-    fi
-    if [ -n "$DESTDIR" ]; then
-	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/Thrift-*.egg ${DESTDIR}${DISTP}
-    fi
-}
-
-postinstallthrift()
-{
-    # just enable thrift library.
-    easy_install thrift
 }
 
 installjavajdk()
@@ -390,10 +344,8 @@ postinstallnginx()
 
 installcassandra()
 {
-    CASSANDRA_VER=1.2.5
-    PYCASSA_VER=1.3.0
-    cd /lib 
-    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    CASSANDRA_VER=2.0.1
+    PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
@@ -418,6 +370,9 @@ installcassandra()
     cd ..
     rm -fr pycassa-${PYCASSA_VER}
     rm -fr pycassa-${PYCASSA_VER}.tar.gz 
+    
+    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
+    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
 
 postinstallcassandra()
