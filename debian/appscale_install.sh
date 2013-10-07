@@ -23,10 +23,9 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
-        installpython27
         installnumpy
-        installpythonmemcache
         installPIL
+        installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
@@ -40,8 +39,6 @@ case "$1" in
 	postinstallthrift_fromsource
         installtornado
         postinstalltornado
-	installprotobuf
-	postinstallprotobuf
         installflexmock
         installnose
 	installzookeeper
@@ -67,7 +64,6 @@ case "$1" in
 	;;
     protobuf-src)
 	installprotobuf_fromsource
-	postinstallprotobuf
 	;;
     rabbit-mq)
         installrabbitmq
@@ -87,10 +83,9 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
-        installpython27
         installnumpy
-        installpythonmemcache
         installPIL
+        installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
@@ -104,8 +99,6 @@ case "$1" in
         installflexmock
         installnose
         postinstalltornado
-	installprotobuf
-	postinstallprotobuf
 	installzookeeper
 	postinstallzookeeper
         installcassandra

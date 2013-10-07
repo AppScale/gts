@@ -26,8 +26,8 @@ import urllib
 try:
   import xmpp
 except ImportError:
-  PYTHON_PACKAGES = '/usr/local/lib/python2.6/dist-packages/'
-  sys.path.append(PYTHON_PACKAGES + 'xmpppy-0.5.0rc1-py2.6.egg')
+  PYTHON_PACKAGES = '/usr/local/lib/python2.7/dist-packages/'
+  sys.path.append(PYTHON_PACKAGES + 'xmpppy-0.5.0rc1-py2.7.egg')
   import xmpp
 
 

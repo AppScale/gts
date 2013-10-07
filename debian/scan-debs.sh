@@ -30,7 +30,7 @@ scanbinary()
 if [ -n "$1" ]; then
     scanbinary $1 $2 $3
 else
-    for dist in jaunty karmic lucid
+    for dist in precise
     do
 	for ver in test stable
 	do

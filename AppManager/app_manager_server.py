@@ -563,7 +563,7 @@ def choose_python_executable(py_version):
   if py_version in [constants.PYTHON, constants.GO]:
     return "/usr/bin/python2.5"
   elif py_version in [constants.PYTHON27, constants.PHP]:
-    return "/usr/local/Python-2.7.3/python"
+    return "python"
   else:
     raise NotImplementedError("Unknown python version %s" % \
                                py_version)

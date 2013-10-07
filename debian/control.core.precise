@@ -11,12 +11,9 @@ Architecture: any
 Depends: appscale-tools,
 # App Server/AppScale Server/SOAP Server
  openssl,
- python2.6, python-yaml,
-# python2.5 is not provided from lucid
- python2.5,
+ python-yaml,
  python-m2crypto, python-soappy, 
  python-imaging,
- python,
  python-django, 
  sendmail,
  ejabberd,

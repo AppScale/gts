@@ -31,7 +31,7 @@ module TaskQueue
   FLOWER_SERVER_PORT = 5555
 
   # The python executable path.
-  PYTHON_EXEC = "/usr/bin/python2.6"
+  PYTHON_EXEC = "python"
 
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
