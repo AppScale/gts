@@ -2816,7 +2816,7 @@ class MainHandler(tornado.web.RequestHandler):
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
-             "Datastore connection error on allocate id request.")
+             "Datastore connection error on run_query request.")
 
  
     return (clone_qr_pb.Encode(), 0, "")
