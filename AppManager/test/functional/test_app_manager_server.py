@@ -28,7 +28,7 @@ class RunPythonAppTestCase(unittest.TestCase):
     setup_app_dir(self.appname)
     config = {'app_name': self.appname,
               'app_port': self.port,
-              'language': 'python',
+              'language': 'python27',
               'load_balancer_ip': 'localhost',
               'load_balancer_port': '8090',
               'xmpp_ip': 'localhost',

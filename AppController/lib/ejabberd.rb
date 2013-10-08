@@ -42,7 +42,7 @@ module Ejabberd
   end
 
   def self.does_app_need_receive?(app, runtime)
-    if ["python", "python27", "go", "php"].include?(runtime)
+    if ["python27", "go", "php"].include?(runtime)
       app_yaml_file = "/var/apps/#{app}/app/app.yaml"
       app_yaml = YAML.load_file(app_yaml_file)["inbound_services"]
       if !app_yaml.nil? and app_yaml.include?("xmpp_message")
@@ -59,8 +59,8 @@ module Ejabberd
         return false
       end
     else
-      HelperFunctions.log_and_crash("xmpp: runtime was not python, " +
-        "python27, go, java but was [#{runtime}]")
+      HelperFunctions.log_and_crash("xmpp: runtime was not " +
+        "python27, go, java, php but was [#{runtime}]")
     end
   end
 
