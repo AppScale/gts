@@ -70,7 +70,7 @@ def NamedTemporaryFile(mode='w+b', bufsize=-1, suffix="",
     is accessible as file.name.  The file will be not be automatically
     deleted when it is closed.
     """
-    _os = imp.load_source('os','/usr/local/Python-2.7.3/Lib/os.py') 
+    _os = imp.load_source('os','/usr/lib/python2.7/os.py')
     names = _RandomNameSequence()
     flags = _os.O_RDWR|_os.O_CREAT|_os.O_EXCL
 
@@ -119,7 +119,7 @@ class _RandomNameSequence:
                   "0123456789_")
 
     def __init__(self):
-        self._os = imp.load_source('os','/usr/local/Python-2.7.3/Lib/os.py')
+        self._os = imp.load_source('os','/usr/lib/python2.7/os.py')
         #self._Random = imp.load_source('os','/usr/local/Python-2.7.3/Lib/random.py')
         self.normcase = self._os.path.normcase
 
