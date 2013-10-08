@@ -321,11 +321,7 @@ class UploadHandler(tornado.web.RequestHandler):
         # for the path. We split redirect_path just in case
         # its a full path.
         redirect_path = e.hdrs["Location"]
-        success_path_toks = success_path.split('/')
-        redirect_toks = redirect_path.split("/")
-        final_redirect_path = success_path_toks[0] + '//' + \
-               success_path_toks[2] + '/' + redirect_toks[len(redirect_toks)-1]
-        self.redirect(final_redirect_path)
+        self.redirect(redirect_path)
         return
       else:
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
