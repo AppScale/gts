@@ -380,7 +380,7 @@ SCRIPT
   {mod_announce, [{access, announce}]}, % requires mod_adhoc
   {mod_caps,     []},
   {mod_configure,[]}, % requires mod_adhoc
-  {mod_ctlextra, []},
+  {mod_admin_extra, []},
   {mod_disco,    []},
   %%{mod_echo,   [{host, "echo.localhost"}]},
   {mod_irc,      []},
