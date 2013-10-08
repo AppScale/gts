@@ -35,8 +35,7 @@ case "$1" in
 	installjavajdk
         installappserverjava
         postinstallappserverjava
-	installthrift_fromsource
-	postinstallthrift_fromsource
+	installthrift
         installtornado
         postinstalltornado
         installflexmock
@@ -93,8 +92,7 @@ case "$1" in
 	installjavajdk
         installappserverjava
         postinstallappserverjava
-	installthrift_fromsource
-	postinstallthrift_fromsource
+	installthrift
         installtornado
         installflexmock
         installnose
