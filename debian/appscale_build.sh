@@ -44,13 +44,6 @@ export APPSCALE_HOME_RUNTIME=`pwd`
 
 apt-get update
 
-# Solves the localization error messages 
-export LANGUAGE=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-locale-gen en_US.UTF-8
-dpkg-reconfigure locales
-
 # fix /etc/hosts file for collectd installation
 HOSTNAME=`hostname`
 if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
