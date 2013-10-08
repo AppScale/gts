@@ -1946,52 +1946,54 @@ class DatastoreDistributed():
     # Here we have two filters and so we set the start and end key to 
     # get the given value within those ranges. 
     if len(filter_ops) > 1:
-      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
-         # If one of the filters is EQUAL, set start and end key
-         # to the same value.
-         if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
-           value1 = filter_ops[0][1]
-           value2 = filter_ops[1][1]
-           oper1 = filter_ops[0][0]
-           oper2 = filter_ops[1][0]
-         else:
-           value1 = filter_ops[1][1]
-           value2 = filter_ops[0][1]
-           oper1 = filter_ops[1][0]
-           oper2 = filter_ops[0][0]
-         # Checking to see if filters/values are correct bounds.
-         # value1 and oper1 are the EQUALS filter values.
-         if oper2 == datastore_pb.Query_Filter.LESS_THAN:
-           if value2 > value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-           if value2 >= value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
-           if value2 < value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-           if value2 <= value1 == False:
-             return []
-         start_inclusive = self._ENABLE_INCLUSIVITY
-         end_inclusive = self._DISABLE_INCLUSIVITY
-         params = [prefix, kind, property_name, value1 + self._SEPARATOR]
-         if not startrow:
-           startrow = self.get_index_key_from_params(params)
-         else:
-           start_inclusive = self._DISABLE_INCLUSIVITY
-         params = [prefix, kind, property_name, value1 + self._SEPARATOR + self._TERM_STRING]
-         endrow = self.get_index_key_from_params(params)
-	 
-         ret = self.datastore_batch.range_query(table_name,
-                                          column_names,
-                                          startrow,
-                                          endrow,
-                                          limit,
-                                          offset=0,
-                                          start_inclusive=start_inclusive,
-                                          end_inclusive=end_inclusive) 
-         return ret 
+      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or \
+        filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
+        # If one of the filters is EQUAL, set start and end key
+        # to the same value.
+        if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
+          value1 = filter_ops[0][1]
+          value2 = filter_ops[1][1]
+          oper1 = filter_ops[0][0]
+          oper2 = filter_ops[1][0]
+        else:
+          value1 = filter_ops[1][1]
+          value2 = filter_ops[0][1]
+          oper1 = filter_ops[1][0]
+          oper2 = filter_ops[0][0]
+        # Checking to see if filters/values are correct bounds.
+        # value1 and oper1 are the EQUALS filter values.
+        if oper2 == datastore_pb.Query_Filter.LESS_THAN:
+          if value2 > value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+          if value2 >= value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
+          if value2 < value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+          if value2 <= value1 == False:
+            return []
+        start_inclusive = self._ENABLE_INCLUSIVITY
+        end_inclusive = self._DISABLE_INCLUSIVITY
+        params = [prefix, kind, property_name, value1 + self._SEPARATOR]
+        if not startrow:
+          startrow = self.get_index_key_from_params(params)
+        else:
+          start_inclusive = self._DISABLE_INCLUSIVITY
+        params = [prefix, kind, property_name, value1 + \
+          self._SEPARATOR + self._TERM_STRING]
+        endrow = self.get_index_key_from_params(params)
+	
+        ret = self.datastore_batch.range_query(table_name,
+                                         column_names,
+                                         startrow,
+                                         endrow,
+                                         limit,
+                                         offset=0,
+                                         start_inclusive=start_inclusive,
+                                         end_inclusive=end_inclusive) 
+        return ret 
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
          filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         oper1 = filter_ops[0][0]
@@ -2808,6 +2810,14 @@ class MainHandler(tornado.web.RequestHandler):
       return (clone_qr_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.info("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      clone_qr_pb.set_more_results(False)
+      return (clone_qr_pb.Encode(),
+             datastore_pb.Error.INTERNAL_ERROR,
+             "Datastore connection error on run_query request.")
+
  
     return (clone_qr_pb.Encode(), 0, "")
 
@@ -2844,8 +2854,15 @@ class MainHandler(tornado.web.RequestHandler):
         "info {1}".format(app_id, str(zkte)))
       return (response.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
-              "Concurrent transaction exception on put.")
- 
+              "Concurrent transaction exception on allocate id request.")
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.info("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (response.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on allocate id request.")
+
+
     response.set_start(start)
     response.set_end(end)
     return (response.Encode(), 0, "")
@@ -2877,7 +2894,13 @@ class MainHandler(tornado.web.RequestHandler):
       return (putresp_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
-      
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.info("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (putresp_pb.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on put.")
+
     return (putresp_pb.Encode(), 0, "")
     
   def get_request(self, app_id, http_request_data):
@@ -2905,7 +2928,14 @@ class MainHandler(tornado.web.RequestHandler):
         "info {1}".format(app_id, str(zkte)))
       return (getresp_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
-              "Concurrent transaction exception on put.")
+              "Concurrent transaction exception on get.")
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.info("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (getresp_pb.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on get.")
+
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
@@ -2934,6 +2964,14 @@ class MainHandler(tornado.web.RequestHandler):
       return (delresp_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on delete.")
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.info("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (delresp_pb.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on delete.")
+
+
     return (delresp_pb.Encode(), 0, "")
 
 def usage():
