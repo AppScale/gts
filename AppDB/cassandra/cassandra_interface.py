@@ -42,6 +42,12 @@ KEYSPACE = "Keyspace1"
 # The standard column family used for tables
 STANDARD_COL_FAM = "Standard1"
 
+# Uncomment this to enable logging for pycassa.
+#log = pycassa.PycassaLogger()
+#log.set_logger_name('pycassa_library')
+#log.set_logger_level('info')
+#log.get_logger().addHandler(logging.StreamHandler())
+
 class DatastoreProxy(AppDBInterface):
   """ 
     Cassandra implementation of the AppDBInterface
@@ -261,6 +267,11 @@ class DatastoreProxy(AppDBInterface):
 
     results = []
     keyslices = []
+    # There is a bug in pycassa/cassandra if the limit is 1,
+    # sometimes it'll get stuck and not return. We can set this
+    # to 2 because we apply the limit before we return.
+    if row_count == 1:
+      row_count = 2
 
     try:
       cf = pycassa.ColumnFamily(self.pool,table_name)

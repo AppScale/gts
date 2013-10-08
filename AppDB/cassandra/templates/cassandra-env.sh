@@ -20,13 +20,20 @@ calculate_heap_sizes()
         Linux)
             system_memory_in_mb=`free -m | awk '/Mem:/ {print $2}'`
             system_cpu_cores=`egrep -c 'processor([[:space:]]+):.*' /proc/cpuinfo`
-            break
         ;;
         FreeBSD)
             system_memory_in_bytes=`sysctl hw.physmem | awk '{print $2}'`
-            system_memory_in_mb=$((system_memory_in_bytes / 1024 / 1024))
+            system_memory_in_mb=`expr $system_memory_in_bytes / 1024 / 1024`
             system_cpu_cores=`sysctl hw.ncpu | awk '{print $2}'`
-            break
+        ;;
+        SunOS)
+            system_memory_in_mb=`prtconf | awk '/Memory size:/ {print $3}'`
+            system_cpu_cores=`psrinfo | wc -l`
+        ;;
+        Darwin)
+            system_memory_in_bytes=`sysctl hw.memsize | awk '{print $2}'`
+            system_memory_in_mb=`expr $system_memory_in_bytes / 1024 / 1024`
+            system_cpu_cores=`sysctl hw.ncpu | awk '{print $2}'`
         ;;
         *)
             # assume reasonable defaults for e.g. a modern desktop or
@@ -35,14 +42,41 @@ calculate_heap_sizes()
             system_cpu_cores="2"
         ;;
     esac
-    max_heap_size_in_mb=$((system_memory_in_mb / 2))
+
+    # some systems like the raspberry pi don't report cores, use at least 1
+    if [ "$system_cpu_cores" -lt "1" ]
+    then
+        system_cpu_cores="1"
+    fi
+
+    # set max heap size based on the following
+    # max(min(1/2 ram, 1024MB), min(1/4 ram, 8GB))
+    # calculate 1/2 ram and cap to 1024MB
+    # calculate 1/4 ram and cap to 8192MB
+    # pick the max
+    half_system_memory_in_mb=`expr $system_memory_in_mb / 2`
+    quarter_system_memory_in_mb=`expr $half_system_memory_in_mb / 2`
+    if [ "$half_system_memory_in_mb" -gt "1024" ]
+    then
+        half_system_memory_in_mb="1024"
+    fi
+    if [ "$quarter_system_memory_in_mb" -gt "8192" ]
+    then
+        quarter_system_memory_in_mb="8192"
+    fi
+    if [ "$half_system_memory_in_mb" -gt "$quarter_system_memory_in_mb" ]
+    then
+        max_heap_size_in_mb="$half_system_memory_in_mb"
+    else
+        max_heap_size_in_mb="$quarter_system_memory_in_mb"
+    fi
     MAX_HEAP_SIZE="${max_heap_size_in_mb}M"
 
     # Young gen: min(max_sensible_per_modern_cpu_core * num_cores, 1/4 * heap size)
     max_sensible_yg_per_core_in_mb="100"
-    max_sensible_yg_in_mb=$((max_sensible_yg_per_core_in_mb * system_cpu_cores))
+    max_sensible_yg_in_mb=`expr $max_sensible_yg_per_core_in_mb "*" $system_cpu_cores`
 
-    desired_yg_in_mb=$((max_heap_size_in_mb / 4))
+    desired_yg_in_mb=`expr $max_heap_size_in_mb / 4`
 
     if [ "$desired_yg_in_mb" -gt "$max_sensible_yg_in_mb" ]
     then
@@ -52,12 +86,40 @@ calculate_heap_sizes()
     fi
 }
 
+# Determine the sort of JVM we'll be running on.
+
+java_ver_output=`"${JAVA:-java}" -version 2>&1`
+
+jvmver=`echo "$java_ver_output" | awk -F'"' 'NR==1 {print $2}'`
+JVM_VERSION=${jvmver%_*}
+JVM_PATCH_VERSION=${jvmver#*_}
+
+jvm=`echo "$java_ver_output" | awk 'NR==2 {print $1}'`
+case "$jvm" in
+    OpenJDK)
+        JVM_VENDOR=OpenJDK
+        # this will be "64-Bit" or "32-Bit"
+        JVM_ARCH=`echo "$java_ver_output" | awk 'NR==3 {print $2}'`
+        ;;
+    "Java(TM)")
+        JVM_VENDOR=Oracle
+        # this will be "64-Bit" or "32-Bit"
+        JVM_ARCH=`echo "$java_ver_output" | awk 'NR==3 {print $3}'`
+        ;;
+    *)
+        # Help fill in other JVM values
+        JVM_VENDOR=other
+        JVM_ARCH=unknown
+        ;;
+esac
+
+
 # Override these to set the amount of memory to allocate to the JVM at
-# start-up. For production use you almost certainly want to adjust
-# this for your environment. MAX_HEAP_SIZE is the total amount of
-# memory dedicated to the Java heap; HEAP_NEWSIZE refers to the size
-# of the young generation. Both MAX_HEAP_SIZE and HEAP_NEWSIZE should
-# be either set or not (if you set one, set the other).
+# start-up. For production use you may wish to adjust this for your
+# environment. MAX_HEAP_SIZE is the total amount of memory dedicated
+# to the Java heap; HEAP_NEWSIZE refers to the size of the young
+# generation. Both MAX_HEAP_SIZE and HEAP_NEWSIZE should be either set
+# or not (if you set one, set the other).
 #
 # The main trade-off for the young generation is that the larger it
 # is, the longer GC pause times will be. The shorter it is, the more
@@ -83,12 +145,6 @@ fi
 # JMX connections.
 JMX_PORT="APPSCALE-JMX-PORT"
 
-# To use mx4j, an HTML interface for JMX, add mx4j-tools.jar to the lib/ directory.
-# By default mx4j listens on 0.0.0.0:8081. Uncomment the following lines to control
-# its listen address and port.
-#MX4J_ADDRESS="-Dmx4jaddress=0.0.0.0"
-#MX4J_PORT="-Dmx4jport=8081"
-
 
 # Here we create the arguments that will get passed to the jvm when
 # starting cassandra.
@@ -96,6 +152,13 @@ JMX_PORT="APPSCALE-JMX-PORT"
 # enable assertions.  disabling this in production will give a modest
 # performance benefit (around 5%).
 JVM_OPTS="$JVM_OPTS -ea"
+
+# add the jamm javaagent
+if [ "$JVM_VENDOR" != "OpenJDK" -o "$JVM_VERSION" \> "1.6.0" ] \
+      || [ "$JVM_VERSION" = "1.6.0" -a "$JVM_PATCH_VERSION" -ge 23 ]
+then
+    JVM_OPTS="$JVM_OPTS -javaagent:/root/appscale/AppDB/cassandra/cassandra/lib/jamm-0.2.5.jar"
+fi
 
 # enable thread priorities, primarily so we can give periodic tasks
 # a lower priority to avoid interfering with client workload
@@ -111,15 +174,20 @@ JVM_OPTS="$JVM_OPTS -XX:ThreadPriorityPolicy=42"
 JVM_OPTS="$JVM_OPTS -Xms${MAX_HEAP_SIZE}"
 JVM_OPTS="$JVM_OPTS -Xmx${MAX_HEAP_SIZE}"
 JVM_OPTS="$JVM_OPTS -Xmn${HEAP_NEWSIZE}"
-JVM_OPTS="$JVM_OPTS -XX:+HeapDumpOnOutOfMemoryError" 
+JVM_OPTS="$JVM_OPTS -XX:+HeapDumpOnOutOfMemoryError"
 
-if [ "`uname`" = "Linux" ] ; then
-    # reduce the per-thread stack size to minimize the impact of Thrift
-    # thread-per-client.  (Best practice is for client connections to
-    # be pooled anyway.) Only do so on Linux where it is known to be
-    # supported.
-    JVM_OPTS="$JVM_OPTS -Xss228k"
+# set jvm HeapDumpPath with CASSANDRA_HEAPDUMP_DIR
+if [ "x$CASSANDRA_HEAPDUMP_DIR" != "x" ]; then
+    JVM_OPTS="$JVM_OPTS -XX:HeapDumpPath=$CASSANDRA_HEAPDUMP_DIR/cassandra-`date +%s`-pid$$.hprof"
 fi
+
+
+startswith() { [ "${1#$2}" != "$1" ]; }
+
+# Per-thread stack size.
+JVM_OPTS="$JVM_OPTS -Xss256k"
+
+echo "xss = $JVM_OPTS"
 
 # GC tuning options
 JVM_OPTS="$JVM_OPTS -XX:+UseParNewGC" 
@@ -129,14 +197,32 @@ JVM_OPTS="$JVM_OPTS -XX:SurvivorRatio=8"
 JVM_OPTS="$JVM_OPTS -XX:MaxTenuringThreshold=1"
 JVM_OPTS="$JVM_OPTS -XX:CMSInitiatingOccupancyFraction=75"
 JVM_OPTS="$JVM_OPTS -XX:+UseCMSInitiatingOccupancyOnly"
+JVM_OPTS="$JVM_OPTS -XX:+UseTLAB"
+# note: bash evals '1.7.x' as > '1.7' so this is really a >= 1.7 jvm check
+if [ "$JVM_VERSION" \> "1.7" ] ; then
+    JVM_OPTS="$JVM_OPTS -XX:+UseCondCardMark"
+fi
 
 # GC logging options -- uncomment to enable
 # JVM_OPTS="$JVM_OPTS -XX:+PrintGCDetails"
-# JVM_OPTS="$JVM_OPTS -XX:+PrintGCTimeStamps"
-# JVM_OPTS="$JVM_OPTS -XX:+PrintClassHistogram"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintGCDateStamps"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintHeapAtGC"
 # JVM_OPTS="$JVM_OPTS -XX:+PrintTenuringDistribution"
 # JVM_OPTS="$JVM_OPTS -XX:+PrintGCApplicationStoppedTime"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintPromotionFailure"
+# JVM_OPTS="$JVM_OPTS -XX:PrintFLSStatistics=1"
 # JVM_OPTS="$JVM_OPTS -Xloggc:/var/log/cassandra/gc-`date +%s`.log"
+# If you are using JDK 6u34 7u2 or later you can enable GC log rotation
+# don't stick the date in the log name if rotation is on.
+# JVM_OPTS="$JVM_OPTS -Xloggc:/var/log/cassandra/gc.log"
+# JVM_OPTS="$JVM_OPTS -XX:+UseGCLogFileRotation"
+# JVM_OPTS="$JVM_OPTS -XX:NumberOfGCLogFiles=10"
+# JVM_OPTS="$JVM_OPTS -XX:GCLogFileSize=10M"
+
+# Configure the following for JEMallocAllocator and if jemalloc is not available in the system 
+# library path (Example: /usr/local/lib/). Usually "make install" will do the right thing. 
+# export LD_LIBRARY_PATH=<JEMALLOC_HOME>/lib/
+# JVM_OPTS="$JVM_OPTS -Djava.library.path=<JEMALLOC_HOME>/lib/"
 
 # uncomment to have Cassandra JVM listen for remote debuggers/profilers on port 1414
 # JVM_OPTS="$JVM_OPTS -Xdebug -Xnoagent -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=1414"
@@ -152,11 +238,10 @@ JVM_OPTS="$JVM_OPTS -Djava.net.preferIPv4Stack=true"
 # JVM_OPTS="$JVM_OPTS -Djava.rmi.server.hostname=<public name>"
 # 
 # see 
-# http://blogs.sun.com/jmxetc/entry/troubleshooting_connection_problems_in_jconsole
+# https://blogs.oracle.com/jmxetc/entry/troubleshooting_connection_problems_in_jconsole
 # for more on configuring JMX through firewalls, etc. (Short version:
 # get it working with no firewall first.)
 JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.port=$JMX_PORT" 
 JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.ssl=false" 
 JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.authenticate=false" 
-JVM_OPTS="$JVM_OPTS $MX4J_ADDRESS" 
-JVM_OPTS="$JVM_OPTS $MX4J_PORT" 
+JVM_OPTS="$JVM_OPTS $JVM_EXTRA_OPTS"
