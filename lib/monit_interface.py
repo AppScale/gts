@@ -35,14 +35,8 @@ def start(watch):
     return False
 
   time.sleep(5)
-  return_status = subprocess.call([MONIT, 'start', '-g', watch])
-  if return_status != 0:
-    logging.error("Monit start command returned with status %d when setting " \
-      "up watch %s" % (return_status, watch))
-    return False
-
+  subprocess.call([MONIT, 'start', '-g', watch])
   logging.info("Starting watch %s" % str(watch))
-
   return True
 
 def stop(watch):
