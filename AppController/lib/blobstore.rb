@@ -19,7 +19,7 @@ module BlobServer
     blobserver = self.blob_script
     ports = self.server_ports
     ports.each { |blobserver_port|
-      start_cmd = ["/usr/bin/python2.6 #{blobserver}",
+      start_cmd = ["python #{blobserver}",
             "-d #{db_local_ip}:#{db_local_port}",
             "-p #{blobserver_port}"].join(' ')
 

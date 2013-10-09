@@ -56,14 +56,6 @@ setupntpcron()
     rm crontab.tmp
 }
 
-installpython27()
-{
-    cd /usr/local
-    wget $APPSCALE_PACKAGE_MIRROR/Python-2.7.3.tgz
-    tar zxvf Python-2.7.3.tgz
-    rm /usr/local/Python-2.7.3.tgz
-}
-
 installphp()
 {
     cd /usr/local
@@ -79,22 +71,16 @@ installnumpy()
     wget $APPSCALE_PACKAGE_MIRROR/appscale-numpy-1.7.0.tar.gz
     tar zxvf appscale-numpy-1.7.0.tar.gz
     cd numpy-1.7.0
-    /usr/local/Python-2.7.3/python setup.py install
+    python setup.py install
     cd ..
     rm appscale-numpy-1.7.0.tar.gz
-    rm -fdr numpy-1.7.0
+    rm -fr numpy-1.7.0
 }
 
 installPIL()
 {
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/Imaging-1.1.7.tar.gz
-    tar zxvf Imaging-1.1.7.tar.gz
-    cd Imaging-1.1.7
-    /usr/local/Python-2.7.3/python setup.py install
-    cd ..
-    rm -fdr Imaging-1.1.7*
+    pip uninstall -y PIL
+    /usr/bin/yes | pip install --upgrade pillow
 }
 
 installpycrypto()
@@ -103,9 +89,9 @@ installpycrypto()
     wget $APPSCALE_PACKAGE_MIRROR/pycrypto-2.6.tar.gz
     tar zxvf pycrypto-2.6.tar.gz
     cd pycrypto-2.6
-    /usr/local/Python-2.7.3/python setup.py install
+    python setup.py install
     cd ..
-    rm -fdr pycrypto-2.6*
+    rm -fr pycrypto-2.6*
 }
 
 installlxml()
@@ -149,7 +135,7 @@ export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
 export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
 EOF
 # enable to load AppServer and AppDB modules. It must be before the python-support.
-    DESTFILE=${DESTDIR}/usr/lib/python2.6/dist-packages/appscale_appserver.pth
+    DESTFILE=${DESTDIR}/usr/lib/python2.7/dist-packages/appscale_appserver.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
@@ -157,32 +143,12 @@ ${APPSCALE_HOME_RUNTIME}/AppDB
 ${APPSCALE_HOME_RUNTIME}/AppServer
 EOF
 # enable to load site-packages of Python
-    DESTFILE=${DESTDIR}/usr/local/lib/python2.6/dist-packages/site_packages.pth
+    DESTFILE=${DESTDIR}/usr/local/lib/python2.7/dist-packages/site_packages.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
-/usr/lib/python2.6/site-packages
+/usr/lib/python2.7/site-packages
 EOF
-
-    # for lucid
-    if [ "$DIST" = "lucid" ]; then
-	# enable memcached api
-	SITE_DIR=${DESTDIR}/usr/local/lib/python2.5/site-packages
-	mkdir -pv ${SITE_DIR}
-	DESTFILE=${SITE_DIR}/pyshared.pth
-	echo "Generating $DESTFILE"
-	cat <<EOF | tee $DESTFILE
-/usr/share/pyshared
-EOF
-	# enable python imaging native library
-	DESTFILE=${SITE_DIR}/PIL-lib.pth
-	echo "Generating $DESTFILE"
-	cat <<EOF | tee $DESTFILE
-/usr/lib/python2.6/dist-packages/PIL
-EOF
-       # Add fpconst into python2.5
-       cp /usr/lib/pymodules/python2.6/fpconst.py /usr/lib/python2.5/
-    fi
 
     # create link to appscale settings
     rm -rfv ${DESTDIR}/etc/appscale
@@ -206,64 +172,20 @@ EOF
     mkdir -pv /var/appscale/
 }
 
-installthrift_fromsource()
-{
-    export THRIFT_VER=0.5.0
-
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    # apache 0.2.0
-    wget $APPSCALE_PACKAGE_MIRROR/thrift-${THRIFT_VER}.tar.gz
-    tar zxfv thrift-${THRIFT_VER}.tar.gz
-    rm -v thrift-${THRIFT_VER}.tar.gz
-    pushd thrift-${THRIFT_VER}
-    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --without-php_extension --prefix=/usr/local
-    make
-# install native library and include files to DESTDIR.
-    make install
-# python library
-    pushd lib/py
-    python setup.py install --prefix=${DESTDIR}/usr
-    popd
-
-    popd
-    rm -rfv thrift-${THRIFT_VER}
-}
-
-postinstallthrift_fromsource()
-{
-  :;
-}
-
-# using egg
-
 installthrift()
 {
     easy_install -U thrift
-    DISTP=/usr/local/lib/python2.6/dist-packages
-    if [ -z "$(find ${DISTP} -name Thrift-*.egg)" ]; then
-	echo "Fail to install python thrift client. Please retry."
-	exit 1
-    fi
-    if [ -n "$DESTDIR" ]; then
-	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/Thrift-*.egg ${DESTDIR}${DISTP}
-    fi
-}
-
-postinstallthrift()
-{
-    # just enable thrift library.
-    easy_install thrift
 }
 
 installjavajdk()
 {
     # Since Oracle requires you to accept terms and conditions, have to pull from webupd8team
     sudo echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
-    sudo add-apt-repository ppa:webupd8team/java
-    sudo apt-get update
-    sudo apt-get install -y oracle-java7-installer
+    echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" | tee -a /etc/apt/sources.list
+    echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" | tee -a /etc/apt/sources.list
+    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886
+    apt-get update
+    apt-get install -y oracle-java7-installer
     export JAVA_HOME=/usr/lib/jvm/java-7-oracle
 }
 
@@ -288,7 +210,7 @@ postinstallappserverjava()
 installtornado()
 {
     easy_install -U tornado
-    DISTP=/usr/local/lib/python2.6/dist-packages
+    DISTP=/usr/local/lib/python2.7/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
 	echo "Fail to install python tornado. Please retry."
 	exit 1
@@ -443,10 +365,8 @@ installmonit()
 
 installcassandra()
 {
-    CASSANDRA_VER=1.2.5
-    PYCASSA_VER=1.3.0
-    cd /lib 
-    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    CASSANDRA_VER=2.0.1
+    PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
@@ -469,8 +389,11 @@ installcassandra()
     cd pycassa-${PYCASSA_VER}
     python setup.py install
     cd ..
-    rm -fdr pycassa-${PYCASSA_VER}
-    rm -fdr pycassa-${PYCASSA_VER}.tar.gz 
+    rm -fr pycassa-${PYCASSA_VER}
+    rm -fr pycassa-${PYCASSA_VER}.tar.gz 
+    
+    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
+    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
 
 postinstallcassandra()
@@ -498,26 +421,12 @@ installprotobuf_fromsource()
 # protobuf could not be installed in the different root
     python setup.py bdist_egg
 # copy the egg file
-    DISTP=${DESTDIR}/usr/local/lib/python2.6/dist-packages
+    DISTP=${DESTDIR}/usr/local/lib/python2.7/dist-packages
     mkdir -pv ${DISTP}
     cp -v dist/protobuf-*.egg ${DISTP}
     popd
     popd
     rm -rv protobuf-${PROTOBUF_VER}
-}
-
-installprotobuf()
-{
-# make protobuf module loadable
-# this is not needed when we use egg to install protobuf.
-    mkdir -pv ${APPSCALE_HOME}/AppServer/google
-    # this should be absolute path of runtime.
-    ln -sfv /var/lib/python-support/python2.6/google/protobuf ${APPSCALE_HOME}/AppServer/google/
-}
-
-postinstallprotobuf()
-{
-    :;
 }
 
 installservice()
@@ -557,8 +466,8 @@ installpythonmemcache()
   cd python-memcached-${VERSION}
   python setup.py install
   cd ..
-  rm -fdr python-memcached-${VERSION}.tar.gz
-  rm -fdr python-memcached-${VERSION}
+  rm -fr python-memcached-${VERSION}.tar.gz
+  rm -fr python-memcached-${VERSION}
 }
 
 installzookeeper()
@@ -612,7 +521,7 @@ installzookeeper()
 
     cd ${APPSCALE_HOME}/downloads
     rm -rv zookeeper-${ZK_VER}
-    rm -fdr zookeeper-${ZK_VER}.tar.gz
+    rm -fr zookeeper-${ZK_VER}.tar.gz
 
     mkdir -pv ${DESTDIR}/var/run/zookeeper
     mkdir -pv ${DESTDIR}/var/lib/zookeeper
@@ -645,7 +554,7 @@ installsetuptools()
     pushd setuptools-0.6c11
     python setup.py install
     popd
-    rm -fdr  setuptools-0.6c11*
+    rm -fr  setuptools-0.6c11*
 }
 
 postinstallsetuptools()
