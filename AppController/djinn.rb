@@ -50,6 +50,8 @@ APPSCALE_TOOLS_HOME = "/usr/local/appscale-tools/"
 # concurrently, preventing race conditions. 
 APPS_LOCK = Monitor.new()
 
+$:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "hadoop")
+require "hadoop_helper"
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
 require "zookeeper_helper"
@@ -2983,6 +2985,8 @@ class Djinn
 
     if my_node.is_db_master?
       threads << Thread.new {
+        setup_hadoop_config(my_node.private_ip, @creds['replication'])
+        start_hadoop_master()
         start_db_master()
         # create initial tables
         if my_node.is_db_master?
@@ -3008,6 +3012,8 @@ class Djinn
 
     if my_node.is_db_slave?
       threads << Thread.new {
+        setup_hadoop_config(get_db_master.private_ip, @creds['replication'])
+        start_hadoop_slave()
         start_db_slave()
 
         # Currently we always run the Datastore Server and SOAP
