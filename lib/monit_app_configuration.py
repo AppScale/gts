@@ -39,7 +39,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
 
   env = ""
   for ii in env_vars:
-    env += str(ii) + "=" + str(env_vars[ii]) + " "
+    env += "export " + str(ii) + "=" + str(env_vars[ii]) + " && "
 
   # Convert ints to strings for template formatting
   for index, ii in enumerate(ports): ports[index] = str(ii) 
