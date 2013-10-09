@@ -3400,6 +3400,7 @@ class Djinn
     app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
+    lib = "#{APPSCALE_HOME}/lib"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -3413,6 +3414,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
+    HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
   end
 
   def setup_config_files()
