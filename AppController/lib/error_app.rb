@@ -36,20 +36,18 @@ class ErrorApp
     app_yaml = <<CONFIG
 application: #{@app_name}
 version: 1
-runtime: python
+runtime: python27
 api_version: 1
+threadsafe: true
 
 handlers:
-- url: .*
-  script: #{@app_name}.py
+- url: /.*
+  script: #{@app_name}.application
 CONFIG
 
     script = <<SCRIPT
-from google.appengine.ext import webapp
-import cgi
-import datetime
-import wsgiref.handlers
-class MainPage(webapp.RequestHandler):
+import webapp2
+class MainPage(webapp2.RequestHandler):
   def get(self):
     self.response.out.write('<html><body>')
     self.response.out.write("""<p>Your application failed to start</p>""")
@@ -57,17 +55,9 @@ class MainPage(webapp.RequestHandler):
     self.response.out.write("""<p>If this is an AppScale issue please report it on <a href="https://github.com/AppScale/appscale/issues">http://github.com/AppScale/appscale/issues</a></p>""")
     self.response.out.write('</body></html>')
 
-application = webapp.WSGIApplication([
+application = webapp2.WSGIApplication([
   ('/', MainPage),
 ], debug=True)
-
-
-def main():
-  wsgiref.handlers.CGIHandler().run(application)
-
-
-if __name__ == '__main__':
-  main()
 
 SCRIPT
 

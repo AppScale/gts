@@ -30,14 +30,14 @@ module CronHelper
   #     Engine application runs on, so that we send cron web requests to the
   #     correct application.
   #   lang: A String that indicates if this Google App Engine application's
-  #     runtime is Python 2.5, Python 2.7, Java, or Go, which indicates which
+  #     runtime is Python 2.7, Java, PHP, or Go, which indicates which
   #     cron configuration file to look for.
   #   app: A String that names the appid of this application, used to find the
   #     cron configuration file on the local filesystem.
   def self.update_cron(ip, port, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
-    if lang == "python" or lang == "python27" or lang == "go" or lang == "php"
+    if lang == "python27" or lang == "go" or lang == "php"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
 
       begin
@@ -100,7 +100,7 @@ CRON
         }
       }
     else
-      Djinn.log_error("ERROR: lang was neither python, go, nor java but was [#{lang}] (cron)")
+      Djinn.log_error("ERROR: lang was neither python27, go, php, nor java but was [#{lang}] (cron)")
     end
   end
 
