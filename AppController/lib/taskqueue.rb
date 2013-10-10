@@ -176,7 +176,7 @@ module TaskQueue
   # and RabbitMQ. A link to Flower is given in the AppDashboard, for users to
   # monitor their Task Queue tasks.
   def self.start_flower()
-    start_cmd = "flower"
+    start_cmd = "flower --basic_auth=appscale:appscale"
     stop_cmd = "ps ax | grep flower | grep -v grep | awk '{print $1}' | xargs kill -9"
     GodInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
   end
