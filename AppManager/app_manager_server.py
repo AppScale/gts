@@ -584,15 +584,8 @@ def create_python27_stop_cmd(port, py_version):
   Returns:
     A string of the stop command.
   """
-  python = choose_python_executable(py_version)
-  cmd = [python, 
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
-         "-p " + str(port),
-         "--cookie_secret " + appscale_info.get_secret()]
-  cmd = ' '.join(cmd)
-
-  stop_cmd = "/bin/ps aux | grep '" + cmd +\
-             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
+  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
+    "dev_appserver.py {0}".format(port)
   return stop_cmd
 
 def create_java_stop_cmd(port):
@@ -606,14 +599,8 @@ def create_java_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  cmd = ["appengine-java-sdk-repacked/bin/dev_appserver.sh",
-         "--port=" + str(port),
-         "--address=" + appscale_info.get_private_ip(),
-         "--cookie_secret=" + appscale_info.get_secret()]
-
-  cmd = ' '.join(cmd)
-  stop_cmd = "/bin/ps aux | grep '" + cmd + \
-             "' | grep -v grep | awk '{print $2'}' xargs -d '\n' kill -9"
+  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
+    "dev_appserver.sh {0}".format(port)
   return stop_cmd
 
 def is_config_valid(config):
