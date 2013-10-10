@@ -194,6 +194,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__time_function = time_function
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
+    self.__block_key_cache = None
 
   @classmethod
   def ToDatastoreBlobKey(cls, blobkey):
@@ -302,12 +303,8 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       blobkey: blobkey in str.
       storage: blobstore storage stub.
     """
-    datastore.Delete(cls.ToDatastoreBlobKey(blobkey))
-
-    blobinfo = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
-                                             blobkey,
-                                             namespace='')
-    datastore.Delete(blobinfo)
+    # We need blobinfo to tell us how big the blob is. The delete happens
+    # within DeleteBlob.
     storage.DeleteBlob(blobkey)
 
   def _Dynamic_DeleteBlob(self, request, response, unused_request_id):
@@ -323,7 +320,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     for blobkey in request.blob_key_list():
       self.DeleteBlob(blobkey, self.__storage)
 
-  def _Dynamic_FetchData(self, request, response):
+  def _Dynamic_FetchData(self, request, response, unused_request_id):
     """Fetch a blob fragment from a blob by its blob-key.
 
     Fetches a blob fragment using its blob-key.  Start index is inclusive,

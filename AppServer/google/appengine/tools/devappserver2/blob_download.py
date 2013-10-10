@@ -183,13 +183,9 @@ def blobstore_download_rewriter(state):
         state.headers['Content-Range'] = 'bytes %d-%d/%d' % (start, end - 1,
                                                              blob_size)
  
-    logging.info("Blob key {0}".format(blob_open_key))
     blob_stream = _get_blob_storage().OpenBlob(blob_open_key)
-    logging.info("Seek at {0}".format(start))
     blob_stream.seek(start)
-    logging.info("Seek is done")
     state.body = [blob_stream.read(content_length)]
-    logging.info("Read contents of lenght {0}".format(content_length))
     state.headers['Content-Length'] = str(content_length)
 
     content_type = state.headers.get('Content-Type')
