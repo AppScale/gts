@@ -185,7 +185,7 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
-  return pid
+  return 0
 
 def stop_app_instance(app_name, port):
   """ Stops a Google App Engine application process instance on current 
@@ -600,7 +600,7 @@ if __name__ == "__main__":
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
   server.registerFunction(stop_app_instance)
-  server.registerFunction(kill_app_instances_for_app)
+  server.registerFunction(restart_app_instances_for_app)
 
   file_io.set_logging_format()
   
