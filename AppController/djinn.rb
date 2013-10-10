@@ -4747,10 +4747,7 @@ HOSTS
   #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
-    watch_name = "xmpp-#{app}"
-    MonitInterface.remove(watch_name)
-    stop_cmd = "/bin/ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
-    Djinn.log_run(stop_cmd)
+    MonitInterface.remove("xmpp-#{app}")
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
 
