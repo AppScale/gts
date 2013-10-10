@@ -25,7 +25,6 @@ blobs into the AppScale backends. Blobs are split into chunks of
 1MB segments. 
 
 """
-
 from google.appengine.ext.blobstore.blobstore import BlobReader
 from google.appengine.api import blobstore
 from google.appengine.api.blobstore import blobstore_stub
@@ -71,14 +70,14 @@ class DatastoreBlobStorage(blobstore_stub.BlobStorage):
       blob_key: Blob key of blob to store.
       blob_stream: Stream or stream-like object that will generate blob content.
     """
-    blob_key = self._BlobKey(blob_key)
     block_count = 0
+    blob_key_object = self._BlobKey(blob_key)
     while True:
       block = blob_stream.read(blobstore.MAX_BLOB_FETCH_SIZE)
       if not block:
         break
       entity = datastore.Entity(_BLOB_CHUNK_KIND_, 
-                                name=str(blob_key) + "__" + str(block_count), 
+                                name=str(blob_key_object) + "__" + str(block_count), 
                                 namespace='')
       entity.update({'block': datastore_types.Blob(block)})
       datastore.Put(entity)
@@ -117,7 +116,7 @@ class DatastoreBlobStorage(blobstore_stub.BlobStorage):
     try:
       while block_count >= 0:
         entity = datastore.Entity(_BLOB_CHUNK_KIND_, 
-                                  name=str(blob_key)+"__"+str(block_count), 
+                                  name=str(blob_key) + "__" + str(block_count),
                                   namespace='')
         block_set.append(entity) 
         block_count -= 1
