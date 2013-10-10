@@ -653,7 +653,7 @@ class Djinn
             node.ssh_key)
         end
         app_manager = AppManagerClient.new(node.private_ip)
-        app_manager.kill_app_instances_for_app(appid)
+        app_manager.restart_app_instances_for_app(appid)
       }
     }
 
@@ -3197,7 +3197,6 @@ class Djinn
 
   def stop_blob_server
     BlobServer.stop
-    Djinn.log_run("/usr/bin/pkill -f blobstore_server")
   end 
 
   def stop_soap_server
@@ -4027,8 +4026,8 @@ HOSTS
           @appengine_port += 1
         }
       else
-        Djinn.log_info("Killing all AppServers hosting old version of application #{app}")
-        result = app_manager.kill_app_instances_for_app(app)
+        Djinn.log_info("Restarting AppServers hosting old version of #{app}")
+        result = app_manager.restart_app_instances_for_app(app)
       end
 
       HAProxy.update_app_config(app, proxy_port,
@@ -4401,17 +4400,15 @@ HOSTS
 
     xmpp_ip = get_login.public_ip
 
-    pid = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
+    result = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
       nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
       HelperFunctions.get_app_env_vars(app))
 
-    if pid == -1
+    if result == -1
       Djinn.log_error("ERROR: Unable to start application #{app} on port " +
         "#{@appengine_port}.")
       next
     end
-    pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
-    HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1
 
@@ -4659,9 +4656,6 @@ HOSTS
       @apps_loaded = []
       @restored = false
     }
-  
-    Djinn.log_run("/usr/bin/pkill -f dev_appserver")
-    Djinn.log_run("/usr/bin/pkill -f DevAppServerMain")
   end
 
   # Returns true on success, false otherwise

@@ -73,12 +73,14 @@ def start(watch):
   logging.info("Starting watch {0}".format(watch))
   return run_with_retry([MONIT, 'start', '-g', watch])
 
-def stop(watch):
+def stop(watch, is_group=True):
   """ Shut down the named programs monit is watching, and stop monitoring it.
  
   Args:
     watch: The name of the group of programs that monit is watching, that should
       no longer be watched.
+    is_group: A bool that indicates if we want to stop a group of programs, or
+      only a single program.
   Returns:
     True if the named programs were stopped and no longer monitored, and False
     if either (1) the named watch is not valid, (2) the programs could not be
@@ -89,8 +91,33 @@ def stop(watch):
     return False
   
   logging.info("Stopping watch {0}".format(watch))
-  if not run_with_retry([MONIT, 'stop', '-g', watch]):
+  if is_group:
+    stop_command = [MONIT, 'stop', '-g', watch]
+  else:
+    stop_command = [MONIT, 'stop', watch]
+  if not run_with_retry(stop_command):
     return False
 
   logging.info("Unmonitoring watch {0}".format(watch))
-  return run_with_retry([MONIT, 'unmonitor', '-g', watch])
+  if is_group:
+    unmonitor_command = [MONIT, 'unmonitor', '-g', watch]
+  else:
+    unmonitor_command = [MONIT, 'unmonitor', watch]
+  return run_with_retry(unmonitor_command)
+
+def restart(watch):
+  """ Instructs monit to restart all processes hosting the given watch.
+
+  Args:
+    watch: A str representing the name of the programs to restart.
+  Returns:
+    True if the programs were restarted, or False if (1) the watch is not a
+    valid program name, (2) monit could not restart the new program.
+  """
+  if not misc.is_string_secure(watch):
+    logging.error("Watch string [{0}] is a possible security violation".format(
+      watch))
+    return False
+
+  logging.info("Restarting watch {0}".format(watch))
+  return run_with_retry([MONIT, 'restart', '-g', watch])
