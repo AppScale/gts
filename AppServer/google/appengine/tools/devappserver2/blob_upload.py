@@ -44,6 +44,7 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api.blobstore import blobstore
+from google.appengine.ext.cloudstorage import cloudstorage_stub
 from google.appengine.tools.devappserver2 import constants
 
 # Upload URL path.
@@ -206,8 +207,7 @@ class Application(object):
       exception.detail = detail
     raise exception
 
-  def store_blob(self, content_type, filename, md5_hash, blob_file, creation,
-                 base64_encoding=False):
+  def store_blob(self, content_type, filename, md5_hash, blob_file, creation):
     """Store a supplied form-data item to the blobstore.
 
     The appropriate metadata is stored into the datastore.
@@ -220,7 +220,6 @@ class Application(object):
       creation: datetime.datetime instance to associate with new blobs creation
         time. This parameter is provided so that all blobs in the same upload
         form can have the same creation date.
-      base64_encoding: True, if the file contents are base-64 encoded.
 
     Returns:
       datastore.Entity('__BlobInfo__') associated with the upload.
@@ -230,20 +229,6 @@ class Application(object):
         blob key.
     """
     blob_key = self._generate_blob_key()
-    if base64_encoding:
-      blob_file = cStringIO.StringIO(base64.urlsafe_b64decode(blob_file.read()))
-
-    # If content_type or filename are bytes, assume UTF-8 encoding.
-    try:
-      if not isinstance(content_type, unicode):
-        content_type = content_type.decode('utf-8')
-      if not isinstance(filename, unicode):
-        filename = filename.decode('utf-8')
-    except UnicodeDecodeError:
-      raise _InvalidMetadataError(
-          'The uploaded entity contained invalid UTF-8 metadata. This may be '
-          'because the page containing the upload form was served with a '
-          'charset other than "utf-8".')
 
     # Store the blob contents in the blobstore.
     self._blob_storage.StoreBlob(blob_key, blob_file)
@@ -259,6 +244,59 @@ class Application(object):
 
     datastore.Put(blob_entity)
     return blob_entity
+
+  def store_gs_file(self, content_type, gs_filename, blob_file, filename):
+    """Store a supplied form-data item to GS.
+
+    Delegate all the work of gs file creation to CloudStorageStub.
+
+    Args:
+      content_type: The MIME content type of the uploaded file.
+      gs_filename: The gs filename to create of format bucket/filename.
+      blob_file: A file-like object containing the contents of the file.
+      filename: user provided filename.
+
+    Returns:
+      datastore.Entity('__GsFileInfo__') associated with the upload.
+    """
+    gs_stub = cloudstorage_stub.CloudStorageStub(self._blob_storage)
+    blobkey = gs_stub.post_start_creation('/' + gs_filename,
+                                          {'content-type': content_type})
+    content = blob_file.read()
+    return gs_stub.put_continue_creation(
+        blobkey, content, (0, len(content) - 1), len(content), filename)
+
+  def _preprocess_data(self, content_type, blob_file,
+                       filename, base64_encoding):
+    """Preprocess data and metadata before storing them.
+
+    Args:
+      content_type: The MIME content type of the uploaded file.
+      blob_file: A file-like object containing the contents of the file.
+      filename: The filename of the uploaded file.
+      base64_encoding: True, if the file contents are base-64 encoded.
+
+    Returns:
+      (content_type, blob_file, filename) after proper preprocessing.
+
+    Raises:
+      _InvalidMetadataError: when metadata are not utf-8 encoded.
+    """
+    if base64_encoding:
+      blob_file = cStringIO.StringIO(base64.urlsafe_b64decode(blob_file.read()))
+
+    # If content_type or filename are bytes, assume UTF-8 encoding.
+    try:
+      if not isinstance(content_type, unicode):
+        content_type = content_type.decode('utf-8')
+      if filename and not isinstance(filename, unicode):
+        filename = filename.decode('utf-8')
+    except UnicodeDecodeError:
+      raise _InvalidMetadataError(
+          'The uploaded entity contained invalid UTF-8 metadata. This may be '
+          'because the page containing the upload form was served with a '
+          'charset other than "utf-8".')
+    return content_type, blob_file, filename
 
   def store_and_build_forward_message(self, form, boundary=None,
                                       max_bytes_per_blob=None,
@@ -376,7 +414,7 @@ class Application(object):
         # NOTE: This is in violation of RFC 2616 (Content-MD5 should be the
         # base-64 encoding of the binary hash, not the hex digest), but it is
         # consistent with production.
-        blob_key = base64.urlsafe_b64encode(digester.hexdigest())
+        content_md5 = base64.urlsafe_b64encode(digester.hexdigest())
         # Create header MIME message
         headers = dict(form_item.headers)
         for name in _STRIPPED_FILE_HEADERS:
@@ -385,10 +423,13 @@ class Application(object):
         headers['Content-Length'] = str(content_length)
         headers[blobstore.UPLOAD_INFO_CREATION_HEADER] = (
             blobstore._format_creation(creation))
-        headers['Content-MD5'] = blob_key
+        headers['Content-MD5'] = content_md5
+        gs_filename = None
         if bucket_name:
+          random_key = str(self._generate_blob_key())
+          gs_filename = '%s/fake-%s' % (bucket_name, random_key)
           headers[blobstore.CLOUD_STORAGE_OBJECT_HEADER] = (
-              '/gs/%s/fake-%s' % (bucket_name, blob_key))
+              blobstore.GS_PREFIX + gs_filename)
         for key, value in headers.iteritems():
           external.add_header(key, value)
         # Add disposition parameters (a clone of the outer message's field).
@@ -396,24 +437,32 @@ class Application(object):
           external.add_header('Content-Disposition', 'form-data',
                               **disposition_parameters)
 
-        # Store the actual contents in the blobstore.
         base64_encoding = (form_item.headers.get('Content-Transfer-Encoding') ==
                            'base64')
-        try:
-          blob_entity = self.store_blob(external['content-type'],
-                                        form_item.filename, digester,
-                                        form_item.file, creation,
-                                        base64_encoding=base64_encoding)
-        except _TooManyConflictsError:
-          too_many_conflicts = True
-          break
+        content_type, blob_file, filename = self._preprocess_data(
+            external['content-type'],
+            form_item.file,
+            form_item.filename,
+            base64_encoding)
+
+        # Store the actual contents to storage.
+        if gs_filename:
+          info_entity = self.store_gs_file(
+              content_type, gs_filename, blob_file, filename)
+        else:
+          try:
+            info_entity = self.store_blob(content_type, filename,
+                                          digester, blob_file, creation)
+          except _TooManyConflictsError:
+            too_many_conflicts = True
+            break
 
         # Track created blobs in case we need to roll them back.
-        created_blobs.append(blob_entity)
+        created_blobs.append(info_entity)
 
         variable.add_header('Content-Type', 'message/external-body',
                             access_type=blobstore.BLOB_KEY_HEADER,
-                            blob_key=blob_entity.key().name())
+                            blob_key=info_entity.key().name())
         variable.set_payload([external])
 
       # Set common information.
@@ -475,11 +524,6 @@ class Application(object):
 
     # Retrieve upload session.
     try:
-      # When running unit tests, we see that the appid gets prepended to the
-      # upload key. Strip it off before we try the request.
-      if '/' in upload_key:
-        upload_key = upload_key.split('/')[1]
-
       upload_session = datastore.Get(upload_key)
     except datastore_errors.EntityNotFoundError:
       detail = 'No such upload session: %s' % upload_key
