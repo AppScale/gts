@@ -269,25 +269,6 @@ def stop_app(app_name):
     logging.error("Unable to shut down monit interface for watch %s"%watch)
     return False
 
-  # Hack: God fails to shutdown processes so we do it via a system command.
-  # TODO: Fix it or find an alternative to god.
-  cmd = "ps -ef | grep \"dev_appserver\|AppServer_Java\" | grep " + \
-        app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' " +\
-        "| xargs kill -9"
-
-  ret = os.system(cmd)
-  if ret != 0:
-    logging.error("Unable to shut down processes for app %s with exit value %d"\
-                 %(app_name, ret))
-    return False
-  
-  cmd = "rm -f " + constants.APP_PID_DIR + app_name + "-*"
-  ret = os.system(cmd)
-  if ret != 0:
-    logging.error("Unable to remove PID files for app %s with exit value %d"\
-                  %(app_name, ret))
-    return False
-
   return True
 
 ############################################
