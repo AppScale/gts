@@ -468,7 +468,7 @@ def create_java_stop_cmd(port):
     A string of the stop command.
   """
   stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
-    "dev_appserver.sh {0}".format(port)
+    "java {0}".format(port)
   return stop_cmd
 
 def is_config_valid(config):
