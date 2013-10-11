@@ -119,21 +119,7 @@ def start_app(config):
   env_vars = config['env_vars']
   watch = "app___" + config['app_name']
  
-  if config['language'] == constants.PYTHON:
-    start_cmd = create_python_start_cmd(config['app_name'],
-                            config['load_balancer_ip'],
-                            config['app_port'],
-                            config['load_balancer_ip'],
-                            config['load_balancer_port'],
-                            config['xmpp_ip'],
-                            config['dblocations'],
-                            config['language'])
-    logging.info(start_cmd)
-    stop_cmd = create_python_stop_cmd(config['app_port'], config['language'])
-    env_vars.update(create_python_app_env(config['load_balancer_ip'],
-                            config['load_balancer_port'],
-                            config['app_name']))
-  elif config['language'] == constants.PYTHON27 or \
+  if config['language'] == constants.PYTHON27 or \
        config['language'] == constants.GO or \
        config['language'] == constants.PHP:
     start_cmd = create_python27_start_cmd(config['app_name'],
@@ -327,54 +313,6 @@ def create_java_app_env():
   env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
   return env_vars
 
-def create_python_start_cmd(app_name,
-                            login_ip, 
-                            port, 
-                            load_balancer_host, 
-                            load_balancer_port,
-                            xmpp_ip,
-                            db_locations,
-                            py_version):
-  """ Creates the start command to run the python application server.
-
-  Args:
-    app_name: The name of the application to run
-    login_ip: The public IP
-    port: The local port the application server will bind to
-    load_balancer_host: The host of the load balancer
-    load_balancer_port: The port of the load balancer
-    xmpp_ip: The IP of the XMPP service
-    py_version: The version of python to use
-  Returns:
-    A string of the start command.
-  """
-  db_location = choose_db_location(db_locations)
-  python = choose_python_executable(py_version)
-  cmd = [python,
-         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
-         "-p " + str(port),
-         "--cookie_secret " + appscale_info.get_secret(),
-         "--login_server " + login_ip,
-         "--admin_console_server ''",
-         "--enable_console",
-         "--nginx_host " + str(load_balancer_host),
-         "--require_indexes",
-         "--enable_sendmail",
-         "--xmpp_path " + xmpp_ip,
-         "--uaserver_path " + db_location + ":"\
-               + str(constants.UA_SERVER_PORT),
-         "--datastore_path " + db_location + ":"\
-               + str(constants.DB_SERVER_PORT),
-         "--history_path /var/apps/" + app_name\
-               + "/data/app.datastore.history",
-         "/var/apps/" + app_name + "/app",
-         "-a " + appscale_info.get_private_ip()]
- 
-  if app_name in TRUSTED_APPS:
-    cmd.extend([TRUSTED_FLAG])
- 
-  return ' '.join(cmd)
-
 def create_python27_start_cmd(app_name,
                               login_ip, 
                               port, 
@@ -397,8 +335,7 @@ def create_python27_start_cmd(app_name,
     A string of the start command.
   """
   db_location = choose_db_location(db_locations)
-  python = choose_python_executable(py_version)
-  cmd = [python,
+  cmd = ["python",
          constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
          "--port " + str(port),
          "--admin_port " + str(port + 10000),
@@ -501,36 +438,7 @@ def choose_python_executable(py_version):
   Returns:
     String of python executable path
   """
-  if py_version in [constants.PYTHON, constants.GO]:
-    return "/usr/bin/python2.5"
-  elif py_version in [constants.PYTHON27, constants.PHP]:
-    return "python"
-  else:
-    raise NotImplementedError("Unknown python version %s" % \
-                               py_version)
-
-def create_python_stop_cmd(port, py_version):
-  """ this creates the stop command for an application which is 
-  uniquely identified by a port number. additional portions of the 
-  start command are included to prevent the termination of other 
-  processes. 
-  
-  Args: 
-    port: The port which the application server is running.
-    py_version: The python version the app is currently using
-  Returns:
-    A string of the stop command.
-  """
-  python = choose_python_executable(py_version)
-  cmd = [python, 
-         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
-         "-p " + str(port),
-         "--cookie_secret " + appscale_info.get_secret()]
-  cmd = ' '.join(cmd)
-
-  stop_cmd = "/bin/ps aux | grep '" + cmd +\
-             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
-  return stop_cmd
+  return "/usr/bin/python"
 
 def create_python27_stop_cmd(port, py_version):
   """ This creates the stop command for an application which is 

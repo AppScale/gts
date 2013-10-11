@@ -101,7 +101,8 @@ EXPECTED_GENERATED_CONTENT_TYPE_WITH_BUCKET = (
     'multipart/form-data; boundary="================1234=="')
 EXPECTED_GENERATED_MIME_MESSAGE_WITH_BUCKET = (
     """--================1234==
-Content-Type: message/external-body; blob-key="item1"; \
+Content-Type: message/external-body; blob-key="encoded_gs_file:\
+bXktdGVzdC1idWNrZXQvZmFrZS1leHBlY3RlZGtleQ=="; \
 access-type="X-AppEngine-BlobKey"
 Content-Disposition: form-data; name="field1"; filename="stuff.png"
 
@@ -111,8 +112,7 @@ Content-MD5: ODI2ZTgxNDJlNmJhYWJlOGFmNzc5ZjVmNDkwY2Y1ZjU=
 Content-Length: 5
 h1: v1
 X-AppEngine-Upload-Creation: 2008-11-12 10:40:00.000000
-X-AppEngine-Cloud-Storage-Object: /gs/my-test-bucket/fake-\
-ODI2ZTgxNDJlNmJhYWJlOGFmNzc5ZjVmNDkwY2Y1ZjU=
+X-AppEngine-Cloud-Storage-Object: /gs/my-test-bucket/fake-expectedkey
 Content-Disposition: form-data; name="field1"; filename="stuff.png"
 
 
@@ -485,12 +485,16 @@ class UploadHandlerUnitTest(UploadTestBase):
     self.generate_blob_key().AndReturn(expected_key)
 
     self.mox.ReplayAll()
-    self.handler.store_blob(content_type='image/png; a="b"; m="n"',
-                            filename='stuff.png',
+    content_type, blob_file, filename = self.handler._preprocess_data(
+        'image/png; a="b"; m="n"',
+        StringIO.StringIO(blob_content),
+        'stuff.png',
+        base64_encoding)
+    self.handler.store_blob(content_type=content_type,
+                            filename=filename,
                             md5_hash=hashlib.md5(),
-                            blob_file=StringIO.StringIO(blob_content),
-                            creation=expected_creation,
-                            base64_encoding=base64_encoding)
+                            blob_file=blob_file,
+                            creation=expected_creation)
 
     self.assertEquals(expected_result,
                       self.storage.OpenBlob(expected_key).read())
@@ -571,9 +575,9 @@ class UploadHandlerUnitTest(UploadTestBase):
 
   def test_store_and_build_forward_message_with_gs_bucket(self):
     """Test the high-level method to store a blob and build a MIME message."""
-    self.generate_blob_key().AndReturn(blobstore.BlobKey('item1'))
-
     self.now().AndReturn(datetime.datetime(2008, 11, 12, 10, 40))
+    expected_key = blobstore.BlobKey('expectedkey')
+    self.generate_blob_key().AndReturn(expected_key)
 
     self.mox.ReplayAll()
 
@@ -596,9 +600,10 @@ class UploadHandlerUnitTest(UploadTestBase):
     self.assertEqual(EXPECTED_GENERATED_CONTENT_TYPE_WITH_BUCKET, content_type)
     self.assertMessageEqual(EXPECTED_GENERATED_MIME_MESSAGE_WITH_BUCKET,
                             content_text)
-
-    blob1 = blobstore.get('item1')
-    self.assertEquals('stuff.png', blob1.filename)
+    blobkey = ('encoded_gs_file:bXktdGVzdC1idWNrZXQvZmFrZS1leHBlY3RlZGtleQ==')
+    blobkey = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    blob1 = datastore.Get(blobkey)
+    self.assertTrue('my-test-bucket' in blob1['filename'])
 
   def test_store_and_build_forward_message_utf8_values(self):
     """Test store and build message method with UTF-8 values."""
@@ -635,8 +640,6 @@ class UploadHandlerUnitTest(UploadTestBase):
     """Test store and build message method with Latin-1 values."""
     # There is a special exception class for this case. This is designed to
     # emulate production, which currently fails silently. See b/6722082.
-    self.generate_blob_key().AndReturn(blobstore.BlobKey('item1'))
-
     self.now().AndReturn(datetime.datetime(2008, 11, 12, 10, 40))
 
     self.mox.ReplayAll()

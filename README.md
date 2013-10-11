@@ -7,7 +7,7 @@ OpenStack, as well as Xen, VirtualBox, VMWare, and KVM. It has been
 developed and is maintained by AppScale Systems, Inc., in Santa
 Barbara, CA.
 
-It supports the Python, Java, and Go
+It supports the Python, Java, PHP, and Go
 Google App Engine platforms.
 
 To find out more visit http://appscale.com

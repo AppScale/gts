@@ -31,7 +31,7 @@ class TestAppManager(unittest.TestCase):
   def test_good_convert_config_from_json(self):
     configuration = {'app_name': 'test',
                      'app_port': 2000,
-                     'language': 'python',
+                     'language': 'python27',
                      'load_balancer_ip': '127.0.0.1',
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
@@ -52,7 +52,7 @@ class TestAppManager(unittest.TestCase):
   def test_start_app_bad_appname(self):
     configuration = {'app_name': 'badName!@#$%^&*([]/.,',
                      'app_port': 2000,
-                     'language': 'python',
+                     'language': 'python27',
                      'load_balancer_ip': '127.0.0.1',
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
@@ -64,7 +64,7 @@ class TestAppManager(unittest.TestCase):
   def test_start_app_goodconfig_python(self):
     configuration = {'app_name': 'test',
                      'app_port': 2000,
-                     'language': 'python',
+                     'language': 'python27',
                      'load_balancer_ip': '127.0.0.1',
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
@@ -195,44 +195,9 @@ class TestAppManager(unittest.TestCase):
 
     # Test with a numeric port instead of a string
     port = 20000    
-    cmd = app_manager_server.create_python_stop_cmd(port, 'python')
+    cmd = app_manager_server.create_java_stop_cmd(port)
     self.assertIn(str(port), cmd)
- 
-  def test_create_python_start_cmd(self): 
-    fake_secret = "XXXXXX"
-    flexmock(appscale_info).should_receive('get_secret')\
-      .and_return(fake_secret)
-    flexmock(appscale_info).should_receive('get_private_ip')\
-      .and_return('<private_ip>')
-    db_locations = ['127.0.1.0', '127.0.2.0']
-    app_id = 'testapp'
-    cmd = app_manager_server.create_python_start_cmd(app_id,
-                                             '127.0.0.1',
-                                             '20000',
-                                             '127.0.0.2',
-                                             '8080',
-                                             '127.0.0.3',
-                                             db_locations,
-                                             'python')
-    assert fake_secret in cmd
-    assert app_id in cmd
 
-  def test_create_python_stop_cmd(self): 
-    fake_secret = "XXXXXX"
-    port = "20000"
-    flexmock(appscale_info).should_receive('get_secret')\
-      .and_return(fake_secret)
-    cmd = app_manager_server.create_python_stop_cmd(port, 
-                                                    'python')
-    assert port in cmd 
-    assert fake_secret in cmd 
-    assert 'kill' in cmd
-
-    port = 20000    
-    cmd = app_manager_server.create_python_stop_cmd(port, 
-                                                    'python27')
-    assert str(port) in cmd 
- 
   def test_stop_app_instance(self):
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)

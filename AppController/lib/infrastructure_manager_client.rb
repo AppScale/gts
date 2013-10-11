@@ -26,7 +26,7 @@ class InfrastructureManagerClient
 
 
   # A constant that indicates that there should be no timeout on SOAP calls.
-  NO_TIMEOUT = 10000
+  NO_TIMEOUT = 100000
 
 
   # A constant that callers can use to indicate that SOAP calls should be
