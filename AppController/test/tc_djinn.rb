@@ -829,15 +829,17 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
       and_return('')
 
-    # finally, mock out when the appcontroller starts god and the
+    # finally, mock out when the appcontroller starts monit and the
     # remote appcontrollers on the other boxes
-    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/monit/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
+    flexmock(HelperFunctions).should_receive(:shell).with(/monit/)
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/monit/).and_return('')
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/monit/).and_return('')
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf \/tmp\/monit/).
+      and_return()
 
     # and assume that the appcontrollers start up fine
     flexmock(HelperFunctions).should_receive(:is_port_open?).
@@ -1025,15 +1027,17 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
       and_return('')
 
-    # finally, mock out when the appcontroller starts god and the
+    # finally, mock out when the appcontroller starts monit and the
     # remote appcontrollers on the other boxes
-    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/monit/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
+    flexmock(HelperFunctions).should_receive(:shell).with(/monit/)
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/monit/).and_return('')
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/monit/).and_return('')
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf \/tmp\/monit/).
+      and_return()
 
     # and assume that the appcontrollers start up fine
     flexmock(HelperFunctions).should_receive(:is_port_open?).
