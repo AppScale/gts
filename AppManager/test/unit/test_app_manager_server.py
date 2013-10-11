@@ -13,12 +13,12 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
-import god_app_configuration
+import monit_app_configuration
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 import appscale_info
-import god_interface
+import monit_interface
 import testing
 
 class TestAppManager(unittest.TestCase):
@@ -77,9 +77,9 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
-    flexmock(god_app_configuration).should_receive('create_config_file')\
+    flexmock(monit_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
-    flexmock(god_interface).should_receive('start')\
+    flexmock(monit_interface).should_receive('start')\
                            .and_return(True)
     flexmock(app_manager_server).should_receive('wait_on_app')\
                          .and_return(True)
@@ -87,7 +87,7 @@ class TestAppManager(unittest.TestCase):
                 .and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write')\
                         .and_return()
-    self.assertEqual(12345, app_manager_server.start_app(configuration))
+    self.assertEqual(0, app_manager_server.start_app(configuration))
   
   def test_start_app_goodconfig_java(self):
     configuration = {'app_name': 'test',
@@ -105,19 +105,19 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
-    flexmock(god_app_configuration).should_receive('create_config_file')\
+    flexmock(monit_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
-    flexmock(god_interface).should_receive('start')\
+    flexmock(monit_interface).should_receive('start')\
                            .and_return(True)
     flexmock(app_manager_server).should_receive('wait_on_app')\
                          .and_return(True)
     flexmock(os).should_receive('popen')\
-                .and_return(flexmock(read=lambda: '12345\n'))
+                .and_return(flexmock(read=lambda: '0\n'))
     flexmock(file_io).should_receive('write')\
                         .and_return()
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)
-    self.assertEqual(12345, app_manager_server.start_app(configuration))
+    self.assertEqual(0, app_manager_server.start_app(configuration))
 
   def test_start_app_failed_copy_java(self):
     configuration = {'app_name': 'test',
@@ -134,9 +134,9 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
-    flexmock(god_app_configuration).should_receive('create_config_file')\
+    flexmock(monit_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
-    flexmock(god_interface).should_receive('start')\
+    flexmock(monit_interface).should_receive('start')\
                            .and_return(True)
     flexmock(app_manager_server).should_receive('wait_on_app')\
                          .and_return(True)
@@ -191,14 +191,12 @@ class TestAppManager(unittest.TestCase):
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
     cmd = app_manager_server.create_java_stop_cmd(port)
-    assert port in cmd 
-    assert  fake_secret in cmd 
-    assert 'kill' in cmd
+    self.assertIn(port, cmd)
 
-    # Test with a numerial port instead of a string
+    # Test with a numeric port instead of a string
     port = 20000    
     cmd = app_manager_server.create_python_stop_cmd(port, 'python')
-    assert str(port) in cmd 
+    self.assertIn(str(port), cmd)
  
   def test_create_python_start_cmd(self): 
     fake_secret = "XXXXXX"
@@ -244,19 +242,14 @@ class TestAppManager(unittest.TestCase):
                         .and_return(0)
     app_manager_server.stop_app('test')
 
-  def test_kill_app_instances_for_app(self):
-    flexmock(glob).should_receive('glob') \
-                        .and_return(['a', 'b'])
+  def test_restart_app_instances_for_app(self):
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)
-    flexmock(file_io).should_receive('read')\
-                        .and_return('0')
-    expected = ['0', '0']
-    actual = app_manager_server.kill_app_instances_for_app('test')
-    self.assertEquals(expected, actual)
+    actual = app_manager_server.restart_app_instances_for_app('test')
+    self.assertEquals(True, actual)
 
   def test_stop_app(self):
-    flexmock(god_interface).should_receive('stop')\
+    flexmock(monit_interface).should_receive('stop')\
                         .and_return(True)
     flexmock(os).should_receive('system')\
                         .and_return(0)
@@ -274,16 +267,7 @@ class TestAppManager(unittest.TestCase):
     flexmock(time).should_receive('sleep').and_return()
     flexmock(urllib).should_receive('urlopen').and_raise(IOError)
     self.assertEqual(False, app_manager_server.wait_on_app(port))
-     
 
-  def test_get_pid_from_port(self):
-    flexmock(os).should_receive('popen')\
-                .and_return(flexmock(read=lambda: '12345\n'))
-    self.assertEqual(12345, app_manager_server.get_pid_from_port(54321))
-    flexmock(os).should_receive('popen')\
-                .and_return(flexmock(read=lambda: ''))
-    self.assertEqual(app_manager_server.BAD_PID, app_manager_server.get_pid_from_port(54321))
-  
   def test_copy_modified_jars_success(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(0)

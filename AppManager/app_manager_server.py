@@ -222,7 +222,7 @@ def restart_app_instances_for_app(app_name):
 
   logging.info("Restarting application %s"%app_name)
   watch = "app___" + app_name
-  monit_result = monit_interface.restart(watch)
+  return monit_interface.restart(watch)
  
 def stop_app(app_name):
   """ Stops all process instances of a Google App Engine application on this 
