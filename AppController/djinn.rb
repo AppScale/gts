@@ -832,7 +832,14 @@ class Djinn
     end
 
     if @creds['user_commands'].class == String
-      @creds['user_commands'] = JSON.load(@creds['user_commands'])
+      begin
+        @creds['user_commands'] = JSON.load(@creds['user_commands'])
+      rescue JSON::ParserError
+      end
+
+      if @creds['user_commands'].class == String
+        @creds['user_commands'] = [@creds['user_commands']]
+      end
     end
     Djinn.log_debug("user_commands is set to #{@creds['user_commands']}, " +
       "of class #{@creds['user_commands'].class.name}")
