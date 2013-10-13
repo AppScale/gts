@@ -2844,7 +2844,7 @@ class Djinn
   def sanitize_credentials()
     newcreds = {}
     @creds.each { |key, val|
-      if key == 'ips'
+      if ['ips', 'user_commands'].include?(key)
         newcreds[key] = val
         next
       end
