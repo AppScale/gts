@@ -2838,7 +2838,7 @@ class Djinn
   def sanitize_credentials()
     newcreds = {}
     @creds.each { |key, val|
-      if key == 'ips'
+      if ['ips', 'user_commands'].include?(key)
         newcreds[key] = val
         next
       end
@@ -3300,6 +3300,7 @@ class Djinn
     copy_encryption_keys(node)
     validate_image(node)
     rsync_files(node)
+    run_user_commands(node)
     start_appcontroller(node)
   end
 
@@ -3690,6 +3691,44 @@ HOSTS
         "2>&1")
       Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
     end
+  end
+
+  # Runs any commands provided by the user in their AppScalefile on the given
+  # machine.
+  #
+  # Commands must be placed in @creds['user_commands'], and not contain any
+  # redirection characters (">"), since HelperFunctions.run_remote_command
+  # will pipe to /dev/null and overwrite it.
+  #
+  # Args:
+  # - node: A DjinnJobData that represents the machine where the given commands
+  #   should be executed.
+  def run_user_commands(node)
+    if @creds['user_commands'].class == String
+      begin
+        commands = JSON.load(@creds['user_commands'])
+      rescue JSON::ParserError
+        commands = @creds['user_commands']
+      end
+
+      if commands.class == String
+        commands = [commands]
+      end
+    else
+      commands = []
+    end
+    Djinn.log_debug("commands are #{commands}, of class #{commands.class.name}")
+
+    if commands.empty?
+      Djinn.log_debug("No user-provided commands were given.")
+      return
+    end
+
+    ip = node.private_ip
+    ssh_key = node.ssh_key
+    commands.each { |command|
+      HelperFunctions.run_remote_command(ip, command, ssh_key, NO_OUTPUT)
+    }
   end
 
   def start_appcontroller(node)

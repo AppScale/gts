@@ -885,7 +885,7 @@ class TestDjinn < Test::Unit::TestCase
     all_nodes_serialized = JSON.dump([original_node.to_hash(),
       new_node2.to_hash(), new_node1.to_hash()])
 
-    creds = {'keyname' => 'boo'}
+    creds = {'keyname' => 'boo', 'user_commands' => []}
     creds_as_array = creds.to_a.flatten
     no_apps = []
 
@@ -1076,7 +1076,7 @@ class TestDjinn < Test::Unit::TestCase
     all_nodes_serialized = JSON.dump([original_node.to_hash(),
       new_node1.to_hash(), new_node2.to_hash()])
 
-    creds = {'keyname' => 'boo'}
+    creds = {'keyname' => 'boo', 'user_commands' => []}
     creds_as_array = creds.to_a.flatten
     no_apps = []
 
