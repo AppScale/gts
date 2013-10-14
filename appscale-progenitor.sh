@@ -26,11 +26,9 @@ case "$1" in
     if [ $LIVE_APPCONTROLLERS -eq 0 -a -e $SECRET_FILE ];
     then
       log_begin_msg "AppController not running - starting it now."
-      god --log /var/log/appscale/god.log -D &
-      sleep 5
-      god load /root/appscale/AppController/appcontroller.god
-      sleep 5
-      god start controller
+      rm -rf /etc/monit/conf.d/*.cfg
+      cp /root/appscale/AppController/appcontroller.cfg /etc/monit/conf.d/
+      monit
     else
       log_begin_msg "AppController already running - not starting it again."
     fi
