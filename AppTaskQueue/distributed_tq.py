@@ -23,8 +23,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
 import constants
 import file_io
-import god_app_configuration
-import god_interface
+import monit_app_configuration
+import monit_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.runtime import apiproxy_errors
@@ -151,7 +151,7 @@ class DistributedTaskQueue():
     return json_response
 
   def stop_worker(self, json_request):
-    """ Stops the god watch for queues of an application on the current
+    """ Stops the monit watch for queues of an application on the current
         node.
    
     Args:
@@ -168,7 +168,7 @@ class DistributedTaskQueue():
     app_id = request['app_id']
     watch = "celery-" + str(app_id)
     try:
-      if god_interface.stop(watch):
+      if monit_interface.stop(watch):
         stop_command = self.get_worker_stop_command(app_id)
         os.system(stop_command) 
         TaskQueueConfig.remove_config_files(app_id)
@@ -190,9 +190,8 @@ class DistributedTaskQueue():
       A string which, if run, will kill celery workers for a 
       given application id.
     """
-    stop_command = "ps auxww | grep 'celery worker ' | grep '"+ \
-                   str(app_id) + \
-                   "' | awk '{print $2}' | xargs kill -9"
+    stop_command = "/usr/bin/python /root/appscale/stop_service.py worker {0}" \
+      .format(app_id)
     return stop_command
 
   def start_worker(self, json_request):
@@ -226,7 +225,7 @@ class DistributedTaskQueue():
       return json.dumps({"error": True, "reason": str(name_error)}) 
  
     log_file = self.LOG_DIR + app_id + ".log"
-    command = ["celery",
+    command = ["/usr/local/bin/celery",
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
@@ -242,15 +241,15 @@ class DistributedTaskQueue():
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)
     watch = "celery-" + str(app_id)
-    god_config = god_app_configuration.create_config_file(watch,
-                                                      start_command, 
-                                                      stop_command, 
-                                                      [self.CELERY_PORT])
-    if god_interface.start(god_config, watch):
+    monit_app_configuration.create_config_file(watch,
+                                               start_command, 
+                                               stop_command, 
+                                               [self.CELERY_PORT])
+    if monit_interface.start(watch):
       json_response = {'error': False}
     else:
       json_response = {'error': True, 
-                       'reason': "Start of god watch for %s failed" % watch}
+                       'reason': "Start of monit watch for %s failed" % watch}
     return json.dumps(json_response)
 
   def fetch_queue_stats(self, app_id, http_data):

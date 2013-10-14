@@ -21,8 +21,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 import file_io
-import god_app_configuration
-import god_interface 
+import monit_app_configuration
+import monit_interface 
 import misc 
 
 # Most attempts to see if an application server comes up before failing
@@ -155,28 +155,23 @@ def start_app(config):
   logging.info("Stop command: " + str(stop_cmd))
   logging.info("Environment variables: " +str(env_vars))
 
-  config_file_loc = god_app_configuration.create_config_file(str(watch),
-                                                     str(start_cmd), 
-                                                     str(stop_cmd), 
-                                                     [config['app_port']],
-                                                     env_vars)
+  monit_app_configuration.create_config_file(str(watch),
+                                             str(start_cmd), 
+                                             str(stop_cmd), 
+                                             [config['app_port']],
+                                             env_vars)
 
-  if not god_interface.start(config_file_loc, watch):
-    logging.error("Unable to start application server with god")
+  if not monit_interface.start(watch):
+    logging.error("Unable to start application server with monit")
     return BAD_PID
 
   if not wait_on_app(int(config['app_port'])):
     logging.error("Application server did not come up in time, " + \
-                   "removing god watch")
-    god_interface.stop(watch)
+                   "removing monit watch")
+    monit_interface.stop(watch)
     return BAD_PID
 
-  pid = get_pid_from_port(config['app_port'])
-  pid_file = constants.APP_PID_DIR + config['app_name'] + '-' +\
-             str(config['app_port'])
-  file_io.write(pid_file, str(pid))
-      
-  return pid
+  return 0
 
 def stop_app_instance(app_name, port):
   """ Stops a Google App Engine application process instance on current 
@@ -188,51 +183,33 @@ def stop_app_instance(app_name, port):
   Returns:
     True on success, False otherwise
   """
-  if not misc.is_app_name_valid(app_name): 
+  if not misc.is_app_name_valid(app_name):
     logging.error("Unable to kill app process %s on port %d because of " +\
                   "invalid name for application"%(app_name, int(port)))
     return False
 
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name + "-" + str(port)
-  god_result = god_interface.stop(watch)
+  return monit_interface.stop(watch, is_group=False)
 
-  # hack: God fails to shutdown processes so we do it via a system command
-  # TODO: fix it or find an alternative to god
-  pid_file = constants.APP_PID_DIR + app_name + '-' + str(port)
-  pid = file_io.read(pid_file)
-
-  if str(port).isdigit(): 
-    if subprocess.call(['kill', '-9', pid]) != 0:
-      logging.error("Unable to kill app process %s on port %d with pid %s"%\
-                    (app_name, int(port), str(pid)))
-
-  file_io.delete(pid_file)
-
-  return god_result
-
-def kill_app_instances_for_app(app_name):
-  """ Kills all instances of a Google App Engine application on this machine.
+def restart_app_instances_for_app(app_name):
+  """ Restarts all instances of a Google App Engine application on this machine.
 
   Args:
-    app_name: The application ID corresponding to the app to kill.
+    app_name: The application ID corresponding to the app to restart.
 
   Returns:
-    A list of the process IDs whose instances were terminated.
+    True if successful, and False otherwise.
   """
-  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*.pid')
-  pids_killed = []
-  for pid_file in pid_files:
-    pid = file_io.read(pid_file)
-    if subprocess.call(['kill', '-9', pid]) == 0:
-      pids_killed.append(pid)
-    else:
-      logging.error("Unable to kill app process %s with pid %s" % \
-                    (app_name, str(pid)))
-  logging.info("Killed the following processes for app {0}: {1}".format(
-    app_name, ','.join(pids_killed)))
-  return pids_killed
+  if not misc.is_app_name_valid(app_name):
+    logging.error("Unable to kill app process %s on because of " +\
+                  "invalid name for application"%(app_name))
+    return False
 
+  logging.info("Restarting application %s"%app_name)
+  watch = "app___" + app_name
+  return monit_interface.restart(watch)
+ 
 def stop_app(app_name):
   """ Stops all process instances of a Google App Engine application on this 
       machine.
@@ -242,36 +219,17 @@ def stop_app(app_name):
   Returns:
     True on success, False otherwise
   """
-  if not misc.is_app_name_valid(app_name): 
+  if not misc.is_app_name_valid(app_name):
     logging.error("Unable to kill app process %s on because of " +\
                   "invalid name for application"%(app_name))
     return False
 
   logging.info("Stopping application %s"%app_name)
-  watch = "app___" + app_name 
-  god_result = god_interface.stop(watch)
+  watch = "app___" + app_name
+  monit_result = monit_interface.stop(watch)
  
-  if not god_result:
-    logging.error("Unable to shut down god interface for watch %s"%watch)
-    return False
-
-  # Hack: God fails to shutdown processes so we do it via a system command.
-  # TODO: Fix it or find an alternative to god.
-  cmd = "ps -ef | grep \"dev_appserver\|AppServer_Java\" | grep " + \
-        app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' " +\
-        "| xargs kill -9"
-
-  ret = os.system(cmd)
-  if ret != 0:
-    logging.error("Unable to shut down processes for app %s with exit value %d"\
-                 %(app_name, ret))
-    return False
-  
-  cmd = "rm -f " + constants.APP_PID_DIR + app_name + "-*"
-  ret = os.system(cmd)
-  if ret != 0:
-    logging.error("Unable to remove PID files for app %s with exit value %d"\
-                  %(app_name, ret))
+  if not monit_result:
+    logging.error("Unable to shut down monit interface for watch %s"%watch)
     return False
 
   return True
@@ -279,23 +237,6 @@ def stop_app(app_name):
 ############################################
 # Private Functions (but public for testing)
 ############################################
-def get_pid_from_port(port):
-  """ Gets the PID of the process bound to the given port.
-   
-  Args:
-    port: The port in which you want the process binding it
-  Returns:
-    The PID on success, and -1 on failure
-  """ 
-  if not str(port).isdigit(): return BAD_PID
-
-  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'} | head -1")
-  pid = s.read().rstrip()
-  if pid:
-    return int(pid)
-  else:
-    return BAD_PID  
-
 def wait_on_app(port):
   """ Waits for the application hosted on this machine, on the given port, 
       to respond to HTTP requests.
@@ -497,7 +438,7 @@ def choose_python_executable(py_version):
   Returns:
     String of python executable path
   """
-  return "python"
+  return "/usr/bin/python"
 
 def create_python27_stop_cmd(port, py_version):
   """ This creates the stop command for an application which is 
@@ -511,14 +452,8 @@ def create_python27_stop_cmd(port, py_version):
   Returns:
     A string of the stop command.
   """
-  cmd = ["python", 
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
-         "-p " + str(port),
-         "--cookie_secret " + appscale_info.get_secret()]
-  cmd = ' '.join(cmd)
-
-  stop_cmd = "ps aux | grep '" + cmd +\
-             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
+  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
+    "dev_appserver.py {0}".format(port)
   return stop_cmd
 
 def create_java_stop_cmd(port):
@@ -532,14 +467,8 @@ def create_java_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  cmd = ["appengine-java-sdk-repacked/bin/dev_appserver.sh",
-         "--port=" + str(port),
-         "--address=" + appscale_info.get_private_ip(),
-         "--cookie_secret=" + appscale_info.get_secret()]
-
-  cmd = ' '.join(cmd)
-  stop_cmd = "ps aux | grep '" + cmd + \
-             "' | grep -v grep | awk '{print $2'}' xargs -d '\n' kill -9"
+  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
+    "java {0}".format(port)
   return stop_cmd
 
 def is_config_valid(config):
@@ -579,7 +508,7 @@ if __name__ == "__main__":
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
   server.registerFunction(stop_app_instance)
-  server.registerFunction(kill_app_instances_for_app)
+  server.registerFunction(restart_app_instances_for_app)
 
   file_io.set_logging_format()
   

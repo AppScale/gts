@@ -1,5 +1,4 @@
 require 'djinn'
-require 'godinterface'
 
 
 # The location on the local filesystem where we should store ZooKeeper data.

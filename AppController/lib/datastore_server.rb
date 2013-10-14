@@ -3,6 +3,7 @@
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
+require 'monit_interface'
 
 
 # To support the Google App Engine Datastore API in a way that is
@@ -52,11 +53,11 @@ module DatastoreServer
     }
   
     ports.each { |port|
-      start_cmd = "python #{datastore_server} -p #{port} " +
-          "--no_encryption --type #{table} -z \'#{zklocations}\' "
+      start_cmd = "/usr/bin/python #{datastore_server} -p #{port} " +
+          "--no_encryption --type #{table} -z #{zklocations}"
       # stop command doesn't work, relies on terminate.rb
-      stop_cmd = "pkill -9 datastore_server"
-      GodInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
+      stop_cmd = "/usr/bin/pkill -9 datastore_server"
+      MonitInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
     }
   end
 
@@ -64,7 +65,7 @@ module DatastoreServer
   # Stops the Datastore Buffer Server running on this machine. Since it's
   # managed by god, just tell god to shut it down.
   def self.stop(table)
-     GodInterface.stop(:datastore_server)
+     MonitInterface.stop(:datastore_server)
   end
 
 

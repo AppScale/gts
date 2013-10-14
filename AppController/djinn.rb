@@ -27,14 +27,14 @@ require 'app_manager_client'
 require 'taskqueue_client'
 require 'blobstore'
 require 'custom_exceptions'
+require 'datastore_server'
 require 'ejabberd'
 require 'error_app'
 require 'cron_helper'
-require 'godinterface'
 require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
-require 'datastore_server'
+require 'monit_interface'
 require 'nginx'
 require 'taskqueue'
 require 'apichecker'
@@ -653,7 +653,7 @@ class Djinn
             node.ssh_key)
         end
         app_manager = AppManagerClient.new(node.private_ip)
-        app_manager.kill_app_instances_for_app(appid)
+        app_manager.restart_app_instances_for_app(appid)
       }
     }
 
@@ -733,7 +733,7 @@ class Djinn
       stop_infrastructure_manager
     end
 
-    GodInterface.shutdown
+    MonitInterface.shutdown
     FileUtils.rm_rf(STATE_FILE)
 
     if @creds['alter_etc_resolv'].downcase == "true"
@@ -1374,8 +1374,8 @@ class Djinn
       return
     end
 
-    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
-    stop_cmd = "pkill -9 infrastructure_manager_service"
+    start_cmd = "/usr/bin/python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    stop_cmd = "/usr/bin/pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
@@ -1383,14 +1383,14 @@ class Djinn
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
 
-    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
+    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
 
   def stop_infrastructure_manager
     Djinn.log_info("Stopping InfrastructureManager")
-    GodInterface.stop(:iaas_manager)
+    MonitInterface.stop(:iaas_manager)
   end
 
 
@@ -3140,10 +3140,10 @@ class Djinn
   def start_app_manager_server
     @state = "Starting up AppManager"
     env_vars = {}
-    start_cmd = ["python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
-    stop_cmd = "pkill -9 app_manager_server"
+    start_cmd = ["/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
+    stop_cmd = "/usr/bin/pkill -9 app_manager_server"
     port = [AppManagerClient::SERVER_PORT]
-    GodInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
+    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
 
   def start_soap_server
@@ -3170,10 +3170,10 @@ class Djinn
 
     start_cmd = ["python #{APPSCALE_HOME}/AppDB/soap_server.py",
             "-t #{table} -s #{HelperFunctions.get_secret}"].join(' ')
-    stop_cmd = "pkill -9 soap_server"
+    stop_cmd = "/usr/bin/pkill -9 soap_server"
     port = [4343]
 
-    GodInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
+    MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
   end 
 
   def start_datastore_server
@@ -3197,17 +3197,16 @@ class Djinn
 
   def stop_blob_server
     BlobServer.stop
-    Djinn.log_run("pkill -f blobstore_server")
   end 
 
   def stop_soap_server
-    GodInterface.stop(:uaserver)
+    MonitInterface.stop(:uaserver)
   end 
 
   # Stops the AppManager service
   #
   def stop_app_manager_server
-    GodInterface.stop(:appmanagerserver)
+    MonitInterface.stop(:appmanagerserver)
   end 
 
   def stop_datastore_server
@@ -3401,6 +3400,8 @@ class Djinn
     app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
+    lib = "#{APPSCALE_HOME}/lib"
+    app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -3414,6 +3415,8 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
+    HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
+    HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
   end
 
   def setup_config_files()
@@ -3734,23 +3737,24 @@ HOSTS
 
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
     env = {
+      'HOME' => '/root',
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "ruby #{remote_home}/AppController/djinnServer.rb"
-    stop = "ruby #{remote_home}/AppController/terminate.rb"
+    start = "/usr/bin/ruby #{remote_home}/AppController/djinnServer.rb"
+    stop = "/usr/bin/ruby #{remote_home}/AppController/terminate.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
     remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
-    GodInterface.start_god(ip, ssh_key)
+    MonitInterface.start_monit(ip, ssh_key)
     Kernel.sleep(1)
 
     begin
-      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
       HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
@@ -3783,12 +3787,12 @@ HOSTS
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
     start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
-    stop_cmd = "pkill memcached"
-    GodInterface.start(:memcached, start_cmd, stop_cmd, [11211])
+    stop_cmd = "/usr/bin/pkill memcached"
+    MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
 
   def stop_memcache()
-    GodInterface.stop(:memcached)
+    MonitInterface.stop(:memcached)
   end
 
   def start_ejabberd()
@@ -4061,8 +4065,8 @@ HOSTS
           @appengine_port += 1
         }
       else
-        Djinn.log_info("Killing all AppServers hosting old version of application #{app}")
-        result = app_manager.kill_app_instances_for_app(app)
+        Djinn.log_info("Restarting AppServers hosting old version of #{app}")
+        result = app_manager.restart_app_instances_for_app(app)
       end
 
       HAProxy.update_app_config(app, proxy_port,
@@ -4435,17 +4439,15 @@ HOSTS
 
     xmpp_ip = get_login.public_ip
 
-    pid = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
+    result = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
       nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
       HelperFunctions.get_app_env_vars(app))
 
-    if pid == -1
+    if result == -1
       Djinn.log_error("ERROR: Unable to start application #{app} on port " +
         "#{@appengine_port}.")
       next
     end
-    pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
-    HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1
 
@@ -4693,9 +4695,6 @@ HOSTS
       @apps_loaded = []
       @restored = false
     }
-  
-    Djinn.log_run("pkill -f dev_appserver")
-    Djinn.log_run("pkill -f DevAppServerMain")
   end
 
   # Returns true on success, false otherwise
@@ -4766,9 +4765,9 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{port} #{@@secret}"
-      stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+      stop_cmd = "/bin/ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       watch_name = "xmpp-#{app}"
-      GodInterface.start(watch_name, start_cmd, stop_cmd, 9999)
+      MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
       Djinn.log_debug("App #{app} does not need xmpp receive functionality")
@@ -4781,10 +4780,7 @@ HOSTS
   #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
-    watch_name = "xmpp-#{app}"
-    GodInterface.remove(watch_name)
-    stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
-    Djinn.log_run(stop_cmd)
+    MonitInterface.remove("xmpp-#{app}")
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
 

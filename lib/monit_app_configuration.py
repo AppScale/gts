@@ -9,17 +9,17 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import file_io
 
-# Template used for god configuration files 
+# Template used for monit configuration files 
 TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
-                    "/templates/god_template.conf"
+                    "/templates/monit_template.conf"
 
 def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
-  """ Reads in a template file for god and fills it with the 
+  """ Reads in a template file for monit and fills it with the 
       correct configuration. The caller is responsible for deleting 
       the created file.
   
   Args:
-    watch: A string which identifies this process with god
+    watch: A string which identifies this process with monit
     start_cmd: The start command to start the process
     stop_cmd: The stop command to kill the process
     ports: A list of ports that are being watched
@@ -39,8 +39,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
 
   env = ""
   for ii in env_vars:
-    env += "          \"" + str(ii) + "\" => \"" + str(env_vars[ii]) + "\",\n" 
-  if env: env = "w.env = {" + env + "}"
+    env += "export " + str(ii) + "=" + str(env_vars[ii]) + " && "
 
   # Convert ints to strings for template formatting
   for index, ii in enumerate(ports): ports[index] = str(ii) 
@@ -48,18 +47,10 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
   # 'WATCH' and 'port' are substituted here as the last two arguments 
   # because the template script itself uses {}. If we do not sub for them 
   # a key error is raised by template.format().
-  template = template.format(watch, 
-                             start_cmd, 
-                             stop_cmd, 
-                             ', '.join(ports),
-                             env,
-                             "{watch_name}",
-                             "{port}")
+  for port in ports:
+    template = template.format(watch, start_cmd, stop_cmd, port, env)
+    temp_file_name = "/etc/monit/conf.d/" + watch + '-' + \
+                     str(port) + ".cfg"
+    file_io.write(temp_file_name, template) 
 
-  temp_file_name = "/tmp/god-" + watch + '-' + \
-                   str(random.randint(0, 9999999)) + ".conf"
-
-  file_io.write(temp_file_name, template) 
-
-  return temp_file_name
-
+  return

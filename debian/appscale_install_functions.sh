@@ -299,8 +299,6 @@ installgems()
     # ZK 1.0 breaks our existing code - upgrade later
     gem install -v=0.9.3 zookeeper
     sleep 1
-    gem install god ${GEMOPT}
-    sleep 1
     gem install json ${GEMOPT}
     sleep 1
     gem install -v=0.8.3 httparty ${GEMOPT}
@@ -341,6 +339,29 @@ postinstallnginx()
     cp -v AppDashboard/setup/load-balancer.conf /usr/local/nginx/sites-enabled/
     rm -fv /usr/local/nginx/sites-enabled/default
     chmod +x /root
+}
+
+installmonit()
+{
+    # First, install monit.
+    cd ${APPSCALE_HOME}/downloads
+    wget $APPSCALE_PACKAGE_MIRROR/monit-5.6-prebuilt-precise.tar.gz
+    tar zxvf monit-5.6-prebuilt-precise.tar.gz
+    cd monit-5.6
+    make install
+    cd ..
+    rm -rf monit-5.6 monit-5.6-prebuilt-precise.tar.gz
+
+    # Next, monit won't start unless there's a config file that enables it,
+    # so copy that over as well as our AppScale-specific monit file.
+    cd ${APPSCALE_HOME}
+    cp monit /etc/default/monit
+    cp monitrc /etc/monitrc
+    mkdir -p /etc/monit/conf.d
+
+    # Finally, monit requires the monitrc file to be 0700, otherwise it won't
+    # use it.
+    chmod 0700 /etc/monitrc
 }
 
 installcassandra()
