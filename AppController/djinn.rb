@@ -831,19 +831,6 @@ class Djinn
     rescue JSON::ParserError
     end
 
-    if @creds['user_commands'].class == String
-      begin
-        @creds['user_commands'] = JSON.load(@creds['user_commands'])
-      rescue JSON::ParserError
-      end
-
-      if @creds['user_commands'].class == String
-        @creds['user_commands'] = [@creds['user_commands']]
-      end
-    end
-    Djinn.log_debug("user_commands is set to #{@creds['user_commands']}, " +
-      "of class #{@creds['user_commands'].class.name}")
-
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
@@ -3704,14 +3691,29 @@ HOSTS
   end
 
   def run_user_commands(node)
-    if @creds['user_commands'].empty?
+    if @creds['user_commands'].class == String
+      begin
+        commands = JSON.load(@creds['user_commands'])
+      rescue JSON::ParserError
+        commands = @creds['user_commands']
+      end
+
+      if commands.class == String
+        commands = [commands]
+      end
+    else
+      commands = []
+    end
+    Djinn.log_debug("commands are #{commands}, of class #{commands.class.name}")
+
+    if commands.empty?
       Djinn.log_debug("No user-provided commands were given.")
       return
     end
 
     ip = node.private_ip
     ssh_key = node.ssh_key
-    @creds['user_commands'].each { |command|
+    commands.each { |command|
       HelperFunctions.run_remote_command(ip, command, ssh_key, NO_OUTPUT)
     }
   end
