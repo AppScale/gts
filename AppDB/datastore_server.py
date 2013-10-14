@@ -13,6 +13,7 @@ import itertools
 import logging
 import md5
 import os
+import random
 import sys
 import time
 
@@ -318,6 +319,18 @@ class DatastoreDistributed():
       key = self._SEPARATOR.join(params)
     return key
 
+  def get_composite_index_kv_from_tuple(self, tuple_list, reverse=False):
+    """ Returns key/value for composite indexes for a set of entities.
+
+    Args: 
+       tuple_list: A list of tuples of prefix and pb entities
+       reverse: if these keys are for the descending table
+    Returns:
+       A list of keys and values of indexes
+    """
+    # TODO if needed
+    return
+          
   def get_index_kv_from_tuple(self, tuple_list, reverse=False):
     """ Returns keys/value of indexes for a set of entities.
  
@@ -455,15 +468,73 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
+  def get_composite_index_key(self, index, entity):
+    """ Creates a key to the composite index table for a given entity.
 
-  def insert_index_entries(self, entities):
+    Args:
+      index: A datstore_pb.CompositeIndex.
+      entity: A entity_pb.EntityProto.
+    Returns:
+      A string representing a key to the composite table.
+    """ 
+    composite_id = index.id()
+    definition = index.definition()
+    # Key is built as such: 
+    # app_id/ns/composite_id/ancestor/valuevaluevalue....
+    app_id = entity.key().app()
+    name_space = entity.key().name_space()
+    ancestor = ""
+    if index.has_ancestor():
+      ancestor = self.__encode_index_pb(entity)
+      logging.error("Ancestor path: {0}".format(ancestor))
+    pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
+      self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
+
+    value_dict = {}
+    for prop in entity.property_list():
+      value_dict[prop.name()] = prop.value() 
+
+    index_value = ""
+    for prop in definition.property_list():
+      name = prop.name()
+      value = value_dict[name]
+      if entity_pb.Index_Property.DESCENDING:
+        value = helper_functions.reverse_lex(value)
+      # Should there be a separator between values?
+      index_value += value
+
+    return "{0}{1}".format(pre_comp_index_key, index_value)
+   
+  def create_composite_indexes(self, entities, composite_indexes):
+    """ Creates composite indexes for a set of entities.
+
+    Args:
+      entities: A list of tuples of prefix and entities 
+                to create index entries for.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
+    """
+    row_keys = []
+    row_values = {}
+    # Create default composite index for all entities. Here we take each
+    # of the properties in one 
+    for ent in entities:
+      for index_def in composite_indexes:
+        logging.error("Index to create: {0}".format(index_def))
+        logging.error("Entity: {0}".format(ent))
+        # have to handle ancestor or none
+        # multiple properties and 
+        # must deal with all combinations of indexes. 
+        # See exploding indexes: 
+        # https://developers.google.com/appengine/docs/python/datastore/indexes
+       
+  def insert_index_entries(self, entities, composite_indexes=None):
     """ Inserts index entries for the supplied entities.
 
     Args:
       entities: A list of tuples of prefix and entities 
                 to create index entries for.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
-
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
 
     row_keys = []
@@ -483,7 +554,7 @@ class DatastoreDistributed():
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference': str(ii[1])}
     
-    # TODO  these in parallel
+    # TODO update all indexes in parallel
     self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
                           row_keys, 
                           dbconstants.PROPERTY_SCHEMA, 
@@ -493,6 +564,9 @@ class DatastoreDistributed():
                           rev_row_keys,  
                           dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
+
+    if composite_indexes:
+      self.create_composite_indexes(entities, composite_indexes)
 
   def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
@@ -534,21 +608,22 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app_id, entities, txn_hash):
+  def put_entities(self, app_id, entities, txn_hash, composite_indexes=None):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
-       app_id: The application ID.
-       entities: List of entities.
-       txn_hash: A mapping of root keys to transaction IDs.
+      app_id: The application ID.
+      entities: List of entities.
+      txn_hash: A mapping of root keys to transaction IDs.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
       self.delete_entities(app_id, keys, txn_hash, soft_delete=False)
       self.insert_entities(entities, txn_hash)
-      self.insert_index_entries(entities)
+      self.insert_index_entries(entities, composite_indexes=composite_indexes)
 
   def delete_entities(self, app_id, keys, txn_hash, soft_delete=False):
     """ Deletes the entities and the indexes associated with them.
@@ -749,7 +824,9 @@ class DatastoreDistributed():
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
           retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
-      self.put_entities(app_id, entities, txn_hash)
+      logging.error("Composite list: {0}".format(put_request.composite_index_list()))
+      self.put_entities(app_id, entities, txn_hash, 
+        composite_indexes=put_request.composite_index_list())
       if not put_request.has_transaction():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
       put_response.key_list().extend([e.key() for e in entities])
@@ -2073,6 +2150,19 @@ class DatastoreDistributed():
          
     return []
 
+  def does_composite_index_exist(self, query):
+    """ Checks to see if the query has a composite index that can implement
+    the give query. If it does, then we do not use zigzag merge join for 
+    the queries implementation because using a composite index is faster.
+
+    Args:
+      query: A datastore_pb.Query.
+    Returns:
+      0 if an index does not exist, and the index number if it does.
+    """
+    # TODO implement when we create composite indexes.
+    return 0
+
   def zigzag_merge_join(self, query, filter_info, order_info):
     """ Performs a composite query for queries which have multiple 
     equality filters. Uses a varient of the zigzag join merge algorithm.
@@ -2179,7 +2269,6 @@ class DatastoreDistributed():
       for key in keys_to_delete:
         del reference_counter_hash[key]
 
-
       # We are looking for the earliest (alphabetically) of the keys.
       start_key = ""
       for last_key in last_keys_of_scans:
@@ -2208,14 +2297,14 @@ class DatastoreDistributed():
     result_set = self.__fetch_entities_from_row_list(result_list)
     return result_set
 
-
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
 
     Args:
       query: The query to run.
-      filter_info: tuple with filter operators and values.
+      filter_info: dictionary mapping property names to tuples of 
+        filter operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
       List of entities retrieved from the given query.
@@ -2240,10 +2329,11 @@ class DatastoreDistributed():
           pname = p
       return pname, pnames 
     property_name, property_names = set_prop_names(filter_info)
-    if len(property_names) <= 1:
-      if not (len(property_names) == 1 and (query.has_ancestor() \
-        or query.has_kind())):
-        return None
+
+    if len(property_names) <= 1 and not \
+      (len(property_names) == 1 and (query.has_ancestor() \
+      or query.has_kind())):
+      return None
 
     if not property_name:
       property_name = property_names.pop()
@@ -2294,7 +2384,9 @@ class DatastoreDistributed():
       ent_res = self.__fetch_entities(temp_res)
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
-      # Apply in-memory filters for each property
+      # Apply in-memory filters for each property. We loop through each entity
+      # and filter out entities which do not match the given kind, ancestor,
+      # or equality filter for given properties.
       for ent in ent_res:
         e = entity_pb.EntityProto(ent)
 
@@ -2442,8 +2534,8 @@ class DatastoreDistributed():
   _QUERY_STRATEGIES = [
       __single_property_query,   
       __kind_query,
-      __composite_query,
       zigzag_merge_join,
+      __composite_query,
   ]
 
 
@@ -2684,7 +2776,8 @@ class MainHandler(tornado.web.RequestHandler):
       errcode = 0
       errdetail = ""
       response = api_base_pb.Integer64Proto()
-      response.set_value(0)
+      rand = random.randint(1, 9999999)
+      response.set_value(rand)
       response = response.Encode()
 
     elif method == "GetIndices":
@@ -2812,7 +2905,7 @@ class MainHandler(tornado.web.RequestHandler):
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError, dbce:
       logging.info("Connection issue with datastore for app id {0}, " \
-        "info {1}".format(app_id, str(dbce)))
+        "info {1}".format(query.app(), str(dbce)))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
