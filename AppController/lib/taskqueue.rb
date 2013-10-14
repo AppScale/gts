@@ -7,9 +7,9 @@ require 'timeout'
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
-require 'godinterface'
 require 'djinn_job_data'
 require 'helperfunctions'
+require 'monit_interface'
 
 
 # To implement support for the Google App Engine Task Queue API, we use
@@ -54,7 +54,7 @@ module TaskQueue
   RABBIT_START_RETRY = 1000
 
   # Stop command for taskqueue server.
-  TASKQUEUE_STOP_CMD = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+  TASKQUEUE_STOP_CMD = "/bin/kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
 
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
@@ -130,7 +130,7 @@ module TaskQueue
     start_cmd = "#{PYTHON_EXEC} #{script}"
     stop_cmd = TASKQUEUE_STOP_CMD
     env_vars = {}
-    GodInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT, env_vars)
+    MonitInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT, env_vars)
     Djinn.log_debug("Done starting taskqueue_server on this node")
   end
 
@@ -148,7 +148,7 @@ module TaskQueue
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
     Djinn.log_run(TASKQUEUE_STOP_CMD)
-    GodInterface.stop(:taskqueue)
+    MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
 
@@ -176,15 +176,15 @@ module TaskQueue
   # and RabbitMQ. A link to Flower is given in the AppDashboard, for users to
   # monitor their Task Queue tasks.
   def self.start_flower()
-    start_cmd = "flower --basic_auth=appscale:appscale"
-    stop_cmd = "ps ax | grep flower | grep -v grep | awk '{print $1}' | xargs kill -9"
-    GodInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
+    start_cmd = "/usr/local/bin/flower --basic_auth=appscale:appscale"
+    stop_cmd = "/bin/ps ax | /bin/grep flower | /bin/grep -v grep | /usr/bin/awk '{print $1}' | xargs kill -9"
+    MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
   end
 
 
   # Stops the Flower Server on this machine.
   def self.stop_flower()
-    GodInterface.stop(:flower)
+    MonitInterface.stop(:flower)
   end
 
 

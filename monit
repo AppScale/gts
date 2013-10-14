@@ -1,0 +1,11 @@
+# Defaults for monit initscript
+# sourced by /etc/init.d/monit
+# installed at /etc/default/monit by maintainer scripts
+# Stefan Alfredsson <alfs@debian.org>
+
+# You must set this variable to 1 for monit to start
+startup=1
+
+# To change the intervals which monit should run,
+# edit the configuration file /etc/monit/monitrc
+# It can no longer be configured here.

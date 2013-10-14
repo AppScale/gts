@@ -20,6 +20,7 @@ module TerminateHelper
     `rm -rf /var/log/appscale/celery_workers`
     `rm -f /var/appscale/*.pid`
     `rm -f /usr/local/nginx/conf/sites-enabled/*.conf`
+    `rm -f /etc/monit/conf.d/*.cfg`
 
     # TODO(cgb): It may be wise to save the apps for when AppScale starts up
     # later.
@@ -66,6 +67,9 @@ module TerminateHelper
   # associated with AppScale.
   def self.force_kill_processes
     `iptables -F`  # turn off the firewall
+    `monit stop all`
+    `monit unmonitor all`
+    `monit quit`
 
     ["memcached",
      "nginx", "haproxy",
@@ -85,7 +89,7 @@ module TerminateHelper
      "ThriftServer",
 
      "rabbitmq",
-     "god", "djinn", "xmpp_receiver",
+     "monit", "djinn", "xmpp_receiver",
      "InfrastructureManager", "Neptune",
 
      # RabbitMQ, ejabberd

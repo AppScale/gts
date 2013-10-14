@@ -14,8 +14,8 @@ from tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
-import god_app_configuration
-import god_interface
+import monit_app_configuration
+import monit_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
 from google.appengine.api import api_base_pb
@@ -229,8 +229,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(file_io) \
        .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    flexmock(god_app_configuration).should_receive('create_config_file').and_return('')
-    flexmock(god_interface).should_receive('start') \
+    flexmock(monit_app_configuration).should_receive('create_config_file').and_return('')
+    flexmock(monit_interface).should_receive('start') \
        .and_return(False)
     flexmock(TaskQueueConfig)\
        .should_receive("load_queues_from_file").and_return()
@@ -253,7 +253,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
     json_request = json.dumps(json_request)
     assert 'true' in dtq.start_worker(json_request)
 
-    flexmock(god_interface).should_receive('start') \
+    flexmock(monit_interface).should_receive('start') \
        .and_return(True)
   
     json_request = {'app_id':'my-app'}
@@ -262,7 +262,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
   def test_stop_worker(self):
     flexmock(os).should_receive("system").and_return(None)
-    flexmock(god_interface).should_receive('stop') \
+    flexmock(monit_interface).should_receive('stop') \
        .and_return(False)
     flexmock(file_io).should_receive("delete").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
@@ -272,7 +272,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
     json_request = {'app_id':'test_app'}
     self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
                       True)
-    flexmock(god_interface).should_receive('stop') \
+    flexmock(monit_interface).should_receive('stop') \
        .and_return(True)
     self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
                       False)
