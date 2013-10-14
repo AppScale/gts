@@ -3690,6 +3690,16 @@ HOSTS
     end
   end
 
+  # Runs any commands provided by the user in their AppScalefile on the given
+  # machine.
+  #
+  # Commands must be placed in @creds['user_commands'], and not contain any
+  # redirection characters (">"), since HelperFunctions.run_remote_command
+  # will pipe to /dev/null and overwrite it.
+  #
+  # Args:
+  # - node: A DjinnJobData that represents the machine where the given commands
+  #   should be executed.
   def run_user_commands(node)
     if @creds['user_commands'].class == String
       begin
