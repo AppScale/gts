@@ -2812,7 +2812,7 @@ class MainHandler(tornado.web.RequestHandler):
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError, dbce:
       logging.info("Connection issue with datastore for app id {0}, " \
-        "info {1}".format(app_id, str(dbce)))
+        "info {1}".format(query.app(), str(dbce)))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
