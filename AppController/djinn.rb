@@ -424,6 +424,11 @@ class Djinn
   RESERVED_APPS = [AppDashboard::APP_NAME, "apichecker"]
 
 
+  # A Fixnum that indicates what the first port is that can be used for hosting
+  # Google App Engine apps.
+  STARTING_APPENGINE_PORT = 20000
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -450,7 +455,6 @@ class Djinn
     @done_loading = false
     @nginx_port = Nginx::START_PORT
     @haproxy_port = HAProxy::START_PORT
-    @appengine_port = 20000
     @userappserver_public_ip = "not-up-yet"
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
@@ -2302,7 +2306,6 @@ class Djinn
     # running, so we need to start them all back up again.
     json_state['@nginx_port'] = Nginx::START_PORT
     json_state['@haproxy_port'] = HAProxy::START_PORT
-    json_state['@appengine_port'] = 20000
     json_state['@apps_loaded'] = []
 
     return json_state
@@ -4044,13 +4047,14 @@ HOSTS
       if is_new_app
         @app_info_map[app]['appengine'] = []
         @num_appengines.times { |index|
+          appengine_port = get_appengine_port()
           Djinn.log_info("Starting #{app_language} app #{app} on " +
-            "#{HelperFunctions.local_ip}:#{@appengine_port}")
-          @app_info_map[app]['appengine'] << @appengine_port
+            "#{HelperFunctions.local_ip}:#{appengine_port}")
+          @app_info_map[app]['appengine'] << appengine_port
 
           xmpp_ip = get_login.public_ip
 
-          pid = app_manager.start_app(app, @appengine_port,
+          pid = app_manager.start_app(app, appengine_port,
             get_load_balancer_ip(), nginx_port, app_language, xmpp_ip,
             [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app))
 
@@ -4058,11 +4062,6 @@ HOSTS
             place_error_app(app, "ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.")
           end
-
-          pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
-          HelperFunctions.write_file(pid_file_name, pid)
-
-          @appengine_port += 1
         }
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
@@ -4091,6 +4090,51 @@ HOSTS
       else
         @apps_to_restart.delete(app)
       end
+    }
+  end
+
+
+  # Finds the lowest numbered port that is free to serve a new dev_appserver
+  # process.
+  #
+  # Callers should make sure to store the port returned by this process in
+  # @app_info_map, preferably within the use of the APPS_LOCK (so that a
+  # different caller doesn't get the same value).
+  #
+  # Returns:
+  #   A Fixnum corresponding to the port number that a new dev_appserver can be
+  #   bound to.
+  def get_appengine_port
+    # Grab the APPS_LOCK here since more than one thread could be looking at
+    # the app_info_map (e.g., if an app is being uploaded while another is being
+    # relocated).
+    APPS_LOCK.synchronize {
+      ports_in_use = []
+      @app_info_map.each { |app, info|
+        ports_in_use << info['appengine']
+      }
+
+      ports_in_use.flatten!
+
+      possibly_free_port = STARTING_APPENGINE_PORT
+      loop {
+        if ports_in_use.include?(possibly_free_port)
+          possibly_free_port += 1
+        else
+          Djinn.log_debug("Port #{possibly_free_port} may be available.")
+
+          actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
+          if actually_available.empty?
+            Djinn.log_debug("Port #{possibly_free_port} is available for use.")
+            return possibly_free_port
+          else
+            Djinn.log_warn("Port #{possibly_free_port} should have been free " +
+              "but is actually in use by [#{actually_available}], so skipping" +
+              " this port.")
+            possibly_free_port += 1
+          end
+        end
+      }
     }
   end
 
@@ -4426,7 +4470,9 @@ HOSTS
 
     nginx_port = @app_info_map[app]['nginx']
     haproxy_port = @app_info_map[app]['haproxy']
-    @app_info_map[app]['appengine'] << @appengine_port
+
+    appengine_port = get_appengine_port()
+    @app_info_map[app]['appengine'] << appengine_port
 
     my_private = my_node.private_ip
     Djinn.log_debug("This app will be running on ports: " +
@@ -4435,21 +4481,19 @@ HOSTS
       @app_info_map[app]['appengine'], my_private)
 
     Djinn.log_debug("Adding #{app_language} app #{app} on " +
-      "#{HelperFunctions.local_ip}:#{@appengine_port} ")
+      "#{HelperFunctions.local_ip}:#{appengine_port} ")
 
     xmpp_ip = get_login.public_ip
 
-    result = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
+    result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
       nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
       HelperFunctions.get_app_env_vars(app))
 
     if result == -1
       Djinn.log_error("ERROR: Unable to start application #{app} on port " +
-        "#{@appengine_port}.")
+        "#{appengine_port}.")
       next
     end
-
-    @appengine_port += 1
 
     HAProxy.reload
   end
