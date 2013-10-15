@@ -4121,8 +4121,18 @@ HOSTS
         if ports_in_use.include?(possibly_free_port)
           possibly_free_port += 1
         else
-          Djinn.log_debug("Port #{possibly_free_port} is available for use.")
-          return possibly_free_port
+          Djinn.log_debug("Port #{possibly_free_port} may be available.")
+
+          actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
+          if actually_available.empty?
+            Djinn.log_debug("Port #{possibly_free_port} is available for use.")
+            return possibly_free_port
+          else
+            Djinn.log_warn("Port #{possibly_free_port} should have been free " +
+              "but is actually in use by [#{actually_available}], so skipping" +
+              " this port.")
+            possibly_free_port += 1
+          end
         end
       }
     }
