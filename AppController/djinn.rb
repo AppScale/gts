@@ -424,6 +424,11 @@ class Djinn
   RESERVED_APPS = [AppDashboard::APP_NAME, "apichecker"]
 
 
+  # A Fixnum that indicates what the first port is that can be used for hosting
+  # Google App Engine apps.
+  STARTING_APPENGINE_PORT = 20000
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -450,7 +455,7 @@ class Djinn
     @done_loading = false
     @nginx_port = Nginx::START_PORT
     @haproxy_port = HAProxy::START_PORT
-    @appengine_port = 20000
+    @appengine_port = STARTING_APPENGINE_PORT
     @userappserver_public_ip = "not-up-yet"
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
@@ -2302,7 +2307,7 @@ class Djinn
     # running, so we need to start them all back up again.
     json_state['@nginx_port'] = Nginx::START_PORT
     json_state['@haproxy_port'] = HAProxy::START_PORT
-    json_state['@appengine_port'] = 20000
+    json_state['@appengine_port'] = STARTING_APPENGINE_PORT
     json_state['@apps_loaded'] = []
 
     return json_state
