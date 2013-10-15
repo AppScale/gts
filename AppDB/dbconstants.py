@@ -55,6 +55,8 @@ APP_ID_SCHEMA = [
   "next_id" ]
 APP_KIND_SCHEMA = [
   "reference" ]
+COMPOSITE_SCHEMA = [
+  "reference" ]
 
 USERS_SCHEMA = [
   "email",
