@@ -56,18 +56,6 @@ class AppControllerClient():
   DEFAULT_TIMEOUT_TIME = 10
 
 
-  # The number of seconds we should wait when instructing the AppController to
-  # upload a new Google App Engine application and start it up. Because we wait
-  # for the app to start, this timeout is significantly higher than just copying
-  # over the file.
-  UPLOAD_TAR_GZ_TIME = 500
-
-
-  # The number of times we should retry uploading a Google App Engine
-  # application via the AppController, if it fails the first time.
-  UPLOAD_TAR_GZ_RETRIES = 0
-
-
   def __init__(self, host, secret):
     """Creates a new AppControllerClient.
 
@@ -118,14 +106,15 @@ class AppControllerClient():
         sys.stderr.write("Saw socket exception {0} when communicating with the " \
           "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
         return self.run_with_timeout(timeout_time, default, num_retries - 1,
-          http_error_is_success, function, *args)
+          function, *args)
       else:
         raise exception
+    except ssl.SSLError:
+      sys.stderr.write("Saw SSL exception when communicating with the " \
+        "AppController, retrying momentarily.")
+      return self.run_with_timeout(timeout_time, default, num_retries, function,
+        *args)
     except Exception as exception:
-      # This 'except' should be catching ssl.SSLError, but that error isn't
-      # available when running in the App Engine sandbox.
-      # TODO(cgb): App Engine 1.7.7 adds ssl support, so we should be able to
-      # fix this when we update our SDK to that version.
       sys.stderr.write("Saw exception {0} when communicating with the " \
         "AppController.".format(str(exception)))
       return default
