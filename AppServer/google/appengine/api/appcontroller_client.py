@@ -68,17 +68,6 @@ class AppControllerClient():
   UPLOAD_TAR_GZ_RETRIES = 0
 
 
-  # A constant that we can pass into run_with_timeout to tell it that receiving
-  # a HTTPError on our SOAP call is the expected result, which is the case when
-  # uploading new Google App Engine applications to the AppController.
-  ALLOW_HTTP_ERROR = True
-
-
-  # A constant that we can pass into run_with_timeout to tell it that receiving
-  # a HTTPError on our SOAP call is not the expected result (the typical case).
-  NO_HTTP_ERROR = False
-
-
   def __init__(self, host, secret):
     """Creates a new AppControllerClient.
 
@@ -92,8 +81,8 @@ class AppControllerClient():
     self.secret = secret
 
 
-  def run_with_timeout(self, timeout_time, default, num_retries,
-    http_error_is_success, function, *args):
+  def run_with_timeout(self, timeout_time, default, num_retries, function,
+    *args):
     """Runs the given function, aborting it if it runs too long.
 
     Args:
@@ -102,8 +91,6 @@ class AppControllerClient():
       default: The value that should be returned if the timeout is exceeded.
       num_retries: The number of times we should retry the SOAP call if we see
         an unexpected exception.
-      http_error_is_success: A bool that indicates if receiving a HTTPError is
-        the expected result.
       function: The function that should be executed.
       *args: The arguments that will be passed to function.
     Returns:
@@ -134,13 +121,6 @@ class AppControllerClient():
           http_error_is_success, function, *args)
       else:
         raise exception
-    except SOAPpy.Errors.HTTPError as exception:
-      if http_error_is_success:
-        return "true"
-      else:
-        sys.stderr.write("Saw HTTPError {0} when communicating with the " \
-          "AppController. Message is {1}".format(exception, exception.msg))
-        return default
     except Exception as exception:
       # This 'except' should be catching ssl.SSLError, but that error isn't
       # available when running in the App Engine sandbox.
@@ -175,7 +155,7 @@ class AppControllerClient():
       app = 'none'
 
     result = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.set_parameters,
+      self.DEFAULT_NUM_RETRIES, self.server.set_parameters,
       locations, credentials, [app], self.secret)
     if result.startswith('Error'):
       raise AppControllerException(result)
@@ -190,8 +170,7 @@ class AppControllerClient():
       deployment.
     """
     return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "[]",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.get_all_public_ips, self.secret))
+      self.DEFAULT_NUM_RETRIES, self.server.get_all_public_ips, self.secret))
 
 
   def get_role_info(self):
@@ -203,8 +182,7 @@ class AppControllerClient():
       of the API services that each node runs in this AppScale deployment.
     """
     return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_role_info,
-      self.secret))
+      self.DEFAULT_NUM_RETRIES, self.server.get_role_info, self.secret))
 
 
   def get_status(self):
@@ -220,8 +198,7 @@ class AppControllerClient():
       machine, as well as where the UserAppServer is located.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.status,
-      self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.status, self.secret)
 
 
   def get_api_status(self):
@@ -235,8 +212,7 @@ class AppControllerClient():
       A dict that maps each API name (a str) to its status (also a str).
     """
     return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_api_status,
-      self.secret))
+      self.DEFAULT_NUM_RETRIES, self.server.get_api_status, self.secret))
 
 
   def get_database_information(self):
@@ -250,8 +226,8 @@ class AppControllerClient():
       key 'replication').
     """
     return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.get_database_information, self.secret))
+      self.DEFAULT_NUM_RETRIES, self.server.get_database_information,
+      self.secret))
 
 
   def upload_tgz(self, tgz_filename, email):
@@ -273,8 +249,7 @@ class AppControllerClient():
 
     return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME,
       timeout_upload_data, self.DEFAULT_NUM_RETRIES,
-      self.NO_HTTP_ERROR, self.server.upload_tgz_file, tgz_filename, email,
-      self.secret))
+      self.server.upload_tgz_file, tgz_filename, email, self.secret))
 
 
   def get_app_upload_status(self, reservation_id):
@@ -288,8 +263,8 @@ class AppControllerClient():
       A str with the status of the application being uploaded.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "timed out",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.get_app_upload_status, reservation_id, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.get_app_upload_status,
+      reservation_id, self.secret)
 
 
   def get_stats(self):
@@ -314,8 +289,7 @@ class AppControllerClient():
       this machine.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, False,
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.is_done_initializing, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.is_done_initializing, self.secret)
 
 
   def start_roles_on_nodes(self, roles_to_nodes):
@@ -328,8 +302,8 @@ class AppControllerClient():
       The result of executing the SOAP call on the remote AppController.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.start_roles_on_nodes, roles_to_nodes, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.start_roles_on_nodes,
+      roles_to_nodes, self.secret)
 
 
   def stop_app(self, app_id):
@@ -341,8 +315,7 @@ class AppControllerClient():
       The result of telling the AppController to no longer host the app.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.stop_app,
-      app_id, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.stop_app, app_id, self.secret)
 
 
   def is_app_running(self, app_id):
@@ -355,8 +328,7 @@ class AppControllerClient():
       True if the application is running, False otherwise.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.is_app_running,
-      app_id, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.is_app_running, app_id, self.secret)
 
 
   def done_uploading(self, app_id, remote_app_location):
@@ -369,8 +341,8 @@ class AppControllerClient():
         machine where the App Engine application can be found.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.done_uploading,
-      app_id, remote_app_location, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.done_uploading, app_id,
+      remote_app_location, self.secret)
 
 
   def update(self, apps_to_run):
@@ -382,8 +354,7 @@ class AppControllerClient():
         Engine service.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.update,
-      apps_to_run, self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.update, apps_to_run, self.secret)
 
 
   def gather_logs(self):
@@ -392,8 +363,7 @@ class AppControllerClient():
     download it.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, (False, ""),
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.gather_logs,
-      self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.gather_logs, self.secret)
 
 
   def run_groomer(self):
@@ -402,5 +372,4 @@ class AppControllerClient():
     the Datastore (which can be viewed in the AppDashboard).
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.run_groomer,
-      self.secret)
+      self.DEFAULT_NUM_RETRIES, self.server.run_groomer, self.secret)
