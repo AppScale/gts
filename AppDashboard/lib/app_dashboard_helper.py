@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import urllib
 
 
@@ -122,6 +123,11 @@ class AppDashboardHelper():
   # TODO(cgb): Since this value corresponds to a date in the past, investigate
   # whether or not we still need these tokens, and remove them if we don't.
   TOKEN_EXPIRATION = "20121231120000"
+
+
+  # A str that the AppController returns if we check the status of an uploaded
+  # app that the AppController has no information about.
+  ID_NOT_FOUND = "Reservation ID not found."
 
 
   def __init__(self):
@@ -319,15 +325,39 @@ class AppDashboardHelper():
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_appcontroller_client()
-      ret = acc.upload_tgz(name, user.email())
-      if ret == "true":
-        return "Application uploaded successfully. Please wait for the " \
-          "application to start running."
+      upload_info = acc.upload_tgz(name, user.email())
+      if upload_info['status'] == "starting":
+        while True:
+          status = acc.get_app_upload_status(upload_info['reservation_id'])
+          if status == "starting":
+            time.sleep(1)
+          elif status == self.ID_NOT_FOUND:
+            raise AppHelperException("We could not find the reservation ID for "
+              "your app. Please try uploading it again.")
+          else:
+            if status == "true":
+              return "Application uploaded successfully. Please wait for the " \
+                "application to start running."
+            else:
+              raise AppHelperException(status)
       else:
-        raise AppHelperException(ret)
+        raise AppHelperException(upload_info['status'])
     except Exception as err:
       logging.exception(err)
-      raise AppHelperException("There was an error uploading your application.")
+
+      # Only give the user the first line of the exception, since it tells them
+      # exactly what the problem with their app is.
+      # We use this odd-looking regex to parse out whatever is between the 'red'
+      # characters that termcolor emits as the error.
+      match_data = re.search("\[31m(.*)\x1b", str(err))
+      if match_data:
+        failure_message = match_data.group(1)
+      else:
+        # Fall back to whatever the exception was if it wasn't in the expected
+        # format.
+        failure_message = str(err)
+      raise AppHelperException("There was an error uploading your application: "
+        "{0}".format(failure_message))
 
 
   def delete_app(self, appname):
