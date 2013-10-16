@@ -233,6 +233,12 @@ class Djinn
   attr_accessor :last_scaling_time
 
 
+  # A Hash that maps reservation IDs generated when uploading App Engine apps
+  # via the AppDashboard to the status of the uploaded app (e.g., started
+  # uploading, failed because of a bad app.yaml).
+  attr_accessor :app_upload_reservations
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -429,6 +435,11 @@ class Djinn
   STARTING_APPENGINE_PORT = 20000
 
 
+  # A String that is returned to callers of get_app_upload_status that provide
+  # an invalid reservation ID.
+  ID_NOT_FOUND = "Reservation ID not found."
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -472,6 +483,7 @@ class Djinn
     @total_req_rate = {}
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
+    @app_upload_reservations = {}
   end
 
 
@@ -904,42 +916,70 @@ class Djinn
   # 
   # Args:
   #   tgz_file: A String, with the path to the tar.gz file containing the app.
-  #   email: A String with the email address of the user that will own this application.
+  #   email: A String with the email address of the user that will own this app.
   #   secret: A String with the shared key for authentication.
   # Returns:
-  #   A String that indicates if the application was successfully uploaded, and
-  #   if not, the reason why the upload failed.
+  #   A JSON-dumped Hash with fields indicating if the upload process began
+  #   successfully, and a reservation ID that can be used with
+  #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_tgz_file(tgz_file, email, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
-    if !tgz_file.match(TAR_GZ_REGEX)
-      tgz_file_old = tgz_file
-      tgz_file = "#{tgz_file_old}.tar.gz"
-      File.rename(tgz_file_old, tgz_file)
+    reservation_id = HelperFunctions.get_random_alphanumeric()
+    @app_upload_reservations[reservation_id] = {'status' => 'starting'}
+
+    Thread.new {
+      if !tgz_file.match(TAR_GZ_REGEX)
+        tgz_file_old = tgz_file
+        tgz_file = "#{tgz_file_old}.tar.gz"
+        File.rename(tgz_file_old, tgz_file)
+      end
+
+      keyname = @creds['keyname']
+      command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
+        "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
+      output = Djinn.log_run("#{command}")
+      File.delete(tgz_file)
+      if output.include?("Your app can be reached at the following URL")
+        result = "true"
+      else
+        result = output
+      end
+
+      @app_upload_reservations[reservation_id]['status'] = result
+    }
+
+    return JSON.dump({
+      'reservation_id' => reservation_id,
+      'status' => 'starting'
+    })
+  end
+
+  # Checks the status of the App Engine app uploading with the given reservation
+  # ID.
+  #
+  # Args:
+  #   reservation_id: A String that corresponds to the reservation ID given when
+  #     the app upload process began.
+  #   secret: A String with the shared key for authentication.
+  # Returns:
+  #   A String that indicates what the state is of the uploaded application. If
+  #   the given reservation ID was not found, ID_NOT_FOUND is returned. If the
+  #   caller attempts to authenticate with an invalid secret, BAD_SECRET_MSG is
+  #   returned.
+  def get_app_upload_status(reservation_id, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
     end
 
-    begin
-      keyname = @creds['keyname']
-      Timeout.timeout(APP_UPLOAD_TIMEOUT) do
-        command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-          "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
-        output = Djinn.log_run("#{command}").chomp
-        File.delete(tgz_file)
-        if output.include?("uploaded successfully")
-          result = "true"
-        else
-          result = output
-        end
-      end
-    rescue Timeout::Error
-      Djinn.log_error("Uploading App Engine app timed out: #{output}")
-      result = "The request has timed out. Large applications should be " +
-        "uploaded via the command line."
+    if @app_upload_reservations[reservation_id]['status']
+      return @app_upload_reservations[reservation_id]['status']
+    else
+      return ID_NOT_FOUND
     end
-    return result
-  end    
+  end
 
   # Gets the statistics of all the nodes in the AppScale deployment.
   # 
