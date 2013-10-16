@@ -430,7 +430,10 @@ class Djinn
   RESERVED_APPS = [AppDashboard::APP_NAME, "apichecker"]
 
 
+  # A String that is returned to callers of get_app_upload_status that provide
+  # an invalid reservation ID.
   ID_NOT_FOUND = "Reservation ID not found."
+
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
