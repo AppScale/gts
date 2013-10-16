@@ -80,7 +80,7 @@ class AppControllerClient():
           " to the AppController. You may need to change the keyname in use.")
       else:
         return result
-    except ssl.SSLError:
+    except (ssl.SSLError, socket.error):
       sys.stderr.write("Saw SSL exception when communicating with the " \
         "AppController, retrying momentarily.")
       return self.call(function, *args)
