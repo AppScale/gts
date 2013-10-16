@@ -265,8 +265,7 @@ class AppControllerClient():
         CPU, memory, disk usage) about one machine.
     """
     return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "[]",
-      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_stats_json,
-      self.secret))
+      self.DEFAULT_NUM_RETRIES, self.server.get_stats_json, self.secret))
 
 
   def is_initialized(self):
