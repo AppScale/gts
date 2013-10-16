@@ -63,13 +63,17 @@ def start_zookeeper
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}")
 
-  Djinn.log_run("service zookeeper start")
+  start_cmd = "/usr/sbin/service zookeeper start"
+  stop_cmd = "/usr/sbin/service zookeeper stop"
+  match_cmd = "zookeeper.jar"
+  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=9999, env_vars=nil,
+    remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   Djinn.log_info("Started ZooKeeper")
 end
 
 def stop_zookeeper
   Djinn.log_info("Stopping ZooKeeper")
-  Djinn.log_run("service zookeeper stop")
+  MonitInterface.stop(:zookeeper)
 end
 
 # This method returns ZooKeeper connection string like:
