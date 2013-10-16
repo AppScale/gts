@@ -336,7 +336,20 @@ class AppDashboardHelper():
         raise AppHelperException(upload_info['status'])
     except Exception as err:
       logging.exception(err)
-      raise AppHelperException("There was an error uploading your application.")
+
+      # Only give the user the first line of the exception, since it tells them
+      # exactly what the problem with their app is.
+      # We use this odd-looking regex to parse out whatever is between the 'red'
+      # characters that termcolor emits as the error.
+      match_data = re.search("\[31m(.*)\x1b", str(err))
+      if match_data:
+        failure_message = match_data.group(1)
+      else:
+        # Fall back to whatever the exception was if it wasn't in the expected
+        # format.
+        failure_message = str(err)
+      raise AppHelperException("There was an error uploading your application: "
+        "{0}".format(failure_message))
 
 
   def delete_app(self, appname):
