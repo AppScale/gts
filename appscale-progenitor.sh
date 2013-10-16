@@ -14,9 +14,6 @@
 . /etc/profile
 . /lib/lsb/init-functions
 
-RUBY=/usr/bin/ruby
-PNAME=Progenitor
-PID=/tmp/progenitor.pid
 SECRET_FILE=/etc/appscale/secret.key
 
 case "$1" in
@@ -28,6 +25,7 @@ case "$1" in
       log_begin_msg "AppController not running - starting it now."
       rm -rf /etc/monit/conf.d/*.cfg
       cp /root/appscale/AppController/appcontroller.cfg /etc/monit/conf.d/
+      sleep 5
       monit
     else
       log_begin_msg "AppController already running - not starting it again."
