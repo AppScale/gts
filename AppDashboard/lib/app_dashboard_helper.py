@@ -22,8 +22,6 @@ from local_host import MY_PUBLIC_IP
 from uaserver_host import UA_SERVER_IP
 
 
-
-
 class AppHelperException(Exception):
   """ A special Exception class that should be thrown if a SOAP call to the
   AppController or UserAppServer failed, or returned malformed data. """
@@ -305,10 +303,12 @@ class AppDashboardHelper():
         "that it runs on.".format(appname))
 
 
-  def upload_app(self, upload_file):
+  def upload_app(self, filename, upload_file):
     """ Uploads an Google App Engine application into this AppScale deployment.
 
     Args:
+      filename: The name of the file that the user uploaded (used so that the
+        tempfile we write has the same extension).
       upload_file: A file object containing the uploaded file's data.
     Returns:
       A str indicating that the application was uploaded successfully.
@@ -320,12 +320,14 @@ class AppDashboardHelper():
       raise AppHelperException("There was an error uploading your " \
         "application. You must be logged in to upload applications.")
     try:
-      tgz_file = tempfile.NamedTemporaryFile(suffix='tar.gz', delete=False)
+      _, file_suffix = os.path.splitext(filename)
+      file_suffix = file_suffix.strip('.')
+      tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_appcontroller_client()
-      upload_info = acc.upload_tgz(name, user.email())
+      upload_info = acc.upload_app(name, file_suffix, user.email())
       if upload_info['status'] == "starting":
         while True:
           status = acc.get_app_upload_status(upload_info['reservation_id'])

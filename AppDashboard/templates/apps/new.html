@@ -32,16 +32,17 @@
                         <ul id="errorExplanation"><li class="flash error">{{ error_message }}</li></ul>
                       </h3>
                       {% endif %}
-                      <div id="help-text"><h3>How to Upload Applications</h3>This page allows you to
-                        upload applications to AppScale. Applications must be tarred and gzipped and have a ".tar.gz"
-                        extension. To package your application, run <em>"tar -czf app.tar.gz ."</em> in the directory
-                        containing the application's app.yaml file (for Python or Go) or the WAR directory (for Java).
-                        Applications must be smaller than 1 GB in size. For apps larger than this, please use the
-                        command-line AppScale Tools.
+                      <div id="help-text"><h3>How to Upload Applications</h3>
+                      This page allows you to upload applications to AppScale.
+                      Applications must be in either the .zip format or the
+                      .tar.gz format. To package your application, run
+                      <em>"tar -czf app.tar.gz ."</em> in the directory
+                      containing the application's app.yaml file (for Python,
+                      Go, or PHP) or the WAR directory (for Java).
                       </div>
                       <br />
                       <p>
-                        <input accept="tar.gz, tgz" id="app_file_data" name="app_file_data" size="30" type="file" />
+                        <input accept="tar.gz, tgz, zip" id="app_file_data" name="app_file_data" size="30" type="file" />
                         <img alt="Spinner" id="spinner" src="/images/spinner.gif?1363364452" style="display:none;" />
                       </p>
                       <p>
