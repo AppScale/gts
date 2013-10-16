@@ -2,69 +2,86 @@
 <!--Body content-->
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
-        <!-- Build page from here: -->
         <div class="row-fluid">
-          <div class="span12">
-            <div class="page-header">
-                <h1>App Console for {{ appid }}</h1>
-            </div><!--close header-->
-              <div class="row-fluid">
+            <div class="span12" style="margin-right:auto; margin-left:auto;">
+                <div class="page-header">
+                    <h1>App Console for {{ appid }}</h1>
+                </div><!--close header-->
                 <div style="margin-right:auto; margin-left:auto;">
                   {% if app_url %}
-                    <p>View more detailed information about your app at the <a href='{{ app_url }}/_ah/admin' target="_blank">GAE Admin Console</a>.</p>
+                    <p>View more detailed information about your app at the <a class="btn btn-primary" href='{{ app_url }}/_ah/admin' target="_blank">GAE Admin Console</a></p>
+                </div><br />
                   {% else %}
                     <p>Your app is still loading. Check back here momentarily for a link to your app's Admin Console.</p>
                   {% endif %}
-                </div><!-- close marginright -->
-              <div class="row-fluid">
+
                 <div style="margin-right:auto; margin-left:auto;">
-                  <p>Requests per second:</p>
-                </div><!-- close marginright -->
-                <div class="offset1 span8">
-                  <div class="flot-container">
-                    <div id="requests-per-second-flot" class="flot-placeholder"></div>
-		  </div><!-- close request per sec container -->
-                </div><!-- close offset -->
-              </div><!-- close row fluid-->
-              <div class="row-fluid">
-                <div style="margin-right:auto; margin-left:auto;">
-                  <p>Kind statistics: <a id='groomer' href="#" class="btn btn-primary btn-large">Update</a></p>
-                </div><!-- close marginright -->
-                <div class="offset1 span8">
-                  <div class="flot-container">
-                    <div id="kind-flot" class="flot-placeholder"></div>
-		  </div><!-- close kind container-->
-                </div><!-- close offset -->
-              </div><!-- close row fluid-->
-              <div class="row-fluid">
-                <div style="margin-right:auto; margin-left:auto;">
-                  <p>{{ instance_info|length }} instances are hosting this app:</p>
-                </div><!-- close marginright -->
-                <div class="offset1 span8">
-                  <table class="table">
-                    <thead>
-                      <tr>
-                        <td>Host</td>
-                        <td>Port</td>
-                        <td>Language</td>
-                      </tr>
-                    </thead>
-                    <tbody>
-                    {% for instance in instance_info %}
-                      <tr>
-                        <td style="text-align:left">{{ instance.host }}</td>
-                        <td style="text-align:left">{{ instance.port }}</td>
-                        <td style="text-align:left">{{ instance.language }}</td>
-                      </tr>
-                    {% endfor %}
-                    </tbody>
-                  </table>
-                </div><!-- close offset -->
-              </div><!-- close row fluid-->
-        </div><!--close span6 -->
-        </div> <!-- end row fluid -->
-    </div> <!-- end content wrapper -->
-</div> <!--end content-->
+                <ul id="appConsoleTabs" class="nav nav-tabs"><!-- tab links -->
+                    <li class="active"><a href="#request-stats" data-toggle="tab">Requests Per Second</a></li>
+                    <li class=""><a href="#kind-stats" data-toggle="tab">Kind Statistics</a></li>
+                    <li class=""><a href="#app-info" data-toggle="tab">App Info</a></li>
+                    </li>
+                </ul>
+
+
+                <div style="min-height:200px; margin-right:auto; margin-left:auto;" id="appConsoleContent" class="tab-content">
+                    <!-- REQUESTS PER SECOND -->
+                    <div class="tab-pane fade active in" id="request-stats">
+                        <div style="margin-right:auto; margin-left:auto;">
+                          <h3>Requests Per Second</h3>
+                        </div><!-- close marginright -->
+                        <div class="flot-container">
+                          <p class="axislabel yaxislabel" style="margin-top:260px;">Number of Requests</p>
+                          <div id="requests-per-second-flot" class="flot-placeholder"></div>
+                        </div>
+                    </div>
+
+                    <!-- KIND STATISTICS-->
+                    <div class="tab-pane fade" id="kind-stats">
+                        <div class="span2" style="margin-right:auto; margin-left:auto;">
+                          <h3>Kind Statistics</h3> <br />
+                            <a id='groomer' href="#" data-toggle="groomer-tooltip" title="Click to update kind statistics" class="btn btn-primary btn-large">Update</a>
+                        </div><!-- close marginright -->
+                          <div style="margin-top:24px" class="flot-container">
+                            <div id="kind-flot" class="flot-placeholder"></div>
+                          </div><!-- close kind container-->
+                    </div><!-- close kind stats content -->
+
+                    <!-- APP INFO -->
+                    <div class="tab-pane fade" id="app-info">
+                            <div class="row-fluid">
+                            <div style="margin-right:auto; margin-left:auto;">
+                              <h3>{{ instance_info|length }} instances are hosting this app:</h3>
+                            </div><!-- close marginright -->
+                            <div class="offset1 span8">
+                              <table class="table">
+                                <thead>
+                                  <tr>
+                                    <td>Host</td>
+                                    <td>Port</td>
+                                    <td>Language</td>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                {% for instance in instance_info %}
+                                  <tr>
+                                    <td style="text-align:left">{{ instance.host }}</td>
+                                    <td style="text-align:left">{{ instance.port }}</td>
+                                    <td style="text-align:left">{{ instance.language }}</td>
+                                  </tr>
+                                {% endfor %}
+                                </tbody>
+                              </table>
+                            </div><!-- close offset -->
+                          </div><!-- close row fluid-->
+                    </div><!-- end app info tab -->
+              </div><!-- end tab content -->
+              </div>
+            </div>
+          </div><!-- close marginright -->
+        </div>
+
+
 
 <script>
 // Calls the Groomer if the user clicks on the 'Update' button.
@@ -107,7 +124,6 @@ function update_request_info() {
       var y = req_info[index]['num_of_requests'];
       thetuples.push([x, y]);
     }
-
     if (thetuples.length == 0) {
       $('#requests-per-second-flot').text('No request data is currently ' +
         'available. This data is generated once every 20 seconds, so ' +
