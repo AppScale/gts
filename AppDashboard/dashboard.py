@@ -407,7 +407,7 @@ class LoginPage(AppDashboard):
           urllib.quote(str(self.request.get('continue')))\
           .encode('ascii','ignore')), self.response)
       else:
-        self.redirect('/', self.response)
+        self.redirect('/status', self.response)
     else:
       self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),

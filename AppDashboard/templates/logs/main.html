@@ -5,8 +5,12 @@
 
         <div class="heading">
 
-            <h3>Log Viewer</h3>                    
-
+            <h3>Log Viewer</h3>
+            {% if is_user_cloud_admin %}
+            <div class="pull-right">
+                <h3>Download All the Logs: &nbsp; <a href="/gather-logs" class="btn btn-success">Download Logs</a></h3>
+            </div>
+            {% endif %}
             <div class="resBtnSearch">
                 <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
             </div>
