@@ -125,6 +125,11 @@ class AppDashboardHelper():
   TOKEN_EXPIRATION = "20121231120000"
 
 
+  # A str that the AppController returns if we check the status of an uploaded
+  # app that the AppController has no information about.
+  ID_NOT_FOUND = "Reservation ID not found."
+
+
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
     every SOAP call.
@@ -326,6 +331,9 @@ class AppDashboardHelper():
           status = acc.get_app_upload_status(upload_info['reservation_id'])
           if status == "starting":
             time.sleep(1)
+          elif status == self.ID_NOT_FOUND:
+            raise AppHelperException("We could not find the reservation ID for "
+              "your app. Please try uploading it again.")
           else:
             if status == "true":
               return "Application uploaded successfully. Please wait for the " \
