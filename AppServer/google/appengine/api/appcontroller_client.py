@@ -263,14 +263,33 @@ class AppControllerClient():
         containing the user's Google App Engine application.
       email: A str containing an e-mail address that should be registered as the
         administrator of this application.
-    Return:
+    Returns:
       A str that indicates either that the app was successfully uploaded, or the
       reason why the application upload failed.
     """
-    return self.run_with_timeout(self.UPLOAD_TAR_GZ_TIME,
-      "Timeout uploading app.", self.UPLOAD_TAR_GZ_RETRIES,
-      self.ALLOW_HTTP_ERROR, self.server.upload_tgz_file, tgz_filename, email,
-      self.secret)
+    timeout_upload_data = json.dumps({
+      'status' : 'timed out'
+    })
+
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME,
+      timeout_upload_data, self.DEFAULT_NUM_RETRIES,
+      self.NO_HTTP_ERROR, self.server.upload_tgz_file, tgz_filename, email,
+      self.secret))
+
+
+  def get_app_upload_status(self, reservation_id):
+    """Queries the AppController to see if the App Engine app corresponding to
+    the given reservation ID has been successfully uploaded.
+
+    Args:
+      reservation_id: A str that corresponds to the App Engine app being
+        uploaded, likely given to the caller from the initial upload SOAP call.
+    Returns:
+      A str with the status of the application being uploaded.
+    """
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "timed out",
+      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
+      self.server.get_app_upload_status, reservation_id, self.secret)
 
 
   def get_stats(self):

@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import urllib
 
 
@@ -319,12 +320,20 @@ class AppDashboardHelper():
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_appcontroller_client()
-      ret = acc.upload_tgz(name, user.email())
-      if ret == "true":
-        return "Application uploaded successfully. Please wait for the " \
-          "application to start running."
+      upload_info = acc.upload_tgz(name, user.email())
+      if upload_info['status'] == "starting":
+        while True:
+          status = acc.get_app_upload_status(upload_info['reservation_id'])
+          if status == "starting":
+            time.sleep(1)
+          else:
+            if status == "true":
+              return "Application uploaded successfully. Please wait for the " \
+                "application to start running."
+            else:
+              raise AppHelperException(status)
       else:
-        raise AppHelperException(ret)
+        raise AppHelperException(upload_info['status'])
     except Exception as err:
       logging.exception(err)
       raise AppHelperException("There was an error uploading your application.")
