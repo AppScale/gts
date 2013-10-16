@@ -241,7 +241,7 @@ public class DevAppServerMain
                 ex.printStackTrace();
             }
         }
-	return portString; 
+        return portString; 
     }
 
     private static List<Option> buildOptions( DevAppServerMain main )
