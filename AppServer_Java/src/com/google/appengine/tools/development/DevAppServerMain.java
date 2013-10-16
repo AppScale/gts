@@ -200,12 +200,6 @@ public class DevAppServerMain
                     {
                         System.setProperty("APP_NAME", getValue());
                     }
-                }, new DevAppServerOption(main, null, "APP_NAME", false)
-                {
-                    public void apply()
-                    {
-                        System.setProperty("APP_NAME", getValue());
-                    }
                 }, new DevAppServerOption(main, null, "NGINX_ADDRESS", false)
                 {
                     public void apply()
