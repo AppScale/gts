@@ -29,19 +29,19 @@ module MonitInterface
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
-    remote_ip=nil, remote_key=nil)
+    remote_ip=nil, remote_key=nil, match_cmd=start_cmd)
 
     ports = [ports] unless ports.class == Array
     ports.each { |port|
       self.write_monit_config(watch, start_cmd, stop_cmd, port,
-        env_vars, remote_ip, remote_key)
+        env_vars, remote_ip, remote_key, match_cmd)
     }
 
     self.run_god_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
-    env_vars, remote_ip, remote_key)
+    env_vars, remote_ip, remote_key, match_cmd)
 
     # Monit doesn't support environment variables in its DSL, so if the caller
     # wants environment variables passed to the app, we have to collect them and
@@ -63,11 +63,10 @@ module MonitInterface
       "1>>#{logfile} 2>>#{logfile}'"
 
     contents = <<BOO
-check process #{watch}-#{port} matching "#{start_cmd}"
+check process #{watch}-#{port} matching "#{match_cmd}"
   group #{watch}
   start program = "#{full_start_command}"
   stop program = "#{stop_cmd}"
-  if memory is greater than 250 MB for 5 cycles then restart
 BOO
 
     monit_file = "/etc/monit/conf.d/#{watch}-#{port}.cfg"
