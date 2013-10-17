@@ -7,6 +7,7 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
+require 'monit_interface'
 
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
@@ -53,15 +54,19 @@ module HAProxy
 
   
   def self.start
-    Djinn.log_run("service haproxy start")
+    start_cmd = "/usr/sbin/service haproxy start"
+    stop_cmd = "/usr/sbin/service haproxy stop"
+    match_cmd = "/usr/sbin/haproxy"
+    MonitInterface.start(:haproxy, start_cmd, stop_cmd, ports=9999,
+      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   end
 
   def self.stop
-    Djinn.log_run("service haproxy stop")
+    MonitInterface.stop(:haproxy)
   end
 
   def self.restart
-    Djinn.log_run("service haproxy restart")
+    MonitInterface.restart(:haproxy)
   end
 
   def self.reload
