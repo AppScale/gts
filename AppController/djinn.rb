@@ -27,14 +27,14 @@ require 'app_manager_client'
 require 'taskqueue_client'
 require 'blobstore'
 require 'custom_exceptions'
+require 'datastore_server'
 require 'ejabberd'
 require 'error_app'
 require 'cron_helper'
-require 'godinterface'
 require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
-require 'datastore_server'
+require 'monit_interface'
 require 'nginx'
 require 'taskqueue'
 require 'apichecker'
@@ -233,6 +233,12 @@ class Djinn
   attr_accessor :last_scaling_time
 
 
+  # A Hash that maps reservation IDs generated when uploading App Engine apps
+  # via the AppDashboard to the status of the uploaded app (e.g., started
+  # uploading, failed because of a bad app.yaml).
+  attr_accessor :app_upload_reservations
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -424,6 +430,16 @@ class Djinn
   RESERVED_APPS = [AppDashboard::APP_NAME, "apichecker"]
 
 
+  # A Fixnum that indicates what the first port is that can be used for hosting
+  # Google App Engine apps.
+  STARTING_APPENGINE_PORT = 20000
+
+
+  # A String that is returned to callers of get_app_upload_status that provide
+  # an invalid reservation ID.
+  ID_NOT_FOUND = "Reservation ID not found."
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -450,7 +466,6 @@ class Djinn
     @done_loading = false
     @nginx_port = Nginx::START_PORT
     @haproxy_port = HAProxy::START_PORT
-    @appengine_port = 20000
     @userappserver_public_ip = "not-up-yet"
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
@@ -468,6 +483,7 @@ class Djinn
     @total_req_rate = {}
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
+    @app_upload_reservations = {}
   end
 
 
@@ -653,7 +669,7 @@ class Djinn
             node.ssh_key)
         end
         app_manager = AppManagerClient.new(node.private_ip)
-        app_manager.kill_app_instances_for_app(appid)
+        app_manager.restart_app_instances_for_app(appid)
       }
     }
 
@@ -733,7 +749,7 @@ class Djinn
       stop_infrastructure_manager
     end
 
-    GodInterface.shutdown
+    MonitInterface.shutdown
     FileUtils.rm_rf(STATE_FILE)
 
     if @creds['alter_etc_resolv'].downcase == "true"
@@ -900,42 +916,70 @@ class Djinn
   # 
   # Args:
   #   tgz_file: A String, with the path to the tar.gz file containing the app.
-  #   email: A String with the email address of the user that will own this application.
+  #   email: A String with the email address of the user that will own this app.
   #   secret: A String with the shared key for authentication.
   # Returns:
-  #   A String that indicates if the application was successfully uploaded, and
-  #   if not, the reason why the upload failed.
+  #   A JSON-dumped Hash with fields indicating if the upload process began
+  #   successfully, and a reservation ID that can be used with
+  #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_tgz_file(tgz_file, email, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
-    if !tgz_file.match(TAR_GZ_REGEX)
-      tgz_file_old = tgz_file
-      tgz_file = "#{tgz_file_old}.tar.gz"
-      File.rename(tgz_file_old, tgz_file)
+    reservation_id = HelperFunctions.get_random_alphanumeric()
+    @app_upload_reservations[reservation_id] = {'status' => 'starting'}
+
+    Thread.new {
+      if !tgz_file.match(TAR_GZ_REGEX)
+        tgz_file_old = tgz_file
+        tgz_file = "#{tgz_file_old}.tar.gz"
+        File.rename(tgz_file_old, tgz_file)
+      end
+
+      keyname = @creds['keyname']
+      command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
+        "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
+      output = Djinn.log_run("#{command}")
+      File.delete(tgz_file)
+      if output.include?("Your app can be reached at the following URL")
+        result = "true"
+      else
+        result = output
+      end
+
+      @app_upload_reservations[reservation_id]['status'] = result
+    }
+
+    return JSON.dump({
+      'reservation_id' => reservation_id,
+      'status' => 'starting'
+    })
+  end
+
+  # Checks the status of the App Engine app uploading with the given reservation
+  # ID.
+  #
+  # Args:
+  #   reservation_id: A String that corresponds to the reservation ID given when
+  #     the app upload process began.
+  #   secret: A String with the shared key for authentication.
+  # Returns:
+  #   A String that indicates what the state is of the uploaded application. If
+  #   the given reservation ID was not found, ID_NOT_FOUND is returned. If the
+  #   caller attempts to authenticate with an invalid secret, BAD_SECRET_MSG is
+  #   returned.
+  def get_app_upload_status(reservation_id, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
     end
 
-    begin
-      keyname = @creds['keyname']
-      Timeout.timeout(APP_UPLOAD_TIMEOUT) do
-        command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-          "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
-        output = Djinn.log_run("#{command}").chomp
-        File.delete(tgz_file)
-        if output.include?("uploaded successfully")
-          result = "true"
-        else
-          result = output
-        end
-      end
-    rescue Timeout::Error
-      Djinn.log_error("Uploading App Engine app timed out: #{output}")
-      result = "The request has timed out. Large applications should be " +
-        "uploaded via the command line."
+    if @app_upload_reservations[reservation_id]['status']
+      return @app_upload_reservations[reservation_id]['status']
+    else
+      return ID_NOT_FOUND
     end
-    return result
-  end    
+  end
 
   # Gets the statistics of all the nodes in the AppScale deployment.
   # 
@@ -1374,8 +1418,8 @@ class Djinn
       return
     end
 
-    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
-    stop_cmd = "pkill -9 infrastructure_manager_service"
+    start_cmd = "/usr/bin/python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    stop_cmd = "/usr/bin/pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
@@ -1383,14 +1427,14 @@ class Djinn
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
 
-    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
+    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
 
   def stop_infrastructure_manager
     Djinn.log_info("Stopping InfrastructureManager")
-    GodInterface.stop(:iaas_manager)
+    MonitInterface.stop(:iaas_manager)
   end
 
 
@@ -2302,7 +2346,6 @@ class Djinn
     # running, so we need to start them all back up again.
     json_state['@nginx_port'] = Nginx::START_PORT
     json_state['@haproxy_port'] = HAProxy::START_PORT
-    json_state['@appengine_port'] = 20000
     json_state['@apps_loaded'] = []
 
     return json_state
@@ -2838,7 +2881,7 @@ class Djinn
   def sanitize_credentials()
     newcreds = {}
     @creds.each { |key, val|
-      if key == 'ips'
+      if ['ips', 'user_commands'].include?(key)
         newcreds[key] = val
         next
       end
@@ -3140,10 +3183,10 @@ class Djinn
   def start_app_manager_server
     @state = "Starting up AppManager"
     env_vars = {}
-    start_cmd = ["python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
-    stop_cmd = "pkill -9 app_manager_server"
+    start_cmd = ["/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
+    stop_cmd = "/usr/bin/pkill -9 app_manager_server"
     port = [AppManagerClient::SERVER_PORT]
-    GodInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
+    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
 
   def start_soap_server
@@ -3170,10 +3213,10 @@ class Djinn
 
     start_cmd = ["python #{APPSCALE_HOME}/AppDB/soap_server.py",
             "-t #{table} -s #{HelperFunctions.get_secret}"].join(' ')
-    stop_cmd = "pkill -9 soap_server"
+    stop_cmd = "/usr/bin/pkill -9 soap_server"
     port = [4343]
 
-    GodInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
+    MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
   end 
 
   def start_datastore_server
@@ -3197,17 +3240,16 @@ class Djinn
 
   def stop_blob_server
     BlobServer.stop
-    Djinn.log_run("pkill -f blobstore_server")
   end 
 
   def stop_soap_server
-    GodInterface.stop(:uaserver)
+    MonitInterface.stop(:uaserver)
   end 
 
   # Stops the AppManager service
   #
   def stop_app_manager_server
-    GodInterface.stop(:appmanagerserver)
+    MonitInterface.stop(:appmanagerserver)
   end 
 
   def stop_datastore_server
@@ -3301,6 +3343,7 @@ class Djinn
     copy_encryption_keys(node)
     validate_image(node)
     rsync_files(node)
+    run_user_commands(node)
     start_appcontroller(node)
   end
 
@@ -3400,6 +3443,8 @@ class Djinn
     app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
+    lib = "#{APPSCALE_HOME}/lib"
+    app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -3413,6 +3458,8 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
+    HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
+    HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
   end
 
   def setup_config_files()
@@ -3689,29 +3736,68 @@ HOSTS
     end
   end
 
+  # Runs any commands provided by the user in their AppScalefile on the given
+  # machine.
+  #
+  # Commands must be placed in @creds['user_commands'], and not contain any
+  # redirection characters (">"), since HelperFunctions.run_remote_command
+  # will pipe to /dev/null and overwrite it.
+  #
+  # Args:
+  # - node: A DjinnJobData that represents the machine where the given commands
+  #   should be executed.
+  def run_user_commands(node)
+    if @creds['user_commands'].class == String
+      begin
+        commands = JSON.load(@creds['user_commands'])
+      rescue JSON::ParserError
+        commands = @creds['user_commands']
+      end
+
+      if commands.class == String
+        commands = [commands]
+      end
+    else
+      commands = []
+    end
+    Djinn.log_debug("commands are #{commands}, of class #{commands.class.name}")
+
+    if commands.empty?
+      Djinn.log_debug("No user-provided commands were given.")
+      return
+    end
+
+    ip = node.private_ip
+    ssh_key = node.ssh_key
+    commands.each { |command|
+      HelperFunctions.run_remote_command(ip, command, ssh_key, NO_OUTPUT)
+    }
+  end
+
   def start_appcontroller(node)
     ip = node.private_ip
     ssh_key = node.ssh_key
 
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
     env = {
+      'HOME' => '/root',
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "ruby #{remote_home}/AppController/djinnServer.rb"
-    stop = "ruby #{remote_home}/AppController/terminate.rb"
+    start = "/usr/bin/ruby #{remote_home}/AppController/djinnServer.rb"
+    stop = "/usr/bin/ruby #{remote_home}/AppController/terminate.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
     remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
-    GodInterface.start_god(ip, ssh_key)
+    MonitInterface.start_monit(ip, ssh_key)
     Kernel.sleep(1)
 
     begin
-      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
       HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
@@ -3744,12 +3830,12 @@ HOSTS
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
     start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
-    stop_cmd = "pkill memcached"
-    GodInterface.start(:memcached, start_cmd, stop_cmd, [11211])
+    stop_cmd = "/usr/bin/pkill memcached"
+    MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
 
   def stop_memcache()
-    GodInterface.stop(:memcached)
+    MonitInterface.stop(:memcached)
   end
 
   def start_ejabberd()
@@ -4001,13 +4087,14 @@ HOSTS
       if is_new_app
         @app_info_map[app]['appengine'] = []
         @num_appengines.times { |index|
+          appengine_port = get_appengine_port()
           Djinn.log_info("Starting #{app_language} app #{app} on " +
-            "#{HelperFunctions.local_ip}:#{@appengine_port}")
-          @app_info_map[app]['appengine'] << @appengine_port
+            "#{HelperFunctions.local_ip}:#{appengine_port}")
+          @app_info_map[app]['appengine'] << appengine_port
 
           xmpp_ip = get_login.public_ip
 
-          pid = app_manager.start_app(app, @appengine_port,
+          pid = app_manager.start_app(app, appengine_port,
             get_load_balancer_ip(), nginx_port, app_language, xmpp_ip,
             [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app))
 
@@ -4015,15 +4102,10 @@ HOSTS
             place_error_app(app, "ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.")
           end
-
-          pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
-          HelperFunctions.write_file(pid_file_name, pid)
-
-          @appengine_port += 1
         }
       else
-        Djinn.log_info("Killing all AppServers hosting old version of application #{app}")
-        result = app_manager.kill_app_instances_for_app(app)
+        Djinn.log_info("Restarting AppServers hosting old version of #{app}")
+        result = app_manager.restart_app_instances_for_app(app)
       end
 
       HAProxy.update_app_config(app, proxy_port,
@@ -4048,6 +4130,51 @@ HOSTS
       else
         @apps_to_restart.delete(app)
       end
+    }
+  end
+
+
+  # Finds the lowest numbered port that is free to serve a new dev_appserver
+  # process.
+  #
+  # Callers should make sure to store the port returned by this process in
+  # @app_info_map, preferably within the use of the APPS_LOCK (so that a
+  # different caller doesn't get the same value).
+  #
+  # Returns:
+  #   A Fixnum corresponding to the port number that a new dev_appserver can be
+  #   bound to.
+  def get_appengine_port
+    # Grab the APPS_LOCK here since more than one thread could be looking at
+    # the app_info_map (e.g., if an app is being uploaded while another is being
+    # relocated).
+    APPS_LOCK.synchronize {
+      ports_in_use = []
+      @app_info_map.each { |app, info|
+        ports_in_use << info['appengine']
+      }
+
+      ports_in_use.flatten!
+
+      possibly_free_port = STARTING_APPENGINE_PORT
+      loop {
+        if ports_in_use.include?(possibly_free_port)
+          possibly_free_port += 1
+        else
+          Djinn.log_debug("Port #{possibly_free_port} may be available.")
+
+          actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
+          if actually_available.empty?
+            Djinn.log_debug("Port #{possibly_free_port} is available for use.")
+            return possibly_free_port
+          else
+            Djinn.log_warn("Port #{possibly_free_port} should have been free " +
+              "but is actually in use by [#{actually_available}], so skipping" +
+              " this port.")
+            possibly_free_port += 1
+          end
+        end
+      }
     }
   end
 
@@ -4383,7 +4510,9 @@ HOSTS
 
     nginx_port = @app_info_map[app]['nginx']
     haproxy_port = @app_info_map[app]['haproxy']
-    @app_info_map[app]['appengine'] << @appengine_port
+
+    appengine_port = get_appengine_port()
+    @app_info_map[app]['appengine'] << appengine_port
 
     my_private = my_node.private_ip
     Djinn.log_debug("This app will be running on ports: " +
@@ -4392,23 +4521,19 @@ HOSTS
       @app_info_map[app]['appengine'], my_private)
 
     Djinn.log_debug("Adding #{app_language} app #{app} on " +
-      "#{HelperFunctions.local_ip}:#{@appengine_port} ")
+      "#{HelperFunctions.local_ip}:#{appengine_port} ")
 
     xmpp_ip = get_login.public_ip
 
-    pid = app_manager.start_app(app, @appengine_port, get_load_balancer_ip(),
+    result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
       nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
       HelperFunctions.get_app_env_vars(app))
 
-    if pid == -1
+    if result == -1
       Djinn.log_error("ERROR: Unable to start application #{app} on port " +
-        "#{@appengine_port}.")
+        "#{appengine_port}.")
       next
     end
-    pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
-    HelperFunctions.write_file(pid_file_name, pid)
-
-    @appengine_port += 1
 
     HAProxy.reload
   end
@@ -4654,9 +4779,6 @@ HOSTS
       @apps_loaded = []
       @restored = false
     }
-  
-    Djinn.log_run("pkill -f dev_appserver")
-    Djinn.log_run("pkill -f DevAppServerMain")
   end
 
   # Returns true on success, false otherwise
@@ -4727,9 +4849,9 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{port} #{@@secret}"
-      stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+      stop_cmd = "/bin/ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       watch_name = "xmpp-#{app}"
-      GodInterface.start(watch_name, start_cmd, stop_cmd, 9999)
+      MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
       Djinn.log_debug("App #{app} does not need xmpp receive functionality")
@@ -4742,10 +4864,7 @@ HOSTS
   #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
-    watch_name = "xmpp-#{app}"
-    GodInterface.remove(watch_name)
-    stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
-    Djinn.log_run(stop_cmd)
+    MonitInterface.remove("xmpp-#{app}")
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
 

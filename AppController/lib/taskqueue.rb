@@ -7,9 +7,9 @@ require 'timeout'
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
-require 'godinterface'
 require 'djinn_job_data'
 require 'helperfunctions'
+require 'monit_interface'
 
 
 # To implement support for the Google App Engine Task Queue API, we use
@@ -35,11 +35,6 @@ module TaskQueue
 
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
-  
-  # We need some additional logic for the start command hence using 
-  # a script.
-  RABBITMQ_START_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "/scripts/start_rabbitmq.sh"
 
   # The location of the taskqueue server script. This service controls 
   # and creates celery workers, and receives taskqueue protocol buffers
@@ -54,7 +49,7 @@ module TaskQueue
   RABBIT_START_RETRY = 1000
 
   # Stop command for taskqueue server.
-  TASKQUEUE_STOP_CMD = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+  TASKQUEUE_STOP_CMD = "/bin/kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
 
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
@@ -62,8 +57,15 @@ module TaskQueue
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
     self.erase_local_files()
-    Djinn.log_run("bash #{RABBITMQ_START_SCRIPT} #{HelperFunctions.get_secret()}")
 
+    # First, start up RabbitMQ.
+    start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}"
+    stop_cmd = "/usr/sbin/rabbitmqctl stop"
+    match_cmd = "sname rabbit"
+    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
+      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+
+    # Next, start up the TaskQueue Server.
     start_taskqueue_server()
     HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
   end
@@ -85,17 +87,20 @@ module TaskQueue
 
     # start the server, reset it to join the head node
     hostname = `hostname`.chomp()
-    start_cmds = ["rabbitmqctl start_app",
-                  "rabbitmqctl stop_app",
-                  "rabbitmqctl reset",
-                  "rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
-                  "rabbitmqctl cluster rabbit@#{hostname}",
-                  "rabbitmqctl start_app"]
+    start_cmds = ["/usr/sbin/rabbitmqctl start_app",
+                  "/usr/sbin/rabbitmqctl stop_app",
+                  "/usr/sbin/rabbitmqctl reset",
+                  "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
+                  "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
+                  "/usr/sbin/rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
+    stop_cmd = "/usr/sbin/rabbitmqctl stop"
+    match_cmd = "sname rabbit"
 
     tries_left = RABBIT_START_RETRY
-    while 1
-      Djinn.log_run("#{full_cmd}")
+    loop {
+      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, ports=9999,
+        env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
@@ -106,7 +111,7 @@ module TaskQueue
           start_taskqueue_server()
           Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
           HelperFunctions.sleep_until_port_is_open("localhost", 
-                                                   TASKQUEUE_SERVER_PORT)
+            TASKQUEUE_SERVER_PORT)
           Djinn.log_debug("Done waiting for TaskQueue server")
           return
         end
@@ -116,21 +121,22 @@ module TaskQueue
           "Retries left #{tries_left}.")
         self.erase_local_files()
       end
-      if tries_left == 0
+      if tries_left.zero?
         Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up")
         abort
       end
-    end
+    }
   end
 
   # Starts the AppScale TaskQueue server.
   def self.start_taskqueue_server()
     Djinn.log_debug("Starting taskqueue_server on this node")
-    script ="#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
+    script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
     start_cmd = "#{PYTHON_EXEC} #{script}"
     stop_cmd = TASKQUEUE_STOP_CMD
     env_vars = {}
-    GodInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT, env_vars)
+    MonitInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT,
+      env_vars)
     Djinn.log_debug("Done starting taskqueue_server on this node")
   end
 
@@ -140,7 +146,7 @@ module TaskQueue
     stop_cmd = "python -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
     Djinn.log_run(stop_cmd)
     Djinn.log_debug("Shutting down RabbitMQ")
-    Djinn.log_run("rabbitmqctl stop")
+    MonitInterface.stop(:rabbitmq)
     self.stop_taskqueue_server()
   end
 
@@ -148,7 +154,7 @@ module TaskQueue
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
     Djinn.log_run(TASKQUEUE_STOP_CMD)
-    GodInterface.stop(:taskqueue)
+    MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
 
@@ -176,15 +182,15 @@ module TaskQueue
   # and RabbitMQ. A link to Flower is given in the AppDashboard, for users to
   # monitor their Task Queue tasks.
   def self.start_flower()
-    start_cmd = "flower"
-    stop_cmd = "ps ax | grep flower | grep -v grep | awk '{print $1}' | xargs kill -9"
-    GodInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
+    start_cmd = "/usr/local/bin/flower --basic_auth=appscale:appscale"
+    stop_cmd = "/bin/ps ax | /bin/grep flower | /bin/grep -v grep | /usr/bin/awk '{print $1}' | xargs kill -9"
+    MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
   end
 
 
   # Stops the Flower Server on this machine.
   def self.stop_flower()
-    GodInterface.stop(:flower)
+    MonitInterface.stop(:flower)
   end
 
 

@@ -244,7 +244,7 @@ class TestDjinn < Test::Unit::TestCase
     # the block actually contains
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
-    flexmock(GodInterface).should_receive(:start).and_return()
+    flexmock(MonitInterface).should_receive(:start).and_return()
 
     file = flexmock(File)
     file.should_receive(:open).and_return()
@@ -294,7 +294,7 @@ class TestDjinn < Test::Unit::TestCase
 
     # mock out and commands
     flexmock(Djinn).should_receive(:log_run).and_return()
-    flexmock(GodInterface).should_receive(:start).and_return()
+    flexmock(MonitInterface).should_receive(:start).and_return()
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
@@ -470,7 +470,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:get_all_local_ips).
       and_return(["private_ip"])
 
-    flexmock(GodInterface).should_receive(:start).and_return()
+    flexmock(MonitInterface).should_receive(:start).and_return()
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
@@ -829,15 +829,17 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
       and_return('')
 
-    # finally, mock out when the appcontroller starts god and the
+    # finally, mock out when the appcontroller starts monit and the
     # remote appcontrollers on the other boxes
-    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/monit/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
+    flexmock(HelperFunctions).should_receive(:shell).with(/monit/)
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/monit/).and_return('')
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/monit/).and_return('')
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf \/tmp\/monit/).
+      and_return()
 
     # and assume that the appcontrollers start up fine
     flexmock(HelperFunctions).should_receive(:is_port_open?).
@@ -883,7 +885,7 @@ class TestDjinn < Test::Unit::TestCase
     all_nodes_serialized = JSON.dump([original_node.to_hash(),
       new_node2.to_hash(), new_node1.to_hash()])
 
-    creds = {'keyname' => 'boo'}
+    creds = {'keyname' => 'boo', 'user_commands' => []}
     creds_as_array = creds.to_a.flatten
     no_apps = []
 
@@ -1025,15 +1027,17 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
       and_return('')
 
-    # finally, mock out when the appcontroller starts god and the
+    # finally, mock out when the appcontroller starts monit and the
     # remote appcontrollers on the other boxes
-    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/monit/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
+    flexmock(HelperFunctions).should_receive(:shell).with(/monit/)
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/monit/).and_return('')
     flexmock(Kernel).should_receive(:system).
-      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/monit/).and_return('')
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf \/tmp\/monit/).
+      and_return()
 
     # and assume that the appcontrollers start up fine
     flexmock(HelperFunctions).should_receive(:is_port_open?).
@@ -1072,7 +1076,7 @@ class TestDjinn < Test::Unit::TestCase
     all_nodes_serialized = JSON.dump([original_node.to_hash(),
       new_node1.to_hash(), new_node2.to_hash()])
 
-    creds = {'keyname' => 'boo'}
+    creds = {'keyname' => 'boo', 'user_commands' => []}
     creds_as_array = creds.to_a.flatten
     no_apps = []
 

@@ -1,5 +1,4 @@
 require 'djinn'
-require 'godinterface'
 
 
 # The location on the local filesystem where we should store ZooKeeper data.
@@ -49,28 +48,32 @@ EOF
   File.open("/etc/zookeeper/conf/myid", "w+") { |file| file.write(myid) }
 
   # set max heap memory
-  Djinn.log_debug(`sed -i s/^JAVA_OPTS=.*/JAVA_OPTS=\"-Xmx1024m\"/ /etc/zookeeper/conf/environment`)
+  Djinn.log_run("sed -i s/^JAVA_OPTS=.*/JAVA_OPTS=\"-Xmx1024m\"/ /etc/zookeeper/conf/environment")
 end
 
 def start_zookeeper
   Djinn.log_info("starting ZooKeeper")
   if @creds['clear_datastore']
-    Djinn.log_debug(`rm -rfv /var/lib/zookeeper`)
-    Djinn.log_debug(`rm -rfv #{DATA_LOCATION}`)
+    Djinn.log_run("rm -rfv /var/lib/zookeeper")
+    Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end
-  Djinn.log_debug(`mkdir -pv #{DATA_LOCATION}`)
-  Djinn.log_debug(`chown -v zookeeper:zookeeper #{DATA_LOCATION}`)
+  Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
+  Djinn.log_run("chown -v zookeeper:zookeeper #{DATA_LOCATION}")
 
   # myid is needed for multi node configuration.
-  Djinn.log_debug(`ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}`)
+  Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}")
 
-  Djinn.log_run("service zookeeper start")
-  Djinn.log_info('Started ZooKeeper')
+  start_cmd = "/usr/sbin/service zookeeper start"
+  stop_cmd = "/usr/sbin/service zookeeper stop"
+  match_cmd = "zookeeper.jar"
+  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=9999, env_vars=nil,
+    remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+  Djinn.log_info("Started ZooKeeper")
 end
 
 def stop_zookeeper
   Djinn.log_info("Stopping ZooKeeper")
-  Djinn.log_run("service zookeeper stop")
+  MonitInterface.stop(:zookeeper)
 end
 
 # This method returns ZooKeeper connection string like:

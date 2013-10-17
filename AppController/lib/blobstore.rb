@@ -2,6 +2,7 @@
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
+require 'monit_interface'
 
 
 # To support the Google App Engine Blobstore API, we have a custom server that
@@ -22,14 +23,14 @@ module BlobServer
             "-d #{db_local_ip}:#{db_local_port}",
             "-p #{blobserver_port}"].join(' ')
 
-      stop_cmd = "pkill -9 blobstore_server"
+      stop_cmd = "/usr/bin/pkill -9 blobstore_server"
 
-      GodInterface.start(:blobstore, start_cmd, stop_cmd, blobserver_port)
+      MonitInterface.start(:blobstore, start_cmd, stop_cmd, blobserver_port)
     }
   end
 
   def self.stop
-     GodInterface.stop(:blobstore)
+     MonitInterface.stop(:blobstore)
   end
 
   def self.restart(my_ip, db_port)
