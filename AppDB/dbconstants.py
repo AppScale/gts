@@ -20,6 +20,7 @@ APP_ID_TABLE = "APP_IDS__"
 APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
 JOURNAL_TABLE = "JOURNAL__"
+METADATA_TABLE = "METADATA__"
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
@@ -27,7 +28,8 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE,
                   COMPOSITE_TABLE,
-                  JOURNAL_TABLE]
+                  JOURNAL_TABLE,
+                  METADATA_TABLE]
 
 ###########################################
 # DB schemas for version 1 of the datastore
@@ -57,6 +59,8 @@ APP_KIND_SCHEMA = [
   "reference" ]
 COMPOSITE_SCHEMA = [
   "reference" ]
+METADATA_SCHEMA = [
+  "data" ]
 
 USERS_SCHEMA = [
   "email",
