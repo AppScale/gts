@@ -22,6 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
 
 public class DevAppServerMain
 {
@@ -49,6 +53,7 @@ public class DevAppServerMain
     private String              cookie;
     private String              appscale_version;
     private String              admin_console_version;
+    private static final String PORT_FILE_PREFIX                      = "/etc/appscale/port-";
 
     private final List<Option>  PARSERS                               = buildOptions(this);
     private static final String PREFIX                                = "When generating a war directory,";
@@ -189,6 +194,12 @@ public class DevAppServerMain
                         this.main.admin_console_version = getValue();
                         System.setProperty("ADMIN_CONSOLE_VERSION", this.main.admin_console_version);
                     }
+                }, new DevAppServerOption(main, null, "APP_NAME", false)
+                {
+                    public void apply()
+                    {
+                        System.setProperty("APP_NAME", getValue());
+                    }
                 }, new DevAppServerOption(main, null, "NGINX_ADDRESS", false)
                 {
                     public void apply()
@@ -199,9 +210,38 @@ public class DevAppServerMain
                 {
                     public void apply()
                     {
-                        System.setProperty("NGINX_PORT", getValue());
+                        System.setProperty("NGINX_PORT", getNginxPort());
                     }
                 } });
+    }
+
+    private static String getNginxPort()
+    {
+        String appName = System.getProperty("APP_NAME");
+        String portString = null;
+        BufferedReader br = null;
+        try
+        {
+            br = new BufferedReader(new FileReader(PORT_FILE_PREFIX + appName + ".txt"));
+            portString = br.readLine();
+        }
+        catch(IOException e)
+        {
+            System.out.println("IOException getting port from " + PORT_FILE_PREFIX + appName + ".txt");
+            e.printStackTrace(); 
+        }        
+        finally
+        {
+            try
+            {
+                if (br != null)br.close();
+            } 
+            catch (IOException ex)
+            {
+                ex.printStackTrace();
+            }
+        }
+        return portString; 
     }
 
     private static List<Option> buildOptions( DevAppServerMain main )
