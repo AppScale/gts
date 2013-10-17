@@ -80,7 +80,7 @@ class AppControllerClient():
           " to the AppController. You may need to change the keyname in use.")
       else:
         return result
-    except ssl.SSLError:
+    except (ssl.SSLError, socket.error):
       sys.stderr.write("Saw SSL exception when communicating with the " \
         "AppController, retrying momentarily.")
       return self.call(function, *args)
@@ -175,13 +175,14 @@ class AppControllerClient():
       self.secret))
 
 
-  def upload_tgz(self, tgz_filename, email):
+  def upload_app(self, filename, file_suffix, email):
     """Tells the AppController to use the AppScale Tools to upload the Google
     App Engine application at the specified location.
 
     Args:
-      tgz_filename: A str that points to a .tar.gz file on the local filesystem
+      filename: A str that points to a compressed file on the local filesystem
         containing the user's Google App Engine application.
+      file_suffix: A str that names the suffix this file should have.
       email: A str containing an e-mail address that should be registered as the
         administrator of this application.
     Returns:
@@ -192,7 +193,7 @@ class AppControllerClient():
       'status' : 'timed out'
     })
 
-    return json.loads(self.call(self.server.upload_tgz_file, tgz_filename,
+    return json.loads(self.call(self.server.upload_app, filename, file_suffix,
       email, self.secret))
 
 

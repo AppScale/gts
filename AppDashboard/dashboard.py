@@ -553,8 +553,9 @@ class AppUploadPage(AppDashboard):
       return
 
     if self.dstore.can_upload_apps():
-      try: 
+      try:
         success_msg = self.helper.upload_app(
+          self.request.POST.multi['app_file_data'].filename,
           self.request.POST.multi['app_file_data'].file)
       except AppHelperException as err:
         err_msg = str(err)
