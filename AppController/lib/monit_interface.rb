@@ -40,11 +40,9 @@ module MonitInterface
     self.run_god_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
 
-
   def self.restart(watch, remote_ip=nil, remote_key=nil)
     self.run_god_command("#{MONIT} restart -g #{watch}", remote_ip, remote_key)
   end
-
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
     env_vars, remote_ip, remote_key, match_cmd)
