@@ -8,6 +8,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
 require 'datastore_server'
+require 'monit_interface'
 
 
 # A module to wrap all the interactions with the nginx web server
@@ -17,6 +18,11 @@ require 'datastore_server'
 # haproxy, which then load balances requests to AppServers. This module
 # configures and deploys nginx within AppScale.
 module Nginx
+
+
+  # The path on the local filesystem where the nginx binary can be found.
+  NGINX_BIN = "/usr/local/nginx/sbin/nginx"
+
 
   NGINX_PATH = "/usr/local/nginx/conf"
 
@@ -32,6 +38,7 @@ module Nginx
 
   START_PORT = 8080
 
+
   # This is the start port of SSL connections to applications. Where an
   # app would have the set of ports (8080, 3700), (8081, 3701), and so on.
   SSL_PORT_OFFSET = 3700 
@@ -45,23 +52,25 @@ module Nginx
 
   CHANNELSERVER_PORT = 5280
 
+
   def self.start
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -c #{MAIN_CONFIG_FILE}")
+    start_cmd = "#{NGINX_BIN} -c #{MAIN_CONFIG_FILE}"
+    stop_cmd = "#{NGINX_BIN} -s stop"
+    MonitInterface.start(:nginx, start_cmd, stop_cmd, 9999)
   end
 
   def self.stop
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s stop")
+    MonitInterface.stop(:nginx)
   end
 
   def self.restart
-    self.stop
-    self.start
+    MonitInterface.restart(:nginx)
   end
 
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload
     if Nginx.is_running?
-      HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
+      HelperFunctions.shell("#{NGINX_BIN} -s reload")
     else
       Nginx.start 
     end
@@ -87,7 +96,7 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
+    HelperFunctions.shell("#{NGINX_BIN} -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
 
