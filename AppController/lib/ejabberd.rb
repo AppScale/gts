@@ -7,6 +7,7 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'djinn_job_data'
 require 'helperfunctions'
+require 'monit_interface'
 
 
 # Our implementation of the Google App Engine XMPP and Channel APIs uses the
@@ -30,11 +31,15 @@ module Ejabberd
                           "/scripts/start_ejabberd.sh"
 
   def self.start
-    Djinn.log_run("bash #{START_EJABBERD_SCRIPT}")
+    start_cmd = "bash #{START_EJABBERD_SCRIPT}"
+    stop_cmd = "/etc/init.d/ejabberd stop"
+    match_cmd = "sname ejabberd"
+    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, ports=9999,
+      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   end
 
   def self.stop
-    Djinn.log_run("/etc/init.d/ejabberd stop")
+    MonitInterface.stop(:ejabberd)
   end
 
   def self.clear_online_users
