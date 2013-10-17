@@ -320,8 +320,7 @@ class AppDashboardHelper():
       raise AppHelperException("There was an error uploading your " \
         "application. You must be logged in to upload applications.")
     try:
-      _, file_suffix = os.path.splitext(filename)
-      file_suffix = file_suffix.strip('.')
+      file_suffix = re.search("\.(.*)\Z", filename).group(1)
       tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
       tgz_file.close()
