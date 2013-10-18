@@ -405,7 +405,11 @@ module HelperFunctions
   def self.get_all_local_ips(remove_lo=true)
     ifconfig = HelperFunctions.shell("ifconfig")
     Djinn.log_debug("ifconfig returned the following: [#{ifconfig}]")
-    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+
+    # Normally we would scan for 'inet addr:', but in non-English locales,
+    # 'addr' gets translated to the native language, which messes up that
+    # regex.
+    bound_addrs = ifconfig.scan(/inet .*?:(\d+.\d+.\d+.\d+) /).flatten
 
     Djinn.log_debug("ifconfig reports bound IP addresses as " +
       "[#{bound_addrs.join(', ')}]")
