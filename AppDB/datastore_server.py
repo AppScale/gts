@@ -620,7 +620,7 @@ class DatastoreDistributed():
        http_request_data: Stores the protocol buffer request from the 
                AppServer.
     Returns: 
-       Returns an encoded response.
+       Returns a list of encoded entity_pb.CompositeIndex objects.
     """
     start_key = self.get_meta_data_key(app_id, "index", "")
     end_key = self.get_meta_data_key(app_id, "index", self._TERM_STRING)
@@ -632,10 +632,30 @@ class DatastoreDistributed():
                                                 offset=0,
                                                 start_inclusive=True,
                                                 end_inclusive=True)
-    logging.error("GET INDICES {0}".format(result))
+    list_result = []
+    for list_item in result:
+      for key, value in list_item.iteritems():
+        list_result.append(value['data']) 
+    return list_result
+
+    logging.error("GET INDICES {0}".format(list_result))
     return result
 
-  def create_index(self, app_id, index):
+  def delete_composite_index(self, app_id, index):
+    """ Deletes a index for the given application identifier.
+  
+    Args:
+      app_id: A string representing the application identifier.
+      index: A entity_pb.Index object.
+    """
+    composite_id = index.id() 
+    logging.error("Deleting {0} index for app_id:{1}".format(index, app_id))
+    index_keys = [self.get_meta_data_key(app_id, "index", composite_id)]
+    self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
+                                      index_keys, 
+                                      column_names=dbconstants.METADATA_TABLE)
+
+  def create_composite_index(self, app_id, index):
     """ Stores a new index for the given application identifier.
   
     Args:
@@ -646,6 +666,7 @@ class DatastoreDistributed():
     """
     # Generate a random number based on time of creation.
     rand = int(str(int(time.time())) + str(random.randint(0, 999999)))
+    index.set_id(rand)
     encoded_entity = index.Encode()
     row_key = self.get_meta_data_key(app_id, "index", rand)
     row_keys = [row_key]
@@ -2887,17 +2908,13 @@ class MainHandler(tornado.web.RequestHandler):
                                                         http_request_data)
     elif method == "GetIndices":
       response, errcode, errdetail = self.get_indices_request(app_id)
-
     elif method == "UpdateIndex":
       response = api_base_pb.VoidProto().Encode()
       errcode = 0
       errdetail = ""
-
     elif method == "DeleteIndex":
-      response = api_base_pb.VoidProto().Encode()
-      errcode = 0
-      errdetail = ""
-
+      response, errcode, errdetail = self.delete_index_request(app_id, 
+                                                       http_request_data)
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
       errdetail = "Unknown datastore message" 
@@ -3027,10 +3044,10 @@ class MainHandler(tornado.web.RequestHandler):
        Returns an encoded response.
     """
     global datastore_access
-    request = datastore_pb.Index(http_request_data)
+    request = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.Integer64Proto()
     try:
-      index_id = datastore_access.create_index(app_id, request)
+      index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
     except dbconstants.AppScaleDBConnectionError, dbce:
       logging.error("Connection issue with datastore for app id {0}, " \
@@ -3041,6 +3058,28 @@ class MainHandler(tornado.web.RequestHandler):
               "Datastore connection error on create index request.")
     return (response.Encode(), 0, "")
 
+  def delete_index_request(self, app_id, http_request_data):
+    """ Deletes a composite index for a given application.
+  
+    Args:
+       app_id: Name of the application.
+       http_request_data: Stores the protocol buffer request from the 
+    Returns:
+      A encoded VoidProto.
+    """
+    global datastore_access
+    request = datastore_pb.CompositeIndices()
+    response = api_base_pb.VoidProto()
+    try: 
+      datastore_access.delete_composite_index(app_id, request)
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.error("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (response.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on delete index request.")
+    return (response.Encode(), 0, "")
+    
   def get_indices_request(self, app_id):
     """ Gets the indices of the given application.
 
@@ -3053,7 +3092,6 @@ class MainHandler(tornado.web.RequestHandler):
     """
     global datastore_access
     response = datastore_pb.CompositeIndices()
-    #TODO verify the returned result and fill in the response
     try:
       indices = datastore_access.get_indices(app_id)
       logging.error("GET INDICES {0}".format(indices))
@@ -3063,6 +3101,14 @@ class MainHandler(tornado.web.RequestHandler):
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on get indices request.")
+    for index in indices:
+      new_index = response.add_index()
+      new_index.ParseFromString(index)
+      #new_index.set_state(datastore_pb.CompositeIndex.READ_WRITE)
+      #new_definition = new_index.mutable_definition()
+      #new_definition.ParseFromString(index)
+    logging.error("Get index: {0}".format(response))
+    return (response.Encode(), 0, "")
 
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
