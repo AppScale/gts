@@ -24,6 +24,8 @@ import java.util.logging.Logger;
 import java.util.concurrent.TimeoutException;
 import java.lang.InterruptedException;
 import javax.xml.bind.DatatypeConverter;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import net.rubyeye.xmemcached.*;
 import net.rubyeye.xmemcached.utils.*;
@@ -942,11 +944,21 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     private String getInternalKey( String namespace, Key key )
     {
         /*
-         * AppScale - encoding the key because the sdk allows spaces and 
-         * lots of other special characters and our memcache client does 
-         * not. 
+         * AppScale - We take the hash of the key because keys over 250 chars are not allowed
+         * using our memcache client. Encoding the key because the sdk allows spaces and 
+         * other special characters and our memcache client does not.  
          */
-        String encodedKey = DatatypeConverter.printBase64Binary(key.getBytes());
+        MessageDigest md = null;
+        try
+        {
+            md = MessageDigest.getInstance("SHA");
+        }
+        catch (NoSuchAlgorithmException e)
+        {
+            logger.warning("No algorithm exception: " + e.getMessage());
+        }
+        byte[] keyBytesSHA = md.digest(key.getBytes());
+        String encodedKey = DatatypeConverter.printBase64Binary(keyBytesSHA);
         String internalKey = "__" + appName + "__" + namespace + "__" + encodedKey;
         return internalKey;
     }
