@@ -200,7 +200,7 @@ class TestDjinn < Test::Unit::TestCase
     app_names = []
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     expected = "OK"
     actual = djinn.set_parameters(one_node_info, credentials, app_names,
@@ -942,7 +942,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_start_new_roles_on_nodes_in_cloud
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
@@ -1114,7 +1114,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_log_sending
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = {
       "public_ip" => "1.2.3.3",
@@ -1154,7 +1154,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_send_request_info_to_dashboard_when_dash_is_up
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
     node = DjinnJobData.new(node_info, "boo")
@@ -1174,7 +1174,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_send_request_info_to_dashboard_when_dash_is_up
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = {
       "public_ip" => "1.2.3.3",
@@ -1199,7 +1199,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_scale_appservers_across_nodes_with_no_action_taken
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = {
       "public_ip" => "1.2.3.3",
@@ -1229,7 +1229,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_scale_appservers_across_nodes_and_scale_up_one_app
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
 
     # Let's say that we've got two nodes - one is open so we can scale onto it.
