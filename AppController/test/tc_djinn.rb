@@ -763,7 +763,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_start_roles_on_nodes_in_xen
+  def test_start_roles_on_nodes_in_cluster
     ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
@@ -772,7 +772,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected, actual)
   end
 
-  def test_start_new_roles_on_nodes_in_xen
+  def test_start_new_roles_on_nodes_in_cluster
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
     ips_to_roles = {'1.2.3.4' => ['appengine'], '1.2.3.5' => ['appengine']}
