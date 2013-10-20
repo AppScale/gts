@@ -368,6 +368,22 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if not query.has_app():
       query.set_app(self.__app_id)
     self.__ValidateAppId(query.app())
+
+    # Set the composite index if it applies.
+    indexes = []
+    if query.has_kind():
+      kind_indexes = self.__index_cache.get(query.kind())
+      if kind_indexes:
+        indexes.extend(kind_indexes)
+   
+    logging.info("Indexes: {0}".format(indexes))
+
+    minimal_index = datastore_index.MinimalCompositeIndexForQuery(query,
+      (datastore_index.ProtoToIndexDefinition(index)
+         for index in indexes))
+  
+    logging.info("Minimal index: {0}".format(minimal_index)) 
+
     self._RemoteSend(query, query_response, "RunQuery")
 
     skipped_results = 0

@@ -367,6 +367,27 @@ class DatastoreDistributed():
         all_rows.append(p_vals)
     return tuple(ii for ii in all_rows)
 
+  def delete_composite_indexes(self, entities, composite_indexes):
+    """ Deletes the composite indexes in the DB for the given entities.
+
+    Args:
+       entities: A list of EntityProto for which their indexes are to be 
+         deleted.
+       compsite_indexes: A list of datastore_pb.CompositeIndex.
+    """
+    if len(entities) == 0: 
+      return
+
+    row_keys = []
+    for ent in entities:
+      for index_def in composite_indexes:
+        composite_index_key = self.get_composite_index_key(index_def, ent[1])  
+        logging.error("Key to delete: {0}".format(composite_index_key))
+        row_keys.append(composite_index_key)
+    self.datastore_batch.batch_delete(dbconstants.COMPOSITE_TABLE, 
+                                      row_keys, 
+                                      column_names=dbconstants.COMPOSITE_SCHEMA)
+ 
   def delete_index_entries(self, entities):
     """ Deletes the entities in the DB.
 
@@ -527,19 +548,7 @@ class DatastoreDistributed():
     logging.error("Composite key: {0}".format(composite_key))
     return composite_key
   
-  def insert_composite_indexes(self, keys, row_values):
-    """ Inserts composite indexes into the composite table.
-
-    Args:
-      keys: A list of strings which are keys to the composite table.
-      row_values: A dict of keys and values to store in the composite table.
-    """ 
-    self.datastore_batch.batch_put_entity(dbconstants.COMPOSITE_TABLE, 
-                                          keys, 
-                                          dbconstants.COMPOSITE_SCHEMA,
-                                          row_values)
-
-  def create_composite_indexes(self, entities, composite_indexes):
+  def insert_composite_indexes(self, entities, composite_indexes):
     """ Creates composite indexes for a set of entities.
 
     Args:
@@ -565,11 +574,14 @@ class DatastoreDistributed():
         prefix = self.get_table_prefix(ent[1].key())
         reference = "{0}{2}{1}".format(prefix, entity_key, self._SEPARATOR)
         row_values[composite_index_key] = {'reference': reference}
-        # must deal with all combinations of indexes. 
+        # TODO: must deal with all combinations of indexes. 
         # See exploding indexes: 
         # https://developers.google.com/appengine/docs/python/datastore/indexes
 
-    self.insert_composite_indexes(row_keys, row_values)
+    self.datastore_batch.batch_put_entity(dbconstants.COMPOSITE_TABLE, 
+                                          row_keys, 
+                                          dbconstants.COMPOSITE_SCHEMA,
+                                          row_values)
      
   def insert_index_entries(self, entities, composite_indexes=None):
     """ Inserts index entries for the supplied entities.
@@ -609,9 +621,6 @@ class DatastoreDistributed():
                           dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
 
-    if composite_indexes:
-      self.create_composite_indexes(entities, composite_indexes)
-
   def get_indices(self, app_id):
     """ Gets the indices of the given application.
 
@@ -641,7 +650,7 @@ class DatastoreDistributed():
     logging.error("GET INDICES {0}".format(list_result))
     return result
 
-  def delete_composite_index(self, app_id, index):
+  def delete_composite_index_metadata(self, app_id, index):
     """ Deletes a index for the given application identifier.
   
     Args:
@@ -731,20 +740,27 @@ class DatastoreDistributed():
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
-      self.delete_entities(app_id, keys, txn_hash, soft_delete=False)
+      # Delete the old entities and indexes.
+      self.delete_entities(app_id, keys, txn_hash, soft_delete=False, 
+        composite_indexes=composite_indexes)
+
+      # Insert the new entities and indexes.
       self.insert_entities(entities, txn_hash)
       self.insert_index_entries(entities, composite_indexes=composite_indexes)
+      self.insert_composite_indexes(entities, composite_indexes)
 
-  def delete_entities(self, app_id, keys, txn_hash, soft_delete=False):
+  def delete_entities(self, app_id, keys, txn_hash, soft_delete=False, 
+    composite_indexes=[]):
     """ Deletes the entities and the indexes associated with them.
 
     Args:
-       app_id: The application ID.
-       keys: list of keys to be deleted.
-       txn_hash: A mapping of root keys to transaction IDs.
-       soft_delete: Boolean if we should soft delete entities.
-                    Default is to not delete entities from the 
-                    entity table (neither soft or hard). 
+      app_id: The application ID.
+      keys: list of keys to be deleted.
+      txn_hash: A mapping of root keys to transaction IDs.
+      soft_delete: Boolean if we should soft delete entities.
+                   Default is to not delete entities from the 
+                   entity table (neither soft or hard). 
+      composite_indexes: A list of CompositeIndex objects. 
     """
     def row_generator(key_list):
       """ Generates a ruple of keys and encoded entities. """
@@ -810,7 +826,10 @@ class DatastoreDistributed():
         ent.ParseFromString(ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]])
         entities.append(ent)
 
+    # Delete associated indexes.
     self.delete_index_entries(entities)
+    if composite_indexes:
+      self.delete_composite_indexes(entities, composite_indexes)
 
   def get_journal_key(self, row_key, version):
     """ Creates a string for a journal key.
@@ -934,14 +953,13 @@ class DatastoreDistributed():
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
           retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
-      logging.error("Composite list: {0}".format(put_request.composite_index_list()))
       self.put_entities(app_id, entities, txn_hash, 
         composite_indexes=put_request.composite_index_list())
       if not put_request.has_transaction():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
       put_response.key_list().extend([e.key() for e in entities])
     except ZKTransactionException, zkte:
-      logging.info("Concurrent transaction exception for app id {0} with " \
+      logging.warning("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
@@ -1009,7 +1027,7 @@ class DatastoreDistributed():
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
     except ZKTransactionException, zkte:
-      logging.info("Concurrent transaction exception for app id {0} with " \
+      logging.warning("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
@@ -1096,7 +1114,7 @@ class DatastoreDistributed():
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
     except ZKTransactionException, zkte:
-      logging.info("Concurrent transaction exception for app id {0} with " \
+      logging.warning("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
@@ -1334,7 +1352,7 @@ class DatastoreDistributed():
       try:
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
       except ZKTransactionException, zkte:
-        logging.info("Concurrent transaction exception for app id {0} with " \
+        logging.warning("Concurrent transaction exception for app id {0} with " \
           "transaction id {1}, and info {2}".format(app_id, txnid, str(zkte)))
         self.zookeeper.notify_failed_transaction(app_id, txnid)
         raise zkte
@@ -1367,6 +1385,7 @@ class DatastoreDistributed():
 
     self.delete_entities(app_id, delete_request.key_list(), txn_hash, 
       soft_delete=True)
+
     if not delete_request.has_transaction():
       self.release_locks_for_nontrans(app_id, keys, txn_hash)
  
@@ -1583,7 +1602,7 @@ class DatastoreDistributed():
         prefix = self.get_table_prefix(query)
         self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
       except ZKTransactionException, zkte:
-        logging.info("Concurrent transaction exception for app id {0}, " \
+        logging.warning("Concurrent transaction exception for app id {0}, " \
           "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
         self.zookeeper.notify_failed_transaction(query.app(), txn_id)
         raise zkte
@@ -1640,7 +1659,7 @@ class DatastoreDistributed():
       try:
         self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
       except ZKTransactionException, zkte:
-        logging.info("Concurrent transaction exception for app id {0}, " \
+        logging.warning("Concurrent transaction exception for app id {0}, " \
           "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
         self.zookeeper.notify_failed_transaction(query.app(), txn_id)
         raise zkte
@@ -1922,7 +1941,6 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
-
     limit = query.limit() or self._MAXIMUM_RESULTS
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
@@ -1964,7 +1982,7 @@ class DatastoreDistributed():
 
     if not query.has_kind():
       return None
-
+    logging.error("single property query")
     if order_info:
       if order_info[0][0] == property_name:
         direction = order_info[0][1]
@@ -2282,7 +2300,7 @@ class DatastoreDistributed():
     """ 
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
-
+    logging.error("zigzag")
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
     limit = query.limit() or self._MAXIMUM_RESULTS
@@ -2404,6 +2422,7 @@ class DatastoreDistributed():
     Returns:
       0 if an index does not exist, and the index number if it does.
     """
+    logging.error("Query to check on: {0}".format(query))
     # TODO implement when we create composite indexes.
     return 0
 
@@ -2434,6 +2453,7 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
+    logging.error("COMPOSITE")
     if self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
 
@@ -2459,7 +2479,7 @@ class DatastoreDistributed():
       (len(property_names) == 1 and (query.has_ancestor() \
       or query.has_kind())):
       return None
-
+    logging.error("Running composite query")
     if not property_name:
       property_name = property_names.pop()
     filter_ops = filter_info.get(property_name, [])
@@ -2699,6 +2719,7 @@ class DatastoreDistributed():
     filter_info = self.generate_filter_info(filters)
     order_info = self.generate_order_info(orders)
     for strategy in DatastoreDistributed._QUERY_STRATEGIES:
+      logging.error("Trying {0}".format(strategy))
       results = strategy(self, query, filter_info, order_info)
       if results:
         break
@@ -2718,6 +2739,7 @@ class DatastoreDistributed():
       query: The query to run.
       query_result: The response given to the application server.
     """
+    logging.error("Query: {0}".format(query))
     result = self.__get_query_results(query)
     count = 0
     offset = query.offset()
@@ -2759,13 +2781,13 @@ class DatastoreDistributed():
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
     except ZKInternalException, zkie:
-      logging.info("ZK internal exception for app id {0}, " \
+      logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
       return (commitres_pb.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except ZKTransactionException, zkte:
-      logging.info("Concurrent transaction exception for app id {0}, " \
+      logging.error("Concurrent transaction exception for app id {0}, " \
         "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
       self.zookeeper.notify_failed_transaction(app_id, txn_id)
       return (commitres_pb.Encode(), 
@@ -2782,13 +2804,13 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    logging.info("Doing a rollback on transaction id {0} for app id {1}"
+    logging.error("Doing a rollback on transaction id {0} for app id {1}"
       .format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")
     except ZKTransactionException, zkte:
-      logging.info("Concurrent transaction exception for app id {0}, " \
+      logging.error("Concurrent transaction exception for app id {0}, " \
         "transaction id {1}, info {2}".format(app_id, txn.handle(), str(zkte)))
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
@@ -2949,7 +2971,7 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
     except ZKInternalException, zkie:
-      logging.info("ZK internal exception for app id {0}, " \
+      logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
       return (transaction_pb.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
@@ -2984,13 +3006,13 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
     except ZKInternalException, zkie:
-      logging.info("ZK internal exception for app id {0}, " \
+      logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except Exception, exception:
-      logging.info("Error trying to rollback with exception {0}".format(
+      logging.error("Error trying to rollback with exception {0}".format(
         str(exception)))
       return(api_base_pb.VoidProto().Encode(), 
              datastore_pb.Error.PERMISSION_DENIED, 
@@ -3071,7 +3093,7 @@ class MainHandler(tornado.web.RequestHandler):
     request = datastore_pb.CompositeIndices()
     response = api_base_pb.VoidProto()
     try: 
-      datastore_access.delete_composite_index(app_id, request)
+      datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError, dbce:
       logging.error("Connection issue with datastore for app id {0}, " \
         "info {1}".format(app_id, str(dbce)))
