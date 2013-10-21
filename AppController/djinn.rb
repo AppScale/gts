@@ -2641,7 +2641,7 @@ class Djinn
           instance_info << {
             'appid' => appid,
             'host' => host,
-            'port' => port,
+            'port' => Integer(port),
             'language' => app_info['language']
           }
         }
@@ -2684,7 +2684,7 @@ class Djinn
         instance_info = [{
           'appid' => appid,
           'host' => host,
-          'port' => port
+          'port' => Integer(port)
         }]
 
         url = URI.parse("https://#{get_login.public_ip}:" +
