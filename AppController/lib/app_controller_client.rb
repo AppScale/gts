@@ -321,9 +321,9 @@ class AppControllerClient
     }
   end
 
-  def remove_appserver_process(app_id)
+  def remove_appserver_process(app_id, port)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_process") {
-      @conn.remove_appserver_process(app_id, @secret)
+      @conn.remove_appserver_process(app_id, port, @secret)
     }
   end
 

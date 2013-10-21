@@ -2678,7 +2678,7 @@ class Djinn
   #   location: A String that identifies the host and port that the AppServer
   #     was removed off of. 
   def delete_instance_from_dashboard(appid, location)
-    APPS_LOCK.synchronize {
+    #APPS_LOCK.synchronize {
       begin
         host, port = location.split(":")
         instance_info = [{
@@ -2703,7 +2703,7 @@ class Djinn
         Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
           " of a #{exception.class} exception.")
       end
-    }
+    #}
   end
 
 
@@ -4188,12 +4188,11 @@ HOSTS
           appengine_port = get_appengine_port()
           Djinn.log_info("Starting #{app_language} app #{app} on " +
             "#{HelperFunctions.local_ip}:#{appengine_port}")
-          #@app_info_map[app]['appengine'] << appengine_port
 
           xmpp_ip = get_login.public_ip
 
           pid = app_manager.start_app(app, appengine_port,
-            get_load_balancer_ip(), nginx_port, app_language, xmpp_ip,
+            get_load_balancer_ip(), app_language, xmpp_ip,
             [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app))
 
           if pid == -1
@@ -4247,7 +4246,7 @@ HOSTS
     # Grab the APPS_LOCK here since more than one thread could be looking at
     # the app_info_map (e.g., if an app is being uploaded while another is being
     # relocated).
-    APPS_LOCK.synchronize {
+    #APPS_LOCK.synchronize {
       possibly_free_port = STARTING_APPENGINE_PORT
       loop {
         actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
@@ -4260,7 +4259,7 @@ HOSTS
           possibly_free_port += 1
         end
       }
-    }
+    #}
   end
 
 
@@ -4624,7 +4623,6 @@ HOSTS
     end
 
     appengine_port = get_appengine_port()
-
     Djinn.log_debug("Adding #{app_language} app #{app} on " +
       "#{HelperFunctions.local_ip}:#{appengine_port} ")
 
@@ -4637,13 +4635,12 @@ HOSTS
     if result == -1
       Djinn.log_error("ERROR: Unable to start application #{app} on port " +
         "#{appengine_port}.")
-      next
     end
 
     # Tell the AppController at the login node (which runs HAProxy) that a new
     # AppServer is running.
     acc = AppControllerClient.new(get_login.private_ip, @@secret)
-    acc.add_appserver_to_haproxy(app, my_node.private_ip, port)
+    acc.add_appserver_to_haproxy(app, my_node.private_ip, appengine_port)
   end
 
 
@@ -4679,16 +4676,9 @@ HOSTS
       return
     end
 
-    # Select a random AppServer to kill.
-    #ports = @app_info_map[app]['appengine']
-    #port = ports[rand(ports.length)]
-
     if !app_manager.stop_app_instance(app, port)
       Djinn.log_error("Unable to stop instance on port #{port} app #{app_name}")
     end
-
-    # Delete the port number from the app_info_map
-    #@app_info_map[app]['appengine'].delete(port)
 
     # Tell the AppController at the login node (which runs HAProxy) that this
     # AppServer isn't running anymore.
@@ -4696,7 +4686,7 @@ HOSTS
     acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
 
     # And tell the AppDashboard that the AppServer has been killed.
-    delete_instance_from_dashboard(app, port)
+    delete_instance_from_dashboard(app, "#{my_node.private_ip}:#{port}")
   end 
  
 
