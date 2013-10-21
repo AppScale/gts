@@ -93,6 +93,8 @@ class DjinnServer < SOAP::RPC::HTTPServer
       "secret")
     add_method(@djinn, "remove_appserver_from_haproxy", "app_id", "ip", "port",
       "secret")
+    add_method(@djinn, "add_appserver_process", "app_id", "secret")
+    add_method(@djinn, "remove_appserver_process", "app_id", "port", "secret")
     add_method(@djinn, "run_groomer", "secret")
   end
 end

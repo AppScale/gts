@@ -4342,11 +4342,6 @@ HOSTS
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
   def scale_appservers_on_this_node
-    return
-    if !my_node.is_appengine?
-      return
-    end
-
     if @creds["autoscale"].downcase == "true"
       perform_scaling_for_appservers()
     end
@@ -4514,19 +4509,34 @@ HOSTS
       return
     end
 
-    appservers_running = @app_info_map[app_name]['appengine'].length
+    # See how many AppServers are running on each machine.
+    appservers_running = {}
+    @app_info_map[app_name]['appengine'].each { |location|
+      host, port = location.split(":")
+      if appservers_running[host].nil?
+        appservers_running[host] = []
+      end
+      appservers_running[host] << port
+    }
 
-    if appservers_running >= MAX_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The maximum number of AppServers for this app " +
-        "are already running, so don't add any more on this machine.")
-      ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
-      return
-    end
+    # Add an AppServer on the first machine where room is available.
+    appservers_running.each { |host, ports|
+      if ports.length >= MAX_APPSERVERS_ON_THIS_NODE
+        Djinn.log_info("The maximum number of AppServers for this app " +
+          "are already running on #{host}, so trying a different machine.")
+      else
+        Djinn.log_info("Adding a new AppServer on #{host} for #{app_name}")
+        acc = AppControllerClient.new(host, @@secret)
+        acc.add_appserver_process(app_name)
+        @last_decision[app_name] = Time.now.to_i
+        return
+      end
+    }
 
-    Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
-    add_appserver_process(app_name)
-    initialize_scaling_info_for_app(app_name, force=true)
-    @last_decision[app_name] = Time.now.to_i
+    # If we're this far, no room is available for AppServers, so try to add a
+    # new node instead.
+    ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
+    return
   end
 
 
@@ -4538,19 +4548,33 @@ HOSTS
       return
     end
 
-    appservers_running = @app_info_map[app_name]['appengine'].length
+    # See how many AppServers are running on each machine.
+    appservers_running = {}
+    @app_info_map[app_name]['appengine'].each { |location|
+      host, port = location.split(":")
+      if appservers_running[host].nil?
+        appservers_running[host] = []
+      end
+      appservers_running[host] << port
+    }
 
-    if appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_debug("The minimum number of AppServers for this app " +
-        "are already running, so don't remove any more off this machine.")
-      ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
-      return
-    end
+    appservers_running.each { |host, ports|
+      if ports.length <= MIN_APPSERVERS_ON_THIS_NODE
+        Djinn.log_debug("The minimum number of AppServers for this app " +
+          "are already running, so don't remove any more off #{host}.")
+      else
+        # Select a random AppServer to kill.
+        port = ports[rand(ports.length)]
+        Djinn.log_info("Removing an AppServer on #{host} for #{app_name}")
+        acc = AppControllerClient.new(host, @@secret)
+        acc.remove_appserver_process(app_name, port)
+        @last_decision[app_name] = Time.now.to_i
+      end
+    }
 
-    Djinn.log_info("Removing an AppServer on this node for #{app_name}")
-    remove_appserver_process(app_name)
-    initialize_scaling_info_for_app(app_name, force=true)
-    @last_decision[app_name] = Time.now.to_i
+    # If we're this far, nobody can scale down, so try to remove a node instead.
+    ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
+    return
   end
 
 
@@ -4561,8 +4585,13 @@ HOSTS
   # Args:
   #   app: Name of the application for which we're adding a process instance
   #
-  def add_appserver_process(app)
+  def add_appserver_process(app_id, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
     # Starting a appserver instance on request to scale the application 
+    app = app_id
     @state = "Adding an AppServer for #{app}"
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
@@ -4594,24 +4623,15 @@ HOSTS
       return  
     end
 
-    nginx_port = @app_info_map[app]['nginx']
-
     appengine_port = get_appengine_port()
-    @app_info_map[app]['appengine'] << appengine_port
-
-    my_private = my_node.private_ip
-    Djinn.log_debug("This app will be running on ports: " +
-      "#{@app_info_map[app]['appengine']}")
 
     Djinn.log_debug("Adding #{app_language} app #{app} on " +
       "#{HelperFunctions.local_ip}:#{appengine_port} ")
 
     xmpp_ip = get_login.public_ip
 
-    # TODO(cgb): Remove nginx_port here, since apps read it from the filesystem
-    # because this value may be stale.
     result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
-      nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
+      app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
       HelperFunctions.get_app_env_vars(app))
 
     if result == -1
@@ -4633,7 +4653,12 @@ HOSTS
   #   app: The name of the application for which we're removing a 
   #        process instance
   #
-  def remove_appserver_process(app)
+  def remove_appserver_process(app_id, port, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    app = app_id
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting appserver instance to free up unused resources")
 
@@ -4655,15 +4680,15 @@ HOSTS
     end
 
     # Select a random AppServer to kill.
-    ports = @app_info_map[app]['appengine']
-    port = ports[rand(ports.length)]
+    #ports = @app_info_map[app]['appengine']
+    #port = ports[rand(ports.length)]
 
     if !app_manager.stop_app_instance(app, port)
       Djinn.log_error("Unable to stop instance on port #{port} app #{app_name}")
     end
 
     # Delete the port number from the app_info_map
-    @app_info_map[app]['appengine'].delete(port)
+    #@app_info_map[app]['appengine'].delete(port)
 
     # Tell the AppController at the login node (which runs HAProxy) that this
     # AppServer isn't running anymore.
@@ -4733,13 +4758,10 @@ HOSTS
       scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
       num_of_scale_up_requests = scale_up_requests.length
 
-      # Spawn an additional node if (1) more than one node is receiving too much
-      # web traffic, or (2) there's only one node, and it's receiving too much
-      # web traffic.
-      if num_of_scale_up_requests > 1 or (num_of_scale_up_requests > 0 and 
-        num_of_appservers == 1)
-        Djinn.log_info("Nodes at #{scale_up_requests.join(' and ')} have " + 
-          "requested more AppServers for app #{appid}, so adding a node.")
+      # Spawn an additional node if the login node requests it.
+      if num_of_scale_up_requests > 0
+        Djinn.log_debug("Login node is requesting more AppServers for app " +
+          "#{appid}, so adding a node.")
         nodes_needed << ["memcache", "taskqueue_slave", "appengine"]
       end
     }
@@ -4811,9 +4833,9 @@ HOSTS
     scale_down_threshold_reached = false
     @apps_loaded.each { |appid|
       scale_downs = all_scaling_votes[appid].select { |vote| vote == "scale_down" }
-      if scale_downs.length > 1
-        Djinn.log_info("Got #{scale_downs.length} votes to scale down app " +
-          "#{appid}, so considering removing VMs.")
+      if scale_downs.length > 0
+        Djinn.log_info("Got a vote to scale down app #{appid}, so " +
+          "considering removing VMs.")
         scale_down_threshold_reached = true
       end
     }
