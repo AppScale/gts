@@ -329,15 +329,15 @@ DEFAULT_CONFIG
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
-    #{my_private_ip}:#{proxy_port}
+    server #{my_private_ip}:#{proxy_port};
 }
 
 upstream gae_ssl_#{app_name} {
-    #{my_private_ip}:#{proxy_port}
+    server #{my_private_ip}:#{proxy_port};
 }
 
 upstream gae_#{app_name}_blobstore {
-    #{my_private_ip}:#{BLOBSERVER_PORT}
+    server #{my_private_ip}:#{BLOBSERVER_PORT};
 }
 
 server {
