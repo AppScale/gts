@@ -634,7 +634,7 @@ class Djinn
     if my_node.is_login?
       static_handlers = HelperFunctions.parse_static_data(appid)
       Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip, get_all_appengine_nodes())
+        my_private, proxy_port, static_handlers, login_ip)
     end
 
     Djinn.log_debug("Done writing new nginx config files!")
@@ -2196,6 +2196,58 @@ class Djinn
   end
 
 
+  # Instructs HAProxy to begin routing traffic for the named application to
+  # a new AppServer, at the given location.
+  #
+  # This method should be called at the AppController running the login role,
+  # as it is the only node that runs haproxy.
+  #
+  # Args:
+  #   app_id: A String that identifies the application that runs the new
+  #     AppServer.
+  #   ip: A String that identifies the private IP address where the new
+  #     AppServer runs.
+  #   port: A Fixnum that identifies the port where the new AppServer runs at
+  #     ip.
+  #   secret: A String that is used to authenticate the caller.
+  #
+  # Returns:
+  #   BAD_SECRET_MSG if the caller cannot be authenticated, and ??? otherwise.
+  def add_appserver_to_haproxy(app_id, ip, port, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+
+  end
+
+
+  # Instructs HAProxy to begin routing traffic for the named application to
+  # a new AppServer, at the given location.
+  #
+  # This method should be called at the AppController running the login role,
+  # as it is the only node that runs haproxy.
+  #
+  # Args:
+  #   app_id: A String that identifies the application that runs the new
+  #     AppServer.
+  #   ip: A String that identifies the private IP address where the new
+  #     AppServer runs.
+  #   port: A Fixnum that identifies the port where the new AppServer runs at
+  #     ip.
+  #   secret: A String that is used to authenticate the caller.
+  #
+  # Returns:
+  #   BAD_SECRET_MSG if the caller cannot be authenticated, and ??? otherwise.
+  def remove_appserver_from_haproxy(app_id, ip, port, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+
+  end
+
+
   def write_database_info()
     table = @creds["table"]
     replication = @creds["replication"]
@@ -3658,8 +3710,7 @@ HOSTS
 
       static_handlers = HelperFunctions.parse_static_data(app)
       Nginx.write_fullproxy_app_config(app, http_port, https_port,
-        my_public, my_private, proxy_port, static_handlers, login_ip,
-        get_all_appengine_nodes())
+        my_public, my_private, proxy_port, static_handlers, login_ip)
     }
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
@@ -4064,8 +4115,7 @@ HOSTS
       end
 
       Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip,
-        get_all_appengine_nodes())
+        my_private, proxy_port, static_handlers, login_ip)
 
       loop {
         Kernel.sleep(5)
@@ -4515,7 +4565,7 @@ HOSTS
     end
 
     nginx_port = @app_info_map[app]['nginx']
-    haproxy_port = @app_info_map[app]['haproxy']
+    #haproxy_port = @app_info_map[app]['haproxy']
 
     appengine_port = get_appengine_port()
     @app_info_map[app]['appengine'] << appengine_port
@@ -4523,14 +4573,16 @@ HOSTS
     my_private = my_node.private_ip
     Djinn.log_debug("This app will be running on ports: " +
       "#{@app_info_map[app]['appengine']}")
-    HAProxy.update_app_config(app, haproxy_port,
-      @app_info_map[app]['appengine'], my_private)
+    #HAProxy.update_app_config(app, haproxy_port,
+    #  @app_info_map[app]['appengine'], my_private)
 
     Djinn.log_debug("Adding #{app_language} app #{app} on " +
       "#{HelperFunctions.local_ip}:#{appengine_port} ")
 
     xmpp_ip = get_login.public_ip
 
+    # TODO(cgb): Remove nginx_port here, since apps read it from the filesystem
+    # because this value may be stale.
     result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
       nginx_port, app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
       HelperFunctions.get_app_env_vars(app))
@@ -4541,7 +4593,10 @@ HOSTS
       next
     end
 
-    HAProxy.reload
+    # Tell the AppController at the login node (which runs HAProxy) that a new
+    # AppServer is running.
+    acc = AppControllerClient.new(ip, @@secret)
+    acc.add_appserver_to_haproxy(app, my_node.private_ip, port)
   end
 
 
@@ -4583,10 +4638,15 @@ HOSTS
     # Delete the port number from the app_info_map
     @app_info_map[app]['appengine'].delete(port)
 
-    haproxy_port = @app_info_map[app]['haproxy']
-    HAProxy.update_app_config(app, haproxy_port,
-      @app_info_map[app]['appengine'], my_private)
-    HAProxy.reload
+    #haproxy_port = @app_info_map[app]['haproxy']
+    #HAProxy.update_app_config(app, haproxy_port,
+    #  @app_info_map[app]['appengine'], my_private)
+    #HAProxy.reload
+
+    # Tell the AppController at the login node (which runs HAProxy) that this
+    # AppServer isn't running anymore.
+    acc = AppControllerClient.new(ip, @@secret)
+    acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
 
     # And tell the AppDashboard that the AppServer has been killed.
     delete_instance_from_dashboard(app, port)
@@ -4881,4 +4941,5 @@ HOSTS
   def stop_open
     return
   end
+
 end
