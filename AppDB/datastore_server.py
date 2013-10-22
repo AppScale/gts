@@ -650,16 +650,19 @@ class DatastoreDistributed():
     logging.error("GET INDICES {0}".format(list_result))
     return result
 
-  def delete_composite_index_metadata(self, app_id, index):
+  def delete_composite_index_metadata(self, app_id, indexes):
     """ Deletes a index for the given application identifier.
   
     Args:
       app_id: A string representing the application identifier.
-      index: A entity_pb.Index object.
+      index: A datastore_pb.CompositeIndices object.
     """
-    composite_id = index.id() 
-    logging.error("Deleting {0} index for app_id:{1}".format(index, app_id))
-    index_keys = [self.get_meta_data_key(app_id, "index", composite_id)]
+    index_keys = []
+    for index in indexes.index_list():
+      composite_id = index.id() 
+      logging.error("Deleting {0} index for app_id:{1}".format(index, app_id))
+      index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
+
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
                                       index_keys, 
                                       column_names=dbconstants.METADATA_TABLE)

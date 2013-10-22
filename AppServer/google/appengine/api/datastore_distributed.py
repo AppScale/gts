@@ -58,6 +58,17 @@ SSL_DEFAULT_PORT = 8443
 # The amount of time before we consider a query cursor to be no longer valid.
 CURSOR_TIMEOUT = 120
 
+ASCENDING = datastore_pb.Query_Order.ASCENDING
+DESCENDING = datastore_pb.Query_Order.DESCENDING
+
+EQUALITY_OPERATORS = set((datastore_pb.Query_Filter.EQUAL,
+                          ))
+INEQUALITY_OPERATORS = set((datastore_pb.Query_Filter.LESS_THAN,
+                            datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL,
+                            datastore_pb.Query_Filter.GREATER_THAN,
+                            datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL,
+                            ))
+
 try:
   __import__('google.appengine.api.taskqueue.taskqueue_service_pb')
   taskqueue_service_pb = sys.modules.get(
@@ -371,18 +382,18 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     # Set the composite index if it applies.
     indexes = []
+    logging.info("Query: {0}".format(query))
+    logging.info("Index cache: {0}".format(self.__index_cache))
     if query.has_kind():
       kind_indexes = self.__index_cache.get(query.kind())
       if kind_indexes:
         indexes.extend(kind_indexes)
    
-    logging.info("Indexes: {0}".format(indexes))
-
-    minimal_index = datastore_index.MinimalCompositeIndexForQuery(query,
-      (datastore_index.ProtoToIndexDefinition(index)
-         for index in indexes))
-  
-    logging.info("Minimal index: {0}".format(minimal_index)) 
+    index_to_use = _FindIndexToUse(query, indexes)
+       
+    logging.info("Index to use: {0}".format(index_to_use))
+    if index_to_use != None:
+      logging.info("Index used: {0}".format(indexes[index_to_use]))
 
     self._RemoteSend(query, query_response, "RunQuery")
 
@@ -757,6 +768,21 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         self._Dynamic_DeleteIndex(index, api_base_pb.VoidProto())
         deleted += 1
 
+    # Add existing indexes in the index cache.
+    for key, index in existing.iteritems():
+      new_index = entity_pb.CompositeIndex()
+      new_index.CopyFrom(index)
+      ent_kind = new_index.definition().entity_type()
+      if ent_kind in self.__index_cache:
+        new_indexes = self.__index_cache[ent_kind]
+        logging.info("updated new_indexes: %s" % str(new_indexes))
+        logging.info("updated new_index:  %s" % str(new_index))
+        new_indexes.append(new_index)
+        self.__index_cache[ent_kind] = new_indexes
+      else:
+        self.__index_cache[ent_kind] = [new_index]
+  
+    logging.info("Index cache %s" % str(self.__index_cache))
     # Compared the existing indexes to the requested ones and create any
     # new indexes requested.
     created = 0
@@ -786,3 +812,98 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       logging.info('Created %d and deleted %d index(es); total %d',
                     created, deleted, len(requested))
 
+def _FindIndexToUse(query, indexes):
+  """ Matches the query with one of the composite indexes. 
+
+  Args:
+    query: A datastore_pb.Query.
+    indexes: A list of entity_pb.CompsiteIndex.
+  Returns:
+    The index of the list for which the composite index matches the query.
+    Returns None if there is no match.
+  """
+  if not query.has_kind():
+    return None
+
+  #kind = query.kind()
+  #has_ancestor = query.has_ancestor()
+ 
+  # Not getting the property field because it is returned in a complicated
+  # format.
+  required, kind, ancestor, _= \
+    (datastore_index.CompositeIndexForQuery(query))
+
+  # Prefix props are those we are matching based on equality filters.
+  prefix_props = _GetPrefixProps(query) 
+  logging.info("Prefix props: {0}".format(prefix_props))
+  # The postfix prop is based on the inequality filter.
+  postfix_prop = _GetPostfixProps(query)
+  logging.info("Postfix props: {0}".format(postfix_prop))
+
+  logging.info("Ancestor: {0}".format(ancestor))
+  if not required:
+    return None
+  for ii, index in enumerate(indexes):
+    index_def = index.definition()
+    logging.info("Index: {0} def: {1}".format(index, index_def))
+    if ancestor != index_def.ancestor():
+      logging.info("Index did match ancestor requirement")
+      continue
+    # The one here is the post_fix_prop size.
+    if index_def.property_size() != len(prefix_props) + 1:
+      logging.info("Not enough props")
+      continue
+
+    for index, prop_item in enumerate(index_def.property_list()):
+      # If it is the last element, compare it to the postfix prop.
+      if index_def.property_size() == 1 + index:
+        if prop_item.name() == postfix_prop[0] and \
+          prop_item.direction() == postfix_prop[1]:
+          logging.info("found a match!")
+          return ii 
+        else:
+          logging.info("Postfix did not match for {0}".format(prop_item.name()))
+          # Break to the outer for loop.
+          break
+      if prop_item.name() == prefix_props[index]:
+        logging.info("Prefix match for {0}".format(prop_item.name()))
+        continue
+      else:
+        logging.info("Prefix did not match for name: {0}".format(prop_item.name()))
+        break
+
+  return None
+
+def _GetPrefixProps(query):
+  """ Gets a list of property names for equality filters.
+
+  Direction for name properties does not matter but order of the list does.
+ 
+  Args: 
+    A datastore_pb.Query.
+  Returns: 
+    A list of property names that have been sorted to avoid duplicates.
+  """
+  eq_prop_names = []
+  for filter in query.filter_list():
+    if filter.op() in EQUALITY_OPERATORS:
+      eq_prop_names.append(filter.property(0).name())
+  return sorted(eq_prop_names)
+
+def _GetPostfixProps(query):
+  """ Gets the inequality filter name and direction as a tuple.
+  
+   Args:
+     A datastore_pb.Query.
+   Returns:
+     A tuple of property name and direction.
+  """
+  ineq_prop_names = []
+  orders = query.order_list()
+  postfix_ordered = [(order.property(), order.direction()) for order in orders]
+  if postfix_ordered:
+    return postfix_ordered
+  for filter in query.filter_list():
+    if filter.op() in INEQUALITY_OPERATORS:
+      return filter.property(0).name(), ASCENDING
+  raise ValueError("No inequality filter found for composite postfix.") 
