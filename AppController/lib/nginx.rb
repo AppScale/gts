@@ -461,7 +461,7 @@ CONFIG
       return true
     else
       Djinn.log_error("Unable to load Nginx config for #{app_name}")
-      #FileUtils.rm(config_path)
+      FileUtils.rm(config_path)
       return false
     end
   end 

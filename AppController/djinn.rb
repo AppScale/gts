@@ -1391,7 +1391,7 @@ class Djinn
       start_appengine
       restart_appengine_apps
       if my_node.is_login?
-        scale_appservers_on_this_node
+        scale_appservers_within_nodes
         scale_appservers_across_nodes
         send_instance_info_to_dashboard
       end
@@ -2672,32 +2672,30 @@ class Djinn
   #   location: A String that identifies the host and port that the AppServer
   #     was removed off of. 
   def delete_instance_from_dashboard(appid, location)
-    #APPS_LOCK.synchronize {
-      begin
-        host, port = location.split(":")
-        instance_info = [{
-          'appid' => appid,
-          'host' => host,
-          'port' => Integer(port)
-        }]
+    begin
+      host, port = location.split(":")
+      instance_info = [{
+        'appid' => appid,
+        'host' => host,
+        'port' => Integer(port)
+      }]
 
-        url = URI.parse("https://#{get_login.public_ip}:" +
-          "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
-        http = Net::HTTP.new(url.host, url.port)
-        http.use_ssl = true
-        request = Net::HTTP::Delete.new(url.path)
-        request.body = JSON.dump(instance_info)
-        response = http.request(request)
-        Djinn.log_debug("Done sending instance info to AppDashboard!")
-        Djinn.log_debug("Instance info is: #{instance_info.inspect}")
-        Djinn.log_debug("Response is #{response.body}")
-      rescue Exception => exception
-        # Don't crash the AppController because we weren't able to send over
-        # the instance info - just continue on.
-        Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
-          " of a #{exception.class} exception.")
-      end
-    #}
+      url = URI.parse("https://#{get_login.public_ip}:" +
+        "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
+      http = Net::HTTP.new(url.host, url.port)
+      http.use_ssl = true
+      request = Net::HTTP::Delete.new(url.path)
+      request.body = JSON.dump(instance_info)
+      response = http.request(request)
+      Djinn.log_debug("Done sending instance info to AppDashboard!")
+      Djinn.log_debug("Instance info is: #{instance_info.inspect}")
+      Djinn.log_debug("Response is #{response.body}")
+    rescue Exception => exception
+      # Don't crash the AppController because we weren't able to send over
+      # the instance info - just continue on.
+      Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
+        " of a #{exception.class} exception.")
+    end
   end
 
 
@@ -4238,23 +4236,17 @@ HOSTS
   #   A Fixnum corresponding to the port number that a new dev_appserver can be
   #   bound to.
   def get_appengine_port
-    # Grab the APPS_LOCK here since more than one thread could be looking at
-    # the app_info_map (e.g., if an app is being uploaded while another is being
-    # relocated).
-    #APPS_LOCK.synchronize {
-      possibly_free_port = STARTING_APPENGINE_PORT
-      loop {
-        actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
-        if actually_available.empty?
-          Djinn.log_debug("Port #{possibly_free_port} is available for use.")
-          return possibly_free_port
-        else
-          Djinn.log_warn("Port #{possibly_free_port} is in use by " +
-            "[#{actually_available}], so skipping this port.")
-          possibly_free_port += 1
-        end
-      }
-    #}
+    possibly_free_port = STARTING_APPENGINE_PORT
+    loop {
+      actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
+      if actually_available.empty?
+        Djinn.log_debug("Port #{possibly_free_port} is available for use.")
+        return possibly_free_port
+      else
+        Djinn.log_warn("Port #{possibly_free_port} is in use, so skipping it.")
+        possibly_free_port += 1
+      end
+    }
   end
 
 
@@ -4335,7 +4327,7 @@ HOSTS
   # This method guards access to perform_scaling_for_appservers so that only 
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
-  def scale_appservers_on_this_node
+  def scale_appservers_within_nodes
     if @creds["autoscale"].downcase == "true"
       perform_scaling_for_appservers()
     end
