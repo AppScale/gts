@@ -2219,7 +2219,7 @@ class Djinn
   #   secret: A String that is used to authenticate the caller.
   #
   # Returns:
-  #   ??? if the addition was successful. In case of failures, the following
+  #   "OK" if the addition was successful. In case of failures, the following
   #   Strings may be returned:
   #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
@@ -2233,15 +2233,12 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
-    # Use the APPS_LOCK here since multiple nodes could be adding or removing
-    # AppServers at the same time.
-    #APPS_LOCK.synchronize {
-      @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
-      HAProxy.update_app_config(my_node.private_ip, app_id,
-        @app_info_map[app_id])
-    #}
+    get_scaling_info_for_app(app_id)
+    @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+    HAProxy.update_app_config(my_node.private_ip, app_id,
+      @app_info_map[app_id])
 
-    HAProxy.reload
+    return "OK"
   end
 
 
@@ -2261,7 +2258,7 @@ class Djinn
   #   secret: A String that is used to authenticate the caller.
   #
   # Returns:
-  #   ??? if the removal was successful. In case of failures, the following
+  #   "OK" if the removal was successful. In case of failures, the following
   #   Strings may be returned:
   #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
@@ -2275,15 +2272,12 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
-    # Use the APPS_LOCK here since multiple nodes could be adding or removing
-    # AppServers at the same time.
-    #APPS_LOCK.synchronize {
-      @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
-      HAProxy.update_app_config(my_node.private_ip, app_id,
-        @app_info_map[app_id])
-    #}
+    get_scaling_info_for_app(app_id)
+    @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
+    HAProxy.update_app_config(my_node.private_ip, app_id,
+      @app_info_map[app_id])
 
-    HAProxy.reload
+    return "OK"
   end
 
 
@@ -4067,6 +4061,7 @@ HOSTS
   #   is_new_app: true if the application to start has never run on this node
   #     before, and false if it has (e.g., we're loading new code for this app).
   def setup_appengine_application(app, is_new_app)
+    initialize_scaling_info_for_app(app)
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
     app_data = uac.get_app_data(app)
     loop {
@@ -4475,6 +4470,8 @@ HOSTS
   #   time_requests_were_seen: An Integer that represents the epoch time when we
   #     got request info from haproxy.
   def update_request_info(app_name, total_requests_seen, time_requests_were_seen)
+    Djinn.log_debug("Time now is #{time_requests_were_seen}, last " +
+      "time was #{@last_sampling_time[app_name]}")
     Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
       "time was #{@total_req_rate[app_name]}")
     requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
