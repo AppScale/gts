@@ -1,3 +1,5 @@
+import boto
+import boto.ec2
 from boto.ec2.spotpricehistory import SpotPriceHistory
 from agents.factory import InfrastructureAgentFactory
 from boto.ec2.connection import EC2Connection
@@ -25,21 +27,13 @@ class TestEC2Agent(TestCase):
     self.run_instances('ec2', False)
     e = EC2ResponseError('Error', 'Mock error')
     e.error_message = 'Mock error'
-    (flexmock(EC2Connection)
-     .should_receive('run_instances')
-     .and_raise(e))
+    self.fake_ec2.should_receive('run_instances').and_raise(e)
     self.run_instances('ec2', True, False)
     self.run_instances('ec2', False, False)
 
   def test_ec2_terminate_instances(self):
     self.terminate_instances('ec2', True)
     self.terminate_instances('ec2', False)
-
-  def test_euca_run_instances(self):
-    self.run_instances('euca', False)
-
-  def test_euca_terminate_instances(self):
-    self.terminate_instances('euca', False)
 
   def spot_price(self, price, ts):
     spot_price = SpotPriceHistory()
@@ -62,6 +56,7 @@ class TestEC2Agent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '1',
       'use_spot_instances': False,
+      'region' : 'my-zone-1',
       'zone' : 'my-zone-1b'
     }
 
@@ -99,7 +94,8 @@ class TestEC2Agent(TestCase):
       'credentials': {'a': 'b', 'EC2_URL': 'http://ec2.url.com',
                       'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'infrastructure': prefix,
-      'instance_ids': ['i-12345']
+      'instance_ids': ['i-12345'],
+      'region' : 'my-zone-1'
     }
     result2 = i.terminate_instances(params2, 'secret')
     if not blocking:
@@ -108,23 +104,16 @@ class TestEC2Agent(TestCase):
 
 
   def setUp(self):
-    (flexmock(EC2Connection)
-      .should_receive('get_key_pair')
-      .and_return(None))
-    (flexmock(EC2Connection)
-      .should_receive('create_key_pair')
-      .with_args('bookeyname')
-      .and_return(KeyPair()))
-    (flexmock(EC2Connection)
-      .should_receive('get_all_security_groups')
-      .and_return([]))
-    (flexmock(EC2Connection)
-      .should_receive('create_security_group')
-      .with_args('boogroup', 'AppScale security group')
-      .and_return(SecurityGroup()))
-    (flexmock(EC2Connection)
-      .should_receive('authorize_security_group')
-      .and_return())
+    self.fake_ec2 = flexmock(name='self.fake_ec2')
+    self.fake_ec2.should_receive('get_key_pair')
+    self.fake_ec2.should_receive('create_key_pair').with_args('bookeyname') \
+      .and_return(KeyPair())
+    self.fake_ec2.should_receive('get_all_security_groups').and_return([])
+    self.fake_ec2.should_receive('create_security_group') \
+      .with_args('boogroup', 'AppScale security group') \
+      .and_return(SecurityGroup())
+    self.fake_ec2.should_receive('authorize_security_group')
+
     reservation = Reservation()
     instance = Instance()
     instance.private_dns_name = 'private-ip'
@@ -133,16 +122,14 @@ class TestEC2Agent(TestCase):
     instance._state.name = 'running'
     instance.key_name = 'bookeyname'
     reservation.instances = [instance]
-    (flexmock(EC2Connection)
-      .should_receive('get_all_instances')
-      .and_return([])
-      .and_return([reservation]))
-    (flexmock(EC2Connection)
-      .should_receive('terminate_instances')
-      .and_return([instance]))
-    (flexmock(EC2Connection)
-     .should_receive('run_instances')
-     .and_return())
+
+    self.fake_ec2.should_receive('get_all_instances').and_return([]) \
+      .and_return([reservation])
+    self.fake_ec2.should_receive('terminate_instances').and_return([instance])
+    self.fake_ec2.should_receive('run_instances')
+
+    flexmock(boto.ec2)
+    boto.ec2.should_receive('connect_to_region').and_return(self.fake_ec2)
 
     (flexmock(utils)
       .should_receive('get_secret')
