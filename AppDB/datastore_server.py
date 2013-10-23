@@ -382,7 +382,6 @@ class DatastoreDistributed():
     for ent in entities:
       for index_def in composite_indexes:
         composite_index_key = self.get_composite_index_key(index_def, ent[1])  
-        logging.error("Key to delete: {0}".format(composite_index_key))
         row_keys.append(composite_index_key)
     self.datastore_batch.batch_delete(dbconstants.COMPOSITE_TABLE, 
                                       row_keys, 
@@ -519,14 +518,12 @@ class DatastoreDistributed():
     app_id = entity.key().app()
     name_space = entity.key().name_space()
     ent_key = self.__encode_index_pb(entity.key().path())
-    logging.error("Ent key: {0}".format(ent_key))
-    ancestor = ""
-    if definition.has_ancestor():
-      ancestor = self.get_root_key_from_entity_key(str(ent_key))
-      logging.error("Ancestor path: {0}".format(ancestor))
-
     pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
       self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
+
+    if definition.has_ancestor():
+      ancestor = self.get_root_key_from_entity_key(str(ent_key))
+      pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
 
     value_dict = {}
     for prop in entity.property_list():
@@ -536,7 +533,7 @@ class DatastoreDistributed():
     for prop in definition.property_list():
       name = prop.name()
       value = value_dict[name]
-      if entity_pb.Index_Property.DESCENDING:
+      if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
       # Should there be a separator between values?
       index_value += value
@@ -545,7 +542,6 @@ class DatastoreDistributed():
     # to share the same index values (and ancestor).
     composite_key = "{0}{1}{2}{3}".format(pre_comp_index_key, index_value,
       self._SEPARATOR, ent_key)
-    logging.error("Composite key: {0}".format(composite_key))
     return composite_key
   
   def insert_composite_indexes(self, entities, composite_indexes):
@@ -563,16 +559,13 @@ class DatastoreDistributed():
     for ent in entities:
       for index_def in composite_indexes:
         # Get the composite index key.
-        logging.error("Index to create: {0}".format(index_def))
-        logging.error("Entity: {0}".format(ent[1]))
         composite_index_key = self.get_composite_index_key(index_def, ent[1])  
-        logging.error("Key {0}".format(composite_index_key))
         row_keys.append(composite_index_key)
 
         # Get the reference value for the composite table.
         entity_key = str(self.__encode_index_pb(ent[1].key().path()))
         prefix = self.get_table_prefix(ent[1].key())
-        reference = "{0}{2}{1}".format(prefix, entity_key, self._SEPARATOR)
+        reference = "{0}{1}{2}".format(prefix, self._SEPARATOR,  entity_key)
         row_values[composite_index_key] = {'reference': reference}
         # TODO: must deal with all combinations of indexes. 
         # See exploding indexes: 
@@ -647,9 +640,6 @@ class DatastoreDistributed():
         list_result.append(value['data']) 
     return list_result
 
-    logging.error("GET INDICES {0}".format(list_result))
-    return result
-
   def delete_composite_index_metadata(self, app_id, indexes):
     """ Deletes a index for the given application identifier.
   
@@ -660,7 +650,6 @@ class DatastoreDistributed():
     index_keys = []
     for index in indexes.index_list():
       composite_id = index.id() 
-      logging.error("Deleting {0} index for app_id:{1}".format(index, app_id))
       index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
 
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
@@ -1985,7 +1974,7 @@ class DatastoreDistributed():
 
     if not query.has_kind():
       return None
-    logging.error("single property query")
+
     if order_info:
       if order_info[0][0] == property_name:
         direction = order_info[0][1]
@@ -2303,7 +2292,6 @@ class DatastoreDistributed():
     """ 
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
-    logging.error("zigzag")
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
     limit = query.limit() or self._MAXIMUM_RESULTS
@@ -2425,9 +2413,102 @@ class DatastoreDistributed():
     Returns:
       0 if an index does not exist, and the index number if it does.
     """
-    logging.error("Query to check on: {0}".format(query))
-    # TODO implement when we create composite indexes.
+    if query.composite_index_size() > 0:
+      return query.composite_index_list()[0].id()
     return 0
+
+  def get_range_composite_query(self, query, filter_info):
+    """ Gets the start and end key of a composite query. 
+
+    Args:
+      query: A datastore_pb.Query object.
+      filter_info: A dictionary mapping property names to tuples of filter
+        operators and values. 
+      composite_id: An int, the composite index ID,
+    Returns:
+      A tuple of strings, the start and end key for the composite table.
+    """
+    start_key = ''
+    end_key = ''
+    composite_index = query.composite_index_list()[0]
+    index_id = composite_index.id()
+    definition = composite_index.definition()
+    app_id = query.app()
+    name_space = ''
+    if query.has_name_space():
+      name_space = query.name_space() 
+
+    # Calculate the prekey for both the start and end key.
+    pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id,
+      self._NAMESPACE_SEPARATOR, name_space, index_id, self._SEPARATOR)
+
+    if definition.has_ancestor():
+      ancestor_str = self.__encode_index_pb(query.ancestor().path())
+      logging.info("Query ancestor: {0}".format(ancestor_str))
+      pre_comp_index_key += "{0}{1}".format(ancestor_str, self._SEPARATOR) 
+   
+    index_value = ""
+    for prop in definition.property_list()[:-1]:
+      value = filter_info[prop.name()][0][1]
+      index_value += str(self.__encode_index_pb(value))
+      if prop.direction() == entity_pb.Index_Property.DESCENDING:
+        value = helper_functions.reverse_lex(value)
+      # Should there be a separator between values?
+      index_value += value
+
+    # We append the ent key to have unique keys if entities happen
+    # to share the same index values (and ancestor).
+    pre_comp_index_key = "{0}{1}{2}".format(pre_comp_index_key, index_value,
+      self._SEPARATOR)
+    logging.error("Pre key: {0}".format(pre_comp_index_key))
+ 
+    # All equality properties are included in start and end keys.
+    ineq_prop_def = definition.property_list()[-1]
+    ineq_name = ineq_prop_def.name()
+    oper = filter_info[ineq_name][0][0]
+    value = filter_info[ineq_name][0][1]
+
+    direction = ineq_prop_def.direction()
+    if direction == entity_pb.Index_Property.DESCENDING:
+      value = helper_functions.reverse_lex(value)
+    start_value = ''
+    end_value = ''
+    # Equality filters are not handled because a composite must have
+    # the last property as an inequality filter. Otherwise it would 
+    # have been handled by zigzagmergejoin.
+    if oper == datastore_pb.Query_Filter.LESS_THAN:
+      start_value = None
+      end_value = value
+      if direction == datastore_pb.Query_Order.DESCENDING:
+        start_value = value + self._TERM_STRING
+        end_value = self._TERM_STRING
+    elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+      start_value = None
+      end_value = value + self._SEPARATOR + self._TERM_STRING
+      if direction == datastore_pb.Query_Order.DESCENDING:
+        start_value = value
+        end_value = self._TERM_STRING
+    elif oper == datastore_pb.Query_Filter.GREATER_THAN:
+      if value == '':
+        start_value = self._NULL_CHAR_STRING + self._TERM_STRING
+      else:
+        start_value = value + self._TERM_STRING
+      end_value = self._TERM_STRING
+      if direction == datastore_pb.Query_Order.DESCENDING:
+        start_value = None
+        end_value = value + self._SEPARATOR 
+    elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+      start_value = value
+      end_value = self._TERM_STRING
+      if direction == datastore_pb.Query_Order.DESCENDING:
+        start_value = None
+        end_value = value + self._SEPARATOR +  self._TERM_STRING
+    else:
+      raise ValueError("Unsuported operator {0} for composite query".format(oper))
+
+    start_key = "{0}{1}".format(pre_comp_index_key, start_value)
+    end_key = "{0}{1}".format(pre_comp_index_key, end_value)
+    return start_key, end_key
 
   def composite_v2(self, query, filter_info, order_info):
     """Performs composite queries using a range query against
@@ -2442,7 +2523,29 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
-    return []
+    logging.error("Query: {0}\nFilterInfo: {1}\nOrderInfo: {2}".format(query, filter_info, order_info))
+
+    # (1) set the start row
+    # (2) the end row.
+    # (3) figure out the limit 
+    # (4) inclusivity of keys.
+    startrow, endrow = self.get_range_composite_query(query, filter_info)
+      
+    table_name = dbconstants.COMPOSITE_TABLE
+    column_names = dbconstants.COMPOSITE_SCHEMA
+    limit = query.limit() or self._MAXIMUM_RESULTS
+    offset = query.offset()
+    start_inclusive = True
+    end_inclusive = True
+    index_result = self.datastore_batch.range_query(table_name, 
+                                                    column_names, 
+                                                    startrow, 
+                                                    endrow, 
+                                                    limit, 
+                                                    offset=offset, 
+                                                    start_inclusive=start_inclusive, 
+                                                    end_inclusive=end_inclusive)      
+    return self.__fetch_entities(index_result)
 
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
@@ -2456,7 +2559,6 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
-    logging.error("COMPOSITE")
     if self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
 
@@ -2482,7 +2584,6 @@ class DatastoreDistributed():
       (len(property_names) == 1 and (query.has_ancestor() \
       or query.has_kind())):
       return None
-    logging.error("Running composite query")
     if not property_name:
       property_name = property_names.pop()
     filter_ops = filter_info.get(property_name, [])
@@ -2499,7 +2600,8 @@ class DatastoreDistributed():
 
     # If there is a composite index for the given query use the version of 
     # the query engine for composite queries that does range queries.
-    if self.does_composite_index_exist(query):
+    composite_id = self.does_composite_index_exist(query)
+    if composite_id != 0:
       return self.composite_v2(query, filter_info, order_info)
 
     count = self._MAX_COMPOSITE_WINDOW
@@ -2722,7 +2824,6 @@ class DatastoreDistributed():
     filter_info = self.generate_filter_info(filters)
     order_info = self.generate_order_info(orders)
     for strategy in DatastoreDistributed._QUERY_STRATEGIES:
-      logging.error("Trying {0}".format(strategy))
       results = strategy(self, query, filter_info, order_info)
       if results:
         break
@@ -2742,7 +2843,6 @@ class DatastoreDistributed():
       query: The query to run.
       query_result: The response given to the application server.
     """
-    logging.error("Query: {0}".format(query))
     result = self.__get_query_results(query)
     count = 0
     offset = query.offset()
@@ -2807,7 +2907,7 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    logging.error("Doing a rollback on transaction id {0} for app id {1}"
+    logging.warning("Doing a rollback on transaction id {0} for app id {1}"
       .format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
@@ -3119,7 +3219,6 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.CompositeIndices()
     try:
       indices = datastore_access.get_indices(app_id)
-      logging.error("GET INDICES {0}".format(indices))
     except dbconstants.AppScaleDBConnectionError, dbce:
       logging.error("Connection issue with datastore for app id {0}, " \
         "info {1}".format(app_id, str(dbce)))
@@ -3132,7 +3231,6 @@ class MainHandler(tornado.web.RequestHandler):
       #new_index.set_state(datastore_pb.CompositeIndex.READ_WRITE)
       #new_definition = new_index.mutable_definition()
       #new_definition.ParseFromString(index)
-    logging.error("Get index: {0}".format(response))
     return (response.Encode(), 0, "")
 
   def allocate_ids_request(self, app_id, http_request_data):

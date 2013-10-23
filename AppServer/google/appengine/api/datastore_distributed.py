@@ -394,8 +394,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     logging.info("Index to use: {0}".format(index_to_use))
     if index_to_use != None:
       logging.info("Index used: {0}".format(indexes[index_to_use]))
-
+      new_index = query.add_composite_index()
+      new_index.MergeFrom(indexes[index_to_use])
+    logging.info("Query being sent: {0}".format(query))
     self._RemoteSend(query, query_response, "RunQuery")
+    logging.info("Result from query: {0}".format(query_response))
 
     skipped_results = 0
     if query_response.has_skipped_results():
