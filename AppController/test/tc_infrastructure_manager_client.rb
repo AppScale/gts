@@ -41,6 +41,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'cloud' => 'cloud1',
         'use_spot_instances' => true,
         'max_spot_price' => 1.23,
+        'region' => 'my-zone-1',
         'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
@@ -88,6 +89,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_url' => 'booec2url',
       'use_spot_instances' => true,
       'max_spot_price' => 1.23,
+      'region' => 'my-zone-1',
       'zone' => 'my-zone-1b'
     }
   
@@ -123,6 +125,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'cloud' => 'cloud1',
         'use_spot_instances' => false,
         'max_spot_price' => nil,
+        'region' => 'my-zone-1',
         'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
@@ -169,6 +172,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_secret_key' => 'boosecret',
       'ec2_url' => 'booec2url',
       'use_spot_instances' => false,
+      'region' => 'my-zone-1',
       'zone' => 'my-zone-1b'
     }
   
@@ -217,6 +221,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'cloud' => 'cloud1',
         'use_spot_instances' => nil,
         'max_spot_price' => nil,
+        'region' => nil,
         'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
