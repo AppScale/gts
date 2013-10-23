@@ -153,13 +153,12 @@ class TestAppManager(unittest.TestCase):
     self.assertEqual("127.0.0.1", app_manager_server.choose_db_location(db_locations))
     db_locations = ['127.0.0.1', '127.0.0.2']
     assert  app_manager_server.choose_db_location(db_locations) in db_locations
-    self.assertRaises(ValueError, app_manager_server.choose_db_location, [])            
+    self.assertRaises(ValueError, app_manager_server.choose_db_location, [])
 
   def test_create_python_app_env(self):
-    env_vars = app_manager_server.create_python_app_env('1', '2', '3') 
+    env_vars = app_manager_server.create_python_app_env('1', '2')
     self.assertEqual('1', env_vars['MY_IP_ADDRESS'])
-    self.assertEqual('2', env_vars['MY_PORT'])
-    self.assertEqual('3', env_vars['APPNAME'])
+    self.assertEqual('2', env_vars['APPNAME'])
     assert 'appscale' in env_vars['APPSCALE_HOME']
     assert 0 < int(env_vars['GOMAXPROCS'])
 
@@ -178,7 +177,6 @@ class TestAppManager(unittest.TestCase):
     cmd = app_manager_server.create_java_start_cmd(app_id,
                                             '20000',
                                             '127.0.0.2',
-                                            '8080',
                                             db_locations)
     assert fake_secret in cmd
     assert app_id in cmd
