@@ -2233,6 +2233,7 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
+    Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
     get_scaling_info_for_app(app_id)
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
     HAProxy.update_app_config(my_node.private_ip, app_id,
@@ -2273,6 +2274,7 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
+    Djinn.log_debug("Removing AppServer for app #{app_id} at #{ip}:#{port}")
     get_scaling_info_for_app(app_id)
     @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
     HAProxy.update_app_config(my_node.private_ip, app_id,
@@ -4856,6 +4858,21 @@ HOSTS
 
     remove_app_hosting_data_for_node(node_to_remove.public_ip)
     remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
+
+    @app_info_map.each { |app_id, info|
+      if info['appengine'].nil?
+        next
+      end
+
+      info['appengine'].each { |location|
+        host, port = location.split(":")
+        if host == node_to_remove.private_ip
+          remove_appserver_from_haproxy(app_id, host, port, @@secret)
+          delete_instance_from_dashboard(app_id, "#{host}:#{port}")
+        end
+      }
+    }
+
     imc = InfrastructureManagerClient.new(@@secret)
     imc.terminate_instances(@creds, node_to_remove.instance_id)
     regenerate_nginx_config_files()
