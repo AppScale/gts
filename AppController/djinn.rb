@@ -2237,6 +2237,7 @@ class Djinn
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
+    get_scaling_info_for_app(app_id, update_dashboard=false)
 
     return "OK"
   end
@@ -2276,6 +2277,7 @@ class Djinn
     @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
+    get_scaling_info_for_app(app_id, update_dashboard=false)
 
     return "OK"
   end
@@ -4391,7 +4393,7 @@ HOSTS
   # and how many requests are served at a given time. Based on this information,
   # this method reports whether or not AppServers should be added, removed, or
   # if no changes are needed.
-  def get_scaling_info_for_app(app_name)
+  def get_scaling_info_for_app(app_name, update_dashboard=true)
     Djinn.log_debug("Getting scaling info for application #{app_name}")
   
     # Now see how many requests came in for our app and how many are enqueued
@@ -4428,7 +4430,8 @@ HOSTS
       return :no_change
     end
 
-    update_request_info(app_name, total_requests_seen, time_requests_were_seen)
+    update_request_info(app_name, total_requests_seen, time_requests_were_seen,
+      update_dashboard)
 
     if total_req_in_queue.zero?
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
@@ -4461,7 +4464,8 @@ HOSTS
   #     occurs when we start the app or add/remove AppServers).
   #   time_requests_were_seen: An Integer that represents the epoch time when we
   #     got request info from haproxy.
-  def update_request_info(app_name, total_requests_seen, time_requests_were_seen)
+  def update_request_info(app_name, total_requests_seen,
+    time_requests_were_seen, update_dashboard)
     Djinn.log_debug("Time now is #{time_requests_were_seen}, last " +
       "time was #{@last_sampling_time[app_name]}")
     Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
@@ -4480,8 +4484,11 @@ HOSTS
       return
     end
 
-    send_request_info_to_dashboard(app_name, time_requests_were_seen,
-      average_request_rate)
+    if update_dashboard
+      send_request_info_to_dashboard(app_name, time_requests_were_seen,
+        average_request_rate)
+    end
+
     Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
       "for app #{app_name}, with last sampling time #{time_requests_were_seen}")
     @total_req_rate[app_name] = total_requests_seen
