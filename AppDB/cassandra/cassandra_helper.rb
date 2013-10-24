@@ -2,6 +2,7 @@
 require 'djinn'
 require 'djinn_job_data'
 require 'helperfunctions'
+require 'monit_interface'
 
 
 # A Fixnum that indicates which port the Thrift service binds to, by default.
@@ -142,23 +143,26 @@ def start_cassandra()
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
 
-  Djinn.log_run("#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}")
+  # TODO: Consider a more graceful stop command than this, which does a kill -9.
+  start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
+  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py java cassandra"
+  match_cmd = "/root/appscale/AppDB/cassandra"
+  MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
+    remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip,
     THRIFT_PORT)
 end
 
 
 # Kills Cassandra on this machine.
-# TODO: Consider a more graceful way to do this.
 def stop_db_master
   Djinn.log_info("Stopping Cassandra master")
-  Djinn.log_run("cat #{PID_FILE} | xargs kill -9")
+  MonitInterface.stop(:cassandra)
 end
 
 
 # Kills Cassandra on this machine.
-# TODO: Consider a more graceful way to do this.
 def stop_db_slave
   Djinn.log_info("Stopping Cassandra slave")
-  Djinn.log_run("cat #{PID_FILE} | xargs kill -9")
+  MonitInterface.stop(:cassandra)
 end

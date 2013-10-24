@@ -915,14 +915,16 @@ class Djinn
   # Upload a Google App Engine application into this AppScale deployment.
   # 
   # Args:
-  #   tgz_file: A String, with the path to the tar.gz file containing the app.
+  #   archived_file: A String, with the path to the compressed file containing
+  #     the app.
+  #   file_suffix: A String indicating what suffix the file should have.
   #   email: A String with the email address of the user that will own this app.
   #   secret: A String with the shared key for authentication.
   # Returns:
   #   A JSON-dumped Hash with fields indicating if the upload process began
   #   successfully, and a reservation ID that can be used with
   #   get_app_upload_status to see if the app has successfully uploaded or not.
-  def upload_tgz_file(tgz_file, email, secret)
+  def upload_app(archived_file, file_suffix, email, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
@@ -930,18 +932,22 @@ class Djinn
     reservation_id = HelperFunctions.get_random_alphanumeric()
     @app_upload_reservations[reservation_id] = {'status' => 'starting'}
 
+    Djinn.log_debug("Received a request to upload app at #{archived_file}, with suffix #{file_suffix}, with admin user #{email}.")
+
     Thread.new {
-      if !tgz_file.match(TAR_GZ_REGEX)
-        tgz_file_old = tgz_file
-        tgz_file = "#{tgz_file_old}.tar.gz"
-        File.rename(tgz_file_old, tgz_file)
+      if !archived_file.match(/#{file_suffix}$/)
+        archived_file_old = archived_file
+        archived_file = "#{archived_file_old}.#{file_suffix}"
+        Djinn.log_debug("Renaming #{archived_file_old} to #{archived_file}")
+        File.rename(archived_file_old, archived_file)
       end
 
+      Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @creds['keyname']
       command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-        "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
+        "#{archived_file} --email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
-      File.delete(tgz_file)
+      File.delete(archived_file)
       if output.include?("Your app can be reached at the following URL")
         result = "true"
       else
