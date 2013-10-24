@@ -400,6 +400,8 @@ def create_java_start_cmd(app_name,
   """
   db_location = choose_db_location(db_locations)
 
+  # The Java AppServer needs the NGINX_PORT flag set so that it will read the
+  # local FS and see what port it's running on. The value doesn't matter.
   cmd = ["cd " + constants.JAVA_APPSERVER + " &&",
              "./genKeystore.sh &&",
              "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
@@ -414,6 +416,7 @@ def create_java_start_cmd(app_name,
              "--appscale_version=1",
              "--APP_NAME=" + app_name,
              "--NGINX_ADDRESS=" + load_balancer_host,
+             "--NGINX_PORT=anything",
              "/var/apps/" + app_name +"/app/war/",
              ]
 
