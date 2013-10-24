@@ -26,7 +26,7 @@ case "$1" in
       rm -rf /etc/monit/conf.d/*.cfg
       cp /root/appscale/AppController/appcontroller.cfg /etc/monit/conf.d/
       sleep 5
-      monit
+      /usr/local/bin/monit -Ic /etc/monitrc &
     else
       log_begin_msg "AppController already running - not starting it again."
     fi
