@@ -337,7 +337,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
           new_composite = put_request.add_composite_index()
           new_composite.CopyFrom(index)
 
-    logging.info("Sening indxes %s" % str(put_request))
     self._RemoteSend(put_request, put_response, "Put")
     return put_response 
 
@@ -382,8 +381,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     # Set the composite index if it applies.
     indexes = []
-    logging.info("Query: {0}".format(query))
-    logging.info("Index cache: {0}".format(self.__index_cache))
     if query.has_kind():
       kind_indexes = self.__index_cache.get(query.kind())
       if kind_indexes:
@@ -391,14 +388,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
    
     index_to_use = _FindIndexToUse(query, indexes)
        
-    logging.info("Index to use: {0}".format(index_to_use))
     if index_to_use != None:
-      logging.info("Index used: {0}".format(indexes[index_to_use]))
       new_index = query.add_composite_index()
       new_index.MergeFrom(indexes[index_to_use])
-    logging.info("Query being sent: {0}".format(query))
     self._RemoteSend(query, query_response, "RunQuery")
-    logging.info("Result from query: {0}".format(query_response))
 
     skipped_results = 0
     if query_response.has_skipped_results():
@@ -686,9 +679,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              'New index id must be 0.')
-    logging.info("Create index: %s" % str(index))
     self._RemoteSend(index, id_response, "CreateIndex")
-    logging.info("Response: %s" % id_response.value())
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
@@ -697,20 +688,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     Args:
       app_str: A api_base_pb.StringProto, the application identifier.
       composite_indices: datastore_pb.CompositeIndices protocol buffer."""
-    logging.info("Get indices: %s" % str(app_str))
     self._RemoteSend(app_str, composite_indices, "GetIndices")
-    logging.info("Response: %s" % str(composite_indices))
     return composite_indices
 
   def _Dynamic_UpdateIndex(self, index, void):
     """ Updates the indices of the current app. Currently stubbed out. """
-    logging.info("Update index: %s" % str(index))
     self._RemoteSend(index, void, "UpdateIndex")
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
     """ Deletes an index of the current app. Currently stubbed out. """
-    logging.info("Delete index: %s" % str(index))
     self._RemoteSend(index, void, "DeleteIndex")
     return void
 
@@ -725,7 +712,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if not self.__root_path:
       logging.warning("No index.yaml was loaded.")
       return
-    logging.info("root path: {0}".format(self.__root_path))
     index_yaml_file = os.path.join(self.__root_path, 'index.yaml')
     if (self.__cached_yaml[0] == index_yaml_file and
         os.path.exists(index_yaml_file) and
@@ -743,7 +729,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
           index_yaml_data = fh.read()
         finally:
           fh.close()
-      logging.info("Index yaml data: {0}".format(index_yaml_data))
       requested_indexes = []
       if index_yaml_data is not None:
         index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
@@ -754,7 +739,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
           self.__cached_yaml = (index_yaml_file, index_yaml_mtime,
                                requested_indexes)
      
-    logging.info("Requested indexes: %s" % str(requested_indexes))
     existing_indexes = datastore_pb.CompositeIndices()
     app_str = api_base_pb.StringProto()
     app_str.set_value(self.__app_id)
@@ -778,14 +762,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       ent_kind = new_index.definition().entity_type()
       if ent_kind in self.__index_cache:
         new_indexes = self.__index_cache[ent_kind]
-        logging.info("updated new_indexes: %s" % str(new_indexes))
-        logging.info("updated new_index:  %s" % str(new_index))
         new_indexes.append(new_index)
         self.__index_cache[ent_kind] = new_indexes
       else:
         self.__index_cache[ent_kind] = [new_index]
   
-    logging.info("Index cache %s" % str(self.__index_cache))
     # Compared the existing indexes to the requested ones and create any
     # new indexes requested.
     created = 0
@@ -800,11 +781,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         created += 1
   
         ent_kind = new_index.definition().entity_type()
-        logging.info("Index cache %s" % str(self.__index_cache))
         if ent_kind in self.__index_cache:
           new_indexes = self.__index_cache[ent_kind]
-          logging.info("new_indexes: %s" % str(new_indexes))
-          logging.info("new_index:  %s" % str(new_index))
      
           new_indexes.append(new_index)
           self.__index_cache[ent_kind] = new_indexes
@@ -836,25 +814,22 @@ def _FindIndexToUse(query, indexes):
   required, kind, ancestor, _= \
     (datastore_index.CompositeIndexForQuery(query))
 
+  if not required:
+    return None
+
   # Prefix props are those we are matching based on equality filters.
   prefix_props = _GetPrefixProps(query) 
-  logging.info("Prefix props: {0}".format(prefix_props))
   # The postfix prop is based on the inequality filter.
   postfix_prop = _GetPostfixProps(query)
-  logging.info("Postfix props: {0}".format(postfix_prop))
 
-  logging.info("Ancestor: {0}".format(ancestor))
   if not required:
     return None
   for ii, index in enumerate(indexes):
     index_def = index.definition()
-    logging.info("Index: {0} def: {1}".format(index, index_def))
     if ancestor != index_def.ancestor():
-      logging.info("Index did match ancestor requirement")
       continue
     # The one here is the post_fix_prop size.
     if index_def.property_size() != len(prefix_props) + 1:
-      logging.info("Not enough props")
       continue
 
     for index, prop_item in enumerate(index_def.property_list()):
@@ -862,17 +837,13 @@ def _FindIndexToUse(query, indexes):
       if index_def.property_size() == 1 + index:
         if prop_item.name() == postfix_prop[0] and \
           prop_item.direction() == postfix_prop[1]:
-          logging.info("found a match!")
           return ii 
         else:
-          logging.info("Postfix did not match for {0}".format(prop_item.name()))
           # Break to the outer for loop.
           break
       if prop_item.name() == prefix_props[index]:
-        logging.info("Prefix match for {0}".format(prop_item.name()))
         continue
       else:
-        logging.info("Prefix did not match for name: {0}".format(prop_item.name()))
         break
 
   return None
