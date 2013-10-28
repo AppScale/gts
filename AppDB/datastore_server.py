@@ -550,6 +550,8 @@ class DatastoreDistributed():
                 to create index entries for.
       composite_indexes: A list of datastore_pb.CompositeIndex.
     """
+    if not composite_indexes:
+      return
     row_keys = []
     row_values = {}
     # Create default composite index for all entities. Here we take each
