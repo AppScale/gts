@@ -71,6 +71,7 @@ def start(watch):
     return False
 
   logging.info("Starting watch {0}".format(watch))
+  run_with_retry([MONIT, 'monitor', '-g', watch])
   return run_with_retry([MONIT, 'start', '-g', watch])
 
 def stop(watch, is_group=True):
