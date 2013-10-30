@@ -807,9 +807,6 @@ def _FindIndexToUse(query, indexes):
   if not query.has_kind():
     return None
 
-  #kind = query.kind()
-  #has_ancestor = query.has_ancestor()
- 
   # Not getting the property field because it is returned in a complicated
   # format.
   required, kind, ancestor, _= \
