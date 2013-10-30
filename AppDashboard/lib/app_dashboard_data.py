@@ -533,6 +533,13 @@ class AppDashboardData():
         elif app_names_and_urls[app_name]:
           app_names_to_add.append(app_name)
 
+      # Also add in apps that have been relocated, since we need to update the
+      # URL that the user can access the app at.
+      for app in all_apps:
+        if app.key.id() in all_app_names_are_running and \
+          app.url != app_names_and_urls[app.key.id()]:
+          app_names_to_add.append(app_name)
+
       if app_names_to_add:
         apps_to_add = [AppStatus(id=app, name=app, url=app_names_and_urls[app])
           for app in app_names_to_add]
