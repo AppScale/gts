@@ -170,7 +170,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.__require_indexes = require_indexes
     self.__root_path = root_path + self.__app_id + "/app"
     self.__cached_yaml = (None, None, None)
-    self._SetupIndexes()
+    if require_indexes:
+      self._SetupIndexes()
 
   def Clear(self):
     """ Clears the datastore by deleting all currently stored entities and
