@@ -522,7 +522,7 @@ class AppDashboardData():
         apps_to_delete = []
         for app in all_apps:
           if app.name in app_names_to_delete:
-            apps_to_delete.append(app)
+            apps_to_delete.append(app.key)
         ndb.delete_multi(apps_to_delete)
 
       # Add in new apps that are now running.
