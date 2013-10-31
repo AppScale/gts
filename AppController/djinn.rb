@@ -2233,12 +2233,35 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
+    if @app_info_map[app_id].nil?
+      is_new_app = true
+    else
+      is_new_app = false
+    end
+
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
-    get_scaling_info_for_app(app_id)
+
+    # In multinode deployments, the login node tends to get the app after the
+    # appengine nodes. This means that the appengine nodes will call this method
+    # before the login node actually has set up ports for it. In that case, we
+    # should grab nginx and haproxy ports for the app here.
+    if is_new_app
+      @app_info_map[app_id] = {}
+      @app_info_map[app_id]['nginx'], @app_info_map[app_id]['haproxy'] = get_nginx_and_haproxy_ports()
+      @app_info_map[app_id]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app_id]['nginx'])
+      @app_info_map[app_id]['appengine'] = []
+    else
+      get_scaling_info_for_app(app_id)
+    end
+
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
-    get_scaling_info_for_app(app_id, update_dashboard=false)
+
+    if !is_new_app
+      get_scaling_info_for_app(app_id, update_dashboard=false)
+    end
 
     return "OK"
   end
@@ -4397,15 +4420,22 @@ HOSTS
   # if no changes are needed.
   def get_scaling_info_for_app(app_name, update_dashboard=true)
     Djinn.log_debug("Getting scaling info for application #{app_name}")
-  
-    # Now see how many requests came in for our app and how many are enqueued
-    monitor_cmd = "echo \"show info;show stat\" | " +
-      "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}"
 
     total_requests_seen = 0
     total_req_in_queue = 0
     time_requests_were_seen = 0
-    Djinn.log_run(monitor_cmd).each { |line|
+
+    # Now see how many requests came in for our app and how many are enqueued
+    monitoring_info = Djinn.log_run("echo \"show info;show stat\" | " +
+      "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}")
+
+    if monitoring_info.empty?
+      Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
+        "be running.")
+      return :no_change
+    end
+
+    monitoring_info.each { |line|
       parsed_info = line.split(',')
       if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
         next
