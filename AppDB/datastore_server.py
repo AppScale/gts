@@ -546,8 +546,7 @@ class DatastoreDistributed():
     """ Creates composite indexes for a set of entities.
 
     Args:
-      entities: A list of tuples of prefix and entities 
-                to create index entries for.
+      entities: A list entities.
       composite_indexes: A list of datastore_pb.CompositeIndex.
     """
     if not composite_indexes:
@@ -661,7 +660,7 @@ class DatastoreDistributed():
   
     Args:
       app_id: A string representing the application identifier.
-      index: A entity_pb.Index object.
+      index: A entity_pb.CompositeIndex object.
     Returns:
       A unique number representing the composite index ID.
     """
