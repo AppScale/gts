@@ -4611,7 +4611,7 @@ HOSTS
     Djinn.log_debug("Considering removing an AppServer from host " +
       "#{appserver_to_use}, as it runs #{highest_appserver_ports} AppServers.")
     appservers_running.each { |host, ports|
-      if ports.length > highest_appserver_ports and ports.length < MIN_APPSERVERS_ON_THIS_NODE
+      if ports.length > highest_appserver_ports and ports.length > MIN_APPSERVERS_ON_THIS_NODE
         appserver_to_use = host
         highest_appserver_ports = ports.length
         Djinn.log_debug("Instead considering removing an AppServer from host " +
