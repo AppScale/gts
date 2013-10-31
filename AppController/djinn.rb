@@ -79,6 +79,11 @@ BAD_SECRET_MSG = "false: bad secret"
 NO_HAPROXY_PRESENT = "false: haproxy not running"
 
 
+# The String that should be returned to callers if they attempt to add
+# AppServers for an app that does not yet have nginx and haproxy set up.
+NOT_READY = "false: not ready yet"
+
+
 # Regular expression to determine if a file is a .tar.gz file.
 TAR_GZ_REGEX = /\.tar\.gz$/
 
@@ -2224,6 +2229,8 @@ class Djinn
   #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
   #     add AppServers to HAProxy config files).
+  #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
+  #     it and nginx yet. Callers should retry at a later time.
   def add_appserver_to_haproxy(app_id, ip, port, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -2233,35 +2240,16 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
-    if @app_info_map[app_id].nil?
-      is_new_app = true
-    else
-      is_new_app = false
+    if @app_info_map[app_id].nil? or @app_info_map[app_id]['appengine'].nil?
+      return NOT_READY
     end
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
-
-    # In multinode deployments, the login node tends to get the app after the
-    # appengine nodes. This means that the appengine nodes will call this method
-    # before the login node actually has set up ports for it. In that case, we
-    # should grab nginx and haproxy ports for the app here.
-    if is_new_app
-      @app_info_map[app_id] = {}
-      @app_info_map[app_id]['nginx'], @app_info_map[app_id]['haproxy'] = get_nginx_and_haproxy_ports()
-      @app_info_map[app_id]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app_id]['nginx'])
-      @app_info_map[app_id]['appengine'] = []
-    else
-      get_scaling_info_for_app(app_id)
-    end
-
+    get_scaling_info_for_app(app_id)
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
-
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
-
-    if !is_new_app
-      get_scaling_info_for_app(app_id, update_dashboard=false)
-    end
+    get_scaling_info_for_app(app_id, update_dashboard=false)
 
     return "OK"
   end
@@ -4138,9 +4126,13 @@ HOSTS
       maybe_start_taskqueue_worker(app)
     end
 
-    if is_new_app and @app_info_map[app]['nginx'].nil?
-      @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
-      @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app]['nginx'])
+    if is_new_app
+      if @app_info_map[app]['nginx'].nil?
+        @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
+        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app]['nginx'])
+      end
+
+      @app_info_map[app]['appengine'] = []
     end
 
     # Only take a new port for this application if there's no data about
@@ -4203,7 +4195,6 @@ HOSTS
       # TODO(cgb): What happens if the user updates their env vars between app
       # deploys?
       if is_new_app
-        @app_info_map[app]['appengine'] = []
         @num_appengines.times { |index|
           appengine_port = get_appengine_port()
           Djinn.log_info("Starting #{app_language} app #{app} on " +
@@ -4223,7 +4214,19 @@ HOSTS
           # Tell the AppController at the login node (which runs HAProxy) that a
           # new AppServer is running.
           acc = AppControllerClient.new(get_login.private_ip, @@secret)
-          acc.add_appserver_to_haproxy(app, my_node.private_ip, appengine_port)
+          loop {
+            result = acc.add_appserver_to_haproxy(app, my_node.private_ip,
+              appengine_port)
+            if result == NOT_READY
+              Djinn.log_info("Login node is not yet ready for AppServers to " +
+                "be added - trying again momentarily.")
+              Kernel.sleep(5)
+            else
+              Djinn.log_info("Successfully informed login node about new " +
+                "AppServer for #{app} on port #{appengine_port}.")
+              break
+            end
+          }
         }
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
@@ -4546,19 +4549,35 @@ HOSTS
       appservers_running[host] << port
     }
 
-    # Add an AppServer on the first machine where room is available.
+    # Add an AppServer on the machine with the lowest number of AppServers
+    # running.
+    appserver_to_use = appservers_running.keys[0]
+    lowest_appserver_ports = appservers_running.values[0].length
+    Djinn.log_debug("Considering adding an AppServer to host " +
+      "#{appserver_to_use}, as it runs #{lowest_appserver_ports} AppServers.")
     appservers_running.each { |host, ports|
-      if ports.length >= MAX_APPSERVERS_ON_THIS_NODE
-        Djinn.log_info("The maximum number of AppServers for this app " +
-          "are already running on #{host}, so trying a different machine.")
-      else
-        Djinn.log_info("Adding a new AppServer on #{host} for #{app_name}")
-        acc = AppControllerClient.new(host, @@secret)
-        acc.add_appserver_process(app_name)
-        @last_decision[app_name] = Time.now.to_i
-        return
+      if ports.length < lowest_appserver_ports and ports.length < MAX_APPSERVERS_ON_THIS_NODE
+        appserver_to_use = host
+        lowest_appserver_ports = ports.length
+        Djinn.log_debug("Instead considering adding an AppServer to host " +
+          "#{appserver_to_use}, as it runs #{lowest_appserver_ports} " +
+          "AppServers.")
       end
     }
+
+    # Only add an AppServer there if there's room available.
+    Djinn.log_debug("The machine running the lowest number of AppServers is " +
+      "#{appserver_to_use}, running #{lowest_appserver_ports} AppServers.")
+    if lowest_appserver_ports >= MAX_APPSERVERS_ON_THIS_NODE
+      Djinn.log_info("The maximum number of AppServers for this app " +
+        "are already running on all machines, so requesting a new machine.")
+    else
+      Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
+      acc = AppControllerClient.new(appserver_to_use, @@secret)
+      acc.add_appserver_process(app_name)
+      @last_decision[app_name] = Time.now.to_i
+      return
+    end
 
     # If we're this far, no room is available for AppServers, so try to add a
     # new node instead.
@@ -4585,19 +4604,37 @@ HOSTS
       appservers_running[host] << port
     }
 
+    # Add an AppServer on the machine with the highest number of AppServers
+    # running.
+    appserver_to_use = appservers_running.keys[0]
+    highest_appserver_ports = appservers_running.values[0].length
+    Djinn.log_debug("Considering removing an AppServer from host " +
+      "#{appserver_to_use}, as it runs #{highest_appserver_ports} AppServers.")
     appservers_running.each { |host, ports|
-      if ports.length <= MIN_APPSERVERS_ON_THIS_NODE
-        Djinn.log_debug("The minimum number of AppServers for this app " +
-          "are already running, so don't remove any more off #{host}.")
-      else
-        # Select a random AppServer to kill.
-        port = ports[rand(ports.length)]
-        Djinn.log_info("Removing an AppServer on #{host} for #{app_name}")
-        acc = AppControllerClient.new(host, @@secret)
-        acc.remove_appserver_process(app_name, port)
-        @last_decision[app_name] = Time.now.to_i
+      if ports.length > highest_appserver_ports and ports.length < MIN_APPSERVERS_ON_THIS_NODE
+        appserver_to_use = host
+        highest_appserver_ports = ports.length
+        Djinn.log_debug("Instead considering removing an AppServer from host " +
+          "#{appserver_to_use}, as it runs #{highest_appserver_ports} " +
+          "AppServers.")
       end
     }
+
+    # Only remove an AppServer there if it's not the last AppServer.
+    Djinn.log_debug("The machine running the highest number of AppServers is " +
+      "#{appserver_to_use}, running #{highest_appserver_ports} AppServers.")
+    if highest_appserver_ports <= MIN_APPSERVERS_ON_THIS_NODE
+      Djinn.log_info("The minimum number of AppServers for this app " +
+        "are already running on all machines, so requesting less machines.")
+    else
+      ports = appservers_running[appserver_to_use]
+      port = ports[rand(ports.length)]
+      Djinn.log_info("Removing a new AppServer from #{appserver_to_use} for #{app_name}")
+      acc = AppControllerClient.new(appserver_to_use, @@secret)
+      acc.remove_appserver_process(app_name, port)
+      @last_decision[app_name] = Time.now.to_i
+      return
+    end
 
     # If we're this far, nobody can scale down, so try to remove a node instead.
     ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
