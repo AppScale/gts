@@ -60,7 +60,7 @@ class ApiChecker
     # TODO: tell the tools to disallow uploading apps called 'apichecker'
     # and start_appengine to do the same
 
-    num_servers = 3
+    num_servers = 1
     app_number = -1
     app = "apichecker"
     app_language = "python27"
