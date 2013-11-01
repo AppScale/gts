@@ -2,21 +2,12 @@ require 'rubygems'
 require 'rake'
 require 'rake/rdoctask'
 require 'rake/testtask'
-require 'rcov/rcovtask'
 
 
 namespace :appcontroller do
 
 
   APPCONTROLLER_TEST_SUITE = "AppController/test/ts_all.rb"
-
-
-  desc "Generates AppController code coverage statistics"
-  Rcov::RcovTask.new(:coverage) { |t|
-    t.test_files = FileList[APPCONTROLLER_TEST_SUITE]
-    t.output_dir = "AppController/coverage"
-    t.rcov_opts << "-x #{APPCONTROLLER_TEST_SUITE} -x ~/.rvm -x /usr/local/lib/site_ruby/1.8/rubygems/gem_path_searcher.rb"
-  }
 
 
   desc "Generates AppController rdoc"

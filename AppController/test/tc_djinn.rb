@@ -70,6 +70,10 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '', 
       @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.add_appserver_to_haproxy(@app, 'baz',
+      'baz', @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.remove_appserver_from_haproxy(@app,
+      'baz', 'baz', @secret))
   end
 
 

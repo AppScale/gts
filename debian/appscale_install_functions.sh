@@ -20,6 +20,11 @@ export APPSCALE_VERSION=1.11.0
 
 increaseconnections()
 {
+    echo "ip_conntrack" >> /etc/modules
+    modprobe ip_conntrack
+
+    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
+    echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
     echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
