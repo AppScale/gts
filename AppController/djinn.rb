@@ -4647,8 +4647,9 @@ HOSTS
   # this somehow
   #
   # Args:
-  #   app: Name of the application for which we're adding a process instance
-  #
+  #   app_id: A String naming the application that an additional instance will
+  #     be added for.
+  #   secret: A String that is used to authenticate the caller.
   def add_appserver_process(app_id, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -4712,9 +4713,10 @@ HOSTS
   # Terminates a random AppServer that hosts the specified App Engine app.
   #
   # Args:
-  #   app: The name of the application for which we're removing a 
-  #        process instance
-  #
+  #   app_id: A String naming the application that a process will be removed
+  #     from.
+  #   port: A Fixnum that names the port of the AppServer to remove.
+  #   secret: A String that is used to authenticate the caller.
   def remove_appserver_process(app_id, port, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
