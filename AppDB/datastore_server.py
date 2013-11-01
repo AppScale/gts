@@ -378,8 +378,12 @@ class DatastoreDistributed():
     row_keys = []
     for ent in entities:
       for index_def in composite_indexes:
+        kind = self.get_entity_kind(ent.key())
+        if index_def.definition().entity_type() != kind:
+          continue
         composite_index_key = self.get_composite_index_key(index_def, ent)  
         row_keys.append(composite_index_key)
+
     self.datastore_batch.batch_delete(dbconstants.COMPOSITE_TABLE, 
                                       row_keys, 
                                       column_names=dbconstants.COMPOSITE_SCHEMA)
@@ -557,6 +561,11 @@ class DatastoreDistributed():
     # of the properties in one 
     for ent in entities:
       for index_def in composite_indexes:
+        # Skip any indexes if the kind does not match.
+        kind = self.get_entity_kind(ent.key())
+        if index_def.definition().entity_type() != kind:
+          continue
+  
         # Get the composite index key.
         composite_index_key = self.get_composite_index_key(index_def, ent)  
         row_keys.append(composite_index_key)
@@ -1368,6 +1377,12 @@ class DatastoreDistributed():
     if not keys:
       return
 
+    ent_kinds = []
+    for key in delete_request.key_list():
+      last_path = key.path().element_list()[-1]
+      if last_path.type() not in ent_kinds:
+        ent_kinds.append(last_path.type())
+
     if delete_request.has_transaction():
       txn_hash = self.acquire_locks_for_trans(keys, 
         delete_request.transaction().handle())
@@ -1375,8 +1390,24 @@ class DatastoreDistributed():
       txn_hash = self.acquire_locks_for_nontrans(app_id, keys, 
         retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
 
+    # We use the marked changes field to signify if we should 
+    # look up composite indexes because delete request do not
+    # include that information.
+    composite_indexes = []
+    filtered_indexes = []
+    if delete_request.has_mark_changes():
+      all_composite_indexes = self.get_indices(app_id)
+      for index in all_composite_indexes:
+        new_index = entity_pb.CompositeIndex()
+        new_index.ParseFromString(index)
+        composite_indexes.append(new_index)
+      # Only get composites of the correct kinds.
+      for index in composite_indexes:
+        if index.definition().entity_type() in ent_kinds:
+          filtered_indexes.append(index)
+ 
     self.delete_entities(app_id, delete_request.key_list(), txn_hash, 
-      soft_delete=True)
+      composite_indexes=filtered_indexes, soft_delete=True)
 
     if not delete_request.has_transaction():
       self.release_locks_for_nontrans(app_id, keys, txn_hash)
@@ -3288,8 +3319,6 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse()
-    if app_id not in ["apichecker", "appscaledashboard"]:
-      logging.error("PUT request: {0}".format(putreq_pb)) 
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
     except ZKInternalException, zkie:

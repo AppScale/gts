@@ -26,7 +26,7 @@ import collections
 import datetime
 import logging
 import os
-import random
+
 import sys
 import threading
 import warnings
@@ -349,6 +349,25 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_Delete(self, delete_request, delete_response):
     """Send a delete request to the datastore server. """
+    # Determine if there are composite indexes that need to be deleted.
+    # The datastore service will look up meta data to figure out which
+    # composite indexes apply.
+    ent_kinds = []
+    for key in delete_request.key_list():
+      last_path = key.path().element_list()[-1]
+      if last_path.type() not in ent_kinds:
+        ent_kinds.append(last_path.type())
+ 
+    has_composites = False
+    for kind in ent_kinds:
+      indexes = self.__index_cache.get(kind)
+      if indexes:
+        has_composites = True
+        break
+
+    if has_composites:
+      delete_request.set_mark_changes(True)
+
     delete_request.set_trusted(self.__trusted)
     self._RemoteSend(delete_request, delete_response, "Delete")
     return delete_response
