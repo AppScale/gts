@@ -4126,6 +4126,8 @@ HOSTS
         @app_info_map[app]['nginx'] = find_lowest_free_port(Nginx::START_PORT)
         @app_info_map[app]['haproxy'] = find_lowest_free_port(
           HAProxy::START_PORT)
+        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(
+          @app_info_map[app]['nginx'])
       end
 
       @app_info_map[app]['appengine'] = []
