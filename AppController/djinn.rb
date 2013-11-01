@@ -3071,8 +3071,7 @@ class Djinn
         'nginx' => ApiChecker::SERVER_PORT,
         'nginx_https' => Nginx.get_ssl_port_for_app(ApiChecker::SERVER_PORT),
         'haproxy' => HAProxy.app_listen_port(-1),
-        'appengine' => ["#{apichecker_private_ip}:19997",
-          "#{apichecker_private_ip}:19998", "#{apichecker_private_ip}:19999"],
+        'appengine' => ["#{apichecker_private_ip}:19999"],
         'language' => 'python27'
       }
     end
