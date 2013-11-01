@@ -474,8 +474,6 @@ class Djinn
     @kill_sig_received = false
     @done_initializing = false
     @done_loading = false
-    @nginx_port = Nginx::START_PORT
-    @haproxy_port = HAProxy::START_PORT
     @userappserver_public_ip = "not-up-yet"
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
@@ -2450,8 +2448,6 @@ class Djinn
 
     # Similarly, if the machine was halted, then no App Engine apps are
     # running, so we need to start them all back up again.
-    json_state['@nginx_port'] = Nginx::START_PORT
-    json_state['@haproxy_port'] = HAProxy::START_PORT
     json_state['@apps_loaded'] = []
 
     return json_state
@@ -4127,8 +4123,9 @@ HOSTS
 
     if is_new_app
       if @app_info_map[app]['nginx'].nil?
-        @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
-        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@app_info_map[app]['nginx'])
+        @app_info_map[app]['nginx'] = find_lowest_free_port(Nginx::START_PORT)
+        @app_info_map[app]['haproxy'] = find_lowest_free_port(
+          HAProxy::START_PORT)
       end
 
       @app_info_map[app]['appengine'] = []
@@ -4195,7 +4192,7 @@ HOSTS
       # deploys?
       if is_new_app
         @num_appengines.times { |index|
-          appengine_port = get_appengine_port()
+          appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
           Djinn.log_info("Starting #{app_language} app #{app} on " +
             "#{HelperFunctions.local_ip}:#{appengine_port}")
 
@@ -4254,18 +4251,17 @@ HOSTS
   end
 
 
-  # Finds the lowest numbered port that is free to serve a new dev_appserver
-  # process.
+  # Finds the lowest numbered port that is free to serve a new process.
   #
   # Callers should make sure to store the port returned by this process in
   # @app_info_map, preferably within the use of the APPS_LOCK (so that a
   # different caller doesn't get the same value).
   #
   # Returns:
-  #   A Fixnum corresponding to the port number that a new dev_appserver can be
-  #   bound to.
-  def get_appengine_port
-    possibly_free_port = STARTING_APPENGINE_PORT
+  #   A Fixnum corresponding to the port number that a new process can be bound
+  #   to.
+  def find_lowest_free_port(starting_port)
+    possibly_free_port = starting_port
     loop {
       actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
       if actually_available.empty?
@@ -4276,80 +4272,6 @@ HOSTS
         possibly_free_port += 1
       end
     }
-  end
-
-
-  # Finds the next available ports that can be used for nginx and haproxy.
-  # Historically, it was safe to use an increasing counter in lieu of this
-  # method, but since apps can be moved between arbitrary ports now, we have to
-  # check that a port we are about to hand out for use is not actually in use by
-  # a different application.
-  #
-  # Returns:
-  #   Two Fixnums, where the first corresponds to a port that is free for use
-  #   with nginx, and the second corresponds to a port that is free for use with
-  #   haproxy.
-  def get_nginx_and_haproxy_ports()
-    loop {
-      nginx_port_in_use = false
-      @app_info_map.each { |app, info|
-        all_ports_for_app = [info['nginx'], info['nginx_https'],
-          info['haproxy']].flatten
-
-        if all_ports_for_app.include?(@nginx_port)
-          Djinn.log_debug("Couldn't use port #{@nginx_port} for a new " +
-            "app because #{app} is using it: #{info.inspect}")
-          nginx_port_in_use = true
-          break
-        end
-      }
-
-      if nginx_port_in_use
-        if @nginx_port == MAX_PORT
-          Djinn.log_warn("Nginx port allocation reached maximum port " +
-            "number #{MAX_PORT}. Resetting back to #{MIN_PORT} in case " +
-            "other ports have freed up.")
-          @nginx_port = MIN_PORT
-        else
-          @nginx_port += 1
-        end
-        Djinn.log_debug("Will consider port #{@nginx_port} for nginx instead.")
-      else
-        break
-      end
-    }
-
-    loop {
-      haproxy_port_in_use = false
-      @app_info_map.each { |app, info|
-        all_ports_for_app = [info['nginx'], info['nginx_https'],
-          info['haproxy']].flatten
-
-        if all_ports_for_app.include?(@haproxy_port)
-          Djinn.log_debug("Couldn't use port #{@haproxy_port} for a new " +
-            "app because it was in the list #{info.inspect}")
-          haproxy_port_in_use = true
-          break
-        end
-      }
-
-      if haproxy_port_in_use
-        if @haproxy_port == MAX_PORT
-          Djinn.log_warn("Haproxy port allocation reached maximum port " +
-            "number #{MAX_PORT}. Resetting back to #{MIN_PORT} in case " +
-            "other ports have freed up.")
-          @haproxy_port = MIN_PORT + 1
-        else
-          @haproxy_port += 1
-        end
-        Djinn.log_debug("Will consider port #{@haproxy_port} for " +
-          "haproxy instead.")
-      else
-        break
-      end
-    }
-
-    return @nginx_port, @haproxy_port
   end
 
 
@@ -4687,7 +4609,7 @@ HOSTS
       return  
     end
 
-    appengine_port = get_appengine_port()
+    appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
     Djinn.log_debug("Adding #{app_language} app #{app} on " +
       "#{HelperFunctions.local_ip}:#{appengine_port} ")
 
