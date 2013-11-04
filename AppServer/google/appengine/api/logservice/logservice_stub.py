@@ -404,7 +404,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       return
 
     formatted_logs = [{'timestamp' : log.timestamp_usec() / 1e6,
-      'level' : log.level(),
+      'level' : log.level() + 1,
       'message' : log.message()} for log in logs]
 
     payload = json.dumps({
