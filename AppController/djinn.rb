@@ -4547,7 +4547,7 @@ HOSTS
     Djinn.log_debug("The machine running the highest number of AppServers is " +
       "#{appserver_to_use}, running #{highest_appserver_ports} AppServers.")
     if highest_appserver_ports <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The minimum number of AppServers for this app " +
+      Djinn.log_debug("The minimum number of AppServers for this app " +
         "are already running on all machines, so requesting less machines.")
     else
       ports = appservers_running[appserver_to_use]
