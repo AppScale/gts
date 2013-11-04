@@ -105,7 +105,7 @@ module HAProxy
     server_ports, name)
     servers = []
     server_ports.each_with_index do |port, index|
-      servers << HAProxy.server_config(name, index, my_private_ip, port)
+      servers << HAProxy.server_config(name, index, "#{my_private_ip}:#{port}")
     end
 
     config = "# Create a load balancer for the #{name} application \n"
@@ -156,13 +156,13 @@ module HAProxy
   
   # Generate the server configuration line for the provided inputs. GAE applications
   # that are thread safe will have a higher connection limit. 
-  def self.server_config app_name, index, ip, port
+  def self.server_config(app_name, index, location)
     if HelperFunctions.get_app_thread_safe(app_name)
       Djinn.log_debug("[#{app_name}] Writing Threadsafe HAProxy config")
-      return "  server #{app_name}-#{index} #{ip}:#{port} #{THREADED_SERVER_OPTIONS}"
+      return "  server #{app_name}-#{index} #{location} #{THREADED_SERVER_OPTIONS}"
     else
       Djinn.log_debug("[#{app_name}] Writing Non-Threadsafe HAProxy config")
-      return "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+      return "  server #{app_name}-#{index} #{location} #{SERVER_OPTIONS}"
     end
   end
 
@@ -173,7 +173,7 @@ module HAProxy
     servers = []
     num_of_servers.times do |index|
       port = HelperFunctions.application_port(app_number, index, num_of_servers)
-      server = HAProxy.server_config(full_app_name, index, ip, port)
+      server = HAProxy.server_config(full_app_name, index, "#{ip}:#{port}")
       servers << server
     end
 
@@ -194,16 +194,15 @@ module HAProxy
   # point to all the ports currently the application. In contrast with
   # write_app_config, these ports can be non-contiguous.
   # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.
-  def self.update_app_config(app_name, listen_port, ports, private_ip)
+  def self.update_app_config(private_ip, app_name, app_info)
+    listen_port = app_info['haproxy']
+
     # Add a prefix to the app name to avoid collisions with non-GAE apps
     full_app_name = "gae_#{app_name}"
-    index = 0
-    servers = []
 
-    ports.each { |port|
-      server = HAProxy.server_config(full_app_name, index, private_ip, port)
-      index += 1
-      servers << server
+    servers = []
+    app_info['appengine'].each_with_index { |location, index|
+      servers << HAProxy.server_config(full_app_name, index, location)
     }
 
     config = "# Create a load balancer for the app #{app_name} \n"

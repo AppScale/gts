@@ -77,6 +77,12 @@ class AppControllerClient
     @conn.add_method("add_role", "new_role", "secret")
     @conn.add_method("remove_role", "old_role", "secret")
     @conn.add_method("get_queues_in_use", "secret")
+    @conn.add_method("add_appserver_to_haproxy", "app_id", "ip", "port",
+      "secret")
+    @conn.add_method("remove_appserver_from_haproxy", "app_id", "ip", "port",
+      "secret")
+    @conn.add_method("add_appserver_process", "app_id", "secret")
+    @conn.add_method("remove_appserver_process", "app_id", "port", "secret")
   end
   
 
@@ -275,4 +281,50 @@ class AppControllerClient
       @conn.set_apps_to_restart(app_names, @secret)
     }
   end
+
+  # Tells an AppController to route HAProxy traffic to the given location.
+  #
+  # Args:
+  #   app_id: A String that identifies the application that runs the new
+  #     AppServer.
+  #   ip: A String that identifies the private IP address where the new
+  #     AppServer runs.
+  #   port: A Fixnum that identifies the port where the new AppServer runs at
+  #     ip.
+  #   secret: A String that is used to authenticate the caller.
+  def add_appserver_to_haproxy(app_id, ip, port)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_to_haproxy") {
+      @conn.add_appserver_to_haproxy(app_id, ip, port, @secret)
+    }
+  end
+
+  # Tells an AppController to no longer route HAProxy traffic to the given
+  # location.
+  #
+  # Args:
+  #   app_id: A String that identifies the application that runs the AppServer
+  #     to remove.
+  #   ip: A String that identifies the private IP address where the AppServer
+  #     to remove runs.
+  #   port: A Fixnum that identifies the port where the AppServer was running.
+  #   secret: A String that is used to authenticate the caller.
+  def remove_appserver_from_haproxy(app_id, ip, port)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_from_haproxy") {
+      @conn.remove_appserver_from_haproxy(app_id, ip, port, @secret)
+    }
+  end
+
+
+  def add_appserver_process(app_id)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_process") {
+      @conn.add_appserver_process(app_id, @secret)
+    }
+  end
+
+  def remove_appserver_process(app_id, port)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_process") {
+      @conn.remove_appserver_process(app_id, port, @secret)
+    }
+  end
+
 end
