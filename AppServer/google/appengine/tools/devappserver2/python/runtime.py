@@ -125,11 +125,11 @@ def main():
 
   my_ip_address = None
   with open('/etc/appscale/my_public_ip') as file_handle:
-    my_ip_address = file_handle.read()
+    my_ip_address = file_handle.read().strip()
 
   nginx_host = None
   with open('/etc/appscale/login_ip') as file_handle:
-    nginx_host = file_handle.read()
+    nginx_host = file_handle.read().strip()
 
   if debugging_app:
     server = wsgi_server.WsgiServer(
