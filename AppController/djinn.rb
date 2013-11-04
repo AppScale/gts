@@ -648,12 +648,6 @@ class Djinn
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
 
-    # Once we've relocated the app, we need to tell the XMPPReceiver about the
-    # app's new location.
-    app_language = @app_info_map[appid]['language']
-    stop_xmpp_for_app(appid)
-    start_xmpp_for_app(appid, http_port, app_language)
-
     # Same for any cron jobs the user has set up.
     # TODO(cgb): We do this on the login node, but the cron jobs are initially
     # set up on the shadow node. In all supported cases, these are the same
@@ -662,14 +656,16 @@ class Djinn
     # TODO(cgb): This doesn't remove the old cron jobs that were accessing the
     # previously used port. This isn't a problem if nothing else runs on that
     # port, or if anything else there.
-    CronHelper.update_cron(my_public, http_port, app_language, appid)
+    CronHelper.update_cron(my_public, http_port,
+      @app_info_map[appid]['language'], appid)
 
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
     # the new port. Do this in a separate thread to avoid blocking the caller.
+    port_file = "/etc/appscale/port-#{appid}.txt"
+    HelperFunctions.write_file(port_file, http_port)
+
     Thread.new {
-      port_file = "/etc/appscale/port-#{appid}.txt"
-      HelperFunctions.write_file(port_file, http_port)
       @nodes.each { |node|
         next if not node.is_appengine?
         if node.private_ip != my_node.private_ip
@@ -680,6 +676,10 @@ class Djinn
         app_manager.restart_app_instances_for_app(appid)
       }
     }
+
+    # Once we've relocated the app, we need to tell the XMPPReceiver about the
+    # app's new location.
+    MonitInterface.restart("xmpp-#{appid}")
 
     return "OK"
   end
@@ -4953,8 +4953,9 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{port} #{@@secret}"
-      stop_cmd = "/bin/ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " +
+        "xmpp_receiver.py #{app}"
       watch_name = "xmpp-#{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
