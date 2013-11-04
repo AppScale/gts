@@ -403,6 +403,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     if appid in ['apichecker', 'appscaledashboard']:
       return
 
+    # The AppDashboard displays logs in the Java style, which starts at 1. Since
+    # Python's log levels start at 0 (for DEBUG), bump these by one to keep them
+    # in sync.
     formatted_logs = [{'timestamp' : log.timestamp_usec() / 1e6,
       'level' : log.level() + 1,
       'message' : log.message()} for log in logs]
