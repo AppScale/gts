@@ -4,7 +4,57 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.11.0, released on September 30, 2013.
+The current release is 1.12.0, released on November 7, 2013.
+
+Bugs fixed in this release:
+- Upgraded GCE image to Ubuntu Precise
+- Upgraded KVM image to Ubuntu Precise
+- Upgraded VirtualBox image to Ubuntu Precise
+- Upgraded Eucalyptus image to Ubuntu Precise
+- Upgraded EC2 image to Ubuntu Precise
+- Now using monit instead of god to monitor processes, and killing App Engine apps that take up too much memory
+- Now using monit to revive nginx if it fails
+- Now using monit to revive nginx if it fails
+- Now using monit to revive rabbitmq if it fails
+- Now using monit to revive ZooKeeper if it fails
+- Now using monit to revive haproxy if it fails
+- Now using monit to revive ejabberd if it fails
+- Now using monit to revive Cassandra if it fails
+- Improved Blobstore API fidelity for Python 2.7 apps
+- XMPP now works correctly on relocated apps
+- Load is rebalanced after scaling events
+- AppScale can now run in other AWS regions
+- No longer displaying oauth2client warnings on GCE
+- Not failing GCE image creation due to modprobe not being supported
+- Logging levels off by one in AppDashboard for Python apps
+- Fixed broken ImageLoadTest on Python 2.7 Hawkeye
+- Java AppServer now reads nginx port from filesystem, instead of as an arg
+- Protect access to flower
+- Nginx shouldn't expose Blobstore port to users in their apps
+- Prevent deprecated Python 2.5 apps from being uploaded
+- Allowing users to set keys longer than 250 characters in Java Memcache
+- AppServer ports are now automatically reused
+- Upgraded Cassandra to 2.0.1
+- Nginx and haproxy ports are now automatically reused
+- If there is a version mismatch between tools and main, tools now report each version to user and what they can do to fix it
+- AppController now gets IP correctly on non-English locales
+- Users can now bootstrap AppScale VMs with a list of commands in their AppScalefile
+- kill_all_instances_for_app now works every time, instead of just the first time
+- Celery works on rebooted VMs in one node deployments
+- Cleaned up AppDashboard interface to AppController
+- Fixed uploading apps via the AppDashboard
+- Removed link to Admin Console in AppDashboard
+- Uploading apps via the Dashboard now shows their information there
+- AppDashboard now allows users to upload zip files
+- Remove app reliably clears apps off the Dashboard
+- InfrastructureManager no longer prints users' AWS secret key
+- Removing apps then uploading them no longer results in 500s
+- Dashboard now shows updated ports for apps after relocation
+- Uploading apps via the Dashboard that were removed no longer results in 500s
+- Command-line interface now allows users to upload zipped apps
+- Upgraded pycassa to 1.9.1
+
+AppScale version 1.10.0 was released on September 30, 2013.
 
 Bugs fixed in this release:
 - Updated license to Apache 2.0
