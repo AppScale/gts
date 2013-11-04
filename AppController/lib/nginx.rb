@@ -8,6 +8,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
 require 'datastore_server'
+require 'monit_interface'
 
 
 # A module to wrap all the interactions with the nginx web server
@@ -17,6 +18,11 @@ require 'datastore_server'
 # haproxy, which then load balances requests to AppServers. This module
 # configures and deploys nginx within AppScale.
 module Nginx
+
+
+  # The path on the local filesystem where the nginx binary can be found.
+  NGINX_BIN = "/usr/local/nginx/sbin/nginx"
+
 
   NGINX_PATH = "/usr/local/nginx/conf"
 
@@ -32,6 +38,7 @@ module Nginx
 
   START_PORT = 8080
 
+
   # This is the start port of SSL connections to applications. Where an
   # app would have the set of ports (8080, 3700), (8081, 3701), and so on.
   SSL_PORT_OFFSET = 3700 
@@ -45,23 +52,30 @@ module Nginx
 
   CHANNELSERVER_PORT = 5280
 
+
   def self.start
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -c #{MAIN_CONFIG_FILE}")
+    # Nginx runs both a 'master process' and one or more 'worker process'es, so
+    # when we have monit watch it, as long as one of those is running, nginx is
+    # still running and shouldn't be restarted.
+    start_cmd = "#{NGINX_BIN} -c #{MAIN_CONFIG_FILE}"
+    stop_cmd = "#{NGINX_BIN} -s stop"
+    match_cmd = "nginx: (.*) process"
+    MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
+      remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   end
 
   def self.stop
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s stop")
+    MonitInterface.stop(:nginx)
   end
 
   def self.restart
-    self.stop
-    self.start
+    MonitInterface.restart(:nginx)
   end
 
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload
     if Nginx.is_running?
-      HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
+      HelperFunctions.shell("#{NGINX_BIN} -s reload")
     else
       Nginx.start 
     end
@@ -87,7 +101,7 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
+    HelperFunctions.shell("#{NGINX_BIN} -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
 
@@ -243,8 +257,7 @@ CONFIG
 
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
-    appengine_server_ips)
+    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
 
     Djinn.log_debug("Writing full proxy app config for app #{app_name}")
 
@@ -276,19 +289,6 @@ CONFIG
     non_secure_static_locations = non_secure_static_handlers.map { |handler|
       HelperFunctions.generate_location_config(handler)
     }.join
-
-    blob_servers = []
-    servers = []
-    ssl_servers = []
-    appengine_server_ips.each do |ip|
-      servers << "    server #{ip}:#{proxy_port};\n"
-    end
-    appengine_server_ips.each do |ip|
-      ssl_servers << "    server #{ip}:#{proxy_port};\n"
-    end
-    appengine_server_ips.each do |ip|
-      blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"
-    end
 
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
@@ -329,14 +329,17 @@ DEFAULT_CONFIG
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
-#{servers}
+    server #{my_private_ip}:#{proxy_port};
 }
+
 upstream gae_ssl_#{app_name} {
-#{ssl_servers}
+    server #{my_private_ip}:#{proxy_port};
 }
+
 upstream gae_#{app_name}_blobstore {
-#{blob_servers}
+    server #{my_private_ip}:#{BLOBSERVER_PORT};
 }
+
 server {
     chunkin on;
  

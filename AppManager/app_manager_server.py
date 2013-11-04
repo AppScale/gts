@@ -40,7 +40,6 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'app_port', 
                           'language', 
                           'load_balancer_ip', 
-                          'load_balancer_port', 
                           'xmpp_ip',
                           'dblocations',
                           'env_vars']
@@ -94,7 +93,6 @@ def start_app(config):
        app_port: Port to start on 
        language: What language the app is written in
        load_balancer_ip: Public ip of load balancer
-       load_balancer_port: Port of load balancer
        xmpp_ip: IP of XMPP service 
        dblocations: List of database locations 
        env_vars: A dict of environment variables that should be passed to the
@@ -126,14 +124,12 @@ def start_app(config):
                             config['load_balancer_ip'],
                             config['app_port'],
                             config['load_balancer_ip'],
-                            config['load_balancer_port'],
                             config['xmpp_ip'],
                             config['dblocations'],
                             config['language'])
     logging.info(start_cmd)
     stop_cmd = create_python27_stop_cmd(config['app_port'], config['language'])
     env_vars.update(create_python_app_env(config['load_balancer_ip'],
-                            config['load_balancer_port'], 
                             config['app_name']))
   elif config['language'] == constants.JAVA:
     copy_successful = copy_modified_jars(config['app_name'])
@@ -142,7 +138,6 @@ def start_app(config):
     start_cmd = create_java_start_cmd(config['app_name'],
                             config['app_port'],
                             config['load_balancer_ip'],
-                            config['load_balancer_port'],
                             config['dblocations'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env())
@@ -285,19 +280,17 @@ def choose_db_location(db_locations):
   index = random.randint(0, len(db_locations) - 1)
   return db_locations[index]
 
-def create_python_app_env(public_ip, port, app_name):
+def create_python_app_env(public_ip, app_name):
   """ Returns the environment variables the python application server uses.
   
   Args:
     public_ip: The public IP of the load balancer
-    port: The port the application is using
     app_name: The name of the application to be run
   Returns:
     A dictionary containing the environment variables
   """
   env_vars = {}
   env_vars['MY_IP_ADDRESS'] = public_ip
-  env_vars['MY_PORT'] = str(port)
   env_vars['APPNAME'] = app_name
   env_vars['GOMAXPROCS'] = appscale_info.get_num_cpus()
   env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
@@ -317,7 +310,6 @@ def create_python27_start_cmd(app_name,
                               login_ip, 
                               port, 
                               load_balancer_host, 
-                              load_balancer_port,
                               xmpp_ip,
                               db_locations,
                               py_version):
@@ -328,7 +320,6 @@ def create_python27_start_cmd(app_name,
     login_ip: The public IP
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
-    load_balancer_port: The port of the load balancer
     xmpp_ip: The IP of the XMPP service
     py_version: The version of python to use
   Returns:
@@ -395,7 +386,6 @@ def copy_modified_jars(app_name):
 def create_java_start_cmd(app_name,
                           port, 
                           load_balancer_host, 
-                          load_balancer_port,
                           db_locations):
   """
   Creates the start command to run the java application server.
@@ -404,13 +394,14 @@ def create_java_start_cmd(app_name,
     app_name: The name of the application to run
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
-    load_balancer_port: The port of the load balancer
     xmpp_ip: The IP of the XMPP service
   Returns:
     A string of the start command.
   """
   db_location = choose_db_location(db_locations)
 
+  # The Java AppServer needs the NGINX_PORT flag set so that it will read the
+  # local FS and see what port it's running on. The value doesn't matter.
   cmd = ["cd " + constants.JAVA_APPSERVER + " &&",
              "./genKeystore.sh &&",
              "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
@@ -423,8 +414,9 @@ def create_java_start_cmd(app_name,
              "--datastore_path=" + db_location,
              "--login_server=" + load_balancer_host,
              "--appscale_version=1",
+             "--APP_NAME=" + app_name,
              "--NGINX_ADDRESS=" + load_balancer_host,
-             "--NGINX_PORT=" + str(load_balancer_port),
+             "--NGINX_PORT=anything",
              "/var/apps/" + app_name +"/app/war/",
              ]
 

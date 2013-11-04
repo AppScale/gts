@@ -70,6 +70,10 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '', 
       @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.add_appserver_to_haproxy(@app, 'baz',
+      'baz', @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.remove_appserver_from_haproxy(@app,
+      'baz', 'baz', @secret))
   end
 
 
@@ -200,7 +204,7 @@ class TestDjinn < Test::Unit::TestCase
     app_names = []
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     expected = "OK"
     actual = djinn.set_parameters(one_node_info, credentials, app_names,
@@ -763,7 +767,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_start_roles_on_nodes_in_xen
+  def test_start_roles_on_nodes_in_cluster
     ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
@@ -772,7 +776,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected, actual)
   end
 
-  def test_start_new_roles_on_nodes_in_xen
+  def test_start_new_roles_on_nodes_in_cluster
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
     ips_to_roles = {'1.2.3.4' => ['appengine'], '1.2.3.5' => ['appengine']}
@@ -917,6 +921,7 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+    flexmock(Nginx).should_receive(:is_running?).and_return(true)
 
     # mock out updating the firewall config
     ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
@@ -942,7 +947,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_start_new_roles_on_nodes_in_cloud
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
@@ -1114,7 +1119,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_log_sending
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = {
       "public_ip" => "1.2.3.3",
@@ -1154,7 +1159,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_send_request_info_to_dashboard_when_dash_is_up
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
     node = DjinnJobData.new(node_info, "boo")
@@ -1174,7 +1179,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_send_request_info_to_dashboard_when_dash_is_up
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = {
       "public_ip" => "1.2.3.3",
@@ -1199,7 +1204,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_scale_appservers_across_nodes_with_no_action_taken
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
     node_info = {
       "public_ip" => "1.2.3.3",
@@ -1229,7 +1234,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_scale_appservers_across_nodes_and_scale_up_one_app
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4")
+      and_return("inet addr:1.2.3.4 ")
 
 
     # Let's say that we've got two nodes - one is open so we can scale onto it.

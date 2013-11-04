@@ -186,7 +186,6 @@ class InfrastructureManager:
                 'Rejecting request.'.format(secret, self.secret))
       return self.__generate_response(False, self.REASON_BAD_SECRET)
 
-    utils.log('Request parameters are {0}'.format(parameters))
     for param in self.RUN_INSTANCES_REQUIRED_PARAMS:
       if not utils.has_parameter(param, parameters):
         return self.__generate_response(False, 'no ' + param)

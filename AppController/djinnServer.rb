@@ -72,7 +72,8 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "status", "secret")
     add_method(@djinn, "get_stats", "secret")
     add_method(@djinn, "get_stats_json", "secret")
-    add_method(@djinn, "upload_tgz_file", "tgz_file", "email", "secret")
+    add_method(@djinn, "upload_app", "archived_file", "file_suffix", "email",
+      "secret")
     add_method(@djinn, "get_app_upload_status", "reservation_id", "secret")
     add_method(@djinn, "get_database_information", "secret")
     add_method(@djinn, "get_api_status", "secret")
@@ -88,6 +89,12 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "remove_role", "old_role", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
     add_method(@djinn, "gather_logs", "secret")
+    add_method(@djinn, "add_appserver_to_haproxy", "app_id", "ip", "port",
+      "secret")
+    add_method(@djinn, "remove_appserver_from_haproxy", "app_id", "ip", "port",
+      "secret")
+    add_method(@djinn, "add_appserver_process", "app_id", "secret")
+    add_method(@djinn, "remove_appserver_process", "app_id", "port", "secret")
     add_method(@djinn, "run_groomer", "secret")
   end
 end

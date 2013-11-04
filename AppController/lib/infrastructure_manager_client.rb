@@ -181,6 +181,7 @@ class InfrastructureManagerClient
       instance_ids = [instance_ids]
     end
     parameters['instance_ids'] = instance_ids
+    parameters['region'] = creds['region']
 
     terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
       "terminate_instances") {
@@ -195,6 +196,7 @@ class InfrastructureManagerClient
     parameters['num_vms'] = num_vms.to_s
     parameters['cloud'] = 'cloud1'
     parameters['zone'] = creds['zone']
+    parameters['region'] = creds['region']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
@@ -255,6 +257,7 @@ class InfrastructureManagerClient
   def attach_disk(credentials, disk_name, instance_id)
     parameters = get_parameters_from_credentials(credentials)
     parameters['zone'] = credentials['zone'] if credentials['zone']
+    parameters['region'] = credentials['region']
     Djinn.log_debug("Calling attach_disk with parameters " +
       "#{parameters.inspect}, with disk name #{disk_name} and instance id " +
       "#{instance_id}")

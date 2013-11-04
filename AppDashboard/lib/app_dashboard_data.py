@@ -522,7 +522,7 @@ class AppDashboardData():
         apps_to_delete = []
         for app in all_apps:
           if app.name in app_names_to_delete:
-            apps_to_delete.append(app)
+            apps_to_delete.append(app.key)
         ndb.delete_multi(apps_to_delete)
 
       # Add in new apps that are now running.
@@ -531,6 +531,13 @@ class AppDashboardData():
         if app_name not in all_app_names_were_running:
           app_names_to_add.append(app_name)
         elif app_names_and_urls[app_name]:
+          app_names_to_add.append(app_name)
+
+      # Also add in apps that have been relocated, since we need to update the
+      # URL that the user can access the app at.
+      for app in all_apps:
+        if app.key.id() in all_app_names_are_running and \
+          app.url != app_names_and_urls[app.key.id()]:
           app_names_to_add.append(app_name)
 
       if app_names_to_add:
