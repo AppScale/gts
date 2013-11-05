@@ -4138,10 +4138,31 @@ HOSTS
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
+
     port_file = "/etc/appscale/port-#{app}.txt"
-    HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
-    Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
-      "https port #{https_port}, and haproxy port #{proxy_port}")
+    if my_node.is_login?
+      HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
+      Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
+        "https port #{https_port}, and haproxy port #{proxy_port}")
+
+      @nodes.each { |node|
+        next if not node.is_appengine?
+        if node.private_ip != my_node.private_ip
+          HelperFunctions.scp_file(port_file, port_file, node.private_ip,
+            node.ssh_key)
+        end
+      }
+    else
+      loop {
+        if File.exists?(port_file)
+          Djinn.log_debug("Got port file for app #{app}")
+          break
+        else
+          Djinn.log_debug("Waiting for port file for app #{app}")
+          Kernel.sleep(5)
+        end
+      }
+    end
 
     # TODO(cgb): Make sure we don't add the same cron lines in twice for the same
     # app, and only start xmpp if it isn't already started
