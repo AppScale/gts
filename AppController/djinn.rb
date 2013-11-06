@@ -667,11 +667,11 @@ class Djinn
 
     Thread.new {
       @nodes.each { |node|
-        next if not node.is_appengine?
         if node.private_ip != my_node.private_ip
           HelperFunctions.scp_file(port_file, port_file, node.private_ip,
             node.ssh_key)
         end
+        next if not node.is_appengine?
         app_manager = AppManagerClient.new(node.private_ip)
         app_manager.restart_app_instances_for_app(appid)
       }
@@ -3333,7 +3333,7 @@ class Djinn
     DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
     Nginx.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT)
-    Nginx.restart()
+    Nginx.reload()
 
     # TODO check the return value
     DatastoreServer.is_running(my_ip)
@@ -3970,7 +3970,7 @@ HOSTS
     Nginx.create_app_load_balancer_config(my_public, my_private, 
       AppDashboard::PROXY_PORT)
     HAProxy.start
-    Nginx.restart
+    Nginx.reload
     @app_info_map[AppDashboard::APP_NAME] = {
       'nginx' => 1080,
       'nginx_https' => 1443,
@@ -4146,7 +4146,6 @@ HOSTS
         "https port #{https_port}, and haproxy port #{proxy_port}")
 
       @nodes.each { |node|
-        next if not node.is_appengine?
         if node.private_ip != my_node.private_ip
           HelperFunctions.scp_file(port_file, port_file, node.private_ip,
             node.ssh_key)

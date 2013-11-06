@@ -68,10 +68,6 @@ module Nginx
     MonitInterface.stop(:nginx)
   end
 
-  def self.restart
-    MonitInterface.restart(:nginx)
-  end
-
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload
     if Nginx.is_running?
