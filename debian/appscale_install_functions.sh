@@ -16,12 +16,17 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=1.11.0
+export APPSCALE_VERSION=1.12.0
 
 increaseconnections()
 {
     echo "ip_conntrack" >> /etc/modules
+
+    # Google Compute Engine doesn't allow users to use modprobe, so it's ok if
+    # the modprobe command fails.
+    set +e
     modprobe ip_conntrack
+    set -e
 
     echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
     echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf

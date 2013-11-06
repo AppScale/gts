@@ -46,6 +46,13 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_open.should_receive('open').with_args(
       '/var/log/appscale/xmppreceiver-bazapp@publicip1.log', 'a')
 
+    # finally, pretend that the file on the local filesystem that contains the
+    # port number exists
+    fake_port_file = flexmock(name="fake_port_file")
+    fake_port_file.should_receive('read').and_return(str(self.app_port))
+    fake_open.should_receive('open').with_args('/etc/appscale/port-{0}.txt' \
+      .format(self.appid)).and_return(fake_port_file)
+
 
   def test_connect_to_xmpp_but_it_is_down(self):
     # mock out the xmpp connection and have it not connect
@@ -56,8 +63,7 @@ class TestXMPPReceiver(unittest.TestCase):
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
-      self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
     self.assertRaises(SystemExit, receiver.listen_for_messages, messages_to_listen_for=1)
 
 
@@ -72,8 +78,7 @@ class TestXMPPReceiver(unittest.TestCase):
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
-      self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
     self.assertRaises(SystemExit, receiver.listen_for_messages,
       messages_to_listen_for=1)
 
@@ -106,8 +111,7 @@ class TestXMPPReceiver(unittest.TestCase):
     select.should_receive('select').with_args(['the socket'], [], [], 1) \
       .and_return(message, None, None)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
-      self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
     actual_messages_sent = receiver.listen_for_messages(
       messages_to_listen_for=1)
     self.assertEquals(1, actual_messages_sent)
@@ -139,8 +143,7 @@ class TestXMPPReceiver(unittest.TestCase):
     httplib.should_receive('HTTPConnection').with_args('publicip1', 1234) \
       .and_return(fake_http_connection)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
-      self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
     receiver.xmpp_message(fake_conn, fake_event)
 
 
@@ -168,6 +171,5 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getPayload').and_return('doesnt matter')
     fake_event.should_receive('getType').and_return('subscribe')
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
-      self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
     receiver.xmpp_presence(fake_conn, fake_event)
