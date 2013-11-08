@@ -93,7 +93,7 @@ class GCEAgent(BaseAgent):
 
 
   # The version of the Google Compute Engine API that we support.
-  API_VERSION = 'v1beta15'
+  API_VERSION = 'v1beta16'
 
 
   # The URL endpoint that receives Google Compute Engine API requests.
