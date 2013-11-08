@@ -2915,12 +2915,20 @@ class Djinn
   # which node is our node (since we find our node by IP). This method
   # looks through all the nodes we currently know of and converts any private
   # FQDNs we see to private IPs.
+  #
+  # Args:
+  #   nodes: An Array of DjinnJobDatas, where each item corresponds to a single
+  #     node in this AppScale deployment.
+  #
+  # Returns:
+  #   An Array of DjinnJobDatas, where each item may have its private FQDN
+  #   replaced with a private IP address.
   def convert_fqdns_to_ips(nodes)
     if is_cloud?
       Djinn.log_debug("In a cloud deployment, so converting FQDNs -> IPs")
     else
       Djinn.log_debug("Not in a cloud deployment, so not converting FQDNs -> IPs")
-      return
+      return nodes
     end
 
     if @creds["hostname"] =~ /#{FQDN_REGEX}/
@@ -2945,6 +2953,8 @@ class Djinn
         end
       end
     }
+
+    return nodes
   end
 
  
