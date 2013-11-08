@@ -1090,7 +1090,7 @@ class Djinn
     end
 
     Thread.new {
-      run_groomer_command = "cd /root/appscale/AppDB && python groomer.py"
+      run_groomer_command = "python /root/appscale/AppDB/groomer.py"
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
