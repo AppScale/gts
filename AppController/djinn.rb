@@ -3051,6 +3051,10 @@ class Djinn
   def find_me_in_locations()
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips()
+    Djinn.log_debug("Searching for a node with any of these private IPs: " +
+      "#{all_local_ips.join(', ')}")
+    Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
+
     @nodes.each_with_index { |node, index|
       all_local_ips.each_with_index { |ip, eth_interface|
         if ip == node.private_ip
