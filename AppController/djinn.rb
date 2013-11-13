@@ -1104,6 +1104,49 @@ class Djinn
   end
 
 
+  # Queries the AppController for a list of instance variables whose names match
+  # the given regular expression, as well as the values associated with each
+  # match.
+  #
+  # Args:
+  #   property_regex: A String that will be used as the regular expression,
+  #     determining which instance variables should be returned.
+  #   secret: A String with the shared key for authentication.
+  #
+  # Returns:
+  #   A JSON-dumped Hash mapping each instance variable matching the given regex
+  #   to the value it is bound to.
+  def get_property(property_regex, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    properties = {}
+    return JSON.dump(properties)
+  end
+
+
+  # Sets the named instance variable to the given value.
+  #
+  # Args:
+  #   property_name:
+  #   property_value:
+  #   secret: A String with the shared key for authentication.
+  #
+  # Returns:
+  #   A String containing:
+  #     - 'OK' if the value was successfully set.
+  #     - KEY_NOT_FOUND if there is no instance variable with the given name.
+  #     - BAD_SECRET_MSG if the caller could not be authenticated.
+  def set_property(property_name, property_value, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    return 'OK'
+  end
+
+
   # Removes an application and stops all AppServers hosting this application.
   #
   # Args:
