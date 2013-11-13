@@ -1373,7 +1373,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_get_and_set_property
+  def test_get_property
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -1398,8 +1398,37 @@ class TestDjinn < Test::Unit::TestCase
       'userappserver_public_ip' => 'public-ip',
       'userappserver_private_ip' => 'private-ip'
     })
-    assert_equal(userappserver_ips, djinn.get_property('userappserver_*_ip',
+    assert_equal(userappserver_ips, djinn.get_property('userappserver_.*_ip',
       @secret))
+  end
+
+
+  def test_set_property
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+
+    # Verify that setting a property that doesn't exist returns an error.
+    assert_equal(Djinn::KEY_NOT_FOUND, djinn.set_property('not-a-real-key',
+      'value', @secret))
+
+    # Next, verify that setting the @nodes property does not allow the
+    # set to occur.
+    # TODO(cgb): Write this test.
+
+    # Verify that setting a property that we allow users to set
+    # results in subsequent get calls seeing the correct value.
+    djinn.state = "AppController is taking it easy today"
+    new_state = "AppController is back to work"
+    assert_equal('OK', djinn.set_property('state', new_state, @secret))
+
+    state_only = JSON.dump({'state' => new_state})
+    assert_equal(state_only, djinn.get_property('state', @secret))
+
+    # 'min' and 'max' are two special cases
+    # TODO(cgb): Decide what to do here. Should we (1) Automatically raise 'max'
+    # if 'min' exceeds it, or (2) reject the request?
   end
 
 

@@ -450,6 +450,11 @@ class Djinn
   ID_NOT_FOUND = "Reservation ID not found."
 
 
+  # A String that is returned to callers of set_property that provide an invalid
+  # instance variable name to set.
+  KEY_NOT_FOUND = "No property exists with the given name."
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -1122,6 +1127,14 @@ class Djinn
     end
 
     properties = {}
+    instance_variables.each { |name|
+      name_without_at_sign = name[1..name.length-1]
+      if name_without_at_sign =~ /\A#{property_regex}\Z/
+        value = instance_variable_get(name)
+        properties[name_without_at_sign] = value
+      end
+    }
+
     return JSON.dump(properties)
   end
 
@@ -1129,20 +1142,31 @@ class Djinn
   # Sets the named instance variable to the given value.
   #
   # Args:
-  #   property_name:
-  #   property_value:
+  #   property_name: A String naming the instance variable that should be set.
+  #   property_value: A String or Fixnum that provides the value for the given
+  #     property name.
   #   secret: A String with the shared key for authentication.
   #
   # Returns:
   #   A String containing:
   #     - 'OK' if the value was successfully set.
   #     - KEY_NOT_FOUND if there is no instance variable with the given name.
+  #     - NOT_ALLOWED if the named instance variable cannot be overriden by the
+  #       caller.
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
+    name_with_at_sign = "@#{property_name}"
+    begin
+      value = instance_variable_get(name_with_at_sign)
+    rescue NameError
+      return KEY_NOT_FOUND
+    end
+
+    instance_variable_set(name_with_at_sign, property_value)
     return 'OK'
   end
 
