@@ -1373,4 +1373,34 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
+  def test_get_and_set_property
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+
+    # First, make sure that using a regex that matches nothing returns an empty
+    # Hash.
+    empty_hash = JSON.dump({})
+    assert_equal(empty_hash, djinn.get_property("not-a-variable-name", @secret))
+
+    # Next, we know that there's a variable called 'state'. Make sure that using
+    # it as the regex actually returns that variable (and only that).
+    djinn.state = "AppController is taking it easy today"
+    state_only = JSON.dump({'state' => djinn.state})
+    assert_equal(state_only, djinn.get_property('state', @secret))
+
+    # Finally, passing in the regex userappserver_*_ip should return both the
+    # public and private UserAppServer IPs.
+    djinn.userappserver_public_ip = "public-ip"
+    djinn.userappserver_private_ip = "private-ip"
+    userappserver_ips = JSON.dump({
+      'userappserver_public_ip' => 'public-ip',
+      'userappserver_private_ip' => 'private-ip'
+    })
+    assert_equal(userappserver_ips, djinn.get_property('userappserver_*_ip',
+      @secret))
+  end
+
+
 end
