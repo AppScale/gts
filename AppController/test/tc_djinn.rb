@@ -1413,10 +1413,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(Djinn::KEY_NOT_FOUND, djinn.set_property('not-a-real-key',
       'value', @secret))
 
-    # Next, verify that setting the @nodes property does not allow the
-    # set to occur.
-    # TODO(cgb): Write this test.
-
     # Verify that setting a property that we allow users to set
     # results in subsequent get calls seeing the correct value.
     djinn.state = "AppController is taking it easy today"
@@ -1425,10 +1421,6 @@ class TestDjinn < Test::Unit::TestCase
 
     state_only = JSON.dump({'state' => new_state})
     assert_equal(state_only, djinn.get_property('state', @secret))
-
-    # 'min' and 'max' are two special cases
-    # TODO(cgb): Decide what to do here. Should we (1) Automatically raise 'max'
-    # if 'min' exceeds it, or (2) reject the request?
   end
 
 

@@ -1135,6 +1135,8 @@ class Djinn
       end
     }
 
+    Djinn.log_debug("Caller asked for instance variables matching regex " +
+      "#{property_regex}, returning response #{properties.inspect}")
     return JSON.dump(properties)
   end
 
@@ -1151,22 +1153,23 @@ class Djinn
   #   A String containing:
   #     - 'OK' if the value was successfully set.
   #     - KEY_NOT_FOUND if there is no instance variable with the given name.
-  #     - NOT_ALLOWED if the named instance variable cannot be overriden by the
-  #       caller.
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
+    Djinn.log_info("Attempting to set @#{property_name} to #{property_value}")
+
     name_with_at_sign = "@#{property_name}"
     begin
-      value = instance_variable_get(name_with_at_sign)
+      instance_variable_set(name_with_at_sign, property_value)
     rescue NameError
+      Djinn.log_info("Failed to set @#{property_name}")
       return KEY_NOT_FOUND
     end
 
-    instance_variable_set(name_with_at_sign, property_value)
+    Djinn.log_info("Successfully set @#{property_name} to #{property_value}")
     return 'OK'
   end
 
