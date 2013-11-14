@@ -117,8 +117,10 @@ class AppControllerClient
         retry
       end
     rescue Timeout::Error
-      retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET, SOAP::EmptyResponseError
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      return
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+      Errno::ECONNRESET, SOAP::EmptyResponseError
       retry
     rescue Exception => except
       if retry_on_except
