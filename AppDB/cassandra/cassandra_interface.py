@@ -57,11 +57,17 @@ class DatastoreProxy(AppDBInterface):
     Constructor.
     """
 
-    self.host = file_io.read('/etc/appscale/my_private_ip')
+    # Allow the client to choose any database node to connect to.
+    database_master = file_io.read('/etc/appscale/masters').split()
+    database_slaves = file_io.read('/etc/appscale/slaves').split()
+
+    # In a one node deployment, the master is also written in the slaves file,
+    # so we have to take out any duplicates.
+    self.hosts = list(set(database_master + database_slaves))
     self.port = CASS_DEFAULT_PORT
+    server_list = ["{0}:{1}".format(host, self.port) for host in self.hosts]
     self.pool = pycassa.ConnectionPool(keyspace=KEYSPACE,
-                          server_list=[self.host+":"+str(self.port)], 
-                          prefill=False)
+      server_list=server_list, prefill=False)
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
@@ -181,7 +187,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
     try:
-      sysman = pycassa.system_manager.SystemManager(self.host + ":" +
+      sysman = pycassa.system_manager.SystemManager(self.hosts[0] + ":" +
         str(CASS_DEFAULT_PORT))
       sysman.drop_column_family(KEYSPACE, table_name)
     except Exception, ex:
@@ -204,7 +210,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
     try:
-      sysman = pycassa.system_manager.SystemManager(self.host + ":" +
+      sysman = pycassa.system_manager.SystemManager(self.hosts[0] + ":" +
         str(CASS_DEFAULT_PORT))
       sysman.create_column_family(KEYSPACE,
                                 table_name, 
