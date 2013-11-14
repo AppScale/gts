@@ -99,7 +99,7 @@ class AppControllerClient
   # code that indicates the SOAP call to make: this is really all that differs
   # between the calling methods. The result of the block is returned to the
   # caller. 
-  def make_call(time, retry_on_except, callr, ok_to_fail=false)
+  def make_call(time, retry_on_except, callr)
     refused_count = 0
     max = 5
 
@@ -109,7 +109,6 @@ class AppControllerClient
       }
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
       if refused_count > max
-        return false if ok_to_fail
         raise FailedNodeException.new("Connection was refused. Is the " +
           "AppController running?")
       else
@@ -118,7 +117,6 @@ class AppControllerClient
         retry
       end
     rescue Timeout::Error
-      return false if ok_to_fail
       retry
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET, SOAP::EmptyResponseError
       retry
@@ -192,22 +190,16 @@ class AppControllerClient
     return status
   end
 
-  def get_status(ok_to_fail=false)
+  def get_status()
     if !HelperFunctions.is_port_open?(@ip, 17443)
-      if ok_to_fail
-        return false
-      else
-        HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
-      end
+      HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
     end
 
-    make_call(10, !ok_to_fail, "get_status", ok_to_fail) { 
-      @conn.status(@secret) 
-    }
+    make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }
   end
 
-  def get_stats(ok_to_fail=false)
-    make_call(10, !ok_to_fail, "get_stats", ok_to_fail) { @conn.get_stats(@secret) }
+  def get_stats()
+    make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
   end
 
   def stop_app(app_name)
