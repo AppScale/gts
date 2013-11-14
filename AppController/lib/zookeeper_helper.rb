@@ -58,7 +58,7 @@ def start_zookeeper
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end
   Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
-  Djinn.log_run("chown -v zookeeper:zookeeper #{DATA_LOCATION}")
+  Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
 
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}")
