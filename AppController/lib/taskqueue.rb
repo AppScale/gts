@@ -51,14 +51,28 @@ module TaskQueue
   # Stop command for taskqueue server.
   TASKQUEUE_STOP_CMD = "/bin/kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
 
+  # Location where celery workers back up state to.
+  CELERY_STATE_DIR = "/opt/appscale/celery"
+
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
-  def self.start_master()
+  #
+  # Args:
+  #   clear_data: A boolean that indicates whether or not RabbitMQ state should
+  #     be erased before starting RabbitMQ.
+  def self.start_master(clear_data)
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
-    self.erase_local_files()
+
+    if clear_data
+      Djinn.log_debug("Erasing RabbitMQ state")
+      self.erase_local_files()
+    else
+      Djinn.log_debug("Not erasing RabbitMQ state")
+    end
 
     # First, start up RabbitMQ.
+    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
@@ -175,6 +189,7 @@ module TaskQueue
     Djinn.log_run("rm -rf /var/log/rabbitmq/*")
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
     Djinn.log_run("rm -rf /etc/appscale/celery/")
+    Djinn.log_run("rm -rf #{CELERY_STATE_DIR}/*")
   end
 
 

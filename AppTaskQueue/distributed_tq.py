@@ -237,6 +237,8 @@ class DistributedTaskQueue():
                "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
                "--pidfile=" + self.PID_FILE_LOC + 'celery___' + \
                              app_id + ".pid",
+               "--statedb=" + TaskQueueConfig.CELERY_STATE_DIR + 'worker___' + \
+                             app_id + ".db",
                "--autoreload"]
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)

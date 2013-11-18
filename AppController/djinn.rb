@@ -3263,7 +3263,7 @@ class Djinn
 
 
   def start_taskqueue_master
-    TaskQueue.start_master()      
+    TaskQueue.start_master(@creds['clear_datastore'])
     return true
   end
 
@@ -3275,7 +3275,7 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    TaskQueue.start_slave(master_ip)
+    TaskQueue.start_slave(master_ip, @creds['clear_datastore'])
     return true
   end
 

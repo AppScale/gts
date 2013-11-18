@@ -63,6 +63,9 @@ queue:
   # Location of all celery workers scripts.
   CELERY_WORKER_DIR = '/etc/appscale/celery/workers/'
 
+  # Location where celery workers back up state to.
+  CELERY_STATE_DIR = '/opt/appscale/celery/'
+
   # Directory with the task templates.
   TEMPLATE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/templates/"
 

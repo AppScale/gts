@@ -583,8 +583,8 @@ keygen()
 
 installcelery()
 {
-  easy_install -U Celery
-  easy_install -U Flower
+  easy_install Celery==3.0.24
+  easy_install Flower
 }
 
 installrabbitmq()

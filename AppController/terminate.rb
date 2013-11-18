@@ -61,6 +61,7 @@ module TerminateHelper
     `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
+    `rm -rf /opt/appscale/celery`
   end
 
 
