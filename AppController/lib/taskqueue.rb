@@ -90,21 +90,31 @@ module TaskQueue
   # here is "start a RabbitMQ server and connect it to the server on the machine
   # playing the 'rabbitmq_master' role." We also start taskqueue servers on 
   # all taskqueue nodes.
-  def self.start_slave(master_ip)
+  #
+  # Args:
+  #   master_ip: A String naming the IP address or FQDN where RabbitMQ is
+  #     already running.
+  #   clear_data: A boolean that indicates whether or not RabbitMQ state should
+  #     be erased before starting up RabbitMQ.
+  def self.start_slave(master_ip, clear_data)
     Djinn.log_info("Starting TaskQueue Slave")
     self.write_cookie()
-    self.erase_local_files()
-    
+
+    if clear_data
+      Djinn.log_debug("Erasing RabbitMQ state")
+      self.erase_local_files()
+    else
+      Djinn.log_debug("Not erasing RabbitMQ state")
+    end
+
     # Wait for RabbitMQ on master node to come up
+    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
     # start the server, reset it to join the head node
     hostname = `hostname`.chomp()
-    start_cmds = ["/usr/sbin/rabbitmqctl start_app",
-                  "/usr/sbin/rabbitmqctl stop_app",
-                  "/usr/sbin/rabbitmqctl reset",
-                  "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
+    start_cmds = ["/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
                   "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
                   "/usr/sbin/rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
