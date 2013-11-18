@@ -3,6 +3,7 @@ import boto
 import boto.ec2
 from boto.exception import EC2ResponseError
 import datetime
+import glob
 import os
 import time
 from utils import utils
@@ -310,12 +311,21 @@ class EC2Agent(BaseAgent):
     Returns:
       The location on the local filesystem where the disk has been attached.
     """
+    # In Amazon Web Services, if we're running on a Xen Paravirtualized machine,
+    # then devices get added starting at /dev/xvda. If not, they get added at
+    # /dev/sda. Find out which one we're on so that we know where the disk will
+    # get attached to.
+    if glob.glob("/dev/xvd*"):
+      mount_point = '/dev/xvdc'
+    else:
+      mount_point = '/dev/sdc'
+
     try:
       conn = self.open_connection(parameters)
-      utils.log('Attaching volume {0} to instance {1}, at /dev/sdc'.format(
-        disk_name, instance_id))
-      conn.attach_volume(disk_name, instance_id, '/dev/sdc')
-      return '/dev/sdc'
+      utils.log('Attaching volume {0} to instance {1}, at {2}'.format(
+        disk_name, instance_id, mount_point))
+      conn.attach_volume(disk_name, instance_id, mount_point)
+      return mount_point
     except EC2ResponseError as exception:
       utils.log('An error occurred when trying to attach volume {0} to ' \
         'instance {1} at /dev/sdc'.format(disk_name, instance_id))
