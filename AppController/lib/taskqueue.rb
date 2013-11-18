@@ -133,7 +133,10 @@ module TaskQueue
         tries_left -= 1
         Djinn.log_warn("Waited for RabbitMQ to start, but timed out. " +
           "Retries left #{tries_left}.")
-        self.erase_local_files()
+        Djinn.log_run("ps ax | grep rabbit | grep -v grep | awk '{print $1}' | xargs kill -9")
+        if clear_data
+          self.erase_local_files()
+        end
       end
       if tries_left.zero?
         Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up")
