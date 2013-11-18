@@ -1020,7 +1020,7 @@ class Djinn
       acc = AppControllerClient.new(ip, @@secret)
 
       begin
-        @all_stats << acc.get_stats(@@secret)
+        @all_stats << acc.get_stats()
       rescue FailedNodeException
         Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
           "not adding it to our cached info.")
