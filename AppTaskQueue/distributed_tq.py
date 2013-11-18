@@ -107,6 +107,9 @@ class DistributedTaskQueue():
   # Kind used for storing task names.
   TASK_NAME_KIND = "__task_name__"
 
+  # A dict that tells celery to run tasks even though we are running as root.
+  CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
+
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
     file_io.set_logging_format()
@@ -244,7 +247,8 @@ class DistributedTaskQueue():
     monit_app_configuration.create_config_file(watch,
                                                start_command, 
                                                stop_command, 
-                                               [self.CELERY_PORT])
+                                               [self.CELERY_PORT],
+                                               env_vars=self.CELERY_ENV_VARS)
     if monit_interface.start(watch):
       json_response = {'error': False}
     else:
