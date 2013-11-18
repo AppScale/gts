@@ -816,11 +816,12 @@ class Djinn
     end
 
     keyname = possible_credentials["keyname"]
-    @nodes = Djinn.convert_location_array_to_class(locations, keyname)
     @creds = possible_credentials
     @app_names = app_names
     
-    convert_fqdns_to_ips
+    nodes = Djinn.convert_location_array_to_class(locations, keyname)
+    converted_nodes = convert_fqdns_to_ips(nodes)
+    @nodes = converted_nodes
     @creds = sanitize_credentials
 
     find_me_in_locations
@@ -2914,12 +2915,20 @@ class Djinn
   # which node is our node (since we find our node by IP). This method
   # looks through all the nodes we currently know of and converts any private
   # FQDNs we see to private IPs.
-  def convert_fqdns_to_ips()
+  #
+  # Args:
+  #   nodes: An Array of DjinnJobDatas, where each item corresponds to a single
+  #     node in this AppScale deployment.
+  #
+  # Returns:
+  #   An Array of DjinnJobDatas, where each item may have its private FQDN
+  #   replaced with a private IP address.
+  def convert_fqdns_to_ips(nodes)
     if is_cloud?
       Djinn.log_debug("In a cloud deployment, so converting FQDNs -> IPs")
     else
       Djinn.log_debug("Not in a cloud deployment, so not converting FQDNs -> IPs")
-      return
+      return nodes
     end
 
     if @creds["hostname"] =~ /#{FQDN_REGEX}/
@@ -2931,7 +2940,7 @@ class Djinn
       end
     end
     
-    @nodes.each { |node|
+    nodes.each { |node|
       # Resolve the private FQDN to a private IP, but don't resolve the public
       # FQDN, as that will just resolve to the private IP.
 
@@ -2944,6 +2953,8 @@ class Djinn
         end
       end
     }
+
+    return nodes
   end
 
  
