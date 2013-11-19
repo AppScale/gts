@@ -359,21 +359,21 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     private void createAndDeleteIndexes( DatastoreV3Pb.CompositeIndices existing, DatastoreV3Pb.CompositeIndices requested)
     {
-        HashMap existingMap = new HashMap<String, OnestoreEntity.Index>();
-        HashMap requestedMap = new HashMap<String, OnestoreEntity.Index>();
- 
+        HashMap existingMap = new HashMap<String, OnestoreEntity.CompositeIndex>();
+        HashMap requestedMap = new HashMap<String, OnestoreEntity.CompositeIndex>();
+        // Convert CompositeIndices into hash maps to get the diff of existing and requested indices. 
         for (int ctr = 0; ctr < existing.indexSize(); ctr++)
         {
             System.out.println("getting index in loop 1");
             OnestoreEntity.CompositeIndex compIndex = existing.getIndex(ctr);
-            existingMap.put(compIndex.getDefinition().toFlatString(), compIndex.getDefinition());
+            existingMap.put(compIndex.getDefinition().toFlatString(), compIndex);
             System.out.println("Map1 putting: " + compIndex.getDefinition().toFlatString());
         }
         for (int ctr = 0; ctr < requested.indexSize(); ctr++)
         {
             System.out.println("getting index in loop 2");
             OnestoreEntity.CompositeIndex compIndex = requested.getIndex(ctr);
-            requestedMap.put(compIndex.getDefinition().toFlatString(), compIndex.getDefinition());
+            requestedMap.put(compIndex.getDefinition().toFlatString(), compIndex);
             System.out.println("Map2 putting: " + compIndex.getDefinition().toFlatString());
         }
 
@@ -383,11 +383,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             if (requestedMap.containsKey(key) == false)
             {
                 //Need to map the composite index id into the requested deleted thing.
-                OnestoreEntity.CompositeIndex tmpCompIndex = new OnestoreEntity.CompositeIndex();
-                tmpCompIndex.setAppId(getAppId());
-                tmpCompIndex.setId(existingMap.get(key).getId())
-                OnestoreEntity.Index tmpIndex = tmpCompIndex.getMutableDefinition();
-                tmpIndex.mergeFrom((OnestoreEntity.Index)existingMap.get(key)); 
+                OnestoreEntity.CompositeIndex tmpCompIndex = (OnestoreEntity.CompositeIndex)existingMap.get(key);
                 deleteIndex(null, tmpCompIndex);
                 deletedCounter++;
             }
@@ -399,7 +395,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         {
             if (existingMap.containsKey(key) == false)
             {
-                ApiBasePb.Integer64Proto id = createIndex( null, (OnestoreEntity.Index)requestedMap.get(key));
+                ApiBasePb.Integer64Proto id = createIndex( null, (OnestoreEntity.CompositeIndex)requestedMap.get(key));
                 createdCounter++;
             }
         }
