@@ -104,6 +104,24 @@ class TestDatastoreServer(unittest.TestCase):
       tuples_list), (['a\x00b\x00Item\x00name\x00\x9aBob\x00\x00Item:Bob!', 'a\x00b\x00Item:Bob!'], 
       ['a\x00b\x00Item\x00name\x00\x9aSally\x00\x00Item:Sally!', 'a\x00b\x00Item:Sally!']))
 
+  def test_delete_composite_indexes(self):
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+    dd = flexmock(dd)
+    dd.should_receive("get_composite_index_key").and_return("somekey")
+    dd.should_receive("get_entity_kind").and_return("kind")
+    item1 = Item(key_name="Bob", name="Bob", _app="hello")
+    item2 = Item(key_name="Sally", name="Sally", _app="hello")
+    composite_index = entity_pb.CompositeIndex()
+    composite_index.set_id(123)
+    composite_index.set_app_id("appid")
+
+    definition = composite_index.mutable_definition()
+    definition.set_entity_type("kind")
+
+    dd.delete_composite_indexes([item1, item2], [composite_index])
+
   def test_delete_index_entries(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_delete").and_return(None)
@@ -114,7 +132,93 @@ class TestDatastoreServer(unittest.TestCase):
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
     dd.delete_index_entries([key1,key2])
- 
+
+  def test_get_composite_index_key(self):
+    db_batch = flexmock()
+    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+    dd = flexmock(dd)
+
+    composite_index = entity_pb.CompositeIndex()
+    composite_index.set_id(123)
+    composite_index.set_app_id("appid")
+
+    definition = composite_index.mutable_definition()
+    definition.set_entity_type("kind")
+
+    prop1 = definition.add_property()
+    prop1.set_name("prop1")
+    prop1.set_direction(1) # ascending
+    prop2 = definition.add_property()
+    prop2.set_name("prop2")
+    prop1.set_direction(1) # ascending
+
+    ent = self.get_new_entity_proto("appid", "kind", "entity_name", "prop1", "value", ns="")
+     
+    self.assertEquals(dd.get_composite_index_key(composite_index, ent), 
+      "appid\x00\x00123\x00\x9avalue\x00\x00kind:entity_name!")
+
+  def test_get_indicies(self):
+    db_batch = flexmock()
+    db_batch.should_receive("range_query").and_return({})
+    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+    dd = flexmock(dd)
+    dd.should_receive("get_meta_data_key").and_return("somekey").twice()
+    
+    self.assertEquals(dd.get_indices("appid"), [])
+
+  def test_delete_composite_index_metadata(self):
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+    dd = flexmock(dd)
+    dd.should_receive("get_meta_data_key").and_return("somekey")
+    composite_indexes = datastore_pb.CompositeIndices() 
+    dd.delete_composite_index_metadata("appid", composite_indexes)
+
+  def test_create_composite_index(self):
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+    dd = flexmock(dd)
+    dd.should_receive("get_meta_data_key").and_return("somekey")
+    index = entity_pb.CompositeIndex()
+    index.set_app_id("appid")
+    index.set_state(2)
+    definition = index.mutable_definition()
+    definition.set_entity_type("kind")
+    definition.set_ancestor(0)
+    prop1 = definition.add_property()
+    prop1.set_name("prop1")
+    prop1.set_direction(1) # ascending
+    prop2 = definition.add_property()
+    prop2.set_name("prop2")
+    prop1.set_direction(1) # ascending
+
+    dd.create_composite_index("appid", index)
+    assert index.id() > 0 
+
+  def test_insert_composite_indexes(self):
+    composite_index = entity_pb.CompositeIndex()
+    composite_index.set_id(123)
+    composite_index.set_app_id("appid")
+
+    definition = composite_index.mutable_definition()
+    definition.set_entity_type("kind")
+
+    prop1 = definition.add_property()
+    prop1.set_name("prop1")
+    prop1.set_direction(1) # ascending
+    prop2 = definition.add_property()
+    prop2.set_name("prop2")
+    prop1.set_direction(1) # ascending
+
+    ent = self.get_new_entity_proto("appid", "kind", "entity_name", "prop1", "value", ns="")
+
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None).once()
+    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+    dd.insert_composite_indexes([ent], [composite_index])
+
   def test_insert_entities(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
@@ -598,21 +702,31 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(None, None)
     dd.dynamic_delete("appid", del_request)
 
+    fake_element = flexmock()
+    fake_element.should_receive("type").and_return("kind")
+    fake_path = flexmock()
+    fake_path.should_receive("element_list").and_return([fake_element])
+    fake_key = flexmock()
+    fake_key.should_receive("path").and_return(fake_path)
+
     del_request = flexmock()
-    del_request.should_receive("key_list").and_return(['1'])
+    del_request.should_receive("key_list").and_return([fake_key])
     del_request.should_receive("has_transaction").and_return(True).twice()
     transaction = flexmock()
     transaction.should_receive("handle").and_return(1)
     del_request.should_receive("transaction").and_return(transaction).once()
+    del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(None, None)
     flexmock(dd).should_receive("acquire_locks_for_trans").and_return({})
     flexmock(dd).should_receive("release_locks_for_nontrans").never()
     flexmock(dd).should_receive("delete_entities").once()
+    flexmock(dd).should_receive("get_entity_kind").and_return("kind")
     dd.dynamic_delete("appid", del_request)
 
     del_request = flexmock()
-    del_request.should_receive("key_list").and_return(['1'])
+    del_request.should_receive("key_list").and_return([fake_key])
     del_request.should_receive("has_transaction").and_return(False).twice()
+    del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(None, None)
     flexmock(dd).should_receive("acquire_locks_for_trans").never()
     flexmock(dd).should_receive("acquire_locks_for_nontrans").once().and_return({})
@@ -684,6 +798,15 @@ class TestDatastoreServer(unittest.TestCase):
     flexmock(dd).should_receive("__apply_filters").and_return([])
     flexmock(query).should_receive("limit").and_return(1)
     self.assertEquals(dd.zigzag_merge_join(query, filter_info, []), None)
+
+  def test_get_meta_data_key(self):
+    dd = DatastoreDistributed(None, None)
+    item = Item(key_name="Bob", name="Bob", _app="hello")
+    key = db.model_to_protobuf(item)
+    self.assertEquals(str(dd.get_meta_data_key("howdy", "doody", "what")), 
+      "howdy{0}doody{0}what".format(KEY_DELIMITER))
+
+ 
        
 if __name__ == "__main__":
   unittest.main()    
