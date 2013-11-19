@@ -29,6 +29,7 @@ import com.google.appengine.api.users.UserServiceFactory;
 import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
+import com.google.apphosting.api.ApiProxy;
 
 public class HTTPClientDatastoreProxy
 {
@@ -45,7 +46,6 @@ public class HTTPClientDatastoreProxy
     private final String        PROTOCOL_BUFFER_HEADER              = "ProtocolBufferType";
     private final String        PROTOCOL_BUFFER_VALUE               = "Request";
 
-    // TODO deal with ssl?
     public HTTPClientDatastoreProxy( String host, int port, boolean isSSL )
     {
         SchemeRegistry schemeRegistry = new SchemeRegistry();
@@ -64,7 +64,12 @@ public class HTTPClientDatastoreProxy
         HttpPost post = new HttpPost(url);
         post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);
         String tag = appId;
-        User user = getUser();
+        ApiProxy.Environment environment = ApiProxy.getCurrentEnvironment();
+        User user = null;
+        if (environment != null)
+        {
+            user = getUser();
+        }
         if (user != null)
         {
             tag += ":" + user.getEmail();

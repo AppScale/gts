@@ -3556,7 +3556,7 @@ def SetupStubs(app_id, **config):
 
   datastore = datastore_distributed.DatastoreDistributed(
         app_id, datastore_path, require_indexes=require_indexes,
-        trusted=trusted)
+        trusted=trusted, root_path=root_path)
 
   apiproxy_stub_map.apiproxy.ReplaceStub(
       'datastore_v3', datastore)
