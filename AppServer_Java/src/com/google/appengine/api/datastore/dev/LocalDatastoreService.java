@@ -213,6 +213,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     private LocalDatastoreCostAnalysis          costAnalysis;
     private Map<String, LocalDatastoreService.SpecialProperty>  specialPropertyMap = Maps.newHashMap();
     private IndexesXml                          indexes                           = null;
+    private HashMap<String, List<OnestoreEntity.CompositeIndex>>   compositeIndexCache    = new HashMap<String, List<OnestoreEntity.CompositeIndex>>();
 
     public void clearProfiles()
     {
@@ -387,6 +388,23 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                 deleteIndex(null, tmpCompIndex);
                 deletedCounter++;
             }
+            else
+            {
+                OnestoreEntity.CompositeIndex tmpCompIndex = (OnestoreEntity.CompositeIndex)existingMap.get(key);
+                String kind = tmpCompIndex.getDefinition().getEntityType();
+                List<OnestoreEntity.CompositeIndex> list = compositeIndexCache.get(kind);
+                if (list == null)
+                {
+                    List<OnestoreEntity.CompositeIndex> newList = new ArrayList<OnestoreEntity.CompositeIndex>();
+                    newList.add(tmpCompIndex);
+                    compositeIndexCache.put(kind, newList);
+                }
+                else
+                {
+                    list.add(tmpCompIndex);
+                }
+                System.out.println("adding " + kind + " to index cache");
+            }
         }
         System.out.println("Deleted Indexes: " + deletedCounter);
 
@@ -397,9 +415,24 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             {
                 ApiBasePb.Integer64Proto id = createIndex( null, (OnestoreEntity.CompositeIndex)requestedMap.get(key));
                 createdCounter++;
+                //Add to the cache
+                OnestoreEntity.CompositeIndex tmpCompIndex = (OnestoreEntity.CompositeIndex)requestedMap.get(key);
+                tmpCompIndex.setId(id.getValue());
+                String kind = tmpCompIndex.getDefinition().getEntityType();
+                List<OnestoreEntity.CompositeIndex> list = compositeIndexCache.get(kind);
+                if (list == null)
+                {
+                    List<OnestoreEntity.CompositeIndex> newList = new ArrayList<OnestoreEntity.CompositeIndex>();
+                    newList.add(tmpCompIndex);
+                    compositeIndexCache.put(kind, newList);
+                }
+                else
+                {
+                    list.add(tmpCompIndex);
+                }
+                System.out.println("Adding " + kind + " when index was created");
             }
         }
-        //TODO: keep local CompositeIndices object that has current state of indexes. Update it's id's for every create.
         System.out.println("Created Indexes: " + createdCounter);
     }
 
@@ -619,6 +652,24 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.PutResponse putImpl( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
     {
+        Set<String> entityKinds = new HashSet<String>();
+        for (OnestoreEntity.EntityProto entity : request.entitys())
+        {
+            String kind = entity.getKey().getPath().getElement(entity.getKey().getPath().elementSize()-1).getType();
+            entityKinds.add(kind);
+        }
+        for (String kind : entityKinds)
+        {
+            List<OnestoreEntity.CompositeIndex> compIndexes = compositeIndexCache.get(kind);
+            if (compIndexes != null)
+            {
+                for (OnestoreEntity.CompositeIndex index : compIndexes)
+                {
+                    System.out.println("created index on put request");
+                    request.addCompositeIndex(index);    
+                }
+            }
+        }
         DatastoreV3Pb.PutResponse response = new DatastoreV3Pb.PutResponse();
         if (request.entitySize() == 0)
         {
@@ -728,6 +779,24 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.DeleteResponse deleteImpl( LocalRpcService.Status status, DatastoreV3Pb.DeleteRequest request )
     {
+        Set<String> entityKinds = new HashSet<String>();
+        for (OnestoreEntity.Reference key : request.keys())
+        {
+            String kind = key.getPath().getElement(key.getPath().elementSize()-1).getType();
+            entityKinds.add(kind);
+        }
+        for (String kind : entityKinds)
+        {
+            List<OnestoreEntity.CompositeIndex> compIndexes = compositeIndexCache.get(kind);
+            if (compIndexes != null)
+            {
+                for (OnestoreEntity.CompositeIndex index : compIndexes)
+                {
+                    System.out.println("created index on put request");
+                    request.setMarkChanges(true);    
+                }
+            }
+        }         
         DatastoreV3Pb.DeleteResponse response = new DatastoreV3Pb.DeleteResponse();
         if (request.keySize() == 0)
         {
