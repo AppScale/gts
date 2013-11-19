@@ -80,14 +80,14 @@ class TestEucaAgent(TestCase):
     instance1.public_dns_name = 'ABC-public-ip1'
     instance1.private_dns_name = 'DEF-private-ip1'
     instance1.id = 'i-id1'
-    instance1._state.name = 'running'
+    instance1.state = 'running'
     instance1.key_name = 'bookeyname'
 
     instance2 = Instance()
     instance2.public_dns_name = 'DEF-public-ip2'
     instance2.private_dns_name = 'ABC-private-ip2'
     instance2.id = 'i-id2'
-    instance2._state.name = 'running'
+    instance2.state = 'running'
     instance2.key_name = 'bookeyname'
 
     reservation.instances = [instance1, instance2]
