@@ -56,6 +56,9 @@ import com.google.apphosting.datastore.DatastoreV3Pb.Query.Order.Direction;
 import com.google.apphosting.datastore.DatastoreV3Pb.QueryResult;
 import com.google.apphosting.datastore.DatastoreV3Pb.Transaction;
 import com.google.apphosting.utils.config.GenerationDirectory;
+import com.google.apphosting.utils.config.IndexesXmlReader;
+import com.google.apphosting.utils.config.IndexesXml;
+//import com.google.apphosting.utils.config.IndexesXml.Index;
 import com.google.storage.onestore.v3.OnestoreEntity;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex.State;
@@ -209,6 +212,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     private boolean                             isHighRep;
     private LocalDatastoreCostAnalysis          costAnalysis;
     private Map<String, LocalDatastoreService.SpecialProperty>  specialPropertyMap = Maps.newHashMap();
+    private IndexesXml                          indexes                           = null;
 
     public void clearProfiles()
     {
@@ -306,7 +310,101 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         this.costAnalysis = new LocalDatastoreCostAnalysis(LocalCompositeIndexManager.getInstance());
 
+	//DATASTORE INDEX STUFF
+        setupIndexes(properties.get("user.dir"));
+        
         logger.info(String.format("Local Datastore initialized: \n\tType: %s\n\tStorage: %s", new Object[] { isHighRep() ? "High Replication" : "Master/Slave", this.noStorage ? "In-memory" : this.backingStore }));
+    }
+
+    private void setupIndexes(String appDir)
+    {
+        IndexesXmlReader xmlReader = new IndexesXmlReader(appDir);
+        indexes = xmlReader.readIndexesXml();
+        DatastoreV3Pb.CompositeIndices requestedCompositeIndices = new DatastoreV3Pb.CompositeIndices();
+        for (IndexesXml.Index index : indexes)
+        {
+            System.out.println("Index: " + index.getKind() + ", " + index.doIndexAncestors() + ", properties: " + index.getProperties());
+            OnestoreEntity.CompositeIndex newCompositeIndex = requestedCompositeIndices.addIndex();
+            newCompositeIndex.setAppId(getAppId());
+            OnestoreEntity.Index requestedIndex = newCompositeIndex.getMutableDefinition();
+            requestedIndex.setAncestor(index.doIndexAncestors());
+            requestedIndex.setEntityType(index.getKind());
+            for (IndexesXml.PropertySort propSort : index.getProperties())
+            {
+                OnestoreEntity.Index.Property newProp = requestedIndex.addProperty();
+                newProp.setName(propSort.getPropertyName());
+                if (propSort.isAscending()) 
+                {
+                    //ENUM IS IN ONESTOREENTITY in Appengine-api.jar
+                    newProp.setDirection(1);
+                }
+                else 
+                { 
+                    newProp.setDirection(2);
+                }
+            }
+        }
+      System.out.println("done with indexes");
+      System.out.println("requestedCompositeIndices: " + requestedCompositeIndices);
+      System.out.println("more stuff: " + requestedCompositeIndices.getIndex(0).getDefinition().getEntityType()); 
+        
+      ApiBasePb.StringProto appId = new ApiBasePb.StringProto();
+      appId.setValue(getAppId()); 
+      DatastoreV3Pb.CompositeIndices existing = getIndices( null, appId);  
+      System.out.println("existing: " + existing);
+
+      createAndDeleteIndexes(existing, requestedCompositeIndices);
+     
+    }
+
+    private void createAndDeleteIndexes( DatastoreV3Pb.CompositeIndices existing, DatastoreV3Pb.CompositeIndices requested)
+    {
+        HashMap existingMap = new HashMap<String, OnestoreEntity.Index>();
+        HashMap requestedMap = new HashMap<String, OnestoreEntity.Index>();
+ 
+        for (int ctr = 0; ctr < existing.indexSize(); ctr++)
+        {
+            System.out.println("getting index in loop 1");
+            OnestoreEntity.CompositeIndex compIndex = existing.getIndex(ctr);
+            existingMap.put(compIndex.getDefinition().toFlatString(), compIndex.getDefinition());
+            System.out.println("Map1 putting: " + compIndex.getDefinition().toFlatString());
+        }
+        for (int ctr = 0; ctr < requested.indexSize(); ctr++)
+        {
+            System.out.println("getting index in loop 2");
+            OnestoreEntity.CompositeIndex compIndex = requested.getIndex(ctr);
+            requestedMap.put(compIndex.getDefinition().toFlatString(), compIndex.getDefinition());
+            System.out.println("Map2 putting: " + compIndex.getDefinition().toFlatString());
+        }
+
+        int deletedCounter = 0;
+        for (String key : (Set<String>)existingMap.keySet())
+        {
+            if (requestedMap.containsKey(key) == false)
+            {
+                //Need to map the composite index id into the requested deleted thing.
+                OnestoreEntity.CompositeIndex tmpCompIndex = new OnestoreEntity.CompositeIndex();
+                tmpCompIndex.setAppId(getAppId());
+                tmpCompIndex.setId(existingMap.get(key).getId())
+                OnestoreEntity.Index tmpIndex = tmpCompIndex.getMutableDefinition();
+                tmpIndex.mergeFrom((OnestoreEntity.Index)existingMap.get(key)); 
+                deleteIndex(null, tmpCompIndex);
+                deletedCounter++;
+            }
+        }
+        System.out.println("Deleted Indexes: " + deletedCounter);
+
+        int createdCounter = 0;
+        for (String key : (Set<String>)requestedMap.keySet())
+        {
+            if (existingMap.containsKey(key) == false)
+            {
+                ApiBasePb.Integer64Proto id = createIndex( null, (OnestoreEntity.Index)requestedMap.get(key));
+                createdCounter++;
+            }
+        }
+        //TODO: keep local CompositeIndices object that has current state of indexes. Update it's id's for every create.
+        System.out.println("Created Indexes: " + createdCounter);
     }
 
     boolean isHighRep()
