@@ -292,11 +292,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         LocalCompositeIndexManager.getInstance().setClock(this.clock);
 
-        String noIndexAutoGenProp = (String)properties.get(NO_INDEX_AUTO_GEN_PROP);
-        if (noIndexAutoGenProp != null)
-        {
-            LocalCompositeIndexManager.getInstance().setNoIndexAutoGen(Boolean.valueOf(noIndexAutoGenProp).booleanValue());
-        }
+        LocalCompositeIndexManager.getInstance().setNoIndexAutoGen(false);
+        //String noIndexAutoGenProp = (String)properties.get(NO_INDEX_AUTO_GEN_PROP);
+        //if (noIndexAutoGenProp != null)
+        //{
+        //    LocalCompositeIndexManager.getInstance().setNoIndexAutoGen(Boolean.valueOf(noIndexAutoGenProp).booleanValue());
+        //}
 
         initHighRepJobPolicy(properties);
 
@@ -321,6 +322,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     {
         IndexesXmlReader xmlReader = new IndexesXmlReader(appDir);
         indexes = xmlReader.readIndexesXml();
+        System.out.println("Indexes read in: " + indexes);
         DatastoreV3Pb.CompositeIndices requestedCompositeIndices = new DatastoreV3Pb.CompositeIndices();
         for (IndexesXml.Index index : indexes)
         {
@@ -347,13 +349,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
       System.out.println("done with indexes");
       System.out.println("requestedCompositeIndices: " + requestedCompositeIndices);
-      System.out.println("more stuff: " + requestedCompositeIndices.getIndex(0).getDefinition().getEntityType()); 
         
       ApiBasePb.StringProto appId = new ApiBasePb.StringProto();
       appId.setValue(getAppId()); 
       DatastoreV3Pb.CompositeIndices existing = getIndices( null, appId);  
       System.out.println("existing: " + existing);
-
+      
       createAndDeleteIndexes(existing, requestedCompositeIndices);
      
     }
@@ -832,12 +833,56 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         liveTxn.addActions(addRequests);
     }
 
+    private OnestoreEntity.CompositeIndex fetchMatchingIndex(List<OnestoreEntity.CompositeIndex> compIndexes, OnestoreEntity.Index indexToMatch)
+    {
+        if (compIndexes == null)
+        {
+            throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST.getValue(), "Missing composite index for given query");
+        }
+        System.out.println("Args given: " + compIndexes);
+        System.out.println("Args given: " + indexToMatch);
+        for (OnestoreEntity.CompositeIndex compIndex : compIndexes)
+        {
+            System.out.println("Composite index " + compIndex);
+            OnestoreEntity.Index indexDef  = compIndex.getDefinition();
+            System.out.println("Trying to match to " + indexDef.toFlatString());
+            if (indexDef.equals(indexToMatch))
+            {
+                System.out.println("THAT WAS A MATCH!");
+                return compIndex;
+            }
+        }
+        System.out.println("Warning: No index found for a query which expected one.");
+        return null;     
+    }
+
+    private OnestoreEntity.CompositeIndex findIndexToUse( DatastoreV3Pb.Query query)
+    {
+        if (!query.hasKind())
+        {
+            return null;
+        }
+        List<OnestoreEntity.Index> indexList = LocalCompositeIndexManager.getInstance().queryIndexList(query);
+        if (indexList.isEmpty())
+        {
+            System.out.println("No index required for this query");
+            return null;
+        }
+        List<OnestoreEntity.CompositeIndex> compIndexes = compositeIndexCache.get(query.getKind());
+        System.out.println("Index found for query: " + indexList.get(0).toFlatString());
+        return fetchMatchingIndex(compIndexes, indexList.get(0));
+    }
+
     public DatastoreV3Pb.QueryResult runQuery( LocalRpcService.Status status, DatastoreV3Pb.Query query )
     {
         final LocalCompositeIndexManager.ValidatedQuery validatedQuery = new LocalCompositeIndexManager.ValidatedQuery(query);
 
         query = validatedQuery.getV3Query();
-
+        OnestoreEntity.CompositeIndex compositeIndex = findIndexToUse(query);
+        if (compositeIndex != null)
+        {
+            query.addCompositeIndex(compositeIndex);
+        }
         String app = query.getApp();
         Profile profile = getOrCreateProfile(app);
 
