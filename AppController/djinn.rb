@@ -2537,12 +2537,12 @@ class Djinn
     apichecker_url = "http://#{apichecker_host}:#{ApiChecker::SERVER_PORT}/health/all"
 
     retries_left = 3
+    data = {}
     begin
       response = Net::HTTP.get_response(URI.parse(apichecker_url))
       data = JSON.load(response.body)
     rescue Exception => e
       Djinn.log_error("Couldn't get API status from host at #{apichecker_url}")
-      data = {}
 
       if retries_left > 0
         Kernel.sleep(5)
