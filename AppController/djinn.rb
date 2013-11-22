@@ -388,16 +388,9 @@ class Djinn
   AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
   
 
-  # CPU limits that determine when to stop adding AppServers on a node. Because
-  # AppServers in different languages consume different amounts of CPU, set
-  # different limits per language.
-  MAX_CPU_FOR_APPSERVERS = {'python27' => 90.00, 'java' => 75.00, 'go' => 70.00, 'php' => 80.00}
-
-
-  # Memory limits that determine when to stop adding AppServers on a node. 
-  # Because AppServers in different languages consume different amounts of 
-  # memory, set different limits per language.
-  MAX_MEM_FOR_APPSERVERS = {'python27' => 90.00, 'java' => 95.00, 'go' => 90.00, 'php' => 90.00 }
+  # A Float that determines how much CPU can be used before the autoscaler will
+  # stop adding AppServers on a node.
+  MAX_CPU_FOR_APPSERVERS = 90.00
 
 
   # A regular expression that can be used to match any character that is not
@@ -1059,6 +1052,7 @@ class Djinn
     # don't use an actual % below, or it will cause a string format exception
     stats = {
       'ip' => my_node.public_ip,
+      'private_ip' => my_node.private_ip,
       'cpu' => usage['cpu'],
       'memory' => mem,
       'disk' => usage['disk'],
@@ -4504,27 +4498,52 @@ HOSTS
     }
 
     # Add an AppServer on the machine with the lowest number of AppServers
-    # running.
+    # running, but only if it has enough CPU free to support another AppServer.
     appserver_to_use = appservers_running.keys[0]
     lowest_appserver_ports = appservers_running.values[0].length
+    lowest_cpu = nil
+    @all_stats.each { |node|
+      if node['private_ip'] == appserver_to_use
+        lowest_cpu = node['cpu']
+        break
+      end
+    }
+
     Djinn.log_debug("Considering adding an AppServer to host " +
-      "#{appserver_to_use}, as it runs #{lowest_appserver_ports} AppServers.")
+      "#{appserver_to_use}, as it runs #{lowest_appserver_ports} AppServers " +
+      "and is using #{lowest_cpu} percent CPU.")
     appservers_running.each { |host, ports|
-      if ports.length < lowest_appserver_ports and ports.length < MAX_APPSERVERS_ON_THIS_NODE
+      cpu_on_this_node = nil
+      @all_stats.each { |node|
+        if node['private_ip'] == host
+          cpu_on_this_node = node['cpu']
+          break
+        end
+      }
+
+      if ports.length < lowest_appserver_ports and
+        ports.length < MAX_APPSERVERS_ON_THIS_NODE and
+        cpu_on_this_node < MAX_CPU_FOR_APPSERVERS
+
         appserver_to_use = host
         lowest_appserver_ports = ports.length
+        lowest_cpu = cpu_on_this_node
         Djinn.log_debug("Instead considering adding an AppServer to host " +
           "#{appserver_to_use}, as it runs #{lowest_appserver_ports} " +
-          "AppServers.")
+          "AppServers and is using #{lowest_cpu} percent CPU.")
       end
     }
 
     # Only add an AppServer there if there's room available.
     Djinn.log_debug("The machine running the lowest number of AppServers is " +
-      "#{appserver_to_use}, running #{lowest_appserver_ports} AppServers.")
+      "#{appserver_to_use}, running #{lowest_appserver_ports} AppServers, " +
+      "with #{lowest_cpu} percent CPU used.")
     if lowest_appserver_ports >= MAX_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The maximum number of AppServers for this app " +
         "are already running on all machines, so requesting a new machine.")
+    elsif lowest_cpu >= MAX_CPU_FOR_APPSERVERS
+      Djinn.log_info("No machine is available with enough CPU, so requesting " +
+        "a new machine.")
     else
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       acc = AppControllerClient.new(appserver_to_use, @@secret)
