@@ -16,7 +16,7 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=1.11.0
+export APPSCALE_VERSION=1.12.0
 
 increaseconnections()
 {
@@ -583,8 +583,8 @@ keygen()
 
 installcelery()
 {
-  easy_install -U Celery
-  easy_install -U Flower
+  easy_install Celery==3.0.24
+  easy_install Flower
 }
 
 installrabbitmq()

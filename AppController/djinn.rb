@@ -648,12 +648,6 @@ class Djinn
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
 
-    # Once we've relocated the app, we need to tell the XMPPReceiver about the
-    # app's new location.
-    app_language = @app_info_map[appid]['language']
-    stop_xmpp_for_app(appid)
-    start_xmpp_for_app(appid, http_port, app_language)
-
     # Same for any cron jobs the user has set up.
     # TODO(cgb): We do this on the login node, but the cron jobs are initially
     # set up on the shadow node. In all supported cases, these are the same
@@ -662,24 +656,30 @@ class Djinn
     # TODO(cgb): This doesn't remove the old cron jobs that were accessing the
     # previously used port. This isn't a problem if nothing else runs on that
     # port, or if anything else there.
-    CronHelper.update_cron(my_public, http_port, app_language, appid)
+    CronHelper.update_cron(my_public, http_port,
+      @app_info_map[appid]['language'], appid)
 
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
     # the new port. Do this in a separate thread to avoid blocking the caller.
+    port_file = "/etc/appscale/port-#{appid}.txt"
+    HelperFunctions.write_file(port_file, http_port)
+
     Thread.new {
-      port_file = "/etc/appscale/port-#{appid}.txt"
-      HelperFunctions.write_file(port_file, http_port)
       @nodes.each { |node|
-        next if not node.is_appengine?
         if node.private_ip != my_node.private_ip
           HelperFunctions.scp_file(port_file, port_file, node.private_ip,
             node.ssh_key)
         end
+        next if not node.is_appengine?
         app_manager = AppManagerClient.new(node.private_ip)
         app_manager.restart_app_instances_for_app(appid)
       }
     }
+
+    # Once we've relocated the app, we need to tell the XMPPReceiver about the
+    # app's new location.
+    MonitInterface.restart("xmpp-#{appid}")
 
     return "OK"
   end
@@ -816,11 +816,12 @@ class Djinn
     end
 
     keyname = possible_credentials["keyname"]
-    @nodes = Djinn.convert_location_array_to_class(locations, keyname)
     @creds = possible_credentials
     @app_names = app_names
     
-    convert_fqdns_to_ips
+    nodes = Djinn.convert_location_array_to_class(locations, keyname)
+    converted_nodes = convert_fqdns_to_ips(nodes)
+    @nodes = converted_nodes
     @creds = sanitize_credentials
 
     find_me_in_locations
@@ -1019,7 +1020,7 @@ class Djinn
       acc = AppControllerClient.new(ip, @@secret)
 
       begin
-        @all_stats << acc.get_stats(@@secret)
+        @all_stats << acc.get_stats()
       rescue FailedNodeException
         Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
           "not adding it to our cached info.")
@@ -1090,7 +1091,7 @@ class Djinn
     end
 
     Thread.new {
-      run_groomer_command = "cd /root/appscale/AppDB && python groomer.py"
+      run_groomer_command = "python /root/appscale/AppDB/groomer.py"
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
@@ -2914,12 +2915,20 @@ class Djinn
   # which node is our node (since we find our node by IP). This method
   # looks through all the nodes we currently know of and converts any private
   # FQDNs we see to private IPs.
-  def convert_fqdns_to_ips()
+  #
+  # Args:
+  #   nodes: An Array of DjinnJobDatas, where each item corresponds to a single
+  #     node in this AppScale deployment.
+  #
+  # Returns:
+  #   An Array of DjinnJobDatas, where each item may have its private FQDN
+  #   replaced with a private IP address.
+  def convert_fqdns_to_ips(nodes)
     if is_cloud?
       Djinn.log_debug("In a cloud deployment, so converting FQDNs -> IPs")
     else
       Djinn.log_debug("Not in a cloud deployment, so not converting FQDNs -> IPs")
-      return
+      return nodes
     end
 
     if @creds["hostname"] =~ /#{FQDN_REGEX}/
@@ -2931,7 +2940,7 @@ class Djinn
       end
     end
     
-    @nodes.each { |node|
+    nodes.each { |node|
       # Resolve the private FQDN to a private IP, but don't resolve the public
       # FQDN, as that will just resolve to the private IP.
 
@@ -2944,6 +2953,8 @@ class Djinn
         end
       end
     }
+
+    return nodes
   end
 
  
@@ -3333,7 +3344,7 @@ class Djinn
     DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
     Nginx.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT)
-    Nginx.restart()
+    Nginx.reload()
 
     # TODO check the return value
     DatastoreServer.is_running(my_ip)
@@ -3970,7 +3981,7 @@ HOSTS
     Nginx.create_app_load_balancer_config(my_public, my_private, 
       AppDashboard::PROXY_PORT)
     HAProxy.start
-    Nginx.restart
+    Nginx.reload
     @app_info_map[AppDashboard::APP_NAME] = {
       'nginx' => 1080,
       'nginx_https' => 1443,
@@ -4138,10 +4149,30 @@ HOSTS
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
+
     port_file = "/etc/appscale/port-#{app}.txt"
-    HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
-    Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
-      "https port #{https_port}, and haproxy port #{proxy_port}")
+    if my_node.is_login?
+      HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
+      Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
+        "https port #{https_port}, and haproxy port #{proxy_port}")
+
+      @nodes.each { |node|
+        if node.private_ip != my_node.private_ip
+          HelperFunctions.scp_file(port_file, port_file, node.private_ip,
+            node.ssh_key)
+        end
+      }
+    else
+      loop {
+        if File.exists?(port_file)
+          Djinn.log_debug("Got port file for app #{app}")
+          break
+        else
+          Djinn.log_debug("Waiting for port file for app #{app}")
+          Kernel.sleep(5)
+        end
+      }
+    end
 
     # TODO(cgb): Make sure we don't add the same cron lines in twice for the same
     # app, and only start xmpp if it isn't already started
@@ -4547,7 +4578,7 @@ HOSTS
     Djinn.log_debug("The machine running the highest number of AppServers is " +
       "#{appserver_to_use}, running #{highest_appserver_ports} AppServers.")
     if highest_appserver_ports <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The minimum number of AppServers for this app " +
+      Djinn.log_debug("The minimum number of AppServers for this app " +
         "are already running on all machines, so requesting less machines.")
     else
       ports = appservers_running[appserver_to_use]
@@ -4953,8 +4984,9 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{port} #{@@secret}"
-      stop_cmd = "/bin/ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " +
+        "xmpp_receiver.py #{app}"
       watch_name = "xmpp-#{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")

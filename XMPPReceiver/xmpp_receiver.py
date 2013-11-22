@@ -45,7 +45,7 @@ class XMPPReceiver():
   }
 
 
-  def __init__(self, appid, login_ip, app_port, app_password):
+  def __init__(self, appid, login_ip, app_password):
     """Creates a new XMPPReceiver, which will listen for XMPP messages for
     an App Engine app.
 
@@ -55,16 +55,16 @@ class XMPPReceiver():
       login_ip: A str representing the IP address or FQDN that runs the
         full proxy nginx service, sitting in front of the app we'll be
         posting messages to.
-      app_port: A str representing the port that the app we'll be posting
-        messages to is bound to.
       app_password: A str representing the password associated with the
         XMPP user account for the Google App Engine app that the receiver
         will log in on behalf of.
     """
     self.appid = appid
     self.login_ip = login_ip
-    self.app_port = int(app_port)
     self.app_password = app_password
+
+    with open("/etc/appscale/port-{0}.txt".format(self.appid)) as file_handle:
+      self.app_port = int(file_handle.read().strip())
 
     self.my_jid = self.appid + "@" + self.login_ip
     log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(self.my_jid)
@@ -95,6 +95,8 @@ class XMPPReceiver():
     encoded_params = urllib.urlencode(params)
 
     try:
+      logging.debug("Attempting to open connection to {0}:{1}".format(
+        self.login_ip, self.app_port))
       connection = httplib.HTTPConnection(self.login_ip, self.app_port)
       connection.request('POST', '/_ah/xmpp/message/chat/', encoded_params,
         self.HEADERS)
@@ -174,6 +176,6 @@ class XMPPReceiver():
 
 
 if __name__ == "__main__":
-  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3])
   while True:
     RECEIVER.listen_for_messages()

@@ -21,6 +21,7 @@ module TerminateHelper
     `rm -f /var/appscale/*.pid`
     `rm -f /usr/local/nginx/conf/sites-enabled/*.conf`
     `rm -f /etc/monit/conf.d/*.cfg`
+    `rm -f /etc/appscale/port-*.txt`
 
     # TODO(cgb): It may be wise to save the apps for when AppScale starts up
     # later.
@@ -31,6 +32,8 @@ module TerminateHelper
 
     # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
     `rm -rf /etc/appscale/zookeeper_locations.json`
+    `rm -f /opt/appscale/appcontroller-state.json`
+    `rm -f /opt/appscale/appserver-state.json`
   end
 
 
@@ -58,8 +61,6 @@ module TerminateHelper
     `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
-    `rm -f /opt/appscale/appcontroller-state.json`
-    `rm -f /opt/appscale/appserver-state.json`
   end
 
 

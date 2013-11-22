@@ -86,20 +86,25 @@ class AppControllerClient
   end
   
 
-  # A helper method that makes SOAP calls for us. This method is mainly here to
-  # reduce code duplication: all SOAP calls expect a certain timeout and can
-  # tolerate certain exceptions, so we consolidate this code into this method.
-  # Here, the caller specifies the timeout for the SOAP call (or NO_TIMEOUT
-  # if an infinite timeout is required) as well as whether the call should
-  # be retried in the face of exceptions. Exceptions can occur if the machine
-  # is not yet running or is too busy to handle the request, so these exceptions
-  # are automatically retried regardless of the retry value. Typically
-  # callers set this to false to catch 'Connection Refused' exceptions or
-  # the like. Finally, the caller must provide a block of
-  # code that indicates the SOAP call to make: this is really all that differs
-  # between the calling methods. The result of the block is returned to the
-  # caller. 
-  def make_call(time, retry_on_except, callr, ok_to_fail=false)
+  # Provides automatic retry logic for transient SOAP errors.
+  #
+  # Args:
+  #   time: A Fixnum that indicates how long the timeout should be set to when
+  #     executing the caller's block.
+  #   retry_on_except: A boolean that indicates if non-transient Exceptions
+  #     should result in the caller's block being retried or not.
+  #   callr: A String that names the caller's method, used for debugging
+  #     purposes.
+  #
+  # Raises:
+  #   FailedNodeException: if the given block contacted a machine that
+  #     is either not running or is rejecting connections.
+  #   SystemExit: If a non-transient Exception was thrown when executing the
+  #     given block.
+  # Returns:
+  #   The result of the block that was executed, or nil if the timeout was
+  #   exceeded.
+  def make_call(time, retry_on_except, callr)
     refused_count = 0
     max = 5
 
@@ -109,7 +114,6 @@ class AppControllerClient
       }
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
       if refused_count > max
-        return false if ok_to_fail
         raise FailedNodeException.new("Connection was refused. Is the " +
           "AppController running?")
       else
@@ -118,9 +122,10 @@ class AppControllerClient
         retry
       end
     rescue Timeout::Error
-      return false if ok_to_fail
-      retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET, SOAP::EmptyResponseError
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      return
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+      Errno::ECONNRESET, SOAP::EmptyResponseError
       retry
     rescue Exception => except
       if retry_on_except
@@ -192,22 +197,16 @@ class AppControllerClient
     return status
   end
 
-  def get_status(ok_to_fail=false)
+  def get_status()
     if !HelperFunctions.is_port_open?(@ip, 17443)
-      if ok_to_fail
-        return false
-      else
-        HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
-      end
+      HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
     end
 
-    make_call(10, !ok_to_fail, "get_status", ok_to_fail) { 
-      @conn.status(@secret) 
-    }
+    make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }
   end
 
-  def get_stats(ok_to_fail=false)
-    make_call(10, !ok_to_fail, "get_stats", ok_to_fail) { @conn.get_stats(@secret) }
+  def get_stats()
+    make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
   end
 
   def stop_app(app_name)
