@@ -90,7 +90,7 @@ installnumpy()
 installPIL()
 {
     pip uninstall -y PIL
-    sudo apt-get install libjpeg8-dev
+    apt-get install -y libjpeg8-dev
     /usr/bin/yes | pip install --upgrade pillow
 }
 
