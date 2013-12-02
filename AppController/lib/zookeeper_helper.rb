@@ -57,11 +57,20 @@ def start_zookeeper
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end
-  Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
-  Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
+  #Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
+  #Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
+
+  if !File.directory?("#{DATA_LOCATION}")
+    Djinn.log_info("Initializing ZooKeeper")
+    Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
+    Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
+    Djinn.log_run("/usr/sbin/service zookeeper-server init")
+    Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
+  end
 
   # myid is needed for multi node configuration.
-  Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}")
+  Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
+  #Djinn.log_run("cp /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
   start_cmd = "/usr/sbin/service zookeeper-server start"
   stop_cmd = "/usr/sbin/service zookeeper-server stop"

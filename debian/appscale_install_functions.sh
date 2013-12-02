@@ -491,6 +491,8 @@ installzookeeper()
   apt-get install -y zookeeper-server 
   cd ..
   rm -rf ${APPSCALE_HOME}/downloads
+
+  easy_install kazoo
 }
 
 postinstallzookeeper()
