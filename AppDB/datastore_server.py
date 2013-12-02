@@ -84,6 +84,23 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
+def reference_property_to_reference(refprop):
+  """ Creates a Reference from a ReferenceProperty. 
+
+  Args:
+    refprop: A entity_pb.ReferenceProperty object.
+  Returns:
+    A entity_pb.Reference object. 
+  """
+  ref = entity_pb.Reference()
+  ref.set_app(refprop.app())
+  if refprop.has_name_space():
+    ref.set_name_space(refprop.name_space())
+  for pathelem in refprop.pathelement_list():
+    ref.mutable_path().add_element().CopyFrom(pathelem)
+  return ref
+
+
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
       replacement for the AppServers to persist their data into 
@@ -540,6 +557,9 @@ class DatastoreDistributed():
       value = ''
       if name in value_dict:
         value = value_dict[name]
+      elif name == "__key__":
+        value = self.__encode_index_pb(entity.key().path())
+        logging.error("Using __key__ as property value: {0}".format(value))
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
       # Should there be a separator between values?
@@ -564,6 +584,8 @@ class DatastoreDistributed():
     row_values = {}
     # Create default composite index for all entities. Here we take each
     # of the properties in one 
+    for ent in entities:
+      logging.error("Creating indexes for {0}".format(ent))
     for ent in entities:
       for index_def in composite_indexes:
         # Skip any indexes if the kind does not match.
@@ -917,6 +939,8 @@ class DatastoreDistributed():
     Raises:
       ZKTransactionException: If we are unable to acquire/release ZooKeeper locks.
     """
+    #if app_id not in ["apichecker", "appscaledashboard"]:
+    #  logging.error(put_request)
     entities = put_request.entity_list()
 
     num_of_required_ids = 0
@@ -1425,17 +1449,6 @@ class DatastoreDistributed():
     Returns:
       A dict mapping property names to lists of (op, value) tuples.
     """
-
-    def reference_property_to_reference(refprop):
-      """ Creates a Reference from a ReferenceProperty. """
-      ref = entity_pb.Reference()
-      ref.set_app(refprop.app())
-      if refprop.has_name_space():
-        ref.set_name_space(refprop.name_space())
-      for pathelem in refprop.pathelement_list():
-        ref.mutable_path().add_element().CopyFrom(pathelem)
-      return ref
-
     filter_info = {}
     for filt in filters:
       prop = filt.property(0)
@@ -1443,8 +1456,6 @@ class DatastoreDistributed():
       if prop.name() == '__key__':
         value = reference_property_to_reference(value.referencevalue())
         value = value.path()
-      # Do not include exist filters to get projection queries.
-      #if filt.op() != datastore_pb.Query_Filter.EXISTS:
       filter_info.setdefault(prop.name(), []).append((filt.op(), 
       self.__encode_index_pb(value)))
     return filter_info
@@ -1551,17 +1562,20 @@ class DatastoreDistributed():
 
     return True
 
-  def __fetch_entities_from_row_list(self, rowkeys):
+  def __fetch_entities_from_row_list(self, rowkeys, app_id):
     """ Given a list of keys fetch the entities from the entity table.
     
     Args:
       rowkeys: A list of strings which are keys to the entitiy table.
+      app_id: A string, the application identifier.
     Returns:
       A list of entities.
     """
-    logging.debug("Fetching rowkeys {0}".format(rowkeys))
+    #logging.debug("Fetching rowkeys {0}".format(rowkeys))
     result = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+    #logging.error("Fetched entities: {0}".format(result))
+    result = self.validated_result(app_id, result)
     result = self.remove_tombstoned_entities(result)
     entities = []
     keys = result.keys()
@@ -1570,12 +1584,13 @@ class DatastoreDistributed():
         entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
     return entities 
 
-  def __fetch_entities(self, refs):
+  def __fetch_entities(self, refs, app_id):
     """ Given the results from a table scan, get the references.
     
     Args: 
       refs: key/value pairs where the values contain a reference to 
             the entitiy table.
+      app_id: A string, the application identifier.
     Returns:
       Entities retrieved from entity table.
     """
@@ -1587,7 +1602,7 @@ class DatastoreDistributed():
       key = keys[index]
       ent = ent[key]['reference']
       rowkeys.append(ent)
-    return self.__fetch_entities_from_row_list(rowkeys)
+    return self.__fetch_entities_from_row_list(rowkeys, app_id)
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
@@ -2005,7 +2020,8 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
-    return self.__fetch_entities(result)
+    #logging.error("Result from range query: {0}".format(result))
+    return self.__fetch_entities(result, query.app())
 
   def remove_exists_filters(self, filter_info):
     """ We don't have native support for projection queries, so remove
@@ -2096,7 +2112,7 @@ class DatastoreDistributed():
                                ancestor=ancestor,
                                query=query)
 
-    return self.__fetch_entities(references)
+    return self.__fetch_entities(references, query.app())
     
   def __apply_filters(self, 
                      filter_ops, 
@@ -2518,7 +2534,7 @@ class DatastoreDistributed():
         force_exclusive = True
 
     result_list.sort()
-    result_set = self.__fetch_entities_from_row_list(result_list)
+    result_set = self.__fetch_entities_from_row_list(result_list, query.app())
     return result_set
 
   def does_composite_index_exist(self, query):
@@ -2572,13 +2588,26 @@ class DatastoreDistributed():
         continue
       value = ''
       if prop.name() in filter_info:
-        value = str(filter_info[prop.name()][0][1])
+        # Get the last filter. If there are more than 1, it is a equality filter.
+        # And an equality fitler trumps other types of filters.
+        value = str(filter_info[prop.name()][-1][1])
         #value  = str(self.__encode_index_pb(value))
         if prop.direction() == entity_pb.Index_Property.DESCENDING:
           logging.error("Value is being flipped")
           value = helper_functions.reverse_lex(value)
         hex_value = ":".join("{0:x}".format(ord(c)) for c in value)
         logging.error("Value from prop: {0} -> {1}".format(prop.name(), hex_value))
+      elif prop.name() == "__key__":
+        value = ""
+        if prop.name() in filter_info:
+          value = filter_info[prop.name()][-1][1]
+          value = reference_property_to_reference(value.referencevalue())
+          value = value.path()
+          value =  self.__encode_index_pb(value)
+          if prop.direction() == entity_pb.Index_Property.DESCENDING:
+            logging.error("Value is being flipped")
+            value = helper_functions.reverse_lex(value)
+  
       # Should there be a separator between values?
       index_value += str(value)
 
@@ -2677,7 +2706,7 @@ class DatastoreDistributed():
                                              offset=offset, 
                                              start_inclusive=start_inclusive,
                                              end_inclusive=end_inclusive)
-    return self.__fetch_entities(index_result)
+    return self.__fetch_entities(index_result, query.app())
 
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
@@ -2783,7 +2812,7 @@ class DatastoreDistributed():
       if not temp_res: 
         break
 
-      ent_res = self.__fetch_entities(temp_res)
+      ent_res = self.__fetch_entities(temp_res, query.app())
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
       # Apply in-memory filters for each property. We loop through each entity
@@ -3055,7 +3084,7 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    logging.warning("Doing a rollback on transaction id {0} for app id {1}"
+    logging.error("Doing a rollback on transaction id {0} for app id {1}"
       .format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
