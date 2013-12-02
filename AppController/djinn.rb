@@ -3834,6 +3834,12 @@ HOSTS
           restore_appserver_state
         end
 
+        if File.exists?("/opt/appscale/rabbitmq")
+          Djinn.log_run("rm -rf /var/lib/rabbitmq")
+        else
+          Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+        end
+        Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
         return
       end
 
@@ -3844,6 +3850,9 @@ HOSTS
       Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT} " +
         "2>&1")
       Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+      Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+      Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
     end
   end
 
