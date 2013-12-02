@@ -3834,6 +3834,9 @@ HOSTS
           restore_appserver_state
         end
 
+        # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
+        # Make sure there is data present there and that it points to our
+        # persistent disk.
         if File.exists?("/opt/appscale/rabbitmq")
           Djinn.log_run("rm -rf /var/lib/rabbitmq")
         else
