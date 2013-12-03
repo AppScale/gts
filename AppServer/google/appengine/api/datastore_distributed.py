@@ -22,8 +22,11 @@ All calls are made to a datastore server for queries, gets, puts, and deletes,
 index functions, transaction functions.
 """
 
+import collections
 import datetime
 import logging
+import os
+
 import sys
 import threading
 import warnings
@@ -55,6 +58,17 @@ SSL_DEFAULT_PORT = 8443
 # The amount of time before we consider a query cursor to be no longer valid.
 CURSOR_TIMEOUT = 120
 
+ASCENDING = datastore_pb.Query_Order.ASCENDING
+DESCENDING = datastore_pb.Query_Order.DESCENDING
+
+EQUALITY_OPERATORS = set((datastore_pb.Query_Filter.EQUAL,
+                          ))
+INEQUALITY_OPERATORS = set((datastore_pb.Query_Filter.LESS_THAN,
+                            datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL,
+                            datastore_pb.Query_Filter.GREATER_THAN,
+                            datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL,
+                            ))
+
 try:
   __import__('google.appengine.api.taskqueue.taskqueue_service_pb')
   taskqueue_service_pb = sys.modules.get(
@@ -77,9 +91,6 @@ _BATCH_SIZE = 20
 
 
 _MAX_ACTIONS_PER_TXN = 5
-
-
-
 
 
 class DatastoreDistributed(apiproxy_stub.APIProxyStub):
@@ -111,25 +122,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     users.User: entity_pb.PropertyValue.kUserValueGroup,
     }
 
-  WRITE_ONLY = entity_pb.CompositeIndex.WRITE_ONLY
-  READ_WRITE = entity_pb.CompositeIndex.READ_WRITE
-  DELETED = entity_pb.CompositeIndex.DELETED
-  ERROR = entity_pb.CompositeIndex.ERROR
-
-  _INDEX_STATE_TRANSITIONS = {
-    WRITE_ONLY: frozenset((READ_WRITE, DELETED, ERROR)),
-    READ_WRITE: frozenset((DELETED,)),
-    ERROR: frozenset((DELETED,)),
-    DELETED: frozenset((ERROR,)),
-  }
-
   def __init__(self,
                app_id,
                datastore_location,
                history_file=None,
                require_indexes=False,
                service_name='datastore_v3',
-               trusted=False):
+               trusted=False,
+               root_path='/var/apps/'):
     """Constructor.
 
     Args:
@@ -141,6 +141,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       service_name: Service name expected for all calls.
       trusted: bool, default False.  If True, this stub allows an app to
         access the data of another app.
+      root_path: A str, the path where index.yaml can be found.
     """
     super(DatastoreDistributed, self).__init__(service_name)
 
@@ -148,7 +149,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     assert isinstance(app_id, basestring) and app_id != ''
     self.__app_id = app_id
     self.__datastore_location = datastore_location
-
+    self.__index_cache = {}
     self.__is_encrypted = True
     res = self.__datastore_location.split(':')
     if len(res) == 2:
@@ -167,7 +168,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.__queries = {}
 
     self.__require_indexes = require_indexes
-
+    self.__root_path = root_path + self.__app_id + "/app"
+    self.__cached_yaml = (None, None, None)
+    if require_indexes:
+      self._SetupIndexes()
 
   def Clear(self):
     """ Clears the datastore by deleting all currently stored entities and
@@ -273,9 +277,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """Returns a dict that maps Query PBs to times they've been run."""
     return []
 
+  def _maybeSetDefaultAuthDomain(self):
+    """ Sets default auth domain if not set. """
+    auth_domain = os.environ.get("AUTH_DOMAIN")
+    if not auth_domain:
+      os.environ['AUTH_DOMAIN'] = "appscale.com" 
+
   def _RemoteSend(self, request, response, method):
     """Sends a request remotely to the datstore server. """
     tag = self.__app_id
+    self._maybeSetDefaultAuthDomain() 
     user = users.GetCurrentUser()
     if user != None:
       tag += ":" + user.email()
@@ -313,6 +324,20 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def _Dynamic_Put(self, put_request, put_response):
     """Send a put request to the datastore server. """
     put_request.set_trusted(self.__trusted)
+    
+    ent_kinds = []
+    for ent in put_request.entity_list():
+      last_path = ent.key().path().element_list()[-1]
+      if last_path.type() not in ent_kinds:
+        ent_kinds.append(last_path.type())
+
+    for kind in ent_kinds:
+      indexes = self.__index_cache.get(kind)
+      if indexes:
+        for index in indexes:
+          new_composite = put_request.add_composite_index()
+          new_composite.CopyFrom(index)
+
     self._RemoteSend(put_request, put_response, "Put")
     return put_response 
 
@@ -324,6 +349,25 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_Delete(self, delete_request, delete_response):
     """Send a delete request to the datastore server. """
+    # Determine if there are composite indexes that need to be deleted.
+    # The datastore service will look up meta data to figure out which
+    # composite indexes apply.
+    ent_kinds = []
+    for key in delete_request.key_list():
+      last_path = key.path().element_list()[-1]
+      if last_path.type() not in ent_kinds:
+        ent_kinds.append(last_path.type())
+ 
+    has_composites = False
+    for kind in ent_kinds:
+      indexes = self.__index_cache.get(kind)
+      if indexes:
+        has_composites = True
+        break
+
+    if has_composites:
+      delete_request.set_mark_changes(True)
+
     delete_request.set_trusted(self.__trusted)
     self._RemoteSend(delete_request, delete_response, "Delete")
     return delete_response
@@ -354,6 +398,19 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if not query.has_app():
       query.set_app(self.__app_id)
     self.__ValidateAppId(query.app())
+
+    # Set the composite index if it applies.
+    indexes = []
+    if query.has_kind():
+      kind_indexes = self.__index_cache.get(query.kind())
+      if kind_indexes:
+        indexes.extend(kind_indexes)
+   
+    index_to_use = _FindIndexToUse(query, indexes)
+       
+    if index_to_use != None:
+      new_index = query.add_composite_index()
+      new_index.MergeFrom(indexes[index_to_use])
     self._RemoteSend(query, query_response, "RunQuery")
 
     skipped_results = 0
@@ -639,21 +696,205 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_CreateIndex(self, index, id_response):
     """ Create a new index. Currently stubbed out."""
-    self.__ValidateAppId(index.app_id())
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              'New index id must be 0.')
-    id_response.set_value(0)
+    self._RemoteSend(index, id_response, "CreateIndex")
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
-    """ Gets the indices of the current app. Currently stubbed out. """
-    return 
+    """ Gets the indices of the current app. Currently stubbed out. 
+
+    Args:
+      app_str: A api_base_pb.StringProto, the application identifier.
+      composite_indices: datastore_pb.CompositeIndices protocol buffer."""
+    self._RemoteSend(app_str, composite_indices, "GetIndices")
+    return composite_indices
 
   def _Dynamic_UpdateIndex(self, index, void):
     """ Updates the indices of the current app. Currently stubbed out. """
+    self._RemoteSend(index, void, "UpdateIndex")
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
     """ Deletes an index of the current app. Currently stubbed out. """
+    self._RemoteSend(index, void, "DeleteIndex")
     return void
+
+  def _SetupIndexes(self, _open=open):
+    """Ensure that the set of existing composite indexes matches index.yaml.
+    
+    Create any new indexes, and delete indexes which are no longer required.
+   
+    Args:
+      _open: Function used to open a file.
+    """
+    if not self.__root_path:
+      logging.warning("No index.yaml was loaded.")
+      return
+    index_yaml_file = os.path.join(self.__root_path, 'index.yaml')
+    if (self.__cached_yaml[0] == index_yaml_file and
+        os.path.exists(index_yaml_file) and
+        os.path.getmtime(index_yaml_file) == self.__cached_yaml[1]):
+      requested_indexes = self.__cached_yaml[2]
+    else:
+      try:
+        index_yaml_mtime = os.path.getmtime(index_yaml_file)
+        fh = _open(index_yaml_file, 'r')
+      except (OSError, IOError):
+        logging.info("Error reading file")
+        index_yaml_data = None
+      else:
+        try:
+          index_yaml_data = fh.read()
+        finally:
+          fh.close()
+      requested_indexes = []
+      if index_yaml_data is not None:
+        index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
+        if index_defs is not None and index_defs.indexes is not None:
+          requested_indexes = datastore_index.IndexDefinitionsToProtos(
+              self.__app_id,
+              index_defs.indexes)
+          self.__cached_yaml = (index_yaml_file, index_yaml_mtime,
+                               requested_indexes)
+     
+    existing_indexes = datastore_pb.CompositeIndices()
+    app_str = api_base_pb.StringProto()
+    app_str.set_value(self.__app_id)
+    self._Dynamic_GetIndices(app_str, existing_indexes)
+
+    requested = dict((x.definition().Encode(), x) for x in requested_indexes)
+    existing = dict((x.definition().Encode(), x) for x in 
+      existing_indexes.index_list())
+
+    # Delete any indexes that are no longer requested.
+    deleted = 0
+    for key, index in existing.iteritems():
+      if key not in requested:
+        self._Dynamic_DeleteIndex(index, api_base_pb.VoidProto())
+        deleted += 1
+
+    # Add existing indexes in the index cache.
+    for key, index in existing.iteritems():
+      new_index = entity_pb.CompositeIndex()
+      new_index.CopyFrom(index)
+      ent_kind = new_index.definition().entity_type()
+      if ent_kind in self.__index_cache:
+        new_indexes = self.__index_cache[ent_kind]
+        new_indexes.append(new_index)
+        self.__index_cache[ent_kind] = new_indexes
+      else:
+        self.__index_cache[ent_kind] = [new_index]
+  
+    # Compared the existing indexes to the requested ones and create any
+    # new indexes requested.
+    created = 0
+    for key, index in requested.iteritems():
+      if key not in existing:
+        new_index = entity_pb.CompositeIndex()
+        new_index.CopyFrom(index)
+        new_index.set_id(self._Dynamic_CreateIndex(new_index, 
+          api_base_pb.Integer64Proto()).value())
+        new_index.set_state(entity_pb.CompositeIndex.READ_WRITE)
+        self._Dynamic_UpdateIndex(new_index, api_base_pb.VoidProto())
+        created += 1
+  
+        ent_kind = new_index.definition().entity_type()
+        if ent_kind in self.__index_cache:
+          new_indexes = self.__index_cache[ent_kind]
+     
+          new_indexes.append(new_index)
+          self.__index_cache[ent_kind] = new_indexes
+        else:
+          self.__index_cache[ent_kind] = [new_index]
+
+    if created or deleted:
+      logging.info('Created %d and deleted %d index(es); total %d',
+                    created, deleted, len(requested))
+
+def _FindIndexToUse(query, indexes):
+  """ Matches the query with one of the composite indexes. 
+
+  Args:
+    query: A datastore_pb.Query.
+    indexes: A list of entity_pb.CompsiteIndex.
+  Returns:
+    The index of the list for which the composite index matches the query.
+    Returns None if there is no match.
+  """
+  if not query.has_kind():
+    return None
+
+  # Not getting the property field because it is returned in a complicated
+  # format.
+  required, kind, ancestor, _= \
+    (datastore_index.CompositeIndexForQuery(query))
+
+  if not required:
+    return None
+
+  # Prefix props are those we are matching based on equality filters.
+  prefix_props = _GetPrefixProps(query) 
+  # The postfix prop is based on the inequality filter.
+  postfix_prop = _GetPostfixProps(query)
+
+  if not required:
+    return None
+  for ii, index in enumerate(indexes):
+    index_def = index.definition()
+    if ancestor != index_def.ancestor():
+      continue
+    # The one here is the post_fix_prop size.
+    if index_def.property_size() != len(prefix_props) + 1:
+      continue
+
+    for index, prop_item in enumerate(index_def.property_list()):
+      # If it is the last element, compare it to the postfix prop.
+      if index_def.property_size() == 1 + index:
+        if prop_item.name() == postfix_prop[0] and \
+          prop_item.direction() == postfix_prop[1]:
+          return ii 
+        else:
+          # Break to the outer for loop.
+          break
+      if prop_item.name() == prefix_props[index]:
+        continue
+      else:
+        break
+
+  return None
+
+def _GetPrefixProps(query):
+  """ Gets a list of property names for equality filters.
+
+  Direction for name properties does not matter but order of the list does.
+ 
+  Args: 
+    A datastore_pb.Query.
+  Returns: 
+    A list of property names that have been sorted to avoid duplicates.
+  """
+  eq_prop_names = []
+  for filter in query.filter_list():
+    if filter.op() in EQUALITY_OPERATORS:
+      eq_prop_names.append(filter.property(0).name())
+  return sorted(eq_prop_names)
+
+def _GetPostfixProps(query):
+  """ Gets the inequality filter name and direction as a tuple.
+  
+   Args:
+     A datastore_pb.Query.
+   Returns:
+     A tuple of property name and direction.
+  """
+  ineq_prop_names = []
+  orders = query.order_list()
+  postfix_ordered = [(order.property(), order.direction()) for order in orders]
+  if postfix_ordered:
+    return postfix_ordered
+  for filter in query.filter_list():
+    if filter.op() in INEQUALITY_OPERATORS:
+      return filter.property(0).name(), ASCENDING
+  raise ValueError("No inequality filter found for composite postfix.") 

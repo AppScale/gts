@@ -362,7 +362,7 @@ class DatastoreGroomer(threading.Thread):
       A distributed_datastore.DatastoreDistributed object.
     """
     ds_distributed = datastore_distributed.DatastoreDistributed(app_id, 
-      self.datastore_path, False, False)
+      self.datastore_path, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distributed)
     os.environ['APPLICATION_ID'] = app_id
     os.environ['AUTH_DOMAIN'] = "appscale.com"
