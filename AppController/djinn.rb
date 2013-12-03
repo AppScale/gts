@@ -249,6 +249,12 @@ class Djinn
   attr_accessor :app_upload_reservations
 
 
+  # A Fixnum that indicates the time (in seconds since epoch) when this
+  # AppController last contacted the API Checker for the health of each Google
+  # App Engine app.
+  attr_accessor :last_api_status
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -450,6 +456,11 @@ class Djinn
   ID_NOT_FOUND = "Reservation ID not found."
 
 
+  # A Fixnum that indicates how often the AppController on this node should ping
+  # the API checker app for the status of each App Engine API, in seconds.
+  API_STATUS_CHECK_IN_FREQUENCY = 300
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -492,6 +503,7 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
+    @last_api_status = Time.now.to_i
   end
 
 
@@ -2528,12 +2540,20 @@ class Djinn
   #   A JSON-encoded Hash that maps each API name to its state (e.g., running,
   #   failed).
   def generate_api_status()
+    if Time.now.to_i - @last_api_status < API_STATUS_CHECK_IN_FREQUENCY
+      Djinn.log_debug("Not enough time has passed since last time we " +
+        "gathered API status - will try again later.")
+      return
+    end
+
     if my_node.is_appengine?
       apichecker_host = my_node.private_ip
     else
       apichecker_host = get_shadow.private_ip
     end
 
+    Djinn.log_debug("Generating new API status by contacting API checker " +
+      "at #{apichecker_host}")
     apichecker_url = "http://#{apichecker_host}:#{ApiChecker::SERVER_PORT}/health/all"
 
     retries_left = 3
@@ -2568,6 +2588,8 @@ class Djinn
         "running")
       majorities[k] = HelperFunctions.find_majority_item(@api_status[k])
     }
+
+    @last_api_status = Time.now.to_i
 
     json_state = JSON.dump(majorities)
     return json_state
