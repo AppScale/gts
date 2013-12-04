@@ -176,6 +176,7 @@ def _run_file(file_path, globals_, script_dir=_SCRIPT_DIR):
   script_name = _BOOTSTAP_NAME_TO_REAL_NAME.get(script_name, script_name)
   script_path = os.path.join(script_dir, script_name)
   execfile(script_path, globals_)
+  exit(0)
 
 
 if __name__ == '__main__':
