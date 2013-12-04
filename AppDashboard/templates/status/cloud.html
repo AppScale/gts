@@ -10,6 +10,10 @@
               <a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a>
               &nbsp;
               <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a>
+              {% if is_user_cloud_admin %}
+                &nbsp;
+                <a href="http://webchat.freenode.net/?channels=appscale&uio=d4" class="btn btn-inverse btn-large" target="_blank">Live Support</a>
+              {% endif %}
             </p>
             <span align="center" style="width: 50%" >
             {% if flash_message %}
