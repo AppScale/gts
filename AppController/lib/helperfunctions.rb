@@ -185,6 +185,22 @@ module HelperFunctions
   end
 
 
+  # Queries the operating system to see if the named process is running.
+  #
+  # Note: Since this does a 'grep -v grep', callers should not call this
+  # method with a name of 'grep'.
+  #
+  # Args:
+  #   name: A String naming the process that may or may not be running.
+  def self.is_process_running?(name)
+    if `ps ax | grep #{name} | grep -v grep`.empty?
+      return false
+    else
+      return true
+    end
+  end
+
+
   def self.kill_process(name)
     `ps ax | grep #{name} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
   end
