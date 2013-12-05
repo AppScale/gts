@@ -1,0 +1,277 @@
+<!--{
+	"Title": "Getting Started",
+	"Path":  "/doc/install"
+}-->
+
+<h2 id="download">Download the Go distribution</h2>
+
+<p>
+<a href="http://code.google.com/p/go/downloads" id="start" class="download" target="_blank">
+<span class="big">Download Go</span>
+<span class="desc">Click here to visit the downloads page</span>
+</a>
+</p>
+
+<p>
+Click the link above to visit the
+<a href="http://code.google.com/p/go/downloads">Go project's downloads page</a>
+and select the binary distribution that matches your operating system and
+processor architecture.
+</p>
+
+<p>
+Official binary distributions are available for the FreeBSD, Linux, Mac OS X
+(Snow Leopard, Lion, and Mountain Lion), NetBSD, and Windows operating systems
+and the 32-bit (<code>386</code>) and 64-bit (<code>amd64</code>) x86 processor
+architectures.
+</p>
+
+<p>
+If a binary distribution is not available for your combination of operating
+system and architecture you may want to try
+<a href="/doc/install/source">installing from source</a> or
+<a href="/doc/install/gccgo">installing gccgo instead of gc</a>.
+</p>
+
+<h2 id="requirements">System requirements</h2>
+<p>
+The <code>gc</code> compiler supports the following operating systems and
+architectures. Please ensure your system meets these requirements before
+proceeding. If your OS or architecture is not on the list, it's possible that
+<code>gccgo</code> might support your setup; see
+<a href="/doc/install/gccgo">Setting up and using gccgo</a> for details.
+</p>
+
+<table class="codetable" frame="border" summary="requirements">
+<tr>
+<th align="middle">Operating system</th>
+<th align="middle">Architectures</th>
+<th align="middle">Notes</th>
+</tr>
+<tr><td colspan="3"><hr></td></tr>
+<tr><td>FreeBSD 7 or later</td> <td>amd64, 386, arm</td> <td>Debian GNU/kFreeBSD not supported; FreeBSD/ARM needs FreeBSD 10 or later</td></tr>
+<tr><td>Linux 2.6.23 or later with glibc</td> <td>amd64, 386, arm</td> <td>CentOS/RHEL 5.x not supported; no binary distribution for ARM yet</td></tr>
+<tr><td>Mac OS X 10.6/10.7</td> <td>amd64, 386</td> <td>use the gcc<sup>&#8224;</sup> that comes with Xcode<sup>&#8225;</sup></td></tr>
+<tr><td>Windows 2000 or later</td> <td>amd64, 386</td> <td>use mingw gcc<sup>&#8224;</sup>; cygwin or msys is not needed</td></tr>
+<tr><td>NetBSD 6 or later</td> <td>amd64, 386</td> <td></td></tr>
+</table>
+
+<p>
+<sup>&#8224;</sup><code>gcc</code> is required only if you plan to use
+<a href="/cmd/cgo">cgo</a>.<br/>
+<sup>&#8225;</sup>You only need to install the command line tools for
+<a href="http://developer.apple.com/Xcode/">Xcode</a>. If you have already
+installed Xcode 4.3+, you can install it from the Components tab of the
+Downloads preferences panel.
+</p>
+
+<h2 id="install">Install the Go tools</h2>
+
+<p>
+The Go binary distributions assume they will be installed in
+<code>/usr/local/go</code> (or <code>c:\Go</code> under Windows),
+but it is possible to install them in a different
+location. If you do this, you will need to set the <code>GOROOT</code>
+environment variable to that directory when using the Go tools.
+</p>
+
+<p>
+For example, if you installed Go to your home directory you should add the
+following commands to <code>$HOME/.profile</code>:
+</p>
+
+<pre>
+export GOROOT=$HOME/go
+export PATH=$PATH:$GOROOT/bin
+</pre>
+
+<p>
+Windows users should read the section about <a href="#windows_env">setting
+environment variables under Windows</a>.
+</p>
+
+<h3 id="bsd_linux">FreeBSD, Linux, Mac OS X and NetBSD tarballs</h3>
+
+<p>
+If you are upgrading from an older version of Go you must
+first remove the existing version from <code>/usr/local/go</code>:
+</p>
+
+<pre>
+rm -r /usr/local/go
+</pre>
+
+<p>
+Extract <a href="http://code.google.com/p/go/downloads/list?q=OpSys-FreeBSD+OR+OpSys-Linux+OR+OpSys-OSX+OR+OpSys-NetBSD+Type-Archive">the archive</a>
+into <code>/usr/local</code>, creating a Go tree in <code>/usr/local/go</code>.
+For example:
+</p>
+
+<pre>
+tar -C /usr/local -xzf go1.1.linux-amd64.tar.gz
+</pre>
+
+<p>
+The name of the archive may differ, depending on the version of Go you are
+installing and your system's operating system and processor architecture.
+</p>
+
+<p>
+(Typically these commands must be run as root or through <code>sudo</code>.)
+</p>
+
+<p>
+Add <code>/usr/local/go/bin</code> to the <code>PATH</code> environment
+variable. You can do this by adding this line to your <code>/etc/profile</code>
+(for a system-wide installation) or <code>$HOME/.profile</code>:
+</p>
+
+<pre>
+export PATH=$PATH:/usr/local/go/bin
+</pre>
+
+<h3 id="osx">Mac OS X package installer</h3>
+
+<p>
+Open the <a href="http://code.google.com/p/go/downloads/list?q=OpSys-OSX+Type-Installer">package file</a>
+and follow the prompts to install the Go tools.
+The package installs the Go distribution to <code>/usr/local/go</code>.
+</p>
+
+<p>
+The package should put the <code>/usr/local/go/bin</code> directory in your
+<code>PATH</code> environment variable. You may need to restart any open
+Terminal sessions for the change to take effect.
+</p>
+
+<h3 id="windows">Windows</h3>
+
+<p>
+The Go project provides two installation options for Windows users
+(besides <a href="/doc/install/source">installing from source</a>):
+a zip archive that requires you to set some environment variables and an
+experimental MSI installer that configures your installation automatically.
+</p>
+
+<h4 id="windows_zip">Zip archive</h4>
+
+<p>
+Extract the <a href="http://code.google.com/p/go/downloads/list?q=OpSys-Windows+Type%3DArchive">zip file</a>
+to the directory of your choice (we suggest <code>c:\Go</code>).
+</p>
+
+<p>
+If you chose a directory other than <code>c:\Go</code>, you must set
+the <code>GOROOT</code> environment variable to your chosen path.
+</p>
+
+<p>
+Add the <code>bin</code> subdirectory of your Go root (for example, <code>c:\Go\bin</code>) to your <code>PATH</code> environment variable.
+</p>
+
+<h4 id="windows_msi">MSI installer (experimental)</h4>
+
+<p>
+Open the <a href="http://code.google.com/p/go/downloads/list?q=OpSys-Windows+Type%3DInstaller">MSI file</a>
+and follow the prompts to install the Go tools.
+By default, the installer puts the Go distribution in <code>c:\Go</code>.
+</p>
+
+<p>
+The installer should put the <code>c:\Go\bin</code> directory in your
+<code>PATH</code> environment variable. You may need to restart any open
+command prompts for the change to take effect.
+</p>
+
+<h4 id="windows_env">Setting environment variables under Windows</h4>
+
+<p>
+Under Windows, you may set environment variables through the "Environment
+Variables" button on the "Advanced" tab of the "System" control panel. Some
+versions of Windows provide this control panel through the "Advanced System
+Settings" option inside the "System" control panel.
+</p>
+
+<h2 id="testing">Test your installation</h2>
+
+<p>
+Check that Go is installed correctly by building a simple program, as follows.
+</p>
+
+<p>
+Create a file named <code>hello.go</code> and put the following program in it:
+</p>
+
+<pre>
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Printf("hello, world\n")
+}
+</pre>
+
+<p>
+Then run it with the <code>go</code> tool:
+</p>
+
+<pre>
+$ go run hello.go
+hello, world
+</pre>
+
+<p>
+If you see the "hello, world" message then your Go installation is working.
+</p>
+
+<h2 id="gopath">Set up your work environment</h2>
+
+<p>
+The document <a href="/doc/code.html">How to Write Go Code</a> explains how to
+set up a work environment in which to build and test Go code.
+</p>
+
+<h2 id="next">What's next</h2>
+
+<p>
+Start by taking <a href="http://code.google.com/p/go-tour/">A Tour of Go</a>.
+</p>
+
+<p>
+Build a web application by following the <a href="/doc/articles/wiki/">Wiki
+Tutorial</a>.
+</p>
+
+<p>
+Read <a href="/doc/effective_go.html">Effective Go</a> to learn about writing
+idiomatic Go code.
+</p>
+
+<p>
+For the full story, consult Go's extensive <a href="/doc/">documentation</a>.
+</p>
+
+<p>
+Subscribe to the
+<a href="http://groups.google.com/group/golang-announce">golang-announce</a>
+mailing list to be notified when a new stable version of Go is released.
+</p>
+
+
+<h2 id="community">Community resources</h2>
+
+<p>
+For real-time help, there may be users or developers on
+<code>#go-nuts</code> on the <a href="http://freenode.net/">Freenode</a> IRC server.
+</p>
+
+<p>
+The official mailing list for discussion of the Go language is
+<a href="http://groups.google.com/group/golang-nuts">Go Nuts</a>.
+</p>
+
+<p>
+Bugs should be reported using the
+<a href="http://code.google.com/p/go/issues/list">Go issue tracker</a>.
+</p>

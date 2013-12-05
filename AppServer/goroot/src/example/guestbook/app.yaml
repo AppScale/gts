@@ -1,9 +1,0 @@
-application: guestbook-go
-version: 1
-runtime: go
-api_version: 1
-
-handlers:
-- url: /.*
-  script: _go_app
-  login: required
