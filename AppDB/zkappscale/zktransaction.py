@@ -5,6 +5,7 @@ Rewritten by Navraj Chohan and Chris Bunch (raj, chris@appscale.com)
 """
 import logging
 import re
+import sys
 import threading
 import time
 import urllib
@@ -484,6 +485,9 @@ class ZKTransaction:
           logging.debug("Created sequence ID {0} at path {1}".format(txn_id, 
             txn_id_path))
           return txn_id
+    except kazoo.exceptions.NodeExistsError as node_exists:
+      logging.error("Tried to create sequence node that already exists: {0}".\
+        format(path))
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.exception(zoo_exception)
       self.reestablish_connection()
