@@ -30,6 +30,7 @@ case "$1" in
         installpycrypto
         installlxml
         installxmpppy
+        installgo
         installphp
 	installappserverjava
 	postinstallappserverjava
