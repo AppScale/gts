@@ -72,9 +72,6 @@ installgo()
     wget $APPSCALE_PACKAGE_MIRROR/go1.2.linux-amd64.tar.gz
     tar zxvf go1.2.linux-amd64.tar.gz
     rm -fv go1.2.linux-amd64.tar.gz
-
-    cd /root/appscale/AppServer/gopath
-    ln -s /root/appscale/AppServer/goroot/src/pkg src
 }
 
 installphp()
