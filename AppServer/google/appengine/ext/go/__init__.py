@@ -364,10 +364,7 @@ class GoApp:
     self.proc = None
     self.proc_start = 0
     self.last_extras_hash = None
-    self.goroot = os.path.join(
-
-        up(__file__, 5),
-        'goroot')
+    self.goroot = '/usr/local/go/'
     if not os.path.isdir(self.goroot):
       raise Exception('no goroot found at ' + self.goroot)
 
