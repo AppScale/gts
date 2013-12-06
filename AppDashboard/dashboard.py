@@ -1093,7 +1093,7 @@ class RunGroomer(AppDashboard):
 
 
 # Main Dispatcher
-app = webapp2.WSGIApplication([ ('/', IndexPage),
+app = webapp2.WSGIApplication([ ('/', StatusPage),
                                 ('/status/refresh', StatusRefreshPage),
                                 ('/status', StatusPage),
                                 ('/status/json', StatusAsJSONPage),

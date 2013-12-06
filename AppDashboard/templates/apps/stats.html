@@ -14,8 +14,8 @@
                   <p>Requests per second:</p>
                 </div><!-- close marginright -->
                 <div class="offset1 span8">
-                  <div class="flot-container">
-                    <div id="requests-per-second-flot" class="flot-placeholder"></div>
+                  <div class="graph-container">
+                    <div class="graph" id="requests-per-second-flot"></div>
 		  </div><!-- close request per sec container -->
                 </div><!-- close offset -->
               </div><!-- close row fluid-->
@@ -98,7 +98,7 @@ function update_request_info() {
     for (var index = 0; index < req_info.length; index++) {
       var x = req_info[index]['timestamp'] * 1000;
       var y = req_info[index]['num_of_requests'];
-      thetuples.push([x, y]);
+      thetuples.push({ timestamp: x, num_of_requests: y });
     }
 
     if (thetuples.length == 0) {
@@ -107,12 +107,12 @@ function update_request_info() {
         'please wait and it should be updated shortly.');
     } else {
       $('#requests-per-second-flot').text('');
-      $.plot($("#requests-per-second-flot"), [thetuples], {
-        xaxis: {
-          mode: "time",
-          timezone: "browser",
-          timeformat: "%m/%d %H:%M"
-        }
+      new Morris.Line({
+        element: 'requests-per-second-flot',
+        data: thetuples,
+        xkey: 'timestamp',
+        ykeys: ['num_of_requests'],
+        labels: ['Number of Requests per second'],
       });
     }
   });

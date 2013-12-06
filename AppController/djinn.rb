@@ -3872,10 +3872,6 @@ HOSTS
   # Runs any commands provided by the user in their AppScalefile on the given
   # machine.
   #
-  # Commands must be placed in @creds['user_commands'], and not contain any
-  # redirection characters (">"), since HelperFunctions.run_remote_command
-  # will pipe to /dev/null and overwrite it.
-  #
   # Args:
   # - node: A DjinnJobData that represents the machine where the given commands
   #   should be executed.
@@ -3903,7 +3899,7 @@ HOSTS
     ip = node.private_ip
     ssh_key = node.ssh_key
     commands.each { |command|
-      HelperFunctions.run_remote_command(ip, command, ssh_key, NO_OUTPUT)
+      HelperFunctions.run_remote_command_without_output(ip, command, ssh_key)
     }
   end
 
