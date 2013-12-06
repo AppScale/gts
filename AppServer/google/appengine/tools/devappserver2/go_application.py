@@ -110,7 +110,7 @@ class GoApplication(object):
         '-arch', self._arch,
         '-binary_name', '_go_app',
         '-dynamic',
-        '-goroot', '/usr/local/go/',
+        '-goroot', os.environ['GOROOT'],
         '-nobuild_files', nobuild_files,
         '-unsafe',
         '-work_dir', self._work_dir]
