@@ -750,6 +750,30 @@ class TestDatastoreServer(unittest.TestCase):
     key = "Project:Synapse!Module:Core!"
     self.assertEquals(dd.reverse_path(key), "Module:Core!Project:Synapse!")
 
+  def test_remove_exists_filters(self):
+    zookeeper = flexmock()
+    zookeeper.should_receive("get_transaction_id").and_return(1)
+    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
+    zookeeper.should_receive("register_updated_key").and_return(1)
+    zookeeper.should_receive("acquire_lock").and_return(True)
+    zookeeper.should_receive("release_lock").and_return(True)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return(None)
+
+    query = datastore_pb.Query()
+    dd = DatastoreDistributed(db_batch, zookeeper)     
+    self.assertEquals(dd.remove_exists_filters({}), {})
+
+    filter_info = {"prop1":[(datastore_pb.Query_Filter.EQUAL, "1")],
+      "prop2": [(datastore_pb.Query_Filter.EQUAL, "2")]}
+    self.assertEquals(dd.remove_exists_filters(filter_info), filter_info)
+
+    filter_info = {"prop1":[(datastore_pb.Query_Filter.EXISTS, "1")],
+      "prop2": [(datastore_pb.Query_Filter.EXISTS, "2")]}
+    self.assertEquals(dd.remove_exists_filters(filter_info), {})
+
   def test_is_zigzag_merge_join(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_transaction_id").and_return(1)
@@ -764,9 +788,11 @@ class TestDatastoreServer(unittest.TestCase):
 
     query = datastore_pb.Query()
     dd = DatastoreDistributed(db_batch, zookeeper) 
-    self.assertEquals(dd.is_zigzag_merge_join(query, [], []), False)
+    db_batch.should_receive("remove_exists_filters").and_return({})
+    self.assertEquals(dd.is_zigzag_merge_join(query, {}, {}), False)
     filter_info = {"prop1":[(datastore_pb.Query_Filter.EQUAL, "1")],
       "prop2": [(datastore_pb.Query_Filter.EQUAL, "2")]}
+    db_batch.should_receive("remove_exists_filters").and_return(filter_info)
          
     self.assertEquals(dd.is_zigzag_merge_join(query, filter_info, []), True)
 
@@ -806,7 +832,5 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEquals(str(dd.get_meta_data_key("howdy", "doody", "what")), 
       "howdy{0}doody{0}what".format(KEY_DELIMITER))
 
- 
-       
 if __name__ == "__main__":
   unittest.main()    
