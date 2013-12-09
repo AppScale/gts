@@ -407,32 +407,15 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         indexes.extend(kind_indexes)
    
     index_to_use = _FindIndexToUse(query, indexes)
-       
     if index_to_use != None:
       new_index = query.add_composite_index()
-      new_index.MergeFrom(indexes[index_to_use])
+      new_index.MergeFrom(index_to_use)
+
     self._RemoteSend(query, query_response, "RunQuery")
 
     skipped_results = 0
     if query_response.has_skipped_results():
       skipped_results = query_response.skipped_results()
-
-
-    def has_prop_indexed(entity, prop):
-      """Returns True if prop is in the entity and is indexed."""
-      if prop in datastore_types._SPECIAL_PROPERTIES:
-        return True
-      elif prop in entity.unindexed_properties():
-        return False
-
-      values = entity.get(prop, [])
-      if not isinstance(values, (tuple, list)):
-        values = [values]
-
-      for value in values:
-        if type(value) not in datastore_types._RAW_PROPERTY_TYPES:
-          return True
-      return False
 
     def order_compare_entities(a, b):
       """ Return a negative, zero or positive number depending on whether
@@ -589,7 +572,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     self._RemoteSend(transaction, transaction_response, "Commit")
 
-    handle = transaction.handle()
     response = taskqueue_service_pb.TaskQueueAddResponse()
     try:
       for action in self.__tx_actions:
@@ -599,7 +581,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         except apiproxy_errors.ApplicationError, e:
           logging.warning('Transactional task %s has been dropped, %s',
                           action, e)
-          pass
 
     finally:
       self.__tx_actions = []
@@ -820,80 +801,47 @@ def _FindIndexToUse(query, indexes):
     query: A datastore_pb.Query.
     indexes: A list of entity_pb.CompsiteIndex.
   Returns:
-    The index of the list for which the composite index matches the query.
-    Returns None if there is no match.
+    The composite index of the list for which the composite index matches 
+    the query. Returns None if there is no match.
   """
   if not query.has_kind():
     return None
 
-  # Not getting the property field because it is returned in a complicated
-  # format.
-  required, kind, ancestor, _= \
-    (datastore_index.CompositeIndexForQuery(query))
-
-  if not required:
+  index_list = __IndexListForQuery(query)
+  if index_list == []:
     return None
 
-  # Prefix props are those we are matching based on equality filters.
-  prefix_props = _GetPrefixProps(query) 
-  # The postfix prop is based on the inequality filter.
-  postfix_prop = _GetPostfixProps(query)
+  index_match = index_list[0]
+  for index in indexes:
+    index_match.Equals(index.definition())    
+    return index
 
-  for ii, index in enumerate(indexes):
-    index_def = index.definition()
-    if ancestor != index_def.ancestor():
-      continue
-    # The one here is the post_fix_prop size.
-    if index_def.property_size() != len(prefix_props) + 1:
-      continue
-
-    for index, prop_item in enumerate(index_def.property_list()):
-      # If it is the last element, compare it to the postfix prop.
-      if index_def.property_size() == 1 + index:
-        if prop_item.name() == postfix_prop[0] and \
-          prop_item.direction() == postfix_prop[1]:
-          return ii 
-        else:
-          # Break to the outer for loop.
-          break
-      if prop_item.name() == prefix_props[index]:
-        continue
-      else:
-        break
   raise apiproxy_errors.ApplicationError(
     datastore_pb.Error.NEED_INDEX,
     'Query requires an index')
 
-def _GetPrefixProps(query):
-  """ Gets a list of property names for equality filters.
+def __IndexListForQuery(query):
+  """Get the composite index definition used by the query, if any, as a list.
 
-  Direction for name properties does not matter but order of the list does.
- 
-  Args: 
-    A datastore_pb.Query.
-  Returns: 
-    A list of property names that have been sorted to avoid duplicates.
-  """
-  eq_prop_names = []
-  for filter in query.filter_list():
-    if filter.op() in EQUALITY_OPERATORS:
-      eq_prop_names.append(filter.property(0).name())
-  return sorted(eq_prop_names)
+  Args:
+    query: the datastore_pb.Query to compute the index list for
 
-def _GetPostfixProps(query):
-  """ Gets the inequality filter name and direction as a tuple.
-  
-   Args:
-     A datastore_pb.Query.
-   Returns:
-     A tuple of property name and direction.
+  Returns:
+    A singleton list of the composite index definition pb used by the query,
   """
-  ineq_prop_names = []
-  orders = query.order_list()
-  postfix_ordered = [(order.property(), order.direction()) for order in orders]
-  if postfix_ordered:
-    return postfix_ordered
-  for filter in query.filter_list():
-    if filter.op() in INEQUALITY_OPERATORS:
-      return filter.property(0).name(), ASCENDING
-  raise ValueError("No inequality filter found for composite postfix.") 
+  required, kind, ancestor, props = (
+      datastore_index.CompositeIndexForQuery(query))
+  if not required:
+    return []
+
+  index_pb = entity_pb.Index()
+  index_pb.set_entity_type(kind)
+  index_pb.set_ancestor(bool(ancestor))
+  for name, direction in datastore_index.GetRecommendedIndexProperties(props):
+    prop_pb = entity_pb.Index_Property()
+    prop_pb.set_name(name)
+    prop_pb.set_direction(direction)
+    index_pb.property_list().append(prop_pb)
+  return [index_pb]
+
+
