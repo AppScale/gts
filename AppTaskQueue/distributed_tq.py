@@ -125,7 +125,7 @@ class DistributedTaskQueue():
     master_db_ip = appscale_info.get_db_master_ip()
     connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
     ds_distrib = datastore_distributed.DatastoreDistributed(
-    constants.DASHBOARD_APP_ID, connection_str, False, False)
+      constants.DASHBOARD_APP_ID, connection_str, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 

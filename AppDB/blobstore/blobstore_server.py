@@ -227,7 +227,7 @@ class UploadHandler(tornado.web.RequestHandler):
     """
     global datastore_path
     db = datastore_distributed.DatastoreDistributed(
-      app_id, datastore_path, False, False)
+      app_id, datastore_path, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', db)
     os.environ['APPLICATION_ID'] = app_id
 
