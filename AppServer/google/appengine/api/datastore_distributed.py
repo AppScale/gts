@@ -839,8 +839,6 @@ def _FindIndexToUse(query, indexes):
   # The postfix prop is based on the inequality filter.
   postfix_prop = _GetPostfixProps(query)
 
-  if not required:
-    return None
   for ii, index in enumerate(indexes):
     index_def = index.definition()
     if ancestor != index_def.ancestor():
@@ -862,8 +860,9 @@ def _FindIndexToUse(query, indexes):
         continue
       else:
         break
-
-  return None
+  raise apiproxy_errors.ApplicationError(
+    datastore_pb.Error.NEED_INDEX,
+    'Query requires an index')
 
 def _GetPrefixProps(query):
   """ Gets a list of property names for equality filters.

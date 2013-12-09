@@ -84,6 +84,23 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
+def reference_property_to_reference(refprop):
+  """ Creates a Reference from a ReferenceProperty. 
+
+  Args:
+    refprop: A entity_pb.ReferenceProperty object.
+  Returns:
+    A entity_pb.Reference object. 
+  """
+  ref = entity_pb.Reference()
+  ref.set_app(refprop.app())
+  if refprop.has_name_space():
+    ref.set_name_space(refprop.name_space())
+  for pathelem in refprop.pathelement_list():
+    ref.mutable_path().add_element().CopyFrom(pathelem)
+  return ref
+
+
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
       replacement for the AppServers to persist their data into 
@@ -517,8 +534,6 @@ class DatastoreDistributed():
     Returns:
       A string representing a key to the composite table.
     """ 
-    if not index.has_id():
-      logging.error("Missing ID for composite: {0}".format(index))
     composite_id = index.id()
     definition = index.definition()
     app_id = entity.key().app()
@@ -540,6 +555,8 @@ class DatastoreDistributed():
       value = ''
       if name in value_dict:
         value = value_dict[name]
+      elif name == "__key__":
+        value = self.__encode_index_pb(entity.key().path())
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
       # Should there be a separator between values?
@@ -589,13 +606,12 @@ class DatastoreDistributed():
                                           dbconstants.COMPOSITE_SCHEMA,
                                           row_values)
      
-  def insert_index_entries(self, entities, composite_indexes=None):
+  def insert_index_entries(self, entities):
     """ Inserts index entries for the supplied entities.
 
     Args:
       entities: A list of tuples of prefix and entities 
                 to create index entries for.
-      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
 
@@ -751,7 +767,7 @@ class DatastoreDistributed():
 
       # Insert the new entities and indexes.
       self.insert_entities(entities, txn_hash)
-      self.insert_index_entries(entities, composite_indexes=composite_indexes)
+      self.insert_index_entries(entities)
       self.insert_composite_indexes(entities, composite_indexes)
 
   def delete_entities(self, app_id, keys, txn_hash, soft_delete=False, 
@@ -1425,17 +1441,6 @@ class DatastoreDistributed():
     Returns:
       A dict mapping property names to lists of (op, value) tuples.
     """
-
-    def reference_property_to_reference(refprop):
-      """ Creates a Reference from a ReferenceProperty. """
-      ref = entity_pb.Reference()
-      ref.set_app(refprop.app())
-      if refprop.has_name_space():
-        ref.set_name_space(refprop.name_space())
-      for pathelem in refprop.pathelement_list():
-        ref.mutable_path().add_element().CopyFrom(pathelem)
-      return ref
-
     filter_info = {}
     for filt in filters:
       prop = filt.property(0)
@@ -1443,8 +1448,6 @@ class DatastoreDistributed():
       if prop.name() == '__key__':
         value = reference_property_to_reference(value.referencevalue())
         value = value.path()
-      # Do not include exist filters to get projection queries.
-      #if filt.op() != datastore_pb.Query_Filter.EXISTS:
       filter_info.setdefault(prop.name(), []).append((filt.op(), 
       self.__encode_index_pb(value)))
     return filter_info
@@ -1515,8 +1518,8 @@ class DatastoreDistributed():
     Returns:
       True if it qualifies as a zigzag merge join, and false otherwise.
     """
-    if query.has_ancestor():
-      return False
+    #if query.has_ancestor():
+    #  return False
 
     filter_info = self.remove_exists_filters(filter_info)
 
@@ -1551,17 +1554,18 @@ class DatastoreDistributed():
 
     return True
 
-  def __fetch_entities_from_row_list(self, rowkeys):
+  def __fetch_entities_from_row_list(self, rowkeys, app_id):
     """ Given a list of keys fetch the entities from the entity table.
     
     Args:
       rowkeys: A list of strings which are keys to the entitiy table.
+      app_id: A string, the application identifier.
     Returns:
       A list of entities.
     """
-    logging.debug("Fetching rowkeys {0}".format(rowkeys))
     result = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+    result = self.validated_result(app_id, result)
     result = self.remove_tombstoned_entities(result)
     entities = []
     keys = result.keys()
@@ -1570,12 +1574,13 @@ class DatastoreDistributed():
         entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
     return entities 
 
-  def __fetch_entities(self, refs):
+  def __fetch_entities(self, refs, app_id):
     """ Given the results from a table scan, get the references.
     
     Args: 
       refs: key/value pairs where the values contain a reference to 
             the entitiy table.
+      app_id: A string, the application identifier.
     Returns:
       Entities retrieved from entity table.
     """
@@ -1587,7 +1592,7 @@ class DatastoreDistributed():
       key = keys[index]
       ent = ent[key]['reference']
       rowkeys.append(ent)
-    return self.__fetch_entities_from_row_list(rowkeys)
+    return self.__fetch_entities_from_row_list(rowkeys, app_id)
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
@@ -1663,6 +1668,8 @@ class DatastoreDistributed():
       kind = query.kind()
     if query.has_limit():
       limit = min(query.limit(), self._MAXIMUM_RESULTS)
+    if query.has_offset():
+      limit = limit + query.offset() 
     return self.__multiorder_results(unordered, order_info, kind)[:limit]
  
   def ancestor_query(self, query, filter_info, order_info):
@@ -1724,18 +1731,11 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     if startrow > endrow:
-      logging.error("Query: {0}".format(query))
-      start_key_hex = ":".join("{0:x}".format(ord(c)) for c in startrow)
-      end_key_hex = ":".join("{0:x}".format(ord(c)) for c in endrow)
-      logging.error("Start row: {0}".format(startrow))
-      logging.error("End row  : {0}".format(endrow))
-      logging.error("Start key: {0}".format(start_key_hex))
-      logging.error("End key  : {0}".format(end_key_hex))
-
-    if startrow > endrow:
       return []
 
     limit = query.limit() or self._MAXIMUM_RESULTS
+    if query.has_offset():
+      limit = limit + query.offset() 
     results = self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -1866,6 +1866,8 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
+    if query.has_offset():
+      limit = limit + query.offset() 
     return self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -1985,15 +1987,8 @@ class DatastoreDistributed():
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
     limit = query.limit() or self._MAXIMUM_RESULTS
-    if startrow > endrow:
-      logging.error("Query: {0}".format(query))
-      start_key_hex = ":".join("{0:x}".format(ord(c)) for c in startrow)
-      end_key_hex = ":".join("{0:x}".format(ord(c)) for c in endrow)
-      logging.error("Start key: {0}".format(startrow))
-      logging.error("End key  : {0}".format(endrow))
-      logging.error("Start key hex: {0}".format(start_key_hex))
-      logging.error("End key hex  : {0}".format(end_key_hex))
-
+    if query.has_offset():
+      limit = limit + query.offset() 
     if startrow > endrow:
       return []
 
@@ -2005,7 +2000,7 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
-    return self.__fetch_entities(result)
+    return self.__fetch_entities(result, query.app())
 
   def remove_exists_filters(self, filter_info):
     """ We don't have native support for projection queries, so remove
@@ -2057,7 +2052,6 @@ class DatastoreDistributed():
     # and end key.
     if query.has_ancestor() and len(filter_ops) > 0 and \
       filter_ops[0][0] != datastore_pb.Query_Filter.EQUAL:
-      logging.error("Filter ops: {0}".format(filter_ops))
       return None
 
     if query.has_ancestor():
@@ -2076,6 +2070,8 @@ class DatastoreDistributed():
  
 
     limit = query.limit() or self._MAXIMUM_RESULTS
+    if query.has_offset():
+      limit = limit + query.offset() 
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -2084,6 +2080,10 @@ class DatastoreDistributed():
         last_result)
     else:
       startrow = None
+   
+    end_compiled_cursor = None
+    if query.has_end_compiled_cursor():
+      end_compiled_cursor = query.end_compiled_cursor()
 
     references = self.__apply_filters(filter_ops, 
                                order_info, 
@@ -2094,9 +2094,10 @@ class DatastoreDistributed():
                                0, 
                                startrow,
                                ancestor=ancestor,
-                               query=query)
+                               query=query,
+                               end_compiled_cursor=end_compiled_cursor)
 
-    return self.__fetch_entities(references)
+    return self.__fetch_entities(references, query.app())
     
   def __apply_filters(self, 
                      filter_ops, 
@@ -2109,7 +2110,8 @@ class DatastoreDistributed():
                      startrow,
                      force_start_key_exclusive=False,
                      ancestor=None,
-                     query=None):
+                     query=None,
+                     end_compiled_cursor=None):
     """ Applies property filters in the query.
 
     Args:
@@ -2123,6 +2125,7 @@ class DatastoreDistributed():
       force_start_key_exclusive: Do not include the start key.
       ancestor: Optional query ancestor.
       query: Query object for debugging.
+      end_compiled_cursor: A compiled cursor to resume a query.
     Results:
       Returns a list of entity keys.
     Raises:
@@ -2133,8 +2136,8 @@ class DatastoreDistributed():
     if ancestor:
       ancestor_filter = str(self.__encode_index_pb(ancestor.path()))
 
-    end_inclusive = self._ENABLE_INCLUSIVITY
-    start_inclusive = self._ENABLE_INCLUSIVITY
+    end_inclusive = True
+    start_inclusive = True
 
     endrow = None 
     column_names = dbconstants.PROPERTY_SCHEMA
@@ -2151,25 +2154,33 @@ class DatastoreDistributed():
       table_name = dbconstants.DSC_PROPERTY_TABLE
   
     if startrow: 
-      start_inclusive = self._DISABLE_INCLUSIVITY 
+      start_inclusive = False
 
+    if end_compiled_cursor:
+      position = end_compiled_cursor.position(0)
+      index_value = position.indexvalue(0)
+      property_name = index_value.property()
+      value = index_value.value()
+      value = str(self.__encode_index_pb(value))
+      key_path = None
+      if position.has_key():
+        key_path = str(self.__encode_index_pb(position.key().path()))
+      params = [prefix, kind, property_name, value, key_path]
+      endrow = self.get_index_key_from_params(params)
     # This query is returning based on order on a specfic property name 
     # The start key (if not already supplied) depends on the property
     # name and does not take into consideration its value. The end key
     # is based on the terminating string.
     if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
-      end_inclusive = self._ENABLE_INCLUSIVITY
-      start_inclusive = self._ENABLE_INCLUSIVITY
-      if ancestor:
-        logging.error("A WILD ANCESTOR QUERY APPEARS! {0}".format(query))
       if not startrow:
         params = [prefix, kind, property_name, ancestor_filter]
         startrow = self.get_index_key_from_params(params)
-      params = [prefix, kind, property_name, self._TERM_STRING, None]
-      endrow = self.get_index_key_from_params(params)
+      if not endrow:
+        params = [prefix, kind, property_name, self._TERM_STRING, None]
+        endrow = self.get_index_key_from_params(params)
       if force_start_key_exclusive:
         start_inclusive = False
-      return self.datastore_batch.range_query(table_name, 
+      result = self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
                                           endrow, 
@@ -2177,6 +2188,7 @@ class DatastoreDistributed():
                                           offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
+      return result
 
     # This query has a value it bases the query on for a property name
     # The difference between operators is what the end and start key are.
@@ -2229,8 +2241,9 @@ class DatastoreDistributed():
         params = [prefix, kind, property_name, start_value]
         startrow = self.get_index_key_from_params(params)
         start_inclusive = self._DISABLE_INCLUSIVITY
-      params = [prefix, kind, property_name, end_value]
-      endrow = self.get_index_key_from_params(params)
+      if not endrow:
+        params = [prefix, kind, property_name, end_value]
+        endrow = self.get_index_key_from_params(params)
 
       if force_start_key_exclusive:
         start_inclusive = False
@@ -2284,9 +2297,10 @@ class DatastoreDistributed():
           startrow = self.get_index_key_from_params(params)
         else:
           start_inclusive = self._DISABLE_INCLUSIVITY
-        params = [prefix, kind, property_name, value1 + \
-          self._SEPARATOR + self._TERM_STRING]
-        endrow = self.get_index_key_from_params(params)
+        if not endrow:
+          params = [prefix, kind, property_name, value1 + \
+            self._SEPARATOR + self._TERM_STRING]
+          endrow = self.get_index_key_from_params(params)
 	
         ret = self.datastore_batch.range_query(table_name,
                                          column_names,
@@ -2325,7 +2339,9 @@ class DatastoreDistributed():
           raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
 
         # The second operator will be either < or <=.
-        if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
+        if endrow:
+          end_inclusive = self._ENABLE_INCLUSIVITY
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN:    
           params = [prefix, kind, property_name, value2]
           endrow = self.get_index_key_from_params(params)
           end_inclusive = self._DISABLE_INCLUSIVITY
@@ -2342,7 +2358,9 @@ class DatastoreDistributed():
         value1 = helper_functions.reverse_lex(value1)
         value2 = helper_functions.reverse_lex(value2) 
 
-        if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
+        if endrow:
+          end_inclusive = self._ENABLE_INCLUSIVITY
+        elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
           params = [prefix, kind, property_name, value1]
           endrow = self.get_index_key_from_params(params)
           end_inclusive = self._DISABLE_INCLUSIVITY
@@ -2364,16 +2382,6 @@ class DatastoreDistributed():
         
       if force_start_key_exclusive:
         start_inclusive = False
-      logging.error("Apply filters: start {0}\nend {1}".format(startrow, endrow))
-      if startrow > endrow:
-        logging.error("Start row is greater than end row\nStart: {0}\nEnd:{1}".\
-          format(startrow, endrow))
-        logging.error("Query: {0}".format(query))
-        start_key_hex = ":".join("{0:x}".format(ord(c)) for c in startrow)
-        end_key_hex = ":".join("{0:x}".format(ord(c)) for c in endrow)
-        logging.error("Start key: {0}".format(start_key_hex))
-        logging.error("End key  : {0}".format(end_key_hex))
-
       if startrow > endrow:
         return []
 
@@ -2413,11 +2421,18 @@ class DatastoreDistributed():
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
     limit = query.limit() or self._MAXIMUM_RESULTS
+    if query.has_offset():
+      limit = limit + query.offset() 
+
     count = self._MAX_COMPOSITE_WINDOW
     start_key = ""
     result_list = []
     force_exclusive = False
     more_results = True
+    ancestor = None
+    if query.has_ancestor():
+      ancestor = query.ancestor()
+
     while more_results:
       reference_counter_hash = {}
       temp_res = {}
@@ -2461,7 +2476,8 @@ class DatastoreDistributed():
                                      count, 
                                      0, 
                                      startrow,
-                                     force_start_key_exclusive=force_exclusive)
+                                     force_start_key_exclusive=force_exclusive,
+                                     ancestor=ancestor)
       # We do reference counting and consider any reference which matches the 
       # number of properties to be a match. Any others are discarded but it 
       # possible they show up on subsequent scans. 
@@ -2518,7 +2534,7 @@ class DatastoreDistributed():
         force_exclusive = True
 
     result_list.sort()
-    result_set = self.__fetch_entities_from_row_list(result_list)
+    result_set = self.__fetch_entities_from_row_list(result_list, query.app())
     return result_set
 
   def does_composite_index_exist(self, query):
@@ -2572,14 +2588,13 @@ class DatastoreDistributed():
         continue
       value = ''
       if prop.name() in filter_info:
-        value = str(filter_info[prop.name()][0][1])
+        # Get the last filter. If there are more than 1, it is a equality 
+        # filter. And an equality fitler trumps other types of filters.
+        value = str(filter_info[prop.name()][-1][1])
         #value  = str(self.__encode_index_pb(value))
         if prop.direction() == entity_pb.Index_Property.DESCENDING:
-          logging.error("Value is being flipped")
           value = helper_functions.reverse_lex(value)
-        hex_value = ":".join("{0:x}".format(ord(c)) for c in value)
-        logging.error("Value from prop: {0} -> {1}".format(prop.name(), hex_value))
-      # Should there be a separator between values?
+ 
       index_value += str(value)
 
       # The last property dictates the direction.
@@ -2598,13 +2613,14 @@ class DatastoreDistributed():
     end_value = ''
     if oper == datastore_pb.Query_Filter.LESS_THAN:
       start_value = ""
-      end_value = ""
+      end_value = index_value 
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value + self._TERM_STRING
         end_value = self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       start_value = ""
-      end_value = index_value + self._TERM_STRING
+      end_value = index_value + self._SEPARATOR + self._TERM_STRING
+      #end_value = index_value + self._TERM_STRING
       #end_value = index_value + self._SEPARATOR + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
@@ -2614,6 +2630,7 @@ class DatastoreDistributed():
         start_value = self._SEPARATOR + self._TERM_STRING
       else:
         start_value = index_value + self._TERM_STRING
+        #start_value = index_value
       end_value = self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = ""
@@ -2637,8 +2654,7 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
-      start_key = self.get_composite_index_key(definition, last_result)  
-
+      start_key = self.get_composite_index_key(composite_index, last_result)  
     return start_key, end_key
 
   def composite_v2(self, query, filter_info):
@@ -2657,18 +2673,11 @@ class DatastoreDistributed():
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
     limit = query.limit() or self._MAXIMUM_RESULTS
+    if query.has_offset():
+      limit = limit + query.offset() 
     offset = query.offset()
     start_inclusive = True
     end_inclusive = True
-    if startrow > endrow:
-      logging.error("Start row is greater than end row\nStart: {0}\nEnd:{1}".\
-        format(startrow, endrow))
-    start_key_hex = ":".join("{0:x}".format(ord(c)) for c in startrow)
-    end_key_hex = ":".join("{0:x}".format(ord(c)) for c in endrow)
-    logging.error("Start key: {0}".format(start_key_hex))
-    logging.error("End key  : {0}".format(end_key_hex))
-    logging.error("Start key: {0}".format(startrow))
-    logging.error("End key  : {0}".format(endrow))
     index_result = self.datastore_batch.range_query(table_name, 
                                              column_names, 
                                              startrow, 
@@ -2677,7 +2686,7 @@ class DatastoreDistributed():
                                              offset=offset, 
                                              start_inclusive=start_inclusive,
                                              end_inclusive=end_inclusive)
-    return self.__fetch_entities(index_result)
+    return self.__fetch_entities(index_result, query.app())
 
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
@@ -2691,187 +2700,14 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
-    if self.is_zigzag_merge_join(query, filter_info, order_info):
-      return None
-
-    if order_info and order_info[0][0] == '__key__':
-      return None
-
-    if len(order_info) == 0 and not query.has_ancestor() and \
-      len(filter_info) == 1:
-      return None
-
-    def set_prop_names(filt_info):
-      """ Sets the property names. """
-      pnames = set(filt_info.keys())
-      pnames.update(x[0] for x in order_info)
-      pnames.discard('__key__')
-      pnames = list(pnames)
-
-      pname = None
-      for p in filt_info.keys():
-        f = filt_info[p]
-        if f[0][0] != datastore_pb.Query_Filter.EQUAL: 
-          pname = p
-      return pname, pnames 
-    property_name, property_names = set_prop_names(filter_info)
-
-    if len(property_names) <= 1 and not \
-      (len(property_names) == 1 and (query.has_ancestor() \
-      or query.has_kind())):
-      return None
-
-    # If there is a composite index for the given query use the version of 
-    # the query engine for composite queries that does range queries.
     composite_id = self.does_composite_index_exist(query)
     if composite_id != 0:
-      logging.error("Composite v2 algorithm")
       return self.composite_v2(query, filter_info)
 
-    logging.error("Query {0}".format(query)) 
+    logging.error("No composite ID was found for query {0}.".format(query))
     raise apiproxy_errors.ApplicationError(
       datastore_pb.Error.NEED_INDEX,
       'No composite index provided')
-    logging.error("Composite v1 algorithm, no composite id was found")
-
-    if not property_name:
-      property_name = property_names.pop()
-
-    filter_ops = filter_info.get(property_name, [])
-    order_ops = []
-    for i in order_info:
-      if i[0] == property_name:
-        order_ops = [i]
-        break
-
-    if order_ops:
-      if order_ops[0][0] == property_name:
-        direction = order_ops[0][1]
-    else:
-      direction = datastore_pb.Query_Order.ASCENDING
-
-    count = self._MAX_COMPOSITE_WINDOW
-    kind = query.kind()
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    offset = query.offset()
-    prefix = self.get_table_prefix(query)
-    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = appscale_stub_util.ListCursor(query)
-      last_result = cursor._GetLastResult()
-      startrow = self.__get_start_key(prefix, 
-                                    property_name,
-                                    direction,
-                                    last_result)
-    else:
-      startrow = None
-    result = []
-    # We loop and collect enough to fill the limit or until there are 
-    # no more matching entities. The first filter is what we apply 
-    # direct to the datastore, followed by in memory filters
-    # Research is required on figuring out what is the 
-    # best filter to apply via range queries.
-    while len(result) < (limit + offset):
-      temp_res = self.__apply_filters(filter_ops, 
-                                   order_ops, 
-                                   property_name, 
-                                   kind, 
-                                   prefix, 
-                                   count, 
-                                   0, 
-                                   startrow,
-                                   force_start_key_exclusive=True)
-      if not temp_res: 
-        break
-
-      ent_res = self.__fetch_entities(temp_res)
-      # Create a copy from which we filter out
-      filtered_entities = ent_res[:]
-      # Apply in-memory filters for each property. We loop through each entity
-      # and filter out entities which do not match the given kind, ancestor,
-      # or equality filter for given properties.
-      for ent in ent_res:
-        e = entity_pb.EntityProto(ent)
-
-        filtered = self.__filter_kinds_and_ancestors(query, e, ent, 
-          filtered_entities)
-        if filtered:
-          continue
-        prop_list = e.property_list()
-        for prop in property_names:
-          temp_filt = filter_info.get(prop, [])
-
-          cur_prop = None
-          for each in prop_list:
-            if each.name() == prop:
-              cur_prop = each
-              break
-
-          # Filter each property by the given value, only handling EQUAL
-          if not prop:
-            filtered_entities.remove(ent)
-          elif len(temp_filt) == 1:         
-            oper = temp_filt[0][0]
-            value = str(temp_filt[0][1])
-            if oper == datastore_pb.Query_Filter.EQUAL:
-              if cur_prop and \
-                   str(self.__encode_index_pb(cur_prop.value())) != value:
-                if ent in filtered_entities: 
-                  filtered_entities.remove(ent)
-     
-      result += filtered_entities 
-      startrow = temp_res[-1].keys()[0]
-    if len(order_info) > 1:
-      result = self.__multiorder_results(result, order_info, None)
-    return result 
-
-  def __filter_kinds_and_ancestors(self, query, e, ent, filtered_entities):
-    """ Takes in the original query and query results and filters out
-        results that dont have the correct kind or ancestor.
-        
-        Args:
-          query: Original query from the app.
-          e: The EntityProto we are comparing.
-          ent: The entity in the results list.
-          filtered_entities: The list of filtered entities. 
-        Returns:
-          A boolean of whether the specific entity was filtered or not. 
-    """
-    # Filter out kind if it does not match.
-    if query.has_kind() and query.kind() != \
-      e.key().path().element_list()[-1].type():
-      filtered_entities.remove(ent)
-      return True
-
-    # Make sure the ancestor matches each entity.
-    if query.has_ancestor():
-      current_index = 0
-      for element in query.ancestor().path().element_list():
-        current_kind = element.type()
-        if e.key().path().element_size < current_index + 1:
-          filtered_entities.remove(ent)
-          return True
-        if e.key().path().element(current_index).type() != \
-          current_kind:
-          filtered_entities.remove(ent)
-          return True
-        if element.has_name():
-          if not e.key().path().element(current_index).has_name():
-            filtered_entities.remove(ent)
-            return True
-          if e.key().path().element(current_index).name() != \
-            element.name():
-            filtered_entities.remove(ent)
-            return True
-        else:
-          if not e.key().path().element(current_index).id() != 0:
-            filtered_entities.remove(ent)
-            return True
-          if e.key().path().element(current_index).id() != \
-            element.id():
-            filtered_entities.remove(ent)
-            return True
-        current_index += 1  
-    return False
 
   def __multiorder_results(self, result, order_info, kind):
     """ Takes results and applies ordering based on properties and 
@@ -2990,7 +2826,6 @@ class DatastoreDistributed():
       query: The query to run.
       query_result: The response given to the application server.
     """
-    logging.error("Query: {0}".format(query))
     result = self.__get_query_results(query)
     count = 0
     offset = query.offset()
@@ -3003,7 +2838,7 @@ class DatastoreDistributed():
 
     cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-    logging.error("Query result: {0}".format(query_result))
+
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
 
@@ -3055,7 +2890,7 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    logging.warning("Doing a rollback on transaction id {0} for app id {1}"
+    logging.error("Doing a rollback on transaction id {0} for app id {1}"
       .format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
@@ -3304,7 +3139,6 @@ class MainHandler(tornado.web.RequestHandler):
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Datastore connection error on run_query request.")
- 
     return (clone_qr_pb.Encode(), 0, "")
 
   def create_index_request(self, app_id, http_request_data):
