@@ -478,6 +478,8 @@ class Djinn
 
     @nodes = []
     @my_index = nil
+    @my_public_ip = nil
+    @my_private_ip = nil
     @creds = {}
     @app_names = []
     @apps_loaded = []
@@ -2407,6 +2409,13 @@ class Djinn
       instance_variable_set(k, v)
     }
 
+    # Check to see if our IP address has changed. If so, we need to update all
+    # of our internal state to use the new public and private IP anywhere the
+    # old ones were present.
+    if !HelperFunctions.get_all_local_ips().include?(@my_private_ip)
+      update_state_with_new_local_ip
+    end
+
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
     find_me_in_locations
@@ -2464,6 +2473,96 @@ class Djinn
     json_state['@apps_loaded'] = []
 
     return json_state
+  end
+
+
+  # Updates all instance variables stored within the AppController with the new
+  # public and private IP addreses of this machine.
+  #
+  # The issue here is that an AppController may back up state when running, but
+  # when it is restored, its IP address changes (e.g., when taking AppScale down
+  # then starting it up on new machines in a cloud deploy). This method searches
+  # through internal AppController state to update any place where the old
+  # public and private IP addresses were used, replacing them with the new one.
+  def update_state_with_new_local_ip
+    # First, find out this machine's private IP address. If multiple eth devices
+    # are present, use the same one we used last time.
+    all_local_ips = HelperFunctions.get_all_local_ips()
+    new_private_ip = all_local_ips[@eth_interface]
+
+    # Next, find out this machine's public IP address. In a cloud deployment, we
+    # have to rely on the metadata server, while in a cluster deployment, it's
+    # the same as the private IP.
+    if ["ec2", "euca"].include?(@creds["infrastructure"])
+      new_public_ip = HelperFunctions.get_public_ip_from_aws_metadata_service()
+    elsif @creds["infrastructure"] == "gce"
+      new_public_ip = HelperFunctions.get_public_ip_from_gce_metadata_service()
+    else
+      new_public_ip = new_private_ip
+    end
+
+    # Finally, replace anywhere that the old public or private IP addresses were
+    # used with the new one.
+    old_public_ip = @my_public_ip
+    old_private_ip = @my_private_ip
+
+    if @userappserver_public_ip == old_public_ip
+      @userappserver_public_ip = new_public_ip
+    end
+
+    if @userappserver_private_ip == old_private_ip
+      @userappserver_private_ip = new_private_ip
+    end
+
+    @nodes.each { |node|
+      if node.public_ip == old_public_ip
+        node.public_ip = new_public_ip
+      end
+
+      if node.private_ip == old_private_ip
+        node.private_ip = new_private_ip
+      end
+    }
+
+    if @creds["hostname"] == old_public_ip
+      @creds["hostname"] = new_public_ip
+    end
+
+    if !is_cloud?
+      nodes = JSON.load(@creds["ips"])
+      nodes.each { |node|
+        if node['ip'] == old_private_ip
+          node['ip'] == new_private_ip
+        end
+      }
+      @creds["ips"] = JSON.dump(nodes)
+    end
+
+    @app_info_map.each { |appid, app_info|
+      if app_info['appengine'].nil?
+        next
+      end
+
+      changed = false
+      new_app_info = []
+      app_info['appengine'].each { |location|
+        host, port = location.split(":")
+        if host == old_private_ip
+          host = new_private_ip
+          changed = true
+        end
+        new_app_info << "#{host}:#{port}"
+
+        if changed
+          app_info['appengine'] = new_app_info
+        end
+      }
+    }
+
+    @all_stats = []
+
+    @my_public_ip = new_public_ip
+    @my_private_ip = new_private_ip
   end
 
 
@@ -2985,12 +3084,21 @@ class Djinn
   def find_me_in_locations()
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips()
-    @nodes.each_index { |index|
-      if all_local_ips.include?(@nodes[index].private_ip)
-        @my_index = index
-        HelperFunctions.set_local_ip(@nodes[index].private_ip)
-        return
-      end
+    Djinn.log_debug("Searching for a node with any of these private IPs: " +
+      "#{all_local_ips.join(', ')}")
+    Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
+
+    @nodes.each_with_index { |node, index|
+      all_local_ips.each_with_index { |ip, eth_interface|
+        if ip == node.private_ip
+          @my_index = index
+          HelperFunctions.set_local_ip(node.private_ip)
+          @my_public_ip = node.public_ip
+          @my_private_ip = node.private_ip
+          @eth_interface = eth_interface
+          return
+        end
+      }
     }
     Djinn.log_fatal("Can't find my node in @nodes: #{@nodes}. " +
       "My local IPs are: #{all_local_ips.join(', ')}")
