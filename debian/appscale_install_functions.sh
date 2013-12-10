@@ -66,14 +66,6 @@ setupntpcron()
     rm crontab.tmp
 }
 
-installgo()
-{
-    cd /usr/local
-    wget $APPSCALE_PACKAGE_MIRROR/go1.2.linux-amd64.tar.gz
-    tar zxvf go1.2.linux-amd64.tar.gz
-    rm -fv go1.2.linux-amd64.tar.gz
-}
-
 installphp()
 {
     cd /usr/local
