@@ -344,7 +344,7 @@ class ZKInterface
   # We also update the timestamp associated with this list so that others know
   # to update it as needed.
   def self.add_ip_to_ip_list(ip)
-    new_timestamp = 0.0
+    new_timestamp = Time.now.to_i
 
     if self.exists?(IP_LIST)
       # See if our IP is in the list of IPs that are up, and if not,
@@ -354,7 +354,6 @@ class ZKInterface
       if !data['ips'].include?(ip)
         Djinn.log_debug("IPs file does not include our IP - adding it in")
         data['ips'] << ip
-        new_timestamp = Time.now.to_i
         data['last_updated'] = new_timestamp
         self.set(IP_LIST, JSON.dump(data), NOT_EPHEMERAL)
         Djinn.log_debug("Updated timestamp in ips list to " +
@@ -364,7 +363,6 @@ class ZKInterface
       end
     else
       Djinn.log_debug("IPs file does not exist - creating it")
-      new_timestamp = Time.now.to_i
       data = {'ips' => [ip], 'last_updated' => new_timestamp}
       self.set(IP_LIST, JSON.dump(data), NOT_EPHEMERAL)
       Djinn.log_debug("Updated timestamp in ips list to " +

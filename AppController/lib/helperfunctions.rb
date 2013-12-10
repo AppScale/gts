@@ -1460,4 +1460,31 @@ module HelperFunctions
   end
 
 
+  # Contacts the Metadata Service running in Amazon Web Services to determine
+  # the public FQDN associated with this virtual machine.
+  #
+  # This method should only be called when running in a cloud that provides an
+  # AWS-compatible Metadata Service (e.g., EC2 or Eucalyptus).
+  #
+  # Returns:
+  #   A String containing the public FQDN that traffic can be sent to that
+  #   reaches this machine.
+  def self.get_public_ip_from_aws_metadata_service()
+    return `curl http://169.254.169.254/latest/meta-data/public-hostname`
+  end
+
+
+  # Contacts the Metadata Service running in Google Compute Engine to determine
+  # the public FQDN associated with this virtual machine.
+  #
+  # This method should only be called when running in Google Compute Engine.
+  #
+  # Returns:
+  #   A String containing the public FQDN that traffic can be sent to that
+  #   reaches this machine.
+  def self.get_public_ip_from_gce_metadata_service()
+    return `curl -L http://metadata/computeMetadata/v1beta1/instance/network-interfaces/0/access-configs/0/external-ip`
+  end
+
+
 end
