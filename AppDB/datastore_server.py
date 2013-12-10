@@ -648,8 +648,6 @@ class DatastoreDistributed():
 
     Args:
        app_id: Name of the application.
-       http_request_data: Stores the protocol buffer request from the 
-               AppServer.
     Returns: 
        Returns a list of encoded entity_pb.CompositeIndex objects.
     """
@@ -2539,17 +2537,14 @@ class DatastoreDistributed():
 
   def does_composite_index_exist(self, query):
     """ Checks to see if the query has a composite index that can implement
-    the given query. If it does, then we do not use zigzag merge join for 
-    the queries implementation because using a composite index is faster.
+    the given query. 
 
     Args:
       query: A datastore_pb.Query.
     Returns:
-      0 if an index does not exist, and the index number if it does.
+      True if the composite exists, False otherwise.
     """
-    if query.composite_index_size() > 0:
-      return query.composite_index_list()[0].id()
-    return 0
+    return query.composite_index_size() > 0
 
   def get_range_composite_query(self, query, filter_info):
     """ Gets the start and end key of a composite query. 
@@ -2620,8 +2615,6 @@ class DatastoreDistributed():
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       start_value = ""
       end_value = index_value + self._SEPARATOR + self._TERM_STRING
-      #end_value = index_value + self._TERM_STRING
-      #end_value = index_value + self._SEPARATOR + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
         end_value = self._TERM_STRING
@@ -2630,7 +2623,6 @@ class DatastoreDistributed():
         start_value = self._SEPARATOR + self._TERM_STRING
       else:
         start_value = index_value + self._TERM_STRING
-        #start_value = index_value
       end_value = self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = ""
@@ -2676,16 +2668,14 @@ class DatastoreDistributed():
     if query.has_offset():
       limit = limit + query.offset() 
     offset = query.offset()
-    start_inclusive = True
-    end_inclusive = True
     index_result = self.datastore_batch.range_query(table_name, 
                                              column_names, 
                                              startrow, 
                                              endrow, 
                                              limit, 
                                              offset=offset, 
-                                             start_inclusive=start_inclusive,
-                                             end_inclusive=end_inclusive)
+                                             start_inclusive=True,
+                                             end_inclusive=True)
     return self.__fetch_entities(index_result, query.app())
 
   def __composite_query(self, query, filter_info, order_info):  
@@ -2700,8 +2690,7 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
-    composite_id = self.does_composite_index_exist(query)
-    if composite_id != 0:
+    if self.does_composite_index_exist(query):
       return self.composite_v2(query, filter_info)
 
     logging.error("No composite ID was found for query {0}.".format(query))
@@ -3170,13 +3159,14 @@ class MainHandler(tornado.web.RequestHandler):
     """ Deletes a composite index for a given application.
   
     Args:
-       app_id: Name of the application.
-       http_request_data: Stores the protocol buffer request from the 
+      app_id: Name of the application.
+      http_request_data: A serialized CompositeIndices item
     Returns:
-      A encoded VoidProto.
+      A Tuple of an encoded entity_pb.VoidProto, error code, and 
+      error explanation.
     """
     global datastore_access
-    request = datastore_pb.CompositeIndices()
+    request = datastore_pb.CompositeIndices(http_request_data)
     response = api_base_pb.VoidProto()
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
@@ -3192,11 +3182,11 @@ class MainHandler(tornado.web.RequestHandler):
     """ Gets the indices of the given application.
 
     Args:
-       app_id: Name of the application.
-       http_request_data: Stores the protocol buffer request from the 
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the 
                AppServer.
     Returns: 
-       Returns an encoded response.
+      A Tuple of an encoded response, error code, and error explanation.
     """
     global datastore_access
     response = datastore_pb.CompositeIndices()

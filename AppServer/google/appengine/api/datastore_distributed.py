@@ -279,9 +279,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _maybeSetDefaultAuthDomain(self):
     """ Sets default auth domain if not set. """
-    auth_domain = os.environ.get("AUTH_DOMAIN")
-    if not auth_domain:
-      os.environ['AUTH_DOMAIN'] = "appscale.com" 
+    auth_domain = os.environ.get("AUTH_DOMAIN", "appscale.com")
 
   def _RemoteSend(self, request, response, method):
     """Sends a request remotely to the datstore server. """
@@ -348,7 +346,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
 
   def _Dynamic_Delete(self, delete_request, delete_response):
-    """Send a delete request to the datastore server. """
+    """Send a delete request to the datastore server. 
+  
+    Args:
+      delete_request: datastore_pb.DeleteRequest.
+      delete_response: datastore_pb.DeleteResponse.
+    Returns:
+      A datastore_pb.DeleteResponse from the AppScale datastore server.
+    """
     # Determine if there are composite indexes that need to be deleted.
     # The datastore service will look up meta data to figure out which
     # composite indexes apply.
@@ -684,7 +689,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
-    """ Gets the indices of the current app. Currently stubbed out. 
+    """ Gets the indices of the current app.
 
     Args:
       app_str: A api_base_pb.StringProto, the application identifier.
@@ -693,12 +698,25 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     return composite_indices
 
   def _Dynamic_UpdateIndex(self, index, void):
-    """ Updates the indices of the current app. Currently stubbed out. """
+    """ Updates the indices of the current app. Tells the AppScale datastore
+      server to build out the new index with existing data.
+
+    Args:
+      index: A datastore_pb.CompositeIndex, the composite index to update.
+      void: A entity_pb.VoidProto.
+    """
     self._RemoteSend(index, void, "UpdateIndex")
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
-    """ Deletes an index of the current app. Currently stubbed out. """
+    """ Deletes an index of the current app.
+
+    Args:
+      index: A datastore_pb.CompositeIndex, the composite index to delete.
+      void: A entity_pb.VoidProto.
+    Returns:
+      A entity_pb.VoidProto. 
+    """
     self._RemoteSend(index, void, "DeleteIndex")
     return void
 

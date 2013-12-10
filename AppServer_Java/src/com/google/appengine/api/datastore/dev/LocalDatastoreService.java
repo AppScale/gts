@@ -293,12 +293,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         LocalCompositeIndexManager.getInstance().setClock(this.clock);
 
         LocalCompositeIndexManager.getInstance().setNoIndexAutoGen(false);
-        //String noIndexAutoGenProp = (String)properties.get(NO_INDEX_AUTO_GEN_PROP);
-        //if (noIndexAutoGenProp != null)
-        //{
-        //    LocalCompositeIndexManager.getInstance().setNoIndexAutoGen(Boolean.valueOf(noIndexAutoGenProp).booleanValue());
-        //}
-
         initHighRepJobPolicy(properties);
 
         this.pseudoKinds = new PseudoKinds();
@@ -312,7 +306,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         this.costAnalysis = new LocalDatastoreCostAnalysis(LocalCompositeIndexManager.getInstance());
 
-	//DATASTORE INDEX STUFF
         setupIndexes(properties.get("user.dir"));
         
         logger.info(String.format("Local Datastore initialized: \n\tType: %s\n\tStorage: %s", new Object[] { isHighRep() ? "High Replication" : "Master/Slave", this.noStorage ? "In-memory" : this.backingStore }));
@@ -325,7 +318,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         DatastoreV3Pb.CompositeIndices requestedCompositeIndices = new DatastoreV3Pb.CompositeIndices();
         for (IndexesXml.Index index : indexes)
         {
-            //System.out.println("Index: " + index.getKind() + ", " + index.doIndexAncestors() + ", properties: " + index.getProperties());
             OnestoreEntity.CompositeIndex newCompositeIndex = requestedCompositeIndices.addIndex();
             newCompositeIndex.setAppId(getAppId());
             OnestoreEntity.Index requestedIndex = newCompositeIndex.getMutableDefinition();
