@@ -185,7 +185,17 @@ def stop_app_instance(app_name, port):
 
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name + "-" + str(port)
-  return monit_interface.stop(watch, is_group=False)
+  if not monit_interface.stop(watch, is_group=False):
+    logging.error("Unable to stop application server for app {0} on " \
+      "port {1}".format(app_name, port))
+    return False
+
+  # Now that the AppServer is stopped, remove its monit config file so that
+  # monit doesn't pick it up and restart it.
+  monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
+  os.remove(monit_config_file)
+  return True
+
 
 def restart_app_instances_for_app(app_name):
   """ Restarts all instances of a Google App Engine application on this machine.
