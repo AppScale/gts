@@ -279,7 +279,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _maybeSetDefaultAuthDomain(self):
     """ Sets default auth domain if not set. """
-    auth_domain = os.environ.get("AUTH_DOMAIN", "appscale.com")
+    auth_domain = os.environ.get("AUTH_DOMAIN")
+    if not auth_domain:
+      os.environ['AUTH_DOMAIN'] = "appscale.com"
 
   def _RemoteSend(self, request, response, method):
     """Sends a request remotely to the datstore server. """
