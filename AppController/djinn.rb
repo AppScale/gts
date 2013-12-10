@@ -3410,7 +3410,7 @@ class Djinn
 
 
   def start_taskqueue_master
-    TaskQueue.start_master()      
+    TaskQueue.start_master(@creds['clear_datastore'])
     return true
   end
 
@@ -3422,7 +3422,7 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    TaskQueue.start_slave(master_ip)
+    TaskQueue.start_slave(master_ip, @creds['clear_datastore'])
     return true
   end
 
@@ -3970,6 +3970,15 @@ HOSTS
           restore_appserver_state
         end
 
+        # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
+        # Make sure there is data present there and that it points to our
+        # persistent disk.
+        if File.exists?("/opt/appscale/rabbitmq")
+          Djinn.log_run("rm -rf /var/lib/rabbitmq")
+        else
+          Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+        end
+        Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
         return
       end
 
@@ -3980,6 +3989,9 @@ HOSTS
       Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT} " +
         "2>&1")
       Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+      Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+      Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
     end
   end
 
