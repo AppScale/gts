@@ -695,7 +695,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     Args:
       app_str: A api_base_pb.StringProto, the application identifier.
-      composite_indices: datastore_pb.CompositeIndices protocol buffer."""
+      composite_indices: datastore_pb.CompositeIndices protocol buffer.
+
+    Returns:
+      A datastore_pb.CompositesIndices containing the current indexes 
+      used by this application.
+    """
     self._RemoteSend(app_str, composite_indices, "GetIndices")
     return composite_indices
 
