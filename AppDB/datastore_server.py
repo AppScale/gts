@@ -2575,6 +2575,7 @@ class DatastoreDistributed():
       pre_comp_index_key += "{0}{1}".format(ancestor_str, self._SEPARATOR) 
 
     index_value = ""
+    equality_value = ""
     direction = datastore_pb.Query_Order.ASCENDING
     for prop in definition.property_list():
       if prop.name() in filter_info and filter_info[prop.name()][0][0] == \
@@ -2586,10 +2587,10 @@ class DatastoreDistributed():
         # Get the last filter. If there are more than 1, it is a equality 
         # filter. And an equality fitler trumps other types of filters.
         value = str(filter_info[prop.name()][-1][1])
-        #value  = str(self.__encode_index_pb(value))
         if prop.direction() == entity_pb.Index_Property.DESCENDING:
           value = helper_functions.reverse_lex(value)
- 
+        if filter_info[prop.name()][-1][0] == datastore_pb.Query_Filter.EQUAL:
+          equality_value += value 
       index_value += str(value)
 
       # The last property dictates the direction.
@@ -2607,31 +2608,31 @@ class DatastoreDistributed():
     start_value = ''
     end_value = ''
     if oper == datastore_pb.Query_Filter.LESS_THAN:
-      start_value = ""
+      start_value = equality_value
       end_value = index_value 
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value + self._TERM_STRING
-        end_value = self._TERM_STRING
+        end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-      start_value = ""
+      start_value = equality_value
       end_value = index_value + self._SEPARATOR + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
-        end_value = self._TERM_STRING
+        end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN:
       if index_value == '':
         start_value = self._SEPARATOR + self._TERM_STRING
       else:
         start_value = index_value + self._TERM_STRING
-      end_value = self._TERM_STRING
+      end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
-        start_value = ""
+        start_value = equality_value
         end_value = index_value
     elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       start_value = index_value
-      end_value = self._TERM_STRING
+      end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
-        start_value = ""
+        start_value = equality_value
         end_value = index_value + self._TERM_STRING
     elif oper  == datastore_pb.Query_Filter.EQUAL:
       start_value = index_value 

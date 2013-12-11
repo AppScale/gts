@@ -838,8 +838,8 @@ def _FindIndexToUse(query, indexes):
 
   index_match = index_list[0]
   for index in indexes:
-    index_match.Equals(index.definition())    
-    return index
+    if index_match.Equals(index.definition()):
+      return index
 
   raise apiproxy_errors.ApplicationError(
     datastore_pb.Error.NEED_INDEX,
