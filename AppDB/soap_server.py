@@ -1041,3 +1041,5 @@ if __name__ == "__main__":
       server.serve_forever()
     except SSL.SSLError:
       pass
+    except Exception, generic_exception:
+      print "Generic exception: " + str(generic_exception)
