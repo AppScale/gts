@@ -51,14 +51,28 @@ module TaskQueue
   # Stop command for taskqueue server.
   TASKQUEUE_STOP_CMD = "/bin/kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
 
+  # Location where celery workers back up state to.
+  CELERY_STATE_DIR = "/opt/appscale/celery"
+
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
-  def self.start_master()
+  #
+  # Args:
+  #   clear_data: A boolean that indicates whether or not RabbitMQ state should
+  #     be erased before starting RabbitMQ.
+  def self.start_master(clear_data)
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
-    self.erase_local_files()
+
+    if clear_data
+      Djinn.log_debug("Erasing RabbitMQ state")
+      self.erase_local_files()
+    else
+      Djinn.log_debug("Not erasing RabbitMQ state")
+    end
 
     # First, start up RabbitMQ.
+    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
@@ -76,21 +90,31 @@ module TaskQueue
   # here is "start a RabbitMQ server and connect it to the server on the machine
   # playing the 'rabbitmq_master' role." We also start taskqueue servers on 
   # all taskqueue nodes.
-  def self.start_slave(master_ip)
+  #
+  # Args:
+  #   master_ip: A String naming the IP address or FQDN where RabbitMQ is
+  #     already running.
+  #   clear_data: A boolean that indicates whether or not RabbitMQ state should
+  #     be erased before starting up RabbitMQ.
+  def self.start_slave(master_ip, clear_data)
     Djinn.log_info("Starting TaskQueue Slave")
     self.write_cookie()
-    self.erase_local_files()
-    
+
+    if clear_data
+      Djinn.log_debug("Erasing RabbitMQ state")
+      self.erase_local_files()
+    else
+      Djinn.log_debug("Not erasing RabbitMQ state")
+    end
+
     # Wait for RabbitMQ on master node to come up
+    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
     # start the server, reset it to join the head node
     hostname = `hostname`.chomp()
-    start_cmds = ["/usr/sbin/rabbitmqctl start_app",
-                  "/usr/sbin/rabbitmqctl stop_app",
-                  "/usr/sbin/rabbitmqctl reset",
-                  "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
+    start_cmds = ["/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
                   "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
                   "/usr/sbin/rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
@@ -119,7 +143,10 @@ module TaskQueue
         tries_left -= 1
         Djinn.log_warn("Waited for RabbitMQ to start, but timed out. " +
           "Retries left #{tries_left}.")
-        self.erase_local_files()
+        Djinn.log_run("ps ax | grep rabbit | grep -v grep | awk '{print $1}' | xargs kill -9")
+        if clear_data
+          self.erase_local_files()
+        end
       end
       if tries_left.zero?
         Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up")
@@ -175,6 +202,7 @@ module TaskQueue
     Djinn.log_run("rm -rf /var/log/rabbitmq/*")
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
     Djinn.log_run("rm -rf /etc/appscale/celery/")
+    Djinn.log_run("rm -rf #{CELERY_STATE_DIR}/*")
   end
 
 
