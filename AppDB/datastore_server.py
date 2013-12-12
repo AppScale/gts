@@ -2576,6 +2576,7 @@ class DatastoreDistributed():
 
     index_value = ""
     equality_value = ""
+    oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
     direction = datastore_pb.Query_Order.ASCENDING
     for prop in definition.property_list():
       if prop.name() in filter_info and filter_info[prop.name()][0][0] == \
@@ -2589,21 +2590,24 @@ class DatastoreDistributed():
         value = str(filter_info[prop.name()][-1][1])
         if prop.direction() == entity_pb.Index_Property.DESCENDING:
           value = helper_functions.reverse_lex(value)
+
         if filter_info[prop.name()][-1][0] == datastore_pb.Query_Filter.EQUAL:
           equality_value += value 
+          oper = filter_info[prop.name()][-1][0]
+        elif filter_info[prop.name()][-1][0] ==  datastore_pb.Query_Filter.EXISTS:
+          # We currently do not handle projection queries.
+          pass
+        else:
+          # Figure out what operator we will use. Default to greater than or equal to
+          # if there are no filter operators that tell us otherwise.
+          # The last filter that is not an EXISTS filter is what operator we will use,
+          # as dictated by the composite index definition.
+          oper = filter_info[prop.name()][-1][0]
+
       index_value += str(value)
 
       # The last property dictates the direction.
       direction = prop.direction()
-
-    # Figure out what operator we will use. Default to greater than or equal to
-    # if there are no filter operators that tell us otherwise.
-    # The last filter that is not an EXISTS filter is what operator we will use,
-    # as dictated by the composite index definition.
-    oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
-    for filt in query.filter_list():
-      if filt.op() != datastore_pb.Query_Filter.EXISTS:
-        oper = filt.op()
 
     start_value = ''
     end_value = ''
