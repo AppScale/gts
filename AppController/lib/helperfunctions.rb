@@ -883,24 +883,23 @@ module HelperFunctions
   def self.get_usage
     top_results = `top -n1 -d0 -b`
     usage = {}
-    usage['cpu'] = nil
-    usage['mem'] = nil
-    
-    if top_results =~ /Cpu\(s\):\s+([\d|\.]+)%us,\s+([\d|\.]+)%sy/
-      user_cpu = Float($1)
-      sys_cpu = Float($2)
-      usage['cpu'] = user_cpu + sys_cpu
-    end
+    usage['cpu'] = 0.0
+    usage['mem'] = 0.0
 
-    if top_results =~ /Mem:\s+(\d+)k total,\s+(\d+)k used/
-      total_memory = Float($1)
-      used_memory = Float($2)
-      usage['mem'] = used_memory / total_memory * 100
-    end
+    top_results.each { |line|
+      cpu_and_mem_usage = line.split()
+      # Skip any lines that don't list the CPU and memory for a process.
+      next if cpu_and_mem_usage.length != 12
+      next if cpu_and_mem_usage[8] == "average:"
+      next if cpu_and_mem_usage[8] == "%CPU"
+      usage['cpu'] += Float(cpu_and_mem_usage[8])
+      usage['mem'] += Float(cpu_and_mem_usage[9])
+    }
 
+    usage['cpu'] /= self.get_num_cpus()
     usage['disk'] = Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
-    
-    usage    
+
+    return usage
   end
 
   # Determine the port that the given app should use
