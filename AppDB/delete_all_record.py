@@ -51,11 +51,17 @@ def main(argv):
   entities = get_entities(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA, db)
   delete_all(entities, DSC_PROPERTY_TABLE, db) 
 
+  entities = get_entities(COMPOSITE_TABLE, PROPERTY_SCHEMA, db)
+  delete_all(entities, COMPOSITE_TABLE, db) 
+
   entities = get_entities(APP_KIND_TABLE, APP_KIND_SCHEMA, db)
   delete_all(entities, APP_KIND_TABLE, db) 
 
   entities = get_entities(JOURNAL_TABLE, JOURNAL_SCHEMA, db)
   delete_all(entities, JOURNAL_TABLE, db) 
+
+  entities = get_entities(METADATA_TABLE, METADATA_SCHEMA, db)
+  delete_all(entities, METADATA_TABLE, db) 
   
 if __name__ == "__main__":
   try:

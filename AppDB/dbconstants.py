@@ -15,17 +15,21 @@ JOURNAL_TABLE = "JOURNAL__"
 
 ASC_PROPERTY_TABLE = "ASC_PROPERTY__"
 DSC_PROPERTY_TABLE = "DSC_PROPERTY__"
+COMPOSITE_TABLE = "COMPOSITE_INDEXES__"
 APP_ID_TABLE = "APP_IDS__"
 APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
 JOURNAL_TABLE = "JOURNAL__"
+METADATA_TABLE = "METADATA__"
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
                   APP_ID_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE,
-                  JOURNAL_TABLE]
+                  COMPOSITE_TABLE,
+                  JOURNAL_TABLE,
+                  METADATA_TABLE]
 
 ###########################################
 # DB schemas for version 1 of the datastore
@@ -53,6 +57,10 @@ APP_ID_SCHEMA = [
   "next_id" ]
 APP_KIND_SCHEMA = [
   "reference" ]
+COMPOSITE_SCHEMA = [
+  "reference" ]
+METADATA_SCHEMA = [
+  "data" ]
 
 USERS_SCHEMA = [
   "email",
@@ -90,24 +98,6 @@ APPS_SCHEMA = [
   "enabled",
   "classes",
   "indexes" ]
-
-APPENGINE_SCHEMA = ["""
-CREATE TABLE IF NOT EXISTS Apps (
-  app_id VARCHAR(255) NOT NULL PRIMARY KEY,
-  indexes VARCHAR(255)
-) ENGINE=ndbcluster;
-""", """
-CREATE TABLE IF NOT EXISTS Namespaces (
-  app_id VARCHAR(255) NOT NULL,
-  name_space VARCHAR(255) NOT NULL,
-  PRIMARY KEY (app_id, name_space)
-) ENGINE=ndbcluster;
-""", """
-CREATE TABLE IF NOT EXISTS IdSeq (
-  prefix VARCHAR(255) NOT NULL PRIMARY KEY,
-  next_id INT(100) NOT NULL
-) ENGINE=ndbcluster;
-"""]
 
 ###############################
 # Generic Datastore Exceptions
