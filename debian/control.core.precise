@@ -36,6 +36,8 @@ Depends: appscale-tools,
  liblog4j1.2-java, libjline-java,
 # unknown
  make,
+# Images API
+ libjpeg8-dev,
 # TaskQueue
  rabbitmq-server,
  python-pip,
