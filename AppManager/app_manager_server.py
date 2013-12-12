@@ -115,6 +115,8 @@ def start_app(config):
   start_cmd = ""
   stop_cmd = ""
   env_vars = config['env_vars']
+  env_vars['GOPATH'] = '/root/appscale/AppServer/goroot/'
+  env_vars['GOROOT'] = '/root/appscale/AppServer/gopath/'
   watch = "app___" + config['app_name']
  
   if config['language'] == constants.PYTHON27 or \
