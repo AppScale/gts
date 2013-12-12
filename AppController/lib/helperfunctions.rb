@@ -888,6 +888,7 @@ module HelperFunctions
 
     top_results.each { |line|
       cpu_and_mem_usage = line.split()
+      # Skip any lines that don't list the CPU and memory for a process.
       next if cpu_and_mem_usage.length != 12
       next if cpu_and_mem_usage[8] == "average:"
       next if cpu_and_mem_usage[8] == "%CPU"
