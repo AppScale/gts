@@ -96,6 +96,9 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "add_appserver_process", "app_id", "secret")
     add_method(@djinn, "remove_appserver_process", "app_id", "port", "secret")
     add_method(@djinn, "run_groomer", "secret")
+    add_method(@djinn, "get_property", "property_regex", "secret")
+    add_method(@djinn, "set_property", "property_name", "property_value",
+      "secret")
   end
 end
 

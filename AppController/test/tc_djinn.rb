@@ -74,6 +74,9 @@ class TestDjinn < Test::Unit::TestCase
       'baz', @secret))
     assert_equal(BAD_SECRET_MSG, djinn.remove_appserver_from_haproxy(@app,
       'baz', 'baz', @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.run_groomer(@secret))
+    assert_equal(BAD_SECRET_MSG, djinn.get_property('baz', @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.set_property('baz', 'qux', @secret))
   end
 
 
@@ -1367,6 +1370,57 @@ class TestDjinn < Test::Unit::TestCase
 
     expected = "Error: Port in use by AppServer for app another-app"
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
+  end
+
+
+  def test_get_property
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+
+    # First, make sure that using a regex that matches nothing returns an empty
+    # Hash.
+    empty_hash = JSON.dump({})
+    assert_equal(empty_hash, djinn.get_property("not-a-variable-name", @secret))
+
+    # Next, we know that there's a variable called 'state'. Make sure that using
+    # it as the regex actually returns that variable (and only that).
+    djinn.state = "AppController is taking it easy today"
+    state_only = JSON.dump({'state' => djinn.state})
+    assert_equal(state_only, djinn.get_property('state', @secret))
+
+    # Finally, passing in the regex userappserver_*_ip should return both the
+    # public and private UserAppServer IPs.
+    djinn.userappserver_public_ip = "public-ip"
+    djinn.userappserver_private_ip = "private-ip"
+    userappserver_ips = JSON.dump({
+      'userappserver_public_ip' => 'public-ip',
+      'userappserver_private_ip' => 'private-ip'
+    })
+    assert_equal(userappserver_ips, djinn.get_property('userappserver_.*_ip',
+      @secret))
+  end
+
+
+  def test_set_property
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+
+    # Verify that setting a property that doesn't exist returns an error.
+    assert_equal(Djinn::KEY_NOT_FOUND, djinn.set_property('not-a-real-key',
+      'value', @secret))
+
+    # Verify that setting a property that we allow users to set
+    # results in subsequent get calls seeing the correct value.
+    djinn.state = "AppController is taking it easy today"
+    new_state = "AppController is back to work"
+    assert_equal('OK', djinn.set_property('state', new_state, @secret))
+
+    state_only = JSON.dump({'state' => new_state})
+    assert_equal(state_only, djinn.get_property('state', @secret))
   end
 
 

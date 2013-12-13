@@ -449,6 +449,10 @@ class Djinn
   ID_NOT_FOUND = "Reservation ID not found."
 
 
+  # A String that is returned to callers of set_property that provide an invalid
+  # instance variable name to set.
+  KEY_NOT_FOUND = "No property exists with the given name."
+
   # A Fixnum that indicates how often the AppController on this node should ping
   # the API checker app for the status of each App Engine API, in seconds.
   API_STATUS_CHECK_IN_FREQUENCY = 300
@@ -1109,6 +1113,74 @@ class Djinn
       end
     }
 
+    return 'OK'
+  end
+
+
+  # Queries the AppController for a list of instance variables whose names match
+  # the given regular expression, as well as the values associated with each
+  # match.
+  #
+  # Args:
+  #   property_regex: A String that will be used as the regular expression,
+  #     determining which instance variables should be returned.
+  #   secret: A String with the shared key for authentication.
+  #
+  # Returns:
+  #   A JSON-dumped Hash mapping each instance variable matching the given regex
+  #   to the value it is bound to.
+  def get_property(property_regex, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    properties = {}
+    instance_variables.each { |name|
+      name_without_at_sign = name[1..name.length-1]
+      begin
+        if name_without_at_sign =~ /\A#{property_regex}\Z/
+          value = instance_variable_get(name)
+          properties[name_without_at_sign] = value
+        end
+      rescue RegexpError
+      end
+    }
+
+    Djinn.log_debug("Caller asked for instance variables matching regex " +
+      "#{property_regex}, returning response #{properties.inspect}")
+    return JSON.dump(properties)
+  end
+
+
+  # Sets the named instance variable to the given value.
+  #
+  # Args:
+  #   property_name: A String naming the instance variable that should be set.
+  #   property_value: A String or Fixnum that provides the value for the given
+  #     property name.
+  #   secret: A String with the shared key for authentication.
+  #
+  # Returns:
+  #   A String containing:
+  #     - 'OK' if the value was successfully set.
+  #     - KEY_NOT_FOUND if there is no instance variable with the given name.
+  #     - BAD_SECRET_MSG if the caller could not be authenticated.
+  def set_property(property_name, property_value, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    Djinn.log_info("Attempting to set @#{property_name} to #{property_value}")
+
+    name_with_at_sign = "@#{property_name}"
+    begin
+      instance_variable_set(name_with_at_sign, property_value)
+    rescue NameError
+      Djinn.log_info("Failed to set @#{property_name}")
+      return KEY_NOT_FOUND
+    end
+
+    Djinn.log_info("Successfully set @#{property_name} to #{property_value}")
     return 'OK'
   end
 
