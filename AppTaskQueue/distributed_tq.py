@@ -107,6 +107,9 @@ class DistributedTaskQueue():
   # Kind used for storing task names.
   TASK_NAME_KIND = "__task_name__"
 
+  # A dict that tells celery to run tasks even though we are running as root.
+  CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
+
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
     file_io.set_logging_format()
@@ -122,7 +125,7 @@ class DistributedTaskQueue():
     master_db_ip = appscale_info.get_db_master_ip()
     connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
     ds_distrib = datastore_distributed.DatastoreDistributed(
-    constants.DASHBOARD_APP_ID, connection_str, False, False)
+      constants.DASHBOARD_APP_ID, connection_str, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
@@ -237,6 +240,8 @@ class DistributedTaskQueue():
                "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
                "--pidfile=" + self.PID_FILE_LOC + 'celery___' + \
                              app_id + ".pid",
+               "--statedb=" + TaskQueueConfig.CELERY_STATE_DIR + 'worker___' + \
+                             app_id + ".db",
                "--autoreload"]
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)
@@ -244,7 +249,8 @@ class DistributedTaskQueue():
     monit_app_configuration.create_config_file(watch,
                                                start_command, 
                                                stop_command, 
-                                               [self.CELERY_PORT])
+                                               [self.CELERY_PORT],
+                                               env_vars=self.CELERY_ENV_VARS)
     if monit_interface.start(watch):
       json_response = {'error': False}
     else:

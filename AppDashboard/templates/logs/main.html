@@ -20,6 +20,12 @@
             <div class="page-header">
               <h1>View logs for a service:</h1>
             </div><!--close header-->
+            {% if is_user_cloud_admin %}
+            <ul style="list-style-type: none;">
+              <a href="/gather-logs" class="btn btn-success btn-large">Download All Logs</a>
+            </ul>
+            {% endif %}
+
             {% if services %}
               {% for service in services %}
               <ul style="list-style-type: none;">

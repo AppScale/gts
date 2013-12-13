@@ -366,8 +366,8 @@ class GoApp:
     self.last_extras_hash = None
     self.goroot = os.path.join(
 
-        up(__file__, 5),
-        'goroot')
+      up(__file__, 5),
+      'goroot')
     if not os.path.isdir(self.goroot):
       raise Exception('no goroot found at ' + self.goroot)
 
@@ -467,7 +467,7 @@ class GoApp:
         '-arch', self.arch,
         '-binary_name', GO_APP_NAME,
         '-dynamic',
-        '-goroot', self.goroot,
+        '-goroot', os.environ['GOROOT'],
         '-unsafe',
         '-work_dir', GAB_WORK_DIR,
     ]

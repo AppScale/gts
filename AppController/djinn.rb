@@ -249,6 +249,12 @@ class Djinn
   attr_accessor :app_upload_reservations
 
 
+  # A Fixnum that indicates the time (in seconds since epoch) when this
+  # AppController last contacted the API Checker for the health of each Google
+  # App Engine app.
+  attr_accessor :last_api_status
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -388,16 +394,9 @@ class Djinn
   AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
   
 
-  # CPU limits that determine when to stop adding AppServers on a node. Because
-  # AppServers in different languages consume different amounts of CPU, set
-  # different limits per language.
-  MAX_CPU_FOR_APPSERVERS = {'python27' => 90.00, 'java' => 75.00, 'go' => 70.00, 'php' => 80.00}
-
-
-  # Memory limits that determine when to stop adding AppServers on a node. 
-  # Because AppServers in different languages consume different amounts of 
-  # memory, set different limits per language.
-  MAX_MEM_FOR_APPSERVERS = {'python27' => 90.00, 'java' => 95.00, 'go' => 90.00, 'php' => 90.00 }
+  # A Float that determines how much CPU can be used before the autoscaler will
+  # stop adding AppServers on a node.
+  MAX_CPU_FOR_APPSERVERS = 90.00
 
 
   # A regular expression that can be used to match any character that is not
@@ -454,6 +453,10 @@ class Djinn
   # instance variable name to set.
   KEY_NOT_FOUND = "No property exists with the given name."
 
+  # A Fixnum that indicates how often the AppController on this node should ping
+  # the API checker app for the status of each App Engine API, in seconds.
+  API_STATUS_CHECK_IN_FREQUENCY = 300
+
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -472,6 +475,8 @@ class Djinn
 
     @nodes = []
     @my_index = nil
+    @my_public_ip = nil
+    @my_private_ip = nil
     @creds = {}
     @app_names = []
     @apps_loaded = []
@@ -497,6 +502,7 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
+    @last_api_status = Time.now.to_i
   end
 
 
@@ -821,11 +827,12 @@ class Djinn
     end
 
     keyname = possible_credentials["keyname"]
-    @nodes = Djinn.convert_location_array_to_class(locations, keyname)
     @creds = possible_credentials
     @app_names = app_names
     
-    convert_fqdns_to_ips
+    nodes = Djinn.convert_location_array_to_class(locations, keyname)
+    converted_nodes = convert_fqdns_to_ips(nodes)
+    @nodes = converted_nodes
     @creds = sanitize_credentials
 
     find_me_in_locations
@@ -1024,7 +1031,7 @@ class Djinn
       acc = AppControllerClient.new(ip, @@secret)
 
       begin
-        @all_stats << acc.get_stats(@@secret)
+        @all_stats << acc.get_stats()
       rescue FailedNodeException
         Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
           "not adding it to our cached info.")
@@ -1063,6 +1070,7 @@ class Djinn
     # don't use an actual % below, or it will cause a string format exception
     stats = {
       'ip' => my_node.public_ip,
+      'private_ip' => my_node.private_ip,
       'cpu' => usage['cpu'],
       'memory' => mem,
       'disk' => usage['disk'],
@@ -2464,6 +2472,13 @@ class Djinn
       instance_variable_set(k, v)
     }
 
+    # Check to see if our IP address has changed. If so, we need to update all
+    # of our internal state to use the new public and private IP anywhere the
+    # old ones were present.
+    if !HelperFunctions.get_all_local_ips().include?(@my_private_ip)
+      update_state_with_new_local_ip
+    end
+
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
     find_me_in_locations
@@ -2521,6 +2536,96 @@ class Djinn
     json_state['@apps_loaded'] = []
 
     return json_state
+  end
+
+
+  # Updates all instance variables stored within the AppController with the new
+  # public and private IP addreses of this machine.
+  #
+  # The issue here is that an AppController may back up state when running, but
+  # when it is restored, its IP address changes (e.g., when taking AppScale down
+  # then starting it up on new machines in a cloud deploy). This method searches
+  # through internal AppController state to update any place where the old
+  # public and private IP addresses were used, replacing them with the new one.
+  def update_state_with_new_local_ip
+    # First, find out this machine's private IP address. If multiple eth devices
+    # are present, use the same one we used last time.
+    all_local_ips = HelperFunctions.get_all_local_ips()
+    new_private_ip = all_local_ips[@eth_interface]
+
+    # Next, find out this machine's public IP address. In a cloud deployment, we
+    # have to rely on the metadata server, while in a cluster deployment, it's
+    # the same as the private IP.
+    if ["ec2", "euca"].include?(@creds["infrastructure"])
+      new_public_ip = HelperFunctions.get_public_ip_from_aws_metadata_service()
+    elsif @creds["infrastructure"] == "gce"
+      new_public_ip = HelperFunctions.get_public_ip_from_gce_metadata_service()
+    else
+      new_public_ip = new_private_ip
+    end
+
+    # Finally, replace anywhere that the old public or private IP addresses were
+    # used with the new one.
+    old_public_ip = @my_public_ip
+    old_private_ip = @my_private_ip
+
+    if @userappserver_public_ip == old_public_ip
+      @userappserver_public_ip = new_public_ip
+    end
+
+    if @userappserver_private_ip == old_private_ip
+      @userappserver_private_ip = new_private_ip
+    end
+
+    @nodes.each { |node|
+      if node.public_ip == old_public_ip
+        node.public_ip = new_public_ip
+      end
+
+      if node.private_ip == old_private_ip
+        node.private_ip = new_private_ip
+      end
+    }
+
+    if @creds["hostname"] == old_public_ip
+      @creds["hostname"] = new_public_ip
+    end
+
+    if !is_cloud?
+      nodes = JSON.load(@creds["ips"])
+      nodes.each { |node|
+        if node['ip'] == old_private_ip
+          node['ip'] == new_private_ip
+        end
+      }
+      @creds["ips"] = JSON.dump(nodes)
+    end
+
+    @app_info_map.each { |appid, app_info|
+      if app_info['appengine'].nil?
+        next
+      end
+
+      changed = false
+      new_app_info = []
+      app_info['appengine'].each { |location|
+        host, port = location.split(":")
+        if host == old_private_ip
+          host = new_private_ip
+          changed = true
+        end
+        new_app_info << "#{host}:#{port}"
+
+        if changed
+          app_info['appengine'] = new_app_info
+        end
+      }
+    }
+
+    @all_stats = []
+
+    @my_public_ip = new_public_ip
+    @my_private_ip = new_private_ip
   end
 
 
@@ -2597,21 +2702,35 @@ class Djinn
   #   A JSON-encoded Hash that maps each API name to its state (e.g., running,
   #   failed).
   def generate_api_status()
+    if Time.now.to_i - @last_api_status < API_STATUS_CHECK_IN_FREQUENCY
+      Djinn.log_debug("Not enough time has passed since last time we " +
+        "gathered API status - will try again later.")
+      return
+    end
+
     if my_node.is_appengine?
       apichecker_host = my_node.private_ip
     else
       apichecker_host = get_shadow.private_ip
     end
 
+    Djinn.log_debug("Generating new API status by contacting API checker " +
+      "at #{apichecker_host}")
     apichecker_url = "http://#{apichecker_host}:#{ApiChecker::SERVER_PORT}/health/all"
 
     retries_left = 3
+    data = {}
     begin
       response = Net::HTTP.get_response(URI.parse(apichecker_url))
       data = JSON.load(response.body)
+
+      if data.class != Hash
+        Djinn.log_error("API status received from host at #{apichecker_url} " +
+          "was not a Hash, but was a #{data.class.name} containing: #{data}")
+        return
+      end
     rescue Exception => e
       Djinn.log_error("Couldn't get API status from host at #{apichecker_url}")
-      data = {}
 
       if retries_left > 0
         Kernel.sleep(5)
@@ -2637,6 +2756,8 @@ class Djinn
         "running")
       majorities[k] = HelperFunctions.find_majority_item(@api_status[k])
     }
+
+    @last_api_status = Time.now.to_i
 
     json_state = JSON.dump(majorities)
     return json_state
@@ -2984,12 +3105,20 @@ class Djinn
   # which node is our node (since we find our node by IP). This method
   # looks through all the nodes we currently know of and converts any private
   # FQDNs we see to private IPs.
-  def convert_fqdns_to_ips()
+  #
+  # Args:
+  #   nodes: An Array of DjinnJobDatas, where each item corresponds to a single
+  #     node in this AppScale deployment.
+  #
+  # Returns:
+  #   An Array of DjinnJobDatas, where each item may have its private FQDN
+  #   replaced with a private IP address.
+  def convert_fqdns_to_ips(nodes)
     if is_cloud?
       Djinn.log_debug("In a cloud deployment, so converting FQDNs -> IPs")
     else
       Djinn.log_debug("Not in a cloud deployment, so not converting FQDNs -> IPs")
-      return
+      return nodes
     end
 
     if @creds["hostname"] =~ /#{FQDN_REGEX}/
@@ -3001,7 +3130,7 @@ class Djinn
       end
     end
     
-    @nodes.each { |node|
+    nodes.each { |node|
       # Resolve the private FQDN to a private IP, but don't resolve the public
       # FQDN, as that will just resolve to the private IP.
 
@@ -3014,6 +3143,8 @@ class Djinn
         end
       end
     }
+
+    return nodes
   end
 
  
@@ -3022,12 +3153,21 @@ class Djinn
   def find_me_in_locations()
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips()
-    @nodes.each_index { |index|
-      if all_local_ips.include?(@nodes[index].private_ip)
-        @my_index = index
-        HelperFunctions.set_local_ip(@nodes[index].private_ip)
-        return
-      end
+    Djinn.log_debug("Searching for a node with any of these private IPs: " +
+      "#{all_local_ips.join(', ')}")
+    Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
+
+    @nodes.each_with_index { |node, index|
+      all_local_ips.each_with_index { |ip, eth_interface|
+        if ip == node.private_ip
+          @my_index = index
+          HelperFunctions.set_local_ip(node.private_ip)
+          @my_public_ip = node.public_ip
+          @my_private_ip = node.private_ip
+          @eth_interface = eth_interface
+          return
+        end
+      }
     }
     Djinn.log_fatal("Can't find my node in @nodes: #{@nodes}. " +
       "My local IPs are: #{all_local_ips.join(', ')}")
@@ -3333,7 +3473,7 @@ class Djinn
 
 
   def start_taskqueue_master
-    TaskQueue.start_master()      
+    TaskQueue.start_master(@creds['clear_datastore'])
     return true
   end
 
@@ -3345,7 +3485,7 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    TaskQueue.start_slave(master_ip)
+    TaskQueue.start_slave(master_ip, @creds['clear_datastore'])
     return true
   end
 
@@ -3608,6 +3748,7 @@ class Djinn
   def rsync_files(dest_node)
     controller = "#{APPSCALE_HOME}/AppController"
     server = "#{APPSCALE_HOME}/AppServer"
+    server_java = "#{APPSCALE_HOME}/AppServer_Java"
     loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
     appdb = "#{APPSCALE_HOME}/AppDB"
     loki = "#{APPSCALE_HOME}/Loki"
@@ -3623,6 +3764,7 @@ class Djinn
 
     HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
+    HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
     HelperFunctions.shell("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
     HelperFunctions.shell("rsync #{options} --exclude='logs/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
     HelperFunctions.shell("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
@@ -3893,6 +4035,15 @@ HOSTS
           restore_appserver_state
         end
 
+        # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
+        # Make sure there is data present there and that it points to our
+        # persistent disk.
+        if File.exists?("/opt/appscale/rabbitmq")
+          Djinn.log_run("rm -rf /var/lib/rabbitmq")
+        else
+          Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+        end
+        Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
         return
       end
 
@@ -3903,15 +4054,14 @@ HOSTS
       Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT} " +
         "2>&1")
       Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+      Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+      Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
     end
   end
 
   # Runs any commands provided by the user in their AppScalefile on the given
   # machine.
-  #
-  # Commands must be placed in @creds['user_commands'], and not contain any
-  # redirection characters (">"), since HelperFunctions.run_remote_command
-  # will pipe to /dev/null and overwrite it.
   #
   # Args:
   # - node: A DjinnJobData that represents the machine where the given commands
@@ -3940,7 +4090,7 @@ HOSTS
     ip = node.private_ip
     ssh_key = node.ssh_key
     commands.each { |command|
-      HelperFunctions.run_remote_command(ip, command, ssh_key, NO_OUTPUT)
+      HelperFunctions.run_remote_command_without_output(ip, command, ssh_key)
     }
   end
 
@@ -4563,27 +4713,52 @@ HOSTS
     }
 
     # Add an AppServer on the machine with the lowest number of AppServers
-    # running.
+    # running, but only if it has enough CPU free to support another AppServer.
     appserver_to_use = appservers_running.keys[0]
     lowest_appserver_ports = appservers_running.values[0].length
+    lowest_cpu = nil
+    @all_stats.each { |node|
+      if node['private_ip'] == appserver_to_use
+        lowest_cpu = node['cpu']
+        break
+      end
+    }
+
     Djinn.log_debug("Considering adding an AppServer to host " +
-      "#{appserver_to_use}, as it runs #{lowest_appserver_ports} AppServers.")
+      "#{appserver_to_use}, as it runs #{lowest_appserver_ports} AppServers " +
+      "and is using #{lowest_cpu} percent CPU.")
     appservers_running.each { |host, ports|
-      if ports.length < lowest_appserver_ports and ports.length < MAX_APPSERVERS_ON_THIS_NODE
+      cpu_on_this_node = nil
+      @all_stats.each { |node|
+        if node['private_ip'] == host
+          cpu_on_this_node = node['cpu']
+          break
+        end
+      }
+
+      if ports.length < lowest_appserver_ports and
+        ports.length < MAX_APPSERVERS_ON_THIS_NODE and
+        cpu_on_this_node < MAX_CPU_FOR_APPSERVERS
+
         appserver_to_use = host
         lowest_appserver_ports = ports.length
+        lowest_cpu = cpu_on_this_node
         Djinn.log_debug("Instead considering adding an AppServer to host " +
           "#{appserver_to_use}, as it runs #{lowest_appserver_ports} " +
-          "AppServers.")
+          "AppServers and is using #{lowest_cpu} percent CPU.")
       end
     }
 
     # Only add an AppServer there if there's room available.
     Djinn.log_debug("The machine running the lowest number of AppServers is " +
-      "#{appserver_to_use}, running #{lowest_appserver_ports} AppServers.")
+      "#{appserver_to_use}, running #{lowest_appserver_ports} AppServers, " +
+      "with #{lowest_cpu} percent CPU used.")
     if lowest_appserver_ports >= MAX_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The maximum number of AppServers for this app " +
         "are already running on all machines, so requesting a new machine.")
+    elsif lowest_cpu >= MAX_CPU_FOR_APPSERVERS
+      Djinn.log_info("No machine is available with enough CPU, so requesting " +
+        "a new machine.")
     else
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       acc = AppControllerClient.new(appserver_to_use, @@secret)

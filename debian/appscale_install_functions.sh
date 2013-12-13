@@ -483,60 +483,16 @@ installpythonmemcache()
 
 installzookeeper()
 {
-    # 3.3.0 or less has known problem, so we must use 3.3.1 or more.
-    # https://issues.apache.org/jira/browse/ZOOKEEPER-742
+  mkdir -pv ${APPSCALE_HOME}/downloads
+  cd ${APPSCALE_HOME}/downloads
+  wget http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/cdh4-repository_1.0_all.deb
+  dpkg -i cdh4-repository_1.0_all.deb 
+  apt-get update
+  apt-get install -y zookeeper-server 
+  cd ..
+  rm -rf ${APPSCALE_HOME}/downloads
 
-    ZK_VER=3.3.4-cdh3u3
-    ZK_VER2=3.3.4
-
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-
-    wget $APPSCALE_PACKAGE_MIRROR/zookeeper-${ZK_VER}.tar.gz
-    tar zxvf zookeeper-${ZK_VER}.tar.gz
-
-    cd zookeeper-${ZK_VER}
-    # build java library, replace the compiliability to 1.7 since Java7 cannot compile to 1.5
-    sed -i 's/1.5/1.7/g' build.xml
-    ant
-    ant compile_jute
-
-    # build c library
-    cd src/c
-    autoreconf -if
-    ./configure --prefix=/usr
-    make
-    make install
-    if [ ! -e ${DESTDIR}/usr/lib/libzookeeper_mt.a ]; then
-        echo "Fail to install libzookeeper. Please retry."
-        exit 1
-    fi
-    cd ../..
-
-    # python library
-    easy_install kazoo
-
-    # install java library
-    mkdir -pv ${DESTDIR}/usr/share/java
-    cp -v build/zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java
-    ln -sfv zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java/zookeeper.jar
-
-    # install config files and service.
-    BASEURL=http://appscale-build.s3-website-us-east-1.amazonaws.com
-    wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb
-    dpkg-deb --vextract zookeeper.deb ${DESTDIR}/
-    rm -v zookeeper.deb
-    wget ${BASEURL}/zookeeperd_3.2.2+dfsg3-3_all.deb -O zookeeperd.deb
-    dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/
-    rm -v zookeeperd.deb
-
-    cd ${APPSCALE_HOME}/downloads
-    rm -rv zookeeper-${ZK_VER}
-    rm -fr zookeeper-${ZK_VER}.tar.gz
-
-    mkdir -pv ${DESTDIR}/var/run/zookeeper
-    mkdir -pv ${DESTDIR}/var/lib/zookeeper
-    mkdir -pv ${DESTDIR}/etc/zookeeper/conf
+  easy_install kazoo
 }
 
 postinstallzookeeper()
@@ -583,8 +539,8 @@ keygen()
 
 installcelery()
 {
-  easy_install -U Celery
-  easy_install -U Flower
+  easy_install Celery==3.0.24
+  easy_install Flower
 }
 
 installrabbitmq()

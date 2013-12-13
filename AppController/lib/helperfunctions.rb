@@ -277,7 +277,32 @@ module HelperFunctions
       return remote_cmd
     end
   end
-  
+
+
+  # Executes the given command on the specified host, without attempting to
+  # redirect standard out or standard err.
+  #
+  # Args:
+  #   ip: A String naming the IP address or FQDN of the machine where the
+  #     command should be executed.
+  #   command: A String naming the command that should be executed. Callers may
+  #     pass in redirection characters (>>) as part of their command, but single
+  #     quotes should not be used (since single quotes are used as part of the
+  #     ssh call). Use double quotes instead.
+  #   public_key_loc: A String naming the location on the local filesystem where
+  #     an SSH key can be found that logs into 'ip' without needing a password.
+  #
+  # Returns:
+  #   The output of executing the command on the specified host.
+  def self.run_remote_command_without_output(ip, command, public_key_loc)
+    Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}]")
+    public_key_loc = File.expand_path(public_key_loc)
+    remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command}'"
+    Djinn.log_debug("Running [#{remote_cmd}]")
+    return self.shell("#{remote_cmd}")
+  end
+
+
   # Secure copies a given file to a remote location.
   # Args:
   #   local_file_loc: The local file to copy over.
@@ -858,24 +883,23 @@ module HelperFunctions
   def self.get_usage
     top_results = `top -n1 -d0 -b`
     usage = {}
-    usage['cpu'] = nil
-    usage['mem'] = nil
-    
-    if top_results =~ /Cpu\(s\):\s+([\d|\.]+)%us,\s+([\d|\.]+)%sy/
-      user_cpu = Float($1)
-      sys_cpu = Float($2)
-      usage['cpu'] = user_cpu + sys_cpu
-    end
+    usage['cpu'] = 0.0
+    usage['mem'] = 0.0
 
-    if top_results =~ /Mem:\s+(\d+)k total,\s+(\d+)k used/
-      total_memory = Float($1)
-      used_memory = Float($2)
-      usage['mem'] = used_memory / total_memory * 100
-    end
+    top_results.each { |line|
+      cpu_and_mem_usage = line.split()
+      # Skip any lines that don't list the CPU and memory for a process.
+      next if cpu_and_mem_usage.length != 12
+      next if cpu_and_mem_usage[8] == "average:"
+      next if cpu_and_mem_usage[8] == "%CPU"
+      usage['cpu'] += Float(cpu_and_mem_usage[8])
+      usage['mem'] += Float(cpu_and_mem_usage[9])
+    }
 
+    usage['cpu'] /= self.get_num_cpus()
     usage['disk'] = Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
-    
-    usage    
+
+    return usage
   end
 
   # Determine the port that the given app should use
@@ -1432,6 +1456,33 @@ module HelperFunctions
 
   def self.get_local_appcontroller_state()
     return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+  end
+
+
+  # Contacts the Metadata Service running in Amazon Web Services to determine
+  # the public FQDN associated with this virtual machine.
+  #
+  # This method should only be called when running in a cloud that provides an
+  # AWS-compatible Metadata Service (e.g., EC2 or Eucalyptus).
+  #
+  # Returns:
+  #   A String containing the public FQDN that traffic can be sent to that
+  #   reaches this machine.
+  def self.get_public_ip_from_aws_metadata_service()
+    return `curl http://169.254.169.254/latest/meta-data/public-hostname`
+  end
+
+
+  # Contacts the Metadata Service running in Google Compute Engine to determine
+  # the public FQDN associated with this virtual machine.
+  #
+  # This method should only be called when running in Google Compute Engine.
+  #
+  # Returns:
+  #   A String containing the public FQDN that traffic can be sent to that
+  #   reaches this machine.
+  def self.get_public_ip_from_gce_metadata_service()
+    return `curl -L http://metadata/computeMetadata/v1beta1/instance/network-interfaces/0/access-configs/0/external-ip`
   end
 
 

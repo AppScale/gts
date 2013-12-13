@@ -57,15 +57,21 @@ def start_zookeeper
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end
-  Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
-  Djinn.log_run("chown -v zookeeper:zookeeper #{DATA_LOCATION}")
+
+  if !File.directory?("#{DATA_LOCATION}")
+    Djinn.log_info("Initializing ZooKeeper")
+    Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
+    Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
+    Djinn.log_run("/usr/sbin/service zookeeper-server init")
+    Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
+  end
 
   # myid is needed for multi node configuration.
-  Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}")
+  Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  start_cmd = "/usr/sbin/service zookeeper start"
-  stop_cmd = "/usr/sbin/service zookeeper stop"
-  match_cmd = "zookeeper.jar"
+  start_cmd = "/usr/sbin/service zookeeper-server start"
+  stop_cmd = "/usr/sbin/service zookeeper-server stop"
+  match_cmd = "zookeeper-3.4.5-cdh4.5.0.jar"
   MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   Djinn.log_info("Started ZooKeeper")

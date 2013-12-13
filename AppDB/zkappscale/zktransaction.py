@@ -5,6 +5,7 @@ Rewritten by Navraj Chohan and Chris Bunch (raj, chris@appscale.com)
 """
 import logging
 import re
+import sys
 import threading
 import time
 import urllib

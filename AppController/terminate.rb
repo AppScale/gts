@@ -32,6 +32,8 @@ module TerminateHelper
 
     # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
     `rm -rf /etc/appscale/zookeeper_locations.json`
+    `rm -f /opt/appscale/appcontroller-state.json`
+    `rm -f /opt/appscale/appserver-state.json`
   end
 
 
@@ -49,7 +51,7 @@ module TerminateHelper
     `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
 
     # Next, stop ZooKeeper politely.
-    `service zookeeper stop`
+    `service zookeeper-server stop`
   end
 
 
@@ -59,8 +61,7 @@ module TerminateHelper
     `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
-    `rm -f /opt/appscale/appcontroller-state.json`
-    `rm -f /opt/appscale/appserver-state.json`
+    `rm -rf /opt/appscale/celery`
   end
 
 
