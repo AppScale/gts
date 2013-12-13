@@ -73,7 +73,7 @@ class TestEC2Agent(TestCase):
     instance.private_dns_name = 'private-ip'
     instance.public_dns_name = 'public-ip'
     instance.id = 'i-id'
-    instance._state.name = 'running'
+    instance.state = 'running'
     instance.key_name = 'bookeyname'
     reservation.instances = [instance]
 
