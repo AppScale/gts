@@ -428,6 +428,10 @@ server {
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 400 https://$host:$server_port$request_uri;
+    error_page 497 https://$host:$server_port$request_uri;
+
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log  /var/log/nginx/#{app_name}.access.log upstream;
@@ -551,6 +555,11 @@ server {
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 400 https://$host:$server_port$request_uri;
+    error_page 497 https://$host:$server_port$request_uri;
+
     root /root/appscale/AppDB/public;
     #access_log  /var/log/nginx/datastore_server_encrypt.access.log upstream;
     #error_log  /var/log/nginx/datastore_server_encrypt.error.log;
@@ -626,6 +635,10 @@ server {
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 400 https://$host:$server_port$request_uri;
+    error_page 497 https://$host:$server_port$request_uri;
 CONFIG
     else
       config += <<CONFIG
