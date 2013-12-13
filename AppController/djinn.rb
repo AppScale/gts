@@ -1137,9 +1137,12 @@ class Djinn
     properties = {}
     instance_variables.each { |name|
       name_without_at_sign = name[1..name.length-1]
-      if name_without_at_sign =~ /\A#{property_regex}\Z/
-        value = instance_variable_get(name)
-        properties[name_without_at_sign] = value
+      begin
+        if name_without_at_sign =~ /\A#{property_regex}\Z/
+          value = instance_variable_get(name)
+          properties[name_without_at_sign] = value
+        end
+      rescue RegexpError
       end
     }
 
