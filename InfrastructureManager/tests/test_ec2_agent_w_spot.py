@@ -69,12 +69,9 @@ class TestEC2Agent(TestCase):
     fake_ec2.should_receive('authorize_security_group')
 
     reservation = Reservation()
-    instance = Instance()
-    instance.private_dns_name = 'private-ip'
-    instance.public_dns_name = 'public-ip'
-    instance.id = 'i-id'
-    instance.state = 'running'
-    instance.key_name = 'bookeyname'
+    instance = flexmock(name='instance', private_dns_name='private-ip',
+      public_dns_name='public-ip', id='i-id', state='running',
+      key_name='bookeyname')
     reservation.instances = [instance]
 
     fake_ec2.should_receive('get_all_instances').and_return([]) \

@@ -502,7 +502,7 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
-    @last_api_status = Time.now.to_i
+    @last_api_status = 0
   end
 
 
@@ -2771,7 +2771,10 @@ class Djinn
   # Engine API is currently running fine, experiences errors, or is in an
   # unknown state.
   def update_api_status()
-    HelperFunctions.write_file(HEALTH_FILE, generate_api_status())
+    api_status = generate_api_status()
+    if !api_status.nil? and !api_status.empty?
+      HelperFunctions.write_file(HEALTH_FILE, api_status)
+    end
   end
 
 

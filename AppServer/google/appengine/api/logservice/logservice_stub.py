@@ -410,6 +410,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       'level' : log.level() + 1,
       'message' : log.message()} for log in logs]
 
+    if not formatted_logs:
+      return
+
     payload = json.dumps({
       'service_name' : appid,
       'host' : os.environ['MY_IP_ADDRESS'],
