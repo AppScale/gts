@@ -76,19 +76,13 @@ class TestEucaAgent(TestCase):
     # were getting sorted, and thus public ip1 would point to private ip 2.
     # to prevent this regression from resurfacing, set up the dns names so
     # that a sort would mess them up again.
-    instance1 = Instance()
-    instance1.public_dns_name = 'ABC-public-ip1'
-    instance1.private_dns_name = 'DEF-private-ip1'
-    instance1.id = 'i-id1'
-    instance1.state = 'running'
-    instance1.key_name = 'bookeyname'
+    instance1 = flexmock(name='instance1', private_dns_name='DEF-private-ip1',
+      public_dns_name='ABC-public-ip1', id='i-id1', state='running',
+      key_name='bookeyname')
 
-    instance2 = Instance()
-    instance2.public_dns_name = 'DEF-public-ip2'
-    instance2.private_dns_name = 'ABC-private-ip2'
-    instance2.id = 'i-id2'
-    instance2.state = 'running'
-    instance2.key_name = 'bookeyname'
+    instance2 = flexmock(name='instance2', private_dns_name='ABC-private-ip2',
+      public_dns_name='DEF-public-ip2', id='i-id2', state='running',
+      key_name='bookeyname')
 
     reservation.instances = [instance1, instance2]
     (flexmock(EC2Connection)
