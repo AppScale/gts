@@ -294,6 +294,9 @@ class LogsBuffer(object):
     formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
       'message' : log[2]} for log in logs]
 
+    if not formatted_logs:
+      return
+
     payload = json.dumps({
       'service_name' : appid,
       'host' : os.environ['MY_IP_ADDRESS'],
