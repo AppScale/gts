@@ -231,10 +231,12 @@ class StatusPage(AppDashboard):
     if self.request.get('forcerefresh'):
       self.dstore.update_all()
 
+    service_info = self.dstore.get_api_status()
     self.render_page(page='status', template_file=self.TEMPLATE, values={
       'server_info' : self.dstore.get_status_info(),
       'dbinfo' : self.dstore.get_database_info(),
-      'service_info' : self.dstore.get_api_status(),
+      'sorted_service_names' : sorted(service_info.iterkeys()),
+      'service_info' : service_info,
       'apps' : self.dstore.get_application_info(),
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
