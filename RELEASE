@@ -4,7 +4,51 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.12.0, released on November 7, 2013.
+The current release is 1.13.0, released on December 19, 2013.
+
+Bugs fixed in this release:
+- Composite queries in the Java AppServer should make use of composite indexes
+- Users should be able to specify an elastic IP address in their AppScalefile for their head node in Amazon EC2
+- Users should be able to specify a static IP address in their AppScalefile for their head node in Google Compute Engine
+- Users should be able to deploy applications written with the Go 1 runtime.
+- Upgrade ZooKeeper to the latest version.
+- pycassa client should be invoked with a list to all database peers, instead of only one peer
+- Task Queue API calls should not fail on Eucalyptus, on any number of nodes
+- Update Google Compute Engine interface to use v1beta16, since v1beta15 is now deprecated.
+- AppController shouldn't write an empty file for API status if it didn't update API status info
+- Apps should be able to detect if they are being accessed via HTTP or HTTPS
+- Users should be able to use a command-line tool to get and set AppController-specific parameters
+- scp flag should rsync over AppServer_Java directory
+- AppScalefile template for cloud should include info about static IPs
+- Python AppServer should not send empty logs to the AppDashboard
+- APIs listed on status page should be displayed in a consistent order
+- Fix JPEG decoder error.
+- Fix broken IaaS Manager unit tests
+- Application redirects from SSL port to non-SSL port, even if the path is set to always encrypted.
+- RabbitMQ should not erase all persisted task queue data on disk when starting up
+- Add button on Dashboard to go to #appscale
+- Using latest version of Celery crashes workers on startup, so use stable version instead
+- SOAP timeouts between AppControllers should not cause AppScale to crash or become unresponsive
+- AppScale Tools should warn the user if they attempt to run AppScale on a machine with not enough memory for Cassandra
+- Use the newest version of boto instead of locking to version 2.6
+- 'appscale status' and AppDashboard should not show information about machines from previous runs when elastic IPs are used
+- AppScale should start up fine even if the zookeeper user does not initially own the directory where ZooKeeper stores data
+- AppController should not crash if APIChecker data is malformed
+- Move button to download logs to Log Viewer page, instead of being on Status page
+- Correctly calculate CPU and memory usage from top
+- AppController should not ping the APIChecker every 20 seconds, but instead once every 5 minutes
+- Verify that the loss of a single database peer in an AppScale deployment does not crash AppScale, while other peers still live
+- AppScale should not crash intermittently on EC2 with "Cannot find my nodes in list of nodes" message
+- Downscaling should kill all old dev_appserver processes, and should politely kill dev_appservers before SIGKILL'ing them
+- clear_datastore flag should cause data to be consistently erased on startup on VirtualBox deployments
+- AppScale should start up fine in Amazon EC2 if persistent disks get attached at somewhere other than the requested location
+- The autoscaler should not add AppServers to machines that have more than 90% CPU used
+- Users should be able to tell how many requests per second hit their app when data is received for it
+- Visiting the / URL on the Dashboard should go to the status page, not the landing page.
+- Users should be able to send commands to be executed on AppScale VMs that include redirection characters
+- If a machine is rebooted in an AppScale deployment and its IP address changes, it should not crash when restarting the AppController
+
+AppScale version 1.12.0 was released on September 30, 2013.
 
 Bugs fixed in this release:
 - Upgraded GCE image to Ubuntu Precise
@@ -54,7 +98,7 @@ Bugs fixed in this release:
 - Command-line interface now allows users to upload zipped apps
 - Upgraded pycassa to 1.9.1
 
-AppScale version 1.10.0 was released on September 30, 2013.
+AppScale version 1.11.0 was released on September 30, 2013.
 
 Bugs fixed in this release:
 - Updated license to Apache 2.0
@@ -148,7 +192,6 @@ Bugs fixed in this release:
 - Removed m2crypto from OS X build script
 - Installing dig on VMs
 - Terminating GCE instances in parallel, instead of in serial
-
 
 AppScale version 1.9.0 was released on July 22, 2013.
 
