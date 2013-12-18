@@ -16,7 +16,7 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=1.12.0
+export APPSCALE_VERSION=1.13.0
 
 increaseconnections()
 {
