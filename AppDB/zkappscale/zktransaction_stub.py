@@ -144,5 +144,5 @@ class ZKTransaction:
     return 
 
   def close(self):
-    """ Stub function for closing all ZooKeeper connections """
+    """ Stub function for closing all ZooKeeper connections. """
     return
