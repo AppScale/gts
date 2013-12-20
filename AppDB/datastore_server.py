@@ -1048,11 +1048,14 @@ class DatastoreDistributed():
     except ZKTransactionException, zkte:
       logging.warning("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
+      if retries > 0:
+        logging.warning("Trying again to acquire lock" \
+        "info {1} with retry #{2}".format(app_id, str(zkte), retries))
+        time.sleep(self.LOCK_RETRY_TIME)
+        return dict(self.acquire_locks_for_nontrans(app_id, entities,
+          retries-1).items() + txn_hash.items())
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
-      if retries > 0:
-        time.sleep(self.LOCK_RETRY_TIME)
-        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
       raise zkte
     return txn_hash
       
