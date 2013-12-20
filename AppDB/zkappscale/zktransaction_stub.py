@@ -66,7 +66,7 @@ class ZKTransaction:
     self.gccv = threading.Condition()
     self.__rollbackFunc = None
 
-  def getTransactionID(self, app_id):
+  def get_transaction_id(self, app_id):
     """ Get new transaction ID for transaction.
 
     This function only create transaction ID, and you must lock
@@ -76,7 +76,7 @@ class ZKTransaction:
     """
     return random.randint(0,100000000)
     
-  def checkTransaction(self, app_id, txid):
+  def check_transaction(self, app_id, txid):
     """ Get status of specified transaction.
 
     Returns: True - If transaction is alive.
@@ -84,7 +84,7 @@ class ZKTransaction:
     """
     return True
 
-  def acquireLock(self, app_id, txid, entity_key = GLOBAL_LOCK_KEY):
+  def acquire_lock(self, app_id, txid, entity_key = GLOBAL_LOCK_KEY):
     """ Acquire lock for transaction.
 
     You must call getTransactionID() first to obtain transaction ID.
@@ -93,7 +93,7 @@ class ZKTransaction:
     """
     return True
 
-  def getUpdatedKeyList(self, app_id, txid):
+  def get_update_key_list(self, app_id, txid):
     """ Get the list of updated key.
 
     This method just return updated key list which is registered using
@@ -102,7 +102,7 @@ class ZKTransaction:
     you can use this method for rollback.
     """
     return []
-  def releaseLock(self, app_id, txid, key = None):
+  def release_lock(self, app_id, txid, key = None):
     """ Release acquired lock.
 
     You must call acquireLock() first.
@@ -112,14 +112,14 @@ class ZKTransaction:
     """
     return True
    
-  def isBlacklisted(self, app_id, txid, entity_key = None):
+  def is_blacklisted(self, app_id, txid, entity_key = None):
     """ This validate transaction id with black list.
 
     The PB server logic should use getValidTransactionID().
     """
     return False
 
-  def getValidTransactionID(self, app_id, target_txid, entity_key):
+  def get_valid_transaction_id(self, app_id, target_txid, entity_key):
     """ This returns valid transaction id for the entity key.
 
     If the specified transaction id is black-listed,
@@ -128,14 +128,14 @@ class ZKTransaction:
     """
     return long(target_txid)
 
-  def registUpdatedKey(self, app_id, current_txid, target_txid, entity_key):
+  def register_updated_key(self, app_id, current_txid, target_txid, entity_key):
     """ Regist valid transaction id for entity.
 
     target_txid must be the latest valid transaction id for the entity.
     """
     return
 
-  def notifyFailedTransaction(self, app_id, txid):
+  def notify_failed_transaction(self, app_id, txid):
     """ Notify failed transaction id.
 
     This method will add the transaction id into black list.
@@ -143,23 +143,5 @@ class ZKTransaction:
     """
     return 
 
-
-  def setRollbackFunction(self, func):
-    """ Set rollback function for gc.
-    <Obsolete>
-
-    The function must have following 4 arguments.
-    - Application ID
-    - Transaction ID
-    - Root key
-    - Updated key array
-
-    You could not use acquireLock() and releaseLock()
-    in rollback function because the transaction is already timeout.
-    The specified transaction already have lock, so you don't have to call
-    acquireLock() in rollback.
-    You should raise any Exception if rollback is failed.
-    """
-    self.__rollbackFunc = func
-    
-
+  def close(self):
+    return
