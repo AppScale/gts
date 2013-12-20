@@ -146,3 +146,17 @@ class ZKTransaction:
   def close(self):
     """ Stub function for closing all ZooKeeper connections. """
     return
+
+
+  def increment_and_get_counter(self, path, value):
+    """ Stub function for incrementing a path by a given value. 
+    
+    Args: 
+      path: A str (ignored)
+      value: An int, the amount to increase by.
+    Returns: 
+      A tuple: (old_value, old_value + value).
+    """
+    fake_value = random.randint(0,99999999999)
+    return (fake_value, fake_value + value)
+
