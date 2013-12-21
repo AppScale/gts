@@ -157,5 +157,5 @@ class ZKTransaction:
     Returns: 
       A tuple: (old_value, old_value + value).
     """
-    fake_value = random.randint(0,99999999999)
+    fake_value = int(time.time() * 1000)
     return (fake_value, fake_value + value)
