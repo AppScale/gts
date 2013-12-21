@@ -983,6 +983,13 @@ class DatastoreDistributed():
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.error("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      for root_key in txn_hash:
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
+      raise dbce
+
 
   def get_root_key_from_entity_key(self, entity_key):
     """ Extract the root key from an entity key. We 
@@ -1057,6 +1064,7 @@ class DatastoreDistributed():
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
       raise zkte
+
     return txn_hash
       
   def get_root_key(self, app_id, ns, ancestor_list):
@@ -1141,6 +1149,7 @@ class DatastoreDistributed():
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
+
     return txn_hash
 
   def release_locks_for_nontrans(self, app_id, entities, txn_hash):
