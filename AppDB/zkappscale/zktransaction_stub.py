@@ -66,7 +66,7 @@ class ZKTransaction:
     self.gccv = threading.Condition()
     self.__rollbackFunc = None
 
-  def get_transaction_id(self, app_id):
+  def get_transaction_id(self, app_id, is_xg=False):
     """ Get new transaction ID for transaction.
 
     This function only create transaction ID, and you must lock
@@ -160,3 +160,4 @@ class ZKTransaction:
     fake_value = random.randint(0,99999999999)
     return (fake_value, fake_value + value)
 
+  def get_transaction_id(self, app_id, is_xg=False):
