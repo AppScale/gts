@@ -159,5 +159,3 @@ class ZKTransaction:
     """
     fake_value = random.randint(0,99999999999)
     return (fake_value, fake_value + value)
-
-  def get_transaction_id(self, app_id, is_xg=False):
