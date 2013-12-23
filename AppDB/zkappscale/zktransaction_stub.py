@@ -159,3 +159,12 @@ class ZKTransaction:
     """
     fake_value = int(time.time() * 1000)
     return (fake_value, fake_value + value)
+
+  def get_datastore_groomer_lock(self):
+    """ Tries to get the lock for the datastore groomer. 
+
+    Returns:
+      True if the lock was obtained, False otherwise.
+    """
+    return True
+
