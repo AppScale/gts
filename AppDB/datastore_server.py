@@ -227,8 +227,8 @@ class DatastoreDistributed():
         # are of set size i.e. 2 > 0003 but 0002 < 0003
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
       path.append("{0}:{1}".format(e.type(), key_id))
-    encoded_path = self._KIND_SEPARTOR.join(path)
-    encoded_path += self._KIND_SEPARTOR
+    encoded_path = '\x01'.join(path)
+    encoded_path += '\x01'
     
     return prefix + self._NAMESPACE_SEPARATOR + encoded_path
     
@@ -250,8 +250,8 @@ class DatastoreDistributed():
         elif e.has_id():
           key_id = str(e.id()).zfill(ID_KEY_LENGTH)
         path.append("{0}:{1}".format(e.type(), key_id))
-      val = self._KIND_SEPARTOR.join(path)
-      val += self._KIND_SEPARTOR
+      val = '\x01'.join(path)
+      val += '\x01'
       return val
 
     if isinstance(pb, entity_pb.PropertyValue) and pb.has_uservalue():
@@ -1009,8 +1009,8 @@ class DatastoreDistributed():
       TypeError: If the type is not supported.
     """
     if isinstance(entity_key, str):
-      tokens = entity_key.split(self._KIND_SEPARTOR)
-      return tokens[0] + self._KIND_SEPARTOR
+      tokens = entity_key.split('\x01')
+      return tokens[0] + '\x01'
     elif isinstance(entity_key, entity_pb.Reference):
       app_id = entity_key.app()
       path = entity_key.path()
@@ -1091,7 +1091,7 @@ class DatastoreDistributed():
       # are of set size i.e. 2 > 0003 but 0002 < 0003.
       key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
     return "{0}{1}{2}:{3}{4}".format(prefix, self._NAMESPACE_SEPARATOR, 
-      first_ent.type(), key_id, self._KIND_SEPARATOR)
+      first_ent.type(), key_id, '\x01')
 
   def is_instance_wrapper(self, obj, expected_type):
     """ A wrapper for isinstance for mocking purposes. 
@@ -1901,9 +1901,9 @@ class DatastoreDistributed():
     Returns:
       A string key which can be used on the kind table.
     """ 
-    tokens = key.split(self._KIND_SEPARTOR)
+    tokens = key.split(self._KIND_SEPARATOR)
     tokens.reverse() 
-    key = self._KIND_SEPARTOR.join(tokens)[1:] + self._KIND_SEPARTOR
+    key = self._KIND_SEPARATOR.join(tokens)[1:] + self._KIND_SEPARATOR
     return key
 
   def kind_query_range(self, query, filter_info, order_info):
@@ -1925,9 +1925,9 @@ class DatastoreDistributed():
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
     prefix = self.get_table_prefix(query)
-    startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + \
+    startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + \
       str(ancestor_filter)
-    endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + \
+    endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + \
       str(ancestor_filter) + \
       self._TERM_STRING
     if '__key__' not in filter_info:
@@ -1937,18 +1937,18 @@ class DatastoreDistributed():
       op = key_filter[0]
       __key__ = str(key_filter[1])
       if op and op == datastore_pb.Query_Filter.EQUAL:
-        startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + __key__
-        endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + __key__
+        startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + __key__
+        endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + __key__
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
         start_inclusive = self._DISABLE_INCLUSIVITY
-        startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + __key__ 
+        startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + __key__ 
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-        startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + __key__
+        startrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + __key__
       elif op and op == datastore_pb.Query_Filter.LESS_THAN:
-        endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + __key__
+        endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + __key__
         end_inclusive = self._DISABLE_INCLUSIVITY
       elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-        endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARTOR + __key__ 
+        endrow = prefix + self._SEPARATOR + query.kind() + self._KIND_SEPARATOR + __key__ 
     return startrow, endrow, start_inclusive, end_inclusive
 
   def namespace_query(self):
