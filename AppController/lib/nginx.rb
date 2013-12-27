@@ -141,9 +141,9 @@ module Nginx
       proxy_redirect off;
       proxy_pass http://gae_#{app_name};
       client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
     }
 DEFAULT_CONFIG
     secure_default_location = default_location
@@ -196,7 +196,7 @@ server {
     location /reserved-channel-appscale-path {
       proxy_buffering off;
       tcp_nodelay on;
-      keepalive_timeout 55;
+      keepalive_timeout 600;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -237,7 +237,7 @@ server {
     location /reserved-channel-appscale-path {
       proxy_buffering off;
       tcp_nodelay on;
-      keepalive_timeout 55;
+      keepalive_timeout 600;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -299,9 +299,9 @@ CONFIG
       proxy_redirect off;
       proxy_pass http://gae_ssl_#{app_name};
       client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
     }
 DEFAULT_CONFIG
     end
@@ -319,9 +319,9 @@ DEFAULT_CONFIG
       proxy_redirect off;
       proxy_pass http://gae_#{app_name};
       client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
     }
 DEFAULT_CONFIG
     end
@@ -375,7 +375,7 @@ server {
     location /reserved-channel-appscale-path {
       proxy_buffering off;
       tcp_nodelay on;
-      keepalive_timeout 55;
+      keepalive_timeout 600;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -450,7 +450,7 @@ server {
     location /reserved-channel-appscale-path {
       proxy_buffering off;
       tcp_nodelay on;
-      keepalive_timeout 55;
+      keepalive_timeout 600;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -537,9 +537,9 @@ server {
       proxy_redirect off;
       proxy_pass http://#{DatastoreServer::NAME};
       client_max_body_size 30M;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
     }
 
 }
@@ -575,8 +575,8 @@ server {
       proxy_set_header Host $http_host;
       proxy_redirect off;
 
-      client_body_timeout 60;
-      proxy_read_timeout 60;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
       #Increase file size so larger applications can be uploaded
       client_max_body_size 30M;
       # go to proxy
@@ -730,7 +730,7 @@ http {
     #tcp_nopush     on;
 
     #keepalive_timeout  0;
-    keepalive_timeout  60;
+    keepalive_timeout  600;
     tcp_nodelay        on;
     server_names_hash_bucket_size 128;
 
