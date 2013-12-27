@@ -124,12 +124,13 @@ def _ValidateClientId(client_id):
 
 
 
-def create_channel(client_id):
+def create_channel(client_id, duration_minutes=None):
   """Create a channel.
 
   Args:
     client_id: A string to identify this channel on the server side.
-
+    duration_minutes: A string, the maximum number of minutes the channel 
+      should be open.
   Returns:
     A token that the client can use to connect to the channel.
 
