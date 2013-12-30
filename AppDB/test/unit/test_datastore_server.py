@@ -172,8 +172,9 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
     dd.should_receive("get_meta_data_key").and_return("somekey")
-    composite_indexes = datastore_pb.CompositeIndices() 
-    dd.delete_composite_index_metadata("appid", composite_indexes)
+    composite_index = entity_pb.CompositeIndex() 
+    composite_index.set_id(1)
+    dd.delete_composite_index_metadata("appid", composite_index)
 
   def test_create_composite_index(self):
     db_batch = flexmock()
