@@ -673,18 +673,16 @@ class DatastoreDistributed():
         list_result.append(value['data']) 
     return list_result
 
-  def delete_composite_index_metadata(self, app_id, indexes):
+  def delete_composite_index_metadata(self, app_id, index):
     """ Deletes a index for the given application identifier.
   
     Args:
       app_id: A string representing the application identifier.
-      index: A datastore_pb.CompositeIndices object.
+      index: A entity_pb.CompositeIndex object.
     """
     index_keys = []
-    for index in indexes.index_list():
-      composite_id = index.id() 
-      index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
-
+    composite_id = index.id() 
+    index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
                                       index_keys, 
                                       column_names=dbconstants.METADATA_TABLE)
@@ -760,7 +758,7 @@ class DatastoreDistributed():
       app_id: The application ID.
       entities: List of entities.
       txn_hash: A mapping of root keys to transaction IDs.
-      composite_indexes: A list of datastore_pb.CompositeIndex.
+      composite_indexes: A list of entity_pb.CompositeIndex.
     """
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
@@ -3200,7 +3198,7 @@ class MainHandler(tornado.web.RequestHandler):
       error explanation.
     """
     global datastore_access
-    request = datastore_pb.CompositeIndices(http_request_data)
+    request = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.VoidProto()
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)

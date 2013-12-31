@@ -719,7 +719,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """ Deletes an index of the current app.
 
     Args:
-      index: A datastore_pb.CompositeIndex, the composite index to delete.
+      index: A entity_pb.CompositeIndex, the composite index to delete.
       void: A entity_pb.VoidProto.
     Returns:
       A entity_pb.VoidProto. 
