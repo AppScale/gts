@@ -226,8 +226,8 @@ class DatastoreDistributed():
         # are of set size i.e. 2 > 0003 but 0002 < 0003
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
       path.append("{0}:{1}".format(e.type(), key_id))
-    encoded_path = '!'.join(path)
-    encoded_path += '!'
+    encoded_path = dbconstants.KIND_SEPARATOR.join(path)
+    encoded_path += dbconstants.KIND_SEPARATOR
     
     return prefix + self._NAMESPACE_SEPARATOR + encoded_path
     
@@ -249,8 +249,8 @@ class DatastoreDistributed():
         elif e.has_id():
           key_id = str(e.id()).zfill(ID_KEY_LENGTH)
         path.append("{0}:{1}".format(e.type(), key_id))
-      val = '!'.join(path)
-      val += '!'
+      val = dbconstants.KIND_SEPARATOR.join(path)
+      val += dbconstants.KIND_SEPARATOR
       return val
 
     if isinstance(pb, entity_pb.PropertyValue) and pb.has_uservalue():
@@ -485,11 +485,17 @@ class DatastoreDistributed():
         logging.debug("Root entity is: {0}".\
           format(self.get_root_key_from_entity_key(str(ii[0]))))
         logging.debug("Transaction hash is: {0}".format(str(txn_hash)))
-        txn_id = txn_hash[self.get_root_key_from_entity_key(str(ii[0]))]
-        row_values[str(ii[0])] = \
-                           {dbconstants.APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
-                           dbconstants.APP_ENTITY_SCHEMA[1]:str(txn_id)} #txnid
-
+        try:
+          txn_id = txn_hash[self.get_root_key_from_entity_key(str(ii[0]))]
+          row_values[str(ii[0])] = \
+            {dbconstants.APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
+            dbconstants.APP_ENTITY_SCHEMA[1]:str(txn_id)} #txnid
+        except KeyError, key_error:
+          logging.error("Key we are trying to get the root: {0}".\
+            format(str(ii[0])))
+          logging.error("Root key we got: {0}".\
+            format(self.get_root_key_from_entity_key(str(ii[0]))))
+          raise key_error
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       kind_group_rows = tuple(kind_row_generator(group))
       new_kind_keys = [str(ii[0]) for ii in kind_group_rows]
@@ -983,6 +989,13 @@ class DatastoreDistributed():
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.exception("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      for root_key in txn_hash:
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
+      raise dbce
+
 
   def get_root_key_from_entity_key(self, entity_key):
     """ Extract the root key from an entity key. We 
@@ -997,8 +1010,8 @@ class DatastoreDistributed():
       TypeError: If the type is not supported.
     """
     if isinstance(entity_key, str):
-      tokens = entity_key.split('!')
-      return tokens[0] + '!'
+      tokens = entity_key.split(dbconstants.KIND_SEPARATOR)
+      return tokens[0] + dbconstants.KIND_SEPARATOR
     elif isinstance(entity_key, entity_pb.Reference):
       app_id = entity_key.app()
       path = entity_key.path()
@@ -1048,12 +1061,16 @@ class DatastoreDistributed():
     except ZKTransactionException, zkte:
       logging.warning("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
+      if retries > 0:
+        logging.warning("Trying again to acquire lock" \
+          "info {1} with retry #{2}".format(app_id, str(zkte), retries))
+        time.sleep(self.LOCK_RETRY_TIME)
+        return dict(self.acquire_locks_for_nontrans(app_id, entities,
+          retries-1).items() + txn_hash.items())
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
-      if retries > 0:
-        time.sleep(self.LOCK_RETRY_TIME)
-        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
       raise zkte
+
     return txn_hash
       
   def get_root_key(self, app_id, ns, ancestor_list):
@@ -1074,8 +1091,8 @@ class DatastoreDistributed():
       # Make sure ids are ordered lexigraphically by making sure they 
       # are of set size i.e. 2 > 0003 but 0002 < 0003.
       key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
-    return "{0}{1}{2}:{3}!".format(prefix, self._NAMESPACE_SEPARATOR, 
-      first_ent.type(), key_id)
+    return "{0}{1}{2}:{3}{4}".format(prefix, self._NAMESPACE_SEPARATOR, 
+      first_ent.type(), key_id, dbconstants.KIND_SEPARATOR)
 
   def is_instance_wrapper(self, obj, expected_type):
     """ A wrapper for isinstance for mocking purposes. 
@@ -1138,6 +1155,7 @@ class DatastoreDistributed():
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
+
     return txn_hash
 
   def release_locks_for_nontrans(self, app_id, entities, txn_hash):
@@ -1884,9 +1902,10 @@ class DatastoreDistributed():
     Returns:
       A string key which can be used on the kind table.
     """ 
-    tokens = key.split('!')
+    tokens = key.split(dbconstants.KIND_SEPARATOR)
     tokens.reverse() 
-    key = '!'.join(tokens)[1:] + '!'
+    key = dbconstants.KIND_SEPARATOR.join(tokens)[1:] + \
+      dbconstants.KIND_SEPARATOR
     return key
 
   def kind_query_range(self, query, filter_info, order_info):
@@ -1908,9 +1927,11 @@ class DatastoreDistributed():
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
     prefix = self.get_table_prefix(query)
-    startrow = prefix + self._SEPARATOR + query.kind() + '!' + \
+    startrow = prefix + self._SEPARATOR + query.kind() + \
+      dbconstants.KIND_SEPARATOR + \
       str(ancestor_filter)
-    endrow = prefix + self._SEPARATOR + query.kind() + '!' + \
+    endrow = prefix + self._SEPARATOR + query.kind() + \
+      dbconstants.KIND_SEPARATOR + \
       str(ancestor_filter) + \
       self._TERM_STRING
     if '__key__' not in filter_info:
@@ -1920,18 +1941,24 @@ class DatastoreDistributed():
       op = key_filter[0]
       __key__ = str(key_filter[1])
       if op and op == datastore_pb.Query_Filter.EQUAL:
-        startrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__
-        endrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__
+        startrow = prefix + self._SEPARATOR + query.kind() + \
+          dbconstants.KIND_SEPARATOR + __key__
+        endrow = prefix + self._SEPARATOR + query.kind() + \
+          dbconstants.KIND_SEPARATOR + __key__
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
         start_inclusive = self._DISABLE_INCLUSIVITY
-        startrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__ 
+        startrow = prefix + self._SEPARATOR + query.kind() + \
+          dbconstants.KIND_SEPARATOR + __key__ 
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-        startrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__
+        startrow = prefix + self._SEPARATOR + query.kind() + \
+          dbconstants.KIND_SEPARATOR + __key__
       elif op and op == datastore_pb.Query_Filter.LESS_THAN:
-        endrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__
+        endrow = prefix + self._SEPARATOR + query.kind() + \
+          dbconstants.KIND_SEPARATOR + __key__
         end_inclusive = self._DISABLE_INCLUSIVITY
       elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-        endrow = prefix + self._SEPARATOR + query.kind() + "!" + __key__ 
+        endrow = prefix + self._SEPARATOR + query.kind() + \
+          dbconstants.KIND_SEPARATOR + __key__ 
     return startrow, endrow, start_inclusive, end_inclusive
 
   def namespace_query(self):
@@ -2594,14 +2621,16 @@ class DatastoreDistributed():
         if filter_info[prop.name()][-1][0] == datastore_pb.Query_Filter.EQUAL:
           equality_value += value 
           oper = filter_info[prop.name()][-1][0]
-        elif filter_info[prop.name()][-1][0] ==  datastore_pb.Query_Filter.EXISTS:
+        elif filter_info[prop.name()][-1][0] == \
+           datastore_pb.Query_Filter.EXISTS:
           # We currently do not handle projection queries.
           pass
         else:
-          # Figure out what operator we will use. Default to greater than or equal to
-          # if there are no filter operators that tell us otherwise.
-          # The last filter that is not an EXISTS filter is what operator we will use,
-          # as dictated by the composite index definition.
+          # Figure out what operator we will use. Default to greater than or 
+          # equal to if there are no filter operators that tell us 
+          # otherwise. The last filter that is not an EXISTS filter is 
+          # what operator we will use, as dictated by the composite index 
+          # definition.
           oper = filter_info[prop.name()][-1][0]
 
       index_value += str(value)

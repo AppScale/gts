@@ -145,8 +145,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       The root key extracted from the row key.
     """
-    tokens = key.split('!')
-    return tokens[0] + '!'
+    tokens = key.split(dbconstants.KIND_SEPARATOR)
+    return tokens[0] + dbconstants.KIND_SEPARATOR
 
   @staticmethod
   def get_prefix_from_entity_key(entity_key):

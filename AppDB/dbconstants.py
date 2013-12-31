@@ -7,6 +7,7 @@ SECRET_LOCATION = "/etc/appscale/secret.key"
 ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
 KEY_DELIMITER = '\x00'
+KIND_SEPARATOR = '\x01'
 
 # Table names
 USERS_TABLE = "USERS__"
