@@ -107,7 +107,7 @@ class DatastoreDistributed():
       a distributed datastore instead of a flat file.
   """
   # Max number of results for a query
-  _MAXIMUM_RESULTS = 1000000
+  _MAXIMUM_RESULTS = 1000
 
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
@@ -1747,7 +1747,9 @@ class DatastoreDistributed():
     if startrow > endrow:
       return []
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
     if query.has_offset():
       limit = limit + query.offset() 
     results = self.fetch_from_entity_table(startrow,
@@ -1879,7 +1881,9 @@ class DatastoreDistributed():
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
     if query.has_offset():
       limit = limit + query.offset() 
     return self.fetch_from_entity_table(startrow,
@@ -2009,7 +2013,9 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
-    limit = query.limit() or self._MAXIMUM_RESULTS
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
     if query.has_offset():
       limit = limit + query.offset() 
     if startrow > endrow:
@@ -2091,8 +2097,9 @@ class DatastoreDistributed():
 
     prefix = self.get_table_prefix(query)
  
-
-    limit = query.limit() or self._MAXIMUM_RESULTS
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
     if query.has_offset():
       limit = limit + query.offset() 
 
@@ -2443,7 +2450,9 @@ class DatastoreDistributed():
       return None
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
-    limit = query.limit() or self._MAXIMUM_RESULTS
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
     if query.has_offset():
       limit = limit + query.offset() 
 
@@ -2620,7 +2629,7 @@ class DatastoreDistributed():
           equality_value += value 
           oper = filter_info[prop.name()][-1][0]
         elif filter_info[prop.name()][-1][0] == \
-           datastore_pb.Query_Filter.EXISTS:
+          datastore_pb.Query_Filter.EXISTS:
           # We currently do not handle projection queries.
           pass
         else:
@@ -2696,7 +2705,9 @@ class DatastoreDistributed():
     startrow, endrow = self.get_range_composite_query(query, filter_info)
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
-    limit = query.limit() or self._MAXIMUM_RESULTS
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
     if query.has_offset():
       limit = limit + query.offset() 
     offset = query.offset()
