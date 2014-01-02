@@ -918,7 +918,15 @@ module HelperFunctions
 
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
-      result = "\n    location \"#{handler['url']}\" {"
+      # Users can specify a regex that names their static files. If they specify
+      # any regex characters, assume that the whole string is a regex
+      # (otherwise, it's a literal string).
+      if handler['url'] =~ /[\?|\:|\||\+|\(|\)|\*|\^|\$|\[|\]]/
+        result = "\n    location ~ #{handler['url']} {"
+      else
+        result = "\n    location \"#{handler['url']}\" {"
+      end
+
       result << "\n\t" << "root $cache_dir;"
       result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
