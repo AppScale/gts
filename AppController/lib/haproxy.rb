@@ -288,15 +288,15 @@ defaults
   # any Mongrel, not just the one that started the session
   option redispatch
 
-  # Timeout a request if the client did not read any data for 60 seconds
-  timeout client 60000
+  # Timeout a request if the client did not read any data for 600 seconds
+  timeout client 600000
 
-  # Timeout a request if Mongrel does not accept a connection for 60 seconds
-  timeout connect 60000
+  # Timeout a request if Mongrel does not accept a connection for 600 seconds
+  timeout connect 600000
 
   # Timeout a request if Mongrel does not accept the data on the connection,
-  # or does not send a response back in 1 minute.
-  timeout server 60000
+  # or does not send a response back in 10 minutes.
+  timeout server 600000
   
   # Enable the statistics page 
   stats enable
