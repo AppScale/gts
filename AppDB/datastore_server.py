@@ -2715,7 +2715,6 @@ class DatastoreDistributed():
     value2 = None
     start_key = ""
     end_key = ""
-    logging.error("COMP INDEX {0}, {1}, {2}, {3}".format(filter_ops, equality_value, pre_comp_index_key, direction))
     if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
       filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       oper1 = filter_ops[0][0]
@@ -2769,10 +2768,6 @@ class DatastoreDistributed():
 
     start_key = "{0}{1}".format(pre_comp_index_key, start_value)
     end_key = "{0}{1}".format(pre_comp_index_key, end_value)
-    logging.error("Start key: {0}".format(start_key))
-    logging.error("End key:   {0}".format(end_key)) 
-    logging.error("Start hex: {0}".format(':'.join(x.encode('hex') for x in start_key)))
-    logging.error("End hex:   {0}".format(':'.join(x.encode('hex') for x in end_key)))
     return start_key, end_key 
 
   def composite_v2(self, query, filter_info):
