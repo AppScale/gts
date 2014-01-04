@@ -2454,9 +2454,9 @@ class DatastoreDistributed():
           cursor = appscale_stub_util.ListCursor(query)
           last_result = cursor._GetLastResult()
           startrow = self.__get_start_key(prefix, 
-                                    prop_name,
-                                    datastore_pb.Query_Order.ASCENDING,
-                                    last_result)
+            prop_name,
+            datastore_pb.Query_Order.ASCENDING,
+            last_result)
 
   
         # We use equality filters only so order ops should always be ASC. 
@@ -2465,17 +2465,16 @@ class DatastoreDistributed():
           if i[0] == prop_name:
             order_ops = [i]
             break
-   
         temp_res[prop_name] = self.__apply_filters(filter_ops, 
-                                     order_ops, 
-                                     prop_name, 
-                                     kind, 
-                                     prefix, 
-                                     count, 
-                                     0, 
-                                     startrow,
-                                     force_start_key_exclusive=force_exclusive,
-                                     ancestor=ancestor)
+          order_ops, 
+          prop_name, 
+          kind, 
+          prefix, 
+          count, 
+          0, 
+          startrow,
+          force_start_key_exclusive=force_exclusive,
+          ancestor=ancestor)
       # We do reference counting and consider any reference which matches the 
       # number of properties to be a match. Any others are discarded but it 
       # possible they show up on subsequent scans. 
@@ -2497,37 +2496,46 @@ class DatastoreDistributed():
           index_value = indexes[index_key]['reference']
           last_keys_of_scans[prop_name] = index_value
 
-      # Purge keys which did not intersect from all equality filters. You 
-      # cannot loop on a dictionary and delete from it at the same time.
+      # We are looking for the earliest (alphabetically) of the set of last 
+      # keys. This tells us where to start our next scans. And from where 
+      # we can remove potential results.
+      start_key = ""
+      starting_prop_name = ""
+      for prop_name in last_keys_of_scans:
+        last_key = last_keys_of_scans[prop_name]
+        if not start_key or last_key < start_key: 
+          start_key = last_key
+          starting_prop_name = prop_name
+      # Purge keys which did not intersect from all equality filters and those
+      # which are past the earliest reference shared by all property names 
+      # (start_key variable). 
       keys_to_delete = []
       for key in reference_counter_hash:
         if reference_counter_hash[key] != len(filter_info.keys()):
           keys_to_delete.append(key)
-
+      # You cannot loop on a dictionary and delete from it at the same time.
+      # Hence why the deletes happen here.
       for key in keys_to_delete:
         del reference_counter_hash[key]
 
-      # We are looking for the earliest (alphabetically) of the keys.
-      start_key = ""
-      for last_key in last_keys_of_scans:
-        if not start_key: 
-          start_key = last_key
-        elif start_key > last_key:
-          last_key = start_key
-
       result_list.extend(reference_counter_hash.keys())
-
-      # If any of the properties ran out of entities, then we are done.
+      # If the property we are setting the start key did not get the requested 
+      # amount of entities then we can stop scanning, as there are no more 
+      # entities to scan from that property.
       for prop_name in temp_res:
-        if len(temp_res) < count:
+        if len(temp_res[prop_name]) < count and prop_name == starting_prop_name:
           more_results = False
+
+        # If any property no longer has any more items, this query is done.
+        if len(temp_res[prop_name]) == 0:
+          more_results = False 
 
       # If we reached our limit of result entities, then we are done.
       if len(result_list) >= limit:
         more_results = False
 
       # Do not include the first key in subsequent scans because we have 
-      # alreadt accounted for the given entity.
+      # already accounted for the given entity.
       if start_key in result_list:
         force_exclusive = True
 
