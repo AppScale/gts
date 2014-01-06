@@ -2739,7 +2739,7 @@ class DatastoreDistributed():
 
       # The second operator will be either < or <=.
       if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
-        end_value = equality_value + value2 + self._TERM_STRING
+        end_value = equality_value + value2 
       elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
         end_value = equality_value + value2 + self._SEPARATOR + \
           self._TERM_STRING
@@ -2749,9 +2749,8 @@ class DatastoreDistributed():
     if direction == datastore_pb.Query_Order.DESCENDING:
       value1 = helper_functions.reverse_lex(value1)
       value2 = helper_functions.reverse_lex(value2) 
-
       if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
-        end_value = equality_value + value1 + self._TERM_STRING
+        end_value = equality_value + value1 
       elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         end_value = equality_value + value1 + self._SEPARATOR + \
           self._TERM_STRING
