@@ -26,7 +26,7 @@ import dbconstants
 import groomer
 import helper_functions
 
-from zkappscale import zktransaction as zk
+from zkappscale import zktransaction_stub as zk
 from zkappscale.zktransaction import ZKInternalException
 from zkappscale.zktransaction import ZKTransactionException
 
@@ -179,6 +179,23 @@ class DatastoreDistributed():
     if isinstance(key_path, entity_pb.EntityProto):
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
+
+  def get_limit(self, query):
+    """ Returns the limit that should be used for the given query.
+  
+    Args:
+      query: A datastore_pb.Query.
+    Returns:
+      An int, the limit to be used when accessing the datastore.
+    """
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
+    if query.has_offset():
+      limit = limit + query.offset() 
+    if limit <= 0:
+      limit = 1
+    return limit
 
   def get_entity_key(self, prefix, pb):
     """ Returns the key for the entity table.
@@ -1680,10 +1697,7 @@ class DatastoreDistributed():
     kind = None
     if query.has_kind():
       kind = query.kind()
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     return self.__multiorder_results(unordered, order_info, kind)[:limit]
  
   def ancestor_query(self, query, filter_info, order_info):
@@ -1747,11 +1761,7 @@ class DatastoreDistributed():
     if startrow > endrow:
       return []
 
-    limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     results = self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -1881,11 +1891,7 @@ class DatastoreDistributed():
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
 
-    limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     return self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -2013,11 +2019,7 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
-    limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     if startrow > endrow:
       return []
 
@@ -2096,12 +2098,8 @@ class DatastoreDistributed():
       direction = datastore_pb.Query_Order.ASCENDING
 
     prefix = self.get_table_prefix(query)
- 
-    limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+
+    limit = self.get_limit(query) 
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -2450,11 +2448,7 @@ class DatastoreDistributed():
       return None
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
-    limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
 
     count = self._MAX_COMPOSITE_WINDOW
     start_key = ""
@@ -2640,9 +2634,15 @@ class DatastoreDistributed():
           # definition.
           oper = filter_info[prop.name()][-1][0]
     
+          # TODO support list property queries.
           # Separate logic is required if we have multiple filters for a single
           # property.
-          if len(filter_info[prop.name()]) > 1:
+          # Only run this if all filters are between 1 and 4. It is possible to
+          # have equality and nonequality filters for list properties which is
+          # not supported in AppScale.
+          all_filter_ops = [ii[0] for ii in filter_info[prop.name()]]
+          if len(all_filter_ops) > 1 and datastore_pb.Query_Filter.EQUAL not \
+            in all_filter_ops:
             return self.composite_multiple_filter_prop(
               filter_info[prop.name()], equality_value, pre_comp_index_key,
               prop.direction())
@@ -2781,6 +2781,7 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
+    logging.error("Query: {0}".format(query))
     startrow, endrow = self.get_range_composite_query(query, filter_info)
 
     # Override the start_key with a cursor if given.
@@ -2792,11 +2793,7 @@ class DatastoreDistributed():
 
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
-    limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     offset = query.offset()
     index_result = self.datastore_batch.range_query(table_name, 
                                              column_names, 
