@@ -41,4 +41,4 @@ National Science Foundation
 
 National Institutes of Health
 
-[![Analytics](https://ga-beacon.appspot.com/UA-39403730-2/appscale/appscale)](https://github.com/appscale/appscale)
+[![Analytics](https://ga-beacon.appspot.com/UA-39403730-2/AppScale/appscale)](https://github.com/appscale/appscale)
