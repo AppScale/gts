@@ -4400,7 +4400,7 @@ HOSTS
     # that runs the login service (but not in a one node deploy, where we don't
     # do a full proxy config).
     login_ip = get_login.private_ip
-    if is_new_app and my_node.is_login?
+    if my_node.is_login?
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
         Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
