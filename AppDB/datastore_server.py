@@ -107,7 +107,7 @@ class DatastoreDistributed():
       a distributed datastore instead of a flat file.
   """
   # Max number of results for a query
-  _MAXIMUM_RESULTS = 1000000
+  _MAXIMUM_RESULTS = 10000
 
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
@@ -179,6 +179,23 @@ class DatastoreDistributed():
     if isinstance(key_path, entity_pb.EntityProto):
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
+
+  def get_limit(self, query):
+    """ Returns the limit that should be used for the given query.
+  
+    Args:
+      query: A datastore_pb.Query.
+    Returns:
+      An int, the limit to be used when accessing the datastore.
+    """
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
+    if query.has_offset():
+      limit = limit + query.offset() 
+    if limit <= 0:
+      limit = 1
+    return limit
 
   def get_entity_key(self, prefix, pb):
     """ Returns the key for the entity table.
@@ -1680,10 +1697,7 @@ class DatastoreDistributed():
     kind = None
     if query.has_kind():
       kind = query.kind()
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     return self.__multiorder_results(unordered, order_info, kind)[:limit]
  
   def ancestor_query(self, query, filter_info, order_info):
@@ -1747,9 +1761,7 @@ class DatastoreDistributed():
     if startrow > endrow:
       return []
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     results = self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -1879,9 +1891,7 @@ class DatastoreDistributed():
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     return self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -2009,9 +2019,7 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     if startrow > endrow:
       return []
 
@@ -2090,11 +2098,8 @@ class DatastoreDistributed():
       direction = datastore_pb.Query_Order.ASCENDING
 
     prefix = self.get_table_prefix(query)
- 
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query) 
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -2448,9 +2453,7 @@ class DatastoreDistributed():
       return None
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
 
     count = self._MAX_COMPOSITE_WINDOW
     start_key = ""
@@ -2625,7 +2628,7 @@ class DatastoreDistributed():
           equality_value += value 
           oper = filter_info[prop.name()][-1][0]
         elif filter_info[prop.name()][-1][0] == \
-           datastore_pb.Query_Filter.EXISTS:
+          datastore_pb.Query_Filter.EXISTS:
           # We currently do not handle projection queries.
           pass
         else:
@@ -2635,6 +2638,19 @@ class DatastoreDistributed():
           # what operator we will use, as dictated by the composite index 
           # definition.
           oper = filter_info[prop.name()][-1][0]
+    
+          # TODO support list property queries.
+          # Separate logic is required if we have multiple filters for a single
+          # property.
+          # Only run this if all filters are between 1 and 4. It is possible to
+          # have equality and nonequality filters for list properties which is
+          # not supported in AppScale.
+          all_filter_ops = [ii[0] for ii in filter_info[prop.name()]]
+          if len(all_filter_ops) > 1 and datastore_pb.Query_Filter.EQUAL not \
+            in all_filter_ops:
+            return self.composite_multiple_filter_prop(
+              filter_info[prop.name()], equality_value, pre_comp_index_key,
+              prop.direction())
 
       index_value += str(value)
 
@@ -2679,19 +2695,91 @@ class DatastoreDistributed():
     start_key = "{0}{1}".format(pre_comp_index_key, start_value)
     end_key = "{0}{1}".format(pre_comp_index_key, end_value)
 
-    # Override the start_key with a cursor if given.
-    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = appscale_stub_util.ListCursor(query)
-      last_result = cursor._GetLastResult()
-      start_key = self.get_composite_index_key(composite_index, last_result)  
     return start_key, end_key
+
+
+  def composite_multiple_filter_prop(self, filter_ops, equality_value,
+    pre_comp_index_key, direction):
+    """Returns the start and end keys for a composite query which has multiple
+       filters for a single property, and potentially multiple equality
+       filters.
+
+    Args:  
+      filter_ops: dictionary mapping the inequality filter to operators and 
+        values.
+      equality_value: A string used for the start and end key which is derived
+        from equality filter values.
+      pre_comp_index_key: A string, contains pre-values for start and end keys.
+      direction: datastore_pb.Query_Order telling the direction of the scan.
+    Returns:
+      The end and start key for doing a composite query.
+    """
+    oper1 = None
+    oper2 = None
+    value1 = None
+    value2 = None
+    start_key = ""
+    end_key = ""
+    if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
+      filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+      oper1 = filter_ops[0][0]
+      oper2 = filter_ops[1][0]
+      value1 = str(filter_ops[0][1])
+      value2 = str(filter_ops[1][1])
+    else:
+      oper1 = filter_ops[1][0]
+      oper2 = filter_ops[0][0]
+      value1 = str(filter_ops[1][1])
+      value2 = str(filter_ops[0][1])
+
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      # The first operator will always be either > or >=.
+      if oper1 == datastore_pb.Query_Filter.GREATER_THAN:
+        start_value = equality_value + value1 + self._SEPARATOR + \
+          self._TERM_STRING
+      elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        start_value = equality_value + value1
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
+
+      # The second operator will be either < or <=.
+      if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
+        end_value = equality_value + value2 
+      elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        end_value = equality_value + value2 + self._SEPARATOR + \
+          self._TERM_STRING
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
+    
+    if direction == datastore_pb.Query_Order.DESCENDING:
+      value1 = helper_functions.reverse_lex(value1)
+      value2 = helper_functions.reverse_lex(value2) 
+      if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
+        end_value = equality_value + value1 
+      elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        end_value = equality_value + value1 + self._SEPARATOR + \
+          self._TERM_STRING
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
+
+      if oper2 == datastore_pb.Query_Filter.LESS_THAN:
+        start_value = equality_value + value2 + self._SEPARATOR + \
+          self._TERM_STRING
+      elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        start_value = equality_value + value2
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
+
+    start_key = "{0}{1}".format(pre_comp_index_key, start_value)
+    end_key = "{0}{1}".format(pre_comp_index_key, end_value)
+    return start_key, end_key 
 
   def composite_v2(self, query, filter_info):
     """Performs composite queries using a range query against
        the composite table. Faster than in-memory filters, but requires
        indexes to be built upon each put.
 
-     Args:
+    Args:
       query: The query to run.
       filter_info: dictionary mapping property names to tuples of 
         filter operators and values.
@@ -2699,11 +2787,17 @@ class DatastoreDistributed():
       List of entities retrieved from the given query.
     """
     startrow, endrow = self.get_range_composite_query(query, filter_info)
+
+    # Override the start_key with a cursor if given.
+    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
+      cursor = appscale_stub_util.ListCursor(query)
+      last_result = cursor._GetLastResult()
+      composite_index = query.composite_index_list()[0]
+      startrow = self.get_composite_index_key(composite_index, last_result)  
+
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     offset = query.offset()
     index_result = self.datastore_batch.range_query(table_name, 
                                              column_names, 
@@ -2715,7 +2809,7 @@ class DatastoreDistributed():
                                              end_inclusive=True)
     return self.__fetch_entities(index_result, query.app())
 
-  def __composite_query(self, query, filter_info, order_info):  
+  def __composite_query(self, query, filter_info, _):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
 
@@ -2723,7 +2817,6 @@ class DatastoreDistributed():
       query: The query to run.
       filter_info: dictionary mapping property names to tuples of 
         filter operators and values.
-      order_info: tuple with property name and the sort order.
     Returns:
       List of entities retrieved from the given query.
     """
