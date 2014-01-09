@@ -107,7 +107,7 @@ class DatastoreDistributed():
       a distributed datastore instead of a flat file.
   """
   # Max number of results for a query
-  _MAXIMUM_RESULTS = 1000000
+  _MAXIMUM_RESULTS = 10000
 
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
