@@ -2271,6 +2271,11 @@ class DatastoreDistributed():
       if force_start_key_exclusive:
         start_inclusive = False
 
+      if startrow > endrow:
+        logging.error("Start row is greater than end row :{0} versus {1}".\
+          format(startrow, endrow))
+        return []
+
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
