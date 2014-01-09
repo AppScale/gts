@@ -2481,23 +2481,22 @@ class DatastoreDistributed():
           reference_key = start_key.split(self._SEPARATOR)[-1]
           params = [prefix, kind, prop_name, value, reference_key]
           startrow = self.get_index_key_from_params(params)
-
-        if not startrow and query.has_compiled_cursor() and \
+        elif query.has_compiled_cursor() and \
           query.compiled_cursor().position_size():
           cursor = appscale_stub_util.ListCursor(query)
           last_result = cursor._GetLastResult()
-          startrow = self.__get_start_key(prefix, 
-            prop_name,
-            datastore_pb.Query_Order.ASCENDING,
-            last_result)
+          value = str(filter_ops[0][1])
+          reference_key = str(self.__encode_index_pb(last_result.key().path()))
+          params = [prefix, kind, prop_name, value, reference_key]
+          startrow = self.get_index_key_from_params(params)
 
-  
         # We use equality filters only so order ops should always be ASC. 
         order_ops = []
         for i in order_info:
           if i[0] == prop_name:
             order_ops = [i]
             break
+
         temp_res[prop_name] = self.__apply_filters(filter_ops, 
           order_ops, 
           prop_name, 
