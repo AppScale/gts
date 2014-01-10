@@ -197,6 +197,7 @@ server {
       proxy_buffering off;
       tcp_nodelay on;
       keepalive_timeout 600;
+      proxy_read_timeout 120;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -238,6 +239,7 @@ server {
       proxy_buffering off;
       tcp_nodelay on;
       keepalive_timeout 600;
+      proxy_read_timeout 120;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -376,6 +378,7 @@ server {
       proxy_buffering off;
       tcp_nodelay on;
       keepalive_timeout 600;
+      proxy_read_timeout 120;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
@@ -451,6 +454,7 @@ server {
       proxy_buffering off;
       tcp_nodelay on;
       keepalive_timeout 600;
+      proxy_read_timeout 120;
       proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
