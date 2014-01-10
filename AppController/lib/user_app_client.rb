@@ -94,6 +94,7 @@ class UserAppClient
     else
       puts "\n[unexpected] Commit new user returned: [#{result}]"
     end
+    return result
   end
   
   def commit_new_app(user, app_name, language, file_location)
