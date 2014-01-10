@@ -111,7 +111,7 @@ class DatastoreDistributed():
 
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
-  _MAX_COMPOSITE_WINDOW = 100000
+  _MAX_COMPOSITE_WINDOW = 10000
 
   # Maximum amount of filter and orderings allowed within a query
   _MAX_QUERY_COMPONENTS = 63
