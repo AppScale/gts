@@ -23,6 +23,7 @@ import functools
 import httplib
 import logging
 import math
+import os
 import os.path
 import random
 import re
@@ -517,17 +518,11 @@ class Server(object):
     Returns:
       An iterable over strings containing the body of the HTTP response.
     """
-    if inst:
-      try:
-        environ['SERVER_PORT'] = str(self.get_instance_port(inst.instance_id))
-      except request_info.NotSupportedWithAutoScalingError:
-        environ['SERVER_PORT'] = str(self.balanced_port)
-    else:
-      environ['SERVER_PORT'] = str(self.balanced_port)
+    environ['SERVER_PORT'] = os.environ['NGINX_PORT']
     if 'HTTP_HOST' in environ:
       environ['SERVER_NAME'] = environ['HTTP_HOST'].split(':', 1)[0]
     environ['DEFAULT_VERSION_HOSTNAME'] = '%s:%s' % (
-        environ['SERVER_NAME'], self._default_version_port)
+        environ['SERVER_NAME'], os.environ['NGINX_PORT'])
     with self._request_data.request(
         environ,
         self._server_configuration) as request_id:

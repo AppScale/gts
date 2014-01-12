@@ -82,11 +82,11 @@ class TestGroomer(unittest.TestCase):
     self.assertEquals(False, dsg.hard_delete_row("some_key"))
 
   def test_get_root_key_from_entity_key(self):
-    self.assertEquals("hi/bye!", groomer.DatastoreGroomer.\
-      get_root_key_from_entity_key("hi/bye!otherstuff!moar"))
+    self.assertEquals("hi/bye\x01", groomer.DatastoreGroomer.\
+      get_root_key_from_entity_key("hi/bye\x01otherstuff\x01moar"))
 
-    self.assertEquals("hi/!", groomer.DatastoreGroomer.\
-      get_root_key_from_entity_key("hi/!otherstuff!moar"))
+    self.assertEquals("hi/\x01", groomer.DatastoreGroomer.\
+      get_root_key_from_entity_key("hi/\x01otherstuff\x01moar"))
 
   def test_get_prefix_from_entity(self):
     self.assertEquals("hi\x00bye", groomer.DatastoreGroomer.\
