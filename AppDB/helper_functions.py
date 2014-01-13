@@ -65,4 +65,12 @@ def lineno():
   """
   return inspect.currentframe().f_back.f_lineno
 
-
+def str_to_hex(string):
+  """ Returns a string in readable hex encoding.
+  
+  Args:
+    A string to convert to readable hex. 
+  Returns:
+    A string in hex format.
+  """
+  return ":".join(x.encode('hex') for x in string)

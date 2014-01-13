@@ -130,7 +130,7 @@ class DatastoreDistributed():
   _TERM_STRING = chr(255) * 500
 
   # Smallest possible value that is considered non-null and indexable.
-  MIN_INDEX_VALUE = (499 * '\x00') + '\x01'
+  MIN_INDEX_VALUE = '\x01'
 
   # When assigning the first allocated ID, give this value
   _FIRST_VALID_ALLOCATED_ID = 1
@@ -2235,31 +2235,31 @@ class DatastoreDistributed():
           start_value = value 
           end_value = value + self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
-        start_value = None
+        start_value = self.MIN_INDEX_VALUE
         end_value = value
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value + self._TERM_STRING
           end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-        start_value = None
+        start_value = self.MIN_INDEX_VALUE
         end_value = value + self._SEPARATOR + self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value
           end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.GREATER_THAN:
         if value == '':
-          start_value = self._SEPARATOR + self._TERM_STRING
+          start_value = self.MIN_INDEX_VALUE + self._TERM_STRING
         else:
           start_value = value + self._TERM_STRING
         end_value = self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
-          start_value = None
+          start_value = self.MIN_INDEX_VALUE
           end_value = value + self._SEPARATOR 
       elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         start_value = value
         end_value = self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
-          start_value = None
+          start_value = self.MIN_INDEX_VALUE
           end_value = value + self._SEPARATOR +  self._TERM_STRING
       else:
         raise NotImplementedError("Unsupported query of operation {0}".format(
@@ -2655,31 +2655,28 @@ class DatastoreDistributed():
     start_value = ''
     end_value = ''
     if oper == datastore_pb.Query_Filter.LESS_THAN:
-      start_value = equality_value
+      start_value = equality_value + self.MIN_INDEX_VALUE
       end_value = index_value 
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value + self._TERM_STRING
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-      start_value = equality_value
+      start_value = equality_value + self.MIN_INDEX_VALUE
       end_value = index_value + self._SEPARATOR + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN:
-      if index_value == '':
-        start_value = self._SEPARATOR + self._TERM_STRING
-      else:
-        start_value = index_value + self._TERM_STRING
+      start_value = index_value + self._SEPARATOR + self._TERM_STRING
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
-        start_value = equality_value
+        start_value = equality_value + self.MIN_INDEX_VALUE
         end_value = index_value
     elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       start_value = index_value
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
-        start_value = equality_value
+        start_value = equality_value + self.MIN_INDEX_VALUE
         end_value = index_value + self._TERM_STRING
     elif oper  == datastore_pb.Query_Filter.EQUAL:
       start_value = index_value 
