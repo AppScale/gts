@@ -157,6 +157,7 @@ class AppDashboard(webapp2.RequestHandler):
       'can_upload_apps' : self.dstore.can_upload_apps(),
       'apps_user_is_admin_on' : owned_apps,
       'flower_url' : self.dstore.get_flower_url(),
+      'monit_url' : self.dstore.get_monit_url()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
