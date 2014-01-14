@@ -440,8 +440,8 @@ class ZKTransaction:
       self.reestablish_connection()
 
     try:
-      self.handle.create(path, value=str(value), acl=ZOO_ACL_OPEN,
-        ephemeral=False, sequence=False, makepath=True)
+      self.run_with_retry(self.handle.create, path, value=str(value), 
+        acl=ZOO_ACL_OPEN, ephemeral=False, sequence=False, makepath=True)
       logging.debug("Created path {0} with value {1}".format(path, value))
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
@@ -469,15 +469,16 @@ class ZKTransaction:
       self.reestablish_connection()
 
     try:
-      txn_id_path = self.handle.create(path, value=str(value),
-        acl=ZOO_ACL_OPEN, ephemeral=False, sequence=True, makepath=True)
+      txn_id_path = self.run_with_retry(self.handle.create, path, 
+        value=str(value), acl=ZOO_ACL_OPEN, ephemeral=False, sequence=True,
+        makepath=True)
       if txn_id_path:
         txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
           APP_TX_PREFIX))
         if txn_id == 0:
           logging.warning("Created sequence ID 0 - deleting it.")
           self.run_with_retry(self.handle.delete_async, txn_id_path)
-          txn_id_path = self.handle.create(path, 
+          txn_id_path = self.run_with_retry(self.handle.create, path, 
             value=str(value), acl=ZOO_ACL_OPEN, ephemeral=False, 
             sequence=True, makepath=True)
           return long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
@@ -638,7 +639,7 @@ class ZKTransaction:
     try:
       logging.debug("Trying to create path {0} with value {1}".format(
         lockrootpath, txpath)) 
-      lockpath = self.handle.create(lockrootpath,
+      lockpath = self.run_with_retry(self.handle.create, lockrootpath,
         value=str(txpath), acl=ZOO_ACL_OPEN, ephemeral=False, 
         sequence=False, makepath=True)
     except kazoo.exceptions.NodeExistsError:
@@ -667,7 +668,7 @@ class ZKTransaction:
 
     try:
       if create:
-        self.handle.create_async(transaction_lock_path,
+        self.run_with_retry(self.handle.create_async, transaction_lock_path,
           value=str(lockpath), acl=ZOO_ACL_OPEN, ephemeral=False,
           makepath=False)
         logging.debug("Created lock list path {0} with value {1}".format(
@@ -1236,8 +1237,8 @@ class ZKTransaction:
       try:
         now = str(time.time())
         # Get the global GC lock.
-        self.handle.create(gc_path, value=now, acl=ZOO_ACL_OPEN,
-          ephemeral=True)
+        self.run_with_retry(self.handle.create, gc_path, value=now, 
+          acl=ZOO_ACL_OPEN, ephemeral=True)
         try:
           self.execute_garbage_collection(app_id, app_path)
           # Update the last time when the GC was successful.
@@ -1269,7 +1270,7 @@ class ZKTransaction:
     """
     try:
       now = str(time.time())
-      self.handle.create(DS_GROOM_LOCK_PATH, value=now,
+      self.run_with_retry(self.handle.create, DS_GROOM_LOCK_PATH, value=now,
         acl=ZOO_ACL_OPEN, ephemeral=True)
     except kazoo.exceptions.NoNodeError:
       logging.debug("Couldn't create path {0}".format(DS_GROOM_LOCK_PATH))

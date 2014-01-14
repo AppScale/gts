@@ -1549,9 +1549,6 @@ class DatastoreDistributed():
     Returns:
       True if it qualifies as a zigzag merge join, and false otherwise.
     """
-    #if query.has_ancestor():
-    #  return False
-
     filter_info = self.remove_exists_filters(filter_info)
 
     order_properties = []
