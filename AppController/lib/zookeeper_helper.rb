@@ -53,7 +53,7 @@ end
 
 def start_zookeeper
   Djinn.log_info("starting ZooKeeper")
-  if @creds['clear_datastore']
+  if @options['clear_datastore']
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end

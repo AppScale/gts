@@ -102,7 +102,7 @@ def setup_db_config_files(master_ip, slave_ips)
       contents.gsub!(/APPSCALE-LOCAL/, HelperFunctions.local_ip)
       contents.gsub!(/APPSCALE-MASTER/, master_ip)
       contents.gsub!(/APPSCALE-TOKEN/, "#{local_token}")
-      contents.gsub!(/REPLICATION/, @creds["replication"])
+      contents.gsub!(/REPLICATION/, @options["replication"])
       contents.gsub!(/APPSCALE-JMX-PORT/, "7070")              
       File.open(full_path_to_write, "w+") { |dest_file|
         dest_file.write(contents)
@@ -137,7 +137,7 @@ end
 # Starts Cassandra, and waits for it to start the Thrift service locally.
 def start_cassandra()
   Djinn.log_run("pkill ThriftBroker")
-  if @creds['clear_datastore']
+  if @options['clear_datastore']
     Djinn.log_info("Erasing datastore contents")
     Djinn.log_run("rm -rf /opt/appscale/cassandra*")
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")

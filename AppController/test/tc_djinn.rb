@@ -892,15 +892,15 @@ class TestDjinn < Test::Unit::TestCase
     all_nodes_serialized = JSON.dump([original_node.to_hash(),
       new_node2.to_hash(), new_node1.to_hash()])
 
-    creds = {'keyname' => 'boo', 'user_commands' => []}
-    creds_as_array = creds.to_a.flatten
+    options = {'keyname' => 'boo', 'user_commands' => []}
+    options_as_array = options.to_a.flatten
     no_apps = []
 
     # and that the appcontrollers receive the initial message to start
     # up from our appcontroller
     flexmock(AppControllerClient).new_instances { |instance|
       instance.should_receive(:set_parameters).with(all_nodes_serialized,
-        creds_as_array, no_apps).and_return("OK")
+        options_as_array, no_apps).and_return("OK")
     }
 
     # the appcontroller will update its local /etc/hosts file
@@ -935,7 +935,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0
-    djinn.creds = creds
+    djinn.options = options
     djinn.apps_loaded = ["booapp"]
     djinn.app_info_map = {
       'booapp' => {
@@ -1084,15 +1084,15 @@ class TestDjinn < Test::Unit::TestCase
     all_nodes_serialized = JSON.dump([original_node.to_hash(),
       new_node1.to_hash(), new_node2.to_hash()])
 
-    creds = {'keyname' => 'boo', 'user_commands' => []}
-    creds_as_array = creds.to_a.flatten
+    options = {'keyname' => 'boo', 'user_commands' => []}
+    options_as_array = options.to_a.flatten
     no_apps = []
 
     # and that the appcontrollers receive the initial message to start
     # up from our appcontroller
     flexmock(AppControllerClient).new_instances { |instance|
       instance.should_receive(:set_parameters).with(all_nodes_serialized,
-        creds_as_array, no_apps).and_return("OK")
+        options_as_array, no_apps).and_return("OK")
     }
 
     # lastly, the appcontroller will update its local /etc/hosts file
@@ -1113,7 +1113,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0
-    djinn.creds = creds
+    djinn.options = options
     actual = djinn.start_new_roles_on_nodes_in_cloud(ips_to_roles)
     assert_equal(true, actual.include?(node1_info))
     assert_equal(true, actual.include?(node2_info))
@@ -1261,7 +1261,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new()
     djinn.nodes = [node, open_node]
     djinn.my_index = 0
-    djinn.creds = { 'keyname' => 'boo' }
+    djinn.options = { 'keyname' => 'boo' }
     
     # let's say there's one app running
     djinn.apps_loaded = ['bazapp']
