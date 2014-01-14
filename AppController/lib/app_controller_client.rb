@@ -170,10 +170,10 @@ class AppControllerClient
     return userappserver_ip
   end
 
-  def set_parameters(locations, creds, apps_to_start)
+  def set_parameters(locations, options, apps_to_start)
     result = ""
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 
-      result = conn.set_parameters(locations, creds, apps_to_start, @secret)
+      result = conn.set_parameters(locations, options, apps_to_start, @secret)
     }  
     HelperFunctions.log_and_crash(result) if result =~ /Error:/
   end

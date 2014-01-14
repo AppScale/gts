@@ -78,7 +78,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       and_return("127.0.0.1")
 
     imc = InfrastructureManagerClient.new("secret")
-    creds = {
+    options = {
       'group' => 'boogroup',
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
@@ -100,7 +100,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       "instance_id" => "i-id",
       "disk" => nil
     }]
-    actual = imc.spawn_vms(1, creds, "open", [nil])
+    actual = imc.spawn_vms(1, options, "open", [nil])
     assert_equal(expected, actual)
   end
 
@@ -162,7 +162,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       and_return("127.0.0.1")
 
     imc = InfrastructureManagerClient.new("secret")
-    creds = {
+    options = {
       'group' => 'boogroup',
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
@@ -196,7 +196,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'instance_id' => 'i-id3',
       'disk' => nil
     }]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], [nil, nil, nil])
+    actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
   end
 
@@ -258,7 +258,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       and_return("127.0.0.1")
 
     imc = InfrastructureManagerClient.new("secret")
-    creds = {
+    options = {
       'group' => 'boogroup',
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
@@ -292,7 +292,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'instance_id' => 'i-id3',
       'disk' => nil
     }]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], [nil, nil, nil])
+    actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
   end
 

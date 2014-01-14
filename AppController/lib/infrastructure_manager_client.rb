@@ -127,34 +127,34 @@ class InfrastructureManagerClient
   # Hash containing infrastructure-specific parameters.
   #
   # Args:
-  #   creds: A Hash that contains all of the credentials passed between
+  #   options: A Hash that contains all of the credentials passed between
   #     AppControllers.
   # Returns:
   #   A Hash that contains only the parameters needed to interact with AWS,
   #   Eucalyptus, or GCE.
-  def get_parameters_from_credentials(creds)
+  def get_parameters_from_credentials(options)
     return {
       "credentials" => {
         # EC2 / Eucalyptus-specific credentials
-        'EC2_ACCESS_KEY' => creds['ec2_access_key'],
-        'EC2_SECRET_KEY' => creds['ec2_secret_key'],
-        'EC2_URL' => creds['ec2_url']
+        'EC2_ACCESS_KEY' => options['ec2_access_key'],
+        'EC2_SECRET_KEY' => options['ec2_secret_key'],
+        'EC2_URL' => options['ec2_url']
       },
-      'project' => creds['project'],  # GCE-specific
-      "group" => creds['group'],
-      "image_id" => creds['machine'],
-      "infrastructure" => creds['infrastructure'],
-      "instance_type" => creds['instance_type'],
-      "keyname" => creds['keyname'],
-      "use_spot_instances" => creds['use_spot_instances'],
-      "max_spot_price" => creds['max_spot_price']
+      'project' => options['project'],  # GCE-specific
+      "group" => options['group'],
+      "image_id" => options['machine'],
+      "infrastructure" => options['infrastructure'],
+      "instance_type" => options['instance_type'],
+      "keyname" => options['keyname'],
+      "use_spot_instances" => options['use_spot_instances'],
+      "max_spot_price" => options['max_spot_price']
     }
   end
 
 
   def run_instances(parameters)
     obscured = parameters.dup
-    obscured['credentials'] = HelperFunctions.obscure_creds(obscured['credentials'])
+    obscured['credentials'] = HelperFunctions.obscure_options(obscured['credentials'])
     Djinn.log_debug("Calling run_instances with parameters " +
       "#{obscured.inspect}")
 
@@ -174,14 +174,14 @@ class InfrastructureManagerClient
   end
 
 
-  def terminate_instances(creds, instance_ids)
-    parameters = get_parameters_from_credentials(creds)
+  def terminate_instances(options, instance_ids)
+    parameters = get_parameters_from_credentials(options)
 
     if instance_ids.class != Array
       instance_ids = [instance_ids]
     end
     parameters['instance_ids'] = instance_ids
-    parameters['region'] = creds['region']
+    parameters['region'] = options['region']
 
     terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
       "terminate_instances") {
@@ -191,12 +191,12 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, creds, job, disks)
-    parameters = get_parameters_from_credentials(creds)
+  def spawn_vms(num_vms, options, job, disks)
+    parameters = get_parameters_from_credentials(options)
     parameters['num_vms'] = num_vms.to_s
     parameters['cloud'] = 'cloud1'
-    parameters['zone'] = creds['zone']
-    parameters['region'] = creds['region']
+    parameters['zone'] = options['zone']
+    parameters['region'] = options['region']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")

@@ -713,13 +713,13 @@ class Djinn
     if is_hybrid_cloud? 
       Thread.new {
         Kernel.sleep(5)
-        HelperFunctions.terminate_hybrid_vms(creds)
+        HelperFunctions.terminate_hybrid_vms(options)
       }
     elsif is_cloud?
       Thread.new {
         Kernel.sleep(5)
-        infrastructure = creds["infrastructure"]
-        keyname = creds["keyname"]
+        infrastructure = options["infrastructure"]
+        keyname = options["keyname"]
         HelperFunctions.terminate_all_vms(infrastructure, keyname)
       }
     else
@@ -1418,11 +1418,11 @@ class Djinn
     data_restored, need_to_start_jobs = restore_appcontroller_state
 
     if data_restored
-      parse_creds
+      parse_options
     else
       erase_old_data
       wait_for_data
-      parse_creds
+      parse_options
     end
 
     if need_to_start_jobs
@@ -3069,7 +3069,7 @@ class Djinn
 
   end
 
-  def parse_creds
+  def parse_options
     if @options["appengine"]
       @num_appengines = Integer(@options["appengine"])
     end
@@ -3196,10 +3196,10 @@ class Djinn
   end
   
   def sanitize_credentials()
-    newcreds = {}
+    newoptions = {}
     @options.each { |key, val|
       if ['ips', 'user_commands'].include?(key)
-        newcreds[key] = val
+        newoptions[key] = val
         next
       end
 
@@ -3218,9 +3218,9 @@ class Djinn
           newval = val
         end
       end
-      newcreds[newkey] = newval
+      newoptions[newkey] = newval
     }
-    return newcreds
+    return newoptions
   end
     
   def change_job()
@@ -3606,7 +3606,7 @@ class Djinn
     write_database_info
     update_firewall
     
-    creds = @options.to_a.flatten
+    options = @options.to_a.flatten
     initialize_nodes_in_parallel(appengine_info)
   end
 
