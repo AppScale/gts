@@ -2226,22 +2226,28 @@ class DatastoreDistributed():
 
       if direction == datastore_pb.Query_Order.DESCENDING: 
         value = helper_functions.reverse_lex(value)
-
       if oper == datastore_pb.Query_Filter.EQUAL:
-        if ancestor:
+        if value == "" and ancestor:
+          start_value = value + self._SEPARATOR + \
+            ancestor_filter
+          end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
+        elif value == "":
+          start_value = value + self._SEPARATOR
+          end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
+        elif ancestor:
           start_value = value + self._SEPARATOR + ancestor_filter
           end_value = value + self._TERM_STRING
         else:
           start_value = value 
           end_value = value + self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
-        start_value = self.MIN_INDEX_VALUE
+        start_value = ""
         end_value = value
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value + self._TERM_STRING
           end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-        start_value = self.MIN_INDEX_VALUE
+        start_value = ""
         end_value = value + self._SEPARATOR + self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value
@@ -2614,6 +2620,7 @@ class DatastoreDistributed():
       ancestor_str = self.__encode_index_pb(query.ancestor().path())
       pre_comp_index_key += "{0}{1}".format(ancestor_str, self._SEPARATOR) 
 
+    value = ''
     index_value = ""
     equality_value = ""
     oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
@@ -2623,7 +2630,6 @@ class DatastoreDistributed():
         datastore_pb.Query_Filter.EXISTS:
         # We don't do anything with EXISTS filters.
         continue
-      value = ''
       if prop.name() in filter_info:
         # Get the last filter. If there are more than 1, it is a equality 
         # filter. And an equality fitler trumps other types of filters.
@@ -2659,7 +2665,7 @@ class DatastoreDistributed():
               filter_info[prop.name()], equality_value, pre_comp_index_key,
               prop.direction())
 
-      index_value += str(value)
+        index_value += str(value)
 
       # The last property dictates the direction.
       direction = prop.direction()
@@ -2667,13 +2673,13 @@ class DatastoreDistributed():
     start_value = ''
     end_value = ''
     if oper == datastore_pb.Query_Filter.LESS_THAN:
-      start_value = equality_value + self.MIN_INDEX_VALUE
+      start_value = equality_value
       end_value = index_value 
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value + self._TERM_STRING
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-      start_value = equality_value + self.MIN_INDEX_VALUE
+      start_value = equality_value
       end_value = index_value + self._SEPARATOR + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
@@ -2683,7 +2689,7 @@ class DatastoreDistributed():
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = equality_value + self.MIN_INDEX_VALUE
-        end_value = index_value
+        end_value = index_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       start_value = index_value
       end_value = equality_value + self._TERM_STRING
@@ -2691,8 +2697,12 @@ class DatastoreDistributed():
         start_value = equality_value + self.MIN_INDEX_VALUE
         end_value = index_value + self._TERM_STRING
     elif oper  == datastore_pb.Query_Filter.EQUAL:
-      start_value = index_value 
-      end_value = index_value + self._TERM_STRING
+      if value == "":
+        start_value = index_value
+        end_value = index_value + self.MIN_INDEX_VALUE + self._TERM_STRING
+      else:
+        start_value = index_value 
+        end_value = index_value + self._TERM_STRING
     else:
       raise ValueError("Unsuported operator {0} for composite query".\
         format(oper))
@@ -2700,7 +2710,6 @@ class DatastoreDistributed():
     end_key = "{0}{1}".format(pre_comp_index_key, end_value)
 
     return start_key, end_key
-
 
   def composite_multiple_filter_prop(self, filter_ops, equality_value,
     pre_comp_index_key, direction):
