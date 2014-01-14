@@ -4448,7 +4448,8 @@ HOSTS
 
           pid = app_manager.start_app(app, appengine_port,
             get_load_balancer_ip(), app_language, xmpp_ip,
-            [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app))
+            [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
+            @options['max_memory'])
 
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \

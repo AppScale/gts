@@ -97,6 +97,8 @@ class AppManagerClient
    #   db_locations: An Array of datastore server IPs
    #   env_vars: A Hash of environemnt variables that should be passed to the
    #     application to start.
+   #   max_memory: An Integer that names the maximum amount of memory (in
+   #     megabytes) that should be used for this App Engine app.
    # Returns:
    #   The PID of the process started
    # Note:
@@ -110,14 +112,16 @@ class AppManagerClient
                  language, 
                  xmpp_ip,
                  db_locations,
-                 env_vars)
+                 env_vars,
+                 max_memory=500)
     config = {'app_name' => app_name,
               'app_port' => app_port,
               'load_balancer_ip' => load_balancer_ip,
               'language' => language,
               'xmpp_ip' => xmpp_ip,
               'dblocations' => db_locations,
-              'env_vars' => env_vars}
+              'env_vars' => env_vars,
+              'max_memory' => max_memory}
     json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false, "start_app") {

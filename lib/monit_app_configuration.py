@@ -13,7 +13,8 @@ import file_io
 TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
                     "/templates/monit_template.conf"
 
-def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
+def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
+  max_memory=500):
   """ Reads in a template file for monit and fills it with the 
       correct configuration. The caller is responsible for deleting 
       the created file.
@@ -24,6 +25,8 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
     stop_cmd: The stop command to kill the process
     ports: A list of ports that are being watched
     env_vars: The environment variables used when starting the process
+    max_memory: An int that names the maximum amount of memory that this process
+      is allowed to use (in megabytes) before monit should restart it.
   Returns:
     The name of the created configuration file. 
   Raises: 
@@ -48,7 +51,8 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
   # because the template script itself uses {}. If we do not sub for them 
   # a key error is raised by template.format().
   for port in ports:
-    template = template.format(watch, start_cmd, stop_cmd, port, env)
+    template = template.format(watch, start_cmd, stop_cmd, port, env,
+      max_memory)
     temp_file_name = "/etc/monit/conf.d/" + watch + '-' + \
                      str(port) + ".cfg"
     file_io.write(temp_file_name, template) 
