@@ -191,8 +191,10 @@ class DatastoreDistributed():
     limit = self._MAXIMUM_RESULTS
     if query.has_limit():
       limit = min(query.limit(), self._MAXIMUM_RESULTS)
+      if limit == 0:
+        limit = self._MAXIMUM_RESULTS
     if query.has_offset():
-      limit = limit + query.offset() 
+      limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
     if limit <= 0:
       limit = 1
     return limit
@@ -536,7 +538,7 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
-  def get_composite_index_key(self, index, entity):
+  def get_composite_index_key(self, index, entity, position_list=None):
     """ Creates a key to the composite index table for a given entity.
 
     Keys are built as such: 
@@ -554,6 +556,8 @@ class DatastoreDistributed():
     Args:
       index: A datstore_pb.CompositeIndex.
       entity: A entity_pb.EntityProto.
+      position_list: A list of datastore_pb.CompiledCursor_Position items.
+        Contains values for property items from a cursor.
     Returns:
       A string representing a key to the composite table.
     """ 
@@ -572,6 +576,11 @@ class DatastoreDistributed():
     for prop in entity.property_list():
       value_dict[prop.name()]  = str(self.__encode_index_pb(prop.value()))
 
+    if position_list:
+      for indexvalue in position_list[0].indexvalue_list():
+        value_dict[indexvalue.property()] = \
+          str(self.__encode_index_pb(indexvalue.value()))
+
     index_value = ""
     for prop in definition.property_list():
       name = prop.name()
@@ -582,7 +591,7 @@ class DatastoreDistributed():
         value = self.__encode_index_pb(entity.key().path())
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
-      # Should there be a separator between values?
+
       index_value += str(value)
 
     # We append the ent key to have unique keys if entities happen
@@ -1011,7 +1020,6 @@ class DatastoreDistributed():
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise dbce
 
-
   def get_root_key_from_entity_key(self, entity_key):
     """ Extract the root key from an entity key. We 
         remove any excess children from a string to get to
@@ -1080,8 +1088,7 @@ class DatastoreDistributed():
         logging.warning("Trying again to acquire lock" \
           "info {1} with retry #{2}".format(app_id, str(zkte), retries))
         time.sleep(self.LOCK_RETRY_TIME)
-        return dict(self.acquire_locks_for_nontrans(app_id, entities,
-          retries-1).items() + txn_hash.items())
+        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
       raise zkte
@@ -2016,10 +2023,10 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
+
     limit = self.get_limit(query)
     if startrow > endrow:
       return []
-
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
@@ -2028,6 +2035,7 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
+
     return self.__fetch_entities(result, query.app())
 
   def remove_exists_filters(self, filter_info):
@@ -2123,7 +2131,7 @@ class DatastoreDistributed():
                                end_compiled_cursor=end_compiled_cursor)
 
     return self.__fetch_entities(references, query.app())
-    
+ 
   def __apply_filters(self, 
                      filter_ops, 
                      order_info, 
@@ -2225,18 +2233,17 @@ class DatastoreDistributed():
         value = helper_functions.reverse_lex(value)
       if oper == datastore_pb.Query_Filter.EQUAL:
         if value == "" and ancestor:
-          start_value = value + self._SEPARATOR + \
-            ancestor_filter
-          end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
+          start_value = self._SEPARATOR + ancestor_filter
+          end_value = self._SEPARATOR + ancestor_filter + self._TERM_STRING
         elif value == "":
           start_value = value + self._SEPARATOR
           end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
         elif ancestor:
           start_value = value + self._SEPARATOR + ancestor_filter
-          end_value = value + self._TERM_STRING
+          end_value = value + self._SEPARATOR + ancestor_filter + self._TERM_STRING
         else:
-          start_value = value 
-          end_value = value + self._TERM_STRING
+          start_value = value  + self._SEPARATOR
+          end_value = value + self._SEPARATOR + self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
         start_value = ""
         end_value = value
@@ -2283,7 +2290,7 @@ class DatastoreDistributed():
         logging.error("Start row is greater than end row :{0} versus {1}".\
           format(startrow, endrow))
         return []
-
+ 
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
@@ -2292,7 +2299,6 @@ class DatastoreDistributed():
                                           offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
-
       return ret 
 
     # Here we have two filters and so we set the start and end key to 
@@ -2796,6 +2802,7 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
+    start_inclusive = True
     startrow, endrow = self.get_range_composite_query(query, filter_info)
 
     # Override the start_key with a cursor if given.
@@ -2803,7 +2810,9 @@ class DatastoreDistributed():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       composite_index = query.composite_index_list()[0]
-      startrow = self.get_composite_index_key(composite_index, last_result)  
+      startrow = self.get_composite_index_key(composite_index, last_result, \
+        position_list=query.compiled_cursor().position_list())
+      start_inclusive = False
 
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
@@ -2815,7 +2824,7 @@ class DatastoreDistributed():
                                              endrow, 
                                              limit, 
                                              offset=offset, 
-                                             start_inclusive=True,
+                                             start_inclusive=start_inclusive,
                                              end_inclusive=True)
     return self.__fetch_entities(index_result, query.app())
 
