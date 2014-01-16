@@ -306,7 +306,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(True, transaction.acquire_additional_lock(self.appid,
       "txid", "somekey", False))
- #MethodSignatureError: retry("create", "/lock/root/path", makepath=True, sequence=False, ephemeral=False, value="/txn/path", acl=None) 
 
     # Test for when we want to create a new ZK node for the lock path
     self.assertEquals(True, transaction.acquire_additional_lock(self.appid,
