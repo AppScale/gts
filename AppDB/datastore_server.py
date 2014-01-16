@@ -1508,19 +1508,20 @@ class DatastoreDistributed():
     """ Builds the start key for cursor query.
 
     Args: 
-       prefix: The start key prefix (app id and namespace).
-       prop_name: property name of the filter.
-       order: sort order.
-       last_result: last result encoded in cursor.
+      prefix: The start key prefix (app id and namespace).
+      prop_name: Property name of the filter.
+      order: Sort order the query requires.
+      last_result: Last result encoded in cursor.
     """
     e = last_result
     if not prop_name and not order:
       return "{0}{2}{1}".format(prefix, 
         self.__encode_index_pb(e.key().path()), self._SEPARATOR)
-     
     if e.property_list():
       plist = e.property_list()
     else:   
+      # Fetch the entity from the datastore in order to get the property
+      # values.
       rkey = "{0}{2}{1}".format(prefix, 
         self.__encode_index_pb(e.key().path()), self._SEPARATOR)
       ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
@@ -1535,7 +1536,6 @@ class DatastoreDistributed():
     for p in plist:
       if p.name() == prop_name:
         break
-
     val = str(self.__encode_index_pb(p.value()))
 
     if order == datastore_pb.Query_Order.DESCENDING:
@@ -2013,7 +2013,7 @@ class DatastoreDistributed():
       return self.namespace_query()
  
     startrow, endrow, start_inclusive, end_inclusive = \
-          self.kind_query_range(query, filter_info, order_info)
+      self.kind_query_range(query, filter_info, order_info)
     if startrow == None or endrow == None:
       return None
     

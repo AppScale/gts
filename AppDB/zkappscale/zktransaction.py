@@ -477,7 +477,7 @@ class ZKTransaction:
           APP_TX_PREFIX))
         if txn_id == 0:
           logging.warning("Created sequence ID 0 - deleting it.")
-          self.run_with_retry(self.handle.delete_async, txn_id_path)
+          self.run_with_retry(self.handle.delete, txn_id_path)
           txn_id_path = self.run_with_retry(self.handle.create, path, 
             value=str(value), acl=ZOO_ACL_OPEN, ephemeral=False, 
             sequence=True, makepath=True)
@@ -646,7 +646,7 @@ class ZKTransaction:
       # fail to get lock
       try:
         tx_lockpath = self.run_with_retry(self.handle.get, lockrootpath)[0]
-        logging.debug("Lock {0} in use by {1}".format(lockrootpath,
+        logging.error("Lock {0} in use by {1}".format(lockrootpath,
           tx_lockpath))
       except kazoo.exceptions.NoNodeError:
         # If the lock is released by another thread this can get tossed.
@@ -1027,7 +1027,7 @@ class ZKTransaction:
     Returns:
       True if the transaction was invalidated, False otherwise.
     """
-    logging.warning("Notify failed transaction app: {0}, txid: {1}"\
+    logging.debug("Notify failed transaction app: {0}, txid: {1}"\
       .format(app_id, str(txid)))
 
     lockpath = None
@@ -1111,8 +1111,8 @@ class ZKTransaction:
         except kazoo.exceptions.NoNodeError:
           logging.error("No node error when trying to remove {0}".format(txid))
 
-      logging.debug("Removing lock: {0}".format(txpath))
-      self.run_with_retry(self.handle.delete_async, txpath)
+      logging.error("Notify failed transaction removing lock: {0}".format(txpath))
+      self.run_with_retry(self.handle.delete, txpath)
 
     except ZKInternalException as zk_exception:
       logging.exception(zk_exception)

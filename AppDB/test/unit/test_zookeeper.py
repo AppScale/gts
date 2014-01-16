@@ -63,7 +63,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
-      delete_async='delete_async')
+      delete='delete')
     fake_zookeeper.should_receive('start')
 
     # mock out zookeeper.create for txn id
@@ -77,7 +77,7 @@ class TestZookeeperTransaction(unittest.TestCase):
       and_return(zero_path).and_return(nonzero_path)
 
     # mock out deleting the zero id we get the first time around
-    fake_zookeeper.should_receive('retry').with_args('delete_async', zero_path)
+    fake_zookeeper.should_receive('retry').with_args('delete', zero_path)
 
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
