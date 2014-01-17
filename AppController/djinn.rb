@@ -5221,7 +5221,7 @@ HOSTS
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
     result = uac.commit_new_user(xmpp_user, xmpp_pass, "app")
     Djinn.log_debug("User creation returned: #{result}")
-    if result.include? 'Error: user already exists'
+    if result.include?('Error: user already exists')
       # We need to update the password of the channel XMPP account for 
       # authorization.
       result = uac.change_password(xmpp_user, xmpp_pass)
