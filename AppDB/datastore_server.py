@@ -538,7 +538,8 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
-  def get_composite_index_key(self, index, entity, position_list=None):
+  def get_composite_index_key(self, index, entity, position_list=None, 
+    filters=None):
     """ Creates a key to the composite index table for a given entity.
 
     Keys are built as such: 
@@ -558,6 +559,8 @@ class DatastoreDistributed():
       entity: A entity_pb.EntityProto.
       position_list: A list of datastore_pb.CompiledCursor_Position items.
         Contains values for property items from a cursor.
+      filters: A list of datastore_pb.Query_Filters, used to attain equality
+        values not present in position_list.
     Returns:
       A string representing a key to the composite table.
     """ 
@@ -580,6 +583,11 @@ class DatastoreDistributed():
       for indexvalue in position_list[0].indexvalue_list():
         value_dict[indexvalue.property()] = \
           str(self.__encode_index_pb(indexvalue.value()))
+    if filters:
+      for filt in filters:
+        if filt.op() == datastore_pb.Query_Filter.EQUAL:
+          value_dict[filt.property(0).name()] = \
+            str(self.__encode_index_pb(filt.property(0).value()))
 
     index_value = ""
     for prop in definition.property_list():
@@ -1686,6 +1694,8 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self._MAXIMUM_RESULTS
     unordered = self.fetch_from_entity_table(startrow,
@@ -1761,6 +1771,8 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
     if startrow > endrow:
       return []
@@ -1894,6 +1906,8 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self.get_limit(query)
     return self.fetch_from_entity_table(startrow,
@@ -2023,6 +2037,8 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self.get_limit(query)
     if startrow > endrow:
@@ -2240,7 +2256,8 @@ class DatastoreDistributed():
           end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
         elif ancestor:
           start_value = value + self._SEPARATOR + ancestor_filter
-          end_value = value + self._SEPARATOR + ancestor_filter + self._TERM_STRING
+          end_value = value + self._SEPARATOR + ancestor_filter + \
+            self._TERM_STRING
         else:
           start_value = value  + self._SEPARATOR
           end_value = value + self._SEPARATOR + self._TERM_STRING
@@ -2810,9 +2827,13 @@ class DatastoreDistributed():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       composite_index = query.composite_index_list()[0]
+       
       startrow = self.get_composite_index_key(composite_index, last_result, \
-        position_list=query.compiled_cursor().position_list())
+        position_list=query.compiled_cursor().position_list(), 
+        filters=query.filter_list())
       start_inclusive = False
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = True
 
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
