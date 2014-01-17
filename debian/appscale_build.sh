@@ -1,6 +1,18 @@
 #!/bin/bash
 
 set -e
+
+cat >> /etc/apt/sources.list << EOF
+deb http://archive.ubuntu.com/ubuntu precise main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu precise-updates main restricted universe
+deb http://security.ubuntu.com/ubuntu precise-security main restricted universe
+EOF
+
+apt-get -y install lsb-release sudo vim language-pack-en-base
+dpkg-reconfigure locales
+locale-gen en_US
+apt-get install --reinstall locales
+
 export DIST=`lsb_release -c -s`
 
 cd `dirname $0`/..
@@ -43,13 +55,6 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 export APPSCALE_HOME_RUNTIME=`pwd`
 
 apt-get update
-
-# fix /etc/hosts file for collectd installation
-HOSTNAME=`hostname`
-if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
-    echo "127.0.1.1 ${HOSTNAME} ${HOSTNAME}.localdomain" >> /etc/hosts
-fi
-
 
 # Install cmake prior to the other packages since seems to fail if installed with the other packages
 apt-get install -y cmake

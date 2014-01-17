@@ -49,7 +49,6 @@ case "$1" in
 	installservice
 	postinstallservice
 	setupntpcron
-	sethosts
         setulimits
         increaseconnections
 	;;
@@ -109,7 +108,6 @@ case "$1" in
 	installservice
 	postinstallservice
 	setupntpcron
-        sethosts
         setulimits
         increaseconnections
 	;;

@@ -977,7 +977,6 @@ if __name__ == "__main__":
       continue
     break
 
-  # socket.gethostbyname(socket.gethostname())
   ip = "0.0.0.0"
 
   if super_secret == "":
