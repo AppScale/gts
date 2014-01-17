@@ -306,6 +306,7 @@ def create_python_app_env(public_ip, app_name):
   env_vars['APPNAME'] = app_name
   env_vars['GOMAXPROCS'] = appscale_info.get_num_cpus()
   env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
+  env_vars['PYTHON_LIB'] = "{0}/AppServer/".format(constants.APPSCALE_HOME)
   return env_vars
 
 def create_java_app_env():
