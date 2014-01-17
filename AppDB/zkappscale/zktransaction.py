@@ -638,7 +638,7 @@ class ZKTransaction:
 
     try:
       logging.debug("Trying to create path {0} with value {1}".format(
-        lockrootpath, txpath)) 
+        lockrootpath, txpath))
       lockpath = self.run_with_retry(self.handle.create, lockrootpath,
         value=str(txpath), acl=ZOO_ACL_OPEN, ephemeral=False, 
         sequence=False, makepath=True)
