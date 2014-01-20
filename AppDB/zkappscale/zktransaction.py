@@ -670,7 +670,7 @@ class ZKTransaction:
       if create:
         self.run_with_retry(self.handle.create_async, transaction_lock_path,
           value=str(lockpath), acl=ZOO_ACL_OPEN, ephemeral=False,
-          makepath=False)
+          makepath=False, sequence=False)
         logging.debug("Created lock list path {0} with value {1}".format(
           transaction_lock_path, lockpath))
       else:
@@ -1004,7 +1004,7 @@ class ZKTransaction:
         if self.run_with_retry(self.handle.exists, txpath):
           self.handle.create_async(PATH_SEPARATOR.join([txpath,
             TX_UPDATEDKEY_PREFIX]), value=str(value), acl=ZOO_ACL_OPEN,
-            ephemeral=False, makepath=True)
+            ephemeral=False, sequence=True, makepath=False)
         else:
           raise ZKTransactionException("Transaction {0} is not valid.".format(
             current_txid))
