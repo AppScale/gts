@@ -168,3 +168,10 @@ class ZKTransaction:
     """
     return True
 
+  def release_datastore_groomer_lock(self):
+    """ Stub for releasing the datastore groomer lock. 
+    
+    Returns:
+      Always returns True.
+    """
+    return True
