@@ -88,6 +88,7 @@ public class DevAppServerMain
             public void apply()
             {
                 this.main.address = getValue();
+                System.setProperty("MY_IP_ADDRESS", this.main.address);
             }
 
             public List<String> getHelpLines()

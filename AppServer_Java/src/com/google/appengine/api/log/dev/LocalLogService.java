@@ -18,6 +18,7 @@ import java.util.TimeZone;
 import java.util.logging.Handler;
 
 // AppScale imports
+import com.google.apphosting.api.ApiProxy.CallNotFoundException;
 import com.google.gson.Gson;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -26,7 +27,10 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.HashMap;
+import java.util.Map;
 import javax.xml.bind.DatatypeConverter;
 
 @ServiceProvider(LocalRpcService.class)
@@ -234,36 +238,28 @@ public class LocalLogService extends AbstractLocalRpcService
     HashMap<String, Object> data = new HashMap<String, Object>();
     data.put("service_name", System.getProperty("APPLICATION_ID"));
     data.put("logs", logList);
+    data.put("host", System.getProperty("MY_IP_ADDRESS"));
 
-    InputStream inStream = null;
-    BufferedInputStream buf = null;
-    InputStreamReader inStreamReader = null;
-    BufferedReader bufferedReader = null;
-    Runtime r = Runtime.getRuntime();
-    String result = null;
-    String base64Data = DatatypeConverter.printBase64Binary(gson.toJson(data).getBytes());
-    try
-    {
-        Process p = r.exec("python /root/appscale/AppServer_Java/src/com/google/appengine/api/log/dev/log_sender.py " + base64Data);
-        inStream = p.getInputStream();
-        buf = new BufferedInputStream(inStream);
-        inStreamReader = new InputStreamReader(buf);
-        bufferedReader = new BufferedReader(inStreamReader);
+    try {
+        String jsonData = gson.toJson(data);
+        String request = "https://" + System.getProperty("LOGIN_SERVER") + ":1443/logs/upload";
+        URL url = new URL(request); 
+        URLConnection connection = url.openConnection();
+        connection.setDoOutput(true);
 
-        String outputLine;
-        while ((outputLine = bufferedReader.readLine()) != null)
-        {
-            result = outputLine;
-        }
+        OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
 
-        if (p.waitFor() != 0)
-        {
-            System.out.println("Executing python script returned unexpected value: " + p.waitFor());
-        }
-    }
-    catch(Exception e)
-    {
-        System.out.println("Failed to execute REST call to save log: " + e.getMessage());
+        writer.write(jsonData);
+        writer.flush();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+
+        writer.close();
+        reader.close();
+    } catch (IOException e) {
+        System.out.println("[IOException] Failed to execute REST call to save log: " + e.getMessage());
+    } catch (CallNotFoundException e) {
+        System.out.println("[CallNotFoundException] Failed to execute REST call to save log: " + e.getMessage());
     }
 
     LogServicePb.RequestLog log = findLogInLogMapOrAddNewLog(requestId);
