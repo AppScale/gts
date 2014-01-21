@@ -293,7 +293,9 @@ class TestZookeeperTransaction(unittest.TestCase):
     fake_zookeeper.should_receive('retry').with_args('create', str, makepath=bool, sequence=bool,
       ephemeral=bool, value=str, acl=None).and_return("/some/lock/path")
     fake_zookeeper.should_receive('retry').with_args('create_async', str, value=str,
-      acl=None, ephemeral=bool, makepath=bool)
+      acl=None, ephemeral=bool, makepath=bool, sequence=bool)
+    fake_zookeeper.should_receive('retry').with_args('create_async', str, value=str,
+      acl=str, ephemeral=bool, makepath=bool, sequence=bool)
     lock_list = ['path1', 'path2', 'path3'] 
     lock_list_str = zk.LOCK_LIST_SEPARATOR.join(lock_list)
     fake_zookeeper.should_receive('retry').with_args('get', str) \
