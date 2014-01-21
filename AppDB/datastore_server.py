@@ -107,11 +107,11 @@ class DatastoreDistributed():
       a distributed datastore instead of a flat file.
   """
   # Max number of results for a query
-  _MAXIMUM_RESULTS = 1000000
+  _MAXIMUM_RESULTS = 10000
 
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
-  _MAX_COMPOSITE_WINDOW = 1000
+  _MAX_COMPOSITE_WINDOW = 10000
 
   # Maximum amount of filter and orderings allowed within a query
   _MAX_QUERY_COMPONENTS = 63
@@ -130,7 +130,7 @@ class DatastoreDistributed():
   _TERM_STRING = chr(255) * 500
 
   # Smallest possible value that is considered non-null and indexable.
-  MIN_INDEX_VALUE = (499 * '\x00') + '\x01'
+  MIN_INDEX_VALUE = '\x01'
 
   # When assigning the first allocated ID, give this value
   _FIRST_VALID_ALLOCATED_ID = 1
@@ -179,6 +179,25 @@ class DatastoreDistributed():
     if isinstance(key_path, entity_pb.EntityProto):
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
+
+  def get_limit(self, query):
+    """ Returns the limit that should be used for the given query.
+  
+    Args:
+      query: A datastore_pb.Query.
+    Returns:
+      An int, the limit to be used when accessing the datastore.
+    """
+    limit = self._MAXIMUM_RESULTS
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
+      if limit == 0:
+        limit = self._MAXIMUM_RESULTS
+    if query.has_offset():
+      limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
+    if limit <= 0:
+      limit = 1
+    return limit
 
   def get_entity_key(self, prefix, pb):
     """ Returns the key for the entity table.
@@ -519,7 +538,8 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
-  def get_composite_index_key(self, index, entity):
+  def get_composite_index_key(self, index, entity, position_list=None, 
+    filters=None):
     """ Creates a key to the composite index table for a given entity.
 
     Keys are built as such: 
@@ -537,6 +557,10 @@ class DatastoreDistributed():
     Args:
       index: A datstore_pb.CompositeIndex.
       entity: A entity_pb.EntityProto.
+      position_list: A list of datastore_pb.CompiledCursor_Position items.
+        Contains values for property items from a cursor.
+      filters: A list of datastore_pb.Query_Filters, used to attain equality
+        values not present in position_list.
     Returns:
       A string representing a key to the composite table.
     """ 
@@ -555,6 +579,16 @@ class DatastoreDistributed():
     for prop in entity.property_list():
       value_dict[prop.name()]  = str(self.__encode_index_pb(prop.value()))
 
+    if position_list:
+      for indexvalue in position_list[0].indexvalue_list():
+        value_dict[indexvalue.property()] = \
+          str(self.__encode_index_pb(indexvalue.value()))
+    if filters:
+      for filt in filters:
+        if filt.op() == datastore_pb.Query_Filter.EQUAL:
+          value_dict[filt.property(0).name()] = \
+            str(self.__encode_index_pb(filt.property(0).value()))
+
     index_value = ""
     for prop in definition.property_list():
       name = prop.name()
@@ -565,7 +599,7 @@ class DatastoreDistributed():
         value = self.__encode_index_pb(entity.key().path())
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
-      # Should there be a separator between values?
+
       index_value += str(value)
 
     # We append the ent key to have unique keys if entities happen
@@ -994,7 +1028,6 @@ class DatastoreDistributed():
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise dbce
 
-
   def get_root_key_from_entity_key(self, entity_key):
     """ Extract the root key from an entity key. We 
         remove any excess children from a string to get to
@@ -1063,8 +1096,7 @@ class DatastoreDistributed():
         logging.warning("Trying again to acquire lock" \
           "info {1} with retry #{2}".format(app_id, str(zkte), retries))
         time.sleep(self.LOCK_RETRY_TIME)
-        return dict(self.acquire_locks_for_nontrans(app_id, entities,
-          retries-1).items() + txn_hash.items())
+        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
       raise zkte
@@ -1484,19 +1516,20 @@ class DatastoreDistributed():
     """ Builds the start key for cursor query.
 
     Args: 
-       prefix: The start key prefix (app id and namespace).
-       prop_name: property name of the filter.
-       order: sort order.
-       last_result: last result encoded in cursor.
+      prefix: The start key prefix (app id and namespace).
+      prop_name: Property name of the filter.
+      order: Sort order the query requires.
+      last_result: Last result encoded in cursor.
     """
     e = last_result
     if not prop_name and not order:
       return "{0}{2}{1}".format(prefix, 
         self.__encode_index_pb(e.key().path()), self._SEPARATOR)
-     
     if e.property_list():
       plist = e.property_list()
     else:   
+      # Fetch the entity from the datastore in order to get the property
+      # values.
       rkey = "{0}{2}{1}".format(prefix, 
         self.__encode_index_pb(e.key().path()), self._SEPARATOR)
       ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
@@ -1511,7 +1544,6 @@ class DatastoreDistributed():
     for p in plist:
       if p.name() == prop_name:
         break
-
     val = str(self.__encode_index_pb(p.value()))
 
     if order == datastore_pb.Query_Order.DESCENDING:
@@ -1532,9 +1564,6 @@ class DatastoreDistributed():
     Returns:
       True if it qualifies as a zigzag merge join, and false otherwise.
     """
-    #if query.has_ancestor():
-    #  return False
-
     filter_info = self.remove_exists_filters(filter_info)
 
     order_properties = []
@@ -1665,6 +1694,8 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self._MAXIMUM_RESULTS
     unordered = self.fetch_from_entity_table(startrow,
@@ -1680,10 +1711,7 @@ class DatastoreDistributed():
     kind = None
     if query.has_kind():
       kind = query.kind()
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     return self.__multiorder_results(unordered, order_info, kind)[:limit]
  
   def ancestor_query(self, query, filter_info, order_info):
@@ -1743,13 +1771,13 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
     if startrow > endrow:
       return []
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     results = self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -1878,10 +1906,10 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     return self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
@@ -1999,7 +2027,7 @@ class DatastoreDistributed():
       return self.namespace_query()
  
     startrow, endrow, start_inclusive, end_inclusive = \
-          self.kind_query_range(query, filter_info, order_info)
+      self.kind_query_range(query, filter_info, order_info)
     if startrow == None or endrow == None:
       return None
     
@@ -2009,12 +2037,12 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = self._ENABLE_INCLUSIVITY
+
+    limit = self.get_limit(query)
     if startrow > endrow:
       return []
-
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
@@ -2023,6 +2051,7 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
+
     return self.__fetch_entities(result, query.app())
 
   def remove_exists_filters(self, filter_info):
@@ -2090,11 +2119,8 @@ class DatastoreDistributed():
       direction = datastore_pb.Query_Order.ASCENDING
 
     prefix = self.get_table_prefix(query)
- 
 
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query) 
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -2121,7 +2147,7 @@ class DatastoreDistributed():
                                end_compiled_cursor=end_compiled_cursor)
 
     return self.__fetch_entities(references, query.app())
-    
+ 
   def __apply_filters(self, 
                      filter_ops, 
                      order_info, 
@@ -2221,40 +2247,46 @@ class DatastoreDistributed():
 
       if direction == datastore_pb.Query_Order.DESCENDING: 
         value = helper_functions.reverse_lex(value)
-
       if oper == datastore_pb.Query_Filter.EQUAL:
-        if ancestor:
+        if value == "" and ancestor:
+          start_value = self._SEPARATOR + ancestor_filter
+          end_value = self._SEPARATOR + ancestor_filter + self._TERM_STRING
+        elif value == "":
+          start_value = value + self._SEPARATOR
+          end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
+        elif ancestor:
           start_value = value + self._SEPARATOR + ancestor_filter
-          end_value = value + self._TERM_STRING
+          end_value = value + self._SEPARATOR + ancestor_filter + \
+            self._TERM_STRING
         else:
-          start_value = value 
-          end_value = value + self._TERM_STRING
+          start_value = value  + self._SEPARATOR
+          end_value = value + self._SEPARATOR + self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
-        start_value = None
+        start_value = ""
         end_value = value
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value + self._TERM_STRING
           end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-        start_value = None
+        start_value = ""
         end_value = value + self._SEPARATOR + self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value
           end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.GREATER_THAN:
         if value == '':
-          start_value = self._SEPARATOR + self._TERM_STRING
+          start_value = self.MIN_INDEX_VALUE + self._TERM_STRING
         else:
           start_value = value + self._TERM_STRING
         end_value = self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
-          start_value = None
+          start_value = self.MIN_INDEX_VALUE
           end_value = value + self._SEPARATOR 
       elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         start_value = value
         end_value = self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
-          start_value = None
+          start_value = self.MIN_INDEX_VALUE
           end_value = value + self._SEPARATOR +  self._TERM_STRING
       else:
         raise NotImplementedError("Unsupported query of operation {0}".format(
@@ -2271,6 +2303,11 @@ class DatastoreDistributed():
       if force_start_key_exclusive:
         start_inclusive = False
 
+      if startrow > endrow:
+        logging.error("Start row is greater than end row :{0} versus {1}".\
+          format(startrow, endrow))
+        return []
+ 
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
@@ -2279,7 +2316,6 @@ class DatastoreDistributed():
                                           offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
-
       return ret 
 
     # Here we have two filters and so we set the start and end key to 
@@ -2443,9 +2479,7 @@ class DatastoreDistributed():
       return None
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
 
     count = self._MAX_COMPOSITE_WINDOW
     start_key = ""
@@ -2473,34 +2507,32 @@ class DatastoreDistributed():
           reference_key = start_key.split(self._SEPARATOR)[-1]
           params = [prefix, kind, prop_name, value, reference_key]
           startrow = self.get_index_key_from_params(params)
-
-        if not startrow and query.has_compiled_cursor() and \
+        elif query.has_compiled_cursor() and \
           query.compiled_cursor().position_size():
           cursor = appscale_stub_util.ListCursor(query)
           last_result = cursor._GetLastResult()
-          startrow = self.__get_start_key(prefix, 
-                                    prop_name,
-                                    datastore_pb.Query_Order.ASCENDING,
-                                    last_result)
+          value = str(filter_ops[0][1])
+          reference_key = str(self.__encode_index_pb(last_result.key().path()))
+          params = [prefix, kind, prop_name, value, reference_key]
+          startrow = self.get_index_key_from_params(params)
 
-  
         # We use equality filters only so order ops should always be ASC. 
         order_ops = []
         for i in order_info:
           if i[0] == prop_name:
             order_ops = [i]
             break
-   
+
         temp_res[prop_name] = self.__apply_filters(filter_ops, 
-                                     order_ops, 
-                                     prop_name, 
-                                     kind, 
-                                     prefix, 
-                                     count, 
-                                     0, 
-                                     startrow,
-                                     force_start_key_exclusive=force_exclusive,
-                                     ancestor=ancestor)
+          order_ops, 
+          prop_name, 
+          kind, 
+          prefix, 
+          count, 
+          0, 
+          startrow,
+          force_start_key_exclusive=force_exclusive,
+          ancestor=ancestor)
       # We do reference counting and consider any reference which matches the 
       # number of properties to be a match. Any others are discarded but it 
       # possible they show up on subsequent scans. 
@@ -2522,37 +2554,46 @@ class DatastoreDistributed():
           index_value = indexes[index_key]['reference']
           last_keys_of_scans[prop_name] = index_value
 
-      # Purge keys which did not intersect from all equality filters. You 
-      # cannot loop on a dictionary and delete from it at the same time.
+      # We are looking for the earliest (alphabetically) of the set of last 
+      # keys. This tells us where to start our next scans. And from where 
+      # we can remove potential results.
+      start_key = ""
+      starting_prop_name = ""
+      for prop_name in last_keys_of_scans:
+        last_key = last_keys_of_scans[prop_name]
+        if not start_key or last_key < start_key: 
+          start_key = last_key
+          starting_prop_name = prop_name
+      # Purge keys which did not intersect from all equality filters and those
+      # which are past the earliest reference shared by all property names 
+      # (start_key variable). 
       keys_to_delete = []
       for key in reference_counter_hash:
         if reference_counter_hash[key] != len(filter_info.keys()):
           keys_to_delete.append(key)
-
+      # You cannot loop on a dictionary and delete from it at the same time.
+      # Hence why the deletes happen here.
       for key in keys_to_delete:
         del reference_counter_hash[key]
 
-      # We are looking for the earliest (alphabetically) of the keys.
-      start_key = ""
-      for last_key in last_keys_of_scans:
-        if not start_key: 
-          start_key = last_key
-        elif start_key > last_key:
-          last_key = start_key
-
       result_list.extend(reference_counter_hash.keys())
-
-      # If any of the properties ran out of entities, then we are done.
+      # If the property we are setting the start key did not get the requested 
+      # amount of entities then we can stop scanning, as there are no more 
+      # entities to scan from that property.
       for prop_name in temp_res:
-        if len(temp_res) < count:
+        if len(temp_res[prop_name]) < count and prop_name == starting_prop_name:
           more_results = False
+
+        # If any property no longer has any more items, this query is done.
+        if len(temp_res[prop_name]) == 0:
+          more_results = False 
 
       # If we reached our limit of result entities, then we are done.
       if len(result_list) >= limit:
         more_results = False
 
       # Do not include the first key in subsequent scans because we have 
-      # alreadt accounted for the given entity.
+      # already accounted for the given entity.
       if start_key in result_list:
         force_exclusive = True
 
@@ -2599,6 +2640,7 @@ class DatastoreDistributed():
       ancestor_str = self.__encode_index_pb(query.ancestor().path())
       pre_comp_index_key += "{0}{1}".format(ancestor_str, self._SEPARATOR) 
 
+    value = ''
     index_value = ""
     equality_value = ""
     oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
@@ -2608,7 +2650,6 @@ class DatastoreDistributed():
         datastore_pb.Query_Filter.EXISTS:
         # We don't do anything with EXISTS filters.
         continue
-      value = ''
       if prop.name() in filter_info:
         # Get the last filter. If there are more than 1, it is a equality 
         # filter. And an equality fitler trumps other types of filters.
@@ -2620,7 +2661,7 @@ class DatastoreDistributed():
           equality_value += value 
           oper = filter_info[prop.name()][-1][0]
         elif filter_info[prop.name()][-1][0] == \
-           datastore_pb.Query_Filter.EXISTS:
+          datastore_pb.Query_Filter.EXISTS:
           # We currently do not handle projection queries.
           pass
         else:
@@ -2630,8 +2671,21 @@ class DatastoreDistributed():
           # what operator we will use, as dictated by the composite index 
           # definition.
           oper = filter_info[prop.name()][-1][0]
+    
+          # TODO support list property queries.
+          # Separate logic is required if we have multiple filters for a single
+          # property.
+          # Only run this if all filters are between 1 and 4. It is possible to
+          # have equality and nonequality filters for list properties which is
+          # not supported in AppScale.
+          all_filter_ops = [ii[0] for ii in filter_info[prop.name()]]
+          if len(all_filter_ops) > 1 and datastore_pb.Query_Filter.EQUAL not \
+            in all_filter_ops:
+            return self.composite_multiple_filter_prop(
+              filter_info[prop.name()], equality_value, pre_comp_index_key,
+              prop.direction())
 
-      index_value += str(value)
+        index_value += str(value)
 
       # The last property dictates the direction.
       direction = prop.direction()
@@ -2651,54 +2705,139 @@ class DatastoreDistributed():
         start_value = index_value
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN:
-      if index_value == '':
-        start_value = self._SEPARATOR + self._TERM_STRING
-      else:
-        start_value = index_value + self._TERM_STRING
+      start_value = index_value + self._SEPARATOR + self._TERM_STRING
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
-        start_value = equality_value
-        end_value = index_value
+        start_value = equality_value + self.MIN_INDEX_VALUE
+        end_value = index_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       start_value = index_value
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
-        start_value = equality_value
+        start_value = equality_value + self.MIN_INDEX_VALUE
         end_value = index_value + self._TERM_STRING
     elif oper  == datastore_pb.Query_Filter.EQUAL:
-      start_value = index_value 
-      end_value = index_value + self._TERM_STRING
+      if value == "":
+        start_value = index_value
+        end_value = index_value + self.MIN_INDEX_VALUE + self._TERM_STRING
+      else:
+        start_value = index_value 
+        end_value = index_value + self._TERM_STRING
     else:
       raise ValueError("Unsuported operator {0} for composite query".\
         format(oper))
     start_key = "{0}{1}".format(pre_comp_index_key, start_value)
     end_key = "{0}{1}".format(pre_comp_index_key, end_value)
 
-    # Override the start_key with a cursor if given.
-    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = appscale_stub_util.ListCursor(query)
-      last_result = cursor._GetLastResult()
-      start_key = self.get_composite_index_key(composite_index, last_result)  
     return start_key, end_key
+
+  def composite_multiple_filter_prop(self, filter_ops, equality_value,
+    pre_comp_index_key, direction):
+    """Returns the start and end keys for a composite query which has multiple
+       filters for a single property, and potentially multiple equality
+       filters.
+
+    Args:  
+      filter_ops: dictionary mapping the inequality filter to operators and 
+        values.
+      equality_value: A string used for the start and end key which is derived
+        from equality filter values.
+      pre_comp_index_key: A string, contains pre-values for start and end keys.
+      direction: datastore_pb.Query_Order telling the direction of the scan.
+    Returns:
+      The end and start key for doing a composite query.
+    """
+    oper1 = None
+    oper2 = None
+    value1 = None
+    value2 = None
+    start_key = ""
+    end_key = ""
+    if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
+      filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+      oper1 = filter_ops[0][0]
+      oper2 = filter_ops[1][0]
+      value1 = str(filter_ops[0][1])
+      value2 = str(filter_ops[1][1])
+    else:
+      oper1 = filter_ops[1][0]
+      oper2 = filter_ops[0][0]
+      value1 = str(filter_ops[1][1])
+      value2 = str(filter_ops[0][1])
+
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      # The first operator will always be either > or >=.
+      if oper1 == datastore_pb.Query_Filter.GREATER_THAN:
+        start_value = equality_value + value1 + self._SEPARATOR + \
+          self._TERM_STRING
+      elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        start_value = equality_value + value1
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
+
+      # The second operator will be either < or <=.
+      if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
+        end_value = equality_value + value2 
+      elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        end_value = equality_value + value2 + self._SEPARATOR + \
+          self._TERM_STRING
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
+    
+    if direction == datastore_pb.Query_Order.DESCENDING:
+      value1 = helper_functions.reverse_lex(value1)
+      value2 = helper_functions.reverse_lex(value2) 
+      if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
+        end_value = equality_value + value1 
+      elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        end_value = equality_value + value1 + self._SEPARATOR + \
+          self._TERM_STRING
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
+
+      if oper2 == datastore_pb.Query_Filter.LESS_THAN:
+        start_value = equality_value + value2 + self._SEPARATOR + \
+          self._TERM_STRING
+      elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        start_value = equality_value + value2
+      else:
+        raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
+
+    start_key = "{0}{1}".format(pre_comp_index_key, start_value)
+    end_key = "{0}{1}".format(pre_comp_index_key, end_value)
+    return start_key, end_key 
 
   def composite_v2(self, query, filter_info):
     """Performs composite queries using a range query against
        the composite table. Faster than in-memory filters, but requires
        indexes to be built upon each put.
 
-     Args:
+    Args:
       query: The query to run.
       filter_info: dictionary mapping property names to tuples of 
         filter operators and values.
     Returns:
       List of entities retrieved from the given query.
     """
+    start_inclusive = True
     startrow, endrow = self.get_range_composite_query(query, filter_info)
+
+    # Override the start_key with a cursor if given.
+    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
+      cursor = appscale_stub_util.ListCursor(query)
+      last_result = cursor._GetLastResult()
+      composite_index = query.composite_index_list()[0]
+       
+      startrow = self.get_composite_index_key(composite_index, last_result, \
+        position_list=query.compiled_cursor().position_list(), 
+        filters=query.filter_list())
+      start_inclusive = False
+      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
+        start_inclusive = True
+
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
-    limit = query.limit() or self._MAXIMUM_RESULTS
-    if query.has_offset():
-      limit = limit + query.offset() 
+    limit = self.get_limit(query)
     offset = query.offset()
     index_result = self.datastore_batch.range_query(table_name, 
                                              column_names, 
@@ -2706,11 +2845,11 @@ class DatastoreDistributed():
                                              endrow, 
                                              limit, 
                                              offset=offset, 
-                                             start_inclusive=True,
+                                             start_inclusive=start_inclusive,
                                              end_inclusive=True)
     return self.__fetch_entities(index_result, query.app())
 
-  def __composite_query(self, query, filter_info, order_info):  
+  def __composite_query(self, query, filter_info, _):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
 
@@ -2718,7 +2857,6 @@ class DatastoreDistributed():
       query: The query to run.
       filter_info: dictionary mapping property names to tuples of 
         filter operators and values.
-      order_info: tuple with property name and the sort order.
     Returns:
       List of entities retrieved from the given query.
     """
