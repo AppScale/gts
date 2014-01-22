@@ -2451,7 +2451,15 @@ class Djinn
         json_state = restore_from_local_data
       else
         Djinn.log_info("Restored data from ZooKeeper.")
-        restoring_from_local = false
+
+        # In multinode deployments, it could be the case that we restored data
+        # from ZooKeeper on a different machine. In that case, we still need to
+        # start all the services on this machine.
+        if HelperFunctions.is_process_running?("zookeeper")
+          restoring_from_local = false
+        else
+          restoring_from_local = true
+        end
       end
     else
       if File.exists?(HelperFunctions::APPCONTROLLER_STATE_LOCATION)
