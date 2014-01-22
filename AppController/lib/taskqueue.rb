@@ -209,8 +209,11 @@ module TaskQueue
   # Starts the Flower Server on this machine, which provides a web UI to celery
   # and RabbitMQ. A link to Flower is given in the AppDashboard, for users to
   # monitor their Task Queue tasks.
-  def self.start_flower()
-    start_cmd = "/usr/local/bin/flower --basic_auth=appscale:appscale"
+  #
+  # Args:
+  #   flower_password: A String that is used as the password to log into flower.
+  def self.start_flower(flower_password)
+    start_cmd = "/usr/local/bin/flower --basic_auth=appscale:#{flower_password}"
     stop_cmd = "/bin/ps ax | /bin/grep flower | /bin/grep -v grep | /usr/bin/awk '{print $1}' | xargs kill -9"
     MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
   end
