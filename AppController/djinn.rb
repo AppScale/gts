@@ -911,7 +911,7 @@ class Djinn
     Current State: #{stats['state']}
     STATUS
 
-    if my_node.is_appengine?
+    if my_node.is_login?
       app_names = []
       stats['apps'].each { |k, v|
         app_names << k
