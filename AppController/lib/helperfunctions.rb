@@ -596,10 +596,10 @@ module HelperFunctions
   end
 
 
-  def self.set_creds_in_env(creds, cloud_num)
+  def self.set_options_in_env(options, cloud_num)
     ENV['EC2_JVM_ARGS'] = nil
 
-    creds.each_pair { |k, v|
+    options.each_pair { |k, v|
       next unless k =~ /\ACLOUD/
       env_key = k.scan(/\ACLOUD_(.*)\Z/).flatten.to_s
       ENV[env_key] = v
@@ -616,23 +616,23 @@ module HelperFunctions
     Djinn.log_debug("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
   end
 
-  def self.spawn_hybrid_vms(creds, nodes)
-    info = "Spawning hybrid vms with creds #{self.obscure_creds(creds).inspect} and nodes #{nodes.inspect}"
+  def self.spawn_hybrid_vms(options, nodes)
+    info = "Spawning hybrid vms with options #{self.obscure_options(options).inspect} and nodes #{nodes.inspect}"
     Djinn.log_debug(info)
 
     cloud_info = []
 
     cloud_num = 1
     loop {
-      cloud_type = creds["CLOUD#{cloud_num}_TYPE"]
+      cloud_type = options["CLOUD#{cloud_num}_TYPE"]
       break if cloud_type.nil?
 
-      self.set_creds_in_env(creds, cloud_num)
+      self.set_options_in_env(options, cloud_num)
 
       if cloud_type == "euca"
-        machine = creds["CLOUD#{cloud_num}_EMI"]
+        machine = options["CLOUD#{cloud_num}_EMI"]
       elsif cloud_type == "ec2"
-        machine = creds["CLOUD#{cloud_num}_AMI"]
+        machine = options["CLOUD#{cloud_num}_AMI"]
       else
         self.log_and_crash("Cloud type was #{cloud_type}, which is not a supported value.")
       end
@@ -647,9 +647,9 @@ module HelperFunctions
       }
 
       instance_type = "m1.large"
-      keyname = creds["keyname"]
+      keyname = options["keyname"]
       cloud = "cloud#{cloud_num}"
-      group = creds["group"]
+      group = options["group"]
 
       this_cloud_info = self.spawn_vms(num_of_vms, jobs_needed, machine, 
         instance_type, keyname, cloud_type, cloud, group)
@@ -851,19 +851,19 @@ module HelperFunctions
     self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
   end
 
-  def self.terminate_hybrid_vms(creds)
+  def self.terminate_hybrid_vms(options)
     # TODO: kill my own cloud last
     # otherwise could orphan other clouds
 
     cloud_num = 1
     loop {
       key = "CLOUD#{cloud_num}_TYPE"
-      cloud_type = creds[key]
+      cloud_type = options[key]
       break if cloud_type.nil?
 
-      self.set_creds_in_env(creds, cloud_num)
+      self.set_options_in_env(options, cloud_num)
 
-      keyname = creds["keyname"]
+      keyname = options["keyname"]
       Djinn.log_debug("Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}")
       self.terminate_all_vms(cloud_type, keyname)
 
@@ -1208,18 +1208,18 @@ module HelperFunctions
   # be too sensitive to log in cleartext. If any of these items are
   # found, a sanitized version of the item is returned in its place.
   # Args:
-  #   creds: The item to sanitize. As we are expecting Hashes here,
+  #   options: The item to sanitize. As we are expecting Hashes here,
   #     callers that pass in non-Hash items can expect no change to
   #     be performed on their argument.
   # Returns:
   #   A sanitized version of the given Hash, that can be safely
   #     logged via stdout or saved in log files. In the case of
   #     non-Hash items, the original item is returned.
-  def self.obscure_creds(creds)
-    return creds if creds.class != Hash
+  def self.obscure_options(options)
+    return options if options.class != Hash
 
     obscured = {}
-    creds.each { |k, v|
+    options.each { |k, v|
       if CLOUDY_CREDS.include?(k)
         obscured[k] = self.obscure_string(v)
       else

@@ -17,8 +17,8 @@ class TestHelperFunctions < Test::Unit::TestCase
     @appengine_web_xml = "/var/apps/boo/app/war/WEB-INF/appengine-web.xml"
   end
 
-  def test_obscure_creds
-    creds = {
+  def test_obscure_options
+    options = {
       'ec2_access_key' => 'ABCDEFG',
       'ec2_secret_key' => 'HIJKLMN',
       'CLOUD_EC2_ACCESS_KEY' => 'OPQRSTU',
@@ -32,7 +32,7 @@ class TestHelperFunctions < Test::Unit::TestCase
       'CLOUD_EC2_SECRET_KEY' => '***YZAB'
     }
 
-    actual = HelperFunctions.obscure_creds(creds)
+    actual = HelperFunctions.obscure_options(options)
     assert_equal(expected['ec2_access_key'], actual['ec2_access_key'])
     assert_equal(expected['ec2_secret_key'], actual['ec2_secret_key'])
     assert_equal(expected['CLOUD_EC2_ACCESS_KEY'],

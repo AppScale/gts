@@ -42,7 +42,8 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'load_balancer_ip', 
                           'xmpp_ip',
                           'dblocations',
-                          'env_vars']
+                          'env_vars',
+                          'max_memory']
 
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
@@ -97,6 +98,8 @@ def start_app(config):
        dblocations: List of database locations 
        env_vars: A dict of environment variables that should be passed to the
         app.
+       max_memory: An int that names the maximum amount of memory that this
+        App Engine app is allowed to consume before being restarted.
   Returns:
     PID of process on success, -1 otherwise
   """
@@ -156,7 +159,8 @@ def start_app(config):
                                              str(start_cmd), 
                                              str(stop_cmd), 
                                              [config['app_port']],
-                                             env_vars)
+                                             env_vars,
+                                             config['max_memory'])
 
   if not monit_interface.start(watch):
     logging.error("Unable to start application server with monit")

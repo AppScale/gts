@@ -36,7 +36,8 @@ class TestAppManager(unittest.TestCase):
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
                      'dblocations': ['127.0.0.1', '127.0.0.2'],
-                     'env_vars': {}}
+                     'env_vars': {},
+                     'max_memory': 500}
     configuration = json.dumps(configuration)
 
     self.assertEqual(True, isinstance(app_manager_server.convert_config_from_json(configuration), dict))
@@ -57,7 +58,8 @@ class TestAppManager(unittest.TestCase):
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
                      'dblocations': ['127.0.0.1', '127.0.0.2'],
-                     'env_vars': {}}
+                     'env_vars': {},
+                     'max_memory': 500}
     configuration = json.dumps(configuration)
     self.assertEqual(-1, app_manager_server.start_app(configuration)) 
 
@@ -69,7 +71,8 @@ class TestAppManager(unittest.TestCase):
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
                      'dblocations': ['127.0.0.1', '127.0.0.2'],
-                     'env_vars': {}}
+                     'env_vars': {},
+                     'max_memory': 500}
     configuration = json.dumps(configuration)
 
     fake_secret = "XXXXXX"
@@ -97,7 +100,8 @@ class TestAppManager(unittest.TestCase):
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
                      'dblocations': ['127.0.0.1', '127.0.0.2'],
-                     'env_vars': {}}
+                     'env_vars': {},
+                     'max_memory': 500}
     configuration = json.dumps(configuration)
 
     fake_secret = "XXXXXX"
@@ -126,7 +130,8 @@ class TestAppManager(unittest.TestCase):
                      'load_balancer_ip': '127.0.0.1',
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
-                     'dblocations': ['127.0.0.1', '127.0.0.2']}
+                     'dblocations': ['127.0.0.1', '127.0.0.2'],
+                     'max_memory': 500}
     configuration = json.dumps(configuration)
 
     fake_secret = "XXXXXX"
