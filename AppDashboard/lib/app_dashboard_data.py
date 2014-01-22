@@ -154,6 +154,10 @@ class AppDashboardData():
   FLOWER_PORT = 5555
 
 
+  # The port that the Monit Dashboard runs on, by default.
+  MONIT_PORT = 2812
+
+
   # The sentinel app name that indicates that no apps are running on a given
   # machine.
   NO_APPS_RUNNING = "none"
@@ -239,6 +243,20 @@ class AppDashboardData():
       displayed to users.
     """
     return "http://{0}:{1}".format(self.get_head_node_ip(), self.FLOWER_PORT)
+
+
+  def get_monit_url(self):
+    """ Retrieves the URL where the Monit Dashboard web service can be found in
+    this AppScale deployment.
+
+    Note that although a Monit Dashboard runs on each node, we will send users
+    to the one on the login node.
+
+    Returns:
+      A str that names the URL where the services on the login node can be
+      viewed, started, and stopped.
+    """
+    return "http://{0}:{1}".format(self.get_head_node_ip(), self.MONIT_PORT)
 
 
   def get_head_node_ip(self):
