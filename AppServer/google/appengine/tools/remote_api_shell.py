@@ -26,10 +26,6 @@ Usage:
 If the -s HOSTNAME flag is not specified, the APPID must be specified.
 """
 
-
-
-from google.appengine.tools import os_compat
-
 import atexit
 import code
 import getpass
@@ -42,17 +38,29 @@ try:
 except ImportError:
   readline = None
 
+
+# Location of the AppScale python application server. 
+SDK_DIR = "/root/appscale/AppServer"
+
+EXTRA_PATHS = [
+  SDK_DIR,
+  os.path.join(SDK_DIR, 'lib', 'antlr3'),
+  os.path.join(SDK_DIR, 'lib', 'django'),
+  os.path.join(SDK_DIR, 'lib', 'webob'),
+  os.path.join(SDK_DIR, 'lib', 'yaml', 'lib'),
+  os.path.join(SDK_DIR, 'lib', 'fancy_urllib'),
+]
+sys.path = EXTRA_PATHS + sys.path
+
+from google.appengine.tools import os_compat
 from google.appengine.ext.remote_api import remote_api_stub
 from google.appengine.tools import appengine_rpc
-
-
 
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.ext import db
 from google.appengine.ext import ndb
-
 
 HISTORY_PATH = os.path.expanduser('~/.remote_api_shell_history')
 DEFAULT_PATH = '/_ah/remote_api'
@@ -69,6 +77,7 @@ def auth_func():
 def remote_api_shell(servername, appid, path, secure, rpc_server_factory):
   """Actually run the remote_api_shell."""
 
+  os.environ['AUTH_DOMAIN'] = "appscale"
 
   remote_api_stub.ConfigureRemoteApi(appid, path, auth_func,
                                      servername=servername,
@@ -139,8 +148,8 @@ def main(argv):
 
       appid = args[0]
     else:
-
-      servername = '%s.appspot.com' % args[0]
+      print >> sys.stderr, "Expected path to application: <ip>:<port>"
+      sys.exit(1)
     if len(args) == 2:
 
       path = args[1]
