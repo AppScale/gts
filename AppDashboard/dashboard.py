@@ -804,23 +804,41 @@ class LogUploadPage(webapp2.RequestHandler):
         service.put()
 
     # Next, add in each log line as an AppLogLine
+    entities_to_store = {}
     for log_line_dict in log_lines:
       the_time = int(log_line_dict['timestamp'])
       reversed_time = (2**34 - the_time) * 1000000
       key_name = service_name + host + str(reversed_time)
-      log_line = RequestLogLine.get_by_id(id = key_name)
+      log_line = None
+      # Check the local cache first.
+      if key_name in entities_to_store:
+        log_line = entities_to_store[key_name]
+      else: 
+        # Grab it from the datastore. 
+        log_line = RequestLogLine.get_by_id(id = key_name)
       if not log_line:
+        # This is the first log for this timestamp.
         log_line = RequestLogLine(id = key_name)
         log_line.service_name = service_name
         log_line.host = host
+        # Catch entity so that it does not repeatedly get fetched.
+        entities_to_store[key_name] = log_line
 
+      # Update the log entry with the given timestamp.
       app_log_line = AppLogLine()
       app_log_line.message = log_line_dict['message']
       app_log_line.level = log_line_dict['level']
       app_log_line.timestamp = datetime.datetime.fromtimestamp(the_time)
-      log_line.app_logs.append(app_log_line)
-      log_line.put()
 
+      # We append to the list property of the log line.
+      log_line.app_logs.append(app_log_line)
+      # Update our local cache with the new version of the log line.
+      entities_to_store[key_name] = log_line
+    
+    batch_put = []
+    for key_name in entities_to_store:
+      batch_put.append(entities_to_store[key_name]) 
+    ndb.put_multi(batch_put)
 
 class LogDownloader(AppDashboard):
   """ Exposes a single GET route that cloud administrators can access to
@@ -988,7 +1006,8 @@ class InstanceStats(AppDashboard):
 
     for instance in data:
       # TODO(cgb): Consider only doing a put if it doesn't exist
-      instance = InstanceInfo(id = instance['appid'] + instance['host'] + str(instance['port']),
+      instance = InstanceInfo(id = instance['appid'] + instance['host'] + \
+        str(instance['port']),
         appid = instance['appid'],
         host = instance['host'],
         port = instance['port'],
@@ -1004,7 +1023,8 @@ class InstanceStats(AppDashboard):
     data = json.loads(encoded_data)
 
     for instance in data:
-      instance = InstanceInfo.get_by_id(instance['appid'] + instance['host'] + str(instance['port']))
+      instance = InstanceInfo.get_by_id(instance['appid'] + instance['host'] + \
+        str(instance['port']))
       instance.key.delete()
 
     self.response.out.write('delete completed successfully!')

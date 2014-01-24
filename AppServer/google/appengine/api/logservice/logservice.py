@@ -284,29 +284,9 @@ class LogsBuffer(object):
   def _flush(self):
     """Internal version of flush() with no locking."""
 
-    logs = self.parse_logs()
-
-    appid = os.environ['APPLICATION_ID']
-    if appid in ['apichecker', 'appscaledashboard']:
-      self._clear()
-      return
-
-    formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
-      'message' : log[2]} for log in logs]
-
-    if not formatted_logs:
-      return
-
-    payload = json.dumps({
-      'service_name' : appid,
-      'host' : os.environ['MY_IP_ADDRESS'],
-      'logs' : formatted_logs
-    })
-
-    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
-    headers = {'Content-Type' : 'application/json'}
-    conn.request('POST', '/logs/upload', payload, headers)
-    response = conn.getresponse()
+    request.set_logs(self.parse_logs())
+    response = api_base_pb.VoidProto()
+    apiproxy_stub_map.MakeSyncCall('logservice', 'Flush', request, response)
     self._clear()
 
     # AppScale: This currently causes problems when we try to call API requests

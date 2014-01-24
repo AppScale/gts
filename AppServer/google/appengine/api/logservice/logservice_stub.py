@@ -32,6 +32,7 @@ application-level logs should be included, and so on.
 import httplib
 import os
 import time
+import threading
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import datastore_errors
@@ -52,6 +53,26 @@ _FUTURE_TIME = 2**34
 _REQUEST_TIME = 0
 _CURRENT_REQUEST_ID_HASH = ''
 
+class SendLogsThread(threading.Thread):
+  """ Sends logs to the AppScale Dashboard in a thread. """
+
+  def __init__(self, payload):
+    """ Constructor.
+
+    Args:
+      payload: The json payload to send to the dashboard.
+    """
+    self.__payload = payload
+    self.__response = None
+    threading.Thread.__init__(self)
+    
+  def run(self):
+    """ Start function for thread. Posts the payload to the dashboard. """
+    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
+    headers = {'Content-Type' : 'application/json'}
+    conn.request('POST', '/logs/upload', self.__payload, headers)
+    self.__response = conn.getresponse()
+ 
 
 def _get_request_id():
   """Returns the request ID bound to this request.
@@ -394,6 +415,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     # To make it API compliant.
     pass
 
+   
   def _Dynamic_Flush(self, request, unused_response, request_id=None):
     """Writes application-level log messages for a request to the Datastore."""
     group = log_service_pb.UserAppLogGroup(request.logs())
@@ -419,10 +441,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       'logs' : formatted_logs
     })
 
-    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
-    headers = {'Content-Type' : 'application/json'}
-    conn.request('POST', '/logs/upload', payload, headers)
-    response = conn.getresponse()
+    SendLogsThread(payload).start()
 
     # AppScale: The following appear to cause a memory leak under high load.
     # Investigate this once we wish to support the Logs API.
