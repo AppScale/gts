@@ -100,6 +100,7 @@ class SendLogsThread(threading.Thread):
 
     Args:
       payload: The json payload to send to the dashboard.
+      nginx_host: The NGINX host to send the logs to.
     """
     self.__payload = payload
     self.__response = None
