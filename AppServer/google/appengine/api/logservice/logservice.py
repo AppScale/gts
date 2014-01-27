@@ -95,7 +95,7 @@ MY_PUBLIC_IP_FILENAME = "/etc/appscale/my_public_ip"
 class SendLogsThread(threading.Thread):
   """ Sends logs to the AppScale Dashboard in a thread. """
 
-  def __init__(self, payload):
+  def __init__(self, payload, nginx_host):
     """ Constructor.
 
     Args:
@@ -103,11 +103,12 @@ class SendLogsThread(threading.Thread):
     """
     self.__payload = payload
     self.__response = None
+    self.__nginx_host = nginx_host
     threading.Thread.__init__(self)
 
   def run(self):
     """ Start function for thread. Posts the payload to the dashboard. """
-    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
+    conn = httplib.HTTPSConnection(self.__nginx_host + ":1443")
     headers = {'Content-Type' : 'application/json'}
     conn.request('POST', '/logs/upload', self.__payload, headers)
     self.__response = conn.getresponse()
@@ -310,7 +311,8 @@ class LogsBuffer(object):
       self._clear()
       return
  
-    formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
+    formatted_logs = [{'timestamp' : log[0] / 1e6, 
+      'level' : log[1] + 1,
       'message' : log[2]} for log in logs]
  
     if not formatted_logs:
@@ -322,7 +324,7 @@ class LogsBuffer(object):
       'logs' : formatted_logs
     })
 
-    SendLogsThread(payload).start()
+    SendLogsThread(payload, os.environ["NGINX_HOST"]).start()
     self._clear()
 
     # AppScale: This currently causes problems when we try to call API requests

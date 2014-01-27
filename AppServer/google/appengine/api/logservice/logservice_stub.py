@@ -421,7 +421,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       'logs' : formatted_logs
     })
 
-    logservice.SendLogsThread(payload).start()
+    nginx_host = os.environ['NGINX_HOST']
+
+    logservice.SendLogsThread(payload, nginx_host).start()
 
     # AppScale: The following appear to cause a memory leak under high load.
     # Investigate this once we wish to support the Logs API.
