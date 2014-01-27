@@ -92,6 +92,26 @@ LOGIN_IP_FILENAME = "/etc/appscale/login_ip"
 # The file that the AppController writes this machine's public IP address to.
 MY_PUBLIC_IP_FILENAME = "/etc/appscale/my_public_ip"
 
+class SendLogsThread(threading.Thread):
+  """ Sends logs to the AppScale Dashboard in a thread. """
+
+  def __init__(self, payload):
+    """ Constructor.
+
+    Args:
+      payload: The json payload to send to the dashboard.
+    """
+    self.__payload = payload
+    self.__response = None
+    threading.Thread.__init__(self)
+
+  def run(self):
+    """ Start function for thread. Posts the payload to the dashboard. """
+    conn = httplib.HTTPSConnection(os.environ['NGINX_HOST'] + ":1443")
+    headers = {'Content-Type' : 'application/json'}
+    conn.request('POST', '/logs/upload', self.__payload, headers)
+    self.__response = conn.getresponse()
+
 class Error(Exception):
   """Base error class for this module."""
 
@@ -283,10 +303,26 @@ class LogsBuffer(object):
 
   def _flush(self):
     """Internal version of flush() with no locking."""
+    logs = self.parse_logs()
+ 
+    appid = os.environ['APPLICATION_ID']
+    if appid in ['apichecker', 'appscaledashboard']:
+      self._clear()
+      return
+ 
+    formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
+      'message' : log[2]} for log in logs]
+ 
+    if not formatted_logs:
+      return
+ 
+    payload = json.dumps({
+      'service_name' : appid,
+      'host' : os.environ['MY_IP_ADDRESS'],
+      'logs' : formatted_logs
+    })
 
-    request.set_logs(self.parse_logs())
-    response = api_base_pb.VoidProto()
-    apiproxy_stub_map.MakeSyncCall('logservice', 'Flush', request, response)
+    SendLogsThread(payload).start()
     self._clear()
 
     # AppScale: This currently causes problems when we try to call API requests
