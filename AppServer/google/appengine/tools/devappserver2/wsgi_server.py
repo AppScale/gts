@@ -213,7 +213,7 @@ class _SingleAddressWsgiServer(wsgiserver.CherryPyWSGIServer):
       raise BindError('Unable to bind %s:%s' % self.bind_addr, socket_error)
 
     # Timeout so KeyboardInterrupt can be caught on Win32
-    self.socket.settimeout(1)
+    self.socket.settimeout(5)
     self.socket.listen(self.request_queue_size)
 
     self.ready = True
