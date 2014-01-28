@@ -736,7 +736,7 @@ class LogServiceHostPage(AppDashboard):
 
 
   # The number of logs we should present on each page.
-  LOGS_PER_PAGE = 20
+  LOGS_PER_PAGE = 10
 
 
   def get(self, service_name, host):

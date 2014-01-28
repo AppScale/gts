@@ -42,6 +42,9 @@ KEYSPACE = "Keyspace1"
 # The standard column family used for tables
 STANDARD_COL_FAM = "Standard1"
 
+# Default time to try to connect to a node in cassandra.
+CONNECTION_TIMEOUT = 1.0
+
 # Uncomment this to enable logging for pycassa.
 #log = pycassa.PycassaLogger()
 #log.set_logger_name('pycassa_library')
@@ -67,7 +70,7 @@ class DatastoreProxy(AppDBInterface):
     self.port = CASS_DEFAULT_PORT
     server_list = ["{0}:{1}".format(host, self.port) for host in self.hosts]
     self.pool = pycassa.ConnectionPool(keyspace=KEYSPACE,
-      server_list=server_list, prefill=False)
+      timeout=CONNECTION_TIMEOUT, server_list=server_list, prefill=False)
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
