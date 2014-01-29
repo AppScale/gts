@@ -74,7 +74,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
     public static final String          CALLBACK_CLASS_PROP         = "task_queue.callback_class";
     private final Map<String, DevQueue> queues;
     private QueueXml                    queueXml;
-    private Scheduler                   scheduler;
     private boolean                     disableAutoTaskExecution;
     private LocalServerEnvironment      localServerEnvironment;
     private Clock                       clock;
@@ -233,7 +232,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
 
         UrlFetchJob.initialize(this.localServerEnvironment, this.clock);
 
-        this.scheduler = startScheduler(this.disableAutoTaskExecution);
         String baseUrl = getBaseUrl(this.localServerEnvironment);
         AppScaleTaskQueueClient client = new AppScaleTaskQueueClient();
 
@@ -247,7 +245,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
                 }
                 else
                 {
-                    this.queues.put(entry.getName(), new DevPushQueue(entry, this.scheduler, baseUrl, this.clock, this.callback, client));
+                    this.queues.put(entry.getName(), new DevPushQueue(entry, null, baseUrl, this.clock, this.callback, client));
                 }
 
             }
@@ -257,7 +255,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         if (this.queues.get("default") == null)
         {
             QueueXml.Entry entry = QueueXml.defaultEntry();
-            this.queues.put(entry.getName(), new DevPushQueue(entry, this.scheduler, baseUrl, this.clock, this.callback, client));
+            this.queues.put(entry.getName(), new DevPushQueue(entry, null, baseUrl, this.clock, this.callback, client));
         }
 
         logger.info("Local task queue initialized with base url " + baseUrl);
@@ -293,7 +291,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
     private void stop_()
     {
         this.queues.clear();
-        stopScheduler(this.scheduler);
         this.fetchService.stop();
     }
 
@@ -627,36 +624,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
     {
         DevQueue queue = getQueueByName(queueName);
         return queue.deleteTask(taskName);
-    }
-
-    static Scheduler startScheduler( boolean disableAutoTaskExecution )
-    {
-        try
-        {
-            Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
-
-            if (!disableAutoTaskExecution)
-            {
-                scheduler.start();
-            }
-            return scheduler;
-        }
-        catch (SchedulerException e)
-        {
-            throw new RuntimeException(e);
-        }
-    }
-
-    static void stopScheduler( Scheduler scheduler )
-    {
-        try
-        {
-            scheduler.shutdown(false);
-        }
-        catch (SchedulerException e)
-        {
-            throw new RuntimeException(e);
-        }
     }
 
     public boolean runTask( String queueName, String taskName )
