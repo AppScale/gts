@@ -259,7 +259,8 @@ public class LocalLogService extends AbstractLocalRpcService
     } catch (IOException e) {
         System.out.println("[IOException] Failed to execute REST call to save log: " + e.getMessage());
     } catch (CallNotFoundException e) {
-        System.out.println("[CallNotFoundException] Failed to execute REST call to save log: " + e.getMessage());
+        // This is commented out because otherwise it floods the logs.
+        //System.out.println("[CallNotFoundException] Failed to execute REST call to save log: " + e.getMessage());
     }
 
     LogServicePb.RequestLog log = findLogInLogMapOrAddNewLog(requestId);
