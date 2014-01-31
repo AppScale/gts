@@ -36,7 +36,7 @@
 
 
 import logging
-import simplejson
+import json 
 
 import google
 try:
@@ -146,7 +146,7 @@ class JsonHandler(BaseHandler):
 
     self.response.headers["Content-Type"] = "text/javascript"
     try:
-      output = simplejson.dumps(self.json_response, cls=model.JsonEncoder)
+      output = json.dumps(self.json_response, cls=model.JsonEncoder)
     except:
       logging.exception("Could not serialize to JSON")
       self.response.set_status(500, message="Could not serialize to JSON")

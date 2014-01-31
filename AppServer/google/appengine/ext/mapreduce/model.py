@@ -60,7 +60,7 @@ import datetime
 import logging
 import os
 import random
-import simplejson
+import json
 import time
 
 from google.appengine.api import datastore_errors
@@ -80,7 +80,7 @@ _DEFAULT_PROCESSING_RATE_PER_SEC = 1000000
 _DEFAULT_SHARD_COUNT = 8
 
 
-class JsonEncoder(simplejson.JSONEncoder):
+class JsonEncoder(json.JSONEncoder):
   """MR customized json encoder."""
 
   TYPE_ID = "__mr_json_type"
@@ -95,7 +95,7 @@ class JsonEncoder(simplejson.JSONEncoder):
     return super(JsonEncoder, self).default(o)
 
 
-class JsonDecoder(simplejson.JSONDecoder):
+class JsonDecoder(json.JSONDecoder):
   """MR customized json decoder."""
 
   def __init__(self, **kwargs):
@@ -164,7 +164,7 @@ class JsonMixin(object):
     """
     json = self.to_json()
     try:
-      return simplejson.dumps(json, sort_keys=True, cls=JsonEncoder)
+      return json.dumps(json, sort_keys=True, cls=JsonEncoder)
     except:
       logging.exception("Could not serialize JSON: %r", json)
       raise
@@ -179,7 +179,7 @@ class JsonMixin(object):
     Returns:
       New instance of the class with data loaded from json string.
     """
-    return cls.from_json(simplejson.loads(json_str, cls=JsonDecoder))
+    return cls.from_json(json.loads(json_str, cls=JsonDecoder))
 
 
 class JsonProperty(db.UnindexedProperty):
@@ -221,7 +221,7 @@ class JsonProperty(db.UnindexedProperty):
       json_value = value.to_json()
     if not json_value:
       return None
-    return datastore_types.Text(simplejson.dumps(
+    return datastore_types.Text(json.dumps(
         json_value, sort_keys=True, cls=JsonEncoder))
 
   def make_value_from_datastore(self, value):
@@ -236,7 +236,7 @@ class JsonProperty(db.UnindexedProperty):
 
     if value is None:
       return None
-    json = simplejson.loads(value, cls=JsonDecoder)
+    json = json.loads(value, cls=JsonDecoder)
     if self.data_type == dict:
       return json
     return self.data_type.from_json(json)
@@ -818,11 +818,11 @@ class TransientShardState(object):
     """Create new TransientShardState from webapp request."""
     mapreduce_spec = MapreduceSpec.from_json_str(request.get("mapreduce_spec"))
     mapper_spec = mapreduce_spec.mapper
-    input_reader_spec_dict = simplejson.loads(request.get("input_reader_state"),
+    input_reader_spec_dict = json.loads(request.get("input_reader_state"),
                                               cls=JsonDecoder)
     input_reader = mapper_spec.input_reader_class().from_json(
         input_reader_spec_dict)
-    initial_input_reader_spec_dict = simplejson.loads(
+    initial_input_reader_spec_dict = json.loads(
         request.get("initial_input_reader_state"), cls=JsonDecoder)
     initial_input_reader = mapper_spec.input_reader_class().from_json(
         initial_input_reader_spec_dict)
@@ -830,7 +830,7 @@ class TransientShardState(object):
     output_writer = None
     if mapper_spec.output_writer_class():
       output_writer = mapper_spec.output_writer_class().from_json(
-          simplejson.loads(request.get("output_writer_state", "{}"),
+          json.loads(request.get("output_writer_state", "{}"),
                            cls=JsonDecoder))
       assert isinstance(output_writer, mapper_spec.output_writer_class()), (
           "%s.from_json returned an instance of wrong class: %s" % (
