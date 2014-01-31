@@ -1398,8 +1398,10 @@ class TestDjinn < Test::Unit::TestCase
       'userappserver_public_ip' => 'public-ip',
       'userappserver_private_ip' => 'private-ip'
     })
-    assert_equal(userappserver_ips, djinn.get_property('userappserver_.*_ip',
-      @secret))
+    assert_equal(userappserver_ips['public-ip'], djinn.get_property('userappserver_.*_ip',
+      @secret)['public-ip'])
+    assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_.*_ip',
+      @secret)['private-ip'])
   end
 
 
