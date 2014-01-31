@@ -162,11 +162,11 @@ class JsonMixin(object):
     Returns:
       json representation as string.
     """
-    json = self.to_json()
+    json_dic = self.to_json()
     try:
-      return json.dumps(json, sort_keys=True, cls=JsonEncoder)
+      return json.dumps(json_dic, sort_keys=True, cls=JsonEncoder)
     except:
-      logging.exception("Could not serialize JSON: %r", json)
+      logging.exception("Could not serialize JSON: %r", json_dic)
       raise
 
   @classmethod
@@ -236,10 +236,10 @@ class JsonProperty(db.UnindexedProperty):
 
     if value is None:
       return None
-    json = json.loads(value, cls=JsonDecoder)
+    json_out = json.loads(value, cls=JsonDecoder)
     if self.data_type == dict:
-      return json
-    return self.data_type.from_json(json)
+      return json_out
+    return self.data_type.from_json(json_out)
 
   def validate(self, value):
     """Validate value.
@@ -395,7 +395,7 @@ class CountersMap(JsonMixin):
     return {"counters": self.counters}
 
   @classmethod
-  def from_json(cls, json):
+  def from_json(cls, json_in):
     """Create new CountersMap from the json data structure, encoded by to_json.
 
     Args:
@@ -405,7 +405,7 @@ class CountersMap(JsonMixin):
       an instance of CountersMap with all data deserialized from json.
     """
     counters_map = cls()
-    counters_map.counters = json["counters"]
+    counters_map.counters = json_in["counters"]
     return counters_map
 
   def to_dict(self):
@@ -505,13 +505,13 @@ class MapperSpec(JsonMixin):
         self.shard_count)
 
   @classmethod
-  def from_json(cls, json):
+  def from_json(cls, json_in):
     """Creates MapperSpec from a dict-like object."""
-    return cls(json["mapper_handler_spec"],
-               json["mapper_input_reader"],
-               json["mapper_params"],
-               json["mapper_shard_count"],
-               json.get("mapper_output_writer")
+    return cls(json_in["mapper_handler_spec"],
+               json_in["mapper_input_reader"],
+               json_in["mapper_params"],
+               json_in["mapper_shard_count"],
+               json_in.get("mapper_output_writer")
               )
 
 
@@ -588,20 +588,20 @@ class MapreduceSpec(JsonMixin):
     }
 
   @classmethod
-  def from_json(cls, json):
+  def from_json(cls, json_in):
     """Create new MapreduceSpec from the json, encoded by to_json.
 
     Args:
-      json: json representation of MapreduceSpec.
+      json_in: json representation of MapreduceSpec.
 
     Returns:
       an instance of MapreduceSpec with all data deserialized from json.
     """
-    mapreduce_spec = cls(json["name"],
-                         json["mapreduce_id"],
-                         json["mapper_spec"],
-                         json.get("params"),
-                         json.get("hooks_class_name"))
+    mapreduce_spec = cls(json_in["name"],
+                         json_in["mapreduce_id"],
+                         json_in["mapper_spec"],
+                         json_in.get("params"),
+                         json_in.get("hooks_class_name"))
     return mapreduce_spec
 
 
@@ -1152,11 +1152,11 @@ class QuerySpec(object):
             "ns": self.ns}
 
   @classmethod
-  def from_json(cls, json):
-    return cls(json["entity_kind"],
-               json["keys_only"],
-               json["filters"],
-               json["batch_size"],
-               json["model_class_path"],
-               json["app"],
-               json["ns"])
+  def from_json(cls, json_in):
+    return cls(json_in["entity_kind"],
+               json_in["keys_only"],
+               json_in["filters"],
+               json_in["batch_size"],
+               json_in["model_class_path"],
+               json_in["app"],
+               json_in["ns"])
