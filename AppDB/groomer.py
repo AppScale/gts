@@ -368,17 +368,19 @@ class DatastoreGroomer(threading.Thread):
     logging.debug("Done creating kind stat") 
     return True
 
-  def create_global_stat_entry(self, size, number, timestamp):
+  def create_global_stat_entry(self, app_id, size, number, timestamp):
     """ Puts a global statistic into the datastore.
     
     Args:
+      app_id: The application identifier.
       size: The number of bytes of all entities.
       number: The total number of entities of an application.
       timestamp: A datetime.datetime object.
     Returns: 
       True on success, False otherwise.
     """
-    global_stat = stats.GlobalStat(bytes=size,
+    global_stat = stats.GlobalStat(key_name=app_id,
+                                   bytes=size,
                                    count=number,
                                    timestamp=timestamp)
     try:
@@ -449,14 +451,15 @@ class DatastoreGroomer(threading.Thread):
         entity.delete()
       logging.debug("Done removing old stats for app {0}".format(app_id))
 
-  def update_namespaces(self):
+  def update_namespaces(self, timestamp):
     """ Puts the namespace information into the datastore for applications to
         access.
  
+    timestamp: A datetime time stamp to know which stat items belong 
+      together.
     Returns:
       True if there were no errors, False otherwise.
     """
-    timestamp = datetime.datetime.now()
     for app_id in self.namespace_info.keys():
       ds_distributed = self.register_db_accessor(app_id) 
       total_size = 0
@@ -477,14 +480,17 @@ class DatastoreGroomer(threading.Thread):
     return True
 
 
-  def update_statistics(self):
+  def update_statistics(self, timestamp):
     """ Puts the statistics into the datastore for applications
         to access.
-
+ 
+    Args:
+      timestamp: A datetime time stamp to know which stat items belong 
+        together.
+   
     Returns:
       True if there were no errors, False otherwise.
     """
-    timestamp = datetime.datetime.now()
     for app_id in self.stats.keys():
       ds_distributed = self.register_db_accessor(app_id) 
       total_size = 0
@@ -498,7 +504,7 @@ class DatastoreGroomer(threading.Thread):
         if not self.create_kind_stat_entry(kind, size, number, timestamp):
           return False
 
-      if not self.create_global_stat_entry(total_size, total_number, 
+      if not self.create_global_stat_entry(app_id, total_size, total_number, 
                                            timestamp):
         return False
 
@@ -533,10 +539,13 @@ class DatastoreGroomer(threading.Thread):
         self.process_entity(entity)
 
       last_key = entities[-1].keys()[0]
-    if not self.update_statistics():
+
+    timestamp = datetime.datetime.now()
+
+    if not self.update_statistics(timestamp):
       logging.error("There was an error updating the statistics")
 
-    if not self.update_namespaces():
+    if not self.update_namespaces(timestamp):
       logging.error("There was an error updating the namespaces")
 
     self.remove_old_tasks_entities()
