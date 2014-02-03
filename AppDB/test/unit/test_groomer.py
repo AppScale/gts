@@ -45,6 +45,8 @@ class FakeReference():
     pass
   def app(self):
     return "app_id"
+  def name_space(self):
+    return "namespace"
 
 class FakeEntity():
   def __init__(self):
@@ -59,6 +61,8 @@ class FakeEntity():
     raise Exception()
   def put(self):
     raise Exception()
+  def key(self):
+    return FakeReference()
 
 class TestGroomer(unittest.TestCase):
   """

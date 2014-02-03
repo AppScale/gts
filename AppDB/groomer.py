@@ -22,6 +22,7 @@ from google.appengine.api import datastore_distributed
 from google.appengine.datastore import entity_pb
 from google.appengine.ext import db
 from google.appengine.ext.db import stats
+from google.appengine.ext.db import metadata
 from google.appengine.api import datastore_errors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
@@ -49,6 +50,9 @@ class DatastoreGroomer(threading.Thread):
   # The amount of time in seconds before we want to clean up task name holders.
   TASK_NAME_TIMEOUT = 24 * 60 * 60
 
+  # Do not generate stats for AppScale internal apps.
+  APPSCALE_APPLICATIONS = ['apichecker', 'appscaledashboard']
+
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
 
@@ -66,6 +70,7 @@ class DatastoreGroomer(threading.Thread):
     self.table_name = table_name
     self.datastore_path = ds_path
     self.stats = {}
+    self.namespace_info = {}
     self.num_deletes = 0
 
   def stop(self):
@@ -111,6 +116,7 @@ class DatastoreGroomer(threading.Thread):
   def reset_statistics(self):
     """ Reinitializes statistics. """
     self.stats = {}
+    self.namespace_info = {}
     self.num_deletes = 0
 
   def hard_delete_row(self, row_key):
@@ -213,9 +219,20 @@ class DatastoreGroomer(threading.Thread):
     """
     if app_id not in self.stats:
       self.stats[app_id] = {kind: {'size': 0, 'number': 0}}
-  
     if kind not in self.stats[app_id]:
       self.stats[app_id][kind] = {'size': 0, 'number': 0}
+
+  def initialize_namespace(self, app_id, namespace):
+    """ Puts a namespace into the namespace object if 
+        it does not already exist.
+    Args:
+      app_id: The application ID.
+      namespace: A string representing a namespace.
+    """
+    if app_id not in self.namespace_info:
+      self.namespace_info[app_id] = {namespace: {'size': 0, 'number': 0}}
+    if namespace not in self.namespace_info[app_id]:
+      self.stats[app_id][namespace] = {'size': 0, 'number': 0}
 
   def process_statistics(self, key, entity, version):
     """ Processes an entity and adds to the global statistics.
@@ -231,6 +248,8 @@ class DatastoreGroomer(threading.Thread):
     ent_proto.ParseFromString(entity)
     kind = datastore_server.DatastoreDistributed.\
       get_entity_kind(ent_proto.key())
+    namespace = ent_proto.key().name_space()
+
     if not kind:
       logging.warning("Entity did not have a kind {0}"\
         .format(entity))
@@ -248,8 +267,15 @@ class DatastoreGroomer(threading.Thread):
         .format(kind))
       return False
 
-    self.initialize_kind(app_id, kind) 
+    # Do not generate statistics for applications which are internal to 
+    # AppScale.
+    if app_id in self.APPSCALE_APPLICATIONS:
+      return True
 
+    self.initialize_kind(app_id, kind) 
+    self.initialize_namespace(app_id, namespace)
+    self.namespace_info[app_id][namespace]['size'] += len(entity)
+    self.namespace_info[app_id][namespace]['number'] += 1
     self.stats[app_id][kind]['size'] += len(entity)
     self.stats[app_id][kind]['number'] += 1
     return True
@@ -286,6 +312,37 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
+  def create_namespace_entry(self, namespace, size, number, timestamp):
+    """ Puts a namespace into the datastore.
+ 
+    Args:
+      namespace: A string, the namespace.
+      size: An int representing the number of bytes taken by a namespace.
+      number: The total number of entities in a namespace.
+      timestamp: A datetime.datetime object.
+    Returns: 
+      True on success, False otherwise.
+    """
+    entities_to_write = []
+    namespace_stat = stats.NamespaceStat(subject_namespace=namespace, 
+                               bytes=size,
+                               count=number,
+                               timestamp=timestamp)
+    entities_to_write.append(namespace_stat)
+
+    # All application are assumed to have the default namespace.
+    if namespace != "":
+      namespace_entry = metadata.Namespace(key_name=namespace)
+      entities_to_write.append(namespace_entry)
+    try:
+      db.put(entities_to_write)
+    except datastore_errors.InternalError, internal_error:
+      logging.error("Error inserting namespace info: {0}.".format(internal_error))
+      return False
+    logging.debug("Done creating namespace stats") 
+    return True
+
+
   def create_kind_stat_entry(self, kind, size, number, timestamp):
     """ Puts a kind statistic into the datastore.
  
@@ -301,8 +358,10 @@ class DatastoreGroomer(threading.Thread):
                                bytes=size,
                                count=number,
                                timestamp=timestamp)
+    kind_entry = metadata.Kind(key_name=kind)
+    entities_to_write = [kind_stat, kind_entry]
     try:
-      db.put(kind_stat)
+      db.put(entities_to_write)
     except datastore_errors.InternalError, internal_error:
       logging.error("Error inserting kind stat: {0}.".format(internal_error))
       return False
@@ -390,6 +449,33 @@ class DatastoreGroomer(threading.Thread):
         entity.delete()
       logging.debug("Done removing old stats for app {0}".format(app_id))
 
+  def update_namespaces(self):
+    """ Puts the namespace information into the datastore for applications to
+        access.
+ 
+    Returns:
+      True if there were no errors, False otherwise.
+    """
+    timestamp = datetime.datetime.now()
+    for app_id in self.namespace_info.keys():
+      ds_distributed = self.register_db_accessor(app_id) 
+      total_size = 0
+      total_number = 0
+      namespaces = self.namespace_info[app_id].keys()
+      for namespace in namespaces:
+        size = self.namespace_info[app_id][namespace]['size']
+        number = self.namespace_info[app_id][namespace]['number']
+        total_size += size
+        total_number += number 
+        if not self.create_namespace_entry(namespace, size, number, timestamp):
+          return False
+
+      logging.info("Namespace for {0} are {1}"\
+        .format(app_id, self.namespace_info[app_id]))
+      del ds_distributed
+
+    return True
+
 
   def update_statistics(self):
     """ Puts the statistics into the datastore for applications
@@ -449,6 +535,9 @@ class DatastoreGroomer(threading.Thread):
       last_key = entities[-1].keys()[0]
     if not self.update_statistics():
       logging.error("There was an error updating the statistics")
+
+    if not self.update_namespaces():
+      logging.error("There was an error updating the namespaces")
 
     self.remove_old_tasks_entities()
 
