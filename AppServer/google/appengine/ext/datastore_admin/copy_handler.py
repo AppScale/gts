@@ -32,13 +32,13 @@ This module also contains actual mapper code for copying data over.
 
 
 import logging
+import webapp2
 import urllib
 
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import blobstore
-from google.appengine.ext import webapp
 from google.appengine.ext.datastore_admin import remote_api_put_stub
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import context
@@ -48,7 +48,7 @@ from google.appengine.ext.mapreduce import operation
 XSRF_ACTION = 'copy'
 
 
-class ConfirmCopyHandler(webapp.RequestHandler):
+class ConfirmCopyHandler(webapp2.RequestHandler):
   """Handler to deal with requests from the admin console to copy data."""
 
   SUFFIX = 'confirm_copy'
@@ -58,7 +58,7 @@ class ConfirmCopyHandler(webapp.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp.RequestHandler invoking the method
+      handler: the webapp2.RequestHandler invoking the method
     """
     namespace = handler.request.get('namespace')
     kinds = handler.request.get_all('kind')
@@ -92,7 +92,7 @@ class ConfirmCopyHandler(webapp.RequestHandler):
 
 
 
-class DoCopyHandler(webapp.RequestHandler):
+class DoCopyHandler(webapp2.RequestHandler):
   """Handler to deal with requests from the admin console to copy data."""
 
   SUFFIX = 'copy.do'

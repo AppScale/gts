@@ -3,7 +3,7 @@ builtins:
 
 handlers:
 - url: /_ah/datastore_admin.*
-  script: $PYTHON_LIB/google/appengine/ext/datastore_admin/main.py
+  script: google.appengine.ext.datastore_admin.main.APP
   login: admin
 
 admin_console:

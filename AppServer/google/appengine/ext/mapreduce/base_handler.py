@@ -37,13 +37,13 @@
 
 import logging
 import json 
+import webapp2
 
 import google
 try:
   from appengine_pipeline.src import pipeline
 except ImportError:
   pipeline = None
-from google.appengine.ext import webapp
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import util
@@ -57,7 +57,7 @@ class BadRequestPathError(Error):
   """The request path for the handler is invalid."""
 
 
-class BaseHandler(webapp.RequestHandler):
+class BaseHandler(webapp2.RequestHandler):
   """Base class for all mapreduce handlers."""
 
   def base_path(self):

@@ -28,12 +28,12 @@ To use, add this to app.yaml:
 
 import operator
 import os
+import webapp2
 
 from google.appengine.api import app_identity
 from google.appengine.api import datastore_errors
 from google.appengine.api import users
 from google.appengine.ext import deferred
-from google.appengine.ext import webapp
 from google.appengine.ext.datastore_admin import backup_handler
 from google.appengine.ext.datastore_admin import copy_handler
 from google.appengine.ext.datastore_admin import delete_handler
@@ -140,7 +140,7 @@ def _PresentatableKindStats(kind_ent):
          }
 
 
-class RouteByActionHandler(webapp.RequestHandler):
+class RouteByActionHandler(webapp2.RequestHandler):
   """Route to the appropriate handler based on the action parameter."""
 
   def ListActions(self, error=None):
@@ -276,7 +276,7 @@ class RouteByActionHandler(webapp.RequestHandler):
     return backups[:limit]
 
 
-class StaticResourceHandler(webapp.RequestHandler):
+class StaticResourceHandler(webapp2.RequestHandler):
   """Read static files from disk."""
 
 
@@ -313,7 +313,7 @@ class StaticResourceHandler(webapp.RequestHandler):
       self.response.out.write(open(path).read())
 
 
-class LoginRequiredHandler(webapp.RequestHandler):
+class LoginRequiredHandler(webapp2.RequestHandler):
   """Handle federated login identity selector page."""
 
   def get(self):
@@ -331,10 +331,10 @@ def CreateApplication():
   """Create new WSGIApplication and register all handlers.
 
   Returns:
-    an instance of webapp.WSGIApplication with all mapreduce handlers
+    an instance of webapp2.WSGIApplication with all mapreduce handlers
     registered.
   """
-  return webapp.WSGIApplication([
+  return webapp2.WSGIApplication([
       (r'%s/%s' % (utils.config.BASE_PATH,
                    delete_handler.ConfirmDeleteHandler.SUFFIX),
        delete_handler.ConfirmDeleteHandler),
@@ -354,10 +354,3 @@ def CreateApplication():
 
 APP = CreateApplication()
 
-
-def main():
-  util.run_wsgi_app(APP)
-
-
-if __name__ == '__main__':
-  main()

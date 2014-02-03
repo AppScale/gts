@@ -27,6 +27,7 @@ import datetime
 import logging
 import os
 import random
+import webapp2
 
 from google.appengine.datastore import entity_pb
 from google.appengine.api import datastore
@@ -35,7 +36,6 @@ from google.appengine.api import memcache
 from google.appengine.api import users
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
-from google.appengine.ext import webapp
 from google.appengine.ext.db import stats
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
@@ -335,7 +335,7 @@ def _CreateDatastoreConfig():
   return datastore_rpc.Configuration(force_writes=True)
 
 
-class MapreduceDoneHandler(webapp.RequestHandler):
+class MapreduceDoneHandler(webapp2.RequestHandler):
   """Handler to delete data associated with successful MapReduce jobs."""
 
   SUFFIX = 'mapreduce_done'
