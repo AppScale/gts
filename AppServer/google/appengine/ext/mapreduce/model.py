@@ -60,7 +60,7 @@ import datetime
 import logging
 import os
 import random
-import simplejson
+import json
 import time
 
 from google.appengine.api import datastore_errors
@@ -80,7 +80,7 @@ _DEFAULT_PROCESSING_RATE_PER_SEC = 1000000
 _DEFAULT_SHARD_COUNT = 8
 
 
-class JsonEncoder(simplejson.JSONEncoder):
+class JsonEncoder(json.JSONEncoder):
   """MR customized json encoder."""
 
   TYPE_ID = "__mr_json_type"
@@ -95,7 +95,7 @@ class JsonEncoder(simplejson.JSONEncoder):
     return super(JsonEncoder, self).default(o)
 
 
-class JsonDecoder(simplejson.JSONDecoder):
+class JsonDecoder(json.JSONDecoder):
   """MR customized json decoder."""
 
   def __init__(self, **kwargs):
@@ -162,11 +162,11 @@ class JsonMixin(object):
     Returns:
       json representation as string.
     """
-    json = self.to_json()
+    json_dic = self.to_json()
     try:
-      return simplejson.dumps(json, sort_keys=True, cls=JsonEncoder)
+      return json.dumps(json_dic, sort_keys=True, cls=JsonEncoder)
     except:
-      logging.exception("Could not serialize JSON: %r", json)
+      logging.exception("Could not serialize JSON: %r", json_dic)
       raise
 
   @classmethod
@@ -179,7 +179,7 @@ class JsonMixin(object):
     Returns:
       New instance of the class with data loaded from json string.
     """
-    return cls.from_json(simplejson.loads(json_str, cls=JsonDecoder))
+    return cls.from_json(json.loads(json_str, cls=JsonDecoder))
 
 
 class JsonProperty(db.UnindexedProperty):
@@ -221,7 +221,7 @@ class JsonProperty(db.UnindexedProperty):
       json_value = value.to_json()
     if not json_value:
       return None
-    return datastore_types.Text(simplejson.dumps(
+    return datastore_types.Text(json.dumps(
         json_value, sort_keys=True, cls=JsonEncoder))
 
   def make_value_from_datastore(self, value):
@@ -236,10 +236,10 @@ class JsonProperty(db.UnindexedProperty):
 
     if value is None:
       return None
-    json = simplejson.loads(value, cls=JsonDecoder)
+    json_out = json.loads(value, cls=JsonDecoder)
     if self.data_type == dict:
-      return json
-    return self.data_type.from_json(json)
+      return json_out
+    return self.data_type.from_json(json_out)
 
   def validate(self, value):
     """Validate value.
@@ -395,7 +395,7 @@ class CountersMap(JsonMixin):
     return {"counters": self.counters}
 
   @classmethod
-  def from_json(cls, json):
+  def from_json(cls, json_in):
     """Create new CountersMap from the json data structure, encoded by to_json.
 
     Args:
@@ -405,7 +405,7 @@ class CountersMap(JsonMixin):
       an instance of CountersMap with all data deserialized from json.
     """
     counters_map = cls()
-    counters_map.counters = json["counters"]
+    counters_map.counters = json_in["counters"]
     return counters_map
 
   def to_dict(self):
@@ -505,13 +505,13 @@ class MapperSpec(JsonMixin):
         self.shard_count)
 
   @classmethod
-  def from_json(cls, json):
+  def from_json(cls, json_in):
     """Creates MapperSpec from a dict-like object."""
-    return cls(json["mapper_handler_spec"],
-               json["mapper_input_reader"],
-               json["mapper_params"],
-               json["mapper_shard_count"],
-               json.get("mapper_output_writer")
+    return cls(json_in["mapper_handler_spec"],
+               json_in["mapper_input_reader"],
+               json_in["mapper_params"],
+               json_in["mapper_shard_count"],
+               json_in.get("mapper_output_writer")
               )
 
 
@@ -588,20 +588,20 @@ class MapreduceSpec(JsonMixin):
     }
 
   @classmethod
-  def from_json(cls, json):
+  def from_json(cls, json_in):
     """Create new MapreduceSpec from the json, encoded by to_json.
 
     Args:
-      json: json representation of MapreduceSpec.
+      json_in: json representation of MapreduceSpec.
 
     Returns:
       an instance of MapreduceSpec with all data deserialized from json.
     """
-    mapreduce_spec = cls(json["name"],
-                         json["mapreduce_id"],
-                         json["mapper_spec"],
-                         json.get("params"),
-                         json.get("hooks_class_name"))
+    mapreduce_spec = cls(json_in["name"],
+                         json_in["mapreduce_id"],
+                         json_in["mapper_spec"],
+                         json_in.get("params"),
+                         json_in.get("hooks_class_name"))
     return mapreduce_spec
 
 
@@ -818,11 +818,11 @@ class TransientShardState(object):
     """Create new TransientShardState from webapp request."""
     mapreduce_spec = MapreduceSpec.from_json_str(request.get("mapreduce_spec"))
     mapper_spec = mapreduce_spec.mapper
-    input_reader_spec_dict = simplejson.loads(request.get("input_reader_state"),
+    input_reader_spec_dict = json.loads(request.get("input_reader_state"),
                                               cls=JsonDecoder)
     input_reader = mapper_spec.input_reader_class().from_json(
         input_reader_spec_dict)
-    initial_input_reader_spec_dict = simplejson.loads(
+    initial_input_reader_spec_dict = json.loads(
         request.get("initial_input_reader_state"), cls=JsonDecoder)
     initial_input_reader = mapper_spec.input_reader_class().from_json(
         initial_input_reader_spec_dict)
@@ -830,7 +830,7 @@ class TransientShardState(object):
     output_writer = None
     if mapper_spec.output_writer_class():
       output_writer = mapper_spec.output_writer_class().from_json(
-          simplejson.loads(request.get("output_writer_state", "{}"),
+          json.loads(request.get("output_writer_state", "{}"),
                            cls=JsonDecoder))
       assert isinstance(output_writer, mapper_spec.output_writer_class()), (
           "%s.from_json returned an instance of wrong class: %s" % (
@@ -1152,11 +1152,11 @@ class QuerySpec(object):
             "ns": self.ns}
 
   @classmethod
-  def from_json(cls, json):
-    return cls(json["entity_kind"],
-               json["keys_only"],
-               json["filters"],
-               json["batch_size"],
-               json["model_class_path"],
-               json["app"],
-               json["ns"])
+  def from_json(cls, json_in):
+    return cls(json_in["entity_kind"],
+               json_in["keys_only"],
+               json_in["filters"],
+               json_in["batch_size"],
+               json_in["model_class_path"],
+               json_in["app"],
+               json_in["ns"])

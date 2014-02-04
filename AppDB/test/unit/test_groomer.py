@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import datetime
 import os
 import sys
 import unittest
@@ -45,6 +46,8 @@ class FakeReference():
     pass
   def app(self):
     return "app_id"
+  def name_space(self):
+    return "namespace"
 
 class FakeEntity():
   def __init__(self):
@@ -59,6 +62,8 @@ class FakeEntity():
     raise Exception()
   def put(self):
     raise Exception()
+  def key(self):
+    return FakeReference()
 
 class TestGroomer(unittest.TestCase):
   """
@@ -209,9 +214,9 @@ class TestGroomer(unittest.TestCase):
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
     # Should loop twice and on the second raise an exception.
-    self.assertEquals(True, dsg.update_statistics())
+    self.assertEquals(True, dsg.update_statistics(datetime.datetime.now()))
     dsg.should_receive("create_kind_stat_entry").and_return(False)
-    self.assertEquals(False, dsg.update_statistics())
+    self.assertEquals(False, dsg.update_statistics(datetime.datetime.now()))
 
   def test_reset_statistics(self):
     zookeeper = flexmock()

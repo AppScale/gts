@@ -51,7 +51,7 @@ except ImportError:
   pipeline = None
 
 
-from google.appengine.ext import webapp
+import webapp2
 from google.appengine.ext.mapreduce import handlers
 from google.appengine.ext.mapreduce import status
 from google.appengine.ext.webapp import util
@@ -60,7 +60,7 @@ from google.appengine.ext.webapp import util
 STATIC_RE = r".*/([^/]*\.(?:css|js)|status|detail)$"
 
 
-class RedirectHandler(webapp.RequestHandler):
+class RedirectHandler(webapp2.RequestHandler):
   """Redirects the user back to the status page."""
 
   def get(self):
@@ -109,19 +109,11 @@ def create_application():
   """Create new WSGIApplication and register all handlers.
 
   Returns:
-    an instance of webapp.WSGIApplication with all mapreduce handlers
+    an instance of webapp2.WSGIApplication with all mapreduce handlers
     registered.
   """
-  return webapp.WSGIApplication(create_handlers_map(),
+  return webapp2.WSGIApplication(create_handlers_map(),
                                 debug=True)
 
 
 APP = create_application()
-
-
-def main():
-  util.run_wsgi_app(APP)
-
-
-if __name__ == "__main__":
-  main()

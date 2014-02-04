@@ -27,9 +27,9 @@
 import os
 import re
 import urllib
+import webapp2
 
 from google.appengine.api import datastore
-from google.appengine.ext import webapp
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation
@@ -62,7 +62,7 @@ def DeleteEntity(key):
     yield operation.db.Delete(key)
 
 
-class ConfirmDeleteHandler(webapp.RequestHandler):
+class ConfirmDeleteHandler(webapp2.RequestHandler):
   """Handler to deal with requests from the admin console to delete data."""
 
   SUFFIX = 'confirm_delete'
@@ -105,7 +105,7 @@ class ConfirmDeleteHandler(webapp.RequestHandler):
     ConfirmDeleteHandler.Render(self)
 
 
-class DoDeleteHandler(webapp.RequestHandler):
+class DoDeleteHandler(webapp2.RequestHandler):
   """Handler to deal with requests from the admin console to delete data."""
 
   SUFFIX = 'delete.do'

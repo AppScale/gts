@@ -1987,16 +1987,18 @@ class DatastoreDistributed():
           dbconstants.KIND_SEPARATOR + __key__ 
     return startrow, endrow, start_inclusive, end_inclusive
 
-  def namespace_query(self):
-    """ Performs a metadata namespace query.
+  def default_namespace(self):
+    """ Returns the default namespace entry because the groomer does not
+    generate it for each application.
  
     Returns:
-      A list of entity protos holding Namespace kinds.
+      A entity proto of the default metadata.Namespace.
     """
-    #TODO implement where we return all active namespaces.
     default_namespace = Namespace(id=1)
     protobuf = db.model_to_protobuf(default_namespace)
-    return [protobuf.Encode()]
+    last_path = protobuf.key().path().element_list()[-1]
+    last_path.set_id(1)
+    return protobuf.Encode()
 
   def __kind_query(self, query, filter_info, order_info):
     """ Performs kind only queries, kind and ancestor, and ancestor queries
@@ -2023,8 +2025,10 @@ class DatastoreDistributed():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
       return self.kindless_query(query, filter_info, order_info)
-    elif query.kind() == "__namespace__":
-      return self.namespace_query()
+    elif query.kind().startswith("__") and \
+      query.kind().endswith("__"):
+      # Use the default namespace for metadata queries.
+      query.set_name_space("")
  
     startrow, endrow, start_inclusive, end_inclusive = \
       self.kind_query_range(query, filter_info, order_info)
@@ -2043,6 +2047,7 @@ class DatastoreDistributed():
     limit = self.get_limit(query)
     if startrow > endrow:
       return []
+
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
@@ -2052,7 +2057,10 @@ class DatastoreDistributed():
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
 
-    return self.__fetch_entities(result, query.app())
+    fetched_entities = self.__fetch_entities(result, query.app())
+    if query.kind() == "__namespace__":
+      fetched_entities = [self.default_namespace()] + fetched_entities
+    return fetched_entities
 
   def remove_exists_filters(self, filter_info):
     """ We don't have native support for projection queries, so remove
@@ -2082,6 +2090,11 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
+    if query.kind().startswith("__") and \
+      query.kind().endswith("__"):
+      # Use the default namespace for metadata queries.
+      query.set_name_space("")
+ 
     filter_info = self.remove_exists_filters(filter_info)
     ancestor = None
     property_names = set(filter_info.keys())

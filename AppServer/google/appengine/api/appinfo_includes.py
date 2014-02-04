@@ -265,11 +265,11 @@ def _ResolvePath(included_from, included_path, basepath):
     absolute path of the first file found for included_path or ''.
   """
 
-
-
-
-
-
+  python_lib = "$PYTHON_LIB"
+  appscale_server = "/root/appscale/AppServer"
+  included_from = included_from.replace(python_lib, appscale_server)
+  included_path = included_path.replace(python_lib, appscale_server)
+  basepath = basepath.replace(python_lib, appscale_server)
 
   path = os.path.join(os.path.dirname(included_from), included_path)
   if not _IsFileOrDirWithFile(path):
