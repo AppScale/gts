@@ -456,9 +456,10 @@ class DatastoreGroomer(threading.Thread):
   def update_namespaces(self, timestamp):
     """ Puts the namespace information into the datastore for applications to
         access.
- 
-    timestamp: A datetime time stamp to know which stat items belong 
-      together.
+
+    Args: 
+      timestamp: A datetime time stamp to know which stat items belong 
+        together.
     Returns:
       True if there were no errors, False otherwise.
     """
@@ -485,7 +486,6 @@ class DatastoreGroomer(threading.Thread):
     Args:
       timestamp: A datetime time stamp to know which stat items belong 
         together.
-   
     Returns:
       True if there were no errors, False otherwise.
     """
