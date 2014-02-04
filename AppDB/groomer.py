@@ -337,7 +337,8 @@ class DatastoreGroomer(threading.Thread):
     try:
       db.put(entities_to_write)
     except datastore_errors.InternalError, internal_error:
-      logging.error("Error inserting namespace info: {0}.".format(internal_error))
+      logging.error("Error inserting namespace info: {0}.".\
+        format(internal_error))
       return False
     logging.debug("Done creating namespace stats") 
     return True
@@ -399,7 +400,8 @@ class DatastoreGroomer(threading.Thread):
       True on success.
     """
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
-    timeout = datetime.datetime.now() - datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
+    timeout = datetime.datetime.now() - \
+      datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
     query = TaskName.all()
     query.filter("timestamp <", timeout)
     entities = query.run()
@@ -462,14 +464,10 @@ class DatastoreGroomer(threading.Thread):
     """
     for app_id in self.namespace_info.keys():
       ds_distributed = self.register_db_accessor(app_id) 
-      total_size = 0
-      total_number = 0
       namespaces = self.namespace_info[app_id].keys()
       for namespace in namespaces:
         size = self.namespace_info[app_id][namespace]['size']
         number = self.namespace_info[app_id][namespace]['number']
-        total_size += size
-        total_number += number 
         if not self.create_namespace_entry(namespace, size, number, timestamp):
           return False
 
