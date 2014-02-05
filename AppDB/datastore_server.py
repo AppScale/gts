@@ -3116,6 +3116,10 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       return
 
+    # If the application identifier has the HRD string prepened, remove it.
+    if app_id.startswith("s~"):
+      app_id = app_id[2:]
+
     if pb_type == "Request":
       self.remote_request(app_id, http_request_data)
     else:

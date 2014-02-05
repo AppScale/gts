@@ -608,6 +608,22 @@ class ZKTransaction:
       raise ZKInternalException("Couldn't see if we are in transaction {0}" \
         .format(txid))
 
+  def is_orphan_lock(self, tx_lockpath):
+    """ Checks to see if a lock does not have a transaction linked.
+   
+    If the groomer misses to unlock a lock for whatever reason, we need
+    to make sure the lock is eventually released.
+
+    Args:
+      tx_lockpath: A str, the path to the transaction using the lock.
+    Returns:
+      True if the lock is an orphan, and False otherwise.
+    """
+    try: 
+      self.handle.get(tx_lockpath)
+      return False
+    except kazoo.exceptions.NoNodeError:
+      return True
 
   def acquire_additional_lock(self, app_id, txid, entity_key, create):
     """ Acquire an additional lock for a cross group transaction.
@@ -648,6 +664,13 @@ class ZKTransaction:
         tx_lockpath = self.run_with_retry(self.handle.get, lockrootpath)[0]
         logging.error("Lock {0} in use by {1}".format(lockrootpath,
           tx_lockpath))
+        if self.is_orphan_lock(tx_lockpath):
+          logging.error("Lock {0} is an orphan lock. Releasing it".format(
+            lockrootpath))
+          # Releasing the lock in question.
+          self.handle.delete(lockrootpath)
+          # Try to acquire the lock again.
+          return self.acquire_additional_lock(app_id, txid, entity_key, create)
       except kazoo.exceptions.NoNodeError:
         # If the lock is released by another thread this can get tossed.
         # A race condition.
@@ -1062,8 +1085,8 @@ class ZKTransaction:
           self.handle.create(blacklist_root, value=DEFAULT_VAL,
             acl=ZOO_ACL_OPEN, ephemeral=False, sequence=False, makepath=True)
 
-        self.handle.create_async(PATH_SEPARATOR.join([blacklist_root, str(txid)]), 
-          value=now, acl=ZOO_ACL_OPEN)
+        self.handle.create_async(PATH_SEPARATOR.join([blacklist_root, 
+          str(txid)]), value=now, acl=ZOO_ACL_OPEN)
 
         children = []
         try:
@@ -1111,7 +1134,8 @@ class ZKTransaction:
         except kazoo.exceptions.NoNodeError:
           logging.error("No node error when trying to remove {0}".format(txid))
 
-      logging.error("Notify failed transaction removing lock: {0}".format(txpath))
+      logging.error("Notify failed transaction removing lock: {0}".\
+        format(txpath))
       self.run_with_retry(self.handle.delete, txpath)
 
     except ZKInternalException as zk_exception:
@@ -1194,11 +1218,13 @@ class ZKTransaction:
       except kazoo.exceptions.ZookeeperError as zk_exception:
         logging.exception(zk_exception)
         self.reestablish_connection()
-        return
       except kazoo.exceptions.KazooException as kazoo_exception:
         logging.exception(kazoo_exception)
         self.reestablish_connection()
-        return
+      except Exception as exception:
+        logging.error("UNKNOWN EXCEPTION")
+        logging.exception(exception)
+        self.reestablish_connection()
 
       with self.gc_cv:
         self.gc_cv.wait(GC_INTERVAL)
@@ -1229,7 +1255,11 @@ class ZKTransaction:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
       return False
-
+    except Exception as exception:
+      logging.exception(exception)
+      self.reestablish_connection()
+      return False
+ 
     # If the last time plus our GC interval is less than the current time,
     # that means its time to run the GC again.
     if last_time + GC_INTERVAL < time.time():
@@ -1259,6 +1289,11 @@ class ZKTransaction:
         logging.exception(kazoo_exception)
         self.reestablish_connection()
         return False
+      except Exception as exception:
+        logging.exception(exception)
+        self.reestablish_connection()
+        return False
+ 
       return True
     return False
 
@@ -1353,7 +1388,11 @@ class ZKTransaction:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
       return
-
+    except Exception as exception:
+      logging.error("UNKNOW EXCEPTION") 
+      logging.exception(exception)
+      self.reestablish_connection()
+      return
     # Verify the time stamp of each transaction.
     for txid in txlist:
       if not re.match("^" + APP_TX_PREFIX + '\d', txid):
@@ -1382,4 +1421,9 @@ class ZKTransaction:
         logging.exception(kazoo_exception)
         self.reestablish_connection()
         return
+      except Exception as exception:
+        logging.error("UNKNOW EXCEPTION") 
+        logging.exception(exception)
+        self.reestablish_connection()
+        return 
     logging.debug("Lock GC took {0} seconds.".format(str(time.time() - start)))
