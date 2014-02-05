@@ -224,7 +224,7 @@ module HAProxy
   def self.clear_sites_enabled
     if File.exists?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
-      # Remove any files that are not configs
+      # Remove any files that are not configs.
       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
       FileUtils.rm_f full_path_sites
@@ -233,7 +233,8 @@ module HAProxy
     end
   end
 
-  # Set up the folder structure and creates the configuration files necessary for haproxy
+  # Set up the folder structure and creates the configuration files 
+  # necessary for haproxy.
   def self.initialize_config
     base_config = <<CONFIG
 global
@@ -245,27 +246,29 @@ global
   log             127.0.0.1       local0
   log             127.0.0.1       local1 notice
 
-  # Distribute the health checks with a bit of randomness
+  # Distribute the health checks with a bit of randomness.
   spread-checks 5
 
-  # Bind socket for haproxy stats
+  # Bind socket for haproxy stats.
   stats socket /etc/haproxy/stats
 
-# Settings in the defaults section apply to all services (unless overridden in a specific config)
+# Settings in the defaults section apply to all services (unless 
+# overridden in a specific config).
 defaults
 
-  # apply log settings from the global section above to services
+  # Apply log settings from the global section above to services.
   log global
 
-  # Proxy incoming traffic as HTTP requests
+  # Proxy incoming traffic as HTTP requests.
   mode http
 
-  # Use round robin load balancing, however since we will use maxconn that will take precedence
+  # Use round robin load balancing, however since we will use maxconn that 
+  # will take precedence.
   balance roundrobin
 
   maxconn 64000
 
-  # Log details about HTTP requests
+  # Log details about HTTP requests.
   #option httplog
 
   # Abort request if client closes its output channel while waiting for the 
@@ -277,34 +280,43 @@ defaults
   option httpclose
 
   # If sending a request fails, try to send it to another, 3 times
-  # before aborting the request
+  # before aborting the request.
   retries 3
 
   # Do not enforce session affinity (i.e., an HTTP session can be served by 
-  # any Mongrel, not just the one that started the session
+  # any Mongrel, not just the one that started the session.
   option redispatch
 
-  # Timeout a request if the client did not read any data for 60 seconds
+  # Timeout a request if the client did not read any data for 60 seconds.
   timeout client 60000
 
-  # Timeout a request if Mongrel does not accept a connection for 60 seconds
+  # Timeout a request if Mongrel does not accept a connection for 60 seconds.
   timeout connect 60000
 
   # Timeout a request if Mongrel does not accept the data on the connection,
   # or does not send a response back in 1 minute.
   timeout server 60000
   
-  # Enable the statistics page 
+  # Enable the statistics page.
   stats enable
   stats uri     /haproxy?stats
   stats realm   Haproxy\ Statistics
   stats auth    haproxy:stats
 
-  # Create a monitorable URI which returns a 200 if haproxy is up
+  # Create a monitorable URI which returns a 200 if haproxy is up.
   # monitor-uri /haproxy?monitor
 
-  # Amount of time after which a health check is considered to have timed out
+  # Amount of time after which a health check is considered to have timed out.
   timeout check 5000
+
+# Enable the web UI for haproxy statistics.
+listen stats :1936
+    mode http
+    stats enable
+    stats hide-version
+    stats realm Haproxy\ Statistics
+    stats uri /
+
 CONFIG
 
     # Create the sites enabled folder
