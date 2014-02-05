@@ -162,12 +162,7 @@ upstream gae_#{app_name} {
 }
 
 server {
-    chunkin on;
  
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{http_port};
     server_name #{my_public_ip};
     root /var/apps/#{app_name}/app;
@@ -203,12 +198,6 @@ server {
 
 }
 server {
-    chunkin on;
- 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-        chunkin_resume;
-    }
     listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
@@ -348,12 +337,6 @@ map $scheme $ssl {
 }
 
 server {
-    chunkin on;
- 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{http_port};
     server_name #{my_public_ip}-#{app_name};
     #root /var/apps/#{app_name}/app;
@@ -384,12 +367,6 @@ server {
 
 }
 server {
-    chunkin on;
- 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{BLOBSERVER_LISTEN_PORT};
     server_name #{my_public_ip}-#{app_name}-blobstore;
     #root /var/apps/#{app_name}/app;
@@ -419,12 +396,6 @@ server {
 }    
 
 server {
-    chunkin on;
- 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
@@ -514,12 +485,6 @@ upstream #{DatastoreServer::NAME} {
 }
     
 server {
-    chunkin on;
- 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{DatastoreServer::LISTEN_PORT_NO_SSL};
     server_name #{my_ip};
     root /root/appscale/AppDB/;
@@ -549,12 +514,6 @@ server {
 }
 
 server {
-    chunkin on;
- 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{DatastoreServer::LISTEN_PORT_WITH_SSL};
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
@@ -610,31 +569,20 @@ CONFIG
       # redirect all request to ssl port.
       config += <<CONFIG
 server {
-  chunkin on;
- 
     #If they come here using HTTPS, bounce them to the correct scheme
     error_page 400 http://$host:$server_port$request_uri;
 
-  error_page 411 = @my_411_error;
-  location @my_411_error {
-      chunkin_resume;
-  }
 
     listen #{listen_port};
     rewrite ^(.*) https://#{my_public_ip}:#{ssl_port}$1 permanent;
 }
 
 server {
-    chunkin on;
  
     #If they come here using HTTP, bounce them to the correct scheme
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{ssl_port};
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
@@ -647,12 +595,7 @@ CONFIG
     else
       config += <<CONFIG
 server {
-    chunkin on;
  
-    error_page 411 = @my_411_error;
-    location @my_411_error {
-      chunkin_resume;
-    }
     listen #{listen_port};
 CONFIG
     end
