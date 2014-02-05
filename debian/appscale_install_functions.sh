@@ -20,15 +20,14 @@ export APPSCALE_VERSION=1.11.0
 
 increaseconnections()
 {
-    echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
-    echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
-
-    /sbin/sysctl -p /etc/sysctl.conf 
+  modprobe nf_conntrack
+  echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
+  echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
+  echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
+  echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
+  echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
+  echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
+  /sbin/sysctl -p /etc/sysctl.conf 
 }
 
 sethosts()
