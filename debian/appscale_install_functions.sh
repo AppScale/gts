@@ -325,16 +325,17 @@ postinstallgems()
 
 installnginx()
 {
-    NGINX_VERSION=1.2.6
+    NGINX_VERSION=1.5.10
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/nginx-${NGINX_VERSION}.tar.gz
+    wget http://nginx.org/download/nginx-1.5.10.tar.gz
     tar zxvf nginx-${NGINX_VERSION}.tar.gz
     rm -v nginx-${NGINX_VERSION}.tar.gz
     pushd nginx-${NGINX_VERSION}
-    wget $APPSCALE_PACKAGE_MIRROR/v0.23rc2.tar.gz
-    tar zxvf v0.23rc2.tar.gz
-    ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module
+    #wget $APPSCALE_PACKAGE_MIRROR/v0.23rc2.tar.gz
+    #tar zxvf v0.23rc2.tar.gz
+    ./configure --with-http_ssl_module --with-http_gzip_static_module
+    #./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module
     make
     make install
     popd
