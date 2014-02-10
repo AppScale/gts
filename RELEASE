@@ -4,7 +4,42 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.13.0, released on December 19, 2013.
+The current version is 1.14.0, released on February 10, 2014
+Bugs fixed in this release:
+- Removed "s~" character from app IDs (not used in AppScale) (#1428)
+- Updated message for MapReduce library (#1427)
+- Updated Nginx to latest version 1.5.10 (#1412 and #1411)
+- Releasing orphan locks in ZooKeeper (#1410)
+- Fixed AppController unit test (#1409)
+- Ability to use datastore_admin builtins in AppScale (#1408)
+- Cleaned up java AppServer log (#1407)
+- Removed unused scheduler in Java TasQueue due to Null Pointer (#1406)
+- Increased Cassandra timeout for bigger results from Datastore API (#1405)
+- Async logging and more efficient log updates (#1397 and #1403)
+- Allow the ability to update the flower password from the AppScalefile (#871 and $864)
+- Increased the number of cycles before killing a process (#868)
+- Ability to use remote_api in AppScale (#867)
+- Fixed unit test for ZooKeeper retry (#866)
+- Fixed Java logging (#865)
+- Ability to set max memory for application in AppScalefile (#862)
+- Exposing monit dashboard in cloud admin console (#861)
+- Fix for null values in composite queries (#860)
+- Fixing Channel API because AppScale secret changes on redeploy (#859)
+- Fixing ZigZag Merge Join queries (#858 and #850)
+- Setting max limit to 10k for queries to match GAE (#857)
+- Having Channel API return 200s instead of 503 timeouts (#856)
+- Cleaning up left over locks (#855)
+- Using Nginx port instead of server port where appropriate (#855)
+- Fix for multiple filters on a property in composite queries (#851)
+- Fix parsing app.yaml for regex for nginx (#849)
+- Setting PYTHON_LIB for app.yaml (#848)
+- Always rewrite nginx config file on app upload (#847)
+- Changed kind delimiter from "!" to 'x/01' (#844)
+- Increased cutoff time for all paths to 10 minutes (#843)
+- Channel API was missing named arg (#842)
+- Notify failed transaction on datastore connection issues (#838)
+
+AppScale version 1.13.0, released on December 19, 2013.
 
 Bugs fixed in this release:
 - Composite queries in the Java AppServer should make use of composite indexes
