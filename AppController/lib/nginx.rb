@@ -680,7 +680,7 @@ http {
     keepalive_timeout  600;
     tcp_nodelay        on;
     server_names_hash_bucket_size 128;
-
+    types_hash_max_size 2048;
     gzip  on;
 
     include #{NGINX_PATH}/sites-enabled/*;
