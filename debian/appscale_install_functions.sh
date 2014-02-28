@@ -131,7 +131,7 @@ installappscaleprofile()
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
- /usr/lib/jvm/java-7-oracle\
+ /usr/lib/jvm/java-7-openjdk-amd64\
  /usr/lib/jvm/default-java
 do
   if [ -e \$jpath ]; then
@@ -176,7 +176,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-7-oracle
+JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
@@ -189,14 +189,8 @@ installthrift()
 
 installjavajdk()
 {
-    # Since Oracle requires you to accept terms and conditions, have to pull from webupd8team
-    sudo echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
-    echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" | tee -a /etc/apt/sources.list
-    echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" | tee -a /etc/apt/sources.list
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886
-    apt-get update
-    apt-get install -y oracle-java7-installer
-    export JAVA_HOME=/usr/lib/jvm/java-7-oracle
+    apt-get install -y openjdk-7-jdk
+    export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
 }
 
 installappserverjava()
