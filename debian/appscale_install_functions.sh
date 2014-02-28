@@ -59,10 +59,10 @@ EOF
 
 setupntpcron()
 {
-    echo "MAILTO=\"\"" >> crontab.tmp
-    echo "*/5 * * * * /root/appscale/ntp.sh" >> crontab.tmp
-    crontab crontab.tmp
-    rm crontab.tmp
+    # make sure we are time synced at start and that ntp is running
+    service ntp stop
+    ntpdate pool.ntp.org
+    service ntp start
 }
 
 installphp()
