@@ -1,11 +1,9 @@
-#/bin/sh
+#!/bin/bash
+#
 # Common functions for build and installer
 #
 # This should work in bourne shell (/bin/sh)
 # The function name should not include non alphabet character.
-#
-# Originally written by Yoshi <nomura@pobox.com>
-# Maintained by AppScale Engineering Team
 
 set -e
 
