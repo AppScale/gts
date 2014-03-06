@@ -4,7 +4,8 @@
 # This should work in bourne shell (/bin/sh)
 # The function name should not include non alphabet character.
 #
-# Written by Yoshi <nomura@pobox.com>
+# Originally written by Yoshi <nomura@pobox.com>
+# Maintained by AppScale Engineering Team
 
 set -e
 
@@ -130,15 +131,6 @@ installappscaleprofile()
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-for jpath in\
- /usr/lib/jvm/java-7-openjdk-amd64\
- /usr/lib/jvm/default-java
-do
-  if [ -e \$jpath ]; then
-    export JAVA_HOME=\$jpath
-    break
-  fi
-done
 export PYTHON_EGG_CACHE=/tmp/.python_eggs
 export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
 export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
@@ -190,7 +182,8 @@ installthrift()
 installjavajdk()
 {
     apt-get install -y openjdk-7-jdk
-    export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
+    # make jdk-7 the default
+    update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 }
 
 installappserverjava()
