@@ -16,7 +16,7 @@ To find out more visit http://appscale.com
 https://github.com/AppScale/appscale/wiki
 
 ## Latest Release ##
-The latest stable release is AppScale 1.14.0, released February 10, 2014.
+The latest stable release is AppScale 1.14.0, released February 14, 2014.
 Feature requests and pull requests gladly welcomed.
 
 ## Mailing List ##
