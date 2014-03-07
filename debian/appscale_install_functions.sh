@@ -225,7 +225,8 @@ installhaproxy()
 {
     apt-get install haproxy
 
-# download from appscale site
+    # download from appscale site
+    HAPROXY_VER=1.4.4
     wget $APPSCALE_PACKAGE_MIRROR/haproxy-${HAPROXY_VER}.tar.gz
     tar zxvf haproxy-${HAPROXY_VER}.tar.gz
     rm -v haproxy-${HAPROXY_VER}.tar.gz
