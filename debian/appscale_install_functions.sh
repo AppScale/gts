@@ -66,23 +66,13 @@ setupntpcron()
 
 installphp()
 {
-    cd /usr/local
-    wget $APPSCALE_PACKAGE_MIRROR/php-5.4.15-prebuilt.tar.gz
-    tar zxvf php-5.4.15-prebuilt.tar.gz
-    rm /usr/local/php-5.4.15-prebuilt.tar.gz
+    apt-get install php5
 }
 
 installnumpy()
 {
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/appscale-numpy-1.7.0.tar.gz
-    tar zxvf appscale-numpy-1.7.0.tar.gz
-    cd numpy-1.7.0
-    python setup.py install
-    cd ..
-    rm appscale-numpy-1.7.0.tar.gz
-    rm -fr numpy-1.7.0
+    # on precise numpy currently is 1.6.1 which is the same version as GAE
+    apt-get install python-numpy
 }
 
 installPIL()
@@ -233,28 +223,12 @@ postinstalltornado()
 
 installhaproxy()
 {
-    # 1.4.4 or newer version of haproxy is needed for AppServer Java.
-    # because there is jetty keep-alive issue.
-    HAPROXY_VER=1.4.4
+    apt-get install haproxy
 
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    rm -rfv haproxy*
 # download from appscale site
     wget $APPSCALE_PACKAGE_MIRROR/haproxy-${HAPROXY_VER}.tar.gz
     tar zxvf haproxy-${HAPROXY_VER}.tar.gz
     rm -v haproxy-${HAPROXY_VER}.tar.gz
-
-    pushd haproxy-${HAPROXY_VER}
-    # All Ubuntu is linux26 now
-    make TARGET=linux26
-    make install-bin PREFIX=/usr
-    if [ ! -e ${DESTDIR}/usr/sbin/haproxy ]; then
-	echo "Fail to install haproxy. Please retry."
-	exit 1
-    fi
-    popd
-    rm -rv haproxy-${HAPROXY_VER}
 
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
@@ -335,25 +309,15 @@ postinstallnginx()
 
 installmonit()
 {
-    # First, install monit.
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/monit-5.6-prebuilt-precise.tar.gz
-    tar zxvf monit-5.6-prebuilt-precise.tar.gz
-    cd monit-5.6
-    make install
-    cd ..
-    rm -rf monit-5.6 monit-5.6-prebuilt-precise.tar.gz
+    apt-get install monit
 
-    # Next, monit won't start unless there's a config file that enables it,
-    # so copy that over as well as our AppScale-specific monit file.
+    # let's use our configuration
     cd ${APPSCALE_HOME}
     cp monit /etc/default/monit
     cp monitrc /etc/monitrc
+    chmod 0700 /etc/monitrc
     mkdir -p /etc/monit/conf.d
 
-    # Finally, monit requires the monitrc file to be 0700, otherwise it won't
-    # use it.
-    chmod 0700 /etc/monitrc
 }
 
 installcassandra()
