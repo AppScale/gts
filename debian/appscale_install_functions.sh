@@ -66,13 +66,13 @@ setupntpcron()
 
 installphp()
 {
-    apt-get install php5
+    apt-get install -y php5
 }
 
 installnumpy()
 {
     # on precise numpy currently is 1.6.1 which is the same version as GAE
-    apt-get install python-numpy
+    apt-get install -y python-numpy
 }
 
 installPIL()
@@ -223,7 +223,7 @@ postinstalltornado()
 
 installhaproxy()
 {
-    apt-get install haproxy
+    apt-get install -y haproxy
 
     # download from appscale site
     HAPROXY_VER=1.4.4
@@ -310,7 +310,7 @@ postinstallnginx()
 
 installmonit()
 {
-    apt-get install monit
+    apt-get install -y monit
 
     # let's use our configuration
     cd ${APPSCALE_HOME}
