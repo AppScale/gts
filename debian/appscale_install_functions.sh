@@ -284,18 +284,7 @@ postinstallgems()
 
 installnginx()
 {
-    NGINX_VERSION=1.5.10
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/nginx-1.5.10.tar.gz
-    tar zxvf nginx-${NGINX_VERSION}.tar.gz
-    rm -v nginx-${NGINX_VERSION}.tar.gz
-    pushd nginx-${NGINX_VERSION}
-    ./configure --with-http_ssl_module --with-http_gzip_static_module
-    make
-    make install
-    popd
-    rm -rv nginx-${NGINX_VERSION}
+    apt-get install -y nginx
 }
 
 # This function is called from postinst.core, so we don't need to use DESTDIR
@@ -363,28 +352,8 @@ postinstallcassandra()
 
 installprotobuf_fromsource()
 {
-    PROTOBUF_VER=2.3.0
-    # install protobuf 2.3.0. we need egg version for python.
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/protobuf-${PROTOBUF_VER}.tar.gz
-    tar zxvf protobuf-${PROTOBUF_VER}.tar.gz
-    rm -v protobuf-${PROTOBUF_VER}.tar.gz
-    pushd protobuf-${PROTOBUF_VER}
-    ./configure --prefix=/usr
-    make
-    make check
-    make install
-    pushd python
-# protobuf could not be installed in the different root
-    python setup.py bdist_egg
-# copy the egg file
-    DISTP=${DESTDIR}/usr/local/lib/python2.7/dist-packages
-    mkdir -pv ${DISTP}
-    cp -v dist/protobuf-*.egg ${DISTP}
-    popd
-    popd
-    rm -rv protobuf-${PROTOBUF_VER}
+    # installing the java protobuf pulls in all deps
+    apt-get install -y python-protobuf libprotobuf7-java
 }
 
 installservice()
