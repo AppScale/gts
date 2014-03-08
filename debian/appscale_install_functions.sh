@@ -288,9 +288,8 @@ installnginx()
 postinstallnginx()
 {
     cd ${APPSCALE_HOME}
-    mkdir -p /usr/local/nginx/sites-enabled/
-    cp -v AppDashboard/setup/load-balancer.conf /usr/local/nginx/sites-enabled/
-    rm -fv /usr/local/nginx/sites-enabled/default
+    cp -v AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
+    rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
 }
 
@@ -298,10 +297,8 @@ installmonit()
 {
     # let's use our configuration
     cd ${APPSCALE_HOME}
-    cp monit /etc/default/monit
     cp monitrc /etc/monitrc
     chmod 0700 /etc/monitrc
-    mkdir -p /etc/monit/conf.d
 
 }
 
