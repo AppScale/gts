@@ -42,6 +42,21 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
+# for distro
+PACKAGES=`find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
+apt-get install -y --force-yes ${PACKAGES}
+if [ $? -ne 0 ]; then
+    echo "Fail to install depending packages for runtime."
+    exit 1
+fi
+# for general
+PACKAGES=`find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +`
+apt-get install -y --force-yes ${PACKAGES}
+if [ $? -ne 0 ]; then
+    echo "Fail to install depending packages for runtime."
+    exit 1
+fi
+
 # install package for build
 apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
  rsync ntp\
@@ -62,28 +77,6 @@ if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for building."
     exit 1
 fi
-
-
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for building."
-    exit 1
-fi
-
-# for distro
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y --force-yes ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
-# for general
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y --force-yes ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
-
 
 # remove conflict package
 if [ $1 ]; then
