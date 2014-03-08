@@ -222,8 +222,6 @@ postinstalltornado()
 
 installhaproxy()
 {
-    :;
-
     # download from appscale site
     HAPROXY_VER=1.4.4
     wget $APPSCALE_PACKAGE_MIRROR/haproxy-${HAPROXY_VER}.tar.gz
@@ -298,8 +296,6 @@ postinstallnginx()
 
 installmonit()
 {
-    :;
-
     # let's use our configuration
     cd ${APPSCALE_HOME}
     cp monit /etc/default/monit
