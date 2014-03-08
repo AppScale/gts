@@ -66,13 +66,12 @@ setupntpcron()
 
 installphp()
 {
-    apt-get install -y php5
+    :;
 }
 
 installnumpy()
 {
-    # on precise numpy currently is 1.6.1 which is the same version as GAE
-    apt-get install -y python-numpy
+    :;
 }
 
 installPIL()
@@ -169,7 +168,7 @@ installthrift()
 
 installjavajdk()
 {
-    apt-get install -y openjdk-7-jdk
+    :;
     # make jdk-7 the default
     update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 }
@@ -223,7 +222,7 @@ postinstalltornado()
 
 installhaproxy()
 {
-    apt-get install -y haproxy
+    :;
 
     # download from appscale site
     HAPROXY_VER=1.4.4
@@ -284,7 +283,7 @@ postinstallgems()
 
 installnginx()
 {
-    apt-get install -y nginx
+    :;
 }
 
 # This function is called from postinst.core, so we don't need to use DESTDIR
@@ -299,7 +298,7 @@ postinstallnginx()
 
 installmonit()
 {
-    apt-get install -y monit
+    :;
 
     # let's use our configuration
     cd ${APPSCALE_HOME}
@@ -352,8 +351,7 @@ postinstallcassandra()
 
 installprotobuf_fromsource()
 {
-    # installing the java protobuf pulls in all deps
-    apt-get install -y python-protobuf libprotobuf7-java
+    :;
 }
 
 installservice()

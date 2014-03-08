@@ -49,11 +49,8 @@ if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
 fi
 
 
-# Install cmake prior to the other packages since seems to fail if installed with the other packages
-apt-get install -y cmake
-
 # install package for build
-apt-get install -y autoconf automake libtool gcc g++ pkg-config ant maven2\
+apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
  rsync ntp\
  build-essential bison flex byacc unzip bzip2\
  libc6-dev subversion\

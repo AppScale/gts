@@ -10,6 +10,7 @@ Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
 # App Server/AppScale Server/SOAP Server
+ openjdk-7-jdk,
  openssl,
  python-yaml,
  python-m2crypto, python-soappy, 
@@ -17,6 +18,7 @@ Depends: appscale-tools,
  python-django, 
  sendmail,
  ejabberd,
+ python-protobuf libprotobuf7-java,
 # AppController
  ssh,
  ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,
@@ -26,10 +28,12 @@ Depends: appscale-tools,
  memcached,
  socat,
  dnsutils,
-# nginx 
- libpcre++-dev
-# haproxy
+ nginx,
+ libpcre++-dev,
+ haproxy,
  libpcre3,
+ php5,
+ monit,
 # Thrift
  libevent-1.4-2,
 # ZooKeeper
@@ -41,9 +45,10 @@ Depends: appscale-tools,
 # TaskQueue
  rabbitmq-server,
  python-pip,
+ python-numpy,
 # lxml
  libxslt-dev, libxml2-dev
-Conflicts: haproxy, zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper
+Conflicts: zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of
