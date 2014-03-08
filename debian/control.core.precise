@@ -18,7 +18,7 @@ Depends: appscale-tools,
  python-django, 
  sendmail,
  ejabberd,
- python-protobuf libprotobuf7-java,
+ python-protobuf libprotobuf-java,
 # AppController
  ssh,
  ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,

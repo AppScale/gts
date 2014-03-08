@@ -42,13 +42,6 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-# fix /etc/hosts file for collectd installation
-HOSTNAME=`hostname`
-if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
-    echo "127.0.1.1 ${HOSTNAME} ${HOSTNAME}.localdomain" >> /etc/hosts
-fi
-
-
 # install package for build
 apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
  rsync ntp\
