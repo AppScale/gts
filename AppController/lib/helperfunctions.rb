@@ -409,7 +409,7 @@ module HelperFunctions
   def self.app_has_config_file?(tar_gz_location)
     file_listing = HelperFunctions.shell("tar -ztf #{tar_gz_location}")
     app_yaml_regex = /app\.yaml/
-    appengine_web_xml_regex = /(war|web)\/WEB-INF\/appengine-web\.xml/
+    appengine_web_xml_regex = /.*\/WEB-INF\/appengine-web\.xml/
     if file_listing =~ app_yaml_regex or file_listing =~ appengine_web_xml_regex
       return true
     else
@@ -989,6 +989,16 @@ module HelperFunctions
     File.join(get_app_path(app_name),"app")
   end
 
+  # Locate WEB-INF folder in an untarred Java app directory
+  def self.get_web_inf_dir untar_dir
+    Dir["/#{untar_dir}/**/"].each { |path| return path if path =~ /.*\/WEB-INF\/.*/ }
+  end
+
+  # Get path to appengine-web.xml
+  def self.get_appengine_web_xml app
+    File.join(self.get_web_inf_dir("/var/apps/#{app}/app"), "/appengine-web.xml")
+  end
+
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
   # the files path relative to the apps directory (e.g. /static/file.txt).
   # This is the hacky way of getting that.
@@ -1002,7 +1012,6 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Djinn.log_info("Failed to load YAML file to parse static data")
       return self.parse_java_static_data(app_name)
     end
 
@@ -1107,9 +1116,9 @@ module HelperFunctions
   #   be accessed at, and the location in the static file directory where the
   #   file can be found.
   def self.parse_java_static_data(app_name)
-    untar_dir = self.get_untar_dir(app_name)
-
-    if !File.exists?("#{untar_dir}/war/WEB-INF/appengine-web.xml")
+    # Verify that app_name is a Java app
+    tar_gz_location = "/opt/appscale/apps/#{app_name}.tar.gz"
+    if !self.app_has_config_file?(tar_gz_location)
       Djinn.log_warn("#{app_name} does not appear to be a Java app")
       return []
     end
@@ -1120,13 +1129,17 @@ module HelperFunctions
     FileUtils.mkdir_p(cache_path)
     Djinn.log_debug("Made static file dir for app #{app_name} at #{cache_path}")
 
+    untar_dir = self.get_untar_dir(app_name)
+    war_dir = self.get_web_inf_dir(untar_dir)
+
+    # Copy static files
     handlers = []
-    all_files = Dir.glob("#{untar_dir}/war/**/*")
+    all_files = Dir.glob("#{war_dir}/**/*")
     all_files.each { |filename|
       next if filename.end_with?(".jsp")
       next if filename.include?("WEB-INF")
       next if File.directory?(filename)
-      relative_path = filename.scan(/#{app_name}\/app\/war\/(.*)/).flatten.to_s
+      relative_path = filename.scan(/#{war_dir}\/(.*)/).flatten.to_s
       Djinn.log_debug("Copying static file #{filename} to cache location #{File.join(cache_path, relative_path)}")
       cache_file_location = File.join(cache_path, relative_path)
       FileUtils.mkdir_p(File.dirname(cache_file_location))
@@ -1139,7 +1152,6 @@ module HelperFunctions
 
     handlers.compact
   end
-
 
   # Parses the app.yaml file for the specified application and returns
   # any URL handlers with a secure tag. The returns secure tags are
@@ -1378,7 +1390,7 @@ module HelperFunctions
   #   file.
   def self.get_app_env_vars(app)
     app_yaml_file = "/var/apps/#{app}/app/app.yaml"
-    appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
+    appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
       return tree['env_variables'] || {}
@@ -1413,7 +1425,7 @@ module HelperFunctions
     end
     app = app.sub(GAE_PREFIX, '')    
     app_yaml_file = "/var/apps/#{app}/app/app.yaml"
-    appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
+    appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
       Djinn.log_debug("[#{app}] Threadsafe is set to #{tree['threadsafe']}")
