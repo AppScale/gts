@@ -368,8 +368,7 @@ def create_python27_start_cmd(app_name,
   return ' '.join(cmd)
 
 def locate_dir(path, dir_name):
-  """
-  Locates a directory inside the given path.
+  """ Locates a directory inside the given path.
 
   Args:
     path: The path to be searched
@@ -384,8 +383,7 @@ def locate_dir(path, dir_name):
         return os.path.abspath(os.path.join(root, dir))
 
 def copy_modified_jars(app_name):
-  """
-  Copies the changes made to the Java SDK
+  """ Copies the changes made to the Java SDK
   for AppScale into the apps lib folder.
 
   Args:
@@ -421,8 +419,7 @@ def create_java_start_cmd(app_name,
                           port,
                           load_balancer_host,
                           db_locations):
-  """
-  Creates the start command to run the java application server.
+  """ Creates the start command to run the java application server.
 
   Args:
     app_name: The name of the application to run

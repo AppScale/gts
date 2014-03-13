@@ -989,14 +989,26 @@ module HelperFunctions
     File.join(get_app_path(app_name),"app")
   end
 
-  # Locate WEB-INF folder in an untarred Java app directory
-  def self.get_web_inf_dir untar_dir
+  # Locates WEB-INF folder in an untarred Java app directory.
+  #
+  # Args:
+  #  untar_dir: The location of the untarred Java app on AppScale.
+  #
+  # Returns:
+  #  The directory that contains WEB-INF inside a Java app.
+  def self.get_web_inf_dir(untar_dir)
     Dir["/#{untar_dir}/**/"].each { |path| return path if path =~ /.*\/WEB-INF\/.*/ }
   end
 
-  # Get path to appengine-web.xml
-  def self.get_appengine_web_xml app
-    File.join(self.get_web_inf_dir("/var/apps/#{app}/app"), "/appengine-web.xml")
+  # Finds the path to appengine-web.xml configuration file.
+  #
+  # Args:
+  #  app: The name of the Java app to be deployed.
+  #
+  # Returns:
+  #  The absolute path of the appengine-web.xml configuration file.
+  def self.get_appengine_web_xml(app)
+    return File.join(self.get_web_inf_dir("/var/apps/#{app}/app"), "/appengine-web.xml")
   end
 
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
