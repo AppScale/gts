@@ -375,7 +375,7 @@ def locate_dir(path, dir_name):
     dir_name: The directory we are looking for
 
   Returns:
-    The absolute path of the directory we are looking for
+    The absolute path of the directory we are looking for.
   """
   for root, sub_dirs, files in os.walk(path):
     for dir in sub_dirs:

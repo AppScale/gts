@@ -1128,7 +1128,7 @@ module HelperFunctions
   #   be accessed at, and the location in the static file directory where the
   #   file can be found.
   def self.parse_java_static_data(app_name)
-    # Verify that app_name is a Java app
+    # Verify that app_name is a Java app.
     tar_gz_location = "/opt/appscale/apps/#{app_name}.tar.gz"
     if !self.app_has_config_file?(tar_gz_location)
       Djinn.log_warn("#{app_name} does not appear to be a Java app")
@@ -1144,7 +1144,7 @@ module HelperFunctions
     untar_dir = self.get_untar_dir(app_name)
     war_dir = self.get_web_inf_dir(untar_dir)
 
-    # Copy static files
+    # Copy static files.
     handlers = []
     all_files = Dir.glob("#{war_dir}/**/*")
     all_files.each { |filename|
