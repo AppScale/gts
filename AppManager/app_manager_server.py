@@ -22,8 +22,8 @@ import appscale_info
 import constants
 import file_io
 import monit_app_configuration
-import monit_interface 
-import misc 
+import monit_interface
+import misc
 
 # Most attempts to see if an application server comes up before failing
 MAX_FETCH_ATTEMPTS = 7
@@ -36,10 +36,10 @@ INITIAL_BACKOFF_TIME = 1
 BAD_PID = -1
 
 # Required configuration fields for starting an application
-REQUIRED_CONFIG_FIELDS = ['app_name', 
-                          'app_port', 
-                          'language', 
-                          'load_balancer_ip', 
+REQUIRED_CONFIG_FIELDS = ['app_name',
+                          'app_port',
+                          'language',
+                          'load_balancer_ip',
                           'xmpp_ip',
                           'dblocations',
                           'env_vars',
@@ -61,7 +61,7 @@ PHP_CGI_LOCATION = "/usr/local/php-5.4.15/installdir/bin/php-cgi"
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
       Validates the dictionary configuration before returning.
-  
+
   Args:
     config: The configuration to convert
   Returns:
@@ -79,23 +79,23 @@ def convert_config_from_json(config):
                    (e.__class__, str(e)))
     return None
 
-  if is_config_valid(config): 
+  if is_config_valid(config):
     return config
   else:
     return None
-  
+
 def start_app(config):
-  """ Starts a Google App Engine application on this machine. It 
+  """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
-  
+
   Args:
-    config: a dictionary that contains 
+    config: a dictionary that contains
        app_name: Name of the application to start
-       app_port: Port to start on 
+       app_port: Port to start on
        language: What language the app is written in
        load_balancer_ip: Public ip of load balancer
-       xmpp_ip: IP of XMPP service 
-       dblocations: List of database locations 
+       xmpp_ip: IP of XMPP service
+       dblocations: List of database locations
        env_vars: A dict of environment variables that should be passed to the
         app.
        max_memory: An int that names the maximum amount of memory that this
@@ -106,13 +106,13 @@ def start_app(config):
   config = convert_config_from_json(config)
   if config == None:
     logging.error("Invalid configuration for application")
-    return BAD_PID 
-  
+    return BAD_PID
+
   if not misc.is_app_name_valid(config['app_name']):
     logging.error("Invalid app name for application: " +\
                   config['app_name'])
     return BAD_PID
-  logging.info("Starting %s application %s"%(config['language'], 
+  logging.info("Starting %s application %s"%(config['language'],
                                              config['app_name']))
 
   start_cmd = ""
@@ -121,7 +121,7 @@ def start_app(config):
   env_vars['GOPATH'] = '/root/appscale/AppServer/goroot/'
   env_vars['GOROOT'] = '/root/appscale/AppServer/gopath/'
   watch = "app___" + config['app_name']
- 
+
   if config['language'] == constants.PYTHON27 or \
        config['language'] == constants.GO or \
        config['language'] == constants.PHP:
@@ -148,7 +148,7 @@ def start_app(config):
     env_vars.update(create_java_app_env())
   else:
     logging.error("Unknown application language %s for appname %s"\
-                  %(config['language'], config['app_name'])) 
+                  %(config['language'], config['app_name']))
     return BAD_PID
 
   logging.info("Start command: " + str(start_cmd))
@@ -156,8 +156,8 @@ def start_app(config):
   logging.info("Environment variables: " +str(env_vars))
 
   monit_app_configuration.create_config_file(str(watch),
-                                             str(start_cmd), 
-                                             str(stop_cmd), 
+                                             str(start_cmd),
+                                             str(stop_cmd),
                                              [config['app_port']],
                                              env_vars,
                                              config['max_memory'])
@@ -175,7 +175,7 @@ def start_app(config):
   return 0
 
 def stop_app_instance(app_name, port):
-  """ Stops a Google App Engine application process instance on current 
+  """ Stops a Google App Engine application process instance on current
       machine.
 
   Args:
@@ -220,9 +220,9 @@ def restart_app_instances_for_app(app_name):
   logging.info("Restarting application %s"%app_name)
   watch = "app___" + app_name
   return monit_interface.restart(watch)
- 
+
 def stop_app(app_name):
-  """ Stops all process instances of a Google App Engine application on this 
+  """ Stops all process instances of a Google App Engine application on this
       machine.
 
   Args:
@@ -238,7 +238,7 @@ def stop_app(app_name):
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name
   monit_result = monit_interface.stop(watch)
- 
+
   if not monit_result:
     logging.error("Unable to shut down monit interface for watch %s"%watch)
     return False
@@ -249,9 +249,9 @@ def stop_app(app_name):
 # Private Functions (but public for testing)
 ############################################
 def wait_on_app(port):
-  """ Waits for the application hosted on this machine, on the given port, 
+  """ Waits for the application hosted on this machine, on the given port,
       to respond to HTTP requests.
-  
+
   Args:
     port: Port where app is hosted on the local machine
   Returns:
@@ -277,7 +277,7 @@ def wait_on_app(port):
   logging.error("Application did not come up on %s after %d attemps"%\
                 (url, MAX_FETCH_ATTEMPTS))
   return False
-     
+
 def choose_db_location(db_locations):
   """ Given a string containing multiple datastore locations
       select one randomly to spread load.
@@ -289,7 +289,7 @@ def choose_db_location(db_locations):
   Raise:
     ValueError: if there are no locations given in the args.
   """
-  if len(db_locations) == 0: 
+  if len(db_locations) == 0:
     raise ValueError("DB locations " + \
                      "were not correctly set: " + str(db_locations))
 
@@ -298,7 +298,7 @@ def choose_db_location(db_locations):
 
 def create_python_app_env(public_ip, app_name):
   """ Returns the environment variables the python application server uses.
-  
+
   Args:
     public_ip: The public IP of the load balancer
     app_name: The name of the application to be run
@@ -315,23 +315,23 @@ def create_python_app_env(public_ip, app_name):
 
 def create_java_app_env():
   """ Returns the environment variables java application servers uses.
-  
+
   Returns:
-    A dictionary containing the environment variables  
+    A dictionary containing the environment variables
   """
   env_vars = {}
   env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
   return env_vars
 
 def create_python27_start_cmd(app_name,
-                              login_ip, 
-                              port, 
-                              load_balancer_host, 
+                              login_ip,
+                              port,
+                              load_balancer_host,
                               xmpp_ip,
                               db_locations,
                               py_version):
   """ Creates the start command to run the python application server.
-  
+
   Args:
     app_name: The name of the application to run
     login_ip: The public IP
@@ -361,18 +361,32 @@ def create_python27_start_cmd(app_name,
                + str(constants.DB_SERVER_PORT),
          "/var/apps/" + app_name + "/app",
          "--host " + appscale_info.get_private_ip()]
- 
+
   if app_name in TRUSTED_APPS:
     cmd.extend([TRUSTED_FLAG])
- 
+
   return ' '.join(cmd)
 
-def copy_modified_jars(app_name):
+def locate_dir(path, dir_name):
+  """ Locates a directory inside the given path.
+
+  Args:
+    path: The path to be searched
+    dir_name: The directory we are looking for
+
+  Returns:
+    The absolute path of the directory we are looking for.
   """
-  Copies the changes made to the Java SDK
+  for root, sub_dirs, files in os.walk(path):
+    for dir in sub_dirs:
+      if dir_name == dir:
+        return os.path.abspath(os.path.join(root, dir))
+
+def copy_modified_jars(app_name):
+  """ Copies the changes made to the Java SDK
   for AppScale into the apps lib folder.
 
-  Args: 
+  Args:
     app_name: The name of the application to run
 
   Returns:
@@ -380,19 +394,20 @@ def copy_modified_jars(app_name):
   """
   appscale_home = constants.APPSCALE_HOME
 
+  app_dir = "/var/apps/" + app_name + "/app/"
+  lib_dir = locate_dir(app_dir, "lib")
+
   cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
                               "appengine-java-sdk-repacked/lib/user/*.jar " +\
-                              "/var/apps/" + app_name + "/app/war/WEB-INF/" +\
-                              "lib/", shell=True)
+                              lib_dir, shell=True)
   if cp_result != 0:
     logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
                   "to lib directory of " + app_name)
     return False
-  
+
   cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
                               "appengine-java-sdk-repacked/lib/impl/" +\
-                              "appscale-*.jar /var/apps/" + app_name + "/" +\
-                              "app/war/WEB-INF/lib/", shell=True)
+                              "appscale-*.jar " + lib_dir, shell=True)
 
   if cp_result != 0:
     logging.error("Failed to copy email jars to lib directory of " + app_name)
@@ -401,12 +416,11 @@ def copy_modified_jars(app_name):
   return True
 
 def create_java_start_cmd(app_name,
-                          port, 
-                          load_balancer_host, 
+                          port,
+                          load_balancer_host,
                           db_locations):
-  """
-  Creates the start command to run the java application server.
-  
+  """ Creates the start command to run the java application server.
+
   Args:
     app_name: The name of the application to run
     port: The local port the application server will bind to
@@ -434,7 +448,8 @@ def create_java_start_cmd(app_name,
              "--APP_NAME=" + app_name,
              "--NGINX_ADDRESS=" + load_balancer_host,
              "--NGINX_PORT=anything",
-             "/var/apps/" + app_name +"/app/war/",
+             os.path.dirname(locate_dir("/var/apps/" + app_name +"/app/", \
+               "WEB-INF"))
              ]
 
   return ' '.join(cmd)
@@ -450,12 +465,12 @@ def choose_python_executable(py_version):
   return "/usr/bin/python"
 
 def create_python27_stop_cmd(port, py_version):
-  """ This creates the stop command for an application which is 
-  uniquely identified by a port number. Additional portions of the 
-  start command are included to prevent the termination of other 
-  processes. 
-  
-  Args: 
+  """ This creates the stop command for an application which is
+  uniquely identified by a port number. Additional portions of the
+  start command are included to prevent the termination of other
+  processes.
+
+  Args:
     port: The port which the application server is running
     py_version: The python version the app is currently using
   Returns:
@@ -466,12 +481,12 @@ def create_python27_stop_cmd(port, py_version):
   return stop_cmd
 
 def create_java_stop_cmd(port):
-  """ This creates the stop command for an application which is 
-  uniquely identified by a port number. Additional portions of the 
-  start command are included to prevent the termination of other 
-  processes. 
-  
-  Args: 
+  """ This creates the stop command for an application which is
+  uniquely identified by a port number. Additional portions of the
+  start command are included to prevent the termination of other
+  processes.
+
+  Args:
     port: The port which the application server is running
   Returns:
     A string of the stop command.
@@ -481,9 +496,9 @@ def create_java_stop_cmd(port):
   return stop_cmd
 
 def is_config_valid(config):
-  """ Takes a configuration and checks to make sure all required properties 
+  """ Takes a configuration and checks to make sure all required properties
     are present.
- 
+
   Args:
     config: The dictionary to validate
   Returns:
@@ -495,7 +510,7 @@ def is_config_valid(config):
         pass
     except KeyError:
       logging.error("Unable to find " + str(ii) + " in configuration")
-      return False 
+      return False
   return True
 
 def usage():
@@ -510,19 +525,19 @@ if __name__ == "__main__":
     if sys.argv[ii] in ("-h", "--help"):
       usage()
       sys.exit()
-  
+
   internal_ip = socket.gethostbyname(socket.gethostname())
   server = SOAPpy.SOAPServer((internal_ip, constants.APP_MANAGER_PORT))
- 
+
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
   server.registerFunction(stop_app_instance)
   server.registerFunction(restart_app_instances_for_app)
 
   file_io.set_logging_format()
-  
+
   while 1:
-    try: 
+    try:
       server.serve_forever()
-    except SSL.SSLError: 
+    except SSL.SSLError:
       pass
