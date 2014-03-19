@@ -256,6 +256,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """ Does Nothing   """
     return 
 
+  def Flush(self):
+    """ Does Nothing  """
+    return
+
   def MakeSyncCall(self, service, call, request, response, request_id=None):
     """ The main RPC entry point. service must be 'datastore_v3'.
     """

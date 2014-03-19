@@ -9,7 +9,7 @@ fi
 echo "Success"
 
 set -e
-BRANCH=${1:-testing}
+BRANCH=${1:-master}
 USER=${2:-AppScale}
 echo "Will be using github branch \"$BRANCH\" for user \"$USER\""
 echo "git clone https://github.com/$USER/appscale.git --branch $BRANCH"
