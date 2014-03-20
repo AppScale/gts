@@ -380,7 +380,11 @@ def locate_dir(path, dir_name):
   for root, sub_dirs, files in os.walk(path):
     for dir in sub_dirs:
       if dir_name == dir:
-        return os.path.abspath(os.path.join(root, dir))
+        result = os.path.abspath(os.path.join(root, dir))
+        if dir == "WEB-INF" and result.count(os.sep) == path.count(os.sep) + 1:
+          return result
+        elif dir == "lib" and result.count(os.sep) == path.count(os.sep) + 2 and result.endswith("/WEB-INF/%s" % dir):
+          return result
 
 def copy_modified_jars(app_name):
   """ Copies the changes made to the Java SDK

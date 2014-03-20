@@ -997,7 +997,7 @@ module HelperFunctions
   # Returns:
   #  The directory that contains WEB-INF inside a Java app.
   def self.get_web_inf_dir(untar_dir)
-    Dir["/#{untar_dir}/**/"].each { |path| return path if path =~ /.*\/WEB-INF\/.*/ }
+    Dir["#{untar_dir}/**/"].each { |path| return path if path =~ /^#{untar_dir}\/(?:(?!\/).)*\/WEB-INF\/$/ }
   end
 
   # Finds the path to appengine-web.xml configuration file.
