@@ -34,6 +34,7 @@ from google.appengine.api import app_identity
 from google.appengine.api import datastore_errors
 from google.appengine.api import users
 from google.appengine.ext import deferred
+from google.appengine.ext.datastore_admin import auth_handler
 from google.appengine.ext.datastore_admin import backup_handler
 from google.appengine.ext.datastore_admin import copy_handler
 from google.appengine.ext.datastore_admin import delete_handler
@@ -344,6 +345,12 @@ def CreateApplication():
       (r'%s/%s' % (utils.config.BASE_PATH,
                    utils.MapreduceDoneHandler.SUFFIX),
        utils.MapreduceDoneHandler),
+      (r'%s/%s' % (utils.config.BASE_PATH,
+                   auth_handler.DoAuthHandler.SUFFIX),
+       auth_handler.DoAuthHandler),
+      (r'%s/%s' % (utils.config.BASE_PATH,
+                   auth_handler.StartAuthHandler.SUFFIX),
+       auth_handler.StartAuthHandler),
       (utils.config.DEFERRED_PATH, deferred.TaskHandler)]
       + copy_handler.handlers_list(utils.config.BASE_PATH)
       + backup_handler.handlers_list(utils.config.BASE_PATH)

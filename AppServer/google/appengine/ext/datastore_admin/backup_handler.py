@@ -45,11 +45,11 @@ import time
 import urllib
 import webapp2
 import xml.dom.minidom
+from google.appengine.api import app_identity
 
 
 from google.appengine.datastore import entity_pb
 from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import app_identity
 from google.appengine.api import blobstore as blobstore_api
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
@@ -268,6 +268,7 @@ class ConfirmBackupImportHandler(webapp2.RequestHandler):
         if not is_accessible_bucket_name(bucket_name):
           raise BackupValidationException(
               'Bucket "%s" is not accessible' % bucket_name)
+        logging.info("BUCKET IS ACCESSIBLE")
         if prefix.endswith('.backup_info'):
           prefix = prefix[0:prefix.rfind('/')]
           backup_info_specified = True
@@ -370,13 +371,13 @@ class BaseDoHandler(webapp2.RequestHandler):
     if not utils.ValidateXsrfToken(token, XSRF_ACTION):
       parameters = [('xsrf_error', '1')]
     else:
-      try:
-        parameters = self._ProcessPostRequest()
+      #try:
+      parameters = self._ProcessPostRequest()
 
 
-      except Exception, e:
-        error = self._HandleException(e)
-        parameters = [('error', error)]
+      #except Exception, e:
+      #  error = self._HandleException(e)
+      #  parameters = [('error', error)]
 
     query = urllib.urlencode(parameters)
     self.redirect('%s/%s?%s' % (utils.config.BASE_PATH,
@@ -560,24 +561,24 @@ class DoBackupHandler(BaseDoHandler):
 
   def _ProcessPostRequest(self):
     """Triggers backup mapper jobs and returns their ids."""
-    try:
-      backup = self.request.get('backup_name').strip()
-      if not backup:
-        raise BackupValidationException('Unspecified backup name.')
-      if BackupInformation.name_exists(backup):
-        raise BackupValidationException('Backup "%s" already exists.' % backup)
-      mapper_params = self._GetBasicMapperParams()
-      backup_result = _perform_backup(self.request.get_all('kind'),
-                                      mapper_params.get('namespace'),
-                                      self.request.get('filesystem'),
-                                      self.request.get('gs_bucket_name'),
-                                      backup,
-                                      self.request.get('queue'),
-                                      mapper_params,
-                                      10)
-      return backup_result
-    except BackupValidationException, e:
-      return [('error', e.message)]
+    #try:
+    backup = self.request.get('backup_name').strip()
+    if not backup:
+      raise BackupValidationException('Unspecified backup name.')
+    if BackupInformation.name_exists(backup):
+      raise BackupValidationException('Backup "%s" already exists.' % backup)
+    mapper_params = self._GetBasicMapperParams()
+    backup_result = _perform_backup(self.request.get_all('kind'),
+                                    mapper_params.get('namespace'),
+                                    self.request.get('filesystem'),
+                                    self.request.get('gs_bucket_name'),
+                                    backup,
+                                    self.request.get('queue'),
+                                    mapper_params,
+                                    10)
+    return backup_result
+    #except BackupValidationException, e:
+    #  return [('error', e.message)]
 
 
 def _run_map_jobs_deferred(backup_name, job_operation_key, backup_info_key,
@@ -1611,9 +1612,11 @@ def is_accessible_bucket_name(bucket_name):
   scope = 'https://www.googleapis.com/auth/devstorage.read_write'
   url = 'https://%s.commondatastorage.googleapis.com/' % bucket_name
   auth_token, _ = app_identity.get_access_token(scope)
+  logging.info("Using auth token: {0}".format(auth_token))
   result = urlfetch.fetch(url, method=urlfetch.HEAD, headers={
       'Authorization': 'OAuth %s' % auth_token,
       'x-goog-api-version': '2'})
+  logging.info("Result: {0}".format(result))
   return result and result.status_code == 200
 
 
@@ -1631,8 +1634,9 @@ def verify_bucket_writable(bucket_name):
     file_names = files.gs.listdir(path,
                                   {'prefix': TEST_WRITE_FILENAME_PREFIX,
                                    'max_keys': MAX_KEYS_LIST_SIZE})
-  except (files.InvalidParameterError, files.PermissionDeniedError):
-    raise BackupValidationException('Bucket "%s" not accessible' % bucket_name)
+  #except (files.InvalidParameterError, files.PermissionDeniedError):
+  #  logging.error("Bucket not accessible because unable to list it")
+  #  raise BackupValidationException('Bucket "%s" not accessible' % bucket_name)
   except files.InvalidFileNameError:
     raise BackupValidationException('Bucket "%s" does not exist' % bucket_name)
   file_name = '%s/%s.tmp' % (path, TEST_WRITE_FILENAME_PREFIX)
@@ -1647,18 +1651,18 @@ def verify_bucket_writable(bucket_name):
     gen = random.randint(0, 9999)
     file_name = '%s/%s_%s.tmp' % (path, TEST_WRITE_FILENAME_PREFIX, gen)
     file_name_try += 1
-  try:
-    test_file = files.open(files.gs.create(file_name), 'a', exclusive_lock=True)
-    try:
-      test_file.write('test')
-    finally:
-      test_file.close(finalize=True)
-  except files.PermissionDeniedError:
-    raise BackupValidationException('Bucket "%s" is not writable' % bucket_name)
-  try:
-    files.delete(file_name)
-  except (files.InvalidArgumentError, files.InvalidFileNameError, IOError):
-    logging.warn('Failed to delete test file %s', file_name)
+  #try:
+  test_file = files.open(files.gs.create(file_name), 'a', exclusive_lock=True)
+  #try:
+  test_file.write('test')
+  #finally:
+  test_file.close(finalize=True)
+  #except files.PermissionDeniedError:
+  #  raise BackupValidationException('Bucket "%s" is not writable' % bucket_name)
+  #try:
+  files.delete(file_name)
+  #except (files.InvalidArgumentError, files.InvalidFileNameError, IOError):
+  #  logging.warn('Failed to delete test file %s', file_name)
 
 
 def is_readable_gs_handle(gs_handle):

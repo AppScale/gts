@@ -1,0 +1,65 @@
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client
+END
+anyjson.py
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/anyjson.py
+END
+crypt.py
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/crypt.py
+END
+multistore_file.py
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/multistore_file.py
+END
+appengine.py
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/appengine.py
+END
+clientsecrets.py
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/clientsecrets.py
+END
+client.py
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/client.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/!svn/ver/224/trunk/python/lib/google-api-python-client/oauth2client/__init__.py
+END
+django_orm.py
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/django_orm.py
+END
+file.py
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/file.py
+END
+tools.py
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/!svn/ver/327/trunk/python/lib/google-api-python-client/oauth2client/tools.py
+END

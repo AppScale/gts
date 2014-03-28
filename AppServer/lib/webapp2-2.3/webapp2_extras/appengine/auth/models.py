@@ -10,7 +10,7 @@
 """
 import time
 
-from ndb import model
+from google.appengine.ext.ndb import model
 
 from webapp2_extras import auth
 from webapp2_extras import security

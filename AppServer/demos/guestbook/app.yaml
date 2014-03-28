@@ -8,6 +8,9 @@ handlers:
 - url: .*
   script: guestbook.app
 
+builtins:
+- datastore_admin: on
+
 libraries:
 - name: webapp2
   version: "2.5.2"
