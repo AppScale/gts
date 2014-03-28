@@ -1238,6 +1238,7 @@ class TestDjinn < Test::Unit::TestCase
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4 ")
+    flexmock(HelperFunctions).should_receive(:shell).with("tar -ztf /opt/appscale/apps/bazapp.tar.gz")
 
 
     # Let's say that we've got two nodes - one is open so we can scale onto it.

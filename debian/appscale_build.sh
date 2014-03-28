@@ -42,8 +42,6 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-apt-get update
-
 # fix /etc/hosts file for collectd installation
 HOSTNAME=`hostname`
 if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then

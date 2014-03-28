@@ -15,6 +15,7 @@ class TestHelperFunctions < Test::Unit::TestCase
     @appid = "boo"
     @app_yaml = "/var/apps/boo/app/app.yaml"
     @appengine_web_xml = "/var/apps/boo/app/war/WEB-INF/appengine-web.xml"
+    @appengine_web_xml_stripped = "/appengine-web.xml"
   end
 
   def test_obscure_options
@@ -56,7 +57,9 @@ class TestHelperFunctions < Test::Unit::TestCase
     file = flexmock(File)
     file.should_receive(:exists?).with(@app_yaml).and_return(false)
     file.should_receive(:exists?).with(@appengine_web_xml).and_return(true)
+    file.should_receive(:exists?).with(@appengine_web_xml_stripped).and_return(true)
     file.should_receive(:open).with(@appengine_web_xml, Proc).and_return("")
+    file.should_receive(:open).with(@appengine_web_xml_stripped, Proc).and_return("")
 
     assert_equal({}, HelperFunctions.get_app_env_vars(@appid))
   end
@@ -84,6 +87,7 @@ class TestHelperFunctions < Test::Unit::TestCase
     file = flexmock(File)
     file.should_receive(:exists?).with(@app_yaml).and_return(false)
     file.should_receive(:exists?).with(@appengine_web_xml).and_return(true)
+    file.should_receive(:exists?).with(@appengine_web_xml_stripped).and_return(true)
 
     xml = <<XML
     <env-variables>
@@ -92,6 +96,7 @@ class TestHelperFunctions < Test::Unit::TestCase
     </env-variables>
 XML
     file.should_receive(:open).with(@appengine_web_xml, Proc).and_return(xml)
+    file.should_receive(:open).with(@appengine_web_xml_stripped, Proc).and_return(xml)
 
     expected = {
       'VAR_ONE' => 'ONE',
@@ -104,6 +109,7 @@ XML
     file = flexmock(File)
     file.should_receive(:exists?).with(@app_yaml).and_return(false)
     file.should_receive(:exists?).with(@appengine_web_xml).and_return(false)
+    file.should_receive(:exists?).with(@appengine_web_xml_stripped).and_return()
     assert_raises(AppScaleException) {
       HelperFunctions.get_app_env_vars(@appid)
     }
@@ -137,11 +143,13 @@ XML
     file = flexmock(File)
     file.should_receive(:exists?).with(@app_yaml).and_return(false)
     file.should_receive(:exists?).with(@appengine_web_xml).and_return(true)
+    file.should_receive(:exists?).with(@appengine_web_xml_stripped).and_return(true)
     xml = <<XML
     <threadsafe>true</threadsafe>
 XML
 
     file.should_receive(:open).with(@appengine_web_xml, Proc).and_return(xml)
+    file.should_receive(:open).with(@appengine_web_xml_stripped, Proc).and_return(xml)
     assert_equal(true, HelperFunctions.get_app_thread_safe(@prefixed_appid))
   end
 
@@ -149,11 +157,13 @@ XML
     file = flexmock(File)
     file.should_receive(:exists?).with(@app_yaml).and_return(false)
     file.should_receive(:exists?).with(@appengine_web_xml).and_return(true)
+    file.should_receive(:exists?).with(@appengine_web_xml_stripped).and_return(true)
     xml = <<XML
     <threadsafe>false</threadsafe>
 XML
 
     file.should_receive(:open).with(@appengine_web_xml, Proc).and_return(xml)
+    file.should_receive(:open).with(@appengine_web_xml_stripped, Proc).and_return(xml)
     assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
   end
 
@@ -166,6 +176,7 @@ XML
     file = flexmock(File)
     file.should_receive(:exists?).with(@app_yaml).and_return(false)
     file.should_receive(:exists?).with(@appengine_web_xml).and_return(false) 
+    file.should_receive(:exists?).with(@appengine_web_xml_stripped).and_return(false) 
     assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
   end
  

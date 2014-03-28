@@ -115,6 +115,8 @@ class TestAppManager(unittest.TestCase):
                            .and_return(True)
     flexmock(app_manager_server).should_receive('wait_on_app')\
                          .and_return(True)
+    flexmock(app_manager_server).should_receive('locate_dir')\
+                        .and_return('/path/to/dir/')
     flexmock(os).should_receive('popen')\
                 .and_return(flexmock(read=lambda: '0\n'))
     flexmock(file_io).should_receive('write')\
@@ -177,6 +179,8 @@ class TestAppManager(unittest.TestCase):
       .and_return(fake_secret)
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
+    flexmock(app_manager_server).should_receive('locate_dir')\
+                        .and_return('/path/to/dir/')
     db_locations = ['127.0.1.0', '127.0.2.0']
     app_id = 'testapp'
     cmd = app_manager_server.create_java_start_cmd(app_id,
@@ -239,16 +243,22 @@ class TestAppManager(unittest.TestCase):
   def test_copy_modified_jars_success(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(0)
+    flexmock(app_manager_server).should_receive('locate_dir')\
+                        .and_return('/path/to/dir/')
     self.assertEqual(True, app_manager_server.copy_modified_jars(app_name))  
   
   def test_copy_modified_jars_fail_case_1(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(0).and_return(1)
+    flexmock(app_manager_server).should_receive('locate_dir')\
+                        .and_return('/path/to/dir/')
     self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
 
   def test_copy_modified_jars_fail_case_2(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(1)
+    flexmock(app_manager_server).should_receive('locate_dir')\
+                        .and_return('/path/to/dir/')
     self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
     
 if __name__ == "__main__":
