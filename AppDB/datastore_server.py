@@ -2628,7 +2628,9 @@ class DatastoreDistributed():
       if start_key in result_list:
         force_exclusive = True
 
+    # Sort and apply the limit.
     result_list.sort()
+    result_list = result_list[:limit]
     result_set = self.__fetch_entities_from_row_list(result_list, 
       clean_app_id(query.app()))
     return result_set
