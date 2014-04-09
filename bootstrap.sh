@@ -6,16 +6,14 @@
 # Defaults vaules
 BRANCH="master"
 USER="AppScale"
-DATABASE="cassandra"
 UNIT_TEST="n"
 
 usage() {
-        echo "Usage: ${0} [-b <branch>][-u <user>][-d <database>][-t]"
+        echo "Usage: ${0} [-b <branch>][-u <user>][-t]"
         echo
         echo "Options:"
         echo "   -b <branch>       a specific branch to use (default master)"
         echo "   -u <user>         a specific user to pull the fork (default AppScale)"
-        echo "   -d <database>     a specific database to user as backend (default cassandra)"
         echo "   -t                run unit tests"
         exit 1
 }
@@ -49,15 +47,6 @@ while [ $# -gt 0 ]; do
                 shift
                 continue
         fi
-        if [ "${1}" = "-d" ]; then 
-                shift
-                if [ -z "${1}" ]; then
-                        usage
-                fi
-                DATABASE="${1}"
-                shift
-                continue
-        fi
         if [ "${1}" = "-t" ]; then 
                 UNIT_TEST="Y"
                 shift
@@ -81,7 +70,7 @@ git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
 
 # and build AppScale
 echo "Building AppScale..."
-(cd appscale/debian; bash appscale_build.sh ${DATABASE})
+(cd appscale/debian; bash appscale_build.sh)
 
 echo "Building AppScale Tools..." 
 (cd appscale-tools/debian; bash appscale_build.sh)
