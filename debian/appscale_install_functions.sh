@@ -309,10 +309,10 @@ postinstallgems()
 
 installnginx()
 {
-    NGINX_VERSION=1.5.10
+    NGINX_VERSION=1.5.13
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/nginx-1.5.10.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/nginx-${NGINX_VERSION}.tar.gz
     tar zxvf nginx-${NGINX_VERSION}.tar.gz
     rm -v nginx-${NGINX_VERSION}.tar.gz
     pushd nginx-${NGINX_VERSION}
