@@ -207,7 +207,7 @@ installtornado()
 
 installnose()
 {
-  easy_install nose
+    easy_install nose
 }
 
 installflexmock()
@@ -446,25 +446,13 @@ keygen()
 
 installcelery()
 {
-  easy_install Celery==3.0.24
-  easy_install Flower
+    easy_install Celery==3.0.24
+    easy_install Flower
 }
 
 installrabbitmq()
 {
-   # RabbitMQ is installed via apt-get
-   # Install the python client for rabbitmq
-   PIKA_VERSION=0.9.9p0
-   mkdir -pv ${APPSCALE_HOME}/downloads
-   cd ${APPSCALE_HOME}/downloads
-   rm -fr pika-master
-   wget $APPSCALE_PACKAGE_MIRROR/pika-${PIKA_VERSION}.zip
-   unzip pika-${PIKA_VERSION}.zip
-   cd pika-master
-   cp -r pika /usr/share/pyshared
-   cd ..
-   rm pika-${PIKA_VERSION}.zip
-   rm -fr pika-master
+    :;
 }
 postinstallrabbitmq()
 {

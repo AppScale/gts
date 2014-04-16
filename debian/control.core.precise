@@ -44,6 +44,7 @@ Depends: appscale-tools,
  libjpeg8-dev,
 # TaskQueue
  rabbitmq-server,
+ python-pika,
  python-pip,
  python-numpy,
 # lxml
