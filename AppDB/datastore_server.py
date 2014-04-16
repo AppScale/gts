@@ -1604,7 +1604,7 @@ class DatastoreDistributed():
     # Casting a copy of the list to a set will remove duplicates, 
     # and then we check to make sure it is still consistent with the 
     # previous list.
-    if list(set(property_names[:])) != property_names:
+    if set(property_names[:]) != set(property_names):
       return False
 
     for order_property_name in order_properties:
@@ -2628,7 +2628,9 @@ class DatastoreDistributed():
       if start_key in result_list:
         force_exclusive = True
 
+    # Sort and apply the limit.
     result_list.sort()
+    result_list = result_list[:limit]
     result_set = self.__fetch_entities_from_row_list(result_list, 
       clean_app_id(query.app()))
     return result_set

@@ -306,12 +306,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         this.costAnalysis = new LocalDatastoreCostAnalysis(LocalCompositeIndexManager.getInstance());
 
-        setupIndexes(properties.get("user.dir"));
+        setupIndexes(properties.get("user.dir"), properties.get("APP_NAME"));
         
         logger.info(String.format("Local Datastore initialized: \n\tType: %s\n\tStorage: %s", new Object[] { isHighRep() ? "High Replication" : "Master/Slave", this.noStorage ? "In-memory" : this.backingStore }));
     }
 
-    private void setupIndexes(String appDir)
+    private void setupIndexes(String appDir, String appName)
     {
         IndexesXmlReader xmlReader = new IndexesXmlReader(appDir);
         indexes = xmlReader.readIndexesXml();
@@ -340,7 +340,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       }
         
       ApiBasePb.StringProto appId = new ApiBasePb.StringProto();
-      appId.setValue(getAppId()); 
+      appId.setValue(appName); 
       DatastoreV3Pb.CompositeIndices existing = getIndices( null, appId);  
       
       createAndDeleteIndexes(existing, requestedCompositeIndices);

@@ -304,7 +304,7 @@ installmonit()
 
 installcassandra()
 {
-    CASSANDRA_VER=2.0.1
+    CASSANDRA_VER=2.0.6
     PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
