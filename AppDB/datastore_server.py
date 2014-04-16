@@ -121,8 +121,14 @@ class DatastoreDistributed():
       replacement for the AppServers to persist their data into 
       a distributed datastore instead of a flat file.
   """
-  # Max number of results for a query
-  _MAXIMUM_RESULTS = 10000
+  # Max number of results for a query.
+  _MAXIMUM_RESULTS = 300
+
+  # Maximum batch size.
+  _MAX_BATCH_SIZE = 20
+
+  # Max integer. Used as default limits and counts on queries.
+  _MAX_INT_32 = 2**31-1
 
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
@@ -204,14 +210,28 @@ class DatastoreDistributed():
       An int, the limit to be used when accessing the datastore.
     """
     limit = self._MAXIMUM_RESULTS
-    if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
-      if limit == 0:
+    if query.has_count():
+      if query.count() == self._MAX_INT_32:
+        # In GAE you can do no limits and have the query eventually timeout.
+        # Here we cap it at max for stability (memory and CPU).
         limit = self._MAXIMUM_RESULTS
+      else:
+        limit = query.count()
+    elif query.has_limit():
+      limit = query.limit()
+      if limit == self._MAX_INT_32:
+        limit = self._MAXIMUM_RESULTS
+      logging.error("Has limit {0} set to {1}".format(query.limit(), limit))
+    else:
+      logging.error("Has no limit set to 20")
+      limit = self._MAX_BATCH_SIZE
+
     if query.has_offset():
       limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
+
     if limit <= 0:
       limit = 1
+    logging.error("Using limit: {0}".format(limit))
     return limit
 
   def get_entity_key(self, prefix, pb):
@@ -903,7 +923,7 @@ class DatastoreDistributed():
     self.delete_index_entries(entities)
     if composite_indexes:
       self.delete_composite_indexes(entities, composite_indexes)
-
+ 
   def get_journal_key(self, row_key, version):
     """ Creates a string for a journal key.
   
@@ -1670,66 +1690,6 @@ class DatastoreDistributed():
       results.append(entity)
 
     return results
-
-  def ordered_ancestor_query(self, query, filter_info, order_info):
-    """ Performs an ordered ancestor query. It grabs all entities of a 
-        given ancestor and then orders in memory.
-    
-    Args:
-      query: The query to run.
-      filter_info: Tuple with filter operators and values
-      order_info: Tuple with property name and the sort order.
-    Returns:
-      A list of entities.
-    Raises:
-      ZKTransactionException: If a lock could not be acquired.
-    """ 
-    ancestor = query.ancestor()
-    prefix = self.get_table_prefix(query)
-    path = buffer(prefix + self._SEPARATOR) + \
-      self.__encode_index_pb(ancestor.path())
-    txn_id = 0
-    if query.has_transaction():
-      txn_id = query.transaction().handle()   
-      root_key = self.get_root_key_from_entity_key(ancestor)
-      try:
-        prefix = self.get_table_prefix(query)
-        self.zookeeper.acquire_lock(clean_app_id(query.app()), txn_id, root_key)
-      except ZKTransactionException, zkte:
-        logging.warning("Concurrent transaction exception for app id {0}, " \
-          "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
-        self.zookeeper.notify_failed_transaction(clean_app_id(query.app()), 
-          txn_id)
-        raise zkte
-
-    startrow = path
-    endrow = path + self._TERM_STRING
-    end_inclusive = self._ENABLE_INCLUSIVITY
-    start_inclusive = self._ENABLE_INCLUSIVITY
-    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = appscale_stub_util.ListCursor(query)
-      last_result = cursor._GetLastResult()
-      startrow = self.__get_start_key(prefix, None, None, last_result)
-      start_inclusive = self._DISABLE_INCLUSIVITY
-      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
-        start_inclusive = self._ENABLE_INCLUSIVITY
-
-    limit = self._MAXIMUM_RESULTS
-    unordered = self.fetch_from_entity_table(startrow,
-                                             endrow,
-                                             limit, 
-                                             0, 
-                                             start_inclusive, 
-                                             end_inclusive, 
-                                             query, 
-                                             txn_id)
-    # TODO apply __key__ from filter info 
-    # TODO apply compiled cursor if given
-    kind = None
-    if query.has_kind():
-      kind = query.kind()
-    limit = self.get_limit(query)
-    return self.__multiorder_results(unordered, order_info, kind)[:limit]
  
   def ancestor_query(self, query, filter_info, order_info):
     """ Performs ancestor queries which is where you select 
@@ -2037,8 +1997,6 @@ class DatastoreDistributed():
     
     order = None
     prop_name = None
-    if query.has_ancestor() and len(order_info) > 0:
-      return self.ordered_ancestor_query(query, filter_info, order_info)
     if query.has_ancestor() and not query.has_kind():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
@@ -2903,6 +2861,7 @@ class DatastoreDistributed():
       'No composite index provided')
 
   def __multiorder_results(self, result, order_info, kind):
+    # TODO Remove this. No longer needed since composite queries cover this.
     """ Takes results and applies ordering based on properties and 
         whether it should be ascending or decending. Filters out 
         any entities which do not match the given kind, if given.
@@ -3020,6 +2979,9 @@ class DatastoreDistributed():
       query: The query to run.
       query_result: The response given to the application server.
     """
+    if query.app() not in ['apichecker', 'appscaledashboard']:
+      logging.error("Query: {0}".format(query))
+    start = time.time()
     result = self.__get_query_results(query)
     count = 0
     offset = query.offset()
@@ -3032,7 +2994,10 @@ class DatastoreDistributed():
 
     cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-
+    if query.app() not in ['apichecker', 'appscaledashboard']:
+      #logging.error("Result: {0}".format(query_result))
+      logging.error("Query time: {0}".format(time.time() - start))
+      
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
 
@@ -3221,6 +3186,9 @@ class MainHandler(tornado.web.RequestHandler):
     elif method == "DeleteIndex":
       response, errcode, errdetail = self.delete_index_request(app_id, 
                                                        http_request_data)
+    elif method == "Next":
+      response, errcode, errdetail = self.next_request(app_id, 
+                                                      http_request_data)
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
       errdetail = "Unknown datastore message" 
@@ -3363,12 +3331,31 @@ class MainHandler(tornado.web.RequestHandler):
               "Datastore connection error on create index request.")
     return (response.Encode(), 0, "")
 
+  def next_request(self, app_id, http_request_data):
+    """ Resumes a previously run query.
+  
+    Args:
+      app_id: Name of the application.
+      http_request_data: A serialized NextRequest item.
+    Returns:
+      A tuple of an encoded QueryResult, error code, and 
+      error explanation. 
+    """
+    #TODO
+    request = datastore_pb.NextRequest(http_request_data)
+    logging.error("Next request: {0}".format(request))
+    response = datastore_pb.QueryResult()
+    #cur = appscale_stub_util.QueryCursor(query, result)
+    #cur.PopulateQueryResult(0, request.offset(), response) 
+    response.set_more_results(False)
+    return (response.Encode(), 0, "")
+
   def delete_index_request(self, app_id, http_request_data):
     """ Deletes a composite index for a given application.
   
     Args:
       app_id: Name of the application.
-      http_request_data: A serialized CompositeIndices item
+      http_request_data: A serialized CompositeIndices item.
     Returns:
       A Tuple of an encoded entity_pb.VoidProto, error code, and 
       error explanation.

@@ -26,7 +26,7 @@ import collections
 import datetime
 import logging
 import os
-
+import time
 import sys
 import threading
 import warnings
@@ -54,6 +54,9 @@ KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
 # The default SSL port to connect to
 SSL_DEFAULT_PORT = 8443
+
+# String used for decoding/encoding cursors positions.
+_CURSOR_CONCAT_STR = '!CURSOR!'
 
 # The amount of time before we consider a query cursor to be no longer valid.
 CURSOR_TIMEOUT = 120
@@ -92,6 +95,54 @@ _BATCH_SIZE = 20
 
 _MAX_ACTIONS_PER_TXN = 5
 
+
+_MAX_INT_32 = 2**31-1
+
+class InternalCursor():
+  """ Keeps track of where we are in a query. Used for when queries are done
+  in batches.
+  """
+  def __init__(self, query, last_result, offset):
+    """ Constructor.
+
+    Args:
+      query: Starting query, a datastore_pb.Query.
+      last_result: An entity proto, the last from a result list.
+      offset: The number of entities we've seen so far.
+    """
+    # Count is the limit we want to hit so we know we're done.
+    self.__count = _MAX_INT_32
+    if query.has_count():
+      self.__count = query.count()
+    elif query.has_limit():
+      self.__count = query.limit()
+    self.__query = query
+    self.__last_result = last_result 
+    self.__creation = time.time()
+    # Lets us know how many results we've seen so far. When
+    # this hits the count we know we're done.
+    self.__offset = offset
+
+  def get_query(self):
+    return self.__query
+
+  def get_count(self):
+    return self.__count
+
+  def get_last_result(self):
+    return self.__last_result
+
+  def get_offset(self):
+    return self.__offset
+
+  def get_timestamp(self):
+    return self.__creation
+
+  def set_last_result(self, last_result):
+    self.__last_result = last_result
+
+  def set_offset(self, offset):
+    self.__offset = offset
 
 class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   """ A central server hooks up to a db and communicates via protocol 
@@ -159,13 +210,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.SetTrusted(trusted)
 
     self.__entities = {}
-
+    self.__queries = {}
     self.__schema_cache = {}
 
     self.__tx_actions_dict = {}
     self.__tx_actions = set()
 
-    self.__queries = {}
+    self.__cursor_id = 1
+    self.__cursor_lock = threading.Lock()
 
     self.__require_indexes = require_indexes
     self.__root_path = root_path + self.__app_id + "/app"
@@ -173,11 +225,88 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if require_indexes:
       self._SetupIndexes()
 
+  def _EncodeCompiledCursor(self, query, compiled_cursor, last_result):
+    """Converts the current state of the cursor into a compiled_cursor.
+
+    Args:
+      query: the datastore_pb.Query this cursor is related to.
+      compiled_cursor: an empty datastore_pb.CompiledCursor.
+      last_result: An entitiy, the last entity.
+    """
+    position = compiled_cursor.add_position()
+
+    query_info = self._MinimalQueryInfo(query)
+    entity_info = self._MinimalEntityInfo(last_result, query)
+    start_key = _CURSOR_CONCAT_STR.join((
+        query_info.Encode(),
+        entity_info.Encode()))
+    position.set_start_key(str(start_key))
+    position.set_start_inclusive(False)
+
+  def _MinimalQueryInfo(self, query):
+    """Extract the minimal set of information for query matching.
+
+    Args:
+      query: datastore_pb.Query instance from which to extract info.
+
+    Returns:
+      datastore_pb.Query instance suitable for matching against when
+      validating cursors.
+    """
+    query_info = datastore_pb.Query()
+    query_info.set_app(query.app())
+
+    for filter in query.filter_list():
+      query_info.filter_list().append(filter)
+    for order in query.order_list():
+      query_info.order_list().append(order)
+
+    if query.has_ancestor():
+      query_info.mutable_ancestor().CopyFrom(query.ancestor())
+
+    for attr in ('kind', 'name_space', 'search_query'):
+      query_has_attr = getattr(query, 'has_%s' % attr)
+      query_attr = getattr(query, attr)
+      query_info_set_attr = getattr(query_info, 'set_%s' % attr)
+      if query_has_attr():
+        query_info_set_attr(query_attr())
+
+    return query_info
+
+  def _MinimalEntityInfo(self, entity_proto, query):
+    """Extract the minimal set of information that preserves entity order.
+
+    Args:
+      entity_proto: datastore_pb.EntityProto instance from which to extract
+      information
+      query: datastore_pb.Query instance for which ordering must be preserved.
+
+    Returns:
+      datastore_pb.EntityProto instance suitable for matching against a list of
+      results when finding cursor positions.
+    """
+    entity_info = datastore_pb.EntityProto()
+    order_names = [o.property() for o in query.order_list()]
+    entity_info.mutable_key().MergeFrom(entity_proto.key())
+    entity_info.mutable_entity_group().MergeFrom(entity_proto.entity_group())
+    for prop in entity_proto.property_list():
+      if prop.name() in order_names:
+        entity_info.add_property().MergeFrom(prop)
+    return entity_info
+
+
+  def __getCursorID(self):
+    """ Gets a cursor identifier. """
+    self.__cursor_lock.acquire()
+    self.__cursor_id += 1
+    cursor_id = self.__cursor_id
+    self.__cursor_lock.release()
+    return cursor_id 
+
   def Clear(self):
     """ Clears the datastore by deleting all currently stored entities and
     queries. """
     self.__entities = {}
-    self.__queries = {}
     self.__schema_cache = {}
 
   def SetTrusted(self, trusted):
@@ -383,16 +512,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self._RemoteSend(delete_request, delete_response, "Delete")
     return delete_response
 
-  def __cleanup_old_cursors(self):
-    """ Remove any cursors which are no longer being used. """
-    for key in self.__queries.keys():
-      _, time_stamp = self.__queries[key]
-      # This calculates the time in the future when this cursor is no longer 
-      # valid.
-      timeout_time = time_stamp + datetime.timedelta(seconds=CURSOR_TIMEOUT)
-      if datetime.datetime.now() > timeout_time:
-        del self.__queries[key]
-
   def _Dynamic_RunQuery(self, query, query_result):
     """Send a query request to the datastore server. """
     if query.has_transaction():
@@ -405,7 +524,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     
     old_datastore_stub_util.FillUsersInQuery(filters)
 
-    query_response = datastore_pb.QueryResult()
     if not query.has_app():
       query.set_app(self.__app_id)
     self.__ValidateAppId(query.app())
@@ -422,98 +540,25 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       new_index = query.add_composite_index()
       new_index.MergeFrom(index_to_use)
 
-    self._RemoteSend(query, query_response, "RunQuery")
-
-    skipped_results = 0
-    if query_response.has_skipped_results():
-      skipped_results = query_response.skipped_results()
-
-    def order_compare_entities(a, b):
-      """ Return a negative, zero or positive number depending on whether
-      entity a is considered smaller than, equal to, or larger than b,
-      according to the query's orderings. """
-      cmped = 0
-      for o in orders:
-        prop = o.property().decode('utf-8')
-
-        reverse = (o.direction() is datastore_pb.Query_Order.DESCENDING)
-
-        a_val = datastore._GetPropertyValue(a, prop)
-        if isinstance(a_val, list):
-          a_val = sorted(a_val, order_compare_properties, reverse=reverse)[0]
-
-        b_val = datastore._GetPropertyValue(b, prop)
-        if isinstance(b_val, list):
-          b_val = sorted(b_val, order_compare_properties, reverse=reverse)[0]
-
-        cmped = order_compare_properties(a_val, b_val)
-
-        if o.direction() is datastore_pb.Query_Order.DESCENDING:
-          cmped = -cmped
-
-        if cmped != 0:
-          return cmped
-
-      if cmped == 0:
-        return cmp(a.key(), b.key())
-
-    def order_compare_entities_pb(a, b):
-      """ Return a negative, zero or positive number depending on whether
-      entity a is considered smaller than, equal to, or larger than b,
-      according to the query's orderings. a and b are protobuf-encoded
-      entities."""
-      return order_compare_entities(datastore.Entity.FromPb(a),
-                                    datastore.Entity.FromPb(b))
-
-    def order_compare_properties(x, y):
-      """Return a negative, zero or positive number depending on whether
-      property value x is considered smaller than, equal to, or larger than
-      property value y. If x and y are different types, they're compared based
-      on the type ordering used in the real datastore, which is based on the
-      tag numbers in the PropertyValue PB.
-      """
-      if isinstance(x, datetime.datetime):
-        x = datastore_types.DatetimeToTimestamp(x)
-      if isinstance(y, datetime.datetime):
-        y = datastore_types.DatetimeToTimestamp(y)
-
-      x_type = self._PROPERTY_TYPE_TAGS.get(x.__class__)
-      y_type = self._PROPERTY_TYPE_TAGS.get(y.__class__)
-
-      if x_type == y_type:
-        try:
-          return cmp(x, y)
-        except TypeError:
-          return 0
-      else:
-        return cmp(x_type, y_type)
-
-    results = query_response.result_list()
+    self._RemoteSend(query, query_result, "RunQuery")
+    results = query_result.result_list()
     for result in results:
       old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
-    old_datastore_stub_util.ValidateQuery(query, filters, orders,
-          _MAX_QUERY_COMPONENTS)
+    last_result = None
+    if len(results) > 0:
+      last_result = results[-1]
+    cursor_id = self.__getCursorID()
+    cursor = query_result.mutable_cursor()
+    cursor.set_app(self.__app_id)
+    cursor.set_cursor(cursor_id)
 
-    cursor = old_datastore_stub_util.ListCursor(query, results,
-                                            order_compare_entities_pb)
-    self.__cleanup_old_cursors() 
-    self.__queries[cursor.cursor] = cursor, datetime.datetime.now()
-
-    if query.has_count():
-      count = query.count()
-    elif query.has_limit():
-      count = query.limit()
-    else:
-      count = _BATCH_SIZE
-
-    cursor.PopulateQueryResult(query_result, count,
-                               query.offset(), compile=query.compile())
-    query_result.set_skipped_results(skipped_results)
     if query.compile():
       compiled_query = query_result.mutable_compiled_query()
       compiled_query.set_keys_only(query.keys_only())
       compiled_query.mutable_primaryscan().set_index_name(query.Encode())
+    
+    self.__queries[cursor_id] = InternalCursor(query, last_result, len(results))
 
   def _Dynamic_Next(self, next_request, query_result):
     """Get the next set of entities from a previously run query. """
@@ -525,19 +570,64 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
             datastore_pb.Error.BAD_REQUEST, 
             'Cursor %d not found' % cursor_handle)
  
-    cursor, _ = self.__queries[cursor_handle]
-    if cursor.cursor != cursor_handle:
-      raise apiproxy_errors.ApplicationError(
-            datastore_pb.Error.BAD_REQUEST, 
-            'Cursor %d not found' % cursor_handle)
+    internal_cursor = self.__queries.get(cursor_handle)
+    query = internal_cursor.get_query()
+    last_result = internal_cursor.get_last_result()
 
-    assert cursor.app == next_request.cursor().app()
+    if not last_result:
+      # There were no results previously.
+      logging.error("NO LAST RESULT HI")
+      query_result.set_more_results(False)
+      if next_request.compile():
+        compiled_query = query_result.mutable_compiled_query()
+        compiled_query.set_keys_only(query.keys_only())
+        compiled_query.mutable_primaryscan().set_index_name(query.Encode())
+      logging.error("NO LAST RESULT BYE")
+      return
+    logging.error("LAST RESULT WAS SET")
     count = _BATCH_SIZE
     if next_request.has_count():
       count = next_request.count()
-    cursor.PopulateQueryResult(query_result, count,
-                               next_request.offset(),
-                               next_request.compile())
+
+    query.set_count(count)
+    if next_request.has_offset():
+      query.set_offset(next_request.offset())
+    if next_request.has_compile():
+      query.set_compile(next_request.compile())
+
+    # Take the previous cursor and apply it to get the next batch.
+    query.clear_compiled_cursor()
+    compiled_cursor = query.mutable_compiled_cursor()
+    self._EncodeCompiledCursor(query, compiled_cursor, last_result)
+
+    self._RemoteSend(query, query_result, "RunQuery")
+    results = query_result.result_list()
+    for result in results:
+      old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
+
+    cursor = query_result.mutable_cursor()                                    
+    cursor.set_app(self.__app_id)                                                  
+    cursor.set_cursor(cursor_handle)
+
+    last_result = None
+    if len(results) > 0:
+      last_result = results[-1]
+      internal_cursor.set_last_result(last_result)
+      offset = internal_cursor.get_offset()
+      internal_cursor.set_offset(offset + len(results))
+      query_result.set_more_results(internal_cursor.get_offset() < \
+        internal_cursor.get_count())
+    else:
+      query_result.set_more_results(False)
+   
+    logging.error("QUERY")
+    if query.compile():
+      compiled_query = query_result.mutable_compiled_query()
+      compiled_query.set_keys_only(query.keys_only())
+      compiled_query.mutable_primaryscan().set_index_name(query.Encode())
+   
+    if not query_result.more_results:
+      del self.__queries[cursor_handle]
 
   def _Dynamic_Count(self, query, integer64proto):
     """Get the number of entities for a query. """
