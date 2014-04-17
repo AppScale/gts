@@ -548,17 +548,23 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     last_result = None
     if len(results) > 0:
       last_result = results[-1]
-    cursor_id = self.__getCursorID()
-    cursor = query_result.mutable_cursor()
-    cursor.set_app(self.__app_id)
-    cursor.set_cursor(cursor_id)
+
+
+    logging.info("*****From query has more results: {0}".format(query_result.more_results()))
+    if query_result.more_results():
+      new_cursor = InternalCursor(query, last_result, len(results))
+      cursor_id = self.__getCursorID()
+      cursor = query_result.mutable_cursor()
+      cursor.set_app(self.__app_id)
+      cursor.set_cursor(cursor_id)
+      self.__queries[cursor_id] = new_cursor
+      logging.info("CREATING CURSOR")
 
     if query.compile():
       compiled_query = query_result.mutable_compiled_query()
       compiled_query.set_keys_only(query.keys_only())
       compiled_query.mutable_primaryscan().set_index_name(query.Encode())
     
-    self.__queries[cursor_id] = InternalCursor(query, last_result, len(results))
 
   def _Dynamic_Next(self, next_request, query_result):
     """Get the next set of entities from a previously run query. """
@@ -571,6 +577,13 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
             'Cursor %d not found' % cursor_handle)
  
     internal_cursor = self.__queries.get(cursor_handle)
+    if internal_cursor.get_offset() >= internal_cursor.get_count():
+      query_result.set_more_results(False)
+      logging.error("MET LIMIT")
+      logging.error("DELETING CURSOR")
+      del self.__queries[cursor_handle]
+      return
+ 
     query = internal_cursor.get_query()
     last_result = internal_cursor.get_last_result()
 
@@ -605,30 +618,37 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     for result in results:
       old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
-    cursor = query_result.mutable_cursor()                                    
-    cursor.set_app(self.__app_id)                                                  
-    cursor.set_cursor(cursor_handle)
-
+    logging.info("NUMBER OF RESULTS {0}".format(len(results)))
     last_result = None
     if len(results) > 0:
       last_result = results[-1]
       internal_cursor.set_last_result(last_result)
       offset = internal_cursor.get_offset()
+      logging.info("Offset prev: {0}".format(offset))
+      logging.info("Offset new: {0}".format(offset + len(results)))
       internal_cursor.set_offset(offset + len(results))
+      logging.info("Counter: {0}".format(internal_cursor.get_count())) 
       query_result.set_more_results(internal_cursor.get_offset() < \
         internal_cursor.get_count())
+      logging.info("More results: {0}".format(query_result.more_results()))
     else:
+      logging.info("No more results 1")
       query_result.set_more_results(False)
-   
-    logging.error("QUERY")
+
+  
     if query.compile():
       compiled_query = query_result.mutable_compiled_query()
       compiled_query.set_keys_only(query.keys_only())
       compiled_query.mutable_primaryscan().set_index_name(query.Encode())
    
-    if not query_result.more_results:
+    if not query_result.more_results():
+      logging.error("DELETING CURSOR")
       del self.__queries[cursor_handle]
-
+    else:
+      cursor = query_result.mutable_cursor()                                    
+      cursor.set_app(self.__app_id)                                                  
+      cursor.set_cursor(cursor_handle)
+ 
   def _Dynamic_Count(self, query, integer64proto):
     """Get the number of entities for a query. """
     query_result = datastore_pb.QueryResult()
