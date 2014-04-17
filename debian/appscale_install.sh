@@ -11,6 +11,12 @@ APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
 echo "Install AppScale into ${APPSCALE_HOME}"
 echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
 
+# check we got at least one input
+if [ -z "$1" ]; then
+        echo "ERROR: need to have at least one target!"
+        exit 1
+fi
+
 case "$1" in
     core)
 	# scratch install of appscale including post script.
