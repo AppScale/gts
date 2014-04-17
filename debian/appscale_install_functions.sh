@@ -342,11 +342,6 @@ postinstallcassandra()
 }
 
 
-installprotobuf_fromsource()
-{
-    :;
-}
-
 installservice()
 {
     # this must be absolete path of runtime

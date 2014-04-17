@@ -68,9 +68,6 @@ case "$1" in
 	installzookeeper
 	postinstallzookeeper
 	;;
-    protobuf-src)
-	installprotobuf_fromsource
-	;;
     rabbit-mq)
         installrabbitmq
         postinstallrabbitmq
