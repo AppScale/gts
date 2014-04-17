@@ -211,27 +211,17 @@ class DatastoreDistributed():
     """
     limit = self._MAXIMUM_RESULTS
     if query.has_count():
-      if query.count() == self._MAX_INT_32:
-        # In GAE you can do no limits and have the query eventually timeout.
-        # Here we cap it at max for stability (memory and CPU).
-        limit = self._MAXIMUM_RESULTS
-      else:
-        limit = query.count()
+      limit = min(query.count(), self._MAXIMUM_RESULTS)
     elif query.has_limit():
-      limit = query.limit()
-      if limit == self._MAX_INT_32:
-        limit = self._MAXIMUM_RESULTS
-      logging.error("Has limit {0} set to {1}".format(query.limit(), limit))
+      limit = min(self._MAXIMUM_RESULTS, query.limit())
     else:
-      logging.error("Has no limit set to 20")
       limit = self._MAX_BATCH_SIZE
 
     if query.has_offset():
-      limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
+      limit = limit + query.offset()
 
     if limit <= 0:
       limit = 1
-    logging.error("Using limit: {0}".format(limit))
     return limit
 
   def get_entity_key(self, prefix, pb):
@@ -2989,11 +2979,14 @@ class DatastoreDistributed():
       query_result.set_skipped_results(len(result) - offset)
       count = len(result)
       result = result[offset:]
+      start = time.time()
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
-
+      logging.error('Time to encode: {0}'.format(time.time() - start))
+    start = time.time()
     cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
+    logging.error("Time to populate result: {0}".format(time.time() - start))
     if query.app() not in ['apichecker', 'appscaledashboard']:
       #logging.error("Result: {0}".format(query_result))
       logging.error("Query time: {0}".format(time.time() - start))
