@@ -189,6 +189,22 @@ class TestGCEAgent(TestCase):
     apiclient.discovery.should_receive('build').with_args('compute',
       GCEAgent.API_VERSION).and_return(fake_gce)
 
+    # next, presume that the persistent disk we want to use exists
+    disk_name = 'my-persistent-disk-1'
+    disk_info = {'status':'DONE'}
+    fake_disk_request = flexmock(name='fake_disk_request')
+    fake_disk_request.should_receive('execute').with_args(
+      http=fake_authorized_http).and_return(disk_info)
+
+    fake_disks = flexmock(name='fake_disks')
+    fake_disks.should_receive('get').with_args(project=self.project,
+      disk=disk_name, zone=str).and_return(fake_disk_request)
+    fake_disks.should_receive('insert').with_args(project=self.project,
+      sourceImage=str, body=dict, zone=str).and_return(fake_disk_request)
+
+    fake_gce.should_receive('disks').and_return(fake_disks)
+
+
     i = InfrastructureManager(blocking=True)
 
     # first, validate that the run_instances call goes through successfully

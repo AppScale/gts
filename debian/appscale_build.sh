@@ -96,7 +96,9 @@ fi
 
 
 # remove conflict package
-apt-get -y purge haproxy
+#apt-get -y purge haproxy
+apt-get install -y ruby-switch
+ruby-switch --set ruby1.8
 if [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
     bash debian/appscale_install.sh core || exit 1

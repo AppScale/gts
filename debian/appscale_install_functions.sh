@@ -335,14 +335,15 @@ postinstallnginx()
 
 installmonit()
 {
+    apt-get install monit
     # First, install monit.
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/monit-5.6-prebuilt-precise.tar.gz
-    tar zxvf monit-5.6-prebuilt-precise.tar.gz
-    cd monit-5.6
-    make install
-    cd ..
-    rm -rf monit-5.6 monit-5.6-prebuilt-precise.tar.gz
+#    cd ${APPSCALE_HOME}/downloads
+#    wget $APPSCALE_PACKAGE_MIRROR/monit-5.6-prebuilt-precise.tar.gz
+#    tar zxvf monit-5.6-prebuilt-precise.tar.gz
+#    cd monit-5.6
+#    make install
+#    cd ..
+#    rm -rf monit-5.6 monit-5.6-prebuilt-precise.tar.gz
 
     # Next, monit won't start unless there's a config file that enables it,
     # so copy that over as well as our AppScale-specific monit file.
