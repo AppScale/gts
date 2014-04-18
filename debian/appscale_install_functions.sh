@@ -206,12 +206,6 @@ postinstalltornado()
 
 installhaproxy()
 {
-    # download from appscale site
-    HAPROXY_VER=1.4.4
-    wget $APPSCALE_PACKAGE_MIRROR/haproxy-${HAPROXY_VER}.tar.gz
-    tar zxvf haproxy-${HAPROXY_VER}.tar.gz
-    rm -v haproxy-${HAPROXY_VER}.tar.gz
-
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
@@ -273,6 +267,7 @@ installmonit()
     cd ${APPSCALE_HOME}
     cp monitrc /etc/monitrc
     chmod 0700 /etc/monitrc
+    service monit restart
 
 }
 
