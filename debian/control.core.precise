@@ -50,7 +50,7 @@ Depends: appscale-tools,
  python-numpy,
 # lxml
  libxslt-dev, libxml2-dev
-Conflicts: zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper
+Conflicts: zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper, python-protobuf
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of
