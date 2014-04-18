@@ -158,7 +158,6 @@ installthrift()
 
 installjavajdk()
 {
-    :;
     # make jdk-7 the default
     update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 }
