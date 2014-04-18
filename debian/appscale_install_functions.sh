@@ -64,16 +64,6 @@ setupntpcron()
     service ntp start
 }
 
-installphp()
-{
-    :;
-}
-
-installnumpy()
-{
-    :;
-}
-
 installPIL()
 {
     pip uninstall -y PIL
@@ -186,11 +176,6 @@ installappserverjava()
     fi
 }
 
-postinstallappserverjava()
-{
-    :;
-}
-
 installtornado()
 {
     easy_install -U tornado
@@ -272,16 +257,6 @@ installgems()
     gem install -v=1.0.4 flexmock ${GEMOPT}
     gem install -v=1.0.0 rcov ${GEMOPT}
 
-}
-
-postinstallgems()
-{
-    :;
-}
-
-installnginx()
-{
-    :;
 }
 
 # This function is called from postinst.core, so we don't need to use DESTDIR
@@ -426,11 +401,6 @@ installsetuptools()
     rm -fr  setuptools-0.6c11*
 }
 
-postinstallsetuptools()
-{
-    :;
-}
-
 keygen()
 {
     test -e /root/.ssh/id_rsa || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
@@ -445,10 +415,6 @@ installcelery()
     easy_install Flower
 }
 
-installrabbitmq()
-{
-    :;
-}
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down

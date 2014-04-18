@@ -23,25 +23,19 @@ case "$1" in
 	installappscaleprofile
 	. /etc/profile.d/appscale.sh
 	installgems
-	postinstallgems
         installsetuptools
 	installhaproxy
 	postinstallhaproxy
-	installnginx
 	postinstallnginx
 	installmonit
-        installnumpy
         installPIL
         installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
-        installphp
 	installappserverjava
-	postinstallappserverjava
 	installjavajdk
         installappserverjava
-        postinstallappserverjava
 	installthrift
         installtornado
         postinstalltornado
@@ -49,7 +43,6 @@ case "$1" in
         installnose
 	installzookeeper
 	postinstallzookeeper
-        installrabbitmq
         postinstallrabbitmq
         installcelery
 	installservice
@@ -69,7 +62,6 @@ case "$1" in
 	postinstallzookeeper
 	;;
     rabbit-mq)
-        installrabbitmq
         postinstallrabbitmq
         ;; 
     celery)
@@ -80,23 +72,18 @@ case "$1" in
 	installappscaleprofile
 	. /etc/profile.d/appscale.sh
 	installgems
-	postinstallgems
         installsetuptools
 	installhaproxy
 	postinstallhaproxy
-	installnginx
 	postinstallnginx
 	installmonit
-        installnumpy
         installPIL
         installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
-        installphp
 	installjavajdk
         installappserverjava
-        postinstallappserverjava
 	installthrift
         installtornado
         installflexmock
@@ -106,7 +93,6 @@ case "$1" in
 	postinstallzookeeper
         installcassandra
 	postinstallcassandra
-        installrabbitmq
         postinstallrabbitmq
         installcelery
 	installservice
