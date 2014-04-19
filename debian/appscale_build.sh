@@ -44,15 +44,8 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-# for distro
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y --force-yes ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
-# for general
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +`
+# install dependencies for core and specific distro
+PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +)"
 apt-get install -y --force-yes ${PACKAGES}
 if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for runtime."
