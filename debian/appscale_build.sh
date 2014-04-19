@@ -1,12 +1,13 @@
 #!/bin/bash
 
 set -e
-export DIST=`lsb_release -c -s`
+export DIST="$(lsb_release -c -s)"
+export VENDOR="$(lsb_release -i -s)"
 
 cd `dirname $0`/..
 
 if [ ! -e ./debian/changelog.${DIST} ]; then
-    echo "${DIST} is not supported."
+    echo "${VENDOR}/${DIST} is not supported."
     exit 1
 fi
 if [ ! -e VERSION ]; then
@@ -34,7 +35,8 @@ if [ $2 ]; then
     exit 1
 fi
 
-echo "Installing Ubuntu ${DIST} building environment."
+echo -n "Installing building environment for ${VENDOR}/${DIST} "
+
 
 apt-get update
 apt-get -y install curl wget
