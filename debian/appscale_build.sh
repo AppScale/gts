@@ -52,6 +52,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# if we have an option to switch ruby, let's make sure we use 1.8
+if apt-cache search ruby-switch 2> /dev/null > /dev/null ; then
+        echo "Make sure ruby1.8 is used"
+        apt-get install -y ruby-switch
+        ruby-switch --set ruby1.8
+fi
+
 # install package for build
 apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
  rsync ntp\
