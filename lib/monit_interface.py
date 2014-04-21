@@ -14,7 +14,7 @@ monitoring of processes using monit. Each component is in
 charge of creating configuration files for the process they want started. 
 """
 
-MONIT = "/usr/local/bin/monit"
+MONIT = "/usr/bin/monit"
 
 NUM_RETRIES = 10
 

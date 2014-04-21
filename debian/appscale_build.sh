@@ -1,12 +1,13 @@
 #!/bin/bash
 
 set -e
-export DIST=`lsb_release -c -s`
+export DIST="$(lsb_release -c -s)"
+export VENDOR="$(lsb_release -i -s)"
 
 cd `dirname $0`/..
 
 if [ ! -e ./debian/changelog.${DIST} ]; then
-    echo "${DIST} is not supported."
+    echo "${VENDOR}/${DIST} is not supported."
     exit 1
 fi
 if [ ! -e VERSION ]; then
@@ -34,7 +35,8 @@ if [ $2 ]; then
     exit 1
 fi
 
-echo "Installing Ubuntu ${DIST} building environment."
+echo -n "Installing building environment for ${VENDOR}/${DIST} "
+
 
 apt-get update
 apt-get -y install curl wget
@@ -42,18 +44,16 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-# fix /etc/hosts file for collectd installation
-HOSTNAME=`hostname`
-if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
-    echo "127.0.1.1 ${HOSTNAME} ${HOSTNAME}.localdomain" >> /etc/hosts
+# install dependencies for core and specific distro
+PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +)"
+apt-get install -y --force-yes ${PACKAGES}
+if [ $? -ne 0 ]; then
+    echo "Fail to install depending packages for runtime."
+    exit 1
 fi
 
-
-# Install cmake prior to the other packages since seems to fail if installed with the other packages
-apt-get install -y cmake
-
 # install package for build
-apt-get install -y autoconf automake libtool gcc g++ pkg-config ant maven2\
+apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
  rsync ntp\
  build-essential bison flex byacc unzip bzip2\
  libc6-dev subversion\
@@ -73,30 +73,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for building."
-    exit 1
-fi
-
-# for distro
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y --force-yes ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
-# for general
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y --force-yes ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
-
-
 # remove conflict package
-apt-get -y purge haproxy
 if [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
     bash debian/appscale_install.sh core || exit 1

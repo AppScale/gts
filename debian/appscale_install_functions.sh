@@ -64,27 +64,6 @@ setupntpcron()
     service ntp start
 }
 
-installphp()
-{
-    cd /usr/local
-    wget $APPSCALE_PACKAGE_MIRROR/php-5.4.15-prebuilt.tar.gz
-    tar zxvf php-5.4.15-prebuilt.tar.gz
-    rm /usr/local/php-5.4.15-prebuilt.tar.gz
-}
-
-installnumpy()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/appscale-numpy-1.7.0.tar.gz
-    tar zxvf appscale-numpy-1.7.0.tar.gz
-    cd numpy-1.7.0
-    python setup.py install
-    cd ..
-    rm appscale-numpy-1.7.0.tar.gz
-    rm -fr numpy-1.7.0
-}
-
 installPIL()
 {
     pip uninstall -y PIL
@@ -179,7 +158,6 @@ installthrift()
 
 installjavajdk()
 {
-    apt-get install -y openjdk-7-jdk
     # make jdk-7 the default
     update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 }
@@ -197,11 +175,6 @@ installappserverjava()
     fi
 }
 
-postinstallappserverjava()
-{
-    :;
-}
-
 installtornado()
 {
     easy_install -U tornado
@@ -216,11 +189,6 @@ installtornado()
     fi
 }
 
-installnose()
-{
-  easy_install nose
-}
-
 installflexmock()
 {
     easy_install flexmock
@@ -233,29 +201,6 @@ postinstalltornado()
 
 installhaproxy()
 {
-    # 1.4.4 or newer version of haproxy is needed for AppServer Java.
-    # because there is jetty keep-alive issue.
-    HAPROXY_VER=1.4.4
-
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    rm -rfv haproxy*
-# download from appscale site
-    wget $APPSCALE_PACKAGE_MIRROR/haproxy-${HAPROXY_VER}.tar.gz
-    tar zxvf haproxy-${HAPROXY_VER}.tar.gz
-    rm -v haproxy-${HAPROXY_VER}.tar.gz
-
-    pushd haproxy-${HAPROXY_VER}
-    # All Ubuntu is linux26 now
-    make TARGET=linux26
-    make install-bin PREFIX=/usr
-    if [ ! -e ${DESTDIR}/usr/sbin/haproxy ]; then
-	echo "Fail to install haproxy. Please retry."
-	exit 1
-    fi
-    popd
-    rm -rv haproxy-${HAPROXY_VER}
-
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
@@ -302,58 +247,23 @@ installgems()
 
 }
 
-postinstallgems()
-{
-    :;
-}
-
-installnginx()
-{
-    NGINX_VERSION=1.5.13
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/nginx-${NGINX_VERSION}.tar.gz
-    tar zxvf nginx-${NGINX_VERSION}.tar.gz
-    rm -v nginx-${NGINX_VERSION}.tar.gz
-    pushd nginx-${NGINX_VERSION}
-    ./configure --with-http_ssl_module --with-http_gzip_static_module
-    make
-    make install
-    popd
-    rm -rv nginx-${NGINX_VERSION}
-}
-
 # This function is called from postinst.core, so we don't need to use DESTDIR
 postinstallnginx()
 {
     cd ${APPSCALE_HOME}
-    mkdir -p /usr/local/nginx/sites-enabled/
-    cp -v AppDashboard/setup/load-balancer.conf /usr/local/nginx/sites-enabled/
-    rm -fv /usr/local/nginx/sites-enabled/default
+    cp -v AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
+    rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
 }
 
 installmonit()
 {
-    # First, install monit.
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/monit-5.6-prebuilt-precise.tar.gz
-    tar zxvf monit-5.6-prebuilt-precise.tar.gz
-    cd monit-5.6
-    make install
-    cd ..
-    rm -rf monit-5.6 monit-5.6-prebuilt-precise.tar.gz
-
-    # Next, monit won't start unless there's a config file that enables it,
-    # so copy that over as well as our AppScale-specific monit file.
+    # let's use our configuration
     cd ${APPSCALE_HOME}
-    cp monit /etc/default/monit
     cp monitrc /etc/monitrc
-    mkdir -p /etc/monit/conf.d
-
-    # Finally, monit requires the monitrc file to be 0700, otherwise it won't
-    # use it.
     chmod 0700 /etc/monitrc
+    service monit restart
+
 }
 
 installcassandra()
@@ -395,32 +305,6 @@ postinstallcassandra()
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/cassandra
 }
 
-
-installprotobuf_fromsource()
-{
-    PROTOBUF_VER=2.3.0
-    # install protobuf 2.3.0. we need egg version for python.
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/protobuf-${PROTOBUF_VER}.tar.gz
-    tar zxvf protobuf-${PROTOBUF_VER}.tar.gz
-    rm -v protobuf-${PROTOBUF_VER}.tar.gz
-    pushd protobuf-${PROTOBUF_VER}
-    ./configure --prefix=/usr
-    make
-    make check
-    make install
-    pushd python
-# protobuf could not be installed in the different root
-    python setup.py bdist_egg
-# copy the egg file
-    DISTP=${DESTDIR}/usr/local/lib/python2.7/dist-packages
-    mkdir -pv ${DISTP}
-    cp -v dist/protobuf-*.egg ${DISTP}
-    popd
-    popd
-    rm -rv protobuf-${PROTOBUF_VER}
-}
 
 installservice()
 {
@@ -506,11 +390,6 @@ installsetuptools()
     rm -fr  setuptools-0.6c11*
 }
 
-postinstallsetuptools()
-{
-    :;
-}
-
 keygen()
 {
     test -e /root/.ssh/id_rsa || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
@@ -521,26 +400,10 @@ keygen()
 
 installcelery()
 {
-  easy_install Celery==3.0.24
-  easy_install Flower
+    easy_install Celery==3.0.24
+    easy_install Flower
 }
 
-installrabbitmq()
-{
-   # RabbitMQ is installed via apt-get
-   # Install the python client for rabbitmq
-   PIKA_VERSION=0.9.9p0
-   mkdir -pv ${APPSCALE_HOME}/downloads
-   cd ${APPSCALE_HOME}/downloads
-   rm -fr pika-master
-   wget $APPSCALE_PACKAGE_MIRROR/pika-${PIKA_VERSION}.zip
-   unzip pika-${PIKA_VERSION}.zip
-   cd pika-master
-   cp -r pika /usr/share/pyshared
-   cd ..
-   rm pika-${PIKA_VERSION}.zip
-   rm -fr pika-master
-}
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down

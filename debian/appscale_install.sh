@@ -11,39 +11,37 @@ APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
 echo "Install AppScale into ${APPSCALE_HOME}"
 echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
 
+# check we got at least one input
+if [ -z "$1" ]; then
+        echo "ERROR: need to have at least one target!"
+        exit 1
+fi
+
 case "$1" in
     core)
 	# scratch install of appscale including post script.
 	installappscaleprofile
 	. /etc/profile.d/appscale.sh
 	installgems
-	postinstallgems
         installsetuptools
 	installhaproxy
 	postinstallhaproxy
-	installnginx
 	postinstallnginx
 	installmonit
-        installnumpy
         installPIL
         installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
-        installphp
 	installappserverjava
-	postinstallappserverjava
 	installjavajdk
         installappserverjava
-        postinstallappserverjava
 	installthrift
         installtornado
         postinstalltornado
         installflexmock
-        installnose
 	installzookeeper
 	postinstallzookeeper
-        installrabbitmq
         postinstallrabbitmq
         installcelery
 	installservice
@@ -62,11 +60,7 @@ case "$1" in
 	installzookeeper
 	postinstallzookeeper
 	;;
-    protobuf-src)
-	installprotobuf_fromsource
-	;;
     rabbit-mq)
-        installrabbitmq
         postinstallrabbitmq
         ;; 
     celery)
@@ -77,33 +71,26 @@ case "$1" in
 	installappscaleprofile
 	. /etc/profile.d/appscale.sh
 	installgems
-	postinstallgems
         installsetuptools
 	installhaproxy
 	postinstallhaproxy
-	installnginx
 	postinstallnginx
 	installmonit
-        installnumpy
         installPIL
         installpythonmemcache
         installpycrypto
         installlxml
         installxmpppy
-        installphp
 	installjavajdk
         installappserverjava
-        postinstallappserverjava
 	installthrift
         installtornado
         installflexmock
-        installnose
         postinstalltornado
 	installzookeeper
 	postinstallzookeeper
         installcassandra
 	postinstallcassandra
-        installrabbitmq
         postinstallrabbitmq
         installcelery
 	installservice
