@@ -127,9 +127,6 @@ class DatastoreDistributed():
   # Maximum batch size.
   _MAX_BATCH_SIZE = 20
 
-  # Max integer. Used as default limits and counts on queries.
-  _MAX_INT_32 = 2**31-1
-
   # The number of entries looked at when doing a composite query
   # It will keep looking at this size window when getting the result
   _MAX_COMPOSITE_WINDOW = 10000
@@ -448,7 +445,6 @@ class DatastoreDistributed():
           continue
         composite_index_key = self.get_composite_index_key(index_def, ent)  
         row_keys.append(composite_index_key)
-
     self.datastore_batch.batch_delete(dbconstants.COMPOSITE_TABLE, 
                                       row_keys, 
                                       column_names=dbconstants.COMPOSITE_SCHEMA)
@@ -916,7 +912,7 @@ class DatastoreDistributed():
  
   def get_journal_key(self, row_key, version):
     """ Creates a string for a journal key.
-  
+
     Args:
       row_key: The entity key for which we want to create a journal key.
       version: The version of the entity we are going to save.
@@ -2969,9 +2965,7 @@ class DatastoreDistributed():
       query: The query to run.
       query_result: The response given to the application server.
     """
-    if query.app() not in ['apichecker', 'appscaledashboard']:
-      logging.error("Query: {0}".format(query))
-    start = time.time()
+
     result = self.__get_query_results(query)
     count = 0
     offset = query.offset()
@@ -2979,18 +2973,13 @@ class DatastoreDistributed():
       query_result.set_skipped_results(len(result) - offset)
       count = len(result)
       result = result[offset:]
-      start = time.time()
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
-      logging.error('Time to encode: {0}'.format(time.time() - start))
-    start = time.time()
     cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-    logging.error("Time to populate result: {0}".format(time.time() - start))
-    if query.app() not in ['apichecker', 'appscaledashboard']:
-      #logging.error("Result: {0}".format(query_result))
-      logging.error("Query time: {0}".format(time.time() - start))
-      
+    if query.has_compiled_cursor() and not query_result.has_compiled_cursor():
+      query_result.mutable_compiled_cursor().CopyFrom(query.compiled_cursor())
+
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
 
@@ -3325,7 +3314,7 @@ class MainHandler(tornado.web.RequestHandler):
     return (response.Encode(), 0, "")
 
   def next_request(self, app_id, http_request_data):
-    """ Resumes a previously run query.
+    """ Resumes a previously run query. No op here.
   
     Args:
       app_id: Name of the application.
@@ -3334,12 +3323,8 @@ class MainHandler(tornado.web.RequestHandler):
       A tuple of an encoded QueryResult, error code, and 
       error explanation. 
     """
-    #TODO
     request = datastore_pb.NextRequest(http_request_data)
-    logging.error("Next request: {0}".format(request))
     response = datastore_pb.QueryResult()
-    #cur = appscale_stub_util.QueryCursor(query, result)
-    #cur.PopulateQueryResult(0, request.offset(), response) 
     response.set_more_results(False)
     return (response.Encode(), 0, "")
 
