@@ -53,7 +53,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # if we have an option to switch ruby, let's make sure we use 1.8
-if apt-cache search ruby-switch 2> /dev/null > /dev/null ; then
+if [ -n "$(apt-cache search ruby-switch)" ]; then
         echo "Make sure ruby1.8 is used"
         apt-get install -y ruby-switch
         ruby-switch --set ruby1.8
