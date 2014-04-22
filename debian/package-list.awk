@@ -15,6 +15,9 @@ BEGIN {
     for (i in list) {
         if (length(list[i]) > 0) {
             gsub("\(.+\)", "", list[i])
+            # let's make sure we are not adding packages that we should
+            # create here (ie appscale-*)
+            if (list[i] ~ /appscale-/) { next }
             packages[count] = list[i]
             count += 1
         }
