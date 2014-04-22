@@ -129,7 +129,7 @@ class InternalCursor():
   def get_count(self):
     return self.__count
 
-  def get_last_result(self):
+  def get_last_cursor(self):
     return self.__last_cursor
 
   def get_offset(self):
@@ -138,7 +138,7 @@ class InternalCursor():
   def get_timestamp(self):
     return self.__creation
 
-  def set_last_result(self, last_cursor):
+  def set_last_cursor(self, last_cursor):
     self.__last_cursor = last_cursor
 
   def set_offset(self, offset):
@@ -472,12 +472,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     for result in results:
       old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
-    last_result = None
+    last_cursor= None
     if query_result.has_compiled_cursor():
-      last_result = query_result.compiled_cursor()
+      last_cursor = query_result.compiled_cursor()
 
     if query_result.more_results():
-      new_cursor = InternalCursor(query, last_result, len(results))
+      new_cursor = InternalCursor(query, last_cursor, len(results))
       cursor_id = self.__getCursorID()
       cursor = query_result.mutable_cursor()
       cursor.set_app(self.__app_id)
@@ -500,10 +500,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
             'Cursor %d not found' % cursor_handle)
  
     internal_cursor = self.__queries.get(cursor_handle)
-    last_result = internal_cursor.get_last_result()
+    last_cursor= internal_cursor.get_last_cursor()
     query = internal_cursor.get_query()
 
-    if not last_result:
+    if not last_cursor:
       query_result.set_more_results(False)
       if next_request.compile():
         compiled_query = query_result.mutable_compiled_query()
@@ -514,7 +514,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     if internal_cursor.get_offset() >= internal_cursor.get_count():
       query_result.set_more_results(False)
-      query_result.mutable_compiled_cursor().CopyFrom(last_result)
+      query_result.mutable_compiled_cursor().CopyFrom(last_cursor)
       if next_request.compile():
         compiled_query = query_result.mutable_compiled_query()
         compiled_query.set_keys_only(query.keys_only())
@@ -535,7 +535,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     # Remove any offset since first RunQuery deals with it.
     query.clear_offset()
 
-    query.mutable_compiled_cursor().CopyFrom(last_result)
+    query.mutable_compiled_cursor().CopyFrom(last_cursor)
 
     self._RemoteSend(query, query_result, "RunQuery")
     results = query_result.result_list()
@@ -544,14 +544,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     if len(results) > 0:
       if query_result.has_compiled_cursor():
-        last_result = query_result.compiled_cursor()
-        internal_cursor.set_last_result(last_result)
+        last_cursor = query_result.compiled_cursor()
+        internal_cursor.set_last_cursor(last_cursor)
       offset = internal_cursor.get_offset()
       internal_cursor.set_offset(offset + len(results))
       query_result.set_more_results(internal_cursor.get_offset() < \
         internal_cursor.get_count())
     else:
-      query_result.mutable_compiled_cursor().CopyFrom(last_result)
+      query_result.mutable_compiled_cursor().CopyFrom(last_cursor)
       query_result.set_more_results(False)
   
     if query.compile():
