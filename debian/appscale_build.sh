@@ -59,27 +59,6 @@ if apt-cache search ruby-switch 2> /dev/null > /dev/null ; then
         ruby-switch --set ruby1.8
 fi
 
-# install package for build
-apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
- rsync ntp\
- build-essential bison flex byacc unzip bzip2\
- libc6-dev subversion\
- erlang\
- dpkg-dev dh-make debhelper fakeroot\
- python-dev libssl-dev\
- libevent-dev\
- ruby1.8-dev\
- zlib1g-dev\
- libexpat1-dev\
- libcppunit-dev\
- libbz2-dev libreadline-dev\
- libxml2-dev
-
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for building."
-    exit 1
-fi
-
 # remove conflict package
 if [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
