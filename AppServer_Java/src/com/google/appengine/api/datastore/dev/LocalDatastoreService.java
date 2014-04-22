@@ -1284,16 +1284,14 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     static class LiveTxn extends LocalDatastoreService.HasCreationTime
     {
         private final List<TaskQueuePb.TaskQueueAddRequest>                                                    actions      = new ArrayList();
-        private final boolean                                                                                  allowMultipleEg;
         private boolean                                                                                        failed       = false;
 
-        LiveTxn( Clock clock, boolean allowMultipleEg )
+        LiveTxn( Clock clock)
         {
             /*
              * changed super() call below to include clocl.getCurrentTime()
              */
             super(clock.getCurrentTime());
-            this.allowMultipleEg = allowMultipleEg;
         }
         
         synchronized void addActions( Collection<TaskQueuePb.TaskQueueAddRequest> newActions )
