@@ -117,7 +117,7 @@ class InternalCursor():
     elif query.has_limit():
       self.__count = query.limit()
     self.__query = query
-    self.__last_cursor= last_cursor
+    self.__last_cursor = last_cursor
     self.__creation = time.time()
     # Lets us know how many results we've seen so far. When
     # this hits the count we know we're done.
@@ -472,7 +472,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     for result in results:
       old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
-    last_cursor= None
+    last_cursor = None
     if query_result.has_compiled_cursor():
       last_cursor = query_result.compiled_cursor()
 
@@ -500,7 +500,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
             'Cursor %d not found' % cursor_handle)
  
     internal_cursor = self.__queries.get(cursor_handle)
-    last_cursor= internal_cursor.get_last_cursor()
+    last_cursor = internal_cursor.get_last_cursor()
     query = internal_cursor.get_query()
 
     if not last_cursor:

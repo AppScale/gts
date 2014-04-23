@@ -885,7 +885,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
         DatastoreV3Pb.CompiledCursor compiledCursor = liveQuery.getCompiledCursor();
-        // If we don't have a cursor to continue, or we have hit the count we're trying achieve
+        // If we don't have a cursor to continue, or we have hit the count we're trying to achieve
         // end this query.
         if (!compiledCursor.isInitialized() || liveQuery.getCount() >= liveQuery.getOffset())
         {
