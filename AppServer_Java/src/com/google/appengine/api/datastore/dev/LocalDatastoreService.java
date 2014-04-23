@@ -71,17 +71,6 @@ import com.google.storage.onestore.v3.OnestoreEntity.Property.Meaning;
 import com.google.storage.onestore.v3.OnestoreEntity.PropertyValue;
 import com.google.storage.onestore.v3.OnestoreEntity.PropertyValue.UserValue;
 import com.google.storage.onestore.v3.OnestoreEntity.Reference;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -112,8 +101,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -201,8 +188,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     private final AtomicInteger                 transactionHandleProvider          = new AtomicInteger(0);
     private int                                 storeDelayMs;
-    private volatile boolean                    dirty;
-    private final ReadWriteLock                 globalLock                         = new ReentrantReadWriteLock();
     private boolean                             noStorage;
     private Thread                              shutdownHook;
     private PseudoKinds                         pseudoKinds;
@@ -574,15 +559,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.PutResponse put( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            return putImpl(status, request);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        return putImpl(status, request);
     }
 
     private void processEntityForSpecialProperties( OnestoreEntity.EntityProto entity, boolean store )
@@ -699,28 +676,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.DeleteResponse delete( LocalRpcService.Status status, DatastoreV3Pb.DeleteRequest request )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            return deleteImpl(status, request);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        return deleteImpl(status, request);
     }
 
     public ApiBasePb.VoidProto addActions( LocalRpcService.Status status, TaskQueuePb.TaskQueueBulkAddRequest request )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            addActionsImpl(status, request);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        addActionsImpl(status, request);
         return new ApiBasePb.VoidProto();
     }
 
@@ -1083,15 +1044,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.AllocateIdsResponse allocateIds( LocalRpcService.Status status, DatastoreV3Pb.AllocateIdsRequest req )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            return allocateIdsImpl(req);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        return allocateIdsImpl(req);
     }
 
     /*
@@ -1101,7 +1054,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     {
         if (req.hasSize() && req.getSize() > MAX_BATCH_GET_KEYS)
         {
-            throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST.getValue(), "cannot get more than " + MAX_BATCH_GET_KEYS + " keys in a single call");
+            throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST.getValue(), 
+              "cannot get more than " + MAX_BATCH_GET_KEYS + " keys in a single call");
         }
 
         DatastoreV3Pb.AllocateIdsResponse response = new DatastoreV3Pb.AllocateIdsResponse();
