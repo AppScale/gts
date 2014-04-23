@@ -381,9 +381,12 @@ def locate_dir(path, dir_name):
     for dir in sub_dirs:
       if dir_name == dir:
         result = os.path.abspath(os.path.join(root, dir))
-        if dir == "WEB-INF" and result.count(os.sep) == path.count(os.sep) + 1:
+        if dir == "WEB-INF" and result.count(os.sep) <= path.count(os.sep) + 1:
+          logging.info("Found WEB-INF/ at: %s" % result)
           return result
-        elif dir == "lib" and result.count(os.sep) == path.count(os.sep) + 2 and result.endswith("/WEB-INF/%s" % dir):
+        elif dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
+          and result.endswith("/WEB-INF/%s" % dir):
+          logging.info("Found lib/ at: %s" % result)
           return result
 
 def copy_modified_jars(app_name):
