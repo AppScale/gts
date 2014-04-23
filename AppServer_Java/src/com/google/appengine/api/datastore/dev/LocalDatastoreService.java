@@ -980,7 +980,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
          * AppScale line replacement
          */
         proxy.doPost(req.getApp(), "BeginTransaction", req, txn);
-        profile.addTxn(txn.getHandle(), new LiveTxn(this.clock, req.isAllowMultipleEg()));
+        profile.addTxn(txn.getHandle(), new LiveTxn(this.clock));
         return txn;
     }
 
