@@ -885,6 +885,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
         DatastoreV3Pb.CompiledCursor compiledCursor = liveQuery.getCompiledCursor();
+        // If we don't have a cursor to continue, or we have hit the count we're trying achieve
+        // end this query.
         if (!compiledCursor.isInitialized() || liveQuery.getCount() >= liveQuery.getOffset())
         {
           queryResult.setMoreResults(false);
@@ -895,7 +897,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
           if (compiledCursor.isInitialized())
           {
             queryResult.setCompiledCursor(compiledCursor); 
-          } 
+          }
           profile.removeQuery(request.getCursor().getCursor());
           return queryResult;
         }
@@ -1240,7 +1242,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         private final List<TaskQueuePb.TaskQueueAddRequest>                                                    actions      = new ArrayList();
         private boolean                                                                                        failed       = false;
 
-        LiveTxn( Clock clock)
+        LiveTxn(Clock clock)
         {
             /*
              * changed super() call below to include clocl.getCurrentTime()
