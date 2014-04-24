@@ -285,16 +285,9 @@ installcassandra()
     # TODO only grant the cassandra user access
     chmod 777 /var/lib/cassandra
 
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/pycassa-${PYCASSA_VER}.tar.gz
-    tar zxvf pycassa-${PYCASSA_VER}.tar.gz  
-    cd pycassa-${PYCASSA_VER}
-    python setup.py install
-    cd ..
-    rm -fr pycassa-${PYCASSA_VER}
-    rm -fr pycassa-${PYCASSA_VER}.tar.gz 
-    
+    easy_install -U pycassa
+    easy_install -U thrift
+
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
@@ -353,7 +346,6 @@ installzookeeper()
   cd ${APPSCALE_HOME}/downloads
   wget http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/cdh4-repository_1.0_all.deb
   dpkg -i cdh4-repository_1.0_all.deb 
-  apt-get update
   apt-get install -y zookeeper-server 
   cd ..
   rm -rf ${APPSCALE_HOME}/downloads
