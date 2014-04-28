@@ -71,7 +71,7 @@ def start_zookeeper
 
   start_cmd = "/usr/sbin/service zookeeper-server start"
   stop_cmd = "/usr/sbin/service zookeeper-server stop"
-  match_cmd = "zookeeper-3.4.5-cdh4.5.0.jar"
+  match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
   MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   Djinn.log_info("Started ZooKeeper")

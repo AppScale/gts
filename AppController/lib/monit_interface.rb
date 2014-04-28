@@ -21,7 +21,7 @@ module MonitInterface
 
   
   # The location on the local filesystem of the monit executable.
-  MONIT = "/usr/local/bin/monit"
+  MONIT = "/usr/bin/monit"
 
 
   def self.start_monit(remote_ip, remote_key)

@@ -19,7 +19,7 @@ module TerminateHelper
     `rm -f /var/log/appscale/*.log`
     `rm -rf /var/log/appscale/celery_workers`
     `rm -f /var/appscale/*.pid`
-    `rm -f /usr/local/nginx/conf/sites-enabled/*.conf`
+    `rm -f /etc/nginx/sites-enabled/*.conf`
     `rm -f /etc/monit/conf.d/*.cfg`
     `rm -f /etc/appscale/port-*.txt`
 

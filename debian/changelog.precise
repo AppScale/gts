@@ -1,6 +1,12 @@
+appscale (1.14-0.REVNOprecise) precise; urgency=low
+
+  * New release (1.14.0)
+  
+ -- Graziano Obertelli <g@appscale.com> Fri, 18 April 2014 16:58:00 -0800
+
 appscale (1.4-0.REVNOlucid) lucid; urgency=low
 
-  * change deb package version to 1.4
+  * Change deb package version to 1.4
 
  -- Yoshi <nomura@pobox.com>  Fri, 23 Jul 2010 10:37:05 -0700
 

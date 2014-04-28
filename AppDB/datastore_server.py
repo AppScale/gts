@@ -2979,6 +2979,9 @@ class DatastoreDistributed():
     cur.PopulateQueryResult(count, query.offset(), query_result) 
     if query.has_compiled_cursor() and not query_result.has_compiled_cursor():
       query_result.mutable_compiled_cursor().CopyFrom(query.compiled_cursor())
+ 
+    if query_result.result_size() < self.get_limit(query):
+      query_result.set_more_results(False)
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
@@ -3454,7 +3457,8 @@ class MainHandler(tornado.web.RequestHandler):
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
-
+    if app_id == "tckapp":
+      logging.error("PUT: {0}".format(putreq_pb))
     return (putresp_pb.Encode(), 0, "")
     
   def get_request(self, app_id, http_request_data):

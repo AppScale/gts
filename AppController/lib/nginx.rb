@@ -21,10 +21,10 @@ module Nginx
 
 
   # The path on the local filesystem where the nginx binary can be found.
-  NGINX_BIN = "/usr/local/nginx/sbin/nginx"
+  NGINX_BIN = "/usr/sbin/nginx"
 
 
-  NGINX_PATH = "/usr/local/nginx/conf"
+  NGINX_PATH = "/etc/nginx/"
 
 
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
@@ -201,8 +201,8 @@ server {
     listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_certificate /usr/local/nginx/conf/mycert.pem;
-    ssl_certificate_key /usr/local/nginx/conf/mykey.pem;
+    ssl_certificate /etc/nginx/mycert.pem;
+    ssl_certificate_key /etc/nginx/mykey.pem;
 
     #If they come here using HTTP, bounce them to the correct scheme
     error_page 400 https://$host:$server_port$request_uri;

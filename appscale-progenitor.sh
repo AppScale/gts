@@ -23,7 +23,7 @@ case "$1" in
     if [ $LIVE_APPCONTROLLERS -eq 0 -a -e $SECRET_FILE ];
     then
       log_begin_msg "AppController not running - starting it now."
-      /usr/local/bin/monit -Ic /etc/monitrc &
+      service monit start
     else
       log_begin_msg "AppController already running - not starting it again."
     fi
