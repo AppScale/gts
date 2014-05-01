@@ -58,7 +58,6 @@ import com.google.apphosting.datastore.DatastoreV3Pb.Transaction;
 import com.google.apphosting.utils.config.GenerationDirectory;
 import com.google.apphosting.utils.config.IndexesXmlReader;
 import com.google.apphosting.utils.config.IndexesXml;
-//import com.google.apphosting.utils.config.IndexesXml.Index;
 import com.google.storage.onestore.v3.OnestoreEntity;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex.State;
@@ -795,33 +794,14 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                     {
                         throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR, "Can't query app " + app + "in a transaction on app " + query.getTransaction().getApp());
                     }
-
                     LiveTxn liveTxn = profile.getTxn(query.getTransaction().getHandle());
-
                 }
-
             }
 
-            /*
-             * AppScale line replacement to #end
-             */
             DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
             proxy.doPost(app, "RunQuery", query, queryResult);
-            logger.log(Level.WARNING, "Query: " + query + "Result: " + queryResult);
-            //List<EntityProto> queryEntities = new ArrayList<EntityProto>(queryResult.results());
-            /* #end */
-
-            //if (queryEntities == null)
-            //{
-            //    queryEntities = Collections.emptyList();
-           // }
-
-            //final boolean hasNamespace = query.hasNameSpace();
-            //final String namespace = query.getNameSpace();
-
-            /*
-             * AppScale - removed duplicate count instantiations
-             */
+            logger.log(Level.WARNING, "QUERY: " + query);
+            logger.log(Level.WARNING, "RESUL: " + queryResult);
             int count;
             if (query.hasCount())
             {
@@ -849,14 +829,13 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                 queryResult.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
             }
 
-            //for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
-            //{
-            //    result.addIndex(wrapIndexInCompositeIndex(app, index));
-            //} 
+            for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
+            {
+                queryResult.addIndex(wrapIndexInCompositeIndex(app, index));
+            } 
             /*
              * AppScale - adding skipped results to the result, otherwise query counts are wrong	
              */	
-            //result.setSkippedResults(queryResult.getSkippedResults());
             return queryResult;
         }
     }

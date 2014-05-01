@@ -325,10 +325,14 @@ class AppDashboardData():
         if store and store.status != api_status:
           store.status = api_status
           updated_datastore_entries.append(store)
-        else:
+        elif not store:
           store = ApiStatus(id = api_name, status = api_status)
           updated_datastore_entries.append(store)
-      ndb.put_multi(updated_datastore_entries)
+        else:
+          # There has been no update.
+          pass
+      if updated_datastore_entries:
+        ndb.put_multi(updated_datastore_entries)
     except Exception as err:
       logging.exception(err)
 
