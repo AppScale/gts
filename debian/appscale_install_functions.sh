@@ -332,32 +332,21 @@ installpythonmemcache()
 
 installzookeeper()
 {
-  mkdir -pv ${APPSCALE_HOME}/downloads
-  cd ${APPSCALE_HOME}/downloads
-  wget http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/cdh4-repository_1.0_all.deb
-  dpkg -i cdh4-repository_1.0_all.deb 
+  ZK_REPO_PKG=cdh4-repository_1.0_all.deb
+  wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+  dpkg -i /tmp/${ZK_REPO_PKG}
+  apt-get update 
   apt-get install -y zookeeper-server 
-  cd ..
-  rm -rf ${APPSCALE_HOME}/downloads
 
   easy_install kazoo
 }
 
 postinstallzookeeper()
 {
-    if ! grep -q zookeeper /etc/passwd; then
-	adduser --system --no-create-home zookeeper
-	addgroup --system zookeeper
-	adduser zookeeper zookeeper
-    fi
-    chown -v zookeeper:zookeeper /var/run/zookeeper || true
-    chown -v zookeeper:zookeeper /var/lib/zookeeper || true
-
     # need conf/environment to stop service
     cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
-
-    service zookeeper stop || true
-    update-rc.d -f zookeeper remove || true
+    service zookeeper-server stop || true
+    update-rc.d -f zookeeper-server remove || true
 }
 
 installsetuptools()
