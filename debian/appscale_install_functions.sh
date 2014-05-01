@@ -199,20 +199,12 @@ postinstalltornado()
     easy_install tornado
 }
 
-installhaproxy()
-{
-    # install service script
-    mkdir -pv ${DESTDIR}/etc/init.d
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
-    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy 
-    mkdir -pv ${DESTDIR}/etc/haproxy
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg ${DESTDIR}/etc/haproxy/ 
-    mkdir -pv ${DESTDIR}/etc/default
-    echo "ENABLED=1" > ${DESTDIR}/etc/default/haproxy
-}
-
 postinstallhaproxy()
 {
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg /etc/haproxy/
+    sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
+
+    # AppScale starts/stop the service
     service haproxy stop || true
     update-rc.d -f haproxy remove || true
 }
