@@ -56,7 +56,7 @@ ff02::3 ip6-allhosts
 EOF
 }
 
-setupntpcron()
+setupntp()
 {
     # make sure we are time synced at start and that ntp is running
     service ntp stop
@@ -68,17 +68,6 @@ installPIL()
 {
     pip uninstall -y PIL
     /usr/bin/yes | pip install --upgrade pillow
-}
-
-installpycrypto()
-{
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/pycrypto-2.6.tar.gz
-    tar zxvf pycrypto-2.6.tar.gz
-    cd pycrypto-2.6
-    python setup.py install
-    cd ..
-    rm -fr pycrypto-2.6*
 }
 
 installlxml()

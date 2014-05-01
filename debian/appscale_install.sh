@@ -28,7 +28,6 @@ case "$1" in
         installmonit
         installPIL
         installpythonmemcache
-        installpycrypto
         installlxml
         installxmpppy
         installappserverjava
@@ -44,7 +43,7 @@ case "$1" in
         installcelery
         installservice
         postinstallservice
-        setupntpcron
+        setupntp
         sethosts
         setulimits
         increaseconnections
@@ -74,7 +73,6 @@ case "$1" in
         installmonit
         installPIL
         installpythonmemcache
-        installpycrypto
         installlxml
         installxmpppy
         installjavajdk
@@ -91,7 +89,7 @@ case "$1" in
         installcelery
         installservice
         postinstallservice
-        setupntpcron
+        setupntp
         sethosts
         setulimits
         increaseconnections
