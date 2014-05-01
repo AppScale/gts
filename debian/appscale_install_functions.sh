@@ -242,8 +242,7 @@ installgems()
 # This function is called from postinst.core, so we don't need to use DESTDIR
 postinstallnginx()
 {
-    cd ${APPSCALE_HOME}
-    cp -v AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
 }
@@ -251,8 +250,7 @@ postinstallnginx()
 installmonit()
 {
     # let's use our configuration
-    cd ${APPSCALE_HOME}
-    cp monitrc /etc/monitrc
+    cp ${APPSCALE_HOME}/monitrc /etc/monitrc
     chmod 0700 /etc/monitrc
     service monit restart
 
