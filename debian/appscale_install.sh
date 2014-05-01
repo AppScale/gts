@@ -23,7 +23,6 @@ case "$1" in
         installappscaleprofile
         . /etc/profile.d/appscale.sh
         installgems
-        installsetuptools
         postinstallhaproxy
         postinstallnginx
         installmonit
@@ -70,7 +69,6 @@ case "$1" in
         installappscaleprofile
         . /etc/profile.d/appscale.sh
         installgems
-        installsetuptools
         postinstallhaproxy
         postinstallnginx
         installmonit

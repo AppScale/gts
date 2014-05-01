@@ -349,11 +349,6 @@ postinstallzookeeper()
     update-rc.d -f zookeeper-server remove || true
 }
 
-installsetuptools()
-{
-    :;
-}
-
 keygen()
 {
     test -e /root/.ssh/id_rsa || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
