@@ -351,14 +351,7 @@ postinstallzookeeper()
 
 installsetuptools()
 {
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/setuptools-0.6c11.tar.gz
-    tar zxvf setuptools-0.6c11.tar.gz
-    pushd setuptools-0.6c11
-    python setup.py install
-    popd
-    rm -fr  setuptools-0.6c11*
+    :;
 }
 
 keygen()
