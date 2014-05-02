@@ -206,10 +206,9 @@ class DatastoreDistributed():
     limit = self._MAXIMUM_RESULTS
     if query.has_limit():
       limit = min(query.limit(), self._MAXIMUM_RESULTS)
-      if limit == 0:
-        limit = self._MAXIMUM_RESULTS
     if query.has_offset():
       limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
+    # We can not scan with 0 or less, hence we set it to one.
     if limit <= 0:
       limit = 1
     return limit
@@ -2771,7 +2770,8 @@ class DatastoreDistributed():
 
       # The last property dictates the direction.
       direction = prop.direction()
-
+    logging.error("INDEX VALUE: {0}".format(index_value))
+    logging.error("HEX: {0}".format(helper_functions.str_to_hex(index_value)))
     start_value = ''
     end_value = ''
     if oper == datastore_pb.Query_Filter.LESS_THAN:
@@ -2782,12 +2782,12 @@ class DatastoreDistributed():
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       start_value = equality_value
-      end_value = index_value + self._SEPARATOR + self._TERM_STRING
+      end_value = index_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN:
-      start_value = index_value + self._SEPARATOR + self._TERM_STRING
+      start_value = index_value + self._TERM_STRING
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = equality_value + self.MIN_INDEX_VALUE
@@ -2811,6 +2811,8 @@ class DatastoreDistributed():
     start_key = "{0}{1}".format(pre_comp_index_key, start_value)
     end_key = "{0}{1}".format(pre_comp_index_key, end_value)
 
+    logging.error("START: {0}".format(helper_functions.str_to_hex(start_key)))
+    logging.error("END: {0}".format(helper_functions.str_to_hex(end_key)))
     return start_key, end_key
 
   def composite_multiple_filter_prop(self, filter_ops, equality_value,
@@ -2917,6 +2919,25 @@ class DatastoreDistributed():
       if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
         start_inclusive = True
 
+    end_compiled_cursor = None
+    if query.has_end_compiled_cursor():
+      end_compiled_cursor = query.end_compiled_cursor()
+      logging.error("END COMPILE CURSOR: {0}".format(end_compiled_cursor))
+
+    if end_compiled_cursor:
+      position = end_compiled_cursor.position(0)
+      if position.has_start_key():
+        cursor = appscale_stub_util.ListCursor(query)
+        last_result = cursor._GetEndResult()
+        composite_index = query.composite_index_list()[0]
+        endrow = self.get_composite_index_key(composite_index, last_result, \
+          position_list=end_compiled_cursor.position_list(), filters= \
+          query.filter_list())
+      else:
+        logging.warning("Unable to use end compiled cursor for query: {0}".\
+          format(query))
+
+
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
     limit = self.get_limit(query)
@@ -2929,6 +2950,7 @@ class DatastoreDistributed():
                                              offset=offset, 
                                              start_inclusive=start_inclusive,
                                              end_inclusive=True)
+    logging.error("Composite number of values: {0}".format(len(index_result)))
     return self.__fetch_entities(index_result, clean_app_id(query.app()))
 
   def __composite_query(self, query, filter_info, _):  
@@ -3075,9 +3097,10 @@ class DatastoreDistributed():
       query_result.set_skipped_results(len(result) - offset)
       count = len(result)
       result = result[offset:]
+      if query.has_limit():
+        result = result[:query.limit()]
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
-
     cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
