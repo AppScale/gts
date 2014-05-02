@@ -23,9 +23,7 @@ increaseconnections()
 
     # Google Compute Engine doesn't allow users to use modprobe, so it's ok if
     # the modprobe command fails.
-    set +e
-    modprobe ip_conntrack
-    set -e
+    modprobe ip_conntrack || true
 
     echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
     echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
@@ -200,17 +198,6 @@ postinstallhaproxy()
 
 installgems()
 {
-    # install gem here
-    cd
-    wget $APPSCALE_PACKAGE_MIRROR/rubygems-1.3.7.tgz
-    tar zxvf rubygems-1.3.7.tgz
-    cd rubygems-1.3.7
-    ruby setup.rb
-    cd
-    ln -sf /usr/bin/gem1.8 /usr/bin/gem
-    rm -rf rubygems-1.3.7.tgz
-    rm -rf rubygems-1.3.7
-
     # gem update
     GEMOPT="--no-rdoc --no-ri"
     # Rake 10.0 depecates rake/rdoctask - upgrade later
@@ -225,7 +212,6 @@ installgems()
     # This is for the unit testing framework
     gem install -v=1.0.4 flexmock ${GEMOPT}
     gem install -v=1.0.0 rcov ${GEMOPT}
-
 }
 
 # This function is called from postinst.core, so we don't need to use DESTDIR
@@ -356,6 +342,5 @@ postinstallrabbitmq()
 {
     # After install it starts up, shut it down
     rabbitmqctl stop || true
-    update-rc.d -f rabbitmq remove || true
     update-rc.d -f rabbitmq-server remove || true
 }
