@@ -2615,6 +2615,7 @@ class DatastoreDistributed():
       # number of properties to be a match. Any others are discarded but it 
       # possible they show up on subsequent scans. 
       last_keys_of_scans = {}
+      first_keys_of_scans = {}
       for prop_name in temp_res:
         for indexes in temp_res[prop_name]:
           for reference in indexes: 
@@ -2630,6 +2631,10 @@ class DatastoreDistributed():
           # the entity table (what the index points to).
           index_key = indexes.keys()[0]
           index_value = indexes[index_key]['reference']
+          first_keys_of_scans[prop_name] = index_value
+
+          index_key = indexes.keys()[-1]
+          index_value = indexes[index_key]['reference']
           last_keys_of_scans[prop_name] = index_value
 
       # We are looking for the earliest (alphabetically) of the set of last 
@@ -2637,11 +2642,29 @@ class DatastoreDistributed():
       # we can remove potential results.
       start_key = ""
       starting_prop_name = ""
-      for prop_name in last_keys_of_scans:
-        last_key = last_keys_of_scans[prop_name]
-        if not start_key or last_key < start_key: 
-          start_key = last_key
+      for prop_name in first_keys_of_scans:
+        first_key = first_keys_of_scans[prop_name]
+        if not start_key or first_key < start_key: 
+          start_key = first_key
           starting_prop_name = prop_name
+ 
+      # Override the start key if one of the prop starting keys is outside the 
+      # end key of all the other props. This allows to jump over results which 
+      # would not have matched.
+      for prop_name in first_keys_of_scans:
+        first_key = first_keys_of_scans[prop_name]
+        jump_ahead = False
+        for last_prop in last_keys_of_scans:
+          if last_prop != prop_name:
+            if first_key > last_keys_of_scans[last_prop]:
+              jump_ahead = True
+            else:
+              jump_ahead = False
+              break   
+        if jump_ahead:
+          start_key = first_key
+          starting_prop_name = prop_name  
+
       # Purge keys which did not intersect from all equality filters and those
       # which are past the earliest reference shared by all property names 
       # (start_key variable). 
