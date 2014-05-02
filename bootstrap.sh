@@ -65,8 +65,19 @@ echo "Exit now (ctrl-c) if this is incorrect"
 echo
 sleep 3
 apt-get install -y git-core
-git clone https://github.com/$USER/appscale.git --branch $BRANCH
-git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
+if [ -d appscale ]; then
+        echo
+        echo "Found previous AppScale installation: upgrading it"
+        sleep 5
+        # old junk left over
+        mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale-1.14
+        rm /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit
+        (cd appscale; git pull)
+        (cd appscale-tools; git pull)
+else
+        git clone https://github.com/$USER/appscale.git --branch $BRANCH
+        git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
+fi
 
 # and build AppScale
 echo "Building AppScale..."
