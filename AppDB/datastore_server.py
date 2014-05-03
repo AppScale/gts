@@ -453,8 +453,8 @@ class DatastoreDistributed():
         if not has_values:
           continue
  
-        composite_index_key = self.get_composite_index_key(index_def, ent)  
-        row_keys.append(composite_index_key)
+        composite_index_key = self.get_composite_index_keys(index_def, ent)  
+        row_keys.extend(composite_index_keys)
 
     self.datastore_batch.batch_delete(dbconstants.COMPOSITE_TABLE, 
                                       row_keys, 
@@ -573,7 +573,8 @@ class DatastoreDistributed():
 
   def get_composite_index_key(self, index, entity, position_list=None, 
     filters=None):
-    """ Creates a key to the composite index table for a given entity.
+    """ Creates a key to the composite index table for a given entity
+    for a composite cursor.
 
     Keys are built as such: 
       app_id/ns/composite_id/ancestor/valuevaluevalue..../entity_key
@@ -612,6 +613,8 @@ class DatastoreDistributed():
     for prop in entity.property_list():
       value_dict[prop.name()]  = str(self.__encode_index_pb(prop.value()))
 
+    # Position list and filters are used if we're creating a composite
+    # key for a cursor.
     if position_list:
       for indexvalue in position_list[0].indexvalue_list():
         value_dict[indexvalue.property()] = \
@@ -643,6 +646,95 @@ class DatastoreDistributed():
     composite_key = "{0}{1}{2}{3}".format(pre_comp_index_key, index_value,
       self._SEPARATOR, ent_key)
     return composite_key
+  
+
+  def get_composite_index_keys(self, index, entity):
+    """ Creates keys to the composite index table for a given entity.
+
+    Keys are built as such: 
+      app_id/ns/composite_id/ancestor/valuevaluevalue..../entity_key
+    Components explained:
+    ns: The namespace of the entity.
+    composite_id: The composite ID assigned to this index upon creation.
+    ancestor: The root ancestor path (only if the query this index is for 
+      has an ancestor)
+    value(s): The string representation of mulitiple properties.
+    entity_key: The entity key (full path) used as a means of having a unique
+      identifier. This prevents two entities with the same values from
+      colliding. 
+
+    Args:
+      index: A datstore_pb.CompositeIndex.
+      entity: A entity_pb.EntityProto.
+    Returns:
+      A list of strings representing keys to the composite table.
+    """ 
+    composite_id = index.id()
+    definition = index.definition()
+    app_id = clean_app_id(entity.key().app())
+    name_space = entity.key().name_space()
+    ent_key = self.__encode_index_pb(entity.key().path())
+    pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
+      self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
+    if definition.ancestor() == 1:
+      ancestor = self.get_root_key_from_entity_key(str(ent_key))
+      pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
+
+    property_list_names = [prop.name() for prop in entity.property_list()]
+
+    multivalue_dict = {}
+    for prop in entity.property_list():
+      if prop.name() not in property_list_names:
+        continue
+      value = str(self.__encode_index_pb(prop.value()))
+      #if prop.direction() == entity_pb.Index_Property.DESCENDING:
+      #  value = helper_functions.reverse_lex(value)
+
+      if prop.name() in multivalue_dict:
+        multivalue_dict[prop.name()].append(value)
+      else:
+        multivalue_dict[prop.name()] = [value]
+    logging.error("DICTION: {0}".format(multivalue_dict)) 
+    # Build lists for which we'll get all combinations of indexes. 
+    lists_of_prop_list = []
+    for prop in definition.property_list():
+      # Check to make sure the entity has the required items. If not then we
+      # do not create an index for the composite index.
+      # The definition can also have a key as a part of the index, but this
+      # is not repeated.
+      if prop.name() == "__key__":
+        value = str(self.__encode_index_pb(entity.key().path()))
+        if prop.direction() == entity_pb.Index_Property.DESCENDING:
+          value = helper_functions.reverse_lex(value)
+        lists_of_prop_list.append([value])
+      elif prop.name() not in multivalue_dict:
+        return []
+      else:
+        my_list = multivalue_dict[prop.name()]
+        if prop.direction() == entity_pb.Index_Property.DESCENDING:
+          for index, item in enumerate(my_list):
+            my_list[index] = helper_functions.reverse_lex(item)
+        lists_of_prop_list.append(my_list)
+ 
+    # Get all combinations of the composite indexes.
+    all_combinations = list(itertools.product(*lists_of_prop_list))
+    logging.error("ALL COMBOS: {0}".format(all_combinations))
+    # TODO throw an exception if the number of combinations is more than 20000.A
+    # https://developers.google.com/appengine/docs/python/datastore/#Python_Quotas_and_limits
+
+    all_keys = []
+    for combo in all_combinations:
+      index_value = ""
+      for prop_value in combo:
+        index_value += str(prop_value)
+         
+      # We append the ent key to have unique keys if entities happen
+      # to share the same index values (and ancestor).
+      composite_key = "{0}{1}{2}{3}".format(pre_comp_index_key, index_value,
+        self._SEPARATOR, ent_key)
+      all_keys.append(composite_key)
+    logging.error("ALL COMPOSITE KEYS: {0}".format(all_keys))
+    return all_keys
   
   def insert_composite_indexes(self, entities, composite_indexes):
     """ Creates composite indexes for a set of entities.
@@ -682,17 +774,15 @@ class DatastoreDistributed():
           continue
 
         # Get the composite index key.
-        composite_index_key = self.get_composite_index_key(index_def, ent)  
-        row_keys.append(composite_index_key)
+        composite_index_keys = self.get_composite_index_keys(index_def, ent)  
+        row_keys.extend(composite_index_keys)
 
         # Get the reference value for the composite table.
         entity_key = str(self.__encode_index_pb(ent.key().path()))
         prefix = self.get_table_prefix(ent.key())
         reference = "{0}{1}{2}".format(prefix, self._SEPARATOR,  entity_key)
-        row_values[composite_index_key] = {'reference': reference}
-        # TODO: must deal with all combinations of indexes. 
-        # See exploding indexes: 
-        # https://developers.google.com/appengine/docs/python/datastore/indexes
+        for composite_key in composite_index_keys:
+          row_values[composite_key] = {'reference': reference}
 
     self.datastore_batch.batch_put_entity(dbconstants.COMPOSITE_TABLE, 
                                           row_keys, 
@@ -850,7 +940,7 @@ class DatastoreDistributed():
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
-      # Delete the old entities and indexes.
+      # Delete the old entities and indexes. 
       self.delete_entities(app_id, keys, txn_hash, soft_delete=False, 
         composite_indexes=composite_indexes)
 
