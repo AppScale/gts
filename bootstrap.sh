@@ -69,9 +69,15 @@ if [ -d appscale ]; then
         echo
         echo "Found previous AppScale installation: upgrading it"
         sleep 5
-        # old junk left over
-        mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale-1.14
-        rm /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit
+        # keep a copy of the old config: we need to move it to avoid
+        # questions
+        if [ -e /etc/haproxy/haproxy.cfg ]; then
+                mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
+        fi
+        # remove control file we added before 1.14.
+        if [ $(sed  -n 's/.*1.\([0-9][0-9]\)\.[0-9]/\1/gp' VERSION) -le 14 ]; then
+                rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit
+        fi
         (cd appscale; git pull)
         (cd appscale-tools; git pull)
 else
