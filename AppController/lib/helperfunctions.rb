@@ -973,20 +973,20 @@ module HelperFunctions
 
     result << "\n" << "    }" << "\n"
 
-    result
+    return result
   end
 
   def self.get_app_path app_name
-    "/var/apps/#{app_name}/"
+    return "/var/apps/#{app_name}/"
   end
 
   def self.get_cache_path app_name
-    File.join(get_app_path(app_name),"cache")
+    return File.join(get_app_path(app_name),"cache")
   end
 
   # The directory where the applications tarball will be extracted to
   def self.get_untar_dir app_name
-    File.join(get_app_path(app_name),"app")
+    return File.join(get_app_path(app_name),"app")
   end
 
   # Locates WEB-INF folder in an untarred Java app directory.
@@ -1015,7 +1015,7 @@ module HelperFunctions
   # the files path relative to the apps directory (e.g. /static/file.txt).
   # This is the hacky way of getting that.
   def self.get_relative_filename filename, app_name
-    filename[get_untar_dir(app_name).length..filename.length]
+    return filename[get_untar_dir(app_name).length..filename.length]
   end
 
   def self.parse_static_data app_name
@@ -1107,7 +1107,7 @@ module HelperFunctions
       handler
     end
 
-    handlers.compact
+    return handlers.compact
   end
 
 
@@ -1162,7 +1162,7 @@ module HelperFunctions
       }
     }
 
-    handlers.compact
+    return handlers.compact
   end
 
   # Parses the app.yaml file for the specified application and returns
@@ -1204,7 +1204,7 @@ module HelperFunctions
         secure_handlers[:never] << handler
       end
     end
-    secure_handlers
+    return secure_handlers
   end
 
   # Parses the expiration string provided in the app.yaml and returns its duration in seconds
@@ -1219,11 +1219,11 @@ module HelperFunctions
       next if amount.empty? || units.empty?
       duration = (duration || 0) + TIME_IN_SECONDS[units.downcase]*amount.to_i
     end
-    duration
+    return duration
   end
 
   def self.encrypt_password(user, pass)
-    Digest::SHA1.hexdigest(user + pass)
+    return Digest::SHA1.hexdigest(user + pass)
   end
 
   def self.obscure_string(string)

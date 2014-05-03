@@ -231,6 +231,9 @@ class DatastoreGroomer(threading.Thread):
     """
     if app_id not in self.namespace_info:
       self.namespace_info[app_id] = {namespace: {'size': 0, 'number': 0}}
+
+    if namespace not in self.namespace_info[app_id]:
+      self.namespace_info[app_id] = {namespace: {'size': 0, 'number': 0}}
     if namespace not in self.namespace_info[app_id]:
       self.stats[app_id][namespace] = {'size': 0, 'number': 0}
 

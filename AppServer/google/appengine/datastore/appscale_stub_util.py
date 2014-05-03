@@ -708,7 +708,27 @@ class QueryCursor(object):
     result.set_skipped_results(min(count, offset))
     result_list = result.result_list()
     if self.__results:
-      result_list.extend(self.__results)
+      if self.__query.keys_only():
+        for entity in self.__results:
+          entity.clear_property()
+          entity.clear_raw_property()
+          result_list.append(entity)
+      elif self.__query.property_name_size() > 0:
+        for entity in self.__results:
+          projection = entity_pb.EntityProto()
+          projection.mutable_key().CopyFrom(entity.key())
+          projection.mutable_entity_group().CopyFrom(entity.entity_group())
+          if entity.has_kind():
+            projection.set_kind(entity.kind())
+          # Copy over the projected properties.
+          for prop_name in self.__query.property_name_list():
+            for ent_prop in entity.property_list():
+              if ent_prop.name() == prop_name:
+                ent_prop.set_meaning(entity_pb.Property.INDEX_VALUE)
+                projection.add_property().CopyFrom(ent_prop)
+          result_list.append(projection)
+      else:
+        result_list.extend(self.__results)
     else:
       result_list = []
     result.set_keys_only(self.__query.keys_only())
@@ -740,6 +760,11 @@ class ListCursor(BaseCursor):
     if query.has_compiled_cursor() and query.compiled_cursor().position_list():
       (self.__last_result, _) = self._DecodeCompiledCursor(
           query, query.compiled_cursor())
+
+    if query.has_end_compiled_cursor():
+      (self.__end_result, _) = self._DecodeCompiledCursor(                      
+          query, query.end_compiled_cursor())                                   
+                                                     
     self.__query = query
     self.__offset = 0
     self.__count = query.limit()
@@ -750,6 +775,10 @@ class ListCursor(BaseCursor):
   def _GetLastResult(self):
     """ Protected access to private member. """
     return self.__last_result
+
+  def _GetEndResult(self):                                                      
+    """ Protected access to private member for last entity. """                 
+    return self.__end_result           
 
   @staticmethod
   def _GetCursorOffset(results, cursor_entity, inclusive, compare):

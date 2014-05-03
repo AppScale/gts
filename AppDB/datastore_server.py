@@ -206,10 +206,9 @@ class DatastoreDistributed():
     limit = self._MAXIMUM_RESULTS
     if query.has_limit():
       limit = min(query.limit(), self._MAXIMUM_RESULTS)
-      if limit == 0:
-        limit = self._MAXIMUM_RESULTS
     if query.has_offset():
       limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
+    # We can not scan with 0 or less, hence we set it to one.
     if limit <= 0:
       limit = 1
     return limit
@@ -436,8 +435,26 @@ class DatastoreDistributed():
         kind = self.get_entity_kind(ent.key())
         if index_def.definition().entity_type() != kind:
           continue
-        composite_index_key = self.get_composite_index_key(index_def, ent)  
-        row_keys.append(composite_index_key)
+        # Make sure the entity contains the required entities for the composite
+        # definition. 
+        prop_name_def_list = [index_prop.name() for index_prop in \
+          index_def.definition().property_list()]
+        all_prop_names_in_ent = [prop.name() for prop in \
+          ent.property_list()]
+
+        has_values = True 
+        for index_prop_name in prop_name_def_list:
+          if index_prop_name not in all_prop_names_in_ent:
+            has_values = False
+          # Special property name which does not show up in the list but 
+          # is apart of the key of the entity.
+          if index_prop_name == "__key__":
+            has_values = True
+        if not has_values:
+          continue
+ 
+        composite_index_key = self.get_composite_index_keys(index_def, ent)  
+        row_keys.extend(composite_index_keys)
 
     self.datastore_batch.batch_delete(dbconstants.COMPOSITE_TABLE, 
                                       row_keys, 
@@ -556,7 +573,8 @@ class DatastoreDistributed():
 
   def get_composite_index_key(self, index, entity, position_list=None, 
     filters=None):
-    """ Creates a key to the composite index table for a given entity.
+    """ Creates a key to the composite index table for a given entity
+    for a composite cursor.
 
     Keys are built as such: 
       app_id/ns/composite_id/ancestor/valuevaluevalue..../entity_key
@@ -595,6 +613,8 @@ class DatastoreDistributed():
     for prop in entity.property_list():
       value_dict[prop.name()]  = str(self.__encode_index_pb(prop.value()))
 
+    # Position list and filters are used if we're creating a composite
+    # key for a cursor.
     if position_list:
       for indexvalue in position_list[0].indexvalue_list():
         value_dict[indexvalue.property()] = \
@@ -613,6 +633,9 @@ class DatastoreDistributed():
         value = value_dict[name]
       elif name == "__key__":
         value = self.__encode_index_pb(entity.key().path())
+      else:
+        logging.warning("Given entity {0} is missing a property value {1}.".\
+          format(entity, prop.name()));
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
 
@@ -623,6 +646,95 @@ class DatastoreDistributed():
     composite_key = "{0}{1}{2}{3}".format(pre_comp_index_key, index_value,
       self._SEPARATOR, ent_key)
     return composite_key
+  
+
+  def get_composite_index_keys(self, index, entity):
+    """ Creates keys to the composite index table for a given entity.
+
+    Keys are built as such: 
+      app_id/ns/composite_id/ancestor/valuevaluevalue..../entity_key
+    Components explained:
+    ns: The namespace of the entity.
+    composite_id: The composite ID assigned to this index upon creation.
+    ancestor: The root ancestor path (only if the query this index is for 
+      has an ancestor)
+    value(s): The string representation of mulitiple properties.
+    entity_key: The entity key (full path) used as a means of having a unique
+      identifier. This prevents two entities with the same values from
+      colliding. 
+
+    Args:
+      index: A datstore_pb.CompositeIndex.
+      entity: A entity_pb.EntityProto.
+    Returns:
+      A list of strings representing keys to the composite table.
+    """ 
+    composite_id = index.id()
+    definition = index.definition()
+    app_id = clean_app_id(entity.key().app())
+    name_space = entity.key().name_space()
+    ent_key = self.__encode_index_pb(entity.key().path())
+    pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
+      self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
+    if definition.ancestor() == 1:
+      ancestor = self.get_root_key_from_entity_key(str(ent_key))
+      pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
+
+    property_list_names = [prop.name() for prop in entity.property_list()]
+
+    multivalue_dict = {}
+    for prop in entity.property_list():
+      if prop.name() not in property_list_names:
+        continue
+      value = str(self.__encode_index_pb(prop.value()))
+      #if prop.direction() == entity_pb.Index_Property.DESCENDING:
+      #  value = helper_functions.reverse_lex(value)
+
+      if prop.name() in multivalue_dict:
+        multivalue_dict[prop.name()].append(value)
+      else:
+        multivalue_dict[prop.name()] = [value]
+    logging.error("DICTION: {0}".format(multivalue_dict)) 
+    # Build lists for which we'll get all combinations of indexes. 
+    lists_of_prop_list = []
+    for prop in definition.property_list():
+      # Check to make sure the entity has the required items. If not then we
+      # do not create an index for the composite index.
+      # The definition can also have a key as a part of the index, but this
+      # is not repeated.
+      if prop.name() == "__key__":
+        value = str(self.__encode_index_pb(entity.key().path()))
+        if prop.direction() == entity_pb.Index_Property.DESCENDING:
+          value = helper_functions.reverse_lex(value)
+        lists_of_prop_list.append([value])
+      elif prop.name() not in multivalue_dict:
+        return []
+      else:
+        my_list = multivalue_dict[prop.name()]
+        if prop.direction() == entity_pb.Index_Property.DESCENDING:
+          for index, item in enumerate(my_list):
+            my_list[index] = helper_functions.reverse_lex(item)
+        lists_of_prop_list.append(my_list)
+ 
+    # Get all combinations of the composite indexes.
+    all_combinations = list(itertools.product(*lists_of_prop_list))
+    logging.error("ALL COMBOS: {0}".format(all_combinations))
+    # TODO throw an exception if the number of combinations is more than 20000.A
+    # https://developers.google.com/appengine/docs/python/datastore/#Python_Quotas_and_limits
+
+    all_keys = []
+    for combo in all_combinations:
+      index_value = ""
+      for prop_value in combo:
+        index_value += str(prop_value)
+         
+      # We append the ent key to have unique keys if entities happen
+      # to share the same index values (and ancestor).
+      composite_key = "{0}{1}{2}{3}".format(pre_comp_index_key, index_value,
+        self._SEPARATOR, ent_key)
+      all_keys.append(composite_key)
+    logging.error("ALL COMPOSITE KEYS: {0}".format(all_keys))
+    return all_keys
   
   def insert_composite_indexes(self, entities, composite_indexes):
     """ Creates composite indexes for a set of entities.
@@ -643,19 +755,34 @@ class DatastoreDistributed():
         kind = self.get_entity_kind(ent.key())
         if index_def.definition().entity_type() != kind:
           continue
-  
+
+        # Make sure the entity contains the required entities for the composite
+        # definition. 
+        prop_name_def_list = [index_prop.name() for index_prop in \
+          index_def.definition().property_list()]
+        all_prop_names_in_ent = [prop.name() for prop in \
+          ent.property_list()]
+        has_values = True 
+        for index_prop_name in prop_name_def_list:
+          if index_prop_name not in all_prop_names_in_ent:
+            has_values = False
+          # Special property name which does not show up in the list but 
+          # is apart of the key of the entity.
+          if index_prop_name == "__key__":
+            has_values = True
+        if not has_values:
+          continue
+
         # Get the composite index key.
-        composite_index_key = self.get_composite_index_key(index_def, ent)  
-        row_keys.append(composite_index_key)
+        composite_index_keys = self.get_composite_index_keys(index_def, ent)  
+        row_keys.extend(composite_index_keys)
 
         # Get the reference value for the composite table.
         entity_key = str(self.__encode_index_pb(ent.key().path()))
         prefix = self.get_table_prefix(ent.key())
         reference = "{0}{1}{2}".format(prefix, self._SEPARATOR,  entity_key)
-        row_values[composite_index_key] = {'reference': reference}
-        # TODO: must deal with all combinations of indexes. 
-        # See exploding indexes: 
-        # https://developers.google.com/appengine/docs/python/datastore/indexes
+        for composite_key in composite_index_keys:
+          row_values[composite_key] = {'reference': reference}
 
     self.datastore_batch.batch_put_entity(dbconstants.COMPOSITE_TABLE, 
                                           row_keys, 
@@ -813,7 +940,7 @@ class DatastoreDistributed():
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
-      # Delete the old entities and indexes.
+      # Delete the old entities and indexes. 
       self.delete_entities(app_id, keys, txn_hash, soft_delete=False, 
         composite_indexes=composite_indexes)
 
@@ -2238,15 +2365,25 @@ class DatastoreDistributed():
 
     if end_compiled_cursor:
       position = end_compiled_cursor.position(0)
-      index_value = position.indexvalue(0)
-      property_name = index_value.property()
-      value = index_value.value()
-      value = str(self.__encode_index_pb(value))
-      key_path = None
-      if position.has_key():
-        key_path = str(self.__encode_index_pb(position.key().path()))
-      params = [prefix, kind, property_name, value, key_path]
-      endrow = self.get_index_key_from_params(params)
+      if position.has_start_key():
+        cursor = appscale_stub_util.ListCursor(query)
+        last_result = cursor._GetEndResult()
+        endrow = self.__get_start_key(prefix, property_name, direction, 
+          last_result)
+      elif position.indexvalue_size() > 0:
+        index_value = position.indexvalue(0)
+        property_name = index_value.property()
+        value = index_value.value()
+        value = str(self.__encode_index_pb(value))
+        key_path = None
+        if position.has_key():
+          key_path = str(self.__encode_index_pb(position.key().path()))
+        params = [prefix, kind, property_name, value, key_path]
+        endrow = self.get_index_key_from_params(params)
+      else:
+        logging.warning("Unable to use end compiled cursor for query: {0}".\
+          format(query))
+
     # This query is returning based on order on a specfic property name 
     # The start key (if not already supplied) depends on the property
     # name and does not take into consideration its value. The end key
@@ -2568,6 +2705,7 @@ class DatastoreDistributed():
       # number of properties to be a match. Any others are discarded but it 
       # possible they show up on subsequent scans. 
       last_keys_of_scans = {}
+      first_keys_of_scans = {}
       for prop_name in temp_res:
         for indexes in temp_res[prop_name]:
           for reference in indexes: 
@@ -2583,6 +2721,10 @@ class DatastoreDistributed():
           # the entity table (what the index points to).
           index_key = indexes.keys()[0]
           index_value = indexes[index_key]['reference']
+          first_keys_of_scans[prop_name] = index_value
+
+          index_key = indexes.keys()[-1]
+          index_value = indexes[index_key]['reference']
           last_keys_of_scans[prop_name] = index_value
 
       # We are looking for the earliest (alphabetically) of the set of last 
@@ -2590,11 +2732,29 @@ class DatastoreDistributed():
       # we can remove potential results.
       start_key = ""
       starting_prop_name = ""
-      for prop_name in last_keys_of_scans:
-        last_key = last_keys_of_scans[prop_name]
-        if not start_key or last_key < start_key: 
-          start_key = last_key
+      for prop_name in first_keys_of_scans:
+        first_key = first_keys_of_scans[prop_name]
+        if not start_key or first_key < start_key: 
+          start_key = first_key
           starting_prop_name = prop_name
+ 
+      # Override the start key if one of the prop starting keys is outside the 
+      # end key of all the other props. This allows to jump over results which 
+      # would not have matched.
+      for prop_name in first_keys_of_scans:
+        first_key = first_keys_of_scans[prop_name]
+        jump_ahead = False
+        for last_prop in last_keys_of_scans:
+          if last_prop != prop_name:
+            if first_key > last_keys_of_scans[last_prop]:
+              jump_ahead = True
+            else:
+              jump_ahead = False
+              break   
+        if jump_ahead:
+          start_key = first_key
+          starting_prop_name = prop_name  
+
       # Purge keys which did not intersect from all equality filters and those
       # which are past the earliest reference shared by all property names 
       # (start_key variable). 
@@ -2723,7 +2883,8 @@ class DatastoreDistributed():
 
       # The last property dictates the direction.
       direction = prop.direction()
-
+    logging.error("INDEX VALUE: {0}".format(index_value))
+    logging.error("HEX: {0}".format(helper_functions.str_to_hex(index_value)))
     start_value = ''
     end_value = ''
     if oper == datastore_pb.Query_Filter.LESS_THAN:
@@ -2734,12 +2895,12 @@ class DatastoreDistributed():
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       start_value = equality_value
-      end_value = index_value + self._SEPARATOR + self._TERM_STRING
+      end_value = index_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = index_value
         end_value = equality_value + self._TERM_STRING
     elif oper == datastore_pb.Query_Filter.GREATER_THAN:
-      start_value = index_value + self._SEPARATOR + self._TERM_STRING
+      start_value = index_value + self._TERM_STRING
       end_value = equality_value + self._TERM_STRING
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = equality_value + self.MIN_INDEX_VALUE
@@ -2763,6 +2924,8 @@ class DatastoreDistributed():
     start_key = "{0}{1}".format(pre_comp_index_key, start_value)
     end_key = "{0}{1}".format(pre_comp_index_key, end_value)
 
+    logging.error("START: {0}".format(helper_functions.str_to_hex(start_key)))
+    logging.error("END: {0}".format(helper_functions.str_to_hex(end_key)))
     return start_key, end_key
 
   def composite_multiple_filter_prop(self, filter_ops, equality_value,
@@ -2869,6 +3032,25 @@ class DatastoreDistributed():
       if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
         start_inclusive = True
 
+    end_compiled_cursor = None
+    if query.has_end_compiled_cursor():
+      end_compiled_cursor = query.end_compiled_cursor()
+      logging.error("END COMPILE CURSOR: {0}".format(end_compiled_cursor))
+
+    if end_compiled_cursor:
+      position = end_compiled_cursor.position(0)
+      if position.has_start_key():
+        cursor = appscale_stub_util.ListCursor(query)
+        last_result = cursor._GetEndResult()
+        composite_index = query.composite_index_list()[0]
+        endrow = self.get_composite_index_key(composite_index, last_result, \
+          position_list=end_compiled_cursor.position_list(), filters= \
+          query.filter_list())
+      else:
+        logging.warning("Unable to use end compiled cursor for query: {0}".\
+          format(query))
+
+
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
     limit = self.get_limit(query)
@@ -2881,6 +3063,7 @@ class DatastoreDistributed():
                                              offset=offset, 
                                              start_inclusive=start_inclusive,
                                              end_inclusive=True)
+    logging.error("Composite number of values: {0}".format(len(index_result)))
     return self.__fetch_entities(index_result, clean_app_id(query.app()))
 
   def __composite_query(self, query, filter_info, _):  
@@ -3027,11 +3210,21 @@ class DatastoreDistributed():
       query_result.set_skipped_results(len(result) - offset)
       count = len(result)
       result = result[offset:]
+      if query.has_limit():
+        result = result[:query.limit()]
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
-
     cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
+
+    # If we have less than the amount of entities we request there are no
+    # more results for this query.
+    if count < self.get_limit(query):
+      query_result.set_more_results(False)
+
+    if query.app() == "tckapp":
+      logging.error("QUERY: {0}".format(query))
+      logging.error("RESULTS{0}".format(query_result))
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
