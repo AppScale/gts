@@ -56,6 +56,9 @@ EOF
 
 setupntp()
 {
+    # make sure time is tightly synchronized
+    echo -e "\nmaxpoll 6" >> /etc/ntp.conf
+
     # make sure we are time synced at start and that ntp is running
     service ntp stop
     ntpdate pool.ntp.org
