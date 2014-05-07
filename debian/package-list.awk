@@ -5,7 +5,7 @@ BEGIN {
   flag = 0
 }
 
-# find all the dependencies, also build dependecies, but stop at the first
+# find all the dependencies, also build them if needed, but stop at the first
 # stanza (for example, Descriptions, or Conflicts)
 /^(Build-Depends|Depends):/,/^Description:/ {
     if (gsub("^Depends:", "") || gsub("^Build-Depends:","")) { flag = 1 }

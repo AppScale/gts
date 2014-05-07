@@ -22,7 +22,7 @@ Build-Depends: debhelper (>= 7),
                libexpat1-dev,
                libcppunit-dev,
                libbz2-dev,
-                libreadline-dev,
+               libreadline-dev,
                libxml2-dev
 Standards-Version: 3.8.0
 Homepage: https://github.com/AppScale/appscale
@@ -78,12 +78,7 @@ Depends: appscale-tools,
          python-numpy,
          libxslt-dev,
          libxml2-dev
-Conflicts: zookeeper,
-           zookeeper-bin,
-           zookeeperd,
-           libzookeeper-java,
-           python-zookeeper,
-           python-protobuf
+Conflicts: python-protobuf
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of
