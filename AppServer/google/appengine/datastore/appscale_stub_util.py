@@ -604,17 +604,17 @@ class BaseCursor(object):
 class QueryCursor(object):
   """Encapsulates a database cursor and provides methods to fetch results."""
 
-  def __init__(self, query, results):
+  def __init__(self, query, results, last_ent):
     """Constructor.
 
     Args:
       query: A Query PB.
-      db_cursor: An MySQL cursor returning n+2 columns. The first 2 columns
-        must be the path of the entity and the entity itself, while the
-        remaining columns must be the sort columns for the query.
+      results: A list of EntityProtos.
+      last_ent: The last entity (used for cursors).
     """
     self.__results = results
     self.__query = query
+    self.__last_ent = last_ent
     self.app = query.app()
 
     if query.has_limit():
@@ -686,6 +686,9 @@ class QueryCursor(object):
     """
     if self.__results:
       last_result = self.__results[-1]
+    elif self.__last_ent:
+      last_result = entity_pb.EntityProto()
+      last_result.ParseFromString(self.__last_ent)
     else:
       last_result = None
     position = compiled_cursor.add_position()
@@ -713,6 +716,9 @@ class QueryCursor(object):
           entity.clear_property()
           entity.clear_raw_property()
           result_list.append(entity)
+      else:
+        result_list.extend(self.__results)
+      """
       elif self.__query.property_name_size() > 0:
         for entity in self.__results:
           projection = entity_pb.EntityProto()
@@ -727,15 +733,14 @@ class QueryCursor(object):
                 ent_prop.set_meaning(entity_pb.Property.INDEX_VALUE)
                 projection.add_property().CopyFrom(ent_prop)
           result_list.append(projection)
-      else:
-        result_list.extend(self.__results)
+      """
     else:
       result_list = []
     result.set_keys_only(self.__query.keys_only())
     result.set_more_results(offset < count)
-    if self.__results:
+    if self.__results or self.__last_ent:
       self._EncodeCompiledCursor(result.mutable_compiled_cursor())
-
+ 
 
 class ListCursor(BaseCursor):
   """A query cursor over a list of entities.
@@ -858,7 +863,7 @@ class ListCursor(BaseCursor):
                  position.start_key().split(_CURSOR_CONCAT_STR, 1)
       query_info_pb = datastore_pb.Query()
       query_info_pb.ParseFromString(query_info_encoded)
-      self._ValidateQuery(query, query_info_pb)
+      #self._ValidateQuery(query, query_info_pb)
     
       entity_as_pb.ParseFromString(entity_encoded)
     else:

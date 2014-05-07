@@ -801,7 +801,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
             proxy.doPost(app, "RunQuery", query, queryResult);
             logger.log(Level.WARNING, "QUERY: " + query);
-            logger.log(Level.WARNING, "RESUL: " + queryResult);
             int count;
             if (query.hasCount())
             {
@@ -824,7 +823,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             if (queryResult.isMoreResults())
             {
                 long cursor = this.queryId.getAndIncrement();
-                logger.log(Level.WARNING, "QueryID: " + cursor);
                 profile.addQuery(cursor, liveQuery);
                 queryResult.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
             }
@@ -855,7 +853,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.QueryResult next( LocalRpcService.Status status, DatastoreV3Pb.NextRequest request )
     {
-        logger.log(Level.WARNING, "NEXT LEVEL");
         Profile profile = (Profile)this.profiles.get(request.getCursor().getApp());
         LiveQuery liveQuery = profile.getQuery(request.getCursor().getCursor());
 
@@ -868,11 +865,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         DatastoreV3Pb.CompiledCursor compiledCursor = liveQuery.getCompiledCursor();
         // If we don't have a cursor to continue, or we have hit the count we're trying to achieve
         // end this query.
-        logger.log(Level.WARNING, "Count=" + liveQuery.getCount() + " offset: " + liveQuery.getOffset());
         if (liveQuery.getOffset() >= liveQuery.getCount())
         {
-          logger.log(Level.WARNING, "Count=" + liveQuery.getCount() + " offset: " + liveQuery.getOffset());
-          logger.log(Level.WARNING, "NEXT LEVEL 1");
           queryResult.setMoreResults(false);
           if (query.isCompile())
           {
@@ -885,7 +879,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         else
         {
           // We copy over the previous cursor from which we continue.
-          logger.log(Level.WARNING, "NEXT LEVEL 2");
           query.setCompiledCursor(compiledCursor);
           String app = query.getApp();
           proxy.doPost(app, "RunQuery", query, queryResult);
@@ -898,14 +891,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         if (!queryResult.isMoreResults())
         {
-          logger.log(Level.WARNING, "NEXT LEVEL 4");
           profile.removeQuery(request.getCursor().getCursor());
         }
         else{
-          logger.log(Level.WARNING, "NEXT LEVEL 4.5");
           liveQuery.setCompiledCursor(queryResult.getCompiledCursor());
         }
-        logger.log(Level.WARNING, "NEXT LEVEL 5" + queryResult);
         return queryResult;
     }
 
