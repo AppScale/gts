@@ -228,8 +228,8 @@ postinstallnginx()
 installmonit()
 {
     # let's use our configuration
-    cp ${APPSCALE_HOME}/monitrc /etc/monitrc
-    chmod 0700 /etc/monitrc
+    cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
+    chmod 0700 /etc/monit/monitrc
     service monit restart
 
 }
