@@ -76,7 +76,7 @@ if [ -d appscale ]; then
         fi
         # remove control file we added before 1.14.
         if [ $(sed  -n 's/.*1.\([0-9][0-9]\)\.[0-9]/\1/gp' VERSION) -le 14 ]; then
-                rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit
+                rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
         fi
         (cd appscale; git pull)
         (cd appscale-tools; git pull)
