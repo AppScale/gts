@@ -700,8 +700,7 @@ class DatastoreDistributed():
     if definition.ancestor() == 1:
       ancestor = self.get_root_key_from_entity_key(str(ent_key))
       pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
-    logging.error("Def: {0}".format(definition))
-    logging.error("Ent: {0}".format(entity))
+
     property_list_names = [prop.name() for prop in entity.property_list()]
     multivalue_dict = {}
     for prop in entity.property_list():
@@ -734,7 +733,6 @@ class DatastoreDistributed():
             my_list[index] = helper_functions.reverse_lex(item)
         lists_of_prop_list.append(my_list)
 
-    logging.error("list of props: {0}".format(lists_of_prop_list)) 
     # Get all combinations of the composite indexes.
     all_combinations = []
     if len(lists_of_prop_list) == 1:
