@@ -1,12 +1,12 @@
-# generate package list from control file.
+# Generate package list from control file.
 
 BEGIN {
   count = 1
   flag = 0
 }
 
-# find all the dependencies, also build them if needed, but stop at the first
-# stanza (for example, Descriptions, or Conflicts)
+# This find all the dependencies, also build them if needed, but stop at
+# the first stanza (for example, Descriptions, or Conflicts).
 /^(Build-Depends|Depends):/,/^Description:/ {
     if (gsub("^Depends:", "") || gsub("^Build-Depends:","")) { flag = 1 }
     if ($0 !~ /^[ \t]/) { flag = 0 }    # stop at the first stanza

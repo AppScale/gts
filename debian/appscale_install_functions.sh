@@ -56,10 +56,11 @@ EOF
 
 setupntp()
 {
-    # make sure time is tightly synchronized
+    # Let's make sure time is tightly synchronized (64s poll).
     echo -e "\nmaxpoll 6" >> /etc/ntp.conf
 
-    # make sure we are time synced at start and that ntp is running
+    # This ensure that we synced first, to allow ntpd to stay
+    # synchronized.
     service ntp stop
     ntpdate pool.ntp.org
     service ntp start
@@ -103,7 +104,7 @@ export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
 export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
 export LC_ALL='en_US.UTF-8'
 EOF
-# enable to load AppServer and AppDB modules. It must be before the python-support.
+# This enables to load AppServer and AppDB modules. It must be before the python-support.
     DESTFILE=${DESTDIR}/usr/lib/python2.7/dist-packages/appscale_appserver.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -111,7 +112,7 @@ EOF
 ${APPSCALE_HOME_RUNTIME}/AppDB
 ${APPSCALE_HOME_RUNTIME}/AppServer
 EOF
-# enable to load site-packages of Python
+# Enable to load site-packages of Python.
     DESTFILE=${DESTDIR}/usr/local/lib/python2.7/dist-packages/site_packages.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -119,7 +120,7 @@ EOF
 /usr/lib/python2.7/site-packages
 EOF
 
-    # create link to appscale settings
+    # This create link to appscale settings.
     rm -rfv ${DESTDIR}/etc/appscale
     mkdir -pv ~/.appscale
     mkdir -pv ${APPSCALE_HOME_RUNTIME}/.appscale
@@ -128,7 +129,7 @@ EOF
     cat <<EOF | tee /etc/appscale/home || exit
 ${APPSCALE_HOME_RUNTIME}
 EOF
-    # create the global AppScale environment file
+    # Create the global AppScale environment file.
     DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -148,19 +149,19 @@ installthrift()
 
 installjavajdk()
 {
-    # make jdk-7 the default
+    # This makes jdk-7 the default JVM.
     update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 }
 
 installappserverjava()
 {
-    # compile source file.
+    # Compile source file.
     cd ${APPSCALE_HOME}/AppServer_Java
     ant install
     ant clean-build
 
     if [ -n "$DESTDIR" ]; then
-        # delete unnecessary files.
+        # Delete unnecessary files.
 	rm -rfv src lib
     fi
 }
@@ -194,30 +195,28 @@ postinstallhaproxy()
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg /etc/haproxy/
     sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
 
-    # AppScale starts/stop the service
+    # AppScale starts/stop the service.
     service haproxy stop || true
     update-rc.d -f haproxy remove || true
 }
 
 installgems()
 {
-    # gem update
     GEMOPT="--no-rdoc --no-ri"
-    # Rake 10.0 depecates rake/rdoctask - upgrade later
+    # Rake 10.0 depecates rake/rdoctask - upgrade later.
     gem install -v=0.9.2.2 rake ${GEMOPT} 
     sleep 1
-    # ZK 1.0 breaks our existing code - upgrade later
+    # ZK 1.0 breaks our existing code - upgrade later.
     gem install -v=0.9.3 zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
     gem install -v=0.8.3 httparty ${GEMOPT}
-    # This is for the unit testing framework
+    # This is for the unit testing framework.
     gem install -v=1.0.4 flexmock ${GEMOPT}
     gem install -v=1.0.0 rcov ${GEMOPT}
 }
 
-# This function is called from postinst.core, so we don't need to use DESTDIR
 postinstallnginx()
 {
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
@@ -225,9 +224,9 @@ postinstallnginx()
     chmod +x /root
 }
 
-installmonit()
+portinstallmonit()
 {
-    # let's use our configuration
+    # Let's use our configuration.
     cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
     chmod 0700 /etc/monit/monitrc
     service monit restart
@@ -250,7 +249,7 @@ installcassandra()
     chmod -v +x bin/cassandra
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
     mkdir -p /var/lib/cassandra
-    # TODO only grant the cassandra user access
+    # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
     easy_install -U pycassa
@@ -269,7 +268,7 @@ postinstallcassandra()
 
 installservice()
 {
-    # this must be absolete path of runtime
+    # This must be absolete path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
@@ -321,7 +320,7 @@ installzookeeper()
 
 postinstallzookeeper()
 {
-    # need conf/environment to stop service
+    # Need conf/environment to stop service.
     cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
     service zookeeper-server stop || true
     update-rc.d -f zookeeper-server remove || true
@@ -343,7 +342,7 @@ installcelery()
 
 postinstallrabbitmq()
 {
-    # After install it starts up, shut it down
+    # After install it starts up, shut it down.
     rabbitmqctl stop || true
     update-rc.d -f rabbitmq-server remove || true
 }

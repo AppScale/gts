@@ -11,7 +11,7 @@ APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
 echo "Install AppScale into ${APPSCALE_HOME}"
 echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
 
-# check we got at least one input
+# Let's make sure we got at least one input.
 if [ -z "$1" ]; then
         echo "ERROR: need to have at least one target!"
         exit 1
@@ -19,13 +19,13 @@ fi
 
 case "$1" in
     core)
-        # scratch install of appscale including post script.
+        # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
         installgems
         postinstallhaproxy
         postinstallnginx
-        installmonit
+        portinstallmonit
         installPIL
         installpythonmemcache
         installlxml
@@ -52,7 +52,7 @@ case "$1" in
         installcassandra
         postinstallcassandra
         ;;
-        # for test only. this should be included in core and all.
+        # For test only. this should be included in core and all.
     zookeeper)
         installzookeeper
         postinstallzookeeper
@@ -64,13 +64,13 @@ case "$1" in
         installcelery
         ;;
     all)
-        # scratch install of appscale including post script.
+        # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
         installgems
         postinstallhaproxy
         postinstallnginx
-        installmonit
+        portinstallmonit
         installPIL
         installpythonmemcache
         installlxml
