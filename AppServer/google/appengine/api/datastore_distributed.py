@@ -55,23 +55,6 @@ KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 # The default SSL port to connect to
 SSL_DEFAULT_PORT = 8443
 
-# String used for decoding/encoding cursors positions.
-_CURSOR_CONCAT_STR = '!CURSOR!'
-
-# The amount of time before we consider a query cursor to be no longer valid.
-CURSOR_TIMEOUT = 120
-
-ASCENDING = datastore_pb.Query_Order.ASCENDING
-DESCENDING = datastore_pb.Query_Order.DESCENDING
-
-EQUALITY_OPERATORS = set((datastore_pb.Query_Filter.EQUAL,
-                          ))
-INEQUALITY_OPERATORS = set((datastore_pb.Query_Filter.LESS_THAN,
-                            datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL,
-                            datastore_pb.Query_Filter.GREATER_THAN,
-                            datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL,
-                            ))
-
 try:
   __import__('google.appengine.api.taskqueue.taskqueue_service_pb')
   taskqueue_service_pb = sys.modules.get(

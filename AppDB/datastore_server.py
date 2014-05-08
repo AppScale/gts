@@ -468,7 +468,7 @@ class DatastoreDistributed():
           if index_prop_name not in all_prop_names_in_ent:
             has_values = False
           # Special property name which does not show up in the list but 
-          # is apart of the key of the entity.
+          # is a part of the key of the entity.
           if index_prop_name == "__key__":
             has_values = True
         if not has_values:
@@ -2018,7 +2018,6 @@ class DatastoreDistributed():
 
     return self.__extract_entities(final_result)
 
-
   def kindless_query(self, query, filter_info, order_info):
     """ Performs kindless queries where queries are performed 
         on the entity table and go across kinds.
@@ -2231,8 +2230,7 @@ class DatastoreDistributed():
     return fetched_entities
 
   def remove_exists_filters(self, filter_info):
-    """ We don't have native support for projection queries, so remove
-    any filters that have EXISTS filters.
+    """ Remove any filters that have EXISTS filters.
   
     Args:
       filter_info: dict of property names mapping to tuples of filter 
@@ -3165,6 +3163,7 @@ class DatastoreDistributed():
  
       entities.append(entity.Encode())
     return entities
+
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
  
@@ -3176,7 +3175,7 @@ class DatastoreDistributed():
 
     Args:
       query: A datastore_pb.Query object.
-      index_resut: A list of index strings.
+      index_result: A list of index strings.
     Returns:
       A list of EntityProtos.
     """
@@ -3197,7 +3196,8 @@ class DatastoreDistributed():
       for def_prop in definition.property_list():
         value = tokens.pop(0) 
         if def_prop.name() not in prop_name_list:
-          logging.warning("Skipping prop in projection: {0}".format(def_prop.name()))
+          logging.warning("Skipping prop in projection: {0}".format(
+            def_prop.name()))
           continue
 
         prop = entity.add_property()
@@ -3392,7 +3392,7 @@ class DatastoreDistributed():
     offset = query.offset()
     if result:
       query_result.set_skipped_results(len(result) - offset)
-      # Last ent is used for determining the cursor
+      # Last ent is used for determining the cursor.
       last_ent = result[-1]
       count = len(result)
       result = result[offset:]

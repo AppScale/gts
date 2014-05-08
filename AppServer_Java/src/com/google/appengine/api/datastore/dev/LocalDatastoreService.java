@@ -558,7 +558,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.PutResponse put( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
     {
-        //logger.log(Level.WARNING, "REQUEST: " + request);
         return putImpl(status, request);
     }
 
@@ -800,7 +799,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
             DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
             proxy.doPost(app, "RunQuery", query, queryResult);
-            logger.log(Level.WARNING, "QUERY: " + query);
             int count;
             if (query.hasCount())
             {
@@ -1261,7 +1259,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             super(clock.getCurrentTime());
             this.query.copyFrom(query);
 
-            // This is the number of entities this queries has seen so far.
+            // This is the number of entities this query has seen so far.
             this.offset = offset;
 
             this.lastCursor.copyFrom(cursor);
@@ -1271,7 +1269,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             else if (query.hasLimit()) {
               this.totalCount = Integer.valueOf(this.query.getLimit());
             }
-            else{
+            else {
               this.totalCount = Integer.MAX_VALUE;
             }
         }
@@ -1286,7 +1284,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
           this.offset = offset;
         }
 
-        public int getOffset(){
+        public int getOffset()
+        {
           return this.offset;
         }
 
