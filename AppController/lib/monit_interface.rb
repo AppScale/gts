@@ -23,9 +23,8 @@ module MonitInterface
   # The location on the local filesystem of the monit executable.
   MONIT = "/usr/bin/monit"
 
-
   def self.start_monit(remote_ip, remote_key)
-    self.run_god_command("#{MONIT}", remote_ip, remote_key)
+    self.execute_remote_command("service monit start", remote_ip, remote_key)
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
@@ -37,11 +36,11 @@ module MonitInterface
         env_vars, remote_ip, remote_key, match_cmd)
     }
 
-    self.run_god_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
 
   def self.restart(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("#{MONIT} restart -g #{watch}", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} restart -g #{watch}", remote_ip, remote_key)
   end
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
@@ -83,7 +82,7 @@ BOO
       HelperFunctions.write_file(monit_file, contents)
     end
 
-    self.run_god_command("#{MONIT} reload", remote_ip, remote_key)
+    self.execute_remote_command("service monit reload", remote_ip, remote_key)
 
     ip = remote_ip || HelperFunctions.local_ip
     Djinn.log_info("Starting #{watch} on ip #{ip}, port #{port}" +
@@ -91,22 +90,22 @@ BOO
   end
 
   def self.stop(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
   end
 
   def self.remove(watch, remote_ip=nil, remote_key=nil)
-    self.run_god_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
-    self.run_god_command("#{MONIT} unmonitor -g #{watch}", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", remote_ip, remote_key)
   end
 
   def self.shutdown(remote_ip=nil, remote_key=nil)
-    self.run_god_command("#{MONIT} stop all", remote_ip, remote_key)
-    self.run_god_command("#{MONIT} unmonitor all", remote_ip, remote_key)
-    self.run_god_command("#{MONIT} quit", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} stop all", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} unmonitor all", remote_ip, remote_key)
+    self.execute_remote_command("#{MONIT} quit", remote_ip, remote_key)
   end
 
   private
-  def self.run_god_command(cmd, ip, ssh_key)
+  def self.execute_remote_command(cmd, ip, ssh_key)
     local = ip.nil?
     
     if local
