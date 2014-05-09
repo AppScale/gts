@@ -42,7 +42,7 @@ echo "test : True" >> AppScalefile
 
 # allow root login
 cat .ssh/id_rsa.pub >> .ssh/authorized_keys
-ssh-keyscan $PUBLIC_IP >> .ssh/known_hosts
+ssh-keyscan $PUBLIC_IP 2> /dev/null >> .ssh/known_hosts
 
 # bring appscale up
 appscale up
