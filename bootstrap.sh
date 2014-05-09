@@ -6,14 +6,18 @@
 # Defaults vaules
 BRANCH="master"
 USER="AppScale"
+TOOLS_BRANCH="master"
+TOOLS_USER="AppScale"
 UNIT_TEST="n"
 
 usage() {
-        echo "Usage: ${0} [-b <branch>][-u <user>][-t]"
+        echo "Usage: ${0} [-b <branch>][-u <user>][-tu <user>][-tb <branch>][-t]"
         echo
         echo "Options:"
-        echo "   -b <branch>       a specific branch to use (default master)"
-        echo "   -u <user>         a specific user to pull the fork (default AppScale)"
+        echo "   -b <branch>       the branch to use for appscale repo (default master)"
+        echo "   -u <user>         the user to pull the appscale repo (default AppScale)"
+        echo "   -tb <branch>      the branch to use for appscale-tools repo (default master)"
+        echo "   -tu <user>        the user to pull the appscale-tools repo (default AppScale)"
         echo "   -t                run unit tests"
         exit 1
 }
@@ -47,6 +51,24 @@ while [ $# -gt 0 ]; do
                 shift
                 continue
         fi
+        if [ "${1}" = "-tb" ]; then 
+                shift
+                if [ -z "${1}" ]; then
+                        usage
+                fi
+                TOOLS_BRANCH="${1}"
+                shift
+                continue
+        fi
+        if [ "${1}" = "-tu" ]; then 
+                shift
+                if [ -z "${1}" ]; then
+                        usage
+                fi
+                TOOLS_USER="${1}"
+                shift
+                continue
+        fi
         if [ "${1}" = "-t" ]; then 
                 UNIT_TEST="Y"
                 shift
@@ -58,12 +80,12 @@ done
 
 # Let's pull the github repositories.
 echo
-echo "Will be using github branch \"$BRANCH\" for user \"$USER\""
-echo "git clone https://github.com/$USER/appscale.git --branch $BRANCH"
-echo "git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH"
+echo "Will be pulling from github with the following:"
+echo "   git clone https://github.com/$USER/appscale.git --branch $BRANCH"
+echo "   git clone https://github.com/$TOOLS_USER/appscale-tools.git --branch $TOOLS_BRANCH"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
-sleep 3
+sleep 5
 apt-get install -y git
 if [ -d appscale ]; then
         APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' VERSION)"
@@ -90,7 +112,7 @@ if [ -d appscale ]; then
         (cd appscale-tools; git pull)
 else
         git clone https://github.com/$USER/appscale.git --branch $BRANCH
-        git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
+        git clone https://github.com/$TOOLS_USER/appscale-tools.git --branch $TOOLS_BRANCH
 fi
 
 echo "Building AppScale..."
