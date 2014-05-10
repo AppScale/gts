@@ -7,7 +7,7 @@
 # at https://github.com/AppScale/appscale/wiki/AppScale-on-Amazon-EC2).
 # Once you have the IP of the instance you can do something like:
 #
-# ssh -i <key> ubuntu@<public IP> 'wget -O - fast-start.appscale.com|sudo -i bash'
+# ssh -i <key> ubuntu@<public IP> 'wget -O - fast-start.appscale.com|sudo -i sh'
 #
 # author: graziano
 
@@ -38,7 +38,7 @@ fi
 for x in eth0 em0 eth1 em1 ; do
     if ifconfig $x > /dev/null 2> /dev/null; then
         ifconfig $x:0 $PUBLIC_IP > /dev/null 2> /dev/null
-        if $? ; then
+        if [ $? -gt 0]; then
             echo "Couldn't set an alias for the public IP!"
             exit 1
         fi
