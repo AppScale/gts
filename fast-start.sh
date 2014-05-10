@@ -7,7 +7,7 @@
 # at https://github.com/AppScale/appscale/wiki/AppScale-on-Amazon-EC2).
 # Once you have the IP of the instance you can do something like:
 #
-# ssh -i <key> ubuntu@<public IP> 'wget -q -O - https://raw.githubusercontent.com/obino/appscale/fast-start/fast-start.sh|sudo -i bash'
+# ssh -i <key> ubuntu@<public IP> 'wget -O - fast-start.appscale.com|sudo -i bash'
 #
 # author: graziano
 
