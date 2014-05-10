@@ -6,6 +6,8 @@
 # Defaults vaules
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
+APPSCALE_BRANCH="master"
+APPSCALE_TOOLS_BRANCH="master"
 UNIT_TEST="n"
 
 usage() {
