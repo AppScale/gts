@@ -4,17 +4,19 @@
 # Author: AppScale Team <support@appscale.com>
 
 # Defaults vaules
-BRANCH="master"
-USER="AppScale"
+APPSCALE_REPO="git://github.com/AppScale/appscale.git"
+APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 UNIT_TEST="n"
 
 usage() {
-        echo "Usage: ${0} [-b <branch>][-u <user>][-t]"
+        echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][-t]"
         echo
         echo "Options:"
-        echo "   -b <branch>       a specific branch to use (default master)"
-        echo "   -u <user>         a specific user to pull the fork (default AppScale)"
-        echo "   -t                run unit tests"
+        echo "   --repo <repo>            Specify appscale repo (default $APPSCALE_REPO)"
+        echo "   --branch <branch>        Specify appscale branch (default $APPSCALE_BRANCH)"
+        echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
+        echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
+        echo "   -t                       run unit tests"
         exit 1
 }
 
@@ -29,21 +31,39 @@ set -e
 
 # Let's get the  command line arguments.
 while [ $# -gt 0 ]; do
-        if [ "${1}" = "-b" ]; then 
+        if [ "${1}" = "--repo" ]; then 
                 shift
                 if [ -z "${1}" ]; then
                         usage
                 fi
-                BRANCH="${1}"
+                APPSCALE_REPO="${1}"
                 shift
                 continue
         fi
-        if [ "${1}" = "-u" ]; then 
+        if [ "${1}" = "--branch" ]; then 
                 shift
                 if [ -z "${1}" ]; then
                         usage
                 fi
-                USER="${1}"
+                APPSCALE_BRANCH="${1}"
+                shift
+                continue
+        fi
+        if [ "${1}" = "--tools-repo" ]; then 
+                shift
+                if [ -z "${1}" ]; then
+                        usage
+                fi
+                APPSCALE_TOOLS_REPO="${1}"
+                shift
+                continue
+        fi
+        if [ "${1}" = "--tools-branch" ]; then 
+                shift
+                if [ -z "${1}" ]; then
+                        usage
+                fi
+                APPSCALE_TOOLS_BRANCH="${1}"
                 shift
                 continue
         fi
@@ -58,12 +78,12 @@ done
 
 # Let's pull the github repositories.
 echo
-echo "Will be using github branch \"$BRANCH\" for user \"$USER\""
-echo "git clone https://github.com/$USER/appscale.git --branch $BRANCH"
-echo "git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH"
+echo "Will be using the follogin github repo:"
+echo "git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}"
+echo "git clone ${APPSCALE_TOOLS} --branch ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
-sleep 3
+sleep 5
 apt-get install -y git
 if [ -d appscale ]; then
         APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' VERSION)"
@@ -89,8 +109,8 @@ if [ -d appscale ]; then
         (cd appscale; git pull)
         (cd appscale-tools; git pull)
 else
-        git clone https://github.com/$USER/appscale.git --branch $BRANCH
-        git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
+        git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}
+        git clone ${APPSCALE_TOOLS} --branch ${APPSCALE_TOOLS_BRANCH}
 fi
 
 echo "Building AppScale..."
