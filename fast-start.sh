@@ -1,10 +1,17 @@
 #!/bin/bash
 #
-# Get a single node on AWS
+# Get a single AppScale node on AWS: read more at
+# www.appscale.com/get-started.
+#
+# It needs to be ran on an official AppScale image (you will find the AMI
+# at https://github.com/AppScale/appscale/wiki/AppScale-on-Amazon-EC2).
+# Once you have the IP of the instance you can do something like:
+#
+# ssh -i <key> ubuntu@<public IP> 'wget -q -O - https://raw.githubusercontent.com/obino/appscale/fast-start/fast-start.sh|sudo -i bash'
 #
 # author: graziano
 
-# We need to be root.
+# We need to be root. Usually we login as ubuntu, then sudo.
 if [ "$(id -u)" != "0" ]; then
     CMD=$(readlink -f $0)
     if ! sudo -i bash $CMD ; then
@@ -30,7 +37,11 @@ fi
 # Create a virtual interface with this public IP.
 for x in eth0 em0 eth1 em1 ; do
     if ifconfig $x > /dev/null 2> /dev/null; then
-        ifconfig $x:0 $PUBLIC_IP
+        ifconfig $x:0 $PUBLIC_IP > /dev/null 2> /dev/null
+        if $? ; then
+            echo "Couldn't set an alias for the public IP!"
+            exit 1
+        fi
         break
     fi
 done
