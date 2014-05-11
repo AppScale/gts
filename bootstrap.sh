@@ -88,8 +88,8 @@ echo
 sleep 5
 apt-get install -y git
 if [ -d appscale ]; then
-        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' VERSION)"
-        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\2/gp' VERSION)"
+        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' appscale/VERSION)"
+        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\2/gp' appscale/VERSION)"
         if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
                 echo "Cannot determine version of AppScale!"
                 exit 1
@@ -104,9 +104,16 @@ if [ -d appscale ]; then
         if [ -e /etc/haproxy/haproxy.cfg ]; then
                 mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
         fi
-        # Remove control file we added before 1.14.
+        # Remove control files we added before 1.14, and re-add the
+        # default ones.
         if [ $APPSCALE_MAJOR -le 1 -a $APPSCALE_MINOR -le 14 ]; then
                 rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
+                if dpkg-query -l haproxy > /dev/null 2> /dev/null ; then
+                        apt-get -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
+                fi
+                if dpkg-query -l monit > /dev/null 2> /dev/null ; then
+                        apt-get -o DPkg::Options::="--force-confmiss" --reinstall install monit
+                fi
         fi
         (cd appscale; git pull)
         (cd appscale-tools; git pull)
