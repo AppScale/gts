@@ -8,6 +8,7 @@ APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
+FORCE_UPGRADE="N"
 UNIT_TEST="n"
 
 usage() {
@@ -18,7 +19,8 @@ usage() {
         echo "   --branch <branch>        Specify appscale branch (default $APPSCALE_BRANCH)"
         echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
         echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
-        echo "   -t                       run unit tests"
+        echo "   --force-upgrade          Force upgrade even if some check fails."
+        echo "   -t                       Run unit tests"
         exit 1
 }
 
@@ -69,6 +71,11 @@ while [ $# -gt 0 ]; do
                 shift
                 continue
         fi
+        if [ "${1}" = "--force-upgrade" ]; then
+                FORCE_UPGRADE="Y"
+                shift
+                continue
+        fi
         if [ "${1}" = "-t" ]; then 
                 UNIT_TEST="Y"
                 shift
@@ -101,7 +108,7 @@ if [ -d appscale ]; then
         if [ -n "$MONIT" ]; then
                 if $MONIT summary |grep controller > /dev/null ; then
                         echo "AppScale is still running: please stop it"
-                        exit 1
+                        [ "$FORCE_UPGRADE" = "Y" ] || exit 1
                 elif echo $MONIT |grep local > /dev/null ; then
                         # AppScale is not running but there is a monit
                         # leftover from the custom install.
