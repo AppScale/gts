@@ -27,7 +27,7 @@ echo "Success"
 
 set -e
 
-# set command line arguments
+# Let's get the  command line arguments.
 while [ $# -gt 0 ]; do
         if [ "${1}" = "-b" ]; then 
                 shift
@@ -56,7 +56,7 @@ while [ $# -gt 0 ]; do
 done
 
 
-# let's pull the repos
+# Let's pull the github repositories.
 echo
 echo "Will be using github branch \"$BRANCH\" for user \"$USER\""
 echo "git clone https://github.com/$USER/appscale.git --branch $BRANCH"
@@ -64,14 +64,28 @@ echo "git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
 sleep 3
-apt-get install -y git-core
+apt-get install -y git
 if [ -d appscale ]; then
+        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' VERSION)"
+        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\2/gp' VERSION)"
+        if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
+                echo "Cannot determine version of AppScale!"
+                exit 1
+        fi
         echo
-        echo "Found previous AppScale installation: upgrading it"
+        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR: upgrading it."
+        # This sleep is to allow the user to Ctrl-C in case an upgrade is
+        # not wanted.
         sleep 5
-        # old junk left over
-        mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale-1.14
-        rm /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit
+        # Let's keep a copy of the old config: we need to move it to avoid
+        # questions from dpkg.
+        if [ -e /etc/haproxy/haproxy.cfg ]; then
+                mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
+        fi
+        # Remove control file we added before 1.14.
+        if [ $APPSCALE_MAJOR -le 1 -a $APPSCALE_MINOR -le 14 ]; then
+                rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
+        fi
         (cd appscale; git pull)
         (cd appscale-tools; git pull)
 else
@@ -79,14 +93,13 @@ else
         git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
 fi
 
-# and build AppScale
 echo "Building AppScale..."
 (cd appscale/debian; bash appscale_build.sh)
 
 echo "Building AppScale Tools..." 
 (cd appscale-tools/debian; bash appscale_build.sh)
 
-# Run unit tests
+# Run unit tests if asked.
 if [ "$UNIT_TEST" = "Y" ]; then
         echo "Running Unit tests"
         (cd appscale; rake)

@@ -2,56 +2,93 @@ Source: appscale
 Section: unknown
 Priority: optional
 Maintainer: AppScale Developer <appscale_developer@googlegroups.com>
-Build-Depends: debhelper (>= 7)
+Build-Depends: debhelper (>= 7),
+               ant,
+               build-essential,
+               bison,
+               flex,
+               byacc,
+               libc6-dev,
+               erlang,
+               dpkg-dev,
+               dh-make,
+               debhelper,
+               fakeroot,
+               python-dev,
+               libssl-dev,
+               libevent-dev,
+               ruby1.8-dev,
+               zlib1g-dev,
+               libexpat1-dev,
+               libcppunit-dev,
+               libbz2-dev,
+               libreadline-dev,
+               libxml2-dev
 Standards-Version: 3.8.0
-Homepage: http://community.appscale.com/
+Homepage: https://github.com/AppScale/appscale
 
 Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
-# App Server/AppScale Server/SOAP Server
- openjdk-7-jdk,
- openssl,
- python-yaml,
- python-m2crypto, python-soappy, 
- python-imaging,
- python-django, 
- python-nose,
- sendmail,
- ejabberd,
-# python-protobuf,
- libprotobuf-java,
-# AppController
- ssh,
- ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,
- libopenssl-ruby, libopenssl-ruby1.8, libruby1.8,
- iptables, cron,
- curl, lsof,
- memcached,
- socat,
- dnsutils,
- nginx,
- libpcre++-dev,
- haproxy,
- libpcre3,
- php5,
- monit,
-# Thrift
- libevent-1.4-2,
-# ZooKeeper
- liblog4j1.2-java, libjline-java,
-# unknown
- make,
-# Images API
- libjpeg8-dev,
-# TaskQueue
- rabbitmq-server,
- python-pika,
- python-pip,
- python-numpy,
-# lxml
- libxslt-dev, libxml2-dev
-Conflicts: zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper, python-protobuf
+         openjdk-7-jdk,
+         openssl,
+         python-yaml,
+         python-crypto,
+         python-m2crypto,
+         python-soappy,
+         python-imaging,
+         python-django,
+         python-nose,
+         sendmail,
+         ejabberd,
+         libprotobuf-java,
+         rsync,
+         unzip,
+         bzip2,
+         ssh,
+         ntp,
+         ruby1.8,
+         ruby,
+         rubygems,
+         rdoc1.8,
+         libzlib-ruby,
+         libzip-ruby1.8,
+         libopenssl-ruby,
+         libopenssl-ruby1.8,
+         libruby1.8,
+         iptables, cron,
+         curl, lsof,
+         memcached,
+         socat,
+         dnsutils,
+         nginx,
+         libpcre++-dev,
+         haproxy,
+         libpcre3,
+         php5,
+         monit,
+         libevent-1.4-2,
+         liblog4j1.2-java,
+         libjline-java,
+         make,
+         libjpeg8-dev,
+         rabbitmq-server,
+         python-pika,
+         python-pip,
+         python-numpy,
+         libxslt-dev,
+         libxml2-dev
+Conflicts: python-protobuf
+Description: An open-source framework for execution of GAE applications
+ An open-source research framework for execution of
+ Google AppEngine applications and investigation of
+ scalable cloud computing fabrics.
+
+
+Package: appscale-cassandra
+Architecture: any
+Depends: appscale-core,
+         python-sqlalchemy
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of

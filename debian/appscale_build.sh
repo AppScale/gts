@@ -44,7 +44,8 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-# install dependencies for core and specific distro
+# This will install dependencies from control.core and the specific
+# distributions.
 PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +)"
 apt-get install -y --force-yes ${PACKAGES}
 if [ $? -ne 0 ]; then
@@ -52,28 +53,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# install package for build
-apt-get install -y autoconf automake libtool gcc g++ pkg-config ant\
- rsync ntp\
- build-essential bison flex byacc unzip bzip2\
- libc6-dev subversion\
- erlang\
- dpkg-dev dh-make debhelper fakeroot\
- python-dev libssl-dev\
- libevent-dev\
- ruby1.8-dev\
- zlib1g-dev\
- libexpat1-dev\
- libcppunit-dev\
- libbz2-dev libreadline-dev\
- libxml2-dev
-
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for building."
-    exit 1
+# If we have an option to switch ruby, let's make sure we use 1.8.
+if [ -n "$(apt-cache search ruby-switch)" ]; then
+        echo "Make sure ruby1.8 is used"
+        apt-get install -y ruby-switch
+        ruby-switch --set ruby1.8
 fi
 
-# remove conflict package
 if [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
     bash debian/appscale_install.sh core || exit 1
