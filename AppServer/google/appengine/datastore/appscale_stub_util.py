@@ -718,22 +718,6 @@ class QueryCursor(object):
           result_list.append(entity)
       else:
         result_list.extend(self.__results)
-      """
-      elif self.__query.property_name_size() > 0:
-        for entity in self.__results:
-          projection = entity_pb.EntityProto()
-          projection.mutable_key().CopyFrom(entity.key())
-          projection.mutable_entity_group().CopyFrom(entity.entity_group())
-          if entity.has_kind():
-            projection.set_kind(entity.kind())
-          # Copy over the projected properties.
-          for prop_name in self.__query.property_name_list():
-            for ent_prop in entity.property_list():
-              if ent_prop.name() == prop_name:
-                ent_prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-                projection.add_property().CopyFrom(ent_prop)
-          result_list.append(projection)
-      """
     else:
       result_list = []
     result.set_keys_only(self.__query.keys_only())
@@ -863,8 +847,6 @@ class ListCursor(BaseCursor):
                  position.start_key().split(_CURSOR_CONCAT_STR, 1)
       query_info_pb = datastore_pb.Query()
       query_info_pb.ParseFromString(query_info_encoded)
-      #self._ValidateQuery(query, query_info_pb)
-    
       entity_as_pb.ParseFromString(entity_encoded)
     else:
       """Java doesn't include a start_key() so we will create the last entity
