@@ -67,10 +67,10 @@ def main(argv):
   view_all(entities, JOURNAL_TABLE, db) 
 
   entities = get_entities(COMPOSITE_TABLE, COMPOSITE_SCHEMA, db)
-  view_all(entities, COMPOSITE_SCHEMA, db) 
+  view_all(entities, COMPOSITE_TABLE, db) 
    
   entities = get_entities(METADATA_TABLE, METADATA_SCHEMA, db)
-  view_all(entities, METADATA_SCHEMA, db)
+  view_all(entities, METADATA_TABLE, db)
 
 if __name__ == "__main__":
   try:
