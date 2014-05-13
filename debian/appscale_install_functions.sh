@@ -256,6 +256,7 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
+    easy_install -U setuptools
     easy_install -U pycassa
     easy_install -U thrift
 
