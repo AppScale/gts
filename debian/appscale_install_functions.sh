@@ -74,12 +74,12 @@ installPIL()
 
 installlxml()
 {
-    easy_install lxml
+    pip install lxml
 }
 
 installxmpppy()
 {
-    easy_install xmpppy
+    pip install xmpppy
 }
 
 setulimits()
@@ -144,7 +144,7 @@ EOF
 
 installthrift()
 {
-    easy_install -U thrift
+    pip install thrift
 }
 
 installjavajdk()
@@ -168,7 +168,7 @@ installappserverjava()
 
 installtornado()
 {
-    easy_install -U tornado
+    pip install tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
 	echo "Fail to install python tornado. Please retry."
@@ -182,12 +182,12 @@ installtornado()
 
 installflexmock()
 {
-    easy_install flexmock
+    pip install flexmock
 }
 
 postinstalltornado()
 {
-    easy_install tornado
+    pip install tornado
 }
 
 postinstallhaproxy()
@@ -256,9 +256,9 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    easy_install -U setuptools
-    easy_install -U pycassa
-    easy_install -U thrift
+    pip install  setuptools
+    pip install  pycassa
+    pip install  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -320,7 +320,7 @@ installzookeeper()
   apt-get update 
   apt-get install -y zookeeper-server 
 
-  easy_install kazoo
+  pip install kazoo
 }
 
 postinstallzookeeper()
@@ -341,8 +341,8 @@ keygen()
 
 installcelery()
 {
-    easy_install Celery==3.0.24
-    easy_install Flower
+    pip install Celery==3.0.24
+    pip install Flower
 }
 
 postinstallrabbitmq()
