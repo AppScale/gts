@@ -222,6 +222,11 @@ postinstallnginx()
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
+
+    # apache2 is a dependency pulled in by php5: make sure it doesn't use
+    # port 80.
+    service apache2 stop || true
+    update-rc.d -f apache2 remove || true
 }
 
 portinstallmonit()
@@ -230,7 +235,6 @@ portinstallmonit()
     cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
     chmod 0700 /etc/monit/monitrc
     service monit restart
-
 }
 
 installcassandra()
