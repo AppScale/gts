@@ -3398,6 +3398,7 @@ class DatastoreDistributed():
         result = result[:query.limit()]
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
+    
     cur = appscale_stub_util.QueryCursor(query, result, last_ent)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
@@ -3405,6 +3406,11 @@ class DatastoreDistributed():
     # more results for this query.
     if count < self.get_limit(query):
       query_result.set_more_results(False)
+
+    # If there were no results then we copy the last cursor so future queries
+    # can start off from the same place.
+    if query.has_compiled_cursor() and not query_result.has_compiled_cursor():
+      query_result.mutable_compiled_cursor().CopyFrom(query.compiled_cursor())
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
