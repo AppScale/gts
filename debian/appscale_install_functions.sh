@@ -360,7 +360,7 @@ keygen()
 
 installcelery()
 {
-    pip install Celery==3.0.24
+    pip_wrapper Celery==3.0.24
     pip_wrapper Flower
 }
 
