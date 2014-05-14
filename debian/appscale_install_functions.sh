@@ -17,6 +17,22 @@ fi
 
 export APPSCALE_VERSION=1.14.0
 
+pip_wrapper () 
+{
+    # We have seen quite a few network/DNS issues lately, so much so that
+    # it takes a couple of tries to install packages with pip. This
+    # wrapper ensure that we are a bit more persitent.
+    if [ -n "$1" ] ; then
+        for x in 1 2 3 4 5 ; do
+            if pip_wrapper $1 ; then
+                break
+            else
+                sleep $x
+            fi
+        done
+    fi
+}
+
 increaseconnections()
 {
     echo "ip_conntrack" >> /etc/modules
@@ -69,17 +85,17 @@ setupntp()
 installPIL()
 {
     pip uninstall -y PIL
-    /usr/bin/yes | pip install --upgrade pillow
+    /usr/bin/yes | pip_wrapper pillow
 }
 
 installlxml()
 {
-    pip install --upgrade lxml
+    pip_wrapper lxml
 }
 
 installxmpppy()
 {
-    pip install --upgrade xmpppy
+    pip_wrapper xmpppy
 }
 
 setulimits()
@@ -144,7 +160,7 @@ EOF
 
 installthrift()
 {
-    pip install --upgrade thrift
+    pip_wrapper thrift
 }
 
 installjavajdk()
@@ -168,7 +184,7 @@ installappserverjava()
 
 installtornado()
 {
-    pip install --upgrade tornado
+    pip_wrapper tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
 	echo "Fail to install python tornado. Please retry."
@@ -182,12 +198,12 @@ installtornado()
 
 installflexmock()
 {
-    pip install --upgrade flexmock
+    pip_wrapper flexmock
 }
 
 postinstalltornado()
 {
-    pip install --upgrade tornado
+    pip_wrapper tornado
 }
 
 postinstallhaproxy()
@@ -256,9 +272,9 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    pip install --upgrade  setuptools
-    pip install --upgrade  pycassa
-    pip install --upgrade  thrift
+    pip_wrapper  setuptools
+    pip_wrapper  pycassa
+    pip_wrapper  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -320,7 +336,7 @@ installzookeeper()
   apt-get update 
   apt-get install -y zookeeper-server 
 
-  pip install --upgrade kazoo
+  pip_wrapper kazoo
 }
 
 postinstallzookeeper()
@@ -342,7 +358,7 @@ keygen()
 installcelery()
 {
     pip install Celery==3.0.24
-    pip install --upgrade Flower
+    pip_wrapper Flower
 }
 
 postinstallrabbitmq()
