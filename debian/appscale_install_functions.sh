@@ -27,9 +27,12 @@ pip_wrapper ()
             if pip_wrapper $1 ; then
                 break
             else
+                echo "Failed to install $1: retrying ..."
                 sleep $x
             fi
         done
+        echo "Failed to install $1: giving up."
+        exit 1
     fi
 }
 
@@ -186,13 +189,13 @@ installtornado()
 {
     pip_wrapper tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
-    if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
+    if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
 	echo "Fail to install python tornado. Please retry."
 	exit 1
     fi
     if [ -n "$DESTDIR" ]; then
 	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/tornado-*.egg ${DESTDIR}${DISTP}
+	cp -rv ${DISTP}/tornado-*.egg* ${DESTDIR}${DISTP}
     fi
 }
 
