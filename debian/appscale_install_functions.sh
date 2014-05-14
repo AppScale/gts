@@ -74,12 +74,12 @@ installPIL()
 
 installlxml()
 {
-    pip install lxml
+    pip install --upgrade lxml
 }
 
 installxmpppy()
 {
-    pip install xmpppy
+    pip install --upgrade xmpppy
 }
 
 setulimits()
@@ -144,7 +144,7 @@ EOF
 
 installthrift()
 {
-    pip install thrift
+    pip install --upgrade thrift
 }
 
 installjavajdk()
@@ -168,7 +168,7 @@ installappserverjava()
 
 installtornado()
 {
-    pip install tornado
+    pip install --upgrade tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
 	echo "Fail to install python tornado. Please retry."
@@ -182,12 +182,12 @@ installtornado()
 
 installflexmock()
 {
-    pip install flexmock
+    pip install --upgrade flexmock
 }
 
 postinstalltornado()
 {
-    pip install tornado
+    pip install --upgrade tornado
 }
 
 postinstallhaproxy()
@@ -256,9 +256,9 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    pip install  setuptools
-    pip install  pycassa
-    pip install  thrift
+    pip install --upgrade  setuptools
+    pip install --upgrade  pycassa
+    pip install --upgrade  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -320,7 +320,7 @@ installzookeeper()
   apt-get update 
   apt-get install -y zookeeper-server 
 
-  pip install kazoo
+  pip install --upgrade kazoo
 }
 
 postinstallzookeeper()
@@ -342,7 +342,7 @@ keygen()
 installcelery()
 {
     pip install Celery==3.0.24
-    pip install Flower
+    pip install --upgrade Flower
 }
 
 postinstallrabbitmq()

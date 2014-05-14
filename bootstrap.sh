@@ -3,7 +3,7 @@
 # Simple script to install AppScale and tools from the master branch
 # Author: AppScale Team <support@appscale.com>
 
-# Defaults vaules
+# Defaults values for reositories and branches.
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 APPSCALE_BRANCH="master"
