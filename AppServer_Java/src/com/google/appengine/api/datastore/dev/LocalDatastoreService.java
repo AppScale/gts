@@ -58,7 +58,6 @@ import com.google.apphosting.datastore.DatastoreV3Pb.Transaction;
 import com.google.apphosting.utils.config.GenerationDirectory;
 import com.google.apphosting.utils.config.IndexesXmlReader;
 import com.google.apphosting.utils.config.IndexesXml;
-//import com.google.apphosting.utils.config.IndexesXml.Index;
 import com.google.storage.onestore.v3.OnestoreEntity;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex.State;
@@ -559,7 +558,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.PutResponse put( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
     {
-        //logger.log(Level.WARNING, "REQUEST: " + request);
         return putImpl(status, request);
     }
 
@@ -795,33 +793,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                     {
                         throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR, "Can't query app " + app + "in a transaction on app " + query.getTransaction().getApp());
                     }
-
                     LiveTxn liveTxn = profile.getTxn(query.getTransaction().getHandle());
-
                 }
-
             }
 
-            /*
-             * AppScale line replacement to #end
-             */
             DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
             proxy.doPost(app, "RunQuery", query, queryResult);
-            logger.log(Level.WARNING, "Query: " + query + "Result: " + queryResult);
-            //List<EntityProto> queryEntities = new ArrayList<EntityProto>(queryResult.results());
-            /* #end */
-
-            //if (queryEntities == null)
-            //{
-            //    queryEntities = Collections.emptyList();
-           // }
-
-            //final boolean hasNamespace = query.hasNameSpace();
-            //final String namespace = query.getNameSpace();
-
-            /*
-             * AppScale - removed duplicate count instantiations
-             */
             int count;
             if (query.hasCount())
             {
@@ -844,19 +821,17 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             if (queryResult.isMoreResults())
             {
                 long cursor = this.queryId.getAndIncrement();
-                logger.log(Level.WARNING, "QueryID: " + cursor);
                 profile.addQuery(cursor, liveQuery);
                 queryResult.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
             }
 
-            //for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
-            //{
-            //    result.addIndex(wrapIndexInCompositeIndex(app, index));
-            //} 
+            for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
+            {
+                queryResult.addIndex(wrapIndexInCompositeIndex(app, index));
+            } 
             /*
              * AppScale - adding skipped results to the result, otherwise query counts are wrong	
              */	
-            //result.setSkippedResults(queryResult.getSkippedResults());
             return queryResult;
         }
     }
@@ -876,7 +851,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.QueryResult next( LocalRpcService.Status status, DatastoreV3Pb.NextRequest request )
     {
-        logger.log(Level.WARNING, "NEXT LEVEL");
         Profile profile = (Profile)this.profiles.get(request.getCursor().getApp());
         LiveQuery liveQuery = profile.getQuery(request.getCursor().getCursor());
 
@@ -889,11 +863,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         DatastoreV3Pb.CompiledCursor compiledCursor = liveQuery.getCompiledCursor();
         // If we don't have a cursor to continue, or we have hit the count we're trying to achieve
         // end this query.
-        logger.log(Level.WARNING, "Count=" + liveQuery.getCount() + " offset: " + liveQuery.getOffset());
         if (liveQuery.getOffset() >= liveQuery.getCount())
         {
-          logger.log(Level.WARNING, "Count=" + liveQuery.getCount() + " offset: " + liveQuery.getOffset());
-          logger.log(Level.WARNING, "NEXT LEVEL 1");
           queryResult.setMoreResults(false);
           if (query.isCompile())
           {
@@ -906,7 +877,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         else
         {
           // We copy over the previous cursor from which we continue.
-          logger.log(Level.WARNING, "NEXT LEVEL 2");
           query.setCompiledCursor(compiledCursor);
           String app = query.getApp();
           proxy.doPost(app, "RunQuery", query, queryResult);
@@ -919,14 +889,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         if (!queryResult.isMoreResults())
         {
-          logger.log(Level.WARNING, "NEXT LEVEL 4");
           profile.removeQuery(request.getCursor().getCursor());
         }
         else{
-          logger.log(Level.WARNING, "NEXT LEVEL 4.5");
           liveQuery.setCompiledCursor(queryResult.getCompiledCursor());
         }
-        logger.log(Level.WARNING, "NEXT LEVEL 5" + queryResult);
         return queryResult;
     }
 
@@ -1292,7 +1259,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             super(clock.getCurrentTime());
             this.query.copyFrom(query);
 
-            // This is the number of entities this queries has seen so far.
+            // This is the number of entities this query has seen so far.
             this.offset = offset;
 
             this.lastCursor.copyFrom(cursor);
@@ -1302,7 +1269,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             else if (query.hasLimit()) {
               this.totalCount = Integer.valueOf(this.query.getLimit());
             }
-            else{
+            else {
               this.totalCount = Integer.MAX_VALUE;
             }
         }
@@ -1317,7 +1284,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
           this.offset = offset;
         }
 
-        public int getOffset(){
+        public int getOffset()
+        {
           return this.offset;
         }
 

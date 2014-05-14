@@ -23,9 +23,7 @@ increaseconnections()
 
     # Google Compute Engine doesn't allow users to use modprobe, so it's ok if
     # the modprobe command fails.
-    set +e
-    modprobe ip_conntrack
-    set -e
+    modprobe ip_conntrack || true
 
     echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
     echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
@@ -56,9 +54,13 @@ ff02::3 ip6-allhosts
 EOF
 }
 
-setupntpcron()
+setupntp()
 {
-    # make sure we are time synced at start and that ntp is running
+    # Let's make sure time is tightly synchronized (64s poll).
+    echo -e "\nmaxpoll 6" >> /etc/ntp.conf
+
+    # This ensure that we synced first, to allow ntpd to stay
+    # synchronized.
     service ntp stop
     ntpdate pool.ntp.org
     service ntp start
@@ -68,17 +70,6 @@ installPIL()
 {
     pip uninstall -y PIL
     /usr/bin/yes | pip install --upgrade pillow
-}
-
-installpycrypto()
-{
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/pycrypto-2.6.tar.gz
-    tar zxvf pycrypto-2.6.tar.gz
-    cd pycrypto-2.6
-    python setup.py install
-    cd ..
-    rm -fr pycrypto-2.6*
 }
 
 installlxml()
@@ -113,7 +104,7 @@ export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
 export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
 export LC_ALL='en_US.UTF-8'
 EOF
-# enable to load AppServer and AppDB modules. It must be before the python-support.
+# This enables to load AppServer and AppDB modules. It must be before the python-support.
     DESTFILE=${DESTDIR}/usr/lib/python2.7/dist-packages/appscale_appserver.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -121,7 +112,7 @@ EOF
 ${APPSCALE_HOME_RUNTIME}/AppDB
 ${APPSCALE_HOME_RUNTIME}/AppServer
 EOF
-# enable to load site-packages of Python
+# Enable to load site-packages of Python.
     DESTFILE=${DESTDIR}/usr/local/lib/python2.7/dist-packages/site_packages.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -129,7 +120,7 @@ EOF
 /usr/lib/python2.7/site-packages
 EOF
 
-    # create link to appscale settings
+    # This create link to appscale settings.
     rm -rfv ${DESTDIR}/etc/appscale
     mkdir -pv ~/.appscale
     mkdir -pv ${APPSCALE_HOME_RUNTIME}/.appscale
@@ -138,7 +129,7 @@ EOF
     cat <<EOF | tee /etc/appscale/home || exit
 ${APPSCALE_HOME_RUNTIME}
 EOF
-    # create the global AppScale environment file
+    # Create the global AppScale environment file.
     DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -158,19 +149,19 @@ installthrift()
 
 installjavajdk()
 {
-    # make jdk-7 the default
+    # This makes jdk-7 the default JVM.
     update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 }
 
 installappserverjava()
 {
-    # compile source file.
+    # Compile source file.
     cd ${APPSCALE_HOME}/AppServer_Java
     ant install
     ant clean-build
 
     if [ -n "$DESTDIR" ]; then
-        # delete unnecessary files.
+        # Delete unnecessary files.
 	rm -rfv src lib
     fi
 }
@@ -199,76 +190,56 @@ postinstalltornado()
     easy_install tornado
 }
 
-installhaproxy()
-{
-    # install service script
-    mkdir -pv ${DESTDIR}/etc/init.d
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
-    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy 
-    mkdir -pv ${DESTDIR}/etc/haproxy
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg ${DESTDIR}/etc/haproxy/ 
-    mkdir -pv ${DESTDIR}/etc/default
-    echo "ENABLED=1" > ${DESTDIR}/etc/default/haproxy
-}
-
 postinstallhaproxy()
 {
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg /etc/haproxy/
+    sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
+
+    # AppScale starts/stop the service.
     service haproxy stop || true
     update-rc.d -f haproxy remove || true
 }
 
 installgems()
 {
-    # install gem here
-    cd
-    wget $APPSCALE_PACKAGE_MIRROR/rubygems-1.3.7.tgz
-    tar zxvf rubygems-1.3.7.tgz
-    cd rubygems-1.3.7
-    ruby setup.rb
-    cd
-    ln -sf /usr/bin/gem1.8 /usr/bin/gem
-    rm -rf rubygems-1.3.7.tgz
-    rm -rf rubygems-1.3.7
-
-    # gem update
     GEMOPT="--no-rdoc --no-ri"
-    # Rake 10.0 depecates rake/rdoctask - upgrade later
+    # Rake 10.0 depecates rake/rdoctask - upgrade later.
     gem install -v=0.9.2.2 rake ${GEMOPT} 
     sleep 1
-    # ZK 1.0 breaks our existing code - upgrade later
+    # ZK 1.0 breaks our existing code - upgrade later.
     gem install -v=0.9.3 zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
     gem install -v=0.8.3 httparty ${GEMOPT}
-    # This is for the unit testing framework
+    # This is for the unit testing framework.
     gem install -v=1.0.4 flexmock ${GEMOPT}
     gem install -v=1.0.0 rcov ${GEMOPT}
-
 }
 
-# This function is called from postinst.core, so we don't need to use DESTDIR
 postinstallnginx()
 {
-    cd ${APPSCALE_HOME}
-    cp -v AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
+
+    # apache2 is a dependency pulled in by php5: make sure it doesn't use
+    # port 80.
+    service apache2 stop || true
+    update-rc.d -f apache2 remove || true
 }
 
-installmonit()
+portinstallmonit()
 {
-    # let's use our configuration
-    cd ${APPSCALE_HOME}
-    cp monitrc /etc/monitrc
-    chmod 0700 /etc/monitrc
+    # Let's use our configuration.
+    cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
+    chmod 0700 /etc/monit/monitrc
     service monit restart
-
 }
 
 installcassandra()
 {
-    CASSANDRA_VER=2.0.6
+    CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
@@ -282,19 +253,12 @@ installcassandra()
     chmod -v +x bin/cassandra
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
     mkdir -p /var/lib/cassandra
-    # TODO only grant the cassandra user access
+    # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/pycassa-${PYCASSA_VER}.tar.gz
-    tar zxvf pycassa-${PYCASSA_VER}.tar.gz  
-    cd pycassa-${PYCASSA_VER}
-    python setup.py install
-    cd ..
-    rm -fr pycassa-${PYCASSA_VER}
-    rm -fr pycassa-${PYCASSA_VER}.tar.gz 
-    
+    easy_install -U pycassa
+    easy_install -U thrift
+
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
@@ -308,7 +272,7 @@ postinstallcassandra()
 
 installservice()
 {
-    # this must be absolete path of runtime
+    # This must be absolete path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
@@ -349,45 +313,21 @@ installpythonmemcache()
 
 installzookeeper()
 {
-  mkdir -pv ${APPSCALE_HOME}/downloads
-  cd ${APPSCALE_HOME}/downloads
-  wget http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/cdh4-repository_1.0_all.deb
-  dpkg -i cdh4-repository_1.0_all.deb 
-  apt-get update
+  ZK_REPO_PKG=cdh4-repository_1.0_all.deb
+  wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+  dpkg -i /tmp/${ZK_REPO_PKG}
+  apt-get update 
   apt-get install -y zookeeper-server 
-  cd ..
-  rm -rf ${APPSCALE_HOME}/downloads
 
   easy_install kazoo
 }
 
 postinstallzookeeper()
 {
-    if ! grep -q zookeeper /etc/passwd; then
-	adduser --system --no-create-home zookeeper
-	addgroup --system zookeeper
-	adduser zookeeper zookeeper
-    fi
-    chown -v zookeeper:zookeeper /var/run/zookeeper || true
-    chown -v zookeeper:zookeeper /var/lib/zookeeper || true
-
-    # need conf/environment to stop service
+    # Need conf/environment to stop service.
     cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
-
-    service zookeeper stop || true
-    update-rc.d -f zookeeper remove || true
-}
-
-installsetuptools()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/setuptools-0.6c11.tar.gz
-    tar zxvf setuptools-0.6c11.tar.gz
-    pushd setuptools-0.6c11
-    python setup.py install
-    popd
-    rm -fr  setuptools-0.6c11*
+    service zookeeper-server stop || true
+    update-rc.d -f zookeeper-server remove || true
 }
 
 keygen()
@@ -406,8 +346,7 @@ installcelery()
 
 postinstallrabbitmq()
 {
-    # After install it starts up, shut it down
+    # After install it starts up, shut it down.
     rabbitmqctl stop || true
-    update-rc.d -f rabbitmq remove || true
     update-rc.d -f rabbitmq-server remove || true
 }

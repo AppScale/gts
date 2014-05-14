@@ -101,8 +101,10 @@ class TestDatastoreServer(unittest.TestCase):
     key2 = db.model_to_protobuf(item2)
     tuples_list = [("a\x00b",key1),("a\x00b",key2)]
     self.assertEquals(dd.get_index_kv_from_tuple(
-      tuples_list), (['a\x00b\x00Item\x00name\x00\x9aBob\x00\x00Item:Bob\x01', 'a\x00b\x00Item:Bob\x01'], 
-      ['a\x00b\x00Item\x00name\x00\x9aSally\x00\x00Item:Sally\x01', 'a\x00b\x00Item:Sally\x01']))
+      tuples_list), (['a\x00b\x00Item\x00name\x00\x9aBob\x01\x01\x00Item:Bob\x01', 
+      'a\x00b\x00Item:Bob\x01'], 
+      ['a\x00b\x00Item\x00name\x00\x9aSally\x01\x01\x00Item:Sally\x01', 
+      'a\x00b\x00Item:Sally\x01']))
 
   def test_delete_composite_indexes(self):
     db_batch = flexmock()
@@ -111,15 +113,14 @@ class TestDatastoreServer(unittest.TestCase):
     dd = flexmock(dd)
     dd.should_receive("get_composite_index_key").and_return("somekey")
     dd.should_receive("get_entity_kind").and_return("kind")
-    item1 = Item(key_name="Bob", name="Bob", _app="hello")
-    item2 = Item(key_name="Sally", name="Sally", _app="hello")
+    item1 = self.get_new_entity_proto("appid" , "kind", "ent_name", "prop1", "propvalue", ns="")
+    item2= self.get_new_entity_proto("appid" , "kind", "ent_name1", "prop1", "propvalue", ns="")
     composite_index = entity_pb.CompositeIndex()
     composite_index.set_id(123)
     composite_index.set_app_id("appid")
 
     definition = composite_index.mutable_definition()
     definition.set_entity_type("kind")
-
     dd.delete_composite_indexes([item1, item2], [composite_index])
 
   def test_delete_index_entries(self):
@@ -155,7 +156,7 @@ class TestDatastoreServer(unittest.TestCase):
     ent = self.get_new_entity_proto("appid", "kind", "entity_name", "prop1", "value", ns="")
      
     self.assertEquals(dd.get_composite_index_key(composite_index, ent), 
-      "appid\x00\x00123\x00\x9avalue\x00\x00kind:entity_name\x01")
+      "appid\x00\x00123\x00\x9avalue\x01\x01\x00\x00kind:entity_name\x01")
 
   def test_get_indicies(self):
     db_batch = flexmock()
