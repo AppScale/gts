@@ -88,7 +88,7 @@ setupntp()
 installPIL()
 {
     pip uninstall -y PIL
-    /usr/bin/yes | pip_wrapper pillow
+    pip_wrapper pillow
 }
 
 installlxml()
