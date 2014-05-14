@@ -154,7 +154,15 @@ echo "Building AppScale Tools..."
 if [ "$UNIT_TEST" = "Y" ]; then
         echo "Running Unit tests"
         (cd appscale; rake)
+        if ! $? ; then
+            echo "Unit tests failed for appscale!"
+            exit 1
+        fi
         (cd appscale-tools; rake)
+        if ! $? ; then
+            echo "Unit tests failed for appscale-tools!"
+            exit 1
+        fi
         echo "Unit tests complete"
 fi
 
