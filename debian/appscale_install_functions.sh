@@ -25,7 +25,7 @@ pip_wrapper ()
     if [ -n "$1" ] ; then
         for x in 1 2 3 4 5 ; do
             if pip install --upgrade $1 ; then
-                break
+                return
             else
                 echo "Failed to install $1: retrying ..."
                 sleep $x
