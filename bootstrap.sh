@@ -159,3 +159,4 @@ fi
 echo "*****************************************"
 echo "AppScale and AppScale tools are installed"
 echo "*****************************************"
+exit 0
