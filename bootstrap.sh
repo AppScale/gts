@@ -159,7 +159,7 @@ if [ "$UNIT_TEST" = "Y" ]; then
             exit 1
         fi
         (cd appscale-tools; rake)
-        if [ $? -gt 0]; then
+        if [ $? -gt 0 ]; then
             echo "Unit tests failed for appscale-tools!"
             exit 1
         fi
