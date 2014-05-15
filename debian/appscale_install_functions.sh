@@ -15,7 +15,7 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=1.14.0
+export APPSCALE_VERSION=2.0.0
 
 pip_wrapper () 
 {

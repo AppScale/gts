@@ -4,6 +4,27 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+The current version is 2.0.0, released June, 2014
+Highlights of features/nugs in this release:
+- Better error messages for AppScale tools
+- Moved to package installation of most installed software (faster build)
+- Cleanup of instances on "appscale down"
+- Ability to support more dynamic code layout of Java applications
+- Upgraded Cassandra to 2.0.7
+- Use ntp service for clock sync
+- Have AppScale catch when there are not enough resources on start
+- Using openjdk instead of Oracle's JVM
+- Fixed issue where monit thought ZooKeeper was not running
+- Made build process more resilent
+- Dead code elimination
+- Wheezy support
+- Updated bootstrap script
+- Batching for datastore queries (better memory management and stability)
+- Support for list composite indexes
+- Support for distinct queries
+- Projection queries no longer fetch from the entity table (faster queries)
+- ZigZag Merge Join optimization
+
 The current version is 1.14.0, released on February 10, 2014
 Bugs fixed in this release:
 - Removed "s~" character from app IDs (not used in AppScale) (#1428)
