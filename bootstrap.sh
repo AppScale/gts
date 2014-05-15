@@ -5,7 +5,7 @@
 
 set -e
 
-# Defaults values for reositories and branches.
+# Defaults values for repositories and branches.
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 APPSCALE_BRANCH="master"

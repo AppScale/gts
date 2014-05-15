@@ -21,7 +21,7 @@ pip_wrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
     # it takes a couple of tries to install packages with pip. This
-    # wrapper ensure that we are a bit more persitent.
+    # wrapper ensures that we are a bit more persitent.
     if [ -n "$1" ] ; then
         for x in 1 2 3 4 5 ; do
             if pip install --upgrade $1 ; then
