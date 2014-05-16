@@ -20,6 +20,7 @@ fi
 case "$1" in
     core)
         # Scratch install of appscale including post script.
+        installpip
         installappscaleprofile
         . /etc/profile.d/appscale.sh
         installgems
@@ -65,6 +66,7 @@ case "$1" in
         ;;
     all)
         # Scratch install of appscale including post script.
+        installpip
         installappscaleprofile
         . /etc/profile.d/appscale.sh
         installgems

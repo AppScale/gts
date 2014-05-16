@@ -39,6 +39,11 @@ pip_wrapper ()
     fi
 }
 
+installpip ()
+{
+    pip_wrapper pip
+}
+
 increaseconnections()
 {
     echo "ip_conntrack" >> /etc/modules
