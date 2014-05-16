@@ -541,8 +541,15 @@ def add_instance(appname, host, port, secret):
   ports = []
   result = result[1:]
 
-  if result[0]: hosts = result[0].split(':')
-  if result[1]: ports = result[1].split(':')
+  if result[0]: 
+    hosts = result[0].split(':')
+  if result[1]: 
+    ports = result[1].split(':')
+
+  # Do not add duplicates.
+  for ii in zip(hosts, ports):
+    if (host, port) == ii:
+      return "true"
 
   hosts += [str(host)]
   ports += [str(port)]
@@ -640,11 +647,12 @@ def delete_instance(appname, host, port, secret):
   if result[1]: ports = result[1].split(':')
   if len(hosts) != len(ports):
     return "Error: bad number of hosts to ports"
+
   for kk in range(0, len(hosts)):
     if str(hosts[kk]) == str(host) and str(ports[kk]) == str(port):
       del hosts[kk]
       del ports[kk]
-      break
+
   hosts = ':'.join(hosts)
   ports = ':'.join(ports)
 
