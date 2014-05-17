@@ -537,19 +537,8 @@ def add_instance(appname, host, port, secret):
   if error not in ERROR_CODES or len(columns) != (len(result) - 1):
     return "false"
 
-  hosts = []
-  ports = []
-  result = result[1:]
-
-  if result[0]: hosts = result[0].split(':')
-  if result[1]: ports = result[1].split(':')
-
-  hosts += [str(host)]
-  ports += [str(port)]
-  hosts = ':'.join(hosts)
-  ports = ':'.join(ports)
-
-  result = db.put_entity(APP_TABLE, appname, columns, [hosts,ports]) 
+  # We only have one host/port for each app.
+  result = db.put_entity(APP_TABLE, appname, columns, [host,str(port)]) 
   if result[0] not in ERROR_CODES:
     return "false"
   return "true" 
@@ -640,11 +629,12 @@ def delete_instance(appname, host, port, secret):
   if result[1]: ports = result[1].split(':')
   if len(hosts) != len(ports):
     return "Error: bad number of hosts to ports"
+
   for kk in range(0, len(hosts)):
     if str(hosts[kk]) == str(host) and str(ports[kk]) == str(port):
       del hosts[kk]
       del ports[kk]
-      break
+
   hosts = ':'.join(hosts)
   ports = ':'.join(ports)
 
