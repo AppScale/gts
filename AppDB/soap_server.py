@@ -537,26 +537,8 @@ def add_instance(appname, host, port, secret):
   if error not in ERROR_CODES or len(columns) != (len(result) - 1):
     return "false"
 
-  hosts = []
-  ports = []
-  result = result[1:]
-
-  if result[0]: 
-    hosts = result[0].split(':')
-  if result[1]: 
-    ports = result[1].split(':')
-
-  # Do not add duplicates.
-  for ii in zip(hosts, ports):
-    if (host, port) == ii:
-      return "true"
-
-  hosts += [str(host)]
-  ports += [str(port)]
-  hosts = ':'.join(hosts)
-  ports = ':'.join(ports)
-
-  result = db.put_entity(APP_TABLE, appname, columns, [hosts,ports]) 
+  # We only have one host/port for each app.
+  result = db.put_entity(APP_TABLE, appname, columns, [host,str(port)]) 
   if result[0] not in ERROR_CODES:
     return "false"
   return "true" 
