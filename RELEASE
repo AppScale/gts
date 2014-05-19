@@ -5,7 +5,7 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
 The current version is 2.0.0, released June, 2014
-Highlights of features/nugs in this release:
+Highlights of features/bugs in this release:
 - Better error messages for AppScale tools
 - Moved to package installation of most installed software (faster build)
 - Cleanup of instances on "appscale down"
