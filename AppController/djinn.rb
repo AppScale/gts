@@ -2471,6 +2471,8 @@ class Djinn
       end
     end
 
+    Djinn.log_info("Reload State : #{json_state}")
+
     @@secret = json_state['@@secret']
     keyname = json_state['@options']['keyname']
 
@@ -2479,8 +2481,16 @@ class Djinn
       if k == "@nodes"
         v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
-
-      instance_variable_set(k, v)
+      # my_private_ip and my_public_ip instance variables are from the head
+      # node. This node may or may not be the head node, so set those 
+      # from local files.
+      if k == "@my_private_ip"
+        @my_private_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_private_ip").chomp
+      elsif k == "@my_public_ip"
+        @my_public_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_public_ip").chomp
+      else 
+        instance_variable_set(k, v)
+      end
     }
 
     # Check to see if our IP address has changed. If so, we need to update all
@@ -3273,7 +3283,6 @@ class Djinn
     write_taskqueue_nodes_file
     setup_config_files
     set_uaserver_ips
-    write_hypersoap
     start_api_services()
 
     # since apichecker does health checks on the app engine apis,
@@ -3765,7 +3774,6 @@ class Djinn
     server_java = "#{APPSCALE_HOME}/AppServer_Java"
     loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
     appdb = "#{APPSCALE_HOME}/AppDB"
-    loki = "#{APPSCALE_HOME}/Loki"
     app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
@@ -3781,7 +3789,6 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
     HelperFunctions.shell("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
     HelperFunctions.shell("rsync #{options} --exclude='logs/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
-    HelperFunctions.shell("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
@@ -3985,10 +3992,6 @@ HOSTS
     Nginx.reload()
   end
 
-
-  def write_hypersoap()
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/hypersoap", @userappserver_private_ip)
-  end
 
   def my_node()
     if @my_index.nil?

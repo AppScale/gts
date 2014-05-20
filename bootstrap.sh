@@ -3,7 +3,9 @@
 # Simple script to install AppScale and tools from the master branch
 # Author: AppScale Team <support@appscale.com>
 
-# Defaults vaules
+set -e
+
+# Defaults values for repositories and branches.
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 APPSCALE_BRANCH="master"
@@ -152,10 +154,19 @@ echo "Building AppScale Tools..."
 if [ "$UNIT_TEST" = "Y" ]; then
         echo "Running Unit tests"
         (cd appscale; rake)
+        if [ $? -gt 0 ]; then
+            echo "Unit tests failed for appscale!"
+            exit 1
+        fi
         (cd appscale-tools; rake)
+        if [ $? -gt 0 ]; then
+            echo "Unit tests failed for appscale-tools!"
+            exit 1
+        fi
         echo "Unit tests complete"
 fi
 
 echo "*****************************************"
 echo "AppScale and AppScale tools are installed"
 echo "*****************************************"
+exit 0

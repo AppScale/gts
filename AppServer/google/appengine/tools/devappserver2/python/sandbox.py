@@ -18,7 +18,6 @@
 
 
 import __builtin__
-import glob
 import imp
 import os
 import re
@@ -65,7 +64,7 @@ _THIRD_PARTY_LIBRARY_FORMAT_STRING = (
 # Store all the modules removed from sys.modules so they don't get cleaned up.
 _removed_modules = []
 
-LXML_PATH = glob.glob('/usr/local/lib/python2.7/dist-packages/lxml-*.egg')[0]
+LXML_PATH = '/usr/local/lib/python2.7/dist-packages/lxml'
 
 def _make_request_id_aware_start_new_thread(base_start_new_thread):
   """Returns a replacement for start_new_thread that inherits request id.
