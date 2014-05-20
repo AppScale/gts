@@ -188,7 +188,7 @@ module TaskQueue
   # Erlang processes use a secret value as a password to authenticate between
   # one another. Since this is pretty much the same thing we do in AppScale
   # with our secret key, use the same key here.
-  # TODO(cgb): Consider using a different key, so that if one key is compromised
+  # TODO: Consider using a different key, so that if one key is compromised
   # it doesn't compromise the other.
   def self.write_cookie()
     HelperFunctions.write_file(COOKIE_FILE, HelperFunctions.get_secret())

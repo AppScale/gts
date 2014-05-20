@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# Programmer: Chris Bunch (chris@appscale.com)
 """
 This file provides a single class, GCEAgent, that the AppScale Tools can use to
 interact with Google Compute Engine.

@@ -6,7 +6,7 @@ module TerminateHelper
 
   # Erases all AppScale-related files (except database state) from the local
   # filesystem.
-  # TODO(cgb): Use FileUtils.rm_rf instead of backticks throughout this
+  # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
   # I remember it had some problems with *s, so look into that
   # maybe glob it with Dir.glob? to alleviate this?
@@ -23,14 +23,14 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/*.cfg`
     `rm -f /etc/appscale/port-*.txt`
 
-    # TODO(cgb): It may be wise to save the apps for when AppScale starts up
+    # TODO: It may be wise to save the apps for when AppScale starts up
     # later.
     `rm -rf /var/apps/`
     `rm -rf #{APPSCALE_HOME}/.appscale/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
 
-    # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
+    # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
     `rm -rf /etc/appscale/zookeeper_locations.json`
     `rm -f /opt/appscale/appcontroller-state.json`
     `rm -f /opt/appscale/appserver-state.json`

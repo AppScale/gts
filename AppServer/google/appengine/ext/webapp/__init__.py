@@ -159,7 +159,7 @@ def _django_setup():
   try:
 
     raise ImportError
-    # TODO(cgb): Right now the below line raises a
+    # TODO: Right now the below line raises a
     # django.core.exceptions.ImproperlyConfigured exception. Need to investigate
     # why and address accordingly.
     #getattr(django.conf.settings, 'FAKE_ATTR', None)

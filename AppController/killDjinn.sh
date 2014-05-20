@@ -1,5 +1,4 @@
 #!/bin/bash
-# Programmer: Chris Bunch
 # Kills all running djinnServers (couldn't do pkill ruby 
 # because that would kill god as well)
 

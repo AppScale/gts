@@ -1,5 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
-
 """ Functions for testing """
 import logging 
 

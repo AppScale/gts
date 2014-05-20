@@ -1,4 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 """ 
 This file contains functions for getting and setting information related 
 to AppScale and the current node/machine.

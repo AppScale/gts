@@ -1,5 +1,3 @@
-# Programmer: Chris Bunch
-
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require 'infrastructure_manager_client'

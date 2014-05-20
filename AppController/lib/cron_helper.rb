@@ -107,7 +107,7 @@ CRON
 
   # Erases all cron jobs on this machine, except for the one that synchronizes
   # this machine's time via ntp.
-  def self.clear_crontab
+  def self.clear_crontab()
     Djinn.log_run("crontab -r")
     self.add_line_to_crontab(NO_EMAIL_CRON)
     self.add_line_to_crontab(NTP_SYNC_CRON)  
@@ -145,7 +145,7 @@ CRON
 
   # Converts the frequency of how often a Google App Engine cron job should run
   # to a format that cron understands.
-  # TODO(cgb): This method does not correctly parse ordinals, as the ordinal
+  # TODO: This method does not correctly parse ordinals, as the ordinal
   # can result in a drastically different cron line being produced. It works
   # fine if the user specifies "every 1 <time period>", as this is the same as
   # "every <time period>", but not in other cases. The reason why we haven't

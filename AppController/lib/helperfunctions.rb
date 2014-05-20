@@ -29,7 +29,7 @@ end
 
 # HelperFunctions holds miscellaneous functions - functions that really aren't
 # bound to a particular service, but are reused across multiple functions.
-# TODO(cgb): Consider removing App Engine-related functions below into its
+# TODO: Consider removing App Engine-related functions below into its
 # own helper class
 module HelperFunctions
 
@@ -477,9 +477,9 @@ module HelperFunctions
   # issues where a VM may forget its IP address
   # (https://github.com/AppScale/appscale/issues/84), we locally cache it
   # to not repeatedly ask the system for this IP (which shouldn't be changing).
-  # TODO(cgb): Consider the implications of caching the IP address if
+  # TODO: Consider the implications of caching the IP address if
   # VLAN tagging is used, and the IP address may be used.
-  # TODO(cgb): This doesn't solve the problem if the IP address isn't there
+  # TODO: This doesn't solve the problem if the IP address isn't there
   # the first time around - should we sleep and retry in that case?
   def self.local_ip()
     if !@@my_local_ip.nil?
@@ -1116,7 +1116,7 @@ module HelperFunctions
   # the app that doesn't end in .jsp that isn't in the WEB-INF directory should
   # be added as a static file.
   #
-  # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
+  # TODO: Check the appengine-web.xml file given to us by the app and see
   # if it specifies any files to include or exclude as static files, instead of
   # assuming they want to use the default scheme mentioned above.
   #
@@ -1208,7 +1208,7 @@ module HelperFunctions
   end
 
   # Parses the expiration string provided in the app.yaml and returns its duration in seconds
-  def self.expires_duration input_string
+  def self.expires_duration(input_string)
     return nil if input_string.nil? || input_string.empty?
     # Start with nil so we can distinguish between it not being set and 0
     duration = nil
@@ -1502,8 +1502,16 @@ module HelperFunctions
   end
 
 
+  # Gets the local state from a state file.
+  # 
+  # Returns:
+  # Json file if it exists, nil otherwise.
   def self.get_local_appcontroller_state()
-    return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+    if File.exists?(APPCONTROLLER_STATE_LOCATION)
+      return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+    else
+      return nil
+    end
   end
 
 

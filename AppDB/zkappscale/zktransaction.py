@@ -1,7 +1,6 @@
 #!/usr/bin/python
 """
 Distributed id and lock service for transaction support.
-Rewritten by Navraj Chohan and Chris Bunch (raj, chris@appscale.com)
 """
 import logging
 import re
