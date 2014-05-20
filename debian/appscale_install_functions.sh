@@ -17,31 +17,46 @@ fi
 
 export APPSCALE_VERSION=1.14.0
 
+export INSTALL_CMD=""
+
 pip_wrapper () 
 {
-    # We have seen quite a few network/DNS issues lately, so much so that
-    # it takes a couple of tries to install packages with pip. This
-    # wrapper ensures that we are a bit more persitent.
-    if [ -n "$1" ] ; then
-        for x in 1 2 3 4 5 ; do
-            if pip install --upgrade $1 ; then
-                return
-            else
-                echo "Failed to install $1: retrying ..."
-                sleep $x
-            fi
-        done
-        echo "Failed to install $1: giving up."
-        exit 1
-    else
-        echo "Need an argument for pip!"
-        exit 1
-    fi
-}
+  # pip 1.0 has issues, so we revert to easy_install in this case.
+  if [ -z "$INSTALL_CMD" ]; then
+    PIP_VERSION="$(pip --version|awk '{print $2}')"
+    case $PIP_VERSION in
+    "1.0")
+      INSTALL_CMD="$(which easy_install)"
+      ;;
+    *)
+      INSTALL_CMD="$(which pip)"
+      ;;
+    esac
+  fi
+  if [ -z "INSTALL_CMD" ]; then
+    echo "Cannot find either pip or easy_install!"
+    exit 1
+  fi
 
-installpip ()
-{
-    pip_wrapper pip
+  # We have seen quite a few network/DNS issues lately, so much so that
+  # it takes a couple of tries to install packages with pip. This
+  # wrapper ensure that we are a bit more persitent.
+  if [ -n "$1" ] ; then
+    for x in 1 2 3 4 5 ; do
+      if $INSTALL_CMD install --upgrade $1 ; then
+        return
+      else
+        echo "Failed to install $1: retrying ..."
+        sleep $x
+      fi
+    done
+    echo "Failed to install $1: giving up."
+    exit 1
+  else
+    "Need an argument for $INSTALL_CMD!"
+    exit 1
+
+  fi
 }
 
 increaseconnections()
