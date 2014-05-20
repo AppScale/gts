@@ -16,8 +16,8 @@ module BlobServer
 
 
   def self.start(db_local_ip, db_local_port)
-    blobserver = self.blob_script
-    ports = self.server_ports
+    blobserver = self.blob_script()
+    ports = self.server_ports()
     ports.each { |blobserver_port|
       start_cmd = ["python #{blobserver}",
             "-d #{db_local_ip}:#{db_local_port}",
@@ -29,21 +29,21 @@ module BlobServer
     }
   end
 
-  def self.stop
+  def self.stop()
      MonitInterface.stop(:blobstore)
   end
 
   def self.restart(my_ip, db_port)
-    self.stop
+    self.stop()
     self.start(my_ip, db_port)
   end
 
-  def self.name
+  def self.name()
     "as_blobserver"
   end
 
 
-  def self.server_ports
+  def self.server_ports()
       return SERVER_PORTS
   end
 
@@ -54,7 +54,7 @@ module BlobServer
     }
   end 
 
-  def self.blob_script
+  def self.blob_script()
     return "#{APPSCALE_HOME}/AppDB/blobstore/blobstore_server.py"
   end
 end

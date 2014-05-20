@@ -332,7 +332,7 @@ class LogsBuffer(object):
     # via new threads, so since we don't have support for the Logs API at the
     # moment, this return prevents the Exception that would be thrown from
     # occurring.
-    # TODO(cgb, nlake44): Revisit this problem when we do decide to implement
+    # TODO: Revisit this problem when we do decide to implement
     # the Logs API.
     return
 

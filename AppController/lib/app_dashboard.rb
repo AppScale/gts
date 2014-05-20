@@ -76,11 +76,11 @@ module AppDashboard
 
     Djinn.log_info("Starting #{APP_LANGUAGE} app #{APP_NAME}")
     SERVER_PORTS.each { |port|
-      Djinn.log_debug("Starting #{APP_LANGUAGE} app #{APP_NAME} on #{HelperFunctions.local_ip}:#{port}")
+      Djinn.log_debug("Starting #{APP_LANGUAGE} app #{APP_NAME} on #{HelperFunctions.local_ip()}:#{port}")
       pid = app_manager.start_app(APP_NAME, port, uaserver_ip, APP_LANGUAGE,
         login_ip, [uaserver_ip], {})
       if pid == -1
-        Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip}:#{port}")
+        Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip()}:#{port}")
         return false
       else
         pid_file_name = "/etc/appscale/#{APP_NAME}-#{port}.pid"
@@ -91,7 +91,7 @@ module AppDashboard
     begin
       Djinn.log_info("Priming AppDashboard's cache")
       start_time = Time.now
-      url = URI.parse("http://#{HelperFunctions.local_ip}:#{SERVER_PORTS[0]}/status/refresh")
+      url = URI.parse("http://#{HelperFunctions.local_ip()}:#{SERVER_PORTS[0]}/status/refresh")
       http = Net::HTTP.new(url.host, url.port)
       response = http.get(url.path)
       end_time = Time.now
@@ -103,7 +103,7 @@ module AppDashboard
         "a #{e.class} exception.")
     end
 
-    Nginx.reload
+    Nginx.reload()
     return true
   end
 
@@ -111,11 +111,11 @@ module AppDashboard
   # Stops all AppServers running the AppDashboard on this machine.
   # Returns:
   #   true if the AppDashboard was stopped successfully, and false otherwise.
-  def self.stop
-    Djinn.log_info("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip}")
+  def self.stop()
+    Djinn.log_info("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip()}")
     app_manager = AppManagerClient.new(HelperFunctions.local_ip())
     if app_manager.stop_app(APP_NAME)
-      Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip}")
+      Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip()}")
       return false
     else
       return true
@@ -128,8 +128,8 @@ module AppDashboard
   # Returns:
   #   true if the AppDashboard started successfully, and false otherwise.
   def self.restart
-    self.stop
-    self.start
+    self.stop()
+    self.start()
   end
 
 

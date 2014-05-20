@@ -1,4 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 """
  Datastore Constants
 """

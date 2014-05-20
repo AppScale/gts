@@ -68,17 +68,30 @@ module Nginx
     MonitInterface.stop(:nginx)
   end
 
+  # Kills nginx if there was a failure when trying to start/reload.
+  #
+  # Args:
+  #   result: A string, the result from a nginx shell command
+  # 
+  def self.cleanup_failed_nginx(result)
+    if result.include? "emerg" or result.include? "FATAL"
+      Djinn.log_error("****Killing nginx because there was a FATAL error****")
+      `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
+    end
+  end
+
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload
     if Nginx.is_running?
-      HelperFunctions.shell("#{NGINX_BIN} -s reload")
+      result = HelperFunctions.shell("#{NGINX_BIN} -s reload")
+      cleanup_failed_nginx(result)     
     else
       Nginx.start 
     end
   end
 
   def self.is_running?
-    processes = `ps ax | grep nginx | grep -v grep | wc -l`.chomp
+    processes = `ps ax | grep nginx | grep worker | grep -v grep | wc -l`.chomp
     if processes == "0"
       return false
     else

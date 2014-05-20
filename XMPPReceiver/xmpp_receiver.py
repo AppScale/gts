@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# Programmer: Chris Bunch (chris@appscale.com)
 # pylint: disable-msg=E1101
 
 # a script that receives xmpp messages for an app engine app

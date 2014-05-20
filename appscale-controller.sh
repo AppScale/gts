@@ -1,6 +1,6 @@
 #!/bin/sh
 # /etc/init.d/appscale-controller
-# Chris Bunch
+
 ### BEGIN INIT INFO
 # Provides: appscale
 # Required-Start: $network

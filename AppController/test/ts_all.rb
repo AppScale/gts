@@ -1,5 +1,3 @@
-# Programmer: Chris Bunch
-
 
 $:.unshift File.join(File.dirname(__FILE__))
 # AppController library tests

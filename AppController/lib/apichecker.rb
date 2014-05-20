@@ -45,7 +45,7 @@ class ApiChecker
   # (nginx/haproxy/AppServers), and wait for
   # them to start up. We don't register the app with the UAServer right now
   # since we don't necessarily want users accessing it.
-  # TODO(cgb): Let it register with the UAServer but change the apichecker 
+  # TODO: Let it register with the UAServer but change the apichecker 
   # app to prevent unauthorized access.
   # 
   # Args: 
@@ -103,14 +103,14 @@ class ApiChecker
       end
     }
 
-    Nginx.reload
+    Nginx.reload()
     return true
   end
 
 
   # Stops the API checker app.
   #
-  def self.stop
+  def self.stop()
     Djinn.log_info("Stopping apichecker on #{HelperFunctions.local_ip}")
     app_manager = AppManagerClient.new(HelperFunctions.local_ip())
     if app_manager.stop_app("apichecker")

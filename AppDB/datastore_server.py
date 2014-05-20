@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 # See LICENSE file
 #
 """

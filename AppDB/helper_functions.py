@@ -1,4 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 """
 Helpful functions and classes which are used by AppDB
 """

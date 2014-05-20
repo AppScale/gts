@@ -1,6 +1,4 @@
 #!/usr/bin/ruby -w
-# Programmer: Chris Bunch
-
 
 # Imports within Ruby's standard libraries
 require 'openssl'

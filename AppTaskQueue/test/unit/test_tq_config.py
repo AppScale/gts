@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 
 import os
 import sys

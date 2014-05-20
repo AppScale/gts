@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-# Programmer: Chris Bunch (chris@appscale.com)
-# Adapted from Hiranya's version
-
 
 # General-purpose Python library imports
 import json

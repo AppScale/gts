@@ -1,5 +1,5 @@
 #!/usr/local/Python-2.7.3/python
-# Programmer: Navraj Chohan <raj@appscale.com>
+
 # See LICENSE file
 """ 
 A tornado web service for handling TaskQueue request from application servers.
