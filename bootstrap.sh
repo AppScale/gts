@@ -86,6 +86,8 @@ while [ $# -gt 0 ]; do
         usage
 done
 
+# At this time we expect to be installed in $HOME.
+cd $HOME
 
 # Let's pull the github repositories.
 echo
