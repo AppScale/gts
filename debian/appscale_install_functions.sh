@@ -17,19 +17,20 @@ fi
 
 export APPSCALE_VERSION=1.14.0
 
+# The command to use to install python packages not belonging to the
+# distribution.
 export INSTALL_CMD=""
 
 pip_wrapper () 
 {
   # pip 1.0 has issues, so we revert to easy_install in this case.
   if [ -z "$INSTALL_CMD" ]; then
-    PIP_VERSION="$(pip --version|awk '{print $2}')"
-    case $PIP_VERSION in
+    case $(pip --version|awk '{print $2}') in
     "1.0")
       INSTALL_CMD="$(which easy_install)"
       ;;
     *)
-      INSTALL_CMD="$(which pip)"
+      INSTALL_CMD="$(which pip) install"
       ;;
     esac
   fi
@@ -43,7 +44,7 @@ pip_wrapper ()
   # wrapper ensure that we are a bit more persitent.
   if [ -n "$1" ] ; then
     for x in 1 2 3 4 5 ; do
-      if $INSTALL_CMD install --upgrade $1 ; then
+      if $INSTALL_CMD --upgrade $1 ; then
         return
       else
         echo "Failed to install $1: retrying ..."
