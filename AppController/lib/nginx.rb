@@ -172,6 +172,8 @@ server {
     access_log off;
     #error_log /dev/null crit;
 
+    ignore_invalid_headers off;
+
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
@@ -203,6 +205,7 @@ server {
     ssl on;
     ssl_certificate /etc/nginx/mycert.pem;
     ssl_certificate_key /etc/nginx/mykey.pem;
+    ignore_invalid_headers off;
 
     #If they come here using HTTP, bounce them to the correct scheme
     error_page 400 https://$host:$server_port$request_uri;
@@ -345,6 +348,7 @@ server {
     error_log  /var/log/nginx/#{app_name}.error.log;
     access_log off;
     #error_log /dev/null crit;
+    ignore_invalid_headers off;
 
     rewrite_log off;
     error_page 404 = /404.html;
@@ -375,6 +379,7 @@ server {
     error_log  /var/log/nginx/#{app_name}-blobstore.error.log;
     access_log off;
     #error_log /dev/null crit;
+    ignore_invalid_headers off;
 
     #If they come here using HTTPS, bounce them to the correct scheme
     error_page 400 http://$host:$server_port$request_uri;
@@ -412,6 +417,7 @@ server {
     error_log  /var/log/nginx/#{app_name}.error.log;
     access_log off;
     #error_log /dev/null crit;
+    ignore_invalid_headers off;
 
     rewrite_log off;
     error_page 404 = /404.html;
@@ -493,6 +499,7 @@ server {
     #error_log  /var/log/nginx/datastore_server.error.log;
     access_log off;
     error_log /dev/null crit;
+    ignore_invalid_headers off;
 
     rewrite_log off;
     error_page 404 = /404.html;
@@ -528,6 +535,7 @@ server {
     #error_log  /var/log/nginx/datastore_server_encrypt.error.log;
     access_log off;
     error_log  /dev/null crit;
+    ignore_invalid_headers off;
 
     rewrite_log off;
     error_page 502 /502.html;
@@ -606,6 +614,7 @@ CONFIG
     error_log  /var/log/nginx/load-balancer.error.log;
     rewrite_log off;
     error_page 502 /502.html;
+    ignore_invalid_headers off;
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
