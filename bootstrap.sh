@@ -86,6 +86,8 @@ while [ $# -gt 0 ]; do
         usage
 done
 
+# At this time we expect to be installed in $HOME.
+cd $HOME
 
 # Let's pull the github repositories.
 echo
@@ -165,6 +167,10 @@ if [ "$UNIT_TEST" = "Y" ]; then
         fi
         echo "Unit tests complete"
 fi
+
+# Let's source the profles so this image can be used right away.
+. /etc/profile.d/appscale.sh
+. /etc/profile.d/appscale-tools.sh
 
 echo "*****************************************"
 echo "AppScale and AppScale tools are installed"
