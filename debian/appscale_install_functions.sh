@@ -34,7 +34,7 @@ pip_wrapper ()
     echo "Failed to install $1: giving up."
     exit 1
   else
-    "Need an argument for pip!"
+    echo "Need an argument for pip!"
     exit 1
   fi
 }
