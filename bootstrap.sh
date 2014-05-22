@@ -87,7 +87,7 @@ while [ $# -gt 0 ]; do
                 continue
         fi
         if [ "${1}" = "--dev" ]; then
-                TAG_TO_USE="master"
+                TAG_TO_USE="HEAD"
                 shift
                 continue
         fi
