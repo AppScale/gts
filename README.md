@@ -2,13 +2,11 @@
 
 AppScale is a platform that allows users to deploy and host their 
 own Google App Engine applications. It executes automatically over 
-Amazon EC2, Google Compute Engine, Rackspace, Eucalyptus, CloudStack,
-OpenStack, as well as Xen, VirtualBox, VMWare, and KVM. It has been
-developed and is maintained by AppScale Systems, Inc., in Santa
-Barbara, CA.
+Amazon EC2, Google Compute Engine, Digital Ocean, Rackspace, Eucalyptus, 
+CloudStack, OpenStack, as well as Xen, VirtualBox, VMWare, and KVM. It has been
+developed and is maintained by AppScale Systems, Inc., in Santa Barbara, CA.
 
-It supports the Python, Java, PHP, and Go
-Google App Engine platforms.
+It supports the Python, Java, PHP, and Go Google App Engine platforms.
 
 To find out more visit http://appscale.com
 
@@ -16,7 +14,7 @@ To find out more visit http://appscale.com
 https://github.com/AppScale/appscale/wiki
 
 ## Latest Release ##
-The latest stable release is AppScale 1.14.0, released February 14, 2014.
+The latest stable release is AppScale 2.0.0, released in June, 2014.
 Feature requests and pull requests gladly welcomed.
 
 ## Mailing List ##
