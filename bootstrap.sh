@@ -96,6 +96,12 @@ echo "git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}"
 echo "git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
+
+# Become root.
+sudo su
+# Go into the root directory.
+cd
+
 sleep 5
 apt-get install -y git
 if [ -d appscale ]; then
