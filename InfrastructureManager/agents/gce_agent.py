@@ -92,7 +92,7 @@ class GCEAgent(BaseAgent):
 
 
   # The version of the Google Compute Engine API that we support.
-  API_VERSION = 'v1beta16'
+  API_VERSION = 'v1'
 
 
   # The URL endpoint that receives Google Compute Engine API requests.
@@ -241,6 +241,57 @@ class GCEAgent(BaseAgent):
     return public_ips, private_ips, instance_ids
 
 
+  def generate_disk_name(self, parameters):
+    """ Creates a temporary name for a disk.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to
+        Google Compute Engine.
+    Returns:
+      A str, a disk name associated with the root disk of AppScale on GCE.
+    """
+    return "appscale{0}{1}".format(parameters[self.PARAM_GROUP], 
+      str(int(time.time() * 1000)))
+
+  def create_scratch_disk(self, parameters):
+    """ Creates a disk from a given machine image.
+
+    GCE does not support scratch disks on API version v1 and higher. We create
+    a persistent disk upon creation to act like one to keep the abstraction used
+    in other infrastructures.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to
+        Google Compute Engine.
+    Returns:
+      A str, the url to the disk to use.
+    """
+    gce_service, credentials = self.open_connection(parameters)
+    http = httplib2.Http()
+    auth_http = credentials.authorize(http)
+    disk_name = self.generate_disk_name(parameters)
+    project_name = parameters[self.PARAM_PROJECT]
+    project_url = '{0}{1}'.format(self.GCE_URL, 
+      parameters[self.PARAM_PROJECT])
+    source_image_url = '{0}{1}/global/images/{2}'.format(self.GCE_URL,
+      project_name, parameters[self.PARAM_IMAGE_ID])
+    request = gce_service.disks().insert(
+      project=project_name,
+      zone=parameters[self.PARAM_ZONE],
+      body={
+        'name':disk_name 
+      },
+      sourceImage=source_image_url
+    )
+    response = request.execute(http=auth_http)
+    utils.log(str(response))
+    self.ensure_operation_succeeds(gce_service, auth_http, response,
+      parameters[self.PARAM_PROJECT])
+
+    disk_url = "{0}/zones/{1}/disks/{2}".format(
+      project_url, parameters[self.PARAM_ZONE], disk_name)
+    return disk_url
+
   def run_instances(self, count, parameters, security_configured):
     """ Starts 'count' instances in Google Compute Engine, and returns once they
     have been started.
@@ -282,11 +333,17 @@ class GCEAgent(BaseAgent):
 
     # Construct the request body
     for index in range(count):
+      disk_url = self.create_scratch_disk(parameters)
       instances = {
         # Truncate the name down to the first 62 characters, since GCE doesn't
         # let us use arbitrarily long instance names.
         'name': "appscale-{0}-{1}".format(group, uuid.uuid4())[:62],
         'machineType': machine_type_url,
+       'disks':[{
+         'source': disk_url,
+         'boot': 'true',
+         'type': 'PERSISTENT'
+        }],
         'image': image_url,
         'networkInterfaces': [{
           'accessConfigs': [{
@@ -309,7 +366,8 @@ class GCEAgent(BaseAgent):
            project=project_id, body=instances, zone=zone)
       response = request.execute(auth_http)
       utils.log(str(response))
-      self.ensure_operation_succeeds(gce_service, auth_http, response, parameters[self.PARAM_PROJECT])
+      self.ensure_operation_succeeds(gce_service, auth_http, response, 
+        parameters[self.PARAM_PROJECT])
     
     instance_ids = []
     public_ips = []
@@ -413,18 +471,19 @@ class GCEAgent(BaseAgent):
     gce_service, credentials = self.open_connection(parameters)
     http = httplib2.Http()
     auth_http = credentials.authorize(http)
-    project_id = parameters[self.PARAM_PROJECT]
+    project = parameters[self.PARAM_PROJECT]
     zone = parameters[self.PARAM_ZONE]
     request = gce_service.instances().attachDisk(
-      project=project_id,
+      project=project,
       zone=zone,
       instance=instance_id,
       body={
         'kind' : 'compute#attachedDisk',
         'type' : 'PERSISTENT',
         'mode' : 'READ_WRITE',
-        'source' : "https://www.googleapis.com/compute/v1beta15/projects/{0}" \
-          "/zones/{1}/disks/{2}".format(project_id, zone, disk_name),
+        'source' : "https://www.googleapis.com/compute/{0}/projects/{1}" \
+          "/zones/{2}/disks/{3}".format(self.API_VERSION, project, 
+          zone, disk_name),
         'deviceName' : 'sdb'
       }
     )
