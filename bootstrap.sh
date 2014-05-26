@@ -26,10 +26,6 @@ usage() {
         exit 1
 }
 
-# Become root.
-sudo su
-# Go into the root directory.
-cd
 
 echo -n "Checking to make sure you are root..."
 if [ "$(id -u)" != "0" ]; then
