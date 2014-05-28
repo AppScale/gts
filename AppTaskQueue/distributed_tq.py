@@ -269,11 +269,13 @@ class DistributedTaskQueue():
     """
     # TODO implement.
     request = taskqueue_service_pb.\
-               TaskQueueFetchQueueStatsRequest(http_data)
+      TaskQueueFetchQueueStatsRequest(http_data)
     response = taskqueue_service_pb.\
-               TaskQueueFetchQueueStatsResponse_QueueStats()
-    response.set_num_tasks(0)
-    response.set_oldest_eta_usec(0)
+      TaskQueueFetchQueueStatsResponse()
+    for queue in request.queue_name_list():
+      stats_response = response.add_queuestats()
+      stats_response.set_num_tasks(0)
+      stats_response.set_oldest_eta_usec(0)
     return (response.Encode(), 0, "")
 
   def purge_queue(self, app_id, http_data):
