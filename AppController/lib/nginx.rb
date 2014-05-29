@@ -74,7 +74,7 @@ module Nginx
   #   result: A string, the result from a nginx shell command
   # 
   def self.cleanup_failed_nginx(result)
-    if result.include? "emerg" or result.include? "FATAL"
+    if result.include? "emerg" or result.include? "FATAL" or result.include? "failed"
       Djinn.log_error("****Killing nginx because there was a FATAL error****")
       `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
     end

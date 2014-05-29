@@ -47,6 +47,11 @@ def QUEUE_NAME(headers, args):
       # We do this check because the expires attribute in
       # celery is not passed to retried tasks. This is a
       # documented bug in celery.
+
+      item = TaskName.get_by_key_name(args['task_name'])
+      item.state = TASK_STATES.EXPIRED
+      item.endtime = datetime.datetime.now()
+      item.put()
       logger.error("Task %s with id %s has expired with expiration date %s" % \
                    (args['task_name'], QUEUE_NAME.request.id, args['expires']))
       celery.control.revoke(QUEUE_NAME.request.id)
@@ -56,6 +61,11 @@ def QUEUE_NAME(headers, args):
            args['max_retries'] != 0:
       logger.error("Task %s with id %s has exceeded retries: %s" % \
                    (args['task_name'], QUEUE_NAME.request.id, args['max_retries']))
+
+      item = TaskName.get_by_key_name(args['task_name'])
+      item.state = TASK_STATES.FAILED
+      item.endtime = datetime.datetime.now()
+      item.put()
       celery.control.revoke(QUEUE_NAME.request.id)
       return
 
@@ -103,9 +113,12 @@ def QUEUE_NAME(headers, args):
     response.close()
     retries = int(QUEUE_NAME.request.retries) + 1
     if 200 <= response.status < 300:
+      # Mark the task as a success.
+      item = TaskName.get_by_key_name(args['task_name'])
+      item.state = TASK_STATES.SUCCESS
+      item.endtime = datetime.datetime.now()
+      item.put()
       return response.status
-      # Success
-      # TODO: Update the database with the done status
     elif response.status == 302:
       redirect_url = response.getheader('Location')
       logger.info("Task %s asked us to redirect to %s, so retrying there." % (args['task_name'], redirect_url))
