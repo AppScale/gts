@@ -47,6 +47,9 @@ class TaskName(db.Model):
   """
   STORED_KIND_NAME = "__task_name__"
   timestamp = db.DateTimeProperty(auto_now_add=True)
+  queue = db.StringProperty(required=True)
+  state = db.StringProperty(required=True)
+  endtime = db.DateTimeProperty()
 
   @classmethod
   def kind(cls):
@@ -458,7 +461,8 @@ class DistributedTaskQueue():
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
     else:
-      new_name = TaskName(key_name=task_name)
+      new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+        queue=request.queue_name())
       logging.debug("Creating entity {0}".format(str(new_name)))
       try:
         db.put(new_name)
