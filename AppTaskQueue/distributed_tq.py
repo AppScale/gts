@@ -51,6 +51,7 @@ class TaskName(db.Model):
   queue = db.StringProperty(required=True)
   state = db.StringProperty(required=True)
   endtime = db.DateTimeProperty()
+  app_id = db.StringProperty(required=True)
 
   @classmethod
   def kind(cls):
@@ -263,7 +264,7 @@ class DistributedTaskQueue():
     return json.dumps(json_response)
 
   def fetch_queue_stats(self, app_id, http_data):
-    """ 
+    """ Gets statistics about tasks in queues.
 
     Args:
       app_id: The application ID.
@@ -278,7 +279,7 @@ class DistributedTaskQueue():
     for queue in request.queue_name_list():
       stats_response = response.add_queuestats()
       count = TaskName.all().filter("state =", TASK_STATES.QUEUED).\
-        filter("queue =", queue).count()
+        filter("queue =", queue).filter("app_id =", app_id).count()
       stats_response.set_num_tasks(count)
       stats_response.set_oldest_eta_usec(-1)
     return (response.Encode(), 0, "")
@@ -464,7 +465,7 @@ class DistributedTaskQueue():
         taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
     else:
       new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
-        queue=request.queue_name())
+        queue=request.queue_name(), app_id=request.app_id())
       logging.debug("Creating entity {0}".format(str(new_name)))
       try:
         db.put(new_name)
