@@ -70,9 +70,6 @@ module Nginx
 
   # Kills nginx if there was a failure when trying to start/reload.
   #
-  # Args:
-  #   result: A string, the result from a nginx shell command
-  # 
   def self.cleanup_failed_nginx()
     Djinn.log_error("****Killing nginx because there was a FATAL error****")
     `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
