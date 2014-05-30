@@ -53,7 +53,7 @@ module Nginx
   CHANNELSERVER_PORT = 5280
 
 
-  def self.start
+  def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
@@ -64,29 +64,27 @@ module Nginx
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   end
 
-  def self.stop
+  def self.stop()
     MonitInterface.stop(:nginx)
   end
 
   # Kills nginx if there was a failure when trying to start/reload.
   #
-  # Args:
-  #   result: A string, the result from a nginx shell command
-  # 
-  def self.cleanup_failed_nginx(result)
-    if result.include? "emerg" or result.include? "FATAL"
-      Djinn.log_error("****Killing nginx because there was a FATAL error****")
-      `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
-    end
+  def self.cleanup_failed_nginx()
+    Djinn.log_error("****Killing nginx because there was a FATAL error****")
+    `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
   end
 
   # Reload nginx if it is already running. If nginx is not running, start it.
-  def self.reload
+  def self.reload()
     if Nginx.is_running?
-      result = HelperFunctions.shell("#{NGINX_BIN} -s reload")
-      cleanup_failed_nginx(result)     
+      HelperFunctions.shell("#{NGINX_BIN} -s reload")
+      if $?.to_i != 0
+        cleanup_failed_nginx()
+        Nginx.start()
+      end
     else
-      Nginx.start 
+      Nginx.start()
     end
   end
 
@@ -109,7 +107,7 @@ module Nginx
   end
 
   # Return true if the configuration is good, false o.w.
-  def self.check_config
+  def self.check_config()
     HelperFunctions.shell("#{NGINX_BIN} -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
@@ -459,8 +457,8 @@ CONFIG
   end
 
   def self.reload_nginx(config_path, app_name)
-    if Nginx.check_config
-      Nginx.reload
+    if Nginx.check_config()
+      Nginx.reload()
       return true
     else
       Djinn.log_error("Unable to load Nginx config for #{app_name}")
@@ -472,11 +470,11 @@ CONFIG
   def self.remove_app(app_name)
     config_name = "#{app_name}.#{CONFIG_EXTENSION}"
     FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))
-    Nginx.reload
+    Nginx.reload()
   end
 
   # Removes all the enabled sites
-  def self.clear_sites_enabled
+  def self.clear_sites_enabled()
     if File.exists?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
       # Remove any files that are not configs
@@ -484,7 +482,7 @@ CONFIG
       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
       FileUtils.rm_f full_path_sites
 
-      Nginx.reload
+      Nginx.reload()
     end
   end
 

@@ -26,6 +26,7 @@ usage() {
         exit 1
 }
 
+
 echo -n "Checking to make sure you are root..."
 if [ "$(id -u)" != "0" ]; then
    echo "Failed" 1>&2
@@ -96,6 +97,7 @@ echo "git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}"
 echo "git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
+
 sleep 5
 apt-get install -y git
 if [ -d appscale ]; then

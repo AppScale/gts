@@ -20,6 +20,13 @@ MAX_PUSH_TASK_SIZE_BYTES = 100 * (2 ** 10)
 # The length of a random string.
 RAND_LENGTH_SIZE = 32
 
+# States of tasks which have been enqueued.
+class TASK_STATES:
+  QUEUED = "queued"
+  SUCCESS = "success" 
+  FAILED = "failed"
+  EXPIRED = "expired"
+
 def _sec_to_usec(t_sec):
   """Converts a time in seconds since the epoch to usec since the epoch.
 
