@@ -18,6 +18,7 @@ import taskqueue_server
 import tq_lib
 
 from tq_config import TaskQueueConfig
+from tq_lib import TASK_STATES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
@@ -270,15 +271,16 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.\
       TaskQueueFetchQueueStatsRequest(http_data)
     response = taskqueue_service_pb.\
       TaskQueueFetchQueueStatsResponse()
     for queue in request.queue_name_list():
       stats_response = response.add_queuestats()
-      stats_response.set_num_tasks(0)
-      stats_response.set_oldest_eta_usec(0)
+      count = TaskName.all().filter("state =", TASK_STATES.QUEUED).\
+        filter("queue =", queue).count()
+      stats_response.set_num_tasks(count)
+      stats_response.set_oldest_eta_usec(-1)
     return (response.Encode(), 0, "")
 
   def purge_queue(self, app_id, http_data):
