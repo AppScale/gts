@@ -347,7 +347,6 @@ installzookeeper()
 
 installpycrypto()
 {
-  easy_install pycrypto
   cd ${APPSCALE_HOME}/downloads
   wget $APPSCALE_PACKAGE_MIRROR/pycrypto-2.6.tar.gz
   tar zxvf pycrypto-2.6.tar.gz
