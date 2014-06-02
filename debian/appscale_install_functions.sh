@@ -345,6 +345,18 @@ installzookeeper()
   pip_wrapper kazoo
 }
 
+installpycrypto()
+{
+  easy_install pycrypto
+  cd ${APPSCALE_HOME}/downloads
+  wget $APPSCALE_PACKAGE_MIRROR/pycrypto-2.6.tar.gz
+  tar zxvf pycrypto-2.6.tar.gz
+  cd pycrypto-2.6
+  python setup.py install
+  cd ..
+  rm -fdr pycrypto-2.6*
+}
+
 postinstallzookeeper()
 {
     # Need conf/environment to stop service.
