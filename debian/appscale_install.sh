@@ -35,6 +35,7 @@ case "$1" in
         installappserverjava
         installthrift
         installtornado
+        installpycrypto 
         postinstalltornado
         installflexmock
         installzookeeper
@@ -79,6 +80,7 @@ case "$1" in
         installappserverjava
         installthrift
         installtornado
+        installpycrypto 
         installflexmock
         postinstalltornado
         installzookeeper
