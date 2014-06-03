@@ -257,6 +257,7 @@ portinstallmonit()
     cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
     chmod 0700 /etc/monit/monitrc
     service monit restart
+    update-rc.d monit disable
 }
 
 installcassandra()
@@ -343,6 +344,11 @@ installzookeeper()
   apt-get install -y zookeeper-server 
 
   pip_wrapper kazoo
+}
+
+installpycrypto()
+{
+  pip_wrapper pycrypto
 }
 
 postinstallzookeeper()
