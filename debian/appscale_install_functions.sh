@@ -346,6 +346,11 @@ installzookeeper()
   pip_wrapper kazoo
 }
 
+installpycrypto()
+{
+  pip_wrapper pycrypto
+}
+
 postinstallzookeeper()
 {
     # Need conf/environment to stop service.
