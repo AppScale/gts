@@ -347,7 +347,7 @@ installzookeeper()
 
 installpycrypto()
 {
-  pip install pycrypto --upgrade
+  pip_wrapper pycrypto
 }
 
 postinstallzookeeper()
