@@ -256,7 +256,7 @@ portinstallmonit()
     # Let's use our configuration.
     cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
     chmod 0700 /etc/monit/monitrc
-    service monit restart
+    service monit stop
     update-rc.d monit disable
 }
 
