@@ -33,7 +33,8 @@ class OpenStackAgent(EC2Agent):
 
     Args:
       parameters: A dictionary of parameters.
-      returns: False if the SSH keys already exist, True if success
+    returns: 
+      False if the SSH keys already exist, True if success
     """
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
@@ -124,6 +125,7 @@ class OpenStackAgent(EC2Agent):
     access_key = str(credentials['EC2_ACCESS_KEY'])
     secret_key = str(credentials['EC2_SECRET_KEY'])
     ec2_url = str(credentials['EC2_URL'])
+    ec2_zone = str(credentials['EC2_ZONE'])
 
     result = urlparse(ec2_url)
 
@@ -133,9 +135,7 @@ class OpenStackAgent(EC2Agent):
           ' : expected like http://<controller>:8773/services/Cloud')
       return None
 
-
-    #TODO: region may not be "nova"
-    region = boto.ec2.regioninfo.RegionInfo(name="nova",\
+    region = boto.ec2.regioninfo.RegionInfo(name=ec2_zone,\
       endpoint=result.hostname) 
     return boto.connect_ec2(aws_access_key_id=access_key, \
                             aws_secret_access_key=secret_key,\
