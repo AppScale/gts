@@ -532,9 +532,9 @@ if __name__ == "__main__":
     if sys.argv[ii] in ("-h", "--help"):
       usage()
       sys.exit()
-  
+
   server = SOAPpy.SOAPServer(("0.0.0.0", constants.APP_MANAGER_PORT))
- 
+
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
   server.registerFunction(stop_app_instance)

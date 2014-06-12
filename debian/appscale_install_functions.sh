@@ -52,9 +52,7 @@ increaseconnections()
 
     # Docker doesn't support the above config options, so it's ok if the
     # sysctl command fails.
-    set +e
-    /sbin/sysctl -p /etc/sysctl.conf 
-    set -e
+    /sbin/sysctl -p /etc/sysctl.conf || true
 }
 
 setupntp()
