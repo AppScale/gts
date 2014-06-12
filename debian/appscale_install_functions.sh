@@ -49,31 +49,12 @@ increaseconnections()
 
     echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
     echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
-    echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
 
+    # Docker doesn't support the above config options, so it's ok if the
+    # sysctl command fails.
+    set +e
     /sbin/sysctl -p /etc/sysctl.conf 
-}
-
-sethosts()
-{
-    cp -v /etc/hosts /etc/hosts.orig
-    HOSTNAME=`hostname`
-    echo "Generating /etc/hosts"
-    cat <<EOF | tee /etc/hosts
-127.0.0.1       localhost localhost.localdomain
-127.0.1.1 $HOSTNAME
-::1     ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-ff02::3 ip6-allhosts
-EOF
+    set -e
 }
 
 setupntp()
@@ -162,6 +143,9 @@ JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
+
+    mkdir -pv /var/run/sshd
+    chmod 0755 /var/run/sshd
 }
 
 installthrift()

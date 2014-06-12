@@ -18,7 +18,6 @@ case "$1" in
 	postinstallzookeeper
 	postinstallchimera
         postinstalltornado
-	sethosts
 	keygen
 	;;
     abort-upgrade|abort-remove|abort-deconfigure)
