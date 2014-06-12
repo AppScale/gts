@@ -136,7 +136,7 @@ class OpenStackAgent(EC2Agent):
     if result.port is None or result.hostname is None or result.path is None:
       self.handle_failure('Unknown scheme in Openstack_URL: {0}'
         ' : expected like http://<controller>:8773/services/Cloud'.\
-        format(result.scheme)
+        format(result.scheme))
       return None
 
     region = boto.ec2.regioninfo.RegionInfo(name=region_str,\
