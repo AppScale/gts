@@ -1,3 +1,4 @@
+""" Agent class for OpenStack. """
 from agents.ec2_agent import EC2Agent
 
 from boto.exception import EC2ResponseError
@@ -18,6 +19,9 @@ class OpenStackAgent(EC2Agent):
   # The version of OpenStack API used to interact with Boto 
   # OpenStack_API_VERSION = 'ICE-HOUSE-2014.1'
 
+  # The default region.
+  DEFAULT_REGION = "nova"
+
   def configure_instance_security(self, parameters):
     """
     Setup OpenStack security keys and groups. Required input values are 
@@ -33,8 +37,8 @@ class OpenStackAgent(EC2Agent):
 
     Args:
       parameters: A dictionary of parameters.
-    returns: 
-      False if the SSH keys already exist, True if success
+    Returns: 
+      False if the SSH keys already exist, True if successful.
     """
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
@@ -52,7 +56,7 @@ class OpenStackAgent(EC2Agent):
       conn = self.open_connection(parameters)
       key_pair = conn.get_key_pair(keyname)
       if key_pair is None:
-        utils.log('Creating key pair: ' + keyname)
+        utils.log('Creating key pair: {0}'.format(keyname))
         key_pair = conn.create_key_pair(keyname)
       utils.write_key_file(ssh_key, key_pair.material)
 
@@ -64,7 +68,7 @@ class OpenStackAgent(EC2Agent):
           break
 
       if not group_exists:
-        utils.log('Creating security group: ' + group)
+        utils.log('Creating security group: {0}'.format(group))
         conn.create_security_group(group, 'AppScale security group')
         conn.authorize_security_group(group, from_port=1,\
           to_port=65535, ip_protocol='udp')
@@ -74,14 +78,14 @@ class OpenStackAgent(EC2Agent):
         # and the to_port. If yes, remove this method.
         conn.authorize_security_group(group, from_port=-1, to_port=-1, \
                               ip_protocol='icmp', cidr_ip='0.0.0.0/0')
-
       return True
+
     except EC2ResponseError as exception:
       self.handle_failure('OpenStack response error while initializing '
-                          'security: ' + exception.error_message)
+                          'security: {0}'.format(exception.error_message))
     except Exception as exception:
       self.handle_failure('Error while initializing OpenStack '
-                          'security: ' + exception.message)
+                          'security: {0}'.format(exception.message))
 
   def run_instances(self, count, parameters, security_configured):
     """
@@ -94,12 +98,13 @@ class OpenStackAgent(EC2Agent):
 
     This method differs from its OpenStack counterpart because OpenStack
     does not support spot instances.
+
     Args:
       count: Number of VMs to spawn.
       parameters: A dictionary of parameters. This must contain 'keyname',
-                          'group', 'image_id' and 'instance_type' parameters.
+        'group', 'image_id' and 'instance_type' parameters.
       security_configured: Uses this boolean value as an heuristic to
-                          detect brand new AppScale deployments.
+        detect brand new AppScale deployments.
 
     Returns:
       A tuple of the form (instances, public_ips, private_ips).
@@ -110,36 +115,35 @@ class OpenStackAgent(EC2Agent):
 
     super.run_instances(self, count, parameters, security_configured)
 
-  #expected url: http://192.168.2.12:8773/services/Cloud
   def open_connection(self, parameters):
     """
     Initialize a connection to the back-end OpenStack APIs.
+    The expected url is http://192.168.2.12:8773/services/Cloud
 
     Args:
-      parameters  A dictionary containing the 'credentials' parameter
+      parameters: A dictionary containing the 'credentials' parameter.
 
     Returns:
       An instance of Boto EC2Connection.
     """
     credentials = parameters[self.PARAM_CREDENTIALS]
+    region_str = self.DEFAULT_REGION
     access_key = str(credentials['EC2_ACCESS_KEY'])
     secret_key = str(credentials['EC2_SECRET_KEY'])
     ec2_url = str(credentials['EC2_URL'])
-    ec2_zone = str(credentials['EC2_ZONE'])
-
     result = urlparse(ec2_url)
 
-    if result.port is None or result.hostname is None or \
-      result.path is None:
-      self.handle_failure('Unknown scheme in Openstack_URL: ' + result.scheme+ \
-          ' : expected like http://<controller>:8773/services/Cloud')
+    if result.port is None or result.hostname is None or result.path is None:
+      self.handle_failure('Unknown scheme in Openstack_URL: {0}'
+        ' : expected like http://<controller>:8773/services/Cloud'.\
+        format(result.scheme)
       return None
 
-    region = boto.ec2.regioninfo.RegionInfo(name=ec2_zone,\
+    region = boto.ec2.regioninfo.RegionInfo(name=region_str,\
       endpoint=result.hostname) 
-    return boto.connect_ec2(aws_access_key_id=access_key, \
-                            aws_secret_access_key=secret_key,\
-                            is_secure=(result.scheme == 'https'),\
-                            region=region,\
-                            port=result.port,\
-                            path=result.path, debug=2) 
+    return boto.connect_ec2(aws_access_key_id=access_key, 
+      aws_secret_access_key=secret_key,
+      is_secure=(result.scheme == 'https'),
+      region=region,
+      port=result.port,
+      path=result.path, debug=2) 
