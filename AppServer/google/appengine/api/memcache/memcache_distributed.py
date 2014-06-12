@@ -21,6 +21,7 @@ Uses the python-memcached library to interface with memcached.
 import base64
 import cPickle
 import logging
+import hashlib
 import memcache
 import os
 import time
@@ -37,6 +38,7 @@ MemcacheDeleteResponse = memcache_service_pb.MemcacheDeleteResponse
 
 from google.appengine.api.memcache import TYPE_INT
 from google.appengine.api.memcache import TYPE_LONG
+from google.appengine.api.memcache import MAX_KEY_SIZE
 
 class MemcacheService(apiproxy_stub.APIProxyStub):
   """Python only memcache service.
@@ -296,7 +298,10 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
   def _GetKey(self, namespace, key):
     """Used to get the Memcache key. It is encoded because the sdk
     allows special characters but the Memcache client does not.
-       
+    
+    The key is hashed if it is longer than the max key size. This may lead
+    to collisions.
+   
     Args:
       namespace: The namespace as provided by the application.
       key: The key as provided by the application.
@@ -305,4 +310,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     """
     appname = os.environ['APPNAME']
     internal_key = appname + "__" + namespace + "__" + key
-    return base64.b64encode(internal_key) 
+    server_key = base64.b64encode(internal_key) 
+    if len(server_key) > MAX_KEY_SIZE:
+      server_key = hashlib.sha1(server_key).hexdigest() 
+    return server_key
