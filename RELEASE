@@ -27,6 +27,7 @@ Highlights of features/bugs in this release:
 - Taskqueue statistics now reports number of tasks pending in a queue
 - Fixed critical bug where a failed slave node would come up as master
 - Fixed critical bug with nginx failing to be reloaded
+- Experimental OpenStack agent (auto scaling)
 
 The current version is 1.14.0, released on February 10, 2014
 Bugs fixed in this release:
