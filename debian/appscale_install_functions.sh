@@ -141,9 +141,6 @@ JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
-
-    mkdir -pv /var/run/sshd
-    chmod 0755 /var/run/sshd
 }
 
 installthrift()
