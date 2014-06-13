@@ -45,7 +45,6 @@ case "$1" in
         installservice
         postinstallservice
         setupntp
-        sethosts
         setulimits
         increaseconnections
         ;;
@@ -92,7 +91,6 @@ case "$1" in
         installservice
         postinstallservice
         setupntp
-        sethosts
         setulimits
         increaseconnections
         ;;
