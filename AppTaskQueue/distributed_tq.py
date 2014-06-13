@@ -10,7 +10,6 @@ import hashlib
 import json
 import logging
 import os
-import socket
 import sys
 import time
  
@@ -218,8 +217,6 @@ class DistributedTaskQueue():
 
     app_id = self.__cleanse(request['app_id'])
 
-    hostname = socket.gethostbyname(socket.gethostname())
-
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info
@@ -238,7 +235,7 @@ class DistributedTaskQueue():
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
                #"--autoscale=" + self.MIN_MAX_CONCURRENCY,
-               "--hostname=" + hostname + "." + app_id,
+               "--hostname=%h" + "." + app_id,
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
@@ -833,18 +830,3 @@ class DistributedTaskQueue():
     for char in "~./\\!@#$%&*()]\+=|":
       str_input = str_input.replace(char, "_")
     return str_input
-
-  def __is_localhost(self, hostname):
-    """ Determines if the hostname is that of the current host.
- 
-    Args:
-      hostname: A string representing the hostname.
-    Returns:
-      True if its the localhost, false otherwise.
-    """
-    if socket.gethostname() == hostname:
-      return True
-    elif socket.gethostbyname(socket.gethostname()) == hostname:
-      return True
-    else:
-      return False
