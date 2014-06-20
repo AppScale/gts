@@ -92,7 +92,7 @@ cd $HOME
 
 # Let's pull the github repositories.
 echo
-echo "Will be using the follogin github repo:"
+echo "Will be using the following github repo:"
 echo "git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}"
 echo "git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
