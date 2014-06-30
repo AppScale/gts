@@ -1244,8 +1244,9 @@ class Property(ModelAttribute):
 
     This returns False if a value is stored but it is None.
     """
-    return not self._required or ((self._has_value(entity) or self._default)
-                                  and self._get_value(entity) is not None)
+    return (not self._required or
+      ((self._has_value(entity) or self._default is not None) and
+      self._get_value(entity) is not None))
 
   def __get__(self, entity, unused_cls=None):
     """Descriptor protocol: get the value from the entity."""
