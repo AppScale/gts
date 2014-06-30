@@ -2390,7 +2390,9 @@ class Djinn
   def update_firewall()
     all_ips = []
     @nodes.each { |node|
-      all_ips << node.private_ip
+      if !all_ips.include? node.private_ip
+        all_ips << node.private_ip
+      end
     }
     all_ips << "\n"
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
@@ -3793,7 +3795,9 @@ class Djinn
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
-      slave_ips << node.private_ip if node.jobs.include?("db_slave")
+      if !slaves_ip.include? node.private_ip
+        slave_ips << node.private_ip if node.jobs.include?("db_slave")
+      end
     }
 
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
