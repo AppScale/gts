@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# Programmer: Chris Bunch, Brian Drawert
-
 
 # First-party Python imports
 import hashlib

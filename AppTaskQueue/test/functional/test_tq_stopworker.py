@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Programmer: Navraj Chohan <raj@appscale.com>
+
 import httplib
 import json
 import os

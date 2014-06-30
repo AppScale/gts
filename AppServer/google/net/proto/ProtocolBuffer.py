@@ -139,9 +139,11 @@ class ProtocolMessage:
                                 keyfile=keyfile,
                                 certfile=certfile)
     if resp.status != 200:
+      conn.close()
       raise ProtocolBufferReturnError(resp.status)
     if response is not None:
       response.ParseFromString(resp.read())
+    conn.close()
     return response
 
   def sendSecureCommand(self, server, keyfile, certfile, url, response,

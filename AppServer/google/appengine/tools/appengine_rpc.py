@@ -378,8 +378,8 @@ class AbstractRpcServer(object):
 
     curl_command = "curl -k "
     curl_command += "-c %s " % self._GetAppScaleCookiePath()
-    curl_command += "--data-urlencode user_email=%s " % self.username
-    curl_command += "--data-urlencode user_password=%s " % self.password
+    curl_command += "--data-urlencode user_email='%s' " % self.username
+    curl_command += "--data-urlencode user_password='%s' " % self.password
     curl_command += "--data-urlencode commit=login "
     curl_command += "-X POST "
     curl_command += "%s" % self._GetAppScaleDashboardAuthUrl()
@@ -423,7 +423,8 @@ class AbstractRpcServer(object):
       A str of the URL for the AppScale Dashboard's authentication page
     """
     host = self._GetAppScaleDashboardHost()
-    return "%s://%s:1443/%s" % (self.scheme + "s", host,
+    scheme = self.scheme if self.scheme.endswith('s') else self.scheme + 's'
+    return "%s://%s:1443/%s" % (scheme, host,
       self._APPSCALE_AUTH_PAGE)
 
   def _RunCommand(self, command):

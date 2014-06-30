@@ -29,12 +29,12 @@ end
 
 # HelperFunctions holds miscellaneous functions - functions that really aren't
 # bound to a particular service, but are reused across multiple functions.
-# TODO(cgb): Consider removing App Engine-related functions below into its
+# TODO: Consider removing App Engine-related functions below into its
 # own helper class
 module HelperFunctions
 
 
-  VER_NUM = "1.14.0"
+  VER_NUM = "2.0.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -477,9 +477,9 @@ module HelperFunctions
   # issues where a VM may forget its IP address
   # (https://github.com/AppScale/appscale/issues/84), we locally cache it
   # to not repeatedly ask the system for this IP (which shouldn't be changing).
-  # TODO(cgb): Consider the implications of caching the IP address if
+  # TODO: Consider the implications of caching the IP address if
   # VLAN tagging is used, and the IP address may be used.
-  # TODO(cgb): This doesn't solve the problem if the IP address isn't there
+  # TODO: This doesn't solve the problem if the IP address isn't there
   # the first time around - should we sleep and retry in that case?
   def self.local_ip()
     if !@@my_local_ip.nil?
@@ -973,20 +973,20 @@ module HelperFunctions
 
     result << "\n" << "    }" << "\n"
 
-    result
+    return result
   end
 
   def self.get_app_path app_name
-    "/var/apps/#{app_name}/"
+    return "/var/apps/#{app_name}/"
   end
 
   def self.get_cache_path app_name
-    File.join(get_app_path(app_name),"cache")
+    return File.join(get_app_path(app_name),"cache")
   end
 
   # The directory where the applications tarball will be extracted to
   def self.get_untar_dir app_name
-    File.join(get_app_path(app_name),"app")
+    return File.join(get_app_path(app_name),"app")
   end
 
   # Locates WEB-INF folder in an untarred Java app directory.
@@ -1015,7 +1015,7 @@ module HelperFunctions
   # the files path relative to the apps directory (e.g. /static/file.txt).
   # This is the hacky way of getting that.
   def self.get_relative_filename filename, app_name
-    filename[get_untar_dir(app_name).length..filename.length]
+    return filename[get_untar_dir(app_name).length..filename.length]
   end
 
   def self.parse_static_data app_name
@@ -1107,7 +1107,7 @@ module HelperFunctions
       handler
     end
 
-    handlers.compact
+    return handlers.compact
   end
 
 
@@ -1116,7 +1116,7 @@ module HelperFunctions
   # the app that doesn't end in .jsp that isn't in the WEB-INF directory should
   # be added as a static file.
   #
-  # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
+  # TODO: Check the appengine-web.xml file given to us by the app and see
   # if it specifies any files to include or exclude as static files, instead of
   # assuming they want to use the default scheme mentioned above.
   #
@@ -1162,7 +1162,7 @@ module HelperFunctions
       }
     }
 
-    handlers.compact
+    return handlers.compact
   end
 
   # Parses the app.yaml file for the specified application and returns
@@ -1204,11 +1204,11 @@ module HelperFunctions
         secure_handlers[:never] << handler
       end
     end
-    secure_handlers
+    return secure_handlers
   end
 
   # Parses the expiration string provided in the app.yaml and returns its duration in seconds
-  def self.expires_duration input_string
+  def self.expires_duration(input_string)
     return nil if input_string.nil? || input_string.empty?
     # Start with nil so we can distinguish between it not being set and 0
     duration = nil
@@ -1219,11 +1219,11 @@ module HelperFunctions
       next if amount.empty? || units.empty?
       duration = (duration || 0) + TIME_IN_SECONDS[units.downcase]*amount.to_i
     end
-    duration
+    return duration
   end
 
   def self.encrypt_password(user, pass)
-    Digest::SHA1.hexdigest(user + pass)
+    return Digest::SHA1.hexdigest(user + pass)
   end
 
   def self.obscure_string(string)
@@ -1502,8 +1502,16 @@ module HelperFunctions
   end
 
 
+  # Gets the local state from a state file.
+  # 
+  # Returns:
+  # Json file if it exists, nil otherwise.
   def self.get_local_appcontroller_state()
-    return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+    if File.exists?(APPCONTROLLER_STATE_LOCATION)
+      return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+    else
+      return nil
+    end
   end
 
 

@@ -1,6 +1,4 @@
 #!/usr/bin/ruby -w
-# Programmer: Chris Bunch
-
 
 # Imports within Ruby's standard libraries
 require 'base64'
@@ -263,7 +261,7 @@ class UserAppClient
   end
 
   # This method sees if the given app is already uploaded in the system.
-  # TODO(cgb): compare this with is_app_enabled? above
+  # TODO: compare this with is_app_enabled? above
   def is_app_uploaded?(appname)
     all_apps = get_all_apps()
     return app_list.include?(appname)
@@ -302,7 +300,7 @@ class UserAppClient
   # UserAppServer doesn't provide a function that does this for us, we have
   # to get a list of all the users that exist and individually query the
   # UAServer to find out who the cloud admin is.
-  # TODO(cgb): Maybe cache who the cloud admin is to speed up future queries?
+  # TODO: Maybe cache who the cloud admin is to speed up future queries?
   def get_cloud_admin()
     user_list = get_all_users()
 

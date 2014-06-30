@@ -53,7 +53,7 @@ module HAProxy
   ALB_SERVER_TIMEOUT = 300000
 
   
-  def self.start
+  def self.start()
     start_cmd = "/usr/sbin/service haproxy start"
     stop_cmd = "/usr/sbin/service haproxy stop"
     match_cmd = "/usr/sbin/haproxy"
@@ -61,15 +61,15 @@ module HAProxy
       env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   end
 
-  def self.stop
+  def self.stop()
     MonitInterface.stop(:haproxy)
   end
 
-  def self.restart
+  def self.restart()
     MonitInterface.restart(:haproxy)
   end
 
-  def self.reload
+  def self.reload()
     Djinn.log_run("service haproxy reload")
   end
 
@@ -125,7 +125,7 @@ module HAProxy
 
   # Generates a load balancer configuration file. Since haproxy doesn't provide
   # an file include option we emulate that functionality here.
-  def self.regenerate_config
+  def self.regenerate_config()
     conf = File.open(MAIN_CONFIG_FILE,"w+")
     
     # Start by writing in the base file
@@ -151,7 +151,7 @@ module HAProxy
     conf.close()
     # Reload haproxy since we changed the config, restarting causes connections
     # to be cut which shows users a nginx 404
-    HAProxy.reload
+    HAProxy.reload()
   end
   
   # Generate the server configuration line for the provided inputs. GAE applications
@@ -186,14 +186,14 @@ module HAProxy
       "#{full_app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    HAProxy.regenerate_config
+    HAProxy.regenerate_config()
   end
 
 
   # Updates the HAProxy config file for this App Engine application to
   # point to all the ports currently the application. In contrast with
   # write_app_config, these ports can be non-contiguous.
-  # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.
+  # TODO: Lots of copy/paste here with write_app_config - eliminate it.
   def self.update_app_config(private_ip, app_name, app_info)
     listen_port = app_info['haproxy']
 
@@ -225,7 +225,7 @@ module HAProxy
 
 
   # Removes all the enabled sites
-  def self.clear_sites_enabled
+  def self.clear_sites_enabled()
     if File.exists?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
       # Remove any files that are not configs
@@ -238,7 +238,7 @@ module HAProxy
   end
 
   # Set up the folder structure and creates the configuration files necessary for haproxy
-  def self.initialize_config
+  def self.initialize_config()
     base_config = <<CONFIG
 global
   maxconn 64000

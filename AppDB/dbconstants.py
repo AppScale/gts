@@ -1,4 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 """
  Datastore Constants
 """
@@ -8,6 +7,7 @@ ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
 KEY_DELIMITER = '\x00'
 KIND_SEPARATOR = '\x01'
+ID_SEPARATOR = ":"
 
 # Table names
 USERS_TABLE = "USERS__"

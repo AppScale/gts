@@ -1,5 +1,4 @@
 #!/usr/bin/ruby -w
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 
 require 'base64'
 require 'helperfunctions'

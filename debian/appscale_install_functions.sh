@@ -15,7 +15,29 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=1.14.0
+export APPSCALE_VERSION=2.0.0
+
+pip_wrapper () 
+{
+  # We have seen quite a few network/DNS issues lately, so much so that
+  # it takes a couple of tries to install packages with pip. This
+  # wrapper ensure that we are a bit more persitent.
+  if [ -n "$1" ] ; then
+    for x in 1 2 3 4 5 ; do
+      if pip install --upgrade $1 ; then
+        return
+      else
+        echo "Failed to install $1: retrying ..."
+        sleep $x
+      fi
+    done
+    echo "Failed to install $1: giving up."
+    exit 1
+  else
+    echo "Need an argument for pip!"
+    exit 1
+  fi
+}
 
 increaseconnections()
 {
@@ -69,17 +91,17 @@ setupntp()
 installPIL()
 {
     pip uninstall -y PIL
-    /usr/bin/yes | pip install --upgrade pillow
+    pip_wrapper pillow
 }
 
 installlxml()
 {
-    easy_install lxml
+    pip_wrapper lxml
 }
 
 installxmpppy()
 {
-    easy_install xmpppy
+    pip_wrapper xmpppy
 }
 
 setulimits()
@@ -144,7 +166,7 @@ EOF
 
 installthrift()
 {
-    easy_install -U thrift
+    pip_wrapper thrift
 }
 
 installjavajdk()
@@ -168,26 +190,26 @@ installappserverjava()
 
 installtornado()
 {
-    easy_install -U tornado
+    pip_wrapper tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
-    if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
+    if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
 	echo "Fail to install python tornado. Please retry."
 	exit 1
     fi
     if [ -n "$DESTDIR" ]; then
 	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/tornado-*.egg ${DESTDIR}${DISTP}
+	cp -rv ${DISTP}/tornado-*.egg* ${DESTDIR}${DISTP}
     fi
 }
 
 installflexmock()
 {
-    easy_install flexmock
+    pip_wrapper flexmock
 }
 
 postinstalltornado()
 {
-    easy_install tornado
+    pip_wrapper tornado
 }
 
 postinstallhaproxy()
@@ -222,6 +244,11 @@ postinstallnginx()
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
+
+    # apache2 is a dependency pulled in by php5: make sure it doesn't use
+    # port 80.
+    service apache2 stop || true
+    update-rc.d -f apache2 remove || true
 }
 
 portinstallmonit()
@@ -229,13 +256,13 @@ portinstallmonit()
     # Let's use our configuration.
     cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
     chmod 0700 /etc/monit/monitrc
-    service monit restart
-
+    service monit stop
+    update-rc.d -f monit remove
 }
 
 installcassandra()
 {
-    CASSANDRA_VER=2.0.6
+    CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
@@ -252,8 +279,9 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    easy_install -U pycassa
-    easy_install -U thrift
+    pip_wrapper  setuptools
+    pip_wrapper  pycassa
+    pip_wrapper  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -315,7 +343,12 @@ installzookeeper()
   apt-get update 
   apt-get install -y zookeeper-server 
 
-  easy_install kazoo
+  pip_wrapper kazoo
+}
+
+installpycrypto()
+{
+  pip_wrapper pycrypto
 }
 
 postinstallzookeeper()
@@ -336,8 +369,8 @@ keygen()
 
 installcelery()
 {
-    easy_install Celery==3.0.24
-    easy_install Flower
+    pip_wrapper Celery==3.0.24
+    pip_wrapper Flower
 }
 
 postinstallrabbitmq()

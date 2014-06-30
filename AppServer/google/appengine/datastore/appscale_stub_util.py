@@ -604,17 +604,17 @@ class BaseCursor(object):
 class QueryCursor(object):
   """Encapsulates a database cursor and provides methods to fetch results."""
 
-  def __init__(self, query, results):
+  def __init__(self, query, results, last_ent):
     """Constructor.
 
     Args:
       query: A Query PB.
-      db_cursor: An MySQL cursor returning n+2 columns. The first 2 columns
-        must be the path of the entity and the entity itself, while the
-        remaining columns must be the sort columns for the query.
+      results: A list of EntityProtos.
+      last_ent: The last entity (used for cursors).
     """
     self.__results = results
     self.__query = query
+    self.__last_ent = last_ent
     self.app = query.app()
 
     if query.has_limit():
@@ -686,6 +686,9 @@ class QueryCursor(object):
     """
     if self.__results:
       last_result = self.__results[-1]
+    elif self.__last_ent:
+      last_result = entity_pb.EntityProto()
+      last_result.ParseFromString(self.__last_ent)
     else:
       last_result = None
     position = compiled_cursor.add_position()
@@ -708,14 +711,20 @@ class QueryCursor(object):
     result.set_skipped_results(min(count, offset))
     result_list = result.result_list()
     if self.__results:
-      result_list.extend(self.__results)
+      if self.__query.keys_only():
+        for entity in self.__results:
+          entity.clear_property()
+          entity.clear_raw_property()
+          result_list.append(entity)
+      else:
+        result_list.extend(self.__results)
     else:
       result_list = []
     result.set_keys_only(self.__query.keys_only())
     result.set_more_results(offset < count)
-    if self.__results:
+    if self.__results or self.__last_ent:
       self._EncodeCompiledCursor(result.mutable_compiled_cursor())
-
+ 
 
 class ListCursor(BaseCursor):
   """A query cursor over a list of entities.
@@ -740,6 +749,11 @@ class ListCursor(BaseCursor):
     if query.has_compiled_cursor() and query.compiled_cursor().position_list():
       (self.__last_result, _) = self._DecodeCompiledCursor(
           query, query.compiled_cursor())
+
+    if query.has_end_compiled_cursor():
+      (self.__end_result, _) = self._DecodeCompiledCursor(                      
+          query, query.end_compiled_cursor())                                   
+                                                     
     self.__query = query
     self.__offset = 0
     self.__count = query.limit()
@@ -750,6 +764,10 @@ class ListCursor(BaseCursor):
   def _GetLastResult(self):
     """ Protected access to private member. """
     return self.__last_result
+
+  def _GetEndResult(self):                                                      
+    """ Protected access to private member for last entity. """                 
+    return self.__end_result           
 
   @staticmethod
   def _GetCursorOffset(results, cursor_entity, inclusive, compare):
@@ -829,8 +847,6 @@ class ListCursor(BaseCursor):
                  position.start_key().split(_CURSOR_CONCAT_STR, 1)
       query_info_pb = datastore_pb.Query()
       query_info_pb.ParseFromString(query_info_encoded)
-      self._ValidateQuery(query, query_info_pb)
-    
       entity_as_pb.ParseFromString(entity_encoded)
     else:
       """Java doesn't include a start_key() so we will create the last entity

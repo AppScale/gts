@@ -104,10 +104,9 @@ EXTRA_PATHS = _STUB_DEPENDENCIES + [
     '/usr/lib/python2.7/dist-packages/',
     '/usr/share/pyshared',
     '/usr/local/lib/python2.7/site-packages',
-    glob.glob('/usr/local/lib/python2.7/dist-packages/xmpppy-*.egg')[0],
+    '/usr/local/lib/python2.7/dist-packages/xmpp',
     '/usr/lib/pymodules/python2.7/',
-    glob.glob('/usr/local/lib/python2.7/dist-packages/termcolor-*.egg')[0],
-    glob.glob('/usr/local/lib/python2.7/dist-packages/lxml-*.egg')[0],
+    '/usr/local/lib/python2.7/dist-packages/lxml'
     ]
 
 _DEVAPPSERVER2_PATHS = _STUB_DEPENDENCIES + [

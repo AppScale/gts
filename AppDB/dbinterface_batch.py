@@ -1,5 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
-
 """ 
  AppScale Datastore Interface 
 """

@@ -58,7 +58,6 @@ import com.google.apphosting.datastore.DatastoreV3Pb.Transaction;
 import com.google.apphosting.utils.config.GenerationDirectory;
 import com.google.apphosting.utils.config.IndexesXmlReader;
 import com.google.apphosting.utils.config.IndexesXml;
-//import com.google.apphosting.utils.config.IndexesXml.Index;
 import com.google.storage.onestore.v3.OnestoreEntity;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex.State;
@@ -71,17 +70,6 @@ import com.google.storage.onestore.v3.OnestoreEntity.Property.Meaning;
 import com.google.storage.onestore.v3.OnestoreEntity.PropertyValue;
 import com.google.storage.onestore.v3.OnestoreEntity.PropertyValue.UserValue;
 import com.google.storage.onestore.v3.OnestoreEntity.Reference;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -112,8 +100,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -199,12 +185,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     private final RemoveStaleTransactions       removeStaleTransactionsTask        = new RemoveStaleTransactions();
 
-    private final PersistDatastore              persistDatastoreTask               = new PersistDatastore();
-
     private final AtomicInteger                 transactionHandleProvider          = new AtomicInteger(0);
     private int                                 storeDelayMs;
-    private volatile boolean                    dirty;
-    private final ReadWriteLock                 globalLock                         = new ReentrantReadWriteLock();
     private boolean                             noStorage;
     private Thread                              shutdownHook;
     private PseudoKinds                         pseudoKinds;
@@ -217,14 +199,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public void clearProfiles()
     {
-        for (Profile profile : this.profiles.values())
-        {
-            LocalFullTextIndex fullTextIndex = profile.getFullTextIndex();
-            if (fullTextIndex != null)
-            {
-                fullTextIndex.close();
-            }
-        }
         this.profiles.clear();
     }
 
@@ -283,7 +257,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             this.autoIdAllocationPolicy = AutoIdAllocationPolicy.valueOf(autoIdAllocationPolicyString.toUpperCase());
           }
           catch (IllegalArgumentException e) {
-            throw new IllegalStateException(String.format("Invalid value \"%s\" for property \"%s\"", new Object[] { autoIdAllocationPolicyString, "datastore.auto_id_allocation_policy" }), e);
+            throw new IllegalStateException(String.format("Invalid value \"%s\" for property \"%s\"", new Object[] { 
+              autoIdAllocationPolicyString, "datastore.auto_id_allocation_policy" }), e);
           }
 
         }
@@ -308,7 +283,9 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         setupIndexes(properties.get("user.dir"), properties.get("APP_NAME"));
         
-        logger.info(String.format("Local Datastore initialized: \n\tType: %s\n\tStorage: %s", new Object[] { isHighRep() ? "High Replication" : "Master/Slave", this.noStorage ? "In-memory" : this.backingStore }));
+        logger.info(String.format("Local Datastore initialized: \n\tType: %s\n\tStorage: %s", 
+          new Object[] { isHighRep() ? "High Replication" : "Master/Slave", 
+          this.noStorage ? "In-memory" : this.backingStore }));
     }
 
     private void setupIndexes(String appDir, String appName)
@@ -505,11 +482,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         this.scheduler.scheduleWithFixedDelay(this.removeStaleTransactionsTask, this.maxTransactionLifetimeMs * 5, this.maxTransactionLifetimeMs * 5, TimeUnit.MILLISECONDS);
 
-        if (!this.noStorage)
-        {
-            this.scheduler.scheduleWithFixedDelay(this.persistDatastoreTask, this.storeDelayMs, this.storeDelayMs, TimeUnit.MILLISECONDS);
-        }
-
         this.shutdownHook = new Thread()
         {
             public void run()
@@ -523,11 +495,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     public void stop()
     {
         this.scheduler.shutdown();
-        if (!this.noStorage)
-        {
-            rollForwardAllUnappliedJobs();
-            this.persistDatastoreTask.run();
-        }
 
         clearProfiles();
         try
@@ -537,13 +504,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         catch (IllegalStateException ex)
         {
         }
-    }
-
-    private void rollForwardAllUnappliedJobs()
-    {
-        for (Profile profile : this.profiles.values())
-            if (profile.getGroups() != null) for (LocalDatastoreService.Profile.EntityGroup eg : profile.getGroups().values())
-                eg.rollForwardUnappliedJobs();
     }
 
     public void setMaxQueryLifetime( int milliseconds )
@@ -598,15 +558,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.PutResponse put( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            return putImpl(status, request);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        return putImpl(status, request);
     }
 
     private void processEntityForSpecialProperties( OnestoreEntity.EntityProto entity, boolean store )
@@ -723,37 +675,13 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.DeleteResponse delete( LocalRpcService.Status status, DatastoreV3Pb.DeleteRequest request )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            return deleteImpl(status, request);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        return deleteImpl(status, request);
     }
 
     public ApiBasePb.VoidProto addActions( LocalRpcService.Status status, TaskQueuePb.TaskQueueBulkAddRequest request )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            addActionsImpl(status, request);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        addActionsImpl(status, request);
         return new ApiBasePb.VoidProto();
-    }
-
-    private OnestoreEntity.Path getGroup( OnestoreEntity.Reference key )
-    {
-        OnestoreEntity.Path path = key.getPath();
-        OnestoreEntity.Path group = new OnestoreEntity.Path();
-        group.addElement(path.getElement(0));
-        return group;
     }
 
     public DatastoreV3Pb.DeleteResponse deleteImpl( LocalRpcService.Status status, DatastoreV3Pb.DeleteRequest request )
@@ -859,287 +787,53 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         {
             if ((query.hasTransaction()) || (query.hasAncestor()))
             {
-                OnestoreEntity.Path groupPath = getGroup(query.getAncestor());
-                LocalDatastoreService.Profile.EntityGroup eg = profile.getGroup(groupPath);
                 if (query.hasTransaction())
                 {
                     if (!app.equals(query.getTransaction().getApp()))
                     {
                         throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR, "Can't query app " + app + "in a transaction on app " + query.getTransaction().getApp());
                     }
-
                     LiveTxn liveTxn = profile.getTxn(query.getTransaction().getHandle());
-
-                    eg.addTransaction(liveTxn);
                 }
-
-                if ((query.hasAncestor()) && ((query.hasTransaction()) || (!query.hasFailoverMs())))
-                {
-                    eg.rollForwardUnappliedJobs();
-                }
-
             }
 
-            LocalFullTextIndex fullTextIndex = profile.getFullTextIndex();
-            if ((query.hasSearchQuery()) && (fullTextIndex == null))
-            {
-                throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "full-text search unsupported");
-            }
-
-            /*
-             * AppScale line replacement to #end
-             */
             DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
             proxy.doPost(app, "RunQuery", query, queryResult);
-            List<EntityProto> queryEntities = new ArrayList<EntityProto>(queryResult.results());
-            /* #end */
-            if (queryEntities == null)
-            {
-                Map extents = profile.getExtents();
-                Extent extent = (Extent)extents.get(query.getKind());
-
-                if (!query.hasSearchQuery())
-                {
-                    if (extent != null)
-                    {
-                        queryEntities = new ArrayList(extent.getEntities().values());
-                    }
-                    else if (!query.hasKind())
-                    {
-                        queryEntities = profile.getAllEntities();
-                        if (query.orderSize() == 0)
-                        {
-                            query.addOrder(new DatastoreV3Pb.Query.Order().setDirection(DatastoreV3Pb.Query.Order.Direction.ASCENDING).setProperty("__key__"));
-                        }
-                    }
-
-                }
-                else
-                {
-                    /*
-                     * AppScale - Added type to keys below
-                     */
-                    List<OnestoreEntity.Reference> keys = fullTextIndex.search(query.getKind(), query.getSearchQuery());
-                    List entities = new ArrayList(keys.size());
-                    for (OnestoreEntity.Reference key : keys)
-                    {
-                        entities.add(extent.getEntities().get(key));
-                    }
-                    queryEntities = entities;
-                }
-
-            }
-
-            profile.groom();
-
-            if (queryEntities == null)
-            {
-                queryEntities = Collections.emptyList();
-            }
-
-            List predicates = new ArrayList();
-
-            if (query.hasAncestor())
-            {
-                final List ancestorPath = query.getAncestor().getPath().elements();
-                predicates.add(new Predicate()
-                {
-                    public boolean apply( Object entity )
-                    {
-                        /*
-                         * AppScale - Added type to entity below
-                         */
-                        List path = ((OnestoreEntity.EntityProto)entity).getKey().getPath().elements();
-                        return (path.size() >= ancestorPath.size()) && (path.subList(0, ancestorPath.size()).equals(ancestorPath));
-                    }
-
-                });
-            }
-
-            final boolean hasNamespace = query.hasNameSpace();
-            final String namespace = query.getNameSpace();
-            predicates.add(new Predicate()
-            {
-                /*
-                 * Added type to entity below
-                 */
-                public boolean apply( Object entity )
-                {
-                    OnestoreEntity.Reference ref = ((OnestoreEntity.EntityProto)entity).getKey();
-
-                    if (hasNamespace)
-                    {
-                        if ((!ref.hasNameSpace()) || (!namespace.equals(ref.getNameSpace())))
-                        {
-                            return false;
-                        }
-                    }
-                    else if (ref.hasNameSpace())
-                    {
-                        return false;
-                    }
-
-                    return true;
-                }
-            });
-            final EntityProtoComparators.EntityProtoComparator entityComparator = new EntityProtoComparators.EntityProtoComparator(validatedQuery.getQuery().orders(), validatedQuery.getQuery().filters());
-
-            predicates.add(new Predicate()
-            {
-                public boolean apply( Object entity )
-                {
-                    /*
-                     * AppScale - Added cast to entity below
-                     */
-                    return entityComparator.matches((EntityProto)entity);
-                }
-            });
-            Predicate queryPredicate = Predicates.not(Predicates.and(predicates));
-
-            Iterators.removeIf(queryEntities.iterator(), queryPredicate);
-
-            if (query.propertyNameSize() > 0)
-            {
-                queryEntities = createIndexOnlyQueryResults(queryEntities, entityComparator);
-            }
-
-            Collections.sort(queryEntities, entityComparator);
-
-            LiveQuery liveQuery = new LiveQuery(queryEntities, query, entityComparator, this.clock);
-
-            AccessController.doPrivileged(new PrivilegedAction()
-            {
-                public Object run()
-                {
-                    LocalCompositeIndexManager.getInstance().processQuery(validatedQuery.getV3Query());
-                    return null;
-                }
-            });
-            /*
-             * AppScale - removed duplicate count instantiations
-             */
             int count;
             if (query.hasCount())
             {
                 count = query.getCount();
             }
+            else if (query.hasLimit())
+            {
+                count = query.getLimit();
+            }
             else
             {
-                if (query.hasLimit())
-                    count = query.getLimit();
-                else
-                {
-                    count = 20;
-                }
+                count = DEFAULT_BATCH_SIZE;
             }
-            DatastoreV3Pb.QueryResult result = liveQuery.nextResult(query.hasOffset() ? Integer.valueOf(query.getOffset()) : null, count, query.isCompile());
+
+            LiveQuery liveQuery = new LiveQuery(query, queryResult.resultSize(), queryResult.getCompiledCursor(), this.clock);
             if (query.isCompile())
             {
-                result.setCompiledQuery(liveQuery.compileQuery());
+                queryResult.setCompiledQuery(liveQuery.compileQuery());
             }
-            if (result.isMoreResults())
+            if (queryResult.isMoreResults())
             {
                 long cursor = this.queryId.getAndIncrement();
                 profile.addQuery(cursor, liveQuery);
-                result.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
+                queryResult.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
             }
 
             for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
             {
-                result.addIndex(wrapIndexInCompositeIndex(app, index));
+                queryResult.addIndex(wrapIndexInCompositeIndex(app, index));
             } 
             /*
              * AppScale - adding skipped results to the result, otherwise query counts are wrong	
              */	
-            result.setSkippedResults(queryResult.getSkippedResults());
-            return result;
+            return queryResult;
         }
-    }
-
-    private List<OnestoreEntity.EntityProto> createIndexOnlyQueryResults( List<OnestoreEntity.EntityProto> queryEntities, EntityProtoComparators.EntityProtoComparator entityComparator )
-    {
-        Set postfixProps = Sets.newHashSetWithExpectedSize(entityComparator.getAdjustedOrders().size());
-
-        for (DatastorePb.Query.Order order : entityComparator.getAdjustedOrders())
-        {
-            postfixProps.add(order.getProperty());
-        }
-
-        List results = Lists.newArrayListWithExpectedSize(queryEntities.size());
-        for (OnestoreEntity.EntityProto entity : queryEntities)
-        {
-            List indexEntities = createIndexEntities(entity, postfixProps, entityComparator);
-            results.addAll(indexEntities);
-        }
-
-        return results;
-    }
-
-    private List<OnestoreEntity.EntityProto> createIndexEntities( OnestoreEntity.EntityProto entity, Set<String> postfixProps, EntityProtoComparators.EntityProtoComparator entityComparator )
-    {
-        Multimap toSplit = HashMultimap.create(postfixProps.size(), 1);
-        Set seen = Sets.newHashSet();
-        boolean splitRequired = false;
-        for (OnestoreEntity.Property prop : entity.propertys())
-        {
-            if (postfixProps.contains(prop.getName()))
-            {
-                splitRequired |= !seen.add(prop.getName());
-
-                if (entityComparator.matches(prop))
-                {
-                    toSplit.put(prop.getName(), prop.getValue());
-                }
-            }
-        }
-
-        if (!splitRequired)
-        {
-            return Collections.singletonList(entity);
-        }
-
-        OnestoreEntity.EntityProto clone = new OnestoreEntity.EntityProto();
-        clone.getMutableKey().copyFrom(entity.getKey());
-        clone.getMutableEntityGroup();
-        List results = Lists.newArrayList(new OnestoreEntity.EntityProto[] { clone });
-
-        for (Map.Entry entry : ((Set<Map.Entry>)toSplit.asMap().entrySet()))
-            if (((Collection)entry.getValue()).size() == 1)
-            {
-                /*
-                 * AppScale - Added cast to results below
-                 */
-                for (OnestoreEntity.EntityProto result : ((List<OnestoreEntity.EntityProto>)results))
-                {
-                    result.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom(((PropertyValue)((ProtocolMessage)Iterables.getOnlyElement((Iterable)entry.getValue()))));
-                }
-
-            }
-            else
-            {
-                List splitResults = Lists.newArrayListWithCapacity(results.size() * ((Collection)entry.getValue()).size());
-
-                for (Iterator i$ = ((Collection)entry.getValue()).iterator(); i$.hasNext();)
-                {
-                    /*
-                     * AppScale - Added type to value below
-                     */
-                    OnestoreEntity.PropertyValue value = (OnestoreEntity.PropertyValue)i$.next();
-                    /*
-                     * AppScale - Added type to results below
-                     */
-                    for (OnestoreEntity.EntityProto result : (List<OnestoreEntity.EntityProto>)results)
-                    {
-                        OnestoreEntity.EntityProto split = (OnestoreEntity.EntityProto)result.clone();
-                        split.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom(value);
-
-                        splitResults.add(split);
-                    }
-                }
-                OnestoreEntity.PropertyValue value;
-                results = splitResults;
-            }
-        return results;
     }
 
     private static <T> T safeGetFromExpiringMap( Map<Long, T> map, long key, String errorMsg )
@@ -1160,17 +854,47 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         Profile profile = (Profile)this.profiles.get(request.getCursor().getApp());
         LiveQuery liveQuery = profile.getQuery(request.getCursor().getCursor());
 
-        int count = request.hasCount() ? request.getCount() : 20;
-        DatastoreV3Pb.QueryResult result = liveQuery.nextResult(request.hasOffset() ? Integer.valueOf(request.getOffset()) : null, count, request.isCompile());
+        int count = request.hasCount() ? request.getCount() : DEFAULT_BATCH_SIZE;
+        DatastoreV3Pb.Query query = liveQuery.getQuery();
+        query.setCount(count);
+        query.clearOffset();
 
-        if (result.isMoreResults())
-            result.setCursor(request.getCursor());
+        DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
+        DatastoreV3Pb.CompiledCursor compiledCursor = liveQuery.getCompiledCursor();
+        // If we don't have a cursor to continue, or we have hit the count we're trying to achieve
+        // end this query.
+        if (liveQuery.getOffset() >= liveQuery.getCount())
+        {
+          queryResult.setMoreResults(false);
+          if (query.isCompile())
+          {
+            queryResult.setCompiledQuery(liveQuery.compileQuery());
+          }
+          queryResult.setCompiledCursor(compiledCursor); 
+          profile.removeQuery(request.getCursor().getCursor());
+          return queryResult;
+        }
         else
         {
-            profile.removeQuery(request.getCursor().getCursor());
+          // We copy over the previous cursor from which we continue.
+          query.setCompiledCursor(compiledCursor);
+          String app = query.getApp();
+          proxy.doPost(app, "RunQuery", query, queryResult);
+          liveQuery.setOffset(liveQuery.getOffset() + queryResult.resultSize());
+          if (query.isCompile())
+          {
+            queryResult.setCompiledQuery(liveQuery.compileQuery());
+          }
         }
 
-        return result;
+        if (!queryResult.isMoreResults())
+        {
+          profile.removeQuery(request.getCursor().getCursor());
+        }
+        else{
+          liveQuery.setCompiledCursor(queryResult.getCompiledCursor());
+        }
+        return queryResult;
     }
 
 
@@ -1190,7 +914,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
          * AppScale line replacement
          */
         proxy.doPost(req.getApp(), "BeginTransaction", req, txn);
-        profile.addTxn(txn.getHandle(), new LiveTxn(this.clock, req.isAllowMultipleEg()));
+        profile.addTxn(txn.getHandle(), new LiveTxn(this.clock));
         return txn;
     }
 
@@ -1222,58 +946,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             }
         }
         return response;
-    }
-
-    private DatastoreV3Pb.Cost commitImpl( LiveTxn liveTxn, final Profile profile )
-    {
-        for (EntityGroupTracker tracker : liveTxn.getAllTrackers())
-        {
-            tracker.checkEntityGroupVersion();
-        }
-
-        int deleted = 0;
-        int written = 0;
-        DatastoreV3Pb.Cost totalCost = new DatastoreV3Pb.Cost();
-        for (EntityGroupTracker tracker : liveTxn.getAllTrackers())
-        {
-            LocalDatastoreService.Profile.EntityGroup eg = tracker.getEntityGroup();
-            eg.incrementVersion();
-
-            final Collection writtenEntities = tracker.getWrittenEntities();
-            final Collection deletedKeys = tracker.getDeletedKeys();
-            LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey())
-            {
-                private DatastoreV3Pb.Cost calculateJobCost( boolean apply )
-                {
-                    DatastoreV3Pb.Cost cost = LocalDatastoreService.this.calculatePutCost(apply, profile, writtenEntities);
-                    /*
-                     * AppScale - Before: LocalDatastoreService.addTo(cost,
-                     * LocalDatastoreService
-                     * .access$700(LocalDatastoreService.this, apply, profile,
-                     * deletedKeys)); After (2lines):
-                     */
-                    DatastoreV3Pb.Cost cost2 = LocalDatastoreService.this.calculateDeleteCost(apply, profile, deletedKeys);
-                    LocalDatastoreService.addTo(cost, cost2); // CJK
-                    return cost;
-                }
-
-                DatastoreV3Pb.Cost calculateJobCost()
-                {
-                    return calculateJobCost(false);
-                }
-
-                DatastoreV3Pb.Cost applyInternal()
-                {
-                    return calculateJobCost(true);
-                }
-            };
-            addTo(totalCost, eg.addJob(job));
-            deleted += deletedKeys.size();
-            written += writtenEntities.size();
-        }
-        logger.fine("committed: " + written + " puts, " + deleted + " deletes in " + liveTxn.getAllTrackers().size() + " entity groups");
-
-        return totalCost;
     }
 
     /*
@@ -1345,15 +1017,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.AllocateIdsResponse allocateIds( LocalRpcService.Status status, DatastoreV3Pb.AllocateIdsRequest req )
     {
-        try
-        {
-            this.globalLock.readLock().lock();
-            return allocateIdsImpl(req);
-        }
-        finally
-        {
-            this.globalLock.readLock().unlock();
-        }
+        return allocateIdsImpl(req);
     }
 
     /*
@@ -1363,12 +1027,25 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     {
         if (req.hasSize() && req.getSize() > MAX_BATCH_GET_KEYS)
         {
-            throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST.getValue(), "cannot get more than " + MAX_BATCH_GET_KEYS + " keys in a single call");
+            throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST.getValue(), 
+              "cannot get more than " + MAX_BATCH_GET_KEYS + " keys in a single call");
         }
 
         DatastoreV3Pb.AllocateIdsResponse response = new DatastoreV3Pb.AllocateIdsResponse();
         proxy.doPost(getAppId(), "AllocateIds", req, response);
         return response;
+    }
+
+    private String getAppId()
+    {
+        String appId = System.getProperty(APPLICATION_ID_PROPERTY);
+        return appId;
+    }
+    
+    public static enum AutoIdAllocationPolicy
+    {
+        SEQUENTIAL, 
+        SCATTERED;
     }
 
     private static long toScatteredId(long counter)
@@ -1392,73 +1069,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                 this.profiles.put(app, profile);
             }
             return profile;
-        }
-    }
-
-    Extent getOrCreateExtent( Profile profile, String kind )
-    {
-        Map extents = profile.getExtents();
-        synchronized (extents)
-        {
-            Extent e = (Extent)extents.get(kind);
-            if (e == null)
-            {
-                e = new Extent();
-                extents.put(kind, e);
-            }
-            return e;
-        }
-    }
-
-    private void load()
-    {
-        if (this.noStorage)
-        {
-            return;
-        }
-        File backingStoreFile = new File(this.backingStore);
-        String path = backingStoreFile.getAbsolutePath();
-        if (!backingStoreFile.exists())
-        {
-            logger.log(Level.INFO, "The backing store, " + path + ", does not exist. " + "It will be created.");
-
-            return;
-        }
-        try
-        {
-            long start = this.clock.getCurrentTime();
-            ObjectInputStream objectIn = new ObjectInputStream(new BufferedInputStream(new FileInputStream(this.backingStore)));
-
-            long version = -objectIn.readLong();
-            if (version < 0L)
-            {
-                this.entityIdSequential.set(-version);
-            }     
-            else 
-            {
-                this.entityIdSequential.set(objectIn.readLong());
-                this.entityIdScattered.set(objectIn.readLong());
-            }            
-
-            Map profilesOnDisk = (Map)objectIn.readObject();
-            this.profiles = profilesOnDisk;
-
-            objectIn.close();
-            long end = this.clock.getCurrentTime();
-
-            logger.log(Level.INFO, "Time to load datastore: " + (end - start) + " ms");
-        }
-        catch (FileNotFoundException e)
-        {
-            logger.log(Level.SEVERE, "Failed to find the backing store, " + path);
-        }
-        catch (IOException e)
-        {
-            logger.log(Level.INFO, "Failed to load from the backing store, " + path, e);
-        }
-        catch (ClassNotFoundException e)
-        {
-            logger.log(Level.INFO, "Failed to load from the backing store, " + path, e);
         }
     }
 
@@ -1510,140 +1120,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         target.setIndexWrites(target.getIndexWrites() + addMe.getIndexWrites());
     }
 
-    private DatastoreV3Pb.Cost calculatePutCost( boolean apply, Profile profile, Collection<OnestoreEntity.EntityProto> entities )
-    {
-        DatastoreV3Pb.Cost totalCost = new DatastoreV3Pb.Cost();
-        for (OnestoreEntity.EntityProto entityProto : entities)
-        {
-            String kind = Utils.getKind(entityProto.getKey());
-            Extent extent = getOrCreateExtent(profile, kind);
-            OnestoreEntity.EntityProto oldEntity;
-            if (apply)
-            {
-                /*
-                 * AppScale - removed type declaration from oldEntity below
-                 */
-                oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().put(entityProto.getKey(), entityProto);
-
-                LocalFullTextIndex fullTextIndex = profile.getFullTextIndex();
-                if (fullTextIndex != null) fullTextIndex.write(entityProto);
-            }
-            else
-            {
-                oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().get(entityProto.getKey());
-            }
-            addTo(totalCost, this.costAnalysis.getWriteOps(oldEntity, entityProto));
-        }
-        if (apply)
-        {
-            this.dirty = true;
-        }
-        return totalCost;
-    }
-
-    private DatastoreV3Pb.Cost calculateDeleteCost( boolean apply, Profile profile, Collection<OnestoreEntity.Reference> keys )
-    {
-        DatastoreV3Pb.Cost totalCost = new DatastoreV3Pb.Cost();
-        for (OnestoreEntity.Reference key : keys)
-        {
-            String kind = Utils.getKind(key);
-            Map extents = profile.getExtents();
-            Extent extent = (Extent)extents.get(kind);
-            if (extent != null)
-            {
-                OnestoreEntity.EntityProto oldEntity;
-                if (apply)
-                {
-                    oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().remove(key);
-                    LocalFullTextIndex fullTextIndex = profile.getFullTextIndex();
-                    if (fullTextIndex != null) fullTextIndex.delete(key);
-                }
-                else
-                {
-                    /*
-                     * AppScale - removed type declaration from oldEntity below
-                     */
-                    oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().get(key);
-                }
-                if (oldEntity != null)
-                {
-                    addTo(totalCost, this.costAnalysis.getWriteCost(oldEntity));
-                }
-            }
-        }
-        if (apply)
-        {
-            this.dirty = true;
-        }
-        return totalCost;
-    }
-
-    private class PersistDatastore implements Runnable
-    {
-        private PersistDatastore()
-        {}
-
-        public void run()
-        {
-            try
-            {
-                LocalDatastoreService.this.globalLock.writeLock().lock();
-                privilegedPersist();
-            }
-            catch (IOException e)
-            {
-                LocalDatastoreService.logger.log(Level.SEVERE, "Unable to save the datastore", e);
-            }
-            finally
-            {
-                LocalDatastoreService.this.globalLock.writeLock().unlock();
-            }
-        }
-
-        private void privilegedPersist() throws IOException
-        {
-            try
-            {
-                AccessController.doPrivileged(new PrivilegedExceptionAction()
-                {
-                    public Object run() throws IOException
-                    {
-                        LocalDatastoreService.PersistDatastore.this.persist();
-                        return null;
-                    }
-                });
-            }
-            catch (PrivilegedActionException e)
-            {
-                Throwable t = e.getCause();
-                if ((t instanceof IOException))
-                {
-                    throw ((IOException)t);
-                }
-                throw new RuntimeException(t);
-            }
-        }
-
-        private void persist() throws IOException
-        {
-            if ((LocalDatastoreService.this.noStorage) || (!LocalDatastoreService.this.dirty))
-            {
-                return;
-            }
-
-            long start = LocalDatastoreService.this.clock.getCurrentTime();
-            ObjectOutputStream objectOut = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(LocalDatastoreService.this.backingStore)));
-
-            objectOut.writeLong(LocalDatastoreService.this.entityId.get());
-            objectOut.writeObject(LocalDatastoreService.this.profiles);
-
-            objectOut.close();
-            LocalDatastoreService.this.dirty = false;
-            long end = LocalDatastoreService.this.clock.getCurrentTime();
-
-            LocalDatastoreService.logger.log(Level.INFO, "Time to persist datastore: " + (end - start) + " ms");
-        }
-    }
 
     static enum SpecialProperty
     {
@@ -1732,129 +1208,19 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
     }
 
-    static class EntityGroupTracker
-    {
-        private LocalDatastoreService.Profile.EntityGroup                       entityGroup;
-        private Long                                                            entityGroupVersion;
-        private final Map<OnestoreEntity.Reference, OnestoreEntity.EntityProto> written = new HashMap();
-        private final Set<OnestoreEntity.Reference>                             deleted = new HashSet();
-
-        EntityGroupTracker( LocalDatastoreService.Profile.EntityGroup entityGroup )
-        {
-            this.entityGroup = entityGroup;
-            this.entityGroupVersion = Long.valueOf(entityGroup.getVersion());
-        }
-
-        synchronized LocalDatastoreService.Profile.EntityGroup getEntityGroup()
-        {
-            return this.entityGroup;
-        }
-
-        synchronized void checkEntityGroupVersion()
-        {
-            if (!this.entityGroupVersion.equals(Long.valueOf(this.entityGroup.getVersion()))) throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.CONCURRENT_TRANSACTION, "too much contention on these datastore entities. please try again.");
-        }
-
-        synchronized Long getEntityGroupVersion()
-        {
-            return this.entityGroupVersion;
-        }
-
-        synchronized void addWrittenEntity( OnestoreEntity.EntityProto entity )
-        {
-            OnestoreEntity.Reference key = entity.getKey();
-            this.written.put(key, entity);
-
-            this.deleted.remove(key);
-        }
-
-        synchronized void addDeletedEntity( OnestoreEntity.Reference key )
-        {
-            this.deleted.add(key);
-
-            this.written.remove(key);
-        }
-
-        synchronized Collection<OnestoreEntity.EntityProto> getWrittenEntities()
-        {
-            return new ArrayList(this.written.values());
-        }
-
-        synchronized Collection<OnestoreEntity.Reference> getDeletedKeys()
-        {
-            return new ArrayList(this.deleted);
-        }
-
-        synchronized boolean isDirty()
-        {
-            return this.written.size() + this.deleted.size() > 0;
-        }
-    }
-
     static class LiveTxn extends LocalDatastoreService.HasCreationTime
     {
-        private final Map<LocalDatastoreService.Profile.EntityGroup, LocalDatastoreService.EntityGroupTracker> entityGroups = new HashMap();
-
         private final List<TaskQueuePb.TaskQueueAddRequest>                                                    actions      = new ArrayList();
-        private final boolean                                                                                  allowMultipleEg;
         private boolean                                                                                        failed       = false;
 
-        LiveTxn( Clock clock, boolean allowMultipleEg )
+        LiveTxn(Clock clock)
         {
             /*
              * changed super() call below to include clocl.getCurrentTime()
              */
             super(clock.getCurrentTime());
-            this.allowMultipleEg = allowMultipleEg;
         }
-
-        synchronized LocalDatastoreService.EntityGroupTracker trackEntityGroup( LocalDatastoreService.Profile.EntityGroup newEntityGroup )
-        {
-            if (newEntityGroup == null)
-            {
-                throw new NullPointerException("EntityGroup cannot be null");
-            }
-            checkFailed();
-            LocalDatastoreService.EntityGroupTracker tracker = (LocalDatastoreService.EntityGroupTracker)this.entityGroups.get(newEntityGroup);
-            if (tracker == null)
-            {
-                if (this.allowMultipleEg)
-                {
-                    if (this.entityGroups.size() >= 5)
-                    {
-                        throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "operating on too many entity groups in a single transaction.");
-                    }
-                }
-                else if (this.entityGroups.size() >= 1)
-                {
-                    LocalDatastoreService.Profile.EntityGroup entityGroup = (LocalDatastoreService.Profile.EntityGroup)this.entityGroups.keySet().iterator().next();
-                    throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "cross-group transaction need to be explicitly specified, see TransactionOptions.Builder.withXGfound both " + entityGroup + " and " + newEntityGroup);
-                }
-
-                for (LocalDatastoreService.EntityGroupTracker other : getAllTrackers())
-                {
-                    try
-                    {
-                        other.checkEntityGroupVersion();
-                    }
-                    catch (ApiProxy.ApplicationException e)
-                    {
-                        this.failed = true;
-                        throw e;
-                    }
-                }
-
-                tracker = new LocalDatastoreService.EntityGroupTracker(newEntityGroup);
-                this.entityGroups.put(newEntityGroup, tracker);
-            }
-            return tracker;
-        }
-
-        synchronized Collection<LocalDatastoreService.EntityGroupTracker> getAllTrackers()
-        {
-            return this.entityGroups.values();
-        }
-
+        
         synchronized void addActions( Collection<TaskQueuePb.TaskQueueAddRequest> newActions )
         {
             checkFailed();
@@ -1871,23 +1237,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             return new ArrayList(this.actions);
         }
 
-        synchronized boolean isDirty()
-        {
-            checkFailed();
-            for (LocalDatastoreService.EntityGroupTracker tracker : getAllTrackers())
-            {
-                if (tracker.isDirty())
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
         synchronized void close()
         {
-            for (LocalDatastoreService.EntityGroupTracker tracker : getAllTrackers())
-                tracker.getEntityGroup().removeTransaction(this);
         }
 
         private void checkFailed()
@@ -1898,273 +1249,76 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         
     class LiveQuery extends LocalDatastoreService.HasCreationTime
     {
-        private final Set<String> orderProperties;
-        private final Set<String> projectedProperties;
-        private final Set<String> groupByProperties;
-        private final DatastoreV3Pb.Query query;
-        private List<OnestoreEntity.EntityProto> entities;
-        private OnestoreEntity.EntityProto lastResult = null;
-        private int remainingOffset = 0;
+        private final DatastoreV3Pb.Query query = new DatastoreV3Pb.Query();
+        private DatastoreV3Pb.CompiledCursor lastCursor = new DatastoreV3Pb.CompiledCursor();
+        private int offset = 0;
+        private int totalCount = 0;
 
-        public LiveQuery( List<EntityProto> entities, DatastoreV3Pb.Query query, EntityProtoComparator entityComparator, Clock clock )
+        public LiveQuery(DatastoreV3Pb.Query query, int offset, DatastoreV3Pb.CompiledCursor cursor, Clock clock )
         { 
             super(clock.getCurrentTime());
-            if (entities == null) {
-                throw new NullPointerException("entities cannot be null");
+            this.query.copyFrom(query);
+
+            // This is the number of entities this query has seen so far.
+            this.offset = offset;
+
+            this.lastCursor.copyFrom(cursor);
+            if (query.hasCount()) {
+              this.totalCount = Integer.valueOf(this.query.getCount());
             }
-
-            this.query = query;
-            this.remainingOffset = query.getOffset();
-
-            this.orderProperties = new HashSet();
-            for (DatastorePb.Query.Order order : entityComparator.getAdjustedOrders()) {
-                if (!"__key__".equals(order.getProperty())) {
-                    this.orderProperties.add(order.getProperty());
-                }
+            else if (query.hasLimit()) {
+              this.totalCount = Integer.valueOf(this.query.getLimit());
             }
-            this.groupByProperties = Sets.newHashSet(query.groupByPropertyNames());
-            this.projectedProperties = Sets.newHashSet(query.propertyNames());
-
-            if (this.groupByProperties.isEmpty()) {
-                this.entities = Lists.newArrayList(entities);
-            } else {
-                Set distinctEntities = Sets.newHashSet();
-                List results = Lists.newArrayList();
-                for (OnestoreEntity.EntityProto entity : entities) {
-                    OnestoreEntity.EntityProto groupByResult = new OnestoreEntity.EntityProto();
-                    for (OnestoreEntity.Property prop : entity.propertys()) {
-                        if (this.groupByProperties.contains(prop.getName())) {
-                            groupByResult.addProperty().setName(prop.getName()).setValue(prop.getValue());
-                        }
-                    }
-                    if (distinctEntities.add(groupByResult)) {
-                       results.add(entity);
-                    }
-                }
-                this.entities = results;
-            }
-
-            DecompiledCursor startCursor = new DecompiledCursor(query.getCompiledCursor());
-            this.lastResult = startCursor.getCursorEntity();
-            int endCursorPos = new DecompiledCursor(query.getEndCompiledCursor()).getPosition(entityComparator, this.entities.size());
-
-            int startCursorPos = Math.min(endCursorPos, startCursor.getPosition(entityComparator, 0));
-
-            if (endCursorPos < this.entities.size()) {
-                this.entities.subList(endCursorPos, this.entities.size()).clear();
-            }
-            this.entities.subList(0, startCursorPos).clear();
-
-            if (query.hasLimit()) {
-                int toIndex = query.getLimit() + query.getOffset();
-                if (toIndex < this.entities.size())
-                    this.entities.subList(toIndex, this.entities.size()).clear();
+            else {
+              this.totalCount = Integer.MAX_VALUE;
             }
         }
 
-    private int offsetResults(int offset)
-    {
-      int realOffset = Math.min(Math.min(offset, this.entities.size()), 300);
-      if (realOffset > 0) {
-        this.lastResult = ((OnestoreEntity.EntityProto)this.entities.get(realOffset - 1));
-        this.entities.subList(0, realOffset).clear();
-        this.remainingOffset -= realOffset;
-      }
-      return realOffset;
-    }
-
-    public DatastoreV3Pb.QueryResult nextResult(Integer offset, Integer count, boolean compile) {
-      DatastoreV3Pb.QueryResult result = new DatastoreV3Pb.QueryResult();
-      if (count == null) {
-        if (this.query.hasCount())
-          count = Integer.valueOf(this.query.getCount());
-        else {
-          count = Integer.valueOf(20);
-        }
-      }
-      if (this.query.isPersistOffset()) {
-        if ((offset != null) && (offset.intValue() != this.remainingOffset)) {
-          throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "offset mismatch");
-        }
-        offset = Integer.valueOf(this.remainingOffset);
-      } else if (offset == null) {
-        offset = Integer.valueOf(0);
-      }
-      if (offset.intValue() == result.getSkippedResults())
-      {
-        result.mutableResults().addAll(removeEntities(Math.min(300, count.intValue())));
-      }
-      result.setMoreResults(this.entities.size() > 0);
-      result.setKeysOnly(this.query.isKeysOnly());
-      if (compile) {
-        result.getMutableCompiledCursor().addPosition(compilePosition());
-      }
-      return result;
-    }
-
-    private List<OnestoreEntity.EntityProto> removeEntities(int count)
-    {
-      List subList = this.entities.subList(0, Math.min(count, this.entities.size()));
-
-      if (subList.size() > 0)
-      {
-        this.lastResult = ((OnestoreEntity.EntityProto)subList.get(subList.size() - 1));
-      }
-
-      List results = new ArrayList(subList.size());
-      for (OnestoreEntity.EntityProto entity : (List<OnestoreEntity.EntityProto>)subList)
-      {
-        OnestoreEntity.EntityProto result;
-        Set seenProps;
-        if (!this.projectedProperties.isEmpty()) {
-          result = new OnestoreEntity.EntityProto();
-          result.getMutableKey().copyFrom(entity.getKey());
-          result.getMutableEntityGroup();
-          seenProps = Sets.newHashSetWithExpectedSize(this.query.propertyNameSize());
-          for (OnestoreEntity.Property prop : entity.propertys()) {
-            if (this.projectedProperties.contains(prop.getName()))
-            {
-              if (!seenProps.add(prop.getName())) {
-                throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR, "LocalDatstoreServer produced invalude results.");
-              }
-
-              result.addProperty().setName(prop.getName()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).setMultiple(false).getMutableValue().copyFrom(prop.getValue());
-            }
-
-          }
-
-        }
-        else if (this.query.isKeysOnly()) {
-          result = new OnestoreEntity.EntityProto();
-          result.getMutableKey().copyFrom(entity.getKey());
-          result.getMutableEntityGroup();
-        } else {
-          result = (OnestoreEntity.EntityProto)entity.clone();
-        }
-        LocalDatastoreService.this.processEntityForSpecialProperties(result, false);
-        results.add(result);
-      }
-      subList.clear();
-      return results;
-    }
-
-    private OnestoreEntity.EntityProto decompilePosition(DatastoreV3Pb.CompiledCursor.Position position) {
-      OnestoreEntity.EntityProto result = new OnestoreEntity.EntityProto();
-      if (position.hasKey()) {
-        if ((this.query.hasKind()) && (!this.query.getKind().equals(((OnestoreEntity.Path.Element)Iterables.getLast(position.getKey().getPath().elements())).getType())))
+        public int getCount()
         {
-          throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "Cursor does not match query.");
+          return this.totalCount;
         }
-        result.setKey(position.getKey());
-      }
 
-      Set cursorProperties = this.groupByProperties.isEmpty() ? this.orderProperties : this.groupByProperties;
-
-      Set remainingProperties = new HashSet(cursorProperties);
-      for (DatastoreV3Pb.CompiledCursor.PositionIndexValue prop : position.indexValues()) {
-        if (!cursorProperties.contains(prop.getProperty()))
+        public void setOffset(int offset)
         {
-          throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "Cursor does not match query.");
-        }
-        remainingProperties.remove(prop.getProperty());
-        result.addProperty().setName(prop.getProperty()).setValue(prop.getValue());
-      }
-
-      if (!remainingProperties.isEmpty()) {
-        throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "Cursor does not match query.");
-      }
-      return result;
-    }
-
-    private DatastoreV3Pb.CompiledCursor.Position compilePosition()
-    {
-      DatastoreV3Pb.CompiledCursor.Position position = new DatastoreV3Pb.CompiledCursor.Position();
-
-      if (this.lastResult != null)
-      {
-        Set cursorProperties;
-        if (this.groupByProperties.isEmpty()) {
-          cursorProperties = Sets.newHashSet(this.orderProperties);
-
-          cursorProperties.add("__key__");
-          position.setKey(this.lastResult.getKey());
-        } else {
-          cursorProperties = this.groupByProperties;
+          this.offset = offset;
         }
 
-        for (OnestoreEntity.Property prop : this.lastResult.propertys()) {
-          if (cursorProperties.contains(prop.getName())) {
-            position.addIndexValue().setProperty(prop.getName()).setValue(prop.getValue());
-          }
-        }
-
-        position.setStartInclusive(false);
-      }
-
-      return position;
-    }
-
-    public DatastoreV3Pb.CompiledQuery compileQuery() {
-      DatastoreV3Pb.CompiledQuery result = new DatastoreV3Pb.CompiledQuery();
-      DatastoreV3Pb.CompiledQuery.PrimaryScan scan = result.getMutablePrimaryScan();
-
-      scan.setIndexNameAsBytes(this.query.toByteArray());
-
-      return result;
-    }
-
-        class DecompiledCursor
+        public int getOffset()
         {
-            final OnestoreEntity.EntityProto cursorEntity;
-            final boolean                    inclusive;
+          return this.offset;
+        }
 
-            public DecompiledCursor( DatastoreV3Pb.CompiledCursor compiledCursor )
-            {
-                if ((compiledCursor == null) || (compiledCursor.positionSize() == 0))
-                {
-                    this.cursorEntity = null;
-                    this.inclusive = false;
-                    return;
-                }
+        public DatastoreV3Pb.Query getQuery()
+        {
+          return this.query;
+        }
 
-                DatastoreV3Pb.CompiledCursor.Position position = compiledCursor.getPosition(0);
-                if ((!position.hasStartKey()) && (!position.hasKey()) && (position.indexValueSize() <= 0))
-                {
-                    this.cursorEntity = null;
-                    this.inclusive = false;
-                    return;
-                }
+        public DatastoreV3Pb.CompiledCursor getCompiledCursor()
+        {
+          return this.lastCursor;
+        }
+       
+        public void setCompiledCursor(DatastoreV3Pb.CompiledCursor cursor)
+        {
+          this.lastCursor.copyFrom(cursor); 
+        }
 
-                this.cursorEntity = LocalDatastoreService.LiveQuery.this.decompilePosition(position);
-                this.inclusive = position.isStartInclusive();
-            }
-
-            public int getPosition( EntityProtoComparators.EntityProtoComparator entityComparator, int defaultValue )
-            {
-                if (this.cursorEntity == null)
-                {
-                    return defaultValue;
-                }
-
-                int loc = Collections.binarySearch(LocalDatastoreService.LiveQuery.this.entities, this.cursorEntity, entityComparator);
-                if (loc < 0)
-                {
-                    return -(loc + 1);
-                }
-                return this.inclusive ? loc : loc + 1;
-            }
-
-            public OnestoreEntity.EntityProto getCursorEntity()
-            {
-                return this.cursorEntity;
-            }
+        public DatastoreV3Pb.CompiledQuery compileQuery() 
+        {
+          DatastoreV3Pb.CompiledQuery result = new DatastoreV3Pb.CompiledQuery();
+          DatastoreV3Pb.CompiledQuery.PrimaryScan scan = result.getMutablePrimaryScan();
+ 
+          scan.setIndexNameAsBytes(this.query.toByteArray());
+     
+          return result;
         }
     }
-
+ 
     static class HasCreationTime
     {
         private final long creationTime;
-
+ 
         HasCreationTime( long creationTime )
         {
             this.creationTime = creationTime;
@@ -2176,105 +1330,15 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
     }
 
-    static class Extent implements Serializable
-    {
-        private Map<OnestoreEntity.Reference, OnestoreEntity.EntityProto> entities = new LinkedHashMap();
-
-        public Map<OnestoreEntity.Reference, OnestoreEntity.EntityProto> getEntities()
-        {
-            return this.entities;
-        }
-    }
 
     static class Profile implements Serializable
     {
-        private final Map<String, LocalDatastoreService.Extent>      extents = Collections.synchronizedMap(new HashMap());
-        private transient Map<OnestoreEntity.Path, EntityGroup>      groups;
-        private transient Set<OnestoreEntity.Path>                   groupsWithUnappliedJobs;
         private transient Map<Long, LocalDatastoreService.LiveQuery> queries;
         private transient Map<Long, LocalDatastoreService.LiveTxn>   txns;
-        private final LocalFullTextIndex                             fullTextIndex;
-
-        public synchronized List<OnestoreEntity.EntityProto> getAllEntities()
-        {
-            List entities = new ArrayList();
-            for (LocalDatastoreService.Extent extent : this.extents.values())
-            {
-                entities.addAll(extent.getEntities().values());
-            }
-            return entities;
-        }
 
         public Profile()
         {
-            this.fullTextIndex = createFullTextIndex();
-        }
-
-        private LocalFullTextIndex createFullTextIndex()
-        {
-            Class indexClass = getFullTextIndexClass();
-
-            if (indexClass == null)
-            {
-                return null;
-            }
-            try
-            {
-                return (LocalFullTextIndex)indexClass.newInstance();
-            }
-            catch (InstantiationException e)
-            {
-                throw new RuntimeException(e);
-            }
-            catch (IllegalAccessException e)
-            {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private Class<LocalFullTextIndex> getFullTextIndexClass()
-        {
-            try
-            {
-                /*
-                 * AppScale - added cast below
-                 */
-                return (Class<LocalFullTextIndex>)Class.forName("com.google.appengine.api.datastore.dev.LuceneFullTextIndex");
-            }
-            catch (ClassNotFoundException e)
-            {
-                return null;
-            }
-            catch (NoClassDefFoundError e)
-            {
-            }
-            return null;
-        }
-
-        public Map<String, LocalDatastoreService.Extent> getExtents()
-        {
-            return this.extents;
-        }
-
-        public synchronized EntityGroup getGroup( OnestoreEntity.Path path )
-        {
-            Map map = getGroups();
-            EntityGroup group = (EntityGroup)map.get(path);
-            if (group == null)
-            {
-                group = new EntityGroup(path);
-                map.put(path, group);
-            }
-            return group;
-        }
-
-        private synchronized void groom()
-        {
-            for (OnestoreEntity.Path path : new HashSet<OnestoreEntity.Path>(getGroupsWithUnappliedJobs()))
-            {
-                EntityGroup eg = getGroup(path);
-                eg.maybeRollForwardUnappliedJobs();
-            }
+            
         }
 
         public synchronized LocalDatastoreService.LiveQuery getQuery( long cursor )
@@ -2308,11 +1372,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             return (LocalDatastoreService.LiveTxn)LocalDatastoreService.safeGetFromExpiringMap(getTxns(), handle, "transaction has expired or is invalid");
         }
 
-        public LocalFullTextIndex getFullTextIndex()
-        {
-            return this.fullTextIndex;
-        }
-
         public synchronized void addTxn( long handle, LocalDatastoreService.LiveTxn txn )
         {
             getTxns().put(Long.valueOf(handle), txn);
@@ -2334,195 +1393,5 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             }
             return this.txns;
         }
-
-        private synchronized Map<OnestoreEntity.Path, EntityGroup> getGroups()
-        {
-            if (this.groups == null)
-            {
-                this.groups = new LinkedHashMap();
-            }
-            return this.groups;
-        }
-
-        private synchronized Set<OnestoreEntity.Path> getGroupsWithUnappliedJobs()
-        {
-            if (this.groupsWithUnappliedJobs == null)
-            {
-                this.groupsWithUnappliedJobs = new LinkedHashSet();
-            }
-            return this.groupsWithUnappliedJobs;
-        }
-
-        class EntityGroup
-        {
-            private final OnestoreEntity.Path                                                       path;
-            private final AtomicLong                                                                version       = new AtomicLong();
-            private final WeakHashMap<LocalDatastoreService.LiveTxn, LocalDatastoreService.Profile> snapshots     = new WeakHashMap();
-
-            private final LinkedList<LocalDatastoreJob>                                             unappliedJobs = new LinkedList();
-
-            private EntityGroup( OnestoreEntity.Path path )
-            {
-                this.path = path;
-            }
-
-            public long getVersion()
-            {
-                return this.version.get();
-            }
-
-            public void incrementVersion()
-            {
-                long oldVersion = this.version.getAndIncrement();
-                LocalDatastoreService.Profile snapshot = null;
-                for (LocalDatastoreService.LiveTxn txn : this.snapshots.keySet())
-                    if (txn.trackEntityGroup(this).getEntityGroupVersion().longValue() == oldVersion)
-                    {
-                        if (snapshot == null)
-                        {
-                            snapshot = takeSnapshot();
-                        }
-                        this.snapshots.put(txn, snapshot);
-                    }
-            }
-
-            public OnestoreEntity.EntityProto get( LocalDatastoreService.LiveTxn liveTxn, OnestoreEntity.Reference key, boolean eventualConsistency )
-            {
-                if (!eventualConsistency)
-                {
-                    rollForwardUnappliedJobs();
-                }
-                LocalDatastoreService.Profile profile = getSnapshot(liveTxn);
-                Map extents = profile.getExtents();
-                LocalDatastoreService.Extent extent = (LocalDatastoreService.Extent)extents.get(Utils.getKind(key));
-                if (extent != null)
-                {
-                    Map entities = extent.getEntities();
-                    return (OnestoreEntity.EntityProto)entities.get(key);
-                }
-                return null;
-            }
-
-            public LocalDatastoreService.EntityGroupTracker addTransaction( LocalDatastoreService.LiveTxn txn )
-            {
-                LocalDatastoreService.EntityGroupTracker tracker = txn.trackEntityGroup(this);
-                if (!this.snapshots.containsKey(txn))
-                {
-                    this.snapshots.put(txn, null);
-                }
-                return tracker;
-            }
-
-            public void removeTransaction( LocalDatastoreService.LiveTxn txn )
-            {
-                this.snapshots.remove(txn);
-            }
-
-            private LocalDatastoreService.Profile getSnapshot( LocalDatastoreService.LiveTxn txn )
-            {
-                if (txn == null)
-                {
-                    return LocalDatastoreService.Profile.this;
-                }
-                LocalDatastoreService.Profile snapshot = (LocalDatastoreService.Profile)this.snapshots.get(txn);
-                if (snapshot == null)
-                {
-                    return LocalDatastoreService.Profile.this;
-                }
-                return snapshot;
-            }
-
-            private LocalDatastoreService.Profile takeSnapshot()
-            {
-                try
-                {
-                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                    ObjectOutputStream oos = new ObjectOutputStream(bos);
-                    oos.writeObject(LocalDatastoreService.Profile.this);
-                    oos.close();
-                    ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-                    ObjectInputStream ois = new ObjectInputStream(bis);
-                    return (LocalDatastoreService.Profile)ois.readObject();
-                }
-                catch (IOException ex)
-                {
-                    throw new RuntimeException("Unable to take transaction snapshot.", ex);
-                }
-                catch (ClassNotFoundException ex)
-                {
-                    throw new RuntimeException("Unable to take transaction snapshot.", ex);
-                }
-            }
-
-            public String toString()
-            {
-                return this.path.toString();
-            }
-
-            public DatastoreV3Pb.Cost addJob( LocalDatastoreJob job )
-            {
-                this.unappliedJobs.addLast(job);
-                LocalDatastoreService.Profile.this.getGroupsWithUnappliedJobs().add(this.path);
-                return maybeRollForwardUnappliedJobs();
-            }
-
-            public void rollForwardUnappliedJobs()
-            {
-                if (!this.unappliedJobs.isEmpty())
-                {
-                    for (LocalDatastoreJob applyJob : this.unappliedJobs)
-                    {
-                        applyJob.apply();
-                    }
-                    this.unappliedJobs.clear();
-                    LocalDatastoreService.Profile.this.getGroupsWithUnappliedJobs().remove(this.path);
-                    LocalDatastoreService.logger.fine("Rolled forward unapplied jobs for " + this.path);
-                }
-            }
-
-            public DatastoreV3Pb.Cost maybeRollForwardUnappliedJobs()
-            {
-                int jobsAtStart = this.unappliedJobs.size();
-                LocalDatastoreService.logger.fine(String.format("Maybe rolling forward %d unapplied jobs for %s.", new Object[] { Integer.valueOf(jobsAtStart), this.path }));
-
-                int applied = 0;
-                DatastoreV3Pb.Cost totalCost = new DatastoreV3Pb.Cost();
-                for (Iterator iter = this.unappliedJobs.iterator(); iter.hasNext();)
-                {
-                    LocalDatastoreJob.TryApplyResult result = ((LocalDatastoreJob)iter.next()).tryApply();
-                    LocalDatastoreService.addTo(totalCost, result.cost);
-                    if (!result.applied) break;
-                    iter.remove();
-                    applied++;
-                }
-
-                if (this.unappliedJobs.isEmpty())
-                {
-                    LocalDatastoreService.Profile.this.getGroupsWithUnappliedJobs().remove(this.path);
-                }
-                LocalDatastoreService.logger.fine(String.format("Rolled forward %d of %d jobs for %s", new Object[] { Integer.valueOf(applied), Integer.valueOf(jobsAtStart), this.path }));
-
-                return totalCost;
-            }
-
-            public Key pathAsKey()
-            {
-                OnestoreEntity.Reference entityGroupRef = new OnestoreEntity.Reference();
-                entityGroupRef.setPath(this.path);
-                return LocalCompositeIndexManager.KeyTranslator.createFromPb(entityGroupRef);
-            }
-        }
-    }
-    
-    private String getAppId()
-    {
-        String appId = System.getProperty(APPLICATION_ID_PROPERTY);
-        return appId;
-    }
-    
-    public static enum AutoIdAllocationPolicy
-    {
-        SEQUENTIAL, 
-        SCATTERED;
     }
 }

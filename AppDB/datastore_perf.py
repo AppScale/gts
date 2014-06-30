@@ -1,4 +1,3 @@
-#Navraj Chohan
 import sys
 import math
 import appscale_datastore

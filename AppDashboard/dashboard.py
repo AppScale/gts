@@ -1005,7 +1005,7 @@ class InstanceStats(AppDashboard):
     data = json.loads(encoded_data)
 
     for instance in data:
-      # TODO(cgb): Consider only doing a put if it doesn't exist
+      # TODO: Consider only doing a put if it doesn't exist
       instance = InstanceInfo(id = instance['appid'] + instance['host'] + \
         str(instance['port']),
         appid = instance['appid'],

@@ -1,6 +1,4 @@
 #!/usr/bin/ruby -w
-# Programmer: Chris Bunch
-
 
 require 'openssl'
 require 'soap/rpc/driver'
@@ -233,7 +231,7 @@ class AppControllerClient
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_role") { @conn.add_role(role, @secret) }
   end
 
-  # CGB - removed timeout here - removing cassandra slave requires it to port
+  # Removed timeout here - removing cassandra slave requires it to port
   # the data it owns to somebody else, which takes ~30 seconds in the trivial
   # case
   def remove_role(role)

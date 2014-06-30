@@ -1,5 +1,3 @@
-# Programmer: Navraj Chohan <nlake44@gmail.com>
-
 import re
 
 # These are invalid characters for an application name

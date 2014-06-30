@@ -118,7 +118,7 @@ class AppDashboardHelper():
 
 
   # The date and time that user tokens expire.
-  # TODO(cgb): Since this value corresponds to a date in the past, investigate
+  # TODO: Since this value corresponds to a date in the past, investigate
   # whether or not we still need these tokens, and remove them if we don't.
   TOKEN_EXPIRATION = "20121231120000"
 
@@ -556,7 +556,7 @@ class AppDashboardHelper():
       if result != 'true':
         raise AppHelperException(result)
   
-      # TODO(cgb): We may not even be using this token since the switch to
+      # TODO: We may not even be using this token since the switch to
       # full proxy nginx. Investigate this.
       self.create_token(email, email)
       self.set_appserver_cookie(email, self.get_user_app_list(email), response)

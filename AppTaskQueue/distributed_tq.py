@@ -18,6 +18,7 @@ import taskqueue_server
 import tq_lib
 
 from tq_config import TaskQueueConfig
+from tq_lib import TASK_STATES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
@@ -47,6 +48,10 @@ class TaskName(db.Model):
   """
   STORED_KIND_NAME = "__task_name__"
   timestamp = db.DateTimeProperty(auto_now_add=True)
+  queue = db.StringProperty(required=True)
+  state = db.StringProperty(required=True)
+  endtime = db.DateTimeProperty()
+  app_id = db.StringProperty(required=True)
 
   @classmethod
   def kind(cls):
@@ -259,7 +264,7 @@ class DistributedTaskQueue():
     return json.dumps(json_response)
 
   def fetch_queue_stats(self, app_id, http_data):
-    """ 
+    """ Gets statistics about tasks in queues.
 
     Args:
       app_id: The application ID.
@@ -267,13 +272,16 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.\
-               TaskQueueFetchQueueStatsRequest(http_data)
+      TaskQueueFetchQueueStatsRequest(http_data)
     response = taskqueue_service_pb.\
-               TaskQueueFetchQueueStatsResponse_QueueStats()
-    response.set_num_tasks(0)
-    response.set_oldest_eta_usec(0)
+      TaskQueueFetchQueueStatsResponse()
+    for queue in request.queue_name_list():
+      stats_response = response.add_queuestats()
+      count = TaskName.all().filter("state =", TASK_STATES.QUEUED).\
+        filter("queue =", queue).filter("app_id =", app_id).count()
+      stats_response.set_num_tasks(count)
+      stats_response.set_oldest_eta_usec(-1)
     return (response.Encode(), 0, "")
 
   def purge_queue(self, app_id, http_data):
@@ -456,7 +464,8 @@ class DistributedTaskQueue():
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
     else:
-      new_name = TaskName(key_name=task_name)
+      new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+        queue=request.queue_name(), app_id=request.app_id())
       logging.debug("Creating entity {0}".format(str(new_name)))
       try:
         db.put(new_name)

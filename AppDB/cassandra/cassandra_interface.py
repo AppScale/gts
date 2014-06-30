@@ -43,7 +43,7 @@ KEYSPACE = "Keyspace1"
 STANDARD_COL_FAM = "Standard1"
 
 # Default time to try to connect to a node in cassandra.
-CONNECTION_TIMEOUT = 1.0
+CONNECTION_TIMEOUT = 0.5
 
 # Uncomment this to enable logging for pycassa.
 #log = pycassa.PycassaLogger()
