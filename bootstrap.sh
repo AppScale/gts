@@ -101,8 +101,8 @@ echo
 sleep 5
 apt-get install -y git
 if [ -d appscale ]; then
-        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' appscale/VERSION)"
-        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\2/gp' appscale/VERSION)"
+        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' appscale/VERSION)"
+        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' appscale/VERSION)"
         if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
                 echo "Cannot determine version of AppScale!"
                 exit 1
