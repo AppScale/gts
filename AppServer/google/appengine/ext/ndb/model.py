@@ -777,9 +777,9 @@ class Property(ModelAttribute):
     if verbose_name is not None:
       self._verbose_name = verbose_name
     if (bool(self._repeated) +
-        bool(self._required) +
-        (self._default is not None)) > 1:
-      raise ValueError('repeated, required and default are mutally exclusive.')
+      (bool(self._required) or
+      (self._default is not None))) > 1:
+      raise ValueError('repeated is incompatible with required or default')
     if choices is not None:
       if not isinstance(choices, (list, tuple, set, frozenset)):
         raise TypeError('choices must be a list, tuple or set; received %r' %
@@ -1244,8 +1244,8 @@ class Property(ModelAttribute):
 
     This returns False if a value is stored but it is None.
     """
-    return not self._required or (self._has_value(entity) and
-                                  self._get_value(entity) is not None)
+    return not self._required or ((self._has_value(entity) or self._default)
+                                  and self._get_value(entity) is not None)
 
   def __get__(self, entity, unused_cls=None):
     """Descriptor protocol: get the value from the entity."""
