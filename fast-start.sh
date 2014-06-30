@@ -27,32 +27,27 @@ if [ ! -d appscale ]; then
     exit 1
 fi
 
-# Get the public IP of this instance.
+# Get the public and private IP of this instance.
 PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
 if [ -z "$PUBLIC_IP" ]; then
     echo "Cannot get public IP of instance!"
     exit 1
 fi
+PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
+if [ -z "$PRIVATE_IP" ]; then
+    echo "Cannot get private IP of instance!"
+    exit 1
+fi
 
-# Create a virtual interface with this public IP.
-for x in eth0 em0 eth1 em1 ; do
-    if ifconfig $x > /dev/null 2> /dev/null; then
-        if ! ifconfig $x:0 $PUBLIC_IP > /dev/null 2> /dev/null ; then
-            echo "Couldn't set an alias for the public IP!"
-            exit 1
-        fi
-        break
-    fi
-done
-
-# create simple AppScalefile
+# This is to create the minimum AppScalefile.
 echo "ips_layout :" > AppScalefile
-echo "  controller : ${PUBLIC_IP}" >> AppScalefile
+echo "  controller : ${PRIVATE_IP}" >> AppScalefile
+echo "login : ${PUBLIC_IP}" >> AppScalefile
 echo "test : True" >> AppScalefile
 
-# allow root login
+# Let's allow root login (appscale will need it to come up).
 cat .ssh/id_rsa.pub >> .ssh/authorized_keys
-ssh-keyscan $PUBLIC_IP 2> /dev/null >> .ssh/known_hosts
+ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
 
-# bring appscale up
+# Start AppScale.
 appscale up
