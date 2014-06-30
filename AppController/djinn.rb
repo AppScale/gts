@@ -3795,7 +3795,7 @@ class Djinn
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
-      if !slaves_ip.include? node.private_ip
+      if !slave_ips.include? node.private_ip
         slave_ips << node.private_ip if node.jobs.include?("db_slave")
       end
     }
