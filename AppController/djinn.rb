@@ -2532,7 +2532,7 @@ class Djinn
         Timeout.timeout(10) do
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
           json_state = ZKInterface.get_appcontroller_state()
-        end
+      end
       rescue Exception => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
@@ -2691,7 +2691,9 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        zookeeper_data['locations'] << node.private_ip
+        if !zookeeper_data['locations'].include? node.private_ip 
+          zookeeper_data['locations'] << node.private_ip
+        end
       end
     }
 
@@ -4140,7 +4142,7 @@ HOSTS
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
+    start_cmd = "/usr/bin/memcached -m 512 -p 11211 -u root"
     stop_cmd = "/usr/bin/pkill memcached"
     MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
