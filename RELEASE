@@ -29,7 +29,7 @@ Highlights of features/bugs in this release:
 - Fixed critical bug with nginx failing to be reloaded
 - Experimental OpenStack agent (auto scaling)
 
-The current version is 1.14.0, released on February 10, 2014
+AppScale version 1.14.0, released on February 10, 2014
 Bugs fixed in this release:
 - Removed "s~" character from app IDs (not used in AppScale) (#1428)
 - Updated message for MapReduce library (#1427)

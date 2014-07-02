@@ -92,7 +92,7 @@ cd $HOME
 
 # Let's pull the github repositories.
 echo
-echo "Will be using the follogin github repo:"
+echo "Will be using the following github repo:"
 echo "git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}"
 echo "git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
@@ -101,8 +101,8 @@ echo
 sleep 5
 apt-get install -y git
 if [ -d appscale ]; then
-        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\1/gp' appscale/VERSION)"
-        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\.\([0-9][0-9]\)\.[0-9]/\2/gp' appscale/VERSION)"
+        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' appscale/VERSION)"
+        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' appscale/VERSION)"
         if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
                 echo "Cannot determine version of AppScale!"
                 exit 1

@@ -2388,7 +2388,9 @@ class Djinn
   def update_firewall()
     all_ips = []
     @nodes.each { |node|
-      all_ips << node.private_ip
+      if !all_ips.include? node.private_ip
+        all_ips << node.private_ip
+      end
     }
     all_ips << "\n"
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
@@ -2530,7 +2532,7 @@ class Djinn
         Timeout.timeout(10) do
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
           json_state = ZKInterface.get_appcontroller_state()
-        end
+      end
       rescue Exception => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
@@ -2689,7 +2691,9 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        zookeeper_data['locations'] << node.private_ip
+        if !zookeeper_data['locations'].include? node.private_ip 
+          zookeeper_data['locations'] << node.private_ip
+        end
       end
     }
 
@@ -3791,7 +3795,9 @@ class Djinn
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
-      slave_ips << node.private_ip if node.jobs.include?("db_slave")
+      if !slave_ips.include? node.private_ip
+        slave_ips << node.private_ip if node.jobs.include?("db_slave")
+      end
     }
 
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
@@ -4105,7 +4111,7 @@ class Djinn
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
+    start_cmd = "/usr/bin/memcached -m 64 -p 11211 -u root"
     stop_cmd = "/usr/bin/pkill memcached"
     MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end

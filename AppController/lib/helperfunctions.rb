@@ -34,7 +34,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.14.0"
+  VER_NUM = "2.0.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -1185,7 +1185,7 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Djinn.log_error("Failed to load YAML file to parse static data")
+      Djinn.log_info("No YAML for static data. Looking for an XML file.")
       return secure_handlers
     end
 
