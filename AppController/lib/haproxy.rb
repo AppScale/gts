@@ -38,11 +38,11 @@ module HAProxy
 
   # Options to used to configure servers.
   # For more information see http://haproxy.1wt.eu/download/1.3/doc/configuration.txt
-  SERVER_OPTIONS = "maxconn 1 check inter 20000 fastinter 1000 fall 1"
+  SERVER_OPTIONS = "maxconn 1 check"
 
 
   # HAProxy Configuration to use for a thread safe gae app.
-  THREADED_SERVER_OPTIONS = "maxconn 7 check inter 20000 fastinter 1000 fall 1"
+  THREADED_SERVER_OPTIONS = "maxconn 7 check"
   
 
   # The first port that haproxy will bind to for App Engine apps.
