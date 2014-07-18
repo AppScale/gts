@@ -31,6 +31,7 @@ import socket
 import sys
 import urllib
 import urllib2
+import urlparse
 
 from google.appengine.tools import dev_appserver_login
 
@@ -588,6 +589,9 @@ class AbstractRpcServer(object):
                                             "HOSTED")
               self._Authenticate()
             elif auth_domain == 'appscale':
+              loc = urlparse.urlparse(loc)
+              self.scheme = loc.scheme
+              self.host = loc.netloc
               self._AppScaleAuthenticate()
             elif loc.startswith("http://%s/_ah/login" % (self.host,)):
               self._DevAppServerAuthenticate()
@@ -674,7 +678,7 @@ To learn more, see https://developers.google.com/appengine/kb/general#rpcssl""")
     opener.add_handler(urllib2.UnknownHandler())
     opener.add_handler(urllib2.HTTPHandler())
     opener.add_handler(urllib2.HTTPDefaultErrorHandler())
-    opener.add_handler(fancy_urllib.FancyHTTPSHandler())
+    opener.add_handler(urllib2.HTTPSHandler())
     opener.add_handler(urllib2.HTTPErrorProcessor())
 
     auth_domain = ''
