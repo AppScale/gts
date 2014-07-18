@@ -674,7 +674,7 @@ To learn more, see https://developers.google.com/appengine/kb/general#rpcssl""")
     opener.add_handler(urllib2.UnknownHandler())
     opener.add_handler(urllib2.HTTPHandler())
     opener.add_handler(urllib2.HTTPDefaultErrorHandler())
-    opener.add_handler(fancy_urllib.FancyHTTPSHandler())
+    opener.add_handler(urllib2.HTTPSHandler())
     opener.add_handler(urllib2.HTTPErrorProcessor())
 
     auth_domain = ''
