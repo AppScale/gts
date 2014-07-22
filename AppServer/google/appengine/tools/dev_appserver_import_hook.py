@@ -850,6 +850,7 @@ class HardenedModulesHook(object):
     '_json',
     '_symtable',
     '_yaml',
+    'future_builtins',
     'parser',
     'strop',
 
