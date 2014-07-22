@@ -36,9 +36,10 @@
                       This page allows you to upload applications to AppScale.
                       Applications must be in either the .zip format or the
                       .tar.gz format. To package your application, run
-                      <em>"tar -czf app.tar.gz ."</em> in the directory
-                      containing the application's app.yaml file (for Python,
-                      Go, or PHP) or the WAR directory (for Java).
+                      <em>"tar --exclude='app.tar.gz' -czvf app.tar.gz *"</em> 
+                      in the directory containing the application's app.yaml 
+                      file (for Python, Go, or PHP) or the WAR directory (for 
+                      Java).
                       </div>
                       <br />
                       <p>
