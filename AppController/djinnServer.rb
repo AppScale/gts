@@ -1,6 +1,6 @@
 #!/usr/bin/ruby -w
 
-
+$VERBOSE = nil
 # Imports within Ruby's standard libraries
 require 'soap/rpc/httpserver'
 require 'webrick/https'
