@@ -1,4 +1,4 @@
-![AppScale Logo](http://en.wikipedia.org/wiki/AppScale#mediaviewer/File:AppScale_Systems_Logo.png)
+![AppScale Logo](http://upload.wikimedia.org/wikipedia/commons/7/74/AppScale_Systems_Logo.png)
 
 AppScale is a platform that allows users to deploy and host their 
 own Google App Engine applications. It executes automatically over 
