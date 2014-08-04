@@ -9,10 +9,11 @@ APPS_ID=""
 
 usage() {
         echo 
-        echo "Usage: $0 [app-id ...]"
+        echo "Usage: $0 [app-id ...] allowed-ip"
         echo 
         echo "Enable the dataviewer for app-id. If no app-id is specified, enable the viewer for all apps. " 
-        echo "WARNING: the datastore viewer is not protected! Everyone can browse your data"
+        echo "WARNING: the datastore viewer is not protected! Everyone can browse your data."
+        echo "WARNING: restricting by IP should be used judiciously."
         echo
         echo "Options:"
         echo "     -h        this message"
@@ -20,6 +21,11 @@ usage() {
 }
 
 while [ $# -gt 0 ]; do
+        if [ -n "$2" ]; then
+                IP="$2"
+                shift
+                continue
+        fi
         if [ "$1" = "-h" -o "$1" = "-help" -o "$1" = "--help" ]; then
                 usage
                 exit 1
@@ -76,6 +82,8 @@ server {
     listen $VIEWER_PORT;
     server_name datastore_viewer_server;
     location / {
+      allow $IP;
+      deny all;
       proxy_pass http://datastore_viewer_$VIEWER_PORT;
     }
 }
