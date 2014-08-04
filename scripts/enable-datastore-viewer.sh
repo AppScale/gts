@@ -9,10 +9,11 @@ APPS_ID=""
 
 usage() {
         echo 
-        echo "Usage: $0 [app-id ...]"
+        echo "Usage: $0 allowed-ip [app-id ...]"
         echo 
         echo "Enable the dataviewer for app-id. If no app-id is specified, enable the viewer for all apps. " 
-        echo "WARNING: the datastore viewer is not protected! Everyone can browse your data"
+        echo "WARNING: the datastore viewer is not protected! Everyone can browse your data."
+        echo "WARNING: restricting by IP should be used judiciously."
         echo
         echo "Options:"
         echo "     -h        this message"
@@ -23,6 +24,10 @@ while [ $# -gt 0 ]; do
         if [ "$1" = "-h" -o "$1" = "-help" -o "$1" = "--help" ]; then
                 usage
                 exit 1
+        elif [ -z $IP ]; then
+                IP="$1"
+                shift
+                continue
         fi
         if [ -n "$1" ]; then
                 APPS_ID="$APPS_ID $1"
@@ -76,6 +81,8 @@ server {
     listen $VIEWER_PORT;
     server_name datastore_viewer_server;
     location / {
+      allow $IP;
+      deny all;
       proxy_pass http://datastore_viewer_$VIEWER_PORT;
     }
 }
@@ -83,7 +90,7 @@ server {
 	if [ -e /etc/nginx/sites-enabled/${app_id}.conf ]; then
 		cp /etc/nginx/sites-enabled/${app_id}.conf /tmp
 		echo "$pippo" >> /etc/nginx/sites-enabled/${app_id}.conf
-		echo "Datastore viewer enabled for $app_id at http://$(cat /etc/appscale/my_public_ip):$VIEWER_PORT"
+		echo "Datastore viewer enabled for $app_id at http://$(cat /etc/appscale/my_public_ip):$VIEWER_PORT. Allowed IP: $IP."
 		service nginx reload
 	else
 		echo "Cannot find configuration for ${app_id}"
