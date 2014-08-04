@@ -805,6 +805,7 @@ _WHITE_LIST_C_MODULES = [
     '_weakref',
     'zipimport',
     'zlib',
+    'future_builtins' ,
 ]
 
 
