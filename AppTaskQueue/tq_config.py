@@ -442,7 +442,10 @@ CELERY_ANNOTATIONS = {
 # See http://stackoverflow.com/questions/7144025/temporary-queue-made-in-celery
 # for more information on this issue.
 CELERY_IGNORE_RESULT = True
-CELERY_STORE_ERRORS_EVEN_IF_IGNORED = True
+CELERY_STORE_ERRORS_EVEN_IF_IGNORED = False
+
+# One month expiration date because a task can be deferred that long.
+CELERY_AMQP_TASK_RESULT_EXPIRES = 2678400
 """
     config_file = self._app_id + ".py" 
     file_io.write(self.CELERY_CONFIG_DIR + config_file, config)
