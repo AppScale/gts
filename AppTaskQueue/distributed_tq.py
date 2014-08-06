@@ -170,6 +170,7 @@ class DistributedTaskQueue():
     """
     request = self.__parse_json_and_validate_tags(json_request,  
                                          self.STOP_WORKERS_TAGS)
+    logging.info("Stopping worker: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
 
@@ -213,6 +214,7 @@ class DistributedTaskQueue():
     """
     request = self.__parse_json_and_validate_tags(json_request,  
                                          self.SETUP_WORKERS_TAGS)
+    logging.info("Start worker request: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
 
@@ -511,6 +513,7 @@ class DistributedTaskQueue():
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
+      reload(task_module)
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func

@@ -4336,6 +4336,9 @@ HOSTS
 
     if is_new_app
       maybe_start_taskqueue_worker(app)
+    else
+      maybe_stop_taskqueue_worker(app)
+      maybe_start_taskqueue_worker(app)
     end
 
     if is_new_app
