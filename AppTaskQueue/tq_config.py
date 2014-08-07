@@ -31,6 +31,9 @@ class TaskQueueConfig():
 
   # Enum code for broker to use.
   RABBITMQ = 0
+ 
+  # Max concurrency per worker.
+  CELERY_CONCURRENCY = 10
 
   # The default YAML used if a queue.yaml or queue.xml is not supplied.
   DEFAULT_QUEUE_YAML = \
