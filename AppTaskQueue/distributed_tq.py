@@ -514,7 +514,6 @@ class DistributedTaskQueue():
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
-      reload(task_module)
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
@@ -523,6 +522,12 @@ class DistributedTaskQueue():
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
     except ImportError, import_error:
+      try:
+        task_module = __import__(TaskQueueConfig.\
+                  get_celery_worker_module_name(request.app_id()))
+        reload(task_module)
+      except Exception, e:
+        logging.error("Could not reload {0} module!".format(task_module))
       logging.exception(import_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
