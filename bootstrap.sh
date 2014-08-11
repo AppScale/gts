@@ -110,7 +110,7 @@ if [ -d appscale ]; then
         echo
         echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR: upgrading it."
         # Make sure AppScale is not running.
-        MONIT=$(which monit)
+        MONIT=$(which monit) || MONIT=""
         if [ -n "$MONIT" ]; then
                 if $MONIT summary |grep controller > /dev/null ; then
                         echo "AppScale is still running: please stop it"
