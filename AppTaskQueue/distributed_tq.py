@@ -563,8 +563,8 @@ class DistributedTaskQueue():
     if request.app_id() not in self.__queue_info_cache:
       try:
         config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, request.app_id())
-        self.__queue_info_cache[request.app_id()] = config.load_queues_from_file(
-          request.app_id())
+        self.__queue_info_cache[request.app_id()] = \
+          config.load_queues_from_file(request.app_id())
       except ValueError, value_error:
         logging.error("Unable to load queues for app id {0} using defaults."\
           .format(request.app_id()))
