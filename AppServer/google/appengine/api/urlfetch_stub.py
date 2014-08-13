@@ -126,6 +126,13 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
     (protocol, host, path, parameters, query, fragment) = \
               urlparse.urlparse(request.url())
 
+    port = urllib.splitport(urllib.splituser(host)[1])[1]
+  
+    # Force https if we are on port 443. Will break request which happen to be
+    # non-ssl on this port.
+    if str(port) == "443":
+      protocol = "https"
+
     payload = None
     if request.method() == urlfetch_service_pb.URLFetchRequest.GET:
       method = 'GET'
