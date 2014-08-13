@@ -514,7 +514,6 @@ class DistributedTaskQueue():
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
-      reload(task_module)
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
@@ -526,7 +525,6 @@ class DistributedTaskQueue():
       logging.exception(import_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
-     
 
   def get_task_args(self, request):
     """ Gets the task args used when making a task web request.
@@ -558,8 +556,8 @@ class DistributedTaskQueue():
     if request.app_id() not in self.__queue_info_cache:
       try:
         config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, request.app_id())
-        self.__queue_info_cache[request.app_id()] = config.load_queues_from_file(
-          request.app_id())
+        self.__queue_info_cache[request.app_id()] = \
+          config.load_queues_from_file(request.app_id())
       except ValueError, value_error:
         logging.error("Unable to load queues for app id {0} using defaults."\
           .format(request.app_id()))
