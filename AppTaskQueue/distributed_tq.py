@@ -522,16 +522,9 @@ class DistributedTaskQueue():
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
     except ImportError, import_error:
-      try:
-        task_module = __import__(TaskQueueConfig.\
-                  get_celery_worker_module_name(request.app_id()))
-        reload(task_module)
-      except Exception, e:
-        logging.error("Could not reload {0} module!".format(task_module))
       logging.exception(import_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
-     
 
   def get_task_args(self, request):
     """ Gets the task args used when making a task web request.
