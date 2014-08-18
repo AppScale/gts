@@ -100,7 +100,14 @@ echo
 
 sleep 5
 apt-get install -y git
-if [ -d appscale ]; then
+if [ ! -d appscale ]; then
+        git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}
+        git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}
+fi
+
+# Since the last step in appscale_build.sh is to create the certs directory,
+# its existence indicates that appscale has already been installed.
+if [ -d appscale/.appscale/certs ]; then
         APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' appscale/VERSION)"
         APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' appscale/VERSION)"
         if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
@@ -141,9 +148,6 @@ if [ -d appscale ]; then
         fi
         (cd appscale; git pull)
         (cd appscale-tools; git pull)
-else
-        git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}
-        git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}
 fi
 
 echo "Building AppScale..."
