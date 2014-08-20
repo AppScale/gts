@@ -2797,9 +2797,12 @@ form input.valid {border: 1px solid #9FC569 !important;}
 }
 
 @media only screen and (max-width: 1024px) {
-	#header .navbar .nav a {text-indent: -9999px; padding: 8px 0; width: 46px;}
+	.navbar .nav {margin-top: 9px;}
+	#header .navbar .nav a {padding: 8px 0; width: 46px; overflow: hidden;}
+	#header .navbar .nav a span {position: absolute; left: 100%;}
+	#header .navbar .nav a:before {display: block;}
 	#header .navbar .nav a img.image {margin-left: 4px;}
-	#header .navbar .nav a span.icon16 {text-indent: +9999px; margin-left: 15px; display: inline-block; line-height: 14px;}
+	#header .navbar .nav a span.icon16 {text-indent: -9999px; margin-left: 15px; display: inline-block; line-height: 14px;}
 	#header .navbar .nav a span.notification {text-indent: 0;}
 	#header .dropdown-menu li span.name a {text-indent: 0 !important; padding: 5px 0 5px 5px; width:100%}
 	#header .dropdown-menu li span.time {margin-top:-18px;}
