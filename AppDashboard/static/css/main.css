@@ -2853,6 +2853,7 @@ form input.valid {border: 1px solid #9FC569 !important;}
 	#content {	margin-left: 0 !important;}
 	#content-one {	margin-right: 0 !important;	}
 	#content-two {	margin-left: 0 !important; margin-right: 0 !important;}
+	.mainnav ul {width: 250px;}
 	.mainnav ul li .sub {width: 100%;}
 }
 
