@@ -1834,7 +1834,8 @@ footer {
 #appscale_logo {
     position: absolute;
     float: left;
-    top: 20px;
+    top: 7px;
+    left: 2.5%;
 }
 
 .flot-container {
