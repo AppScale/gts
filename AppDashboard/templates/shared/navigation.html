@@ -2,14 +2,17 @@
    <div id="header">
         <div class="navbar">
             <div class="navbar-inner">
-                <a class="pull-left" href="/"><img id="appscale_logo" src="/images/appscale-logo.png"/></a>
+                <a id="appscale_logo" href="/"><img src="/images/appscale-logo.png?v=2"/></a>
               <div class="container-fluid">
                 <div class="nav-no-collapse">
                     <ul style="padding-right: 2.5%;" class="nav pull-right">
                         {% if logged_in %}
-                          <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small" href="/users/logout">Logout</a></h3><br />
+                          <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small silk-icon-exit" href="/users/logout"><span>Logout</span></a></h3><br />
                         {% else %}
-                          <h3><a class="btn btn-small btn-success" href="/users/login">Login</a> <a class="btn btn-info btn-small" href="/users/new">Create Account</a></h3>
+                          <h3>
+                              <a class="btn btn-small btn-success silk-icon-enter" href="/users/login"><span>Login</span></a>
+                              <a class="btn btn-info btn-small entypo-icon-contact" href="/users/new"><span>Create Account</span></a>
+                          </h3>
                         {% endif %}
                     </ul><!--close drop down-->
 
@@ -57,7 +60,41 @@
             </div><!-- End sidenav -->
 
         </div><!-- End #sidebar -->
-</div> <!--close wwrapper-->
+        <script>
+            $(document).ready(function() {
+                // Insert a new style that extends the height of the header to
+                // encompass the sidebar when .resBtn is clicked.
+                var newHeaderHeight = $('#header').height() + $('#sidebar').height();
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.setAttribute('media', 'only screen and (max-width: 980px)');
+                var css = '#header.open { height: ' + newHeaderHeight + 'px; }';
+                if (style.styleSheet) style.styleSheet.cssText = css;
+                else style.appendChild(document.createTextNode(css));
+                var head = document.head || document.getElementsByTagName('head')[0];
+                head.appendChild(style);
+
+                // Take the extra height of .resBtn into account
+                var sidebarBtn = $('#wrapper').find('.resBtn');
+                newHeaderHeight += sidebarBtn.height();
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.setAttribute('media', 'only screen and (max-width: 572px)');
+                // Insert after page load so it will not affect the height calculation
+                var css = '#header { height: 120px; }';
+                css += '#header.open { height: ' + newHeaderHeight + 'px; }';
+                if (style.styleSheet) style.styleSheet.cssText = css;
+                else style.appendChild(document.createTextNode(css));
+                var head = document.head || document.getElementsByTagName('head')[0];
+                head.appendChild(style);
+
+                sidebarBtn.click(function() {
+                    var selectors = $(this).add('#header, #sidebar');
+                    $(this).hasClass('open') ? selectors.removeClass('open') : selectors.addClass('open');
+                });
+            });
+        </script>
+    </div> <!--close wwrapper-->
 <!--Testing SFTP -->
 
 

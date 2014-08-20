@@ -215,10 +215,8 @@ h6 {
   border: none;
   padding-left: 4px;
   padding-right: 4px;
-  -webkit-border-radius: 6px;
-  -moz-border-radius: 6px;
-  border-radius: 6px;
-  filter: progid:DXImageTransform.Microsoft.gradient(enabled = false); }
+  background: none;
+}
 
 .navbar-inverse .navbar-inner {
   background: #34495e;
@@ -1834,7 +1832,8 @@ footer {
 #appscale_logo {
     position: absolute;
     float: left;
-    top: 20px;
+    top: 7px;
+    left: 2.5%;
 }
 
 .flot-container {
