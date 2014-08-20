@@ -899,7 +899,10 @@ select {width: 150px;}
 /* Layout structure
 ================================================== */
 #header {
-	background:url('../images/patterns/4.png') repeat;
+	background: #fafafa;
+	background: -webkit-linear-gradient(top, #ffffff, #f2f2f2);
+	background: linear-gradient(to bottom, #ffffff, #f2f2f2);
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#f2f2f2', GradientType=0);
 	height:66px;
 	border-bottom: 1px solid #c4c4c4;
 	-moz-box-shadow:0 1px 0px rgba(255, 255, 255, 1);
@@ -932,9 +935,6 @@ select {width: 150px;}
 		min-height: 66px;
 		padding-right: 0px;
 		padding-left: 20px;
-		-webkit-border-radius: 0px;
-		-moz-border-radius: 0px;
-		border-radius: 0px;
 		box-shadow: none;
 		border:none;
 	}
