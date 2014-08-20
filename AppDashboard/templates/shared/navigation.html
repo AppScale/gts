@@ -57,7 +57,41 @@
             </div><!-- End sidenav -->
 
         </div><!-- End #sidebar -->
-</div> <!--close wwrapper-->
+        <script>
+            $(document).ready(function() {
+                // Insert a new style that extends the height of the header to
+                // encompass the sidebar when .resBtn is clicked.
+                var newHeaderHeight = $('#header').height() + $('#sidebar').height();
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.setAttribute('media', 'only screen and (max-width: 980px)');
+                var css = '#header.open { height: ' + newHeaderHeight + 'px; }';
+                if (style.styleSheet) style.styleSheet.cssText = css;
+                else style.appendChild(document.createTextNode(css));
+                var head = document.head || document.getElementsByTagName('head')[0];
+                head.appendChild(style);
+
+                // Take the extra height of .resBtn into account
+                var sidebarBtn = $('#wrapper').find('.resBtn');
+                newHeaderHeight += sidebarBtn.height();
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.setAttribute('media', 'only screen and (max-width: 572px)');
+                // Insert after page load so it will not affect the height calculation
+                var css = '#header { height: 120px; }';
+                css += '#header.open { height: ' + newHeaderHeight + 'px; }';
+                if (style.styleSheet) style.styleSheet.cssText = css;
+                else style.appendChild(document.createTextNode(css));
+                var head = document.head || document.getElementsByTagName('head')[0];
+                head.appendChild(style);
+
+                sidebarBtn.click(function() {
+                    var selectors = $(this).add('#header, #sidebar');
+                    $(this).hasClass('open') ? selectors.removeClass('open') : selectors.addClass('open');
+                });
+            });
+        </script>
+    </div> <!--close wwrapper-->
 <!--Testing SFTP -->
 
 
