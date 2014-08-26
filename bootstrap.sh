@@ -99,7 +99,7 @@ echo "Exit now (ctrl-c) if this is incorrect"
 echo
 
 sleep 5
-apt-get install -y git
+apt-get install -y git lsb-release
 if [ -d appscale ]; then
         APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' appscale/VERSION)"
         APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' appscale/VERSION)"

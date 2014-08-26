@@ -1734,7 +1734,6 @@ class Djinn
       "[#{new_nodes_info.join(', ')}]")
 
     add_nodes(new_nodes_info)
-    update_hosts_info()
 
     if my_node.is_login?
       regenerate_nginx_config_files()
@@ -1776,7 +1775,6 @@ class Djinn
     }
 
     add_nodes(nodes_info)
-    update_hosts_info()
 
     if my_node.is_login?
       regenerate_nginx_config_files()
@@ -3826,8 +3824,6 @@ class Djinn
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips)
 
-    update_hosts_info()
-
     # use iptables to lock down outside traffic
     # nodes can talk to each other on any port
     # but only the outside world on certain ports
@@ -3906,37 +3902,6 @@ class Djinn
     taskqueue_contents = taskqueue_ips.join("\n")
     HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_contents)
   end
-
-  # Updates files on this machine with information about our hostname
-  # and a mapping of where other machines are located.
-  def update_hosts_info()
-    all_nodes = ""
-    @nodes.each_with_index { |node, index|
-      all_nodes << "#{HelperFunctions.convert_fqdn_to_ip(node.private_ip)} appscale-image#{index}\n"
-    }
-
-    new_etc_hosts = <<HOSTS
-127.0.0.1 localhost.localdomain localhost
-127.0.1.1 localhost
-::1     ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-ff02::3 ip6-allhosts
-#{all_nodes}
-HOSTS
-
-    etc_hosts = "/etc/hosts"
-    File.open(etc_hosts, "w+") { |file| file.write(new_etc_hosts) }
-
-    etc_hostname = "/etc/hostname"
-    my_hostname = "appscale-image#{@my_index}"
-    File.open(etc_hostname, "w+") { |file| file.write(my_hostname) }
-
-    Djinn.log_run("/bin/hostname #{my_hostname}")
-  end
-
 
   # Writes new nginx configuration files for the App Engine applications
   # hosted in this deployment. Callers should invoke this method whenever
