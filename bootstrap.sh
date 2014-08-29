@@ -12,6 +12,7 @@ APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
 FORCE_UPGRADE="N"
 UNIT_TEST="n"
+TAG_TO_USE="stable"
 
 usage() {
         echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][-t]"
@@ -22,6 +23,8 @@ usage() {
         echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
         echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
         echo "   --force-upgrade          Force upgrade even if some check fails."
+        echo "   --dev                    Pull from HEAD instead of the 'stable' tag (Developers only)."
+        echo "   --testing                Pull from the 'testing' tag instead of 'stable'."
         echo "   -t                       Run unit tests"
         exit 1
 }
@@ -32,7 +35,7 @@ if [ "$(id -u)" != "0" ]; then
    echo "Failed" 1>&2
    exit 1
 fi
-echo "Success"
+echo "done"
 
 set -e
 
@@ -84,6 +87,16 @@ while [ $# -gt 0 ]; do
                 shift
                 continue
         fi
+        if [ "${1}" = "--dev" ]; then
+                TAG_TO_USE="HEAD"
+                shift
+                continue
+        fi
+        if [ "${1}" = "--testing" ]; then
+                TAG_TO_USE="testing"
+                shift
+                continue
+        fi
         usage
 done
 
@@ -118,7 +131,7 @@ if [ -d appscale ]; then
                 elif echo $MONIT |grep local > /dev/null ; then
                         # AppScale is not running but there is a monit
                         # leftover from the custom install.
-                        $MONIT quit
+                        $MONIT quit || true
                 fi
         fi
 
@@ -148,10 +161,14 @@ else
         git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}
 fi
 
-echo "Building AppScale..."
+# Checkout from the proper tag.
+(cd appscale; git checkout $TAG_TO_USE 2> /dev/null)
+(cd appscale-tools; git checkout $TAG_TO_USE 2> /dev/null)
+
+echo "Building AppScale with tag $TAG_TO_USE..."
 (cd appscale/debian; bash appscale_build.sh)
 
-echo "Building AppScale Tools..." 
+echo "Building AppScale Tools with tag $TAG_TO_USE..." 
 (cd appscale-tools/debian; bash appscale_build.sh)
 
 # Run unit tests if asked.
