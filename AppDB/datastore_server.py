@@ -595,7 +595,7 @@ class DatastoreDistributed():
     """ Get the key string for the ancestor portion of a composite key.
 
     Args:
-      ent_key: A string of the entire path of a entity.
+      ent_key: A string of the entire path of an entity.
     Returns:
       A str of the path of the ancestor.
     """
