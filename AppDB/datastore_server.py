@@ -626,7 +626,11 @@ class DatastoreDistributed():
     pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
       self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
     if definition.ancestor() == 1:
-      ancestor = self.get_root_key_from_entity_key(str(ent_key))
+      ancestor = ""
+      tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
+      # Strip off the empty placeholder and also do not include the last kind.
+      for token in tokens[:-2]:
+        ancestor += token + dbconstants.KIND_SEPARATOR
       pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
 
     value_dict = {}
@@ -684,7 +688,7 @@ class DatastoreDistributed():
       colliding. 
 
     Args:
-      index: A datstore_pb.CompositeIndex.
+      index: A datastore_pb.CompositeIndex.
       entity: A entity_pb.EntityProto.
     Returns:
       A list of strings representing keys to the composite table.
@@ -697,7 +701,11 @@ class DatastoreDistributed():
     pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
       self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
     if definition.ancestor() == 1:
-      ancestor = self.get_root_key_from_entity_key(str(ent_key))
+      ancestor = ""
+      tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
+      # Strip off the empty placeholder and also do not include the last kind.
+      for token in tokens[:-2]:
+        ancestor += token + dbconstants.KIND_SEPARATOR
       pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
 
     property_list_names = [prop.name() for prop in entity.property_list()]
