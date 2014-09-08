@@ -591,6 +591,21 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
+  def get_ancestor_key_from_ent_key(self, ent_key):
+    """ Get the key string for the ancestor portion of a composite key.
+
+    Args:
+      ent_key: A string of the entire path of a entity.
+    Returns:
+      A str of the path of the ancestor.
+    """
+    ancestor = ""
+    tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
+    # Strip off the empty placeholder and also do not include the last kind.
+    for token in tokens[:-2]:
+      ancestor += token + dbconstants.KIND_SEPARATOR
+    return ancestor
+
   def get_composite_index_key(self, index, entity, position_list=None, 
     filters=None):
     """ Creates a key to the composite index table for a given entity
@@ -626,11 +641,7 @@ class DatastoreDistributed():
     pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
       self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
     if definition.ancestor() == 1:
-      ancestor = ""
-      tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
-      # Strip off the empty placeholder and also do not include the last kind.
-      for token in tokens[:-2]:
-        ancestor += token + dbconstants.KIND_SEPARATOR
+      ancestor = self.get_ancestor_key_from_ent_key(ent_key)
       pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
 
     value_dict = {}
@@ -701,11 +712,7 @@ class DatastoreDistributed():
     pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
       self._NAMESPACE_SEPARATOR, name_space, composite_id, self._SEPARATOR)
     if definition.ancestor() == 1:
-      ancestor = ""
-      tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
-      # Strip off the empty placeholder and also do not include the last kind.
-      for token in tokens[:-2]:
-        ancestor += token + dbconstants.KIND_SEPARATOR
+      ancestor = self.get_ancestor_key_from_ent_key(ent_key)
       pre_comp_index_key += "{0}{1}".format(ancestor, self._SEPARATOR) 
 
     property_list_names = [prop.name() for prop in entity.property_list()]
