@@ -707,7 +707,7 @@ class ZKTransaction:
           transaction_lock_path, lock_list_str))
         # We do this check last, otherwise we may have left over locks to 
         # to a lack of a lock path reference.
-        if len(lock_list) >= MAX_GROUPS_FOR_XG:
+        if len(lock_list) > MAX_GROUPS_FOR_XG:
           raise ZKTransactionException("acquire_additional_lock: Too many " \
             "groups for this XG transaction.")
 
