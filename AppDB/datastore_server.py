@@ -683,7 +683,7 @@ class DatastoreDistributed():
         value = self.__encode_index_pb(entity.key().path())
       else:
         logging.warning("Given entity {0} is missing a property value {1}.".\
-          format(entity, prop.name()));
+          format(entity, prop.name()))
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
 
@@ -3959,31 +3959,42 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded delete response.
     """ 
     global datastore_access
+
+    retries = 0
+    backoff = INITIAL_RETRY_DELAY_MS / 1000.0
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
-    try:
-      datastore_access.dynamic_delete(app_id, delreq_pb)
-    except ZKInternalException, zkie:
-      logging.error("ZK internal exception for app id {0}, " \
-        "info {1}".format(app_id, str(zkie)))
-      return (delresp_pb.Encode(), 
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
-    except ZKTransactionException, zkte:
-      logging.error("Concurrent transaction exception for app id {0}, " \
-        "info {1}".format(app_id, str(zkte)))
-      return (delresp_pb.Encode(), 
-              datastore_pb.Error.CONCURRENT_TRANSACTION, 
-              "Concurrent transaction exception on delete.")
-    except dbconstants.AppScaleDBConnectionError, dbce:
-      logging.error("Connection issue with datastore for app id {0}, " \
-        "info {1}".format(app_id, str(dbce)))
-      return (delresp_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR,
-              "Datastore connection error on delete.")
-
-
-    return (delresp_pb.Encode(), 0, "")
+    while True:
+      try:
+        datastore_access.dynamic_delete(app_id, delreq_pb)
+        return (delresp_pb.Encode(), 0, "")
+      except ZKInternalException, zkie:
+        logging.error("ZK internal exception for app id {0}, " \
+          "info {1}".format(app_id, str(zkie)))
+        return (delresp_pb.Encode(), 
+                datastore_pb.Error.INTERNAL_ERROR, 
+                "Internal error with ZooKeeper connection.")
+      except ZKTransactionException, zkte:
+        logging.error("Concurrent transaction exception for app id {0}, " \
+          "info {1}".format(app_id, str(zkte)))
+        retries += 1
+        if retries <= DATASTORE_RETRIES:
+          logging.error("Concurrent transaction causing sleep {0} for "
+          "retry: {1}".format(retries, backoff))
+          time.sleep(backoff)
+          backoff *= RETRY_DELAY_MULTIPLIER
+          if backoff * 1000.0 > MAX_RETRY_DELAY_MS:
+            backoff = MAX_RETRY_DELAY_MS / 1000.0
+          continue
+        return (delresp_pb.Encode(), 
+                datastore_pb.Error.CONCURRENT_TRANSACTION, 
+                "Concurrent transaction exception on delete.")
+      except dbconstants.AppScaleDBConnectionError, dbce:
+        logging.error("Connection issue with datastore for app id {0}, " \
+          "info {1}".format(app_id, str(dbce)))
+        return (delresp_pb.Encode(),
+                datastore_pb.Error.INTERNAL_ERROR,
+                "Datastore connection error on delete.")
 
 def usage():
   """ Prints the usage for this web service. """
