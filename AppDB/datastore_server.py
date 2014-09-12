@@ -3897,7 +3897,7 @@ class MainHandler(tornado.web.RequestHandler):
         retries += 1
         if retries <= DATASTORE_RETRIES:
           logging.error("Concurrent transaction causing sleep {0} for "
-          "retry: {1}".format(retries, backoff))
+            "retry: {1}".format(backoff, retries))
           time.sleep(backoff)
           backoff *= RETRY_DELAY_MULTIPLIER
           if backoff * 1000.0 > MAX_RETRY_DELAY_MS:
@@ -3980,7 +3980,7 @@ class MainHandler(tornado.web.RequestHandler):
         retries += 1
         if retries <= DATASTORE_RETRIES:
           logging.error("Concurrent transaction causing sleep {0} for "
-          "retry: {1}".format(retries, backoff))
+            "retry: {1}".format(backoff, retries))
           time.sleep(backoff)
           backoff *= RETRY_DELAY_MULTIPLIER
           if backoff * 1000.0 > MAX_RETRY_DELAY_MS:
