@@ -85,18 +85,6 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
-# Number of times to retry datastore logic due to concurrency issues.
-DATASTORE_RETRIES = 3
-
-# Initial delay on a retry.
-INITIAL_RETRY_DELAY_MS = 100
-
-# The multiple we increase the backoff delay.
-RETRY_DELAY_MULTIPLIER = 2
-
-# The maximum ammount we wait on retry backoff.
-MAX_RETRY_DELAY_MS = 120000
-
 
 def clean_app_id(app_id):
   """ Google App Engine uses a special prepended string to signal that it
@@ -3895,49 +3883,37 @@ class MainHandler(tornado.web.RequestHandler):
       Returns an encoded put response.
     """ 
     global datastore_access
-    retries = 0
-    backoff = INITIAL_RETRY_DELAY_MS / 1000.0
 
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse()
 
-    while True:
-      try:
-        datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
-        return (putresp_pb.Encode(), 0, "")
-      except ZKBadRequest, zkie:
-        logging.error("Illegal arguments in transactions "
-        "app id {0}, info: {1}".format(app_id, str(zkie)))
-        return (putresp_pb.Encode(), 
-              datastore_pb.Error.BAD_REQUEST, 
-              "Illegal arguments for transaction. {0}".format(str(zkie)))
-      except ZKInternalException, zkie:
-        logging.error("ZK internal exception for app id {0}, " \
-          "info {1}".format(app_id, str(zkie)))
-        return (putresp_pb.Encode(), 
-                datastore_pb.Error.INTERNAL_ERROR, 
-                "Internal error with ZooKeeper connection.")
-      except ZKTransactionException, zkte:
-        logging.error("Concurrent transaction exception for app id {0}, " \
-          "info {1}".format(app_id, str(zkte)))
-        retries += 1
-        if retries <= DATASTORE_RETRIES:
-          logging.error("Concurrent transaction causing sleep {0} for "
-            "retry: {1}".format(backoff, retries))
-          time.sleep(backoff)
-          backoff *= RETRY_DELAY_MULTIPLIER
-          if backoff * 1000.0 > MAX_RETRY_DELAY_MS:
-            backoff = MAX_RETRY_DELAY_MS / 1000.0
-          continue
-        return (putresp_pb.Encode(), 
-                datastore_pb.Error.CONCURRENT_TRANSACTION, 
-                "Concurrent transaction exception on put.")
-      except dbconstants.AppScaleDBConnectionError, dbce:
-        logging.error("Connection issue with datastore for app id {0}, " \
-          "info {1}".format(app_id, str(dbce)))
-        return (putresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                "Datastore connection error on put.")
+    try:
+      datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
+      return (putresp_pb.Encode(), 0, "")
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+      "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (putresp_pb.Encode(), 
+            datastore_pb.Error.BAD_REQUEST, 
+            "Illegal arguments for transaction. {0}".format(str(zkie)))
+    except ZKInternalException, zkie:
+      logging.error("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (putresp_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
+    except ZKTransactionException, zkte:
+      logging.error("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
+      return (putresp_pb.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on put.")
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.error("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (putresp_pb.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on put.")
 
     
   def get_request(self, app_id, http_request_data):
@@ -3992,48 +3968,36 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
     global datastore_access
 
-    retries = 0
-    backoff = INITIAL_RETRY_DELAY_MS / 1000.0
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
 
-    while True:
-      try:
-        datastore_access.dynamic_delete(app_id, delreq_pb)
-        return (delresp_pb.Encode(), 0, "")
-      except ZKBadRequest, zkie:
-        logging.error("Illegal arguments in transactions "
-          "app id {0}, info: {1}".format(app_id, str(zkie)))
-        return (delresp_pb.Encode(), 
-                datastore_pb.Error.BAD_REQUEST, 
-                "Illegal arguments for transaction. {0}".format(str(zkie)))
-      except ZKInternalException, zkie:
-        logging.error("ZK internal exception for app id {0}, " \
-          "info {1}".format(app_id, str(zkie)))
-        return (delresp_pb.Encode(), 
-                datastore_pb.Error.INTERNAL_ERROR, 
-                "Internal error with ZooKeeper connection.")
-      except ZKTransactionException, zkte:
-        logging.error("Concurrent transaction exception for app id {0}, " \
-          "info {1}".format(app_id, str(zkte)))
-        retries += 1
-        if retries <= DATASTORE_RETRIES:
-          logging.error("Concurrent transaction causing sleep {0} for "
-            "retry: {1}".format(backoff, retries))
-          time.sleep(backoff)
-          backoff *= RETRY_DELAY_MULTIPLIER
-          if backoff * 1000.0 > MAX_RETRY_DELAY_MS:
-            backoff = MAX_RETRY_DELAY_MS / 1000.0
-          continue
-        return (delresp_pb.Encode(), 
-                datastore_pb.Error.CONCURRENT_TRANSACTION, 
-                "Concurrent transaction exception on delete.")
-      except dbconstants.AppScaleDBConnectionError, dbce:
-        logging.error("Connection issue with datastore for app id {0}, " \
-          "info {1}".format(app_id, str(dbce)))
-        return (delresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                "Datastore connection error on delete.")
+    try:
+      datastore_access.dynamic_delete(app_id, delreq_pb)
+      return (delresp_pb.Encode(), 0, "")
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
+    except ZKInternalException, zkie:
+      logging.error("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
+    except ZKTransactionException, zkte:
+      logging.error("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on delete.")
+    except dbconstants.AppScaleDBConnectionError, dbce:
+      logging.error("Connection issue with datastore for app id {0}, " \
+        "info {1}".format(app_id, str(dbce)))
+      return (delresp_pb.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
+              "Datastore connection error on delete.")
 
 def usage():
   """ Prints the usage for this web service. """
