@@ -3440,7 +3440,8 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and not query_result.has_compiled_cursor():
       query_result.mutable_compiled_cursor().CopyFrom(query.compiled_cursor())
     elif query.has_compile() and not query_result.has_compiled_cursor():
-      query_result.mutable_compiled_cursor().CopyFrom(datastore_pb.CompiledCursor())
+      query_result.mutable_compiled_cursor().\
+        CopyFrom(datastore_pb.CompiledCursor())
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
