@@ -27,6 +27,7 @@ import groomer
 import helper_functions
 
 from zkappscale import zktransaction as zk
+from zkappscale.zktransaction import ZKBadRequest
 from zkappscale.zktransaction import ZKInternalException
 from zkappscale.zktransaction import ZKTransactionException
 
@@ -83,6 +84,7 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
+
 
 def clean_app_id(app_id):
   """ Google App Engine uses a special prepended string to signal that it
@@ -670,7 +672,7 @@ class DatastoreDistributed():
         value = self.__encode_index_pb(entity.key().path())
       else:
         logging.warning("Given entity {0} is missing a property value {1}.".\
-          format(entity, prop.name()));
+          format(entity, prop.name()))
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
 
@@ -3426,7 +3428,8 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and not query_result.has_compiled_cursor():
       query_result.mutable_compiled_cursor().CopyFrom(query.compiled_cursor())
     elif query.has_compile() and not query_result.has_compiled_cursor():
-      query_result.mutable_compiled_cursor().CopyFrom(datastore_pb.CompiledCursor())
+      query_result.mutable_compiled_cursor().\
+        CopyFrom(datastore_pb.CompiledCursor())
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
@@ -3455,6 +3458,12 @@ class DatastoreDistributed():
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (commitres_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3710,6 +3719,12 @@ class MainHandler(tornado.web.RequestHandler):
     clone_qr_pb = datastore_pb.QueryResult()
     try:
       datastore_access._dynamic_run_query(query, clone_qr_pb)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (clone_qr_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(query.app(), str(zkie)))
@@ -3828,6 +3843,12 @@ class MainHandler(tornado.web.RequestHandler):
     start = end = 0
     try:
       start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (response.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3862,10 +3883,19 @@ class MainHandler(tornado.web.RequestHandler):
       Returns an encoded put response.
     """ 
     global datastore_access
+
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse()
+
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
+      return (putresp_pb.Encode(), 0, "")
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+      "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (putresp_pb.Encode(), 
+            datastore_pb.Error.BAD_REQUEST, 
+            "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3885,7 +3915,6 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
 
-    return (putresp_pb.Encode(), 0, "")
     
   def get_request(self, app_id, http_request_data):
     """ High level function for doing gets.
@@ -3901,6 +3930,12 @@ class MainHandler(tornado.web.RequestHandler):
     getresp_pb = datastore_pb.GetResponse()
     try:
       datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (getresp_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3932,10 +3967,19 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded delete response.
     """ 
     global datastore_access
+
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
+
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
+      return (delresp_pb.Encode(), 0, "")
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3954,9 +3998,6 @@ class MainHandler(tornado.web.RequestHandler):
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")
-
-
-    return (delresp_pb.Encode(), 0, "")
 
 def usage():
   """ Prints the usage for this web service. """
