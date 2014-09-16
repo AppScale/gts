@@ -96,6 +96,12 @@ class ZKInternalException(Exception):
   """
   pass
 
+class ZKBadRequest(ZKTransactionException):
+  """ A class thrown when there are too many locks are acquired in a XG transaction
+  or when XG operations are done on a non XG transaction.
+  """
+  pass
+
 class ZKTransaction:
   """ ZKTransaction provides an interface that can be used to acquire locks
   and other functions needed to perform database-agnostic transactions
@@ -708,7 +714,7 @@ class ZKTransaction:
         # We do this check last, otherwise we may have left over locks to 
         # to a lack of a lock path reference.
         if len(lock_list) > MAX_GROUPS_FOR_XG:
-          raise ZKTransactionException("acquire_additional_lock: Too many " \
+          raise ZKBadRequest("acquire_additional_lock: Too many " \
             "groups for this XG transaction.")
 
     except kazoo.exceptions.KazooException as kazoo_exception:
@@ -790,7 +796,7 @@ class ZKTransaction:
             return self.acquire_additional_lock(app_id, txid, entity_key,
               create=False)
           else:
-            raise ZKTransactionException("acquire_lock: You can not lock " \
+            raise ZKBadRequest("acquire_lock: You can not lock " \
               "different root entity in non-cross-group transaction.")
     except ZKInternalException as zk_exception:
       logging.exception(zk_exception)

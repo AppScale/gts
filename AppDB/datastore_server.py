@@ -27,6 +27,7 @@ import groomer
 import helper_functions
 
 from zkappscale import zktransaction as zk
+from zkappscale.zktransaction import ZKBadRequest
 from zkappscale.zktransaction import ZKInternalException
 from zkappscale.zktransaction import ZKTransactionException
 
@@ -3468,6 +3469,12 @@ class DatastoreDistributed():
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (commitres_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3723,6 +3730,12 @@ class MainHandler(tornado.web.RequestHandler):
     clone_qr_pb = datastore_pb.QueryResult()
     try:
       datastore_access._dynamic_run_query(query, clone_qr_pb)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (clone_qr_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(query.app(), str(zkie)))
@@ -3841,6 +3854,12 @@ class MainHandler(tornado.web.RequestHandler):
     start = end = 0
     try:
       start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (response.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3885,6 +3904,12 @@ class MainHandler(tornado.web.RequestHandler):
       try:
         datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
         return (putresp_pb.Encode(), 0, "")
+      except ZKBadRequest, zkie:
+        logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+        return (putresp_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
       except ZKInternalException, zkie:
         logging.error("ZK internal exception for app id {0}, " \
           "info {1}".format(app_id, str(zkie)))
@@ -3928,6 +3953,12 @@ class MainHandler(tornado.web.RequestHandler):
     getresp_pb = datastore_pb.GetResponse()
     try:
       datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (getresp_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
@@ -3963,6 +3994,12 @@ class MainHandler(tornado.web.RequestHandler):
     delresp_pb = api_base_pb.VoidProto() 
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
+    except ZKBadRequest, zkie:
+      logging.error("Illegal arguments in transactions "
+        "app id {0}, info: {1}".format(app_id, str(zkie)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.BAD_REQUEST, 
+              "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \
         "info {1}".format(app_id, str(zkie)))
