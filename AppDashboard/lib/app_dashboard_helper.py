@@ -319,16 +319,70 @@ class AppDashboardHelper():
     if not user:
       raise AppHelperException("There was an error uploading your " \
         "application. You must be logged in to upload applications.")
+    file_suffix = re.search("\.(.*)\Z", filename).group(1)
+    tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
+    tgz_file.write(upload_file.read())
+    tgz_file.close()
+    name = tgz_file.name
+    return self.start_upload_process(name, file_suffix, user.email())
+
+
+  def upload_app_via_git_url(self, git_url):
+    """ Uploads a Google App Engine application to this AppScale deployment.
+
+    At this time, it is assumed that the default branch is the branch that
+    should be checked out (typically this is 'master').
+
+    Args:
+      git_url: A str that names the location where a 'git clone' would
+        successfully retrieve the App Engine app.
+    Returns:
+      A str indicating that the application was uploaded successfully.
+    Raises:
+      AppHelperException: If the application was not uploaded successfully.
+    """
+    user = users.get_current_user()
+    if not user:
+      raise AppHelperException("There was an error uploading your " \
+        "application. You must be logged in to upload applications.")
+    return self.start_upload_process(git_url, 'git', user.email())
+
+
+  def start_upload_process(self, app_location, app_type, app_admin_email):
+    """ Instructs the AppController to begin uploading a new App Engine app, and
+    then polls it to see if the upload process completed successfully or not.
+
+    This method can be used to upload apps stored in a git repository (when
+    'app_location' points to the git repo to clone and 'app_type' is 'git') as
+    well as apps stored on the local filesystem (when 'app_location' points to
+    the file's location locally and 'app_type' indicates what type of compressed
+    file it is).
+
+    Args:
+      app_location: A str that names where the file to upload can be found.
+      app_type: A str that names the type of file to upload.
+      app_admin_email: A str that names the user that will be the administrator
+        for this application.
+    Returns:
+      A str indicating that the application was uploaded successfully.
+    Raises:
+      AppHelperException: If the application was not uploaded successfully.
+    """
     try:
-      file_suffix = re.search("\.(.*)\Z", filename).group(1)
-      tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
-      tgz_file.write(upload_file.read())
-      tgz_file.close()
-      name = tgz_file.name
       acc = self.get_appcontroller_client()
-      upload_info = acc.upload_app(name, file_suffix, user.email())
+      upload_info = acc.upload_app(app_location, app_type, app_admin_email)
       if upload_info['status'] == "starting":
+        # Large apps (like App Inventor) can take longer than 60 seconds to
+        # start, which will cause nginx and haproxy to timeout. In these cases,
+        # tell the user to check in later to see if the app uploaded
+        # successfully.
+        start = datetime.datetime.now()
+        end = start + datetime.timedelta(0, 5)
         while True:
+          if datetime.datetime.now() > end:
+            return "App upload is taking a while. Please wait for the " + \
+              "application to start running."
+
           status = acc.get_app_upload_status(upload_info['reservation_id'])
           if status == "starting":
             time.sleep(1)

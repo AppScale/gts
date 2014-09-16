@@ -51,6 +51,39 @@ jinja_environment = jinja2.Environment(
 MAX_REQUESTS_DATA_POINTS = 100
 
 
+# A list of applications that we know work with AppScale and provide users
+# with some interesting functionality.
+SPOTLIGHT_APPS = [
+  {
+  'appid' : 'appinventor',
+  'display_name' : 'MIT App Inventor',
+  'description' : 'Easily create applications in a web environment',
+  'git_url' : 'https://github.com/AppScale/appinventor.git'
+  },
+
+  {
+  'appid' : 'coursebuilder',
+  'display_name' : 'Google Course Builder',
+  'description' : 'Create and take classes online',
+  'git_url' : 'https://github.com/AppScale/coursebuilder.git'
+  },
+
+  {
+  'appid' : 'crisismap',
+  'display_name' : 'Google Crisis Map',
+  'description' : 'Upload and share maps',
+  'git_url' : 'https://github.com/AppScale/crisismap.git'
+  },
+
+  {
+  'appid' : 'sprunge',
+  'display_name' : 'sprunge',
+  'description' : 'command line pastebin for google appengine',
+  'git_url' : 'https://github.com/AppScale/sprunge.git'
+  },
+]
+
+
 class LoggedService(ndb.Model):
   """ A Datastore Model that represents all of the machines running in this
   AppScale deployment.
@@ -1115,6 +1148,46 @@ class RunGroomer(AppDashboard):
     }))
 
 
+class SpotlightApps(AppDashboard):
+  """ A class that provides users with an easy way to deploy approved
+  applications via a web interface. """
+
+
+  TEMPLATE = 'spotlight/upload.html'
+
+
+  def get(self):
+    """ Provides users with a list of apps they can upload. """
+    if not self.dstore.can_upload_apps():
+      self.redirect('/', self.response)
+
+    self.render_page(page='spotlight', template_file=self.TEMPLATE, values = {
+      'apps' : SPOTLIGHT_APPS
+    })
+
+
+  def post(self):
+    """ Uploads an application, if the user is allowed to."""
+    if not self.dstore.can_upload_apps():
+      self.redirect('/', self.response)
+
+    app_to_upload = self.request.get('appid')
+
+    git_url = None
+    for app in SPOTLIGHT_APPS:
+      if app['appid'] == app_to_upload:
+        git_url = app['git_url']
+        break
+    else:
+      self.redirect('/', self.response)
+
+    success_message = self.helper.upload_app_via_git_url(git_url)
+    self.render_page(page='spotlight', template_file=self.TEMPLATE, values = {
+      'apps' : SPOTLIGHT_APPS,
+      'success_message' : success_message
+    })
+
+
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', StatusPage),
                                 ('/status/refresh', StatusRefreshPage),
@@ -1147,6 +1220,7 @@ app = webapp2.WSGIApplication([ ('/', StatusPage),
                                 ('/logs/(.+)', LogServicePage),
                                 ('/gather-logs', LogDownloader),
                                 ('/groomer', RunGroomer),
+                                ('/spotlight', SpotlightApps),
                                 ('/change-password', ChangePasswordPage)
                               ], debug=True)
 

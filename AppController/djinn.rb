@@ -955,11 +955,21 @@ class Djinn
     Djinn.log_debug("Received a request to upload app at #{archived_file}, with suffix #{file_suffix}, with admin user #{email}.")
 
     Thread.new {
-      if !archived_file.match(/#{file_suffix}$/)
-        archived_file_old = archived_file
-        archived_file = "#{archived_file_old}.#{file_suffix}"
-        Djinn.log_debug("Renaming #{archived_file_old} to #{archived_file}")
-        File.rename(archived_file_old, archived_file)
+      if file_suffix == "git"
+        app_location = "/tmp/apps-#{HelperFunctions.get_random_alphanumeric()}"
+        start_time = Time.now()
+        Djinn.log_run("git clone #{archived_file} #{app_location}")
+        end_time = Time.now()
+        Djinn.log_debug("It took #{end_time - start_time} seconds to clone " +
+          "#{archived_file} via git")
+        archived_file = app_location
+      else
+        if !archived_file.match(/#{file_suffix}$/)
+          archived_file_old = archived_file
+          archived_file = "#{archived_file_old}.#{file_suffix}"
+          Djinn.log_debug("Renaming #{archived_file_old} to #{archived_file}")
+          File.rename(archived_file_old, archived_file)
+        end
       end
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
@@ -967,7 +977,13 @@ class Djinn
       command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
         "#{archived_file} --email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
-      File.delete(archived_file)
+
+      if file_suffix == "git"
+        FileUtils.rm_rf(archived_file)
+      else
+        File.delete(archived_file)
+      end
+
       if output.include?("Your app can be reached at the following URL")
         result = "true"
       else
