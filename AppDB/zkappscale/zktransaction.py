@@ -97,7 +97,7 @@ class ZKInternalException(Exception):
   pass
 
 class ZKBadRequest(ZKTransactionException):
-  """ A class thrown when there are too many locks are acquired in a XG transaction
+  """ A class thrown when there are too many locks acquired in a XG transaction
   or when XG operations are done on a non XG transaction.
   """
   pass
