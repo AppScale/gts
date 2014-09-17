@@ -72,6 +72,7 @@
     <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
+      <include name="com/google/appengine/api/datastore/DatastoreAttributes.class" />
     </jar>
     <unzip src="${gae_dist}/lib/impl/appengine-api.jar" dest="${gae_dist}/lib/impl/tmp"/>
     <delete dir="${gae_dist}/lib/impl/tmp/javax/mail"/>
@@ -84,6 +85,7 @@
     <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
+      <include name="com/google/appengine/api/datastore/DatastoreAttributes.class" />
     </jar>
     <unzip src="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" dest="${gae_dist}/lib/user/tmp"/>
     <delete dir="${gae_dist}/lib/user/tmp/javax/mail"/>
@@ -107,6 +109,7 @@
     <jar destfile="${gae_dist}/lib/impl/appengine-api-stubs.jar" basedir="${build}" update="true">
       <include name="apphosting/tools/*" />
       <include name="com/google/appengine/api/users/dev/*" />
+      <include name="com/google/appengine/api/datastore/*" />
       <include name="com/google/appengine/api/datastore/dev/*" />
       <include name="com/google/appengine/api/memcache/dev/*" />
       <include name="com/google/appengine/api/taskqueue/dev/*" />
