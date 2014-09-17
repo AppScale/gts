@@ -4305,9 +4305,7 @@ HOSTS
     ssh_key = shadow.ssh_key
     app_dir = "/var/apps/#{app}/app"
     app_path = "/opt/appscale/apps/#{app}.tar.gz"
-    if !is_new_app
-      FileUtils.rm_rf(app_dir)
-    end
+    FileUtils.rm_rf(app_dir)
     FileUtils.mkdir_p(app_dir)
     Djinn.log_debug("App untar directory created from scratch")
 
