@@ -42,7 +42,30 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     global task_queue    
     self.write('{"status":"up"}')
     self.finish()
- 
+
+class ReloadWorkerHandler(tornado.web.RequestHandler):
+  """ Reloads task queue workers for an app. """
+  @tornado.web.asynchronous
+  def post(self):
+    """ Function which handles POST requests. Data of the request is 
+        the request from the AppController in an a JSON string. 
+    """
+    global task_queue    
+    request = self.request
+    http_request_data = request.body
+    json_response = task_queue.reload_worker(http_request_data)
+    self.write(json_response)
+    self.finish()
+
+  @tornado.web.asynchronous
+  def get(self):
+    """ Handles get request for the web server. Returns the worker
+        status in json.
+    """
+    global task_queue    
+    self.write('{"status":"up"}')
+    self.finish()
+  
 class StartWorkerHandler(tornado.web.RequestHandler):
   """ Starts task queue workers for an app if they are not running. """
   @tornado.web.asynchronous
@@ -217,6 +240,7 @@ def main():
     # Takes json from AppController 
     (r"/startworker", StartWorkerHandler),
     (r"/stopworker", StopWorkerHandler),
+    (r"/reloadworker", ReloadWorkerHandler),
     # Takes protocol buffers from the AppServers
     (r"/*", MainHandler)
   ])

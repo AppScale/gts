@@ -203,6 +203,42 @@ class DistributedTaskQueue():
       .format(app_id)
     return stop_command
 
+  def reload_worker(self, json_request):
+    """ Reloads taskqueue workers as needed.
+        A worker can be started on both a master and slave node.
+ 
+    Args:
+      json_request: A JSON string with the application id.
+    Returns:
+      A JSON string with the error status and error reason.
+    """
+    request = self.__parse_json_and_validate_tags(json_request,  
+                                         self.SETUP_WORKERS_TAGS)
+    logging.info("Reload worker request: {0}".format(request))
+    if 'error' in request:
+      return json.dumps(request)
+
+    app_id = self.__cleanse(request['app_id'])
+
+    hostname = socket.gethostbyname(socket.gethostname())
+
+    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
+
+    old_queues = self.__queue_info_cache.get(app_id, None)
+    logging.info("HI")
+    # Load the new queue info.
+    try:
+      new_queues  = config.load_queues_from_file(app_id)
+    except ValueError, value_error:
+      return json.dumps({"error": True, "reason": str(value_error)}) 
+    except NameError, name_error:
+      return json.dumps({"error": True, "reason": str(name_error)}) 
+
+    json_response = {'error': False}
+         
+    return json.dumps(json_response)
+
+
   def start_worker(self, json_request):
     """ Starts taskqueue workers if they are not already running.
         A worker can be started on both a master and slave node.
@@ -224,7 +260,7 @@ class DistributedTaskQueue():
 
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
-    # Load the queue info
+    # Load the queue info.
     try:
       self.__queue_info_cache[app_id] = config.load_queues_from_file(app_id)
       config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
