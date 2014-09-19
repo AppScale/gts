@@ -302,15 +302,16 @@ class AppDashboardHelper():
         "that it runs on.".format(appname))
 
 
-  def shellescape(self, s):
-    """ Escapes special characters in arguments that are part of shell commands.
+  def shell_check(self, s):
+    """ Checks for special characters in arguments that are part of shell commands.
 
     Args:
-      s: A str, the string to be escaped.
-    Returns:
-      The escaped string.
+      s: A str, the string to be checked.
+    Raises:
+      BadConfigurationException if single quotes are present in s.
     """
-    return s.replace('\'', '\\'')
+    if '\'' in s:
+      raise BadConfigurationException("Single quotes (') are not allowed in filenames.")
 
 
   def upload_app(self, filename, upload_file):
@@ -330,7 +331,7 @@ class AppDashboardHelper():
       raise AppHelperException("There was an error uploading your " \
         "application. You must be logged in to upload applications.")
     try:
-      filename = self.shellescape(filename)
+      self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
       tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
