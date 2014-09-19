@@ -193,8 +193,8 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = task_queue.modify_task_lease(app_id,
                                                  http_request_data)
     elif method == "UpdateQueue":
-      response, errcode, errdetail = task_queue.update_queue(app_id,
-                                                 http_request_data)
+      response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
+      response, errcode, errdetail = response.Encode(), 0, ""
     elif method == "FetchQueues":
       response, errcode, errdetail = task_queue.fetch_queue(app_id,
                                                  http_request_data)
@@ -208,8 +208,8 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = task_queue.force_run(app_id,
                                                  http_request_data)
     elif method == "DeleteQueue":
-      response, errcode, errdetail = task_queue.delete_queue(app_id,
-                                                 http_request_data)
+      response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
+      response, errcode, errdetail = response.Encode(), 0, ""
     elif method == "PauseQueue":
       response, errcode, errdetail = task_queue.pause_queue(app_id,
                                                  http_request_data)

@@ -223,8 +223,8 @@ class DistributedTaskQueue():
     hostname = socket.gethostbyname(socket.gethostname())
 
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
-
-    old_queues = self.__queue_info_cache.get(app_id, None)
+    logging.info("Cache: {0}".format(self.__queue_info_cache))
+    old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
     logging.info("HI")
     # Load the new queue info.
     try:
@@ -234,10 +234,32 @@ class DistributedTaskQueue():
     except NameError, name_error:
       return json.dumps({"error": True, "reason": str(name_error)}) 
 
+    logging.info("Old queues: {0}".format(old_queues['queue']))
+    logging.info("New queues: {0}".format(new_queues['queue']))
+
+    # Delete queues that no longer exist.
+    for queue_name in old_queues.keys():
+      if queue_name not in new_queues.keys():
+        logging.info("Deleting {0} queue: {1}".format(app_id, queue_name))
+        self.delete_queue(app_id, queue_name)
+
+    # Create any new queues.
+    for queue_name in new_queues.keys():
+      if queue_name not in old_queues.keys():
+        logging.info("Creating {0} queue: {1}".format(app_id, queue_name))
+        self.create_queue(app_id, queue_name, new_queues[queue_name])
+
+    # Update all the modified queues.
+    for queue_name in new_queues.keys():
+      if queue_name not in old_queues.keys():
+        continue
+      if old_queues[queue_name] != new_queues[queue_name]:
+        logging.info("Updating {0} queue: {1}".format(app_id, queue_name))
+        self.update_queue(app_id, queue_name, new_queues[queue_name])
+
     json_response = {'error': False}
          
     return json.dumps(json_response)
-
 
   def start_worker(self, json_request):
     """ Starts taskqueue workers if they are not already running.
@@ -733,19 +755,29 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
     return (response.Encode(), 0, "")
 
-  def update_queue(self, app_id, http_data):
-    """ Creates a queue entry in the database.
+  def create_queue(self, app_id, queue_name, queue_data):
+    """ Creates a queue.
 
     Args:
       app_id: The application ID.
-      http_data: The payload containing the protocol buffer request.
+      queue_name: A string, the name of the queue.
+      queue_data: A dictionary with queue information.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      True on success, False otherwise.
     """
-    # TODO implement.
-    request = taskqueue_service_pb.TaskQueueUpdateQueueRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
-    return (response.Encode(), 0, "")
+    return True
+
+  def update_queue(self, app_id, queue_name, queue_data):
+    """ Updates a queue.
+
+    Args:
+      app_id: The application ID.
+      queue_name: A string, the name of the queue.
+      queue_data: A dictionary with queue information.
+    Returns:
+      True on success, False otherwise.
+    """
+    return True
 
   def fetch_queue(self, app_id, http_data):
     """ 
@@ -803,19 +835,16 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueForceRunResponse()
     return (response.Encode(), 0, "")
 
-  def delete_queue(self, app_id, http_data):
+  def delete_queue(self, app_id, queue_name):
     """ 
 
     Args:
       app_id: The application ID.
-      http_data: The payload containing the protocol buffer request.
+      queue_name: A string, the name of the queue.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      True on success, False otherwise.
     """
-    # TODO implement.
-    request = taskqueue_service_pb.TaskQueueDeleteQueueRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
-    return (response.Encode(), 0, "")
+    return True
 
   def pause_queue(self, app_id, http_data):
     """ 
