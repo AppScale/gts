@@ -4,9 +4,7 @@
 import datetime
 import hashlib
 import logging
-import os
 import re
-import sys
 import tempfile
 import time
 import urllib
@@ -16,6 +14,7 @@ from google.appengine.api import SOAPpy
 from google.appengine.api.appcontroller_client import AppControllerClient
 from google.appengine.api import users
 
+from custom_exceptions import BadConfigurationException
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
 from local_host import MY_PUBLIC_IP
@@ -303,6 +302,17 @@ class AppDashboardHelper():
         "that it runs on.".format(appname))
 
 
+  def shellescape(self, s):
+    """ Escapes special characters in arguments that are part of shell commands.
+
+    Args:
+      s: A str, the string to be escaped.
+    Returns:
+      The escaped string.
+    """
+    return s.replace('\'', '\\'')
+
+
   def upload_app(self, filename, upload_file):
     """ Uploads an Google App Engine application into this AppScale deployment.
 
@@ -320,6 +330,7 @@ class AppDashboardHelper():
       raise AppHelperException("There was an error uploading your " \
         "application. You must be logged in to upload applications.")
     try:
+      filename = self.shellescape(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
       tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
