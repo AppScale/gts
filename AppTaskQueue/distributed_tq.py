@@ -261,7 +261,7 @@ class DistributedTaskQueue():
 
     if reload_queues:
       logging.info("Old {0} queues: {1}".format(app_id, old_queue_dict))
-      logging.info("New {1} queues: {0}".format(app_id, new_queue_dict))
+      logging.info("New {0} queues: {1}".format(app_id, new_queue_dict))
       self.stop_worker(json_request)
       self.start_worker(json_request)
       self.__force_reload = True
