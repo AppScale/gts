@@ -25,7 +25,7 @@ class StopWorkerHandler(tornado.web.RequestHandler):
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in an a JSON string. 
+        the request from the AppController in a JSON string. 
     """
     global task_queue    
     request = self.request
@@ -48,7 +48,7 @@ class ReloadWorkerHandler(tornado.web.RequestHandler):
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in an a JSON string. 
+        the request from the AppController in a JSON string. 
     """
     global task_queue    
     request = self.request
@@ -71,7 +71,7 @@ class StartWorkerHandler(tornado.web.RequestHandler):
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in an a JSON string. 
+        the request from the AppController in a JSON string. 
     """
     global task_queue    
     request = self.request
