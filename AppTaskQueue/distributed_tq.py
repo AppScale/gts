@@ -134,6 +134,9 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
+    # Flag to see if code needs to be reloaded.
+    self.__force_reload = False
+
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the 
         proper tags.
@@ -223,42 +226,52 @@ class DistributedTaskQueue():
     hostname = socket.gethostbyname(socket.gethostname())
 
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
-    logging.info("Cache: {0}".format(self.__queue_info_cache))
     old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
-    logging.info("HI")
+    old_queue_dict = {}
+    for queue in old_queues['queue']:
+      old_queue_dict[queue['name']] = queue
+
+    new_queue_dict = {}
     # Load the new queue info.
     try:
       new_queues  = config.load_queues_from_file(app_id)
+      for queue in new_queues['queue']:
+        new_queue_dict[queue['name']] = queue
     except ValueError, value_error:
       return json.dumps({"error": True, "reason": str(value_error)}) 
     except NameError, name_error:
       return json.dumps({"error": True, "reason": str(name_error)}) 
+    except Exception, exception:
+      logging.error("******Unknown exception******")
+      logging.exception(exception)
+      return json.dumps({"error": True, "reason": str(exception)}) 
+ 
 
-    logging.info("Old queues: {0}".format(old_queues['queue']))
-    logging.info("New queues: {0}".format(new_queues['queue']))
+    reload_queues = False
 
     # Delete queues that no longer exist.
-    for queue_name in old_queues.keys():
-      if queue_name not in new_queues.keys():
+    for queue_name in old_queue_dict.keys():
+      if queue_name not in new_queue_dict:
         logging.info("Deleting {0} queue: {1}".format(app_id, queue_name))
-        self.delete_queue(app_id, queue_name)
+        reload_queues = True
 
     # Create any new queues.
-    for queue_name in new_queues.keys():
-      if queue_name not in old_queues.keys():
+    for queue_name in new_queue_dict.keys():
+      if queue_name not in old_queue_dict.keys():
         logging.info("Creating {0} queue: {1}".format(app_id, queue_name))
-        self.create_queue(app_id, queue_name, new_queues[queue_name])
+        reload_queues = True
 
-    # Update all the modified queues.
-    for queue_name in new_queues.keys():
-      if queue_name not in old_queues.keys():
-        continue
-      if old_queues[queue_name] != new_queues[queue_name]:
-        logging.info("Updating {0} queue: {1}".format(app_id, queue_name))
-        self.update_queue(app_id, queue_name, new_queues[queue_name])
+    if reload_queues:
+      logging.info("Old {0} queues: {0}".format(app_id, old_queue_dict))
+      logging.info("New {1} queues: {0}".format(app_id, new_queue_dict))
+      self.stop_worker(json_request)
+      self.start_worker(json_request)
+      self.__force_reload = True
+    else:
+      logging.info("Not reloading queues")
+      self.__queue_info_cache[app_id] = new_queues
 
     json_response = {'error': False}
-         
     return json.dumps(json_response)
 
   def start_worker(self, json_request):
@@ -291,7 +304,11 @@ class DistributedTaskQueue():
       return json.dumps({"error": True, "reason": str(value_error)}) 
     except NameError, name_error:
       return json.dumps({"error": True, "reason": str(name_error)}) 
- 
+    except Exception, exception:
+      logging.error("******Unknown exception******")
+      logging.exception(exception)
+      return json.dumps({"error": True, "reason": str(exception)}) 
+   
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["/usr/local/bin/celery",
                "worker",
@@ -572,6 +589,16 @@ class DistributedTaskQueue():
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
+
+      # If a new queue was added we need to relaod the python code.
+      if self.__force_reload:
+        start = time.time()
+        reload(task_module)
+        time_taken = time.time() - start
+        self.__force_reload = False
+        logging.info("Reloading module for {0} took {1} seconds.".\
+          format(request.app_id(), time_taken))
+
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
@@ -622,6 +649,9 @@ class DistributedTaskQueue():
       except NameError, name_error:
         logging.error("Unable to load queues for app id {0} using defaults."\
           .format(request.app_id()))
+      except Exception, exception:
+        logging.error("******Unknown exception******")
+        logging.exception(exception)
   
     # Use queue defaults.
     if request.app_id() in self.__queue_info_cache:
