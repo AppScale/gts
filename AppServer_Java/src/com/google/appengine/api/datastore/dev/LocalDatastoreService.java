@@ -405,7 +405,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         {
             DefaultHighRepJobPolicy defaultPolicy = new DefaultHighRepJobPolicy(properties);
 
-            this.isHighRep = (defaultPolicy.unappliedJobCutoff > 0);
+            this.isHighRep = true;
             this.highRepJobPolicy = defaultPolicy;
         }
         else
