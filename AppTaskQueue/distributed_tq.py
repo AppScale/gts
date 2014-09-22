@@ -223,8 +223,6 @@ class DistributedTaskQueue():
 
     app_id = self.__cleanse(request['app_id'])
 
-    hostname = socket.gethostbyname(socket.gethostname())
-
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
     old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
     old_queue_dict = {}
@@ -262,7 +260,7 @@ class DistributedTaskQueue():
         reload_queues = True
 
     if reload_queues:
-      logging.info("Old {0} queues: {0}".format(app_id, old_queue_dict))
+      logging.info("Old {0} queues: {1}".format(app_id, old_queue_dict))
       logging.info("New {1} queues: {0}".format(app_id, new_queue_dict))
       self.stop_worker(json_request)
       self.start_worker(json_request)
@@ -785,30 +783,6 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
     return (response.Encode(), 0, "")
 
-  def create_queue(self, app_id, queue_name, queue_data):
-    """ Creates a queue.
-
-    Args:
-      app_id: The application ID.
-      queue_name: A string, the name of the queue.
-      queue_data: A dictionary with queue information.
-    Returns:
-      True on success, False otherwise.
-    """
-    return True
-
-  def update_queue(self, app_id, queue_name, queue_data):
-    """ Updates a queue.
-
-    Args:
-      app_id: The application ID.
-      queue_name: A string, the name of the queue.
-      queue_data: A dictionary with queue information.
-    Returns:
-      True on success, False otherwise.
-    """
-    return True
-
   def fetch_queue(self, app_id, http_data):
     """ 
 
@@ -864,17 +838,6 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueForceRunRequest(http_data)
     response = taskqueue_service_pb.TaskQueueForceRunResponse()
     return (response.Encode(), 0, "")
-
-  def delete_queue(self, app_id, queue_name):
-    """ 
-
-    Args:
-      app_id: The application ID.
-      queue_name: A string, the name of the queue.
-    Returns:
-      True on success, False otherwise.
-    """
-    return True
 
   def pause_queue(self, app_id, http_data):
     """ 
