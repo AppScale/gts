@@ -27,7 +27,7 @@ class AppHelperException(Exception):
   pass
 
 
-class AppDashboardHelper():
+class AppDashboardHelper(object):
   """ Helper class that interacts with the AppController and UserAppServer on
   behalf of the AppDashboard.
 
@@ -270,14 +270,14 @@ class AppDashboardHelper():
     return self.get_host_with_role('login')
 
 
-  def get_app_port(self, appname): 
+  def get_app_port(self, appname):
     """ Queries the UserAppServer to learn which port the named application runs
     on.
 
     Note that we don't need to query the UserAppServer to learn which host the
     application runs on, as it is always full proxied by the machine running the
     login service.
-    
+
     Args:
       appname: A str that indicates which application we want to find a hosted
         port for.
@@ -302,16 +302,18 @@ class AppDashboardHelper():
         "that it runs on.".format(appname))
 
 
-  def shell_check(self, s):
-    """ Checks for special characters in arguments that are part of shell commands.
+  def shell_check(self, argument):
+    """ Checks for special characters in arguments that are part of shell
+    commands.
 
     Args:
-      s: A str, the string to be checked.
+      argument: A str, the argument to be checked.
     Raises:
-      BadConfigurationException if single quotes are present in s.
+      BadConfigurationException if single quotes are present in argument.
     """
-    if '\'' in s:
-      raise BadConfigurationException("Single quotes (') are not allowed in filenames.")
+    if '\'' in argument:
+      raise BadConfigurationException("Single quotes (') are not allowed " + \
+        "in filenames.")
 
 
   def upload_app(self, filename, upload_file):
@@ -432,7 +434,7 @@ class AppDashboardHelper():
     """ Get the logged in user's email.
 
     Returns:
-      A str with the user's email, or '' if the user is not logged in. 
+      A str with the user's email, or '' if the user is not logged in.
     """
     user = users.get_current_user()
     if user:
@@ -555,7 +557,7 @@ class AppDashboardHelper():
         GLOBAL_SECRET_KEY)
       if result != 'true':
         raise AppHelperException(result)
-  
+
       # Next, create the XMPP account. if the user's e-mail is a@a.a, then that
       # means their XMPP account name is a@login_ip.
       username_regex = re.compile(self.USERNAME_FROM_EMAIL_REGEX)
@@ -567,7 +569,7 @@ class AppDashboardHelper():
         GLOBAL_SECRET_KEY)
       if result != 'true':
         raise AppHelperException(result)
-  
+
       # TODO: We may not even be using this token since the switch to
       # full proxy nginx. Investigate this.
       self.create_token(email, email)
@@ -604,7 +606,7 @@ class AppDashboardHelper():
     Args:
       email: A str containing the e-mail address of the user who we should
         login as.
-      apps_list: A list of strs, each the name of an app the user is an admin 
+      apps_list: A list of strs, each the name of an app the user is an admin
         of.
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
@@ -618,10 +620,10 @@ class AppDashboardHelper():
     """ Look at the user's login cookie and return the list of apps that
     they are an owner of.
 
-    The login cookie's value has the form: "email:nick:apps:hash".  The email 
+    The login cookie's value has the form: "email:nick:apps:hash".  The email
     is the login email of the user, the nick is the assigned nickname for the
     user, the apps is a comma seperate list of app that this user is an owner
-    of, and the hash is a security hash of the first three parts and the 
+    of, and the hash is a security hash of the first three parts and the
     secret key of the deployment.
 
     Args:
@@ -641,14 +643,14 @@ class AppDashboardHelper():
 
   def update_cookie_app_list(self, owned_apps, request, response):
     """ Update the login cookie with the list of apps the user is an admin of.
- 
+
     Look at the user's login cookie and compare the list of apps that they are
-    an owner of to the list of apps passed in. The owned_apps parameter is 
+    an owner of to the list of apps passed in. The owned_apps parameter is
     considered authoritative, and will overwrite the cookie values if they
     differ.
 
     Args:
-      owned_apps: A list of strs, each the name of an app the user is an admin 
+      owned_apps: A list of strs, each the name of an app the user is an admin
         of.
       request: A webapp2 request object that contains the user's login cookie.
       response: A webapp2 response object this is used to set the user's update
@@ -710,7 +712,7 @@ class AppDashboardHelper():
 
   def create_token(self, token, email):
     """ Create a login token and save it in the UserAppServer.
-    
+
     Args:
       token: A str containing the name of the token to create (usually the email
         address).
@@ -719,7 +721,7 @@ class AppDashboardHelper():
     """
     try:
       uaserver = self.get_uaserver()
-      uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION, 
+      uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION,
         GLOBAL_SECRET_KEY)
     except Exception as err:
       logging.exception(err)
@@ -782,7 +784,7 @@ class AppDashboardHelper():
       my_ip = self.get_head_node_ip()
       for usr in all_users_list:
         if re.search('@' + my_ip + '$', usr): # Skip the XMPP user accounts.
-          continue 
+          continue
         if re.search(self.ALL_USERS_NON_USER_REGEX, usr): # Skip non users.
           continue
         ret_list.append(usr)
@@ -792,7 +794,7 @@ class AppDashboardHelper():
 
 
   def list_all_users_permissions(self):
-    """ Queries the UserAppServer and returns a list of all the users and the 
+    """ Queries the UserAppServer and returns a list of all the users and the
       permissions they have in the system.
 
     Returns:
@@ -819,7 +821,7 @@ class AppDashboardHelper():
 
   def get_all_permission_items(self):
     """ Returns a list of the capabilities that users can be granted.
-   
+
     Returns:
       A list of strs, where each str is the name of a capability.
     """
@@ -829,7 +831,7 @@ class AppDashboardHelper():
   def add_user_permissions(self, email, perm):
     """ Grants the named capability to the specified user.
 
-    Args: 
+    Args:
       email: A str containing the e-mail address of the user who we wish to add
         a capability for.
       perm: A str containing the name of the capability to grant to the user.
@@ -866,7 +868,7 @@ class AppDashboardHelper():
       email: A str containing the e-mail address of the user who we wish to
         remove a permission from.
       perm: A str containing the name of the permission to remove from the user.
-    Returns: 
+    Returns:
       True if the permission was removed from the user, and False otherwise.
     """
     try:
@@ -875,9 +877,9 @@ class AppDashboardHelper():
       if perm in caps_list:
         caps_list.remove(perm)
       else:
-        return True 
+        return True
 
-      ret = uas.set_capabilities(email, 
+      ret = uas.set_capabilities(email,
         self.USER_CAPABILITIES_DELIMITER.join(caps_list), GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = caps_list
@@ -935,8 +937,8 @@ class AppDashboardHelper():
     Args:
       email: A string indicating the email address of the user whose password
         should be reset.
-      password: A string containing the cleartext password that should be set for
-        the given user.
+      password: A string containing the cleartext password that should be set
+        for the given user.
     Returns:
       A tuple containing a boolean and string. The boolean indicates whether the
       password reset was successful and the string indicates the reason why in
@@ -946,11 +948,12 @@ class AppDashboardHelper():
 
     try:
       user_app_server = self.get_uaserver()
-      ret = user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
+      ret = user_app_server.change_password(email, hashed_password,
+        GLOBAL_SECRET_KEY)
       if ret == "true":
         return True, "The user password was successfully changed."
       else:
         return False, ret
     except Exception as err:
       logging.exception(err)
-      raise False, "There was an error changing the user password."
+      return False, "There was an error changing the user password."
