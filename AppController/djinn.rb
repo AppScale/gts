@@ -965,7 +965,7 @@ class Djinn
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
       command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-        "#{archived_file} --email #{email} --keyname #{keyname} 2>&1"
+        "'#{archived_file}' --email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
       File.delete(archived_file)
       if output.include?("Your app can be reached at the following URL")
@@ -1295,7 +1295,7 @@ class Djinn
   # Stop taskqueue worker on this local machine.
   #
   # Args:
-  #   app: The application ID
+  #   app: The application ID.
   def maybe_stop_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
       Djinn.log_info("Stopping TaskQueue workers for app #{app}")
@@ -1308,7 +1308,7 @@ class Djinn
   # Start taskqueue worker on this local machine.
   #
   # Args:
-  #   app: The application ID
+  #   app: The application ID.
   def maybe_start_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
       tqc = TaskQueueClient.new()
@@ -1320,7 +1320,7 @@ class Djinn
   # Reload the queue information of an app and reload the queues if needed.
   #
   # Args:
-  #   app: The application ID
+  #   app: The application ID.
   def maybe_reload_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
       tqc = TaskQueueClient.new()
