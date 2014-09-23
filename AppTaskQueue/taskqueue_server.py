@@ -25,7 +25,7 @@ class StopWorkerHandler(tornado.web.RequestHandler):
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in an a JSON string. 
+        the request from the AppController in a JSON string. 
     """
     global task_queue    
     request = self.request
@@ -42,13 +42,36 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     global task_queue    
     self.write('{"status":"up"}')
     self.finish()
- 
+
+class ReloadWorkerHandler(tornado.web.RequestHandler):
+  """ Reloads task queue workers for an app. """
+  @tornado.web.asynchronous
+  def post(self):
+    """ Function which handles POST requests. Data of the request is 
+        the request from the AppController in a JSON string. 
+    """
+    global task_queue    
+    request = self.request
+    http_request_data = request.body
+    json_response = task_queue.reload_worker(http_request_data)
+    self.write(json_response)
+    self.finish()
+
+  @tornado.web.asynchronous
+  def get(self):
+    """ Handles get request for the web server. Returns the worker
+        status in json.
+    """
+    global task_queue    
+    self.write('{"status":"up"}')
+    self.finish()
+  
 class StartWorkerHandler(tornado.web.RequestHandler):
   """ Starts task queue workers for an app if they are not running. """
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in an a JSON string. 
+        the request from the AppController in a JSON string. 
     """
     global task_queue    
     request = self.request
@@ -170,8 +193,8 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = task_queue.modify_task_lease(app_id,
                                                  http_request_data)
     elif method == "UpdateQueue":
-      response, errcode, errdetail = task_queue.update_queue(app_id,
-                                                 http_request_data)
+      response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
+      response, errcode, errdetail = response.Encode(), 0, ""
     elif method == "FetchQueues":
       response, errcode, errdetail = task_queue.fetch_queue(app_id,
                                                  http_request_data)
@@ -185,8 +208,8 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = task_queue.force_run(app_id,
                                                  http_request_data)
     elif method == "DeleteQueue":
-      response, errcode, errdetail = task_queue.delete_queue(app_id,
-                                                 http_request_data)
+      response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
+      response, errcode, errdetail = response.Encode(), 0, ""
     elif method == "PauseQueue":
       response, errcode, errdetail = task_queue.pause_queue(app_id,
                                                  http_request_data)
@@ -217,6 +240,7 @@ def main():
     # Takes json from AppController 
     (r"/startworker", StartWorkerHandler),
     (r"/stopworker", StopWorkerHandler),
+    (r"/reloadworker", ReloadWorkerHandler),
     # Takes protocol buffers from the AppServers
     (r"/*", MainHandler)
   ])

@@ -134,6 +134,9 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
+    # Flag to see if code needs to be reloaded.
+    self.__force_reload = False
+
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the 
         proper tags.
@@ -203,6 +206,72 @@ class DistributedTaskQueue():
       .format(app_id)
     return stop_command
 
+  def reload_worker(self, json_request):
+    """ Reloads taskqueue workers as needed.
+        A worker can be started on both a master and slave node.
+ 
+    Args:
+      json_request: A JSON string with the application id.
+    Returns:
+      A JSON string with the error status and error reason.
+    """
+    request = self.__parse_json_and_validate_tags(json_request,  
+                                         self.SETUP_WORKERS_TAGS)
+    logging.info("Reload worker request: {0}".format(request))
+    if 'error' in request:
+      return json.dumps(request)
+
+    app_id = self.__cleanse(request['app_id'])
+
+    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
+    old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
+    old_queue_dict = {}
+    for queue in old_queues['queue']:
+      old_queue_dict[queue['name']] = queue
+
+    new_queue_dict = {}
+    # Load the new queue info.
+    try:
+      new_queues  = config.load_queues_from_file(app_id)
+      for queue in new_queues['queue']:
+        new_queue_dict[queue['name']] = queue
+    except ValueError, value_error:
+      return json.dumps({"error": True, "reason": str(value_error)}) 
+    except NameError, name_error:
+      return json.dumps({"error": True, "reason": str(name_error)}) 
+    except Exception, exception:
+      logging.error("******Unknown exception******")
+      logging.exception(exception)
+      return json.dumps({"error": True, "reason": str(exception)}) 
+ 
+
+    reload_queues = False
+
+    # Delete queues that no longer exist.
+    for queue_name in old_queue_dict.keys():
+      if queue_name not in new_queue_dict:
+        logging.info("Deleting {0} queue: {1}".format(app_id, queue_name))
+        reload_queues = True
+
+    # Create any new queues.
+    for queue_name in new_queue_dict.keys():
+      if queue_name not in old_queue_dict.keys():
+        logging.info("Creating {0} queue: {1}".format(app_id, queue_name))
+        reload_queues = True
+
+    if reload_queues:
+      logging.info("Old {0} queues: {1}".format(app_id, old_queue_dict))
+      logging.info("New {0} queues: {1}".format(app_id, new_queue_dict))
+      self.stop_worker(json_request)
+      self.start_worker(json_request)
+      self.__force_reload = True
+    else:
+      logging.info("Not reloading queues")
+      self.__queue_info_cache[app_id] = new_queues
+
+    json_response = {'error': False}
+    return json.dumps(json_response)
+
   def start_worker(self, json_request):
     """ Starts taskqueue workers if they are not already running.
         A worker can be started on both a master and slave node.
@@ -224,7 +293,7 @@ class DistributedTaskQueue():
 
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
-    # Load the queue info
+    # Load the queue info.
     try:
       self.__queue_info_cache[app_id] = config.load_queues_from_file(app_id)
       config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
@@ -233,7 +302,11 @@ class DistributedTaskQueue():
       return json.dumps({"error": True, "reason": str(value_error)}) 
     except NameError, name_error:
       return json.dumps({"error": True, "reason": str(name_error)}) 
- 
+    except Exception, exception:
+      logging.error("******Unknown exception******")
+      logging.exception(exception)
+      return json.dumps({"error": True, "reason": str(exception)}) 
+   
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["/usr/local/bin/celery",
                "worker",
@@ -514,6 +587,16 @@ class DistributedTaskQueue():
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
+
+      # If a new queue was added we need to relaod the python code.
+      if self.__force_reload:
+        start = time.time()
+        reload(task_module)
+        time_taken = time.time() - start
+        self.__force_reload = False
+        logging.info("Reloading module for {0} took {1} seconds.".\
+          format(request.app_id(), time_taken))
+
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
@@ -564,6 +647,9 @@ class DistributedTaskQueue():
       except NameError, name_error:
         logging.error("Unable to load queues for app id {0} using defaults."\
           .format(request.app_id()))
+      except Exception, exception:
+        logging.error("******Unknown exception******")
+        logging.exception(exception)
   
     # Use queue defaults.
     if request.app_id() in self.__queue_info_cache:
@@ -697,20 +783,6 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
     return (response.Encode(), 0, "")
 
-  def update_queue(self, app_id, http_data):
-    """ Creates a queue entry in the database.
-
-    Args:
-      app_id: The application ID.
-      http_data: The payload containing the protocol buffer request.
-    Returns:
-      A tuple of a encoded response, error code, and error detail.
-    """
-    # TODO implement.
-    request = taskqueue_service_pb.TaskQueueUpdateQueueRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
-    return (response.Encode(), 0, "")
-
   def fetch_queue(self, app_id, http_data):
     """ 
 
@@ -765,20 +837,6 @@ class DistributedTaskQueue():
     # TODO implement.
     request = taskqueue_service_pb.TaskQueueForceRunRequest(http_data)
     response = taskqueue_service_pb.TaskQueueForceRunResponse()
-    return (response.Encode(), 0, "")
-
-  def delete_queue(self, app_id, http_data):
-    """ 
-
-    Args:
-      app_id: The application ID.
-      http_data: The payload containing the protocol buffer request.
-    Returns:
-      A tuple of a encoded response, error code, and error detail.
-    """
-    # TODO implement.
-    request = taskqueue_service_pb.TaskQueueDeleteQueueRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
     return (response.Encode(), 0, "")
 
   def pause_queue(self, app_id, http_data):

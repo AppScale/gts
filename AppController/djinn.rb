@@ -1295,7 +1295,7 @@ class Djinn
   # Stop taskqueue worker on this local machine.
   #
   # Args:
-  #   app: The application ID
+  #   app: The application ID.
   def maybe_stop_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
       Djinn.log_info("Stopping TaskQueue workers for app #{app}")
@@ -1308,7 +1308,7 @@ class Djinn
   # Start taskqueue worker on this local machine.
   #
   # Args:
-  #   app: The application ID
+  #   app: The application ID.
   def maybe_start_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
       tqc = TaskQueueClient.new()
@@ -1317,6 +1317,17 @@ class Djinn
     end
   end
 
+  # Reload the queue information of an app and reload the queues if needed.
+  #
+  # Args:
+  #   app: The application ID.
+  def maybe_reload_taskqueue_worker(app)
+    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
+      tqc = TaskQueueClient.new()
+      result = tqc.reload_worker(app)
+      Djinn.log_info("Checking TaskQueue worker for app #{app}: #{result}")
+    end
+  end
 
   def update(app_names, secret)
     if !valid_secret?(secret)
@@ -4330,6 +4341,8 @@ HOSTS
 
     if is_new_app
       maybe_start_taskqueue_worker(app)
+    else
+      maybe_reload_taskqueue_worker(app)
     end
 
     if is_new_app

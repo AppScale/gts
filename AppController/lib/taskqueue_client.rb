@@ -68,14 +68,14 @@ class TaskQueueClient
     end
   end
  
-   # Wrapper for REST calls to the TaskQueue Server to start a
-   # taskqueue worker on a taskqueue node.
-   #
-   # Args:
-   #   app_name: Name of the application.
-   # Returns:
-   #   JSON response.
-   def start_worker(app_name)
+  # Wrapper for REST calls to the TaskQueue Server to start a
+  # taskqueue worker on a taskqueue node.
+  #
+  # Args:
+  #   app_name: Name of the application.
+  # Returns:
+  #   JSON response.
+  def start_worker(app_name)
     config = {'app_id' => app_name, 'command' => 'update'}
     json_config = JSON.dump(config)
     response = nil
@@ -92,14 +92,39 @@ class TaskQueueClient
     return JSON.load(response.body)
   end
 
-   # Wrapper for REST calls to the TaskQueue Server to stop a
-   # taskqueue worker on a taskqueue node.
-   #
-   # Args:
-   #   app_name: Name of the application.
-   # Returns:
-   #   JSON response.
-   def stop_worker(app_name)
+  # Wrapper for REST calls to the TaskQueue Server to reload a
+  # taskqueue worker on a taskqueue node.
+  #
+  # Args:
+  #   app_name: Name of the application.
+  # Returns:
+  #   JSON response.
+  def reload_worker(app_name)
+    config = {'app_id' => app_name, 'command' => 'update'}
+    json_config = JSON.dump(config)
+    response = nil
+     
+    make_call(MAX_TIME_OUT, false, "reload_worker"){
+      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/reloadworker")
+      http = Net::HTTP.new(url.host, url.port)
+      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
+    }
+    if response.nil?
+      return {"error" => true, "reason" => "Unable to get a response"}
+    end
+
+    return JSON.load(response.body)
+  end
+
+
+  # Wrapper for REST calls to the TaskQueue Server to stop a
+  # taskqueue worker on a taskqueue node.
+  #
+  # Args:
+  #   app_name: Name of the application.
+  # Returns:
+  #   JSON response.
+  def stop_worker(app_name)
     config = {'app_id' => app_name, 
               'command' => 'update'}
     json_config = JSON.dump(config)
