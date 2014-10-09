@@ -84,7 +84,7 @@ module DatastoreServer
     if num_procs == 0
       return DEFAULT_NUM_SERVERS
     else 
-      return num_procs
+      return num_procs * 2
     end
   end
 
