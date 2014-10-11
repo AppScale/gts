@@ -40,6 +40,9 @@ module DatastoreServer
   # datastore servers to this value.
   DEFAULT_NUM_SERVERS = 3
 
+  # Datastore server processes to core multipler.
+  MULTIPLIER = 2
+
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell god to start it and watch it.
   def self.start(master_ip, db_local_ip, my_ip, table, zklocations)
@@ -84,7 +87,7 @@ module DatastoreServer
     if num_procs == 0
       return DEFAULT_NUM_SERVERS
     else 
-      return num_procs
+      return num_procs * MULTIPILER
     end
   end
 
