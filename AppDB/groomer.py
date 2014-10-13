@@ -534,8 +534,8 @@ class DatastoreGroomer(threading.Thread):
       self.table_name)
 
 
-    try:
-      while True:
+    while True:
+      try:
         entities = self.get_entity_batch(last_key)
      
         if not entities:
@@ -545,9 +545,9 @@ class DatastoreGroomer(threading.Thread):
           self.process_entity(entity)
      
         last_key = entities[-1].keys()[0]
-    except datastore_errors.Error, error:
-      logging.error("Error getting a batch: {0}".format(error))
-      sleep(self.DB_ERROR_PERIOD)
+      except datastore_errors.Error, error:
+        logging.error("Error getting a batch: {0}".format(error))
+        sleep(self.DB_ERROR_PERIOD)
 
     timestamp = datetime.datetime.now()
 
