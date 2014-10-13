@@ -87,7 +87,7 @@ module DatastoreServer
     if num_procs == 0
       return DEFAULT_NUM_SERVERS
     else 
-      return num_procs * MULTIPILER
+      return num_procs * MULTIPLIER
     end
   end
 
