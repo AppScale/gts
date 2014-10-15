@@ -38,6 +38,9 @@ class DatastoreGroomer(threading.Thread):
   # The amount of seconds between polling to get the groomer lock.
   LOCK_POLL_PERIOD = 24 * 60 * 60
 
+  # Retry sleep on datastore error in seconds.
+  DB_ERROR_PERIOD = 30
+
   # The number of entities retrieved in a datastore request.
   BATCH_SIZE = 100 
 
@@ -530,16 +533,21 @@ class DatastoreGroomer(threading.Thread):
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
 
+
     while True:
-      entities = self.get_entity_batch(last_key)
-
-      if not entities:
-        break
-
-      for entity in entities:
-        self.process_entity(entity)
-
-      last_key = entities[-1].keys()[0]
+      try:
+        entities = self.get_entity_batch(last_key)
+     
+        if not entities:
+          break
+     
+        for entity in entities:
+          self.process_entity(entity)
+     
+        last_key = entities[-1].keys()[0]
+      except datastore_errors.Error, error:
+        logging.error("Error getting a batch: {0}".format(error))
+        sleep(self.DB_ERROR_PERIOD)
 
     timestamp = datetime.datetime.now()
 
