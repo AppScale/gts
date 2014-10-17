@@ -547,7 +547,7 @@ class DatastoreGroomer(threading.Thread):
         last_key = entities[-1].keys()[0]
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))
-        sleep(self.DB_ERROR_PERIOD)
+        time.sleep(self.DB_ERROR_PERIOD)
 
     timestamp = datetime.datetime.now()
 
