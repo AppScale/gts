@@ -214,7 +214,7 @@ server {
     listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;  # don’t use SSLv3 ref: POODLE
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate /etc/nginx/mycert.pem;
     ssl_certificate_key /etc/nginx/mykey.pem;
     ignore_invalid_headers off;
@@ -416,7 +416,7 @@ server {
     listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;  # don’t use SSLv3 ref: POODLE
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
@@ -536,7 +536,7 @@ server {
 server {
     listen #{DatastoreServer::LISTEN_PORT_WITH_SSL};
     ssl on;
-    ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;  # don’t use SSLv3 ref: POODLE
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
