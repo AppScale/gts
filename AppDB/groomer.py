@@ -56,6 +56,9 @@ class DatastoreGroomer(threading.Thread):
   # Do not generate stats for AppScale internal apps.
   APPSCALE_APPLICATIONS = ['apichecker', 'appscaledashboard']
 
+  # A sentinel value to signify that this app does not have composite indexes.
+  NO_COMPOSITES = "NO_COMPS_INDEXES_HERE"
+
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
 
@@ -75,6 +78,7 @@ class DatastoreGroomer(threading.Thread):
     self.stats = {}
     self.namespace_info = {}
     self.num_deletes = 0
+    self.composite_index_cache = {}
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -205,6 +209,116 @@ class DatastoreGroomer(threading.Thread):
     tokens = entity_key.split(dbconstants.KEY_DELIMITER)
     return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
 
+  def fetch_journal_entry(self, key):
+    """ Fetches the given key from the journal.
+
+    Args:
+      keys: A str, the key to fetch.
+    Returns:
+      The entity fetched from the datastore, or None if it was deleted.
+    """
+    result = self.db_access.batch_get_entity(dbconstants.JOURNAL_TABLE, [key],
+      dbconstants.JOURNAL_SCHEMA)
+    ent_string = ""
+    if dbconstants.JOURNAL_SCHEMA[0] in ii:
+      ent_string = ii[dbconstants.JOURNAL_SCHEMA[0]]
+      if ent_string == datastore_server.TOMBSTONE:
+        return None
+      return entity_pb.EntityProto().ParseFromString(ent_string)
+    else:
+      logging.error("Bad journal entry for key: {0} \nAnd result: {1}".
+        format(keys, result))
+      return None
+
+  def load_composite_cache(self, app_id):
+    """ Load the composite index cache for an application ID.
+
+    Args:
+      app_id: A str, the application ID.
+    Returns:
+      True if the application has composites. False otherwise.
+    """
+    start_key = datastore_server.get_meta_data_key(app_id, "index", "")
+    end_key = datastore_server.get_meta_data_key(app_id, "index", 
+      dbconstants.TERMINATING_STRING)
+
+    results = self.db_access.range_query(dbconstants.METADATA_TABLE, 
+      dbconstants.METADATA_TABLE, start_key, end_key, 
+      dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES)
+    list_result = []
+    for list_item in results:
+      for key, value in list_item.iteritems():
+        list_result.append(value['data'])
+
+    self.__composite_index_cache[app_id] = self.NO_COMPOSITES
+    kind_index_dictionary = {}
+    for index in list_result:
+      new_index = entity_pb.CompositeIndex()
+      new_index.ParseFromString(index)
+      kind = new_index.definition().entity_type()
+      if kind in kind_index_dictionary:
+        kind_index_dictionary[kind].append(new_index)
+      else:
+        kind_index_dictionary[kind] = [new_index]
+    if kind_index_dictionary:
+      self.__composite_index_cache[app_id] = kind_index_dictionary
+      return True
+
+    return False
+
+  def clean_up_composite_indexes(self):
+    """ Deletes old composite indexes and bad references.
+ 
+    Returns:
+      True on success, False otherwise.
+    """
+    return True
+
+  def get_composite_indexes(self, app_id, kind):
+    """ Fetches the composite indexes for a kind.
+ 
+    Args:
+      app_id: The application ID. 
+      kind: A string, the kind for which we need composite indexes.
+    Returns:
+      A list of composite indexes.
+    """
+    if not kind:
+      return []
+
+    if app_id in self.__composite_index_cache:
+      if self.__composite_index_cache[app_id] == self.NO_COMPOSITES:
+        return [] 
+      elif kind in self.__composite_index_cache[app_id]:
+        return self.__composite_index_cache[app_id][kind]
+      else:
+        return []
+    else:
+      if self.load_composite_cache(app_id):
+        if kind in self.__composite_index_cache[app_id]:
+          return self.__composite_index_cache[kind]
+      return []
+
+  def delete_indexes(self, entity):
+    """ Deletes indexes for a given entity.
+
+    Args:
+      entity: An EntityProto.
+    """
+    return
+
+  def delete_composite_indexes(self, entity, composites)
+    """ Deletes composite indexes for an entity.
+  
+    Args:
+      entity: An EntityProto.
+      composites: A list of datastore_pb.CompositeIndexes composite indexes. 
+    """
+    row_keys = DatastoreDistributed.get_composite_indexes_rows([entity],
+      composites)
+    self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
+      row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
+
   def fix_badlisted_entity(self, key, version):
     """ Places the correct entity given the current one is from a blacklisted
     transaction.
@@ -226,15 +340,41 @@ class DatastoreGroomer(threading.Thread):
           version, key)
         # Insert the entity along with regular indexes and composites.
         ds_distributed = self.register_db_accessor(app_prefix) 
-        journal_key = datastore_server.get_journal_key(key, valid_id)
+        bad_key = datastore_server.get_journal_key(key, version)
+        good_key = datastore_server.get_journal_key(key, valid_id)
+
         # Fetch the journal and replace the bad entity.
-        # TODO Requires.
-        # Fetch journal entry
+        good_entry = self.fetch_journal_entry(good_key)
+        bad_entry = self.fetch_journal_entry(bad_key)
+
+        # Get the kind to lookup composite indexes. 
+        kind = None
+        if good_entry:
+          kind = datastore_server.DatastoreDistributed.\
+            get_entity_kind(good_entry.key())
+        elif bad_entry:
+          kind = datastore_server.DatastoreDistributed.\
+            get_entity_kind(bad_entry.key())
+
         # Fetch latest composites for this entity
+        composites = self.get_composite_indexes(app_prefix, kind)
+
         # Remove previous regular indexes and composites if its not a TOMBSTONE.
+        if bad_entry:
+          self.delete_indexes(bad_entity)
+          self.delete_composite_indexes(bad_entity, composites)
+
+        # Overwrite the entity table with the correct version.
         # Insert into entity table, regular indexes, and composites.
-        # If the journal entry does not exist or is deleted, then 
-        # just delete all the things.
+        if good_entry:
+          # TODO 
+          self.db_access.batch_put_entities(...)
+          self.insert_indexes(good_entry)
+          self.insert_composite_indexes(good_entry, composites)
+        else:
+          # TODO 
+          self.db_access.batch_delete_entities(...)
+
         del ds_distributed
       else:
         success = False
@@ -249,7 +389,7 @@ class DatastoreGroomer(threading.Thread):
         self.zoo_keeper.release_lock(app_prefix, txn_id)
       except zk.ZKTransactionException, zk_exception:
         # There was an exception releasing the lock, but 
-        # the hard delete has already happened.
+        # the replacement has already happened.
         pass
 
     return True
