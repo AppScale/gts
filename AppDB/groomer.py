@@ -122,6 +122,40 @@ class DatastoreGroomer(threading.Thread):
     self.namespace_info = {}
     self.num_deletes = 0
 
+  def clean_journal_entries(self, txn_id, key):
+    """ Remove journal entries that are no longer needed.
+
+    Args: 
+      txn_id: An int of the transaction number to delete up to.
+      key: A str, the entity table key for which we are deleting.
+    Returns:
+      True on success, False otherwise. 
+    """
+    if txn_id == 0:
+      return True 
+    keys_to_delete = []
+    start_row = datastore_server.get_journal_key(key, 0)
+    end_row = datastore_server.get_journal_key(key, txn_id - 1)
+    last_key = start_row
+
+    while True:
+      try:
+        results = self.db_access.range_query(dbconstants.JOURNAL_TABLE, 
+          dbconstants.JOURNAL_SCHEMA, last_key, end_row, self.BATCH_SIZE,
+          start_inclusive=False, end_inclusive=True)
+        if len(result) == 0:
+          return True
+        self.db_access.batch_delete(dbconstants.JOURNAL_TABLE,
+            results.keys())
+        logging.error("Cleaned {0} journal entries.".format(len(results.keys())))
+      except dbconstants.AppScaleDBConnectionError, db_error:
+        logging.error("Error hard deleting keys {0} --> {1}".format(
+          keys_to_delete, db_error))
+        return False 
+      except Exception, exception:
+        logging.error("Caught unexcepted exception {0}".format(exception))
+        return False
+     
   def hard_delete_row(self, row_key):
     """ Does a hard delete on a given row key to the entity
         table.
@@ -135,7 +169,8 @@ class DatastoreGroomer(threading.Thread):
       self.db_access.batch_delete(dbconstants.APP_ENTITY_TABLE,
         [row_key])
     except dbconstants.AppScaleDBConnectionError, db_error:
-      logging.error("Error hard deleting key {0}".format(row_key))
+      logging.error("Error hard deleting key {0}-->{1}".format(
+        row_key, db_error))
       return False 
     except Exception, exception:
       logging.error("Caught unexcepted exception {0}".format(exception))
@@ -169,6 +204,50 @@ class DatastoreGroomer(threading.Thread):
     tokens = entity_key.split(dbconstants.KEY_DELIMITER)
     return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
 
+  def fix_bad_entity(self, key, version)
+    """ Places the correct entity given the current one is a tombstone
+    which is a part of a blacklisted transaction.
+
+    Args:
+      key: The key to the entity table.
+      version: The bad version of the entity.
+    Returns:
+      True on succes, False otherwise. 
+    """
+    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
+    root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
+    # TODO watch out for the race condition of doing a GET then a PUT.
+
+    try:
+      valid_id = self.zoo_keeper.get_valid_transaction_id(app_prefix,
+        version, key)
+
+      txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+      if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
+        # Insert the entity along with regular indexes and composites.
+        ds_distributed = self.register_db_accessor(app_id) 
+
+        journal_key = datastore_server.get_journal_key(key, txn_id)
+
+        del ds_distributed
+      else:
+        success = False
+    except zk.ZKTransactionException, zk_exception:
+      success = False
+    finally:
+      if not success:
+        if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
+          logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
+            .format(app_prefix, txn_id))
+      try:
+        self.zoo_keeper.release_lock(app_prefix, txn_id)
+      except zk.ZKTransactionException, zk_exception:
+        # There was an exception releasing the lock, but 
+        # the hard delete has already happened.
+        pass
+
+    return True
+
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
         Does an actual delete to reclaim disk space.
@@ -185,12 +264,16 @@ class DatastoreGroomer(threading.Thread):
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
     
     if self.zoo_keeper.is_blacklisted(app_prefix, version):
-      return False
+      return self.fix_bad_entity(key, version)
  
     txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
     try:
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
         success = self.hard_delete_row(key)
+        if success:
+          # Increment the txn ID by one because we want to delete this current
+          # entry as well.
+          success = self.clean_journal_entries(txn_id + 1, key)
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
@@ -250,11 +333,9 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise. 
     """
-    ent_proto = entity_pb.EntityProto() 
-    ent_proto.ParseFromString(entity)
     kind = datastore_server.DatastoreDistributed.\
-      get_entity_kind(ent_proto.key())
-    namespace = ent_proto.key().name_space()
+      get_entity_kind(entity.key())
+    namespace = entity.key().name_space()
 
     if not kind:
       logging.warning("Entity did not have a kind {0}"\
@@ -267,7 +348,7 @@ class DatastoreGroomer(threading.Thread):
     if re.match(self.PRIVATE_KINDS, kind):
       return True
 
-    app_id = ent_proto.key().app()
+    app_id = entity.key().app()
     if not app_id:
       logging.warning("Entity of kind {0} did not have an app id"\
         .format(kind))
@@ -313,8 +394,11 @@ class DatastoreGroomer(threading.Thread):
     logging.debug("Entity value: {0}".format(entity))
     if one_entity == datastore_server.TOMBSTONE:
       return self.process_tombstone(key, one_entity, version)
-       
-    self.process_statistics(key, one_entity, version)
+
+    ent_proto = entity_pb.EntityProto() 
+    ent_proto.ParseFromString(one_entity)
+    self.verify_entity(ent_proto, version)
+    self.process_statistics(key, ent_proto, version)
 
     return True
 
@@ -533,6 +617,11 @@ class DatastoreGroomer(threading.Thread):
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
 
+    try:
+      # We do this first to clean up soft deletes later.
+      self.remove_old_tasks_entities()
+    except datastore_errors.Error, error:
+      logging.error("Error while cleaning up old tasks: {0}".format(error))
 
     while True:
       try:
@@ -547,7 +636,7 @@ class DatastoreGroomer(threading.Thread):
         last_key = entities[-1].keys()[0]
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))
-        sleep(self.DB_ERROR_PERIOD)
+        time.sleep(self.DB_ERROR_PERIOD)
 
     timestamp = datetime.datetime.now()
 
@@ -557,12 +646,10 @@ class DatastoreGroomer(threading.Thread):
     if not self.update_namespaces(timestamp):
       logging.error("There was an error updating the namespaces")
 
-    self.remove_old_tasks_entities()
-
     del self.db_access
 
     time_taken = time.time() - start
-    logging.info("Groomer stopped (Took {0} seconds)".format(str(time_taken)))
+    logging.error("Groomer took {0} seconds".format(str(time_taken)))
 
 def main():
   """ This main function allows you to run the groomer manually. """
