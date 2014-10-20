@@ -94,7 +94,7 @@ def get_journal_key(row_key, version):
   Returns:
     A string representing a journal key.
   """
-  row_key += self._SEPARATOR
+  row_key += dbconstants.KEY_DELIMITER
   zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) + \
                          str(version)
   row_key += zero_padded_version
