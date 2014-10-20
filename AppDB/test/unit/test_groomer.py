@@ -32,6 +32,9 @@ class FakeQuery():
 class FakeDatastore():
   def __init__(self):
     pass
+  def range_query(self, table, schema, start, end, batch_size, 
+    start_inclusive=True, end_inclusive=True):
+    return []
   def batch_delete(self, table, row_keys):
     raise dbconstants.AppScaleDBConnectionError("Bad connection")
 
@@ -124,7 +127,6 @@ class TestGroomer(unittest.TestCase):
  
   def test_process_statistics(self):
     zookeeper = flexmock()
-    flexmock(entity_pb).should_receive('EntityProto').and_return(FakeEntity())
     flexmock(datastore_server.DatastoreDistributed)\
       .should_receive("get_entity_kind").and_return("kind")
     
@@ -134,10 +136,10 @@ class TestGroomer(unittest.TestCase):
      
     # This one gets ignored 
     dsg.should_receive("initialize_kind")
-    self.assertEquals(True, dsg.process_statistics("key", "ent", "2"))
-    self.assertEquals(dsg.stats, {'app_id':{'kind':{'size':3, 'number':1}}})
-    self.assertEquals(True, dsg.process_statistics("key", "ent", "2"))
-    self.assertEquals(dsg.stats, {'app_id':{'kind':{'size':6, 'number':2}}})
+    self.assertEquals(True, dsg.process_statistics("key", FakeEntity(), 1))
+    self.assertEquals(dsg.stats, {'app_id':{'kind':{'size':1, 'number':1}}})
+    self.assertEquals(True, dsg.process_statistics("key", FakeEntity(), 1))
+    self.assertEquals(dsg.stats, {'app_id':{'kind':{'size':2, 'number':2}}})
  
   def test_initialize_kind(self):
     zookeeper = flexmock()

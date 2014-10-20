@@ -205,7 +205,7 @@ class DatastoreGroomer(threading.Thread):
     tokens = entity_key.split(dbconstants.KEY_DELIMITER)
     return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
 
-  def fix_bad_entity(self, key, version):
+  def fix_badlisted_entity(self, key, version):
     """ Places the correct entity given the current one is from a blacklisted
     transaction.
 
@@ -231,8 +231,10 @@ class DatastoreGroomer(threading.Thread):
         # TODO Requires.
         # Fetch journal entry
         # Fetch latest composites for this entity
-        # Remove previous regular indexes and composites.
+        # Remove previous regular indexes and composites if its not a TOMBSTONE.
         # Insert into entity table, regular indexes, and composites.
+        # If the journal entry does not exist or is deleted, then 
+        # just delete all the things.
         del ds_distributed
       else:
         success = False
@@ -268,7 +270,7 @@ class DatastoreGroomer(threading.Thread):
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
     
     if self.zoo_keeper.is_blacklisted(app_prefix, version):
-      return self.fix_bad_entity(key, version)
+      return self.fix_badlisted_entity(key, version)
  
     txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
     try:
@@ -327,13 +329,13 @@ class DatastoreGroomer(threading.Thread):
     if namespace not in self.namespace_info[app_id]:
       self.stats[app_id][namespace] = {'size': 0, 'number': 0}
 
-  def process_statistics(self, key, entity, version):
+  def process_statistics(self, key, entity, size):
     """ Processes an entity and adds to the global statistics.
 
     Args: 
       key: The key to the entity table.
-      entity: The entity in string serialized form.
-      version: The version of the entity in the datastore.
+      entity: EntityProto entity.
+      size: A int of the size of the entity.
     Returns:
       True on success, False otherwise. 
     """
@@ -365,9 +367,9 @@ class DatastoreGroomer(threading.Thread):
 
     self.initialize_kind(app_id, kind) 
     self.initialize_namespace(app_id, namespace)
-    self.namespace_info[app_id][namespace]['size'] += len(entity)
+    self.namespace_info[app_id][namespace]['size'] += size
     self.namespace_info[app_id][namespace]['number'] += 1
-    self.stats[app_id][kind]['size'] += len(entity)
+    self.stats[app_id][kind]['size'] += size
     self.stats[app_id][kind]['number'] += 1
     return True
 
@@ -379,6 +381,17 @@ class DatastoreGroomer(threading.Thread):
       True on success, False otherwise.
     """
     #TODO implement
+    return True
+
+  def verify_entity(self, entity, txn_id):
+    """ Verify that the entity is no blacklisted. Clean it up if it is.
+
+    Args:
+      entity: The entity to verify.
+      txn_id: An int, a transaction ID.
+    Returns:
+      True on success, False otherwise.
+    """
     return True
 
   def process_entity(self, entity):
@@ -402,7 +415,7 @@ class DatastoreGroomer(threading.Thread):
     ent_proto = entity_pb.EntityProto() 
     ent_proto.ParseFromString(one_entity)
     self.verify_entity(ent_proto, version)
-    self.process_statistics(key, ent_proto, version)
+    self.process_statistics(key, ent_proto, len(one_entity))
 
     return True
 
@@ -525,6 +538,14 @@ class DatastoreGroomer(threading.Thread):
     os.environ['AUTH_DOMAIN'] = "appscale.com"
     return ds_distributed
 
+  def remove_old_logs(self):
+    """ Removes logs old logs. 
+
+    Returns:
+      True on success, False otherwise.
+    """
+    return True
+ 
   def remove_old_statistics(self):
     """ Does a range query on the current batch of statistics and 
         deletes them.
@@ -644,11 +665,18 @@ class DatastoreGroomer(threading.Thread):
 
     timestamp = datetime.datetime.now()
 
+
     if not self.update_statistics(timestamp):
       logging.error("There was an error updating the statistics")
 
     if not self.update_namespaces(timestamp):
       logging.error("There was an error updating the namespaces")
+
+    try:
+      # We do not adhere to transaction semantics for logs.
+      self.remove_old_logs()
+    except datastore_errors.Error, error:
+      logging.error("Error while cleaning up old tasks: {0}".format(error))
 
     del self.db_access
 
