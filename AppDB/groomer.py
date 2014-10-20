@@ -143,11 +143,12 @@ class DatastoreGroomer(threading.Thread):
         results = self.db_access.range_query(dbconstants.JOURNAL_TABLE, 
           dbconstants.JOURNAL_SCHEMA, last_key, end_row, self.BATCH_SIZE,
           start_inclusive=False, end_inclusive=True)
-        if len(result) == 0:
+        if len(results) == 0:
           return True
         self.db_access.batch_delete(dbconstants.JOURNAL_TABLE,
             results.keys())
-        logging.error("Cleaned {0} journal entries.".format(len(results.keys())))
+        logging.error("Cleaned {0} journal entries.".format(
+          len(results.keys())))
       except dbconstants.AppScaleDBConnectionError, db_error:
         logging.error("Error hard deleting keys {0} --> {1}".format(
           keys_to_delete, db_error))
@@ -204,9 +205,9 @@ class DatastoreGroomer(threading.Thread):
     tokens = entity_key.split(dbconstants.KEY_DELIMITER)
     return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
 
-  def fix_bad_entity(self, key, version)
-    """ Places the correct entity given the current one is a tombstone
-    which is a part of a blacklisted transaction.
+  def fix_bad_entity(self, key, version):
+    """ Places the correct entity given the current one is from a blacklisted
+    transaction.
 
     Args:
       key: The key to the entity table.
@@ -219,16 +220,19 @@ class DatastoreGroomer(threading.Thread):
     # TODO watch out for the race condition of doing a GET then a PUT.
 
     try:
-      valid_id = self.zoo_keeper.get_valid_transaction_id(app_prefix,
-        version, key)
-
       txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
+        valid_id = self.zoo_keeper.get_valid_transaction_id(app_prefix,
+          version, key)
         # Insert the entity along with regular indexes and composites.
-        ds_distributed = self.register_db_accessor(app_id) 
-
-        journal_key = datastore_server.get_journal_key(key, txn_id)
-
+        ds_distributed = self.register_db_accessor(app_prefix) 
+        journal_key = datastore_server.get_journal_key(key, valid_id)
+        # Fetch the journal and replace the bad entity.
+        # TODO Requires.
+        # Fetch journal entry
+        # Fetch latest composites for this entity
+        # Remove previous regular indexes and composites.
+        # Insert into entity table, regular indexes, and composites.
         del ds_distributed
       else:
         success = False
