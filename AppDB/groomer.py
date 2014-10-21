@@ -79,6 +79,7 @@ class DatastoreGroomer(threading.Thread):
     self.namespace_info = {}
     self.num_deletes = 0
     self.composite_index_cache = {}
+    self.journal_entries_cleaned = 0
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -125,6 +126,7 @@ class DatastoreGroomer(threading.Thread):
     self.stats = {}
     self.namespace_info = {}
     self.num_deletes = 0
+    self.journal_entries_cleaned = 0
 
   def clean_journal_entries(self, txn_id, key):
     """ Remove journal entries that are no longer needed.
@@ -137,9 +139,8 @@ class DatastoreGroomer(threading.Thread):
     """
     if txn_id == 0:
       return True 
-    keys_to_delete = []
     start_row = datastore_server.get_journal_key(key, 0)
-    end_row = datastore_server.get_journal_key(key, txn_id - 1)
+    end_row = datastore_server.get_journal_key(key, int(txn_id) - 1)
     last_key = start_row
 
     while True:
@@ -149,10 +150,12 @@ class DatastoreGroomer(threading.Thread):
           start_inclusive=False, end_inclusive=True)
         if len(results) == 0:
           return True
+        keys_to_delete = []
+        for item in results:
+          keys_to_delete.append(item.keys()[0])
         self.db_access.batch_delete(dbconstants.JOURNAL_TABLE,
-            results.keys())
-        logging.error("Cleaned {0} journal entries.".format(
-          len(results.keys())))
+            keys_to_delete)
+        self.journal_entries_cleaned += len(keys_to_delete)
       except dbconstants.AppScaleDBConnectionError, db_error:
         logging.error("Error hard deleting keys {0} --> {1}".format(
           keys_to_delete, db_error))
@@ -250,7 +253,7 @@ class DatastoreGroomer(threading.Thread):
       for key, value in list_item.iteritems():
         list_result.append(value['data'])
 
-    self.__composite_index_cache[app_id] = self.NO_COMPOSITES
+    self.composite_index_cache[app_id] = self.NO_COMPOSITES
     kind_index_dictionary = {}
     for index in list_result:
       new_index = entity_pb.CompositeIndex()
@@ -261,7 +264,7 @@ class DatastoreGroomer(threading.Thread):
       else:
         kind_index_dictionary[kind] = [new_index]
     if kind_index_dictionary:
-      self.__composite_index_cache[app_id] = kind_index_dictionary
+      self.composite_index_cache[app_id] = kind_index_dictionary
       return True
 
     return False
@@ -286,17 +289,17 @@ class DatastoreGroomer(threading.Thread):
     if not kind:
       return []
 
-    if app_id in self.__composite_index_cache:
-      if self.__composite_index_cache[app_id] == self.NO_COMPOSITES:
+    if app_id in self.composite_index_cache:
+      if self.composite_index_cache[app_id] == self.NO_COMPOSITES:
         return [] 
-      elif kind in self.__composite_index_cache[app_id]:
-        return self.__composite_index_cache[app_id][kind]
+      elif kind in self.composite_index_cache[app_id]:
+        return self.composite_index_cache[app_id][kind]
       else:
         return []
     else:
       if self.load_composite_cache(app_id):
-        if kind in self.__composite_index_cache[app_id]:
-          return self.__composite_index_cache[kind]
+        if kind in self.composite_index_cache[app_id]:
+          return self.composite_index_cache[kind]
       return []
 
   def delete_indexes(self, entity):
@@ -307,15 +310,15 @@ class DatastoreGroomer(threading.Thread):
     """
     return
 
-  def delete_composite_indexes(self, entity, composites)
+  def delete_composite_indexes(self, entity, composites):
     """ Deletes composite indexes for an entity.
   
     Args:
       entity: An EntityProto.
       composites: A list of datastore_pb.CompositeIndexes composite indexes. 
     """
-    row_keys = DatastoreDistributed.get_composite_indexes_rows([entity],
-      composites)
+    row_keys = datastore_server.DatastoreDistributed.\
+      get_composite_indexes_rows([entity], composites)
     self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
       row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
 
@@ -361,20 +364,21 @@ class DatastoreGroomer(threading.Thread):
 
         # Remove previous regular indexes and composites if its not a TOMBSTONE.
         if bad_entry:
-          self.delete_indexes(bad_entity)
-          self.delete_composite_indexes(bad_entity, composites)
+          self.delete_indexes(bad_entry)
+          self.delete_composite_indexes(bad_entry, composites)
 
         # Overwrite the entity table with the correct version.
         # Insert into entity table, regular indexes, and composites.
         if good_entry:
           # TODO 
-          self.db_access.batch_put_entities(...)
-          self.insert_indexes(good_entry)
-          self.insert_composite_indexes(good_entry, composites)
+          #self.db_access.batch_put_entities(...)
+          #self.insert_indexes(good_entry)
+          #self.insert_composite_indexes(good_entry, composites)
+          pass
         else:
           # TODO 
-          self.db_access.batch_delete_entities(...)
-
+          #self.db_access.batch_delete_entities(...)
+          pass
         del ds_distributed
       else:
         success = False
@@ -410,6 +414,10 @@ class DatastoreGroomer(threading.Thread):
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
     
     if self.zoo_keeper.is_blacklisted(app_prefix, version):
+      logging.error("Found a blacklisted item for version {0} on key {1}".\
+        format(version, key))
+      return True
+      #TODO actually fix the badlisted entity
       return self.fix_badlisted_entity(key, version)
  
     txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
@@ -523,15 +531,26 @@ class DatastoreGroomer(threading.Thread):
     #TODO implement
     return True
 
-  def verify_entity(self, entity, txn_id):
-    """ Verify that the entity is no blacklisted. Clean it up if it is.
+  def verify_entity(self, entity, key, txn_id):
+    """ Verify that the entity is not blacklisted. Clean up old journal
+    entiries if it is valid.
 
     Args:
       entity: The entity to verify.
+      key: The key to the entity table.
       txn_id: An int, a transaction ID.
     Returns:
       True on success, False otherwise.
     """
+    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
+    if not self.zoo_keeper.is_blacklisted(app_prefix, txn_id):
+      self.clean_journal_entries(txn_id, key)
+    else:
+      logging.error("Found a blacklisted item for version {0} on key {1}".\
+        format(txn_id, key))
+      return True
+      #TODO fix the badlisted entity. 
+      return self.fix_badlisted_entity(key, txn_id)
     return True
 
   def process_entity(self, entity):
@@ -554,7 +573,7 @@ class DatastoreGroomer(threading.Thread):
 
     ent_proto = entity_pb.EntityProto() 
     ent_proto.ParseFromString(one_entity)
-    self.verify_entity(ent_proto, version)
+    self.verify_entity(ent_proto, key, version)
     self.process_statistics(key, ent_proto, len(one_entity))
 
     return True
@@ -821,6 +840,7 @@ class DatastoreGroomer(threading.Thread):
     del self.db_access
 
     time_taken = time.time() - start
+    logging.error("Groomer cleaned {0} journal entries".format(self.journal_entries_cleaned))
     logging.error("Groomer took {0} seconds".format(str(time_taken)))
 
 def main():
