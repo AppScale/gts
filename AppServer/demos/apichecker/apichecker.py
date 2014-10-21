@@ -11,10 +11,8 @@ try:
 except ImportError:
   import simplejson as json
 
-from google.appengine.ext import blobstore
 from google.appengine.ext import db
 
-from google.appengine.api import files
 from google.appengine.api import images
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
@@ -50,13 +48,8 @@ class HealthChecker(webapp2.RequestHandler):
 
     if capability == "all" or capability == "blobstore":
       try:
-        file_name = files.blobstore.create(mime_type='application/octet-stream')
-        with files.open(file_name, 'a') as f:
-          f.write('data')
-
-        files.finalize(file_name)
-        blob_key = files.blobstore.get_blob_key(file_name)
-        blobstore.delete(blob_key) 
+        from google.appengine.ext import blobstore
+        from google.appengine.api import files
         health['blobstore'] = RUNNING
       except Exception, e:
         health['blobstore'] = FAILED
