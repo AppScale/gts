@@ -129,7 +129,8 @@ class DatastoreGroomer(threading.Thread):
     self.journal_entries_cleaned = 0
 
   def clean_journal_entries(self, txn_id, key):
-    """ Remove journal entries that are no longer needed.
+    """ Remove journal entries that are no longer needed. Assumes
+    transaction numbers are only increasing.
 
     Args: 
       txn_id: An int of the transaction number to delete up to.
