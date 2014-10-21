@@ -85,21 +85,6 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
-def get_journal_key(row_key, version):
-  """ Creates a string for a journal key.
-
-  Args:
-    row_key: The entity key for which we want to create a journal key.
-    version: The version of the entity we are going to save.
-  Returns:
-    A string representing a journal key.
-  """
-  row_key += dbconstants.KEY_DELIMITER
-  zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) + \
-                         str(version)
-  row_key += zero_padded_version
-  return row_key
-
 
 def clean_app_id(app_id):
   """ Google App Engine uses a special prepended string to signal that it
@@ -196,6 +181,23 @@ class DatastoreDistributed():
 
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
+
+  @staticmethod
+  def get_journal_key(row_key, version):
+    """ Creates a string for a journal key.
+ 
+    Args:
+      row_key: The entity key for which we want to create a journal key.
+      version: The version of the entity we are going to save.
+    Returns:
+      A string representing a journal key.
+    """
+    row_key += dbconstants.KEY_DELIMITER
+    zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) + \
+                           str(version)
+    row_key += zero_padded_version
+    return row_key
+
 
   @staticmethod
   def get_entity_kind(key_path):
@@ -1136,7 +1138,7 @@ class DatastoreDistributed():
     journal_values = {}
     for row_key in row_keys:
       root_key = self.get_root_key_from_entity_key(row_key)
-      journal_key = get_journal_key(row_key, txn_hash[root_key])
+      journal_key = self.get_journal_key(row_key, txn_hash[root_key])
       journal_keys.append(journal_key)
       column = dbconstants.JOURNAL_SCHEMA[0]
       value = row_values[row_key] \
@@ -1480,7 +1482,7 @@ class DatastoreDistributed():
         # hence can be seen from within this scope for serializability.
         continue
       if current_version != trans_id:
-        journal_key = get_journal_key(row_key, trans_id)
+        journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
         # Index is used here for lookup when replacing back into db_results.
         journal_result_map[journal_key] = (index, row_key, trans_id)
@@ -1539,7 +1541,7 @@ class DatastoreDistributed():
         # hence can be seen from within this scope for serializability.
         continue
       elif current_version != trans_id:
-        journal_key = get_journal_key(row_key, trans_id)
+        journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
         journal_result_map[journal_key] = (row_key, trans_id)
         if trans_id == 0:
