@@ -21,9 +21,6 @@ MAX_KEYS="10000"
 
 set -e
  
-# Sanity checks.
-[ -x "$CMD" ] || exit 1
-
 # This script can only run on the login node.
 am_i_login_node() {
         LOGIN_IP="$(cat /etc/appscale/login_private_ip)"
@@ -65,8 +62,12 @@ while read -r a x y z ; do
         y=${y%.*}
         if [ ${y} -gt ${MAX_SIZE} ]; then
                 MAX_SIZE=${y}
-                let $((CURR_DRIFT=MAX_SIZE / DRIFT))
-                CURR_DRIFT=${CURR_DRIFT%.*}
+                if [ ${MAX_SIZE} -lt ${DRIFT} ]; then
+                        CURR_DRIFT=1
+                else
+                        let $((CURR_DRIFT=( MAX_SIZE * DRIFT) / 100))
+                        CURR_DRIFT=${CURR_DRIFT%.*}
+                fi
         else
                 let $((DIFF=MAX_SIZE - y))
                 if [ ${DIFF} -gt ${CURR_DRIFT} ]; then
