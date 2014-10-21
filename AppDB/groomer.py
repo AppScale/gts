@@ -223,9 +223,12 @@ class DatastoreGroomer(threading.Thread):
     """
     result = self.db_access.batch_get_entity(dbconstants.JOURNAL_TABLE, [key],
       dbconstants.JOURNAL_SCHEMA)
+    if len(result.keys()) == 0:
+      return None
+
     ent_string = ""
-    if dbconstants.JOURNAL_SCHEMA[0] in ii:
-      ent_string = ii[dbconstants.JOURNAL_SCHEMA[0]]
+    if dbconstants.JOURNAL_SCHEMA[0] in result[0]:
+      ent_string = result[0][dbconstants.JOURNAL_SCHEMA[0]]
       if ent_string == datastore_server.TOMBSTONE:
         return None
       return entity_pb.EntityProto().ParseFromString(ent_string)
