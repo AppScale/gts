@@ -334,7 +334,7 @@ class DatastoreGroomer(threading.Thread):
       key: The key to the entity table.
       version: The bad version of the entity.
     Returns:
-      True on succes, False otherwise. 
+      True on success, False otherwise. 
     """
     app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
@@ -364,7 +364,7 @@ class DatastoreGroomer(threading.Thread):
         # Fetch latest composites for this entity
         composites = self.get_composite_indexes(app_prefix, kind)
 
-        # Remove previous regular indexes and composites if its not a TOMBSTONE.
+        # Remove previous regular indexes and composites if it's not a TOMBSTONE.
         if bad_entry:
           self.delete_indexes(bad_entry)
           self.delete_composite_indexes(bad_entry, composites)
@@ -534,7 +534,7 @@ class DatastoreGroomer(threading.Thread):
 
   def verify_entity(self, entity, key, txn_id):
     """ Verify that the entity is not blacklisted. Clean up old journal
-    entiries if it is valid.
+    entries if it is valid.
 
     Args:
       entity: The entity to verify.
@@ -699,7 +699,7 @@ class DatastoreGroomer(threading.Thread):
     return ds_distributed
 
   def remove_old_logs(self):
-    """ Removes logs old logs. 
+    """ Removes old logs. 
 
     Returns:
       True on success, False otherwise.
