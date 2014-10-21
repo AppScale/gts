@@ -122,6 +122,7 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.should_receive('process_statistics')
+    dsg.should_receive('verify_entity')
     self.assertEquals(True, dsg.process_entity({'key':{dbconstants.APP_ENTITY_SCHEMA[0]:'ent',
       dbconstants.APP_ENTITY_SCHEMA[1]:'version'}}))
  

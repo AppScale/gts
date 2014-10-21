@@ -85,20 +85,6 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
-
-def get_meta_data_key(app_id, kind, postfix):
-  """ Builds a key for the metadata table.
-
-  Args:
-    app_id: A string representing the application identifier.
-    kind: A string representing the type the key is pointing to.
-    postfix: A unique identifier for the given key.
-  Returns:
-    A string which can be used as a key to the metadata table.
-  """
-  return "{0}{3}{1}{3}{2}".format(app_id, kind, postfix, 
-    dbconstants.KEY_DELIMITER)
-
 def get_journal_key(row_key, version):
   """ Creates a string for a journal key.
 
@@ -338,6 +324,21 @@ class DatastoreDistributed():
       return buffer(value)
     elif isinstance(pb, entity_pb.Path):
       return buffer(_encode_path(pb))
+
+  @staticmethod
+  def get_meta_data_key(app_id, kind, postfix):
+    """ Builds a key for the metadata table.
+ 
+    Args:
+      app_id: A string representing the application identifier.
+      kind: A string representing the type the key is pointing to.
+      postfix: A unique identifier for the given key.
+    Returns:
+      A string which can be used as a key to the metadata table.
+    """
+    return "{0}{3}{1}{3}{2}".format(app_id, kind, postfix, 
+      dbconstants.KEY_DELIMITER)
+
 
   @staticmethod
   def validate_app_id(app_id):
@@ -924,8 +925,8 @@ class DatastoreDistributed():
     Returns: 
        Returns a list of encoded entity_pb.CompositeIndex objects.
     """
-    start_key = get_meta_data_key(app_id, "index", "")
-    end_key = get_meta_data_key(app_id, "index", self._TERM_STRING)
+    start_key = self.get_meta_data_key(app_id, "index", "")
+    end_key = self.get_meta_data_key(app_id, "index", self._TERM_STRING)
     result = self.datastore_batch.range_query(dbconstants.METADATA_TABLE,
                                                 dbconstants.METADATA_SCHEMA,
                                                 start_key,
@@ -949,7 +950,7 @@ class DatastoreDistributed():
     """
     index_keys = []
     composite_id = index.id() 
-    index_keys.append(get_meta_data_key(app_id, "index", composite_id))
+    index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
                                       index_keys, 
                                       column_names=dbconstants.METADATA_TABLE)
@@ -967,7 +968,7 @@ class DatastoreDistributed():
     rand = int(str(int(time.time())) + str(random.randint(0, 999999)))
     index.set_id(rand)
     encoded_entity = index.Encode()
-    row_key = get_meta_data_key(app_id, "index", rand)
+    row_key = self.get_meta_data_key(app_id, "index", rand)
     row_keys = [row_key]
     row_values = {}
     row_values[row_key] = {dbconstants.METADATA_SCHEMA[0]: encoded_entity}
