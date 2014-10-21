@@ -262,7 +262,7 @@ portinstallmonit()
 
 installcassandra()
 {
-    CASSANDRA_VER=2.0.7
+    CASSANDRA_VER=2.1.0
     PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
