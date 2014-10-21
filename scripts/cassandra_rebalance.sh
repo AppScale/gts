@@ -13,7 +13,7 @@ KEYSPACE="Keyspace1"
 # The percentage we tolerate before triggering rebalancing.
 DRIFT="15"
 
-# Where AppScale save the sample keys.
+# Where AppScale saves the sample keys.
 KEY_SAMPLES="/opt/appscale/rangekeysample.out"
 
 # Keep only this many keys around.
@@ -33,7 +33,7 @@ am_i_login_node() {
         return 1
 }
 
-# Check we are on the head node.
+# Check if we are on the head node.
 if ! am_i_login_node ; then
         echo "This script can only run on the head node $LOGIN_IP"
         exit 1
@@ -44,7 +44,7 @@ fi
 AS_NUM_HOSTS="$(cat /etc/appscale/masters /etc/appscale/slaves|sort -u|wc -l)"
 MASTER="$(cat /etc/appscale/masters|head -n 1)"
  
-# Get the list of Databases nodes in this pool.
+# Get the list of Database nodes in this pool.
 NUM_HOSTS=0
 DB_HOSTS=""
 MAX_SIZE=0
@@ -107,7 +107,7 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         TMP_FILE="/tmp/rangekeysample.$$"
         echo "" > $TMP_FILE
         for x in $DB_HOSTS ; do
-                # Only newer version of AppScale can do it.
+                # Only newest version of AppScale can do it.
                 if ! ssh $x "[ ! -e ${KEY_SAMPLES} ] && exit 1" ; then 
                         echo "AppScale needs to be upgraded."
                         exit 1
@@ -131,6 +131,9 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         echo "   working on $lines keys. Each node gets $slice keys." 
 
         num_key=$slice
+
+        # Loop through the nodes, and assign the new token. This will
+        # trigger Cassandra to move data around.
         for x in $DB_HOSTS ; do
                 key="$(sed -n ${num_key}p $TMP_FILE.sorted)"
                 ssh $MASTER $CMD move $key -h $x > /dev/null
@@ -139,7 +142,9 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         done
 fi
 
-# Repair all nodes.
+# Repair needs to be done before gc_grace_seconds expires to avoid deleted
+# rows to resurface on replicas. Cleanup will delete rows no longer
+# pertinent to the node (for ecample because of a re-balance).
 echo "Repairing and cleaning nodes."
 for x in $DB_HOSTS ; do
         echo -n "   working on $x: repairing,"
@@ -147,7 +152,6 @@ for x in $DB_HOSTS ; do
         echo " cleaning."
         ssh $MASTER $CMD cleanup -h $x > /dev/null
 done
- 
  
 # Repair DB and delete temp files.
 rm -f $TMP_FILE $TMP_FILE.sorted
