@@ -60,7 +60,7 @@ class DatastoreGroomer(threading.Thread):
   TASK_NAME_TIMEOUT = 24 * 60 * 60
 
   # The amount of time before logs are considered too old.
-  LOG_STORAGE_TIMEOUT = 24 * 60 * 60
+  LOG_STORAGE_TIMEOUT = 24 * 60 * 60 * 7
 
   # Do not generate stats for AppScale internal apps.
   APPSCALE_APPLICATIONS = ['apichecker', 'appscaledashboard']
@@ -676,13 +676,13 @@ class DatastoreGroomer(threading.Thread):
       True on success.
     """
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
-    timeout = datetime.datetime.now() - \
+    timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
     query = TaskName.all()
     query.filter("timestamp <", timeout)
     entities = query.run()
     counter = 0
-    logging.debug("The current time is {0}".format(datetime.datetime.now()))
+    logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
     logging.debug("The timeout time is {0}".format(timeout))
     for entity in entities:
       logging.debug("Removing task name {0}".format(entity.timestamp))
@@ -721,14 +721,14 @@ class DatastoreGroomer(threading.Thread):
     """
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     if log_timeout:
-      timeout = datetime.datetime.now() - \
+      timeout = datetime.datetime.utcnow() - \
         datetime.timedelta(seconds=log_timeout)
-      query = RequestLogLine.query(RequestLogLine.timestamp > timeout)
-      logging.debug("The timeout time is {0}".format(timeout))
+      query = RequestLogLine.query(RequestLogLine.timestamp < timeout)
+      logging.error("The timeout time is {0}".format(timeout))
     else:
       query = RequestLogLine.query()
     counter = 0
-    logging.debug("The current time is {0}".format(datetime.datetime.now()))
+    logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
     for entity in query.fetch():
       logging.debug("Removing {0}".format(entity))
       entity.key.delete()
@@ -859,7 +859,7 @@ class DatastoreGroomer(threading.Thread):
         logging.error("Error getting a batch: {0}".format(error))
         time.sleep(self.DB_ERROR_PERIOD)
 
-    timestamp = datetime.datetime.now()
+    timestamp = datetime.datetime.utcnow()
 
 
     if not self.update_statistics(timestamp):
