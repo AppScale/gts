@@ -8,10 +8,6 @@ from zkappscale import zktransaction as zk
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDashboard/lib/"))
-from dashboard_logs import AppLogLine
-from dashboard_logs import RequestLogLine
-
 
 def main():
   """ This main function allows you to run the groomer manually. """
