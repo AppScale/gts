@@ -19,6 +19,7 @@ from zkappscale import zktransaction as zk
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
+from google.appengine.api.memcache import memcache_distributed
 from google.appengine.datastore import entity_pb
 from google.appengine.ext import db
 from google.appengine.ext.db import stats
@@ -29,8 +30,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDashboard/lib/"))
+from dashboard_logs import AppLogLine
+from dashboard_logs import RequestLogLine
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
 from distributed_tq import TaskName
+
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
@@ -52,6 +58,9 @@ class DatastoreGroomer(threading.Thread):
   
   # The amount of time in seconds before we want to clean up task name holders.
   TASK_NAME_TIMEOUT = 24 * 60 * 60
+
+  # The amount of time before logs are considered too old.
+  LOG_STORAGE_TIMEOUT = 24 * 60 * 60
 
   # Do not generate stats for AppScale internal apps.
   APPSCALE_APPLICATIONS = ['apichecker', 'appscaledashboard']
@@ -234,7 +243,7 @@ class DatastoreGroomer(threading.Thread):
       return entity_pb.EntityProto().ParseFromString(ent_string)
     else:
       logging.error("Bad journal entry for key: {0} \nAnd result: {1}".
-        format(keys, result))
+        format(key, result))
       return None
 
   def load_composite_cache(self, app_id):
@@ -673,13 +682,13 @@ class DatastoreGroomer(threading.Thread):
     query.filter("timestamp <", timeout)
     entities = query.run()
     counter = 0
-    logging.info("The current time is {0}".format(datetime.datetime.now()))
-    logging.info("The timeout time is {0}".format(timeout))
+    logging.debug("The current time is {0}".format(datetime.datetime.now()))
+    logging.debug("The timeout time is {0}".format(timeout))
     for entity in entities:
       logging.debug("Removing task name {0}".format(entity.timestamp))
       entity.delete()
       counter += 1
-    logging.info("Removed {0} task name entities".format(counter))
+    logging.error("Removed {0} task name entities".format(counter))
     return True    
 
   def register_db_accessor(self, app_id):
@@ -694,16 +703,37 @@ class DatastoreGroomer(threading.Thread):
     ds_distributed = datastore_distributed.DatastoreDistributed(app_id, 
       self.datastore_path, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distributed)
+    apiproxy_stub_map.apiproxy.RegisterStub('memcache', 
+      memcache_distributed.MemcacheService())
     os.environ['APPLICATION_ID'] = app_id
+    os.environ['APPNAME'] = app_id
     os.environ['AUTH_DOMAIN'] = "appscale.com"
     return ds_distributed
 
-  def remove_old_logs(self):
+  def remove_old_logs(self, log_timeout):
     """ Removes old logs. 
+
+    Args:
+      log_timeout: The timeout value in seconds.
 
     Returns:
       True on success, False otherwise.
     """
+    self.register_db_accessor(constants.DASHBOARD_APP_ID)
+    if log_timeout:
+      timeout = datetime.datetime.now() - \
+        datetime.timedelta(seconds=log_timeout)
+      query = RequestLogLine.query(RequestLogLine.timestamp > timeout)
+      logging.debug("The timeout time is {0}".format(timeout))
+    else:
+      query = RequestLogLine.query()
+    counter = 0
+    logging.debug("The current time is {0}".format(datetime.datetime.now()))
+    for entity in query.fetch():
+      logging.debug("Removing {0}".format(entity))
+      entity.key.delete()
+      counter += 1
+    logging.error("Removed {0} log entries.".format(counter))
     return True
  
   def remove_old_statistics(self):
@@ -804,6 +834,12 @@ class DatastoreGroomer(threading.Thread):
 
     try:
       # We do this first to clean up soft deletes later.
+      self.remove_old_logs(self.LOG_STORAGE_TIMEOUT)
+    except datastore_errors.Error, error:
+      logging.error("Error while cleaning up old tasks: {0}".format(error))
+
+    try:
+      # We do this first to clean up soft deletes later.
       self.remove_old_tasks_entities()
     except datastore_errors.Error, error:
       logging.error("Error while cleaning up old tasks: {0}".format(error))
@@ -831,12 +867,6 @@ class DatastoreGroomer(threading.Thread):
 
     if not self.update_namespaces(timestamp):
       logging.error("There was an error updating the namespaces")
-
-    try:
-      # We do not adhere to transaction semantics for logs.
-      self.remove_old_logs()
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old tasks: {0}".format(error))
 
     del self.db_access
 
