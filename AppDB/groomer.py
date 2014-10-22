@@ -31,7 +31,6 @@ import appscale_info
 import constants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDashboard/lib/"))
-from dashboard_logs import AppLogLine
 from dashboard_logs import RequestLogLine
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
@@ -150,7 +149,8 @@ class DatastoreGroomer(threading.Thread):
     if txn_id == 0:
       return True 
     start_row = datastore_server.DatastoreDistributed.get_journal_key(key, 0)
-    end_row = datastore_server.DatastoreDistributed.get_journal_key(key, int(txn_id) - 1)
+    end_row = datastore_server.DatastoreDistributed.get_journal_key(key,
+      int(txn_id) - 1)
     last_key = start_row
 
     while True:
@@ -254,9 +254,10 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True if the application has composites. False otherwise.
     """
-    start_key = datastore_server.DatastoreDistributed.get_meta_data_key(app_id, "index", "")
-    end_key = datastore_server.DatastoreDistributed.get_meta_data_key(app_id, "index", 
-      dbconstants.TERMINATING_STRING)
+    start_key = datastore_server.DatastoreDistributed.get_meta_data_key(
+      app_id, "index", "")
+    end_key = datastore_server.DatastoreDistributed.get_meta_data_key(
+      app_id, "index", dbconstants.TERMINATING_STRING)
 
     results = self.db_access.range_query(dbconstants.METADATA_TABLE, 
       dbconstants.METADATA_TABLE, start_key, end_key, 
@@ -330,8 +331,8 @@ class DatastoreGroomer(threading.Thread):
       entity: An EntityProto.
       composites: A list of datastore_pb.CompositeIndexes composite indexes. 
     """
-    row_keys = datastore_server.DatastoreDistributed.get_composite_indexes_rows([entity],
-      composites)
+    row_keys = datastore_server.DatastoreDistributed.\
+      get_composite_indexes_rows([entity], composites)
     self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
       row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
 
@@ -356,8 +357,10 @@ class DatastoreGroomer(threading.Thread):
           version, key)
         # Insert the entity along with regular indexes and composites.
         ds_distributed = self.register_db_accessor(app_prefix) 
-        bad_key = datastore_server.DatastoreDistributed.get_journal_key(key, version)
-        good_key = datastore_server.DatastoreDistributed.get_journal_key(key, valid_id)
+        bad_key = datastore_server.DatastoreDistributed.get_journal_key(key,
+          version)
+        good_key = datastore_server.DatastoreDistributed.get_journal_key(key,
+          valid_id)
 
         # Fetch the journal and replace the bad entity.
         good_entry = self.fetch_journal_entry(good_key)
@@ -366,9 +369,11 @@ class DatastoreGroomer(threading.Thread):
         # Get the kind to lookup composite indexes. 
         kind = None
         if good_entry:
-          kind = datastore_server.DatastoreDistributed.get_entity_kind(good_entry.key())
+          kind = datastore_server.DatastoreDistributed.get_entity_kind(
+            good_entry.key())
         elif bad_entry:
-          kind = datastore_server.DatastoreDistributed.get_entity_kind(bad_entry.key())
+          kind = datastore_server.DatastoreDistributed.get_entity_kind(
+            bad_entry.key())
 
         # Fetch latest composites for this entity
         composites = self.get_composite_indexes(app_prefix, kind)
@@ -871,7 +876,8 @@ class DatastoreGroomer(threading.Thread):
     del self.db_access
 
     time_taken = time.time() - start
-    logging.error("Groomer cleaned {0} journal entries".format(self.journal_entries_cleaned))
+    logging.error("Groomer cleaned {0} journal entries".format(
+      self.journal_entries_cleaned))
     logging.error("Groomer took {0} seconds".format(str(time_taken)))
 
 def main():
