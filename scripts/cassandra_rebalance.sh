@@ -149,7 +149,7 @@ fi
 echo "Repairing and cleaning nodes."
 for x in $DB_HOSTS ; do
         echo -n "   working on $x: repairing,"
-        ssh $MASTER $CMD repair ${KEYSPACE} -h $x > /dev/null
+        ssh $MASTER $CMD repair -pr ${KEYSPACE} -h $x > /dev/null
         echo " cleaning."
         ssh $MASTER $CMD cleanup -h $x > /dev/null
 done
