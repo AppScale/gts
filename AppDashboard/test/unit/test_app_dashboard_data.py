@@ -11,7 +11,6 @@ from app_dashboard_data import AppDashboardData
 from app_dashboard_helper import AppDashboardHelper
 
 from app_dashboard_data import DashboardDataRoot
-from app_dashboard_data import ApiStatus
 from app_dashboard_data import ServerStatus
 from app_dashboard_data import AppStatus
 import app_dashboard_data
@@ -37,29 +36,6 @@ class TestAppDashboardData(unittest.TestCase):
       .with_args(app_dashboard_data.DashboardDataRoot,
         AppDashboardData.ROOT_KEYNAME)\
       .and_return(fake_root)
-
-
-  def setupApiStatusMocks(self):
-    fake_key1 = flexmock(name='api1', id=lambda: 'api1')
-    fake_api1 = flexmock(name='api1', status='running', key=fake_key1)
-    fake_api1.should_receive('put').and_return()
-
-    fake_key2 = flexmock(name='api2', id=lambda: 'api2')
-    fake_api2 = flexmock(name='api2', status='failed', key=fake_key2)
-    fake_api2.should_receive('put').and_return()
-
-    fake_key3 = flexmock(name='api3', id=lambda: 'api3')
-    fake_api3 = flexmock(name='api3', status='unknown', key=fake_key3)
-    fake_api3.should_receive('put').and_return()
-
-    flexmock(AppDashboardData).should_receive('get_by_id') \
-      .with_args(app_dashboard_data.ApiStatus, re.compile('api')) \
-      .and_return(fake_api1) \
-      .and_return(fake_api2) \
-      .and_return(fake_api3)
-    flexmock(AppDashboardData).should_receive('get_all') \
-      .with_args(app_dashboard_data.ApiStatus) \
-      .and_return([fake_api1, fake_api2, fake_api3])
 
 
   def setupServerStatusMocks(self):
@@ -179,38 +155,6 @@ class TestAppDashboardData(unittest.TestCase):
   def test_update_head_node_ip(self):
     fake_ip  = '1.1.1.1'
     self.assertEquals(fake_ip, AppDashboardData().update_head_node_ip())
-
-
-  def test_get_api_status(self):
-    self.setupApiStatusMocks()
-    data1 = AppDashboardData()
-    output = data1.get_api_status()
-    self.assertEquals(len(output), 3)
-    self.assertEquals(output['api1'], 'running')
-    self.assertEquals(output['api2'], 'failed')
-    self.assertEquals(output['api3'], 'unknown')
-
-
-  def test_update_api_status(self):
-    self.setupApiStatusMocks()
-    self.setupFakePutsAndDeletes()
-    fake_get_appcontroller_client = flexmock()
-    fake_get_appcontroller_client.should_receive('get_api_status')\
-      .and_return({
-        'api1' : 'running',
-        'api2' : 'failed',
-        'api3' : 'unknown',
-      })
-    flexmock(AppDashboardHelper).should_receive('get_appcontroller_client')\
-      .and_return(fake_get_appcontroller_client).once()
-    
-    data1 = AppDashboardData()
-    data1.update_api_status()
-    output = data1.get_api_status()
-    self.assertEquals(len(output), 3)
-    self.assertEquals(output['api1'], 'running')
-    self.assertEquals(output['api2'], 'failed')
-    self.assertEquals(output['api3'], 'unknown')
 
 
   def test_get_status_info(self):

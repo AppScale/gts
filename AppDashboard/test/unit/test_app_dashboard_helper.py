@@ -12,7 +12,6 @@ from app_dashboard_data import AppDashboardData
 from app_dashboard_helper import AppDashboardHelper
 
 from app_dashboard_data import DashboardDataRoot
-from app_dashboard_data import ApiStatus
 from app_dashboard_data import ServerStatus
 from app_dashboard_data import AppStatus
 import app_dashboard_data
