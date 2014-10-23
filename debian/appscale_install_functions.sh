@@ -282,9 +282,6 @@ installcassandra()
     pip_wrapper  setuptools
     pip_wrapper  pycassa
     pip_wrapper  thrift
-
-    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
-    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
 
 postinstallcassandra()
