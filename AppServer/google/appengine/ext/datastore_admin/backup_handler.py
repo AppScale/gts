@@ -1632,6 +1632,7 @@ def verify_bucket_writable(bucket_name):
                                   {'prefix': TEST_WRITE_FILENAME_PREFIX,
                                    'max_keys': MAX_KEYS_LIST_SIZE})
   except (files.InvalidParameterError, files.PermissionDeniedError):
+    logging.error("Bucket not accessible because unable to list it")
     raise BackupValidationException('Bucket "%s" not accessible' % bucket_name)
   except files.InvalidFileNameError:
     raise BackupValidationException('Bucket "%s" does not exist' % bucket_name)
@@ -1655,6 +1656,7 @@ def verify_bucket_writable(bucket_name):
       test_file.close(finalize=True)
   except files.PermissionDeniedError:
     raise BackupValidationException('Bucket "%s" is not writable' % bucket_name)
+
   try:
     files.delete(file_name)
   except (files.InvalidArgumentError, files.InvalidFileNameError, IOError):

@@ -41,7 +41,6 @@ class MainPage(webapp2.RequestHandler):
                         'ORDER BY date DESC LIMIT 10',
                         guestbook_key)
     self.response.out.write('<p>start %s </p>' % str(start))
-    time.sleep(5)
     self.response.out.write('<p>end %s </p>' % str(time.time() - start))
     for greeting in greetings:
       if greeting.author:

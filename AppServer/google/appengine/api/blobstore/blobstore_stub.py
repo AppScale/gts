@@ -32,7 +32,6 @@ Class:
 
 
 
-
 import base64
 import os
 import time
@@ -47,6 +46,7 @@ from google.appengine.api import users
 from google.appengine.api.blobstore import blobstore_service_pb
 from google.appengine.runtime import apiproxy_errors
 
+from google.appengine.ext.cloudstorage import cloudstorage_stub
 
 __all__ = ['BlobStorage',
            'BlobstoreServiceStub',
@@ -195,6 +195,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
     self.__block_key_cache = None
+    self.__gs_stub = cloudstorage_stub.CloudStorageStub(self.__storage)
 
   @classmethod
   def ToDatastoreBlobKey(cls, blobkey):
@@ -318,7 +319,11 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       response: Not used but should be a VoidProto.
     """
     for blobkey in request.blob_key_list():
-      self.DeleteBlob(blobkey, self.__storage)
+      if blobkey.startswith(self.GS_BLOBKEY_PREFIX):
+        file_name = base64.b64decode(blobkey[len(self.GS_BLOBKEY_PREFIX):])
+        data = self.__gs_stub.delete_object("/" + file_name)
+      else:
+        self.DeleteBlob(blobkey, self.__storage)
 
   def _Dynamic_FetchData(self, request, response, unused_request_id):
     """Fetch a blob fragment from a blob by its blob-key.
@@ -354,6 +359,14 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
     blob_key = request.blob_key()
+
+    if blob_key.startswith(self.GS_BLOBKEY_PREFIX):
+      # Fetch from Google Cloud Storage.
+      file_name = base64.b64decode(blob_key[len(self.GS_BLOBKEY_PREFIX):])
+      data = self.__gs_stub.get_object("/" + file_name, start=start_index, 
+        end=end_index)
+      response.set_data(data)
+      return
 
     # Get the block we will start from
     block_count = int(start_index/blobstore.MAX_BLOB_FETCH_SIZE)
