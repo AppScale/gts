@@ -99,6 +99,7 @@ echo "Exit now (ctrl-c) if this is incorrect"
 echo
 
 sleep 5
+apt-get update
 apt-get install -y git
 if [ ! -d appscale ]; then
         git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}
@@ -150,11 +151,17 @@ if [ -d appscale/.appscale/certs ]; then
         (cd appscale-tools; git pull)
 fi
 
-echo "Building AppScale..."
-(cd appscale/debian; bash appscale_build.sh)
+echo -n "Building AppScale..."
+if ! (cd appscale/debian; bash appscale_build.sh) ; then
+        echo "failed!"
+        exit 1
+fi
 
-echo "Building AppScale Tools..." 
-(cd appscale-tools/debian; bash appscale_build.sh)
+echo -n "Building AppScale Tools..." 
+if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
+        echo "failed!"
+        exit 1
+fi
 
 # Run unit tests if asked.
 if [ "$UNIT_TEST" = "Y" ]; then
