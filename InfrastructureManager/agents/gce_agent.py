@@ -13,7 +13,7 @@ import uuid
 
 
 # Third-party imports
-import apiclient.discovery
+from apiclient import discovery
 import httplib2
 import oauth2client.client
 import oauth2client.file
@@ -427,7 +427,7 @@ class GCEAgent(BaseAgent):
     credentials = storage.get()
 
     # Build the service
-    return apiclient.discovery.build('compute', self.API_VERSION), credentials
+    return discovery.build('compute', self.API_VERSION), credentials
 
 
   def terminate_instances(self, parameters):

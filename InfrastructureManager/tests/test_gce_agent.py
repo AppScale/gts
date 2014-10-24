@@ -10,8 +10,8 @@ except ImportError:
 
 
 # Third-party imports
-import apiclient.discovery
-import apiclient.errors
+import apiclient
+from apiclient import discovery
 from flexmock import flexmock
 import httplib2
 import oauth2client.client
@@ -183,8 +183,8 @@ class TestGCEAgent(TestCase):
       operation=add_instance).and_return(fake_instance_checker)
 
     # finally, inject our fake GCE connection
-    flexmock(apiclient.discovery)
-    apiclient.discovery.should_receive('build').with_args('compute',
+    flexmock(discovery)
+    discovery.should_receive('build').with_args('compute',
       GCEAgent.API_VERSION).and_return(fake_gce)
 
     # next, presume that the persistent disk we want to use exists
@@ -261,8 +261,8 @@ class TestGCEAgent(TestCase):
       fake_attach_disk_request)
 
     # finally, inject our fake GCE connection
-    flexmock(apiclient.discovery)
-    apiclient.discovery.should_receive('build').with_args('compute',
+    flexmock(discovery)
+    discovery.should_receive('build').with_args('compute',
       GCEAgent.API_VERSION).and_return(fake_gce)
 
     iaas = InfrastructureManager(blocking=True)
