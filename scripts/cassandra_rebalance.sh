@@ -109,7 +109,7 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         echo "" > $TMP_FILE
         for x in $DB_HOSTS ; do
                 # Only newest version of AppScale can do it.
-                if ! ssh $x "[ ! -e ${KEY_SAMPLES} ] && exit 1" ; then 
+                if ! ssh $x "if [ ! -e ${KEY_SAMPLES} ];  then exit 1; fi" ; then 
                         echo "AppScale needs to be upgraded."
                         exit 1
                 fi
@@ -137,8 +137,8 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         # trigger Cassandra to move data around.
         for x in $DB_HOSTS ; do
                 key="$(sed -n ${num_key}p $TMP_FILE.sorted)"
-                ssh $MASTER $CMD move $key -h $x > /dev/null
                 echo "   node $x gets token $key"
+                ssh $MASTER "$CMD -h $x move $key" > /dev/null
                 let $((num_key += slice))
         done
 fi
@@ -149,9 +149,9 @@ fi
 echo "Repairing and cleaning nodes."
 for x in $DB_HOSTS ; do
         echo -n "   working on $x: repairing,"
-        ssh $MASTER $CMD repair -pr ${KEYSPACE} -h $x > /dev/null
+        ssh $MASTER "$CMD repair -pr ${KEYSPACE} -h $x" > /dev/null
         echo " cleaning."
-        ssh $MASTER $CMD cleanup -h $x > /dev/null
+        ssh $MASTER "$CMD cleanup -h $x" > /dev/null
 done
  
 # Repair DB and delete temp files.
