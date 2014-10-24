@@ -92,7 +92,8 @@ while read -r a x y z ; do
         # All good: we parsed this node.
         let $((NUM_HOSTS += 1))
 
-        # Let's query the master node, and capture the following:
+        # Let's query the Cassandra pool (via the master node) and capture
+        # the following: 
         #  $7 - the key (token) assigned to the node
         #  $2 - the IP address of the node
         #  $3 - the load (in size) of the node
