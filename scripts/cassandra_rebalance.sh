@@ -3,9 +3,10 @@
 # Simple script to rebalance the load on a Cassandra pool. This works only for
 # AppScale deployment.
 #
+# Author: graziano
 
 # Where to find the command to query cassadra.
-CMD=/root/appscale/AppDB/cassandra/cassandra/bin/nodetool
+CMD="/root/appscale/AppDB/cassandra/cassandra/bin/nodetool"
 
 # The keyspace we want to work on.
 KEYSPACE="Keyspace1"
@@ -32,7 +33,7 @@ am_i_login_node() {
 
 # Check if we are on the head node.
 if ! am_i_login_node ; then
-        echo "This script can only run on the head node $LOGIN_IP"
+        echo "This script runs on the head node (on this deployment $LOGIN_IP)."
         exit 1
 fi
 
@@ -40,58 +41,68 @@ fi
 # Let's see how many nodes AppScale believes we have.
 AS_NUM_HOSTS="$(cat /etc/appscale/masters /etc/appscale/slaves|sort -u|wc -l)"
 MASTER="$(cat /etc/appscale/masters|head -n 1)"
+
+# Sanity checks.
+if [ $AS_NUM_HOSTS -lt 1 ]; then
+        echo "Error: cannot find Database nodes!"
+        exit 1
+fi
+if [ -z "$MASTER" ]; then
+        echo "Error: cannot find the master Database node!"
+        exit 1
+fi
  
 # Get the list of Database nodes in this pool.
 NUM_HOSTS=0
 DB_HOSTS=""
-MAX_SIZE=0
-CURR_DRIFT=0
+MAX_LOAD=0
+MIN_LOAD=0
 M_UNIT=""
 REBALANCE="NO"
 while read -r a x y z ; do
-        # First parameter is the key/token owned by the host.
-
-        # Then we have the node's IP address.
+        # Let's record the IP addresses of the nodes.
         if [ -z "${DB_HOSTS}" ]; then
                 DB_HOSTS="${x}"
         else
                 DB_HOSTS="${DB_HOSTS} ${x}"
         fi
 
-        # We then have the load of the node in size first.
+        # No arithmethic with decimal point.
         y=${y%.*}
-        if [ ${y} -gt ${MAX_SIZE} ]; then
-                MAX_SIZE=${y}
-                if [ ${MAX_SIZE} -lt ${DRIFT} ]; then
-                        CURR_DRIFT=1
-                else
-                        let $((CURR_DRIFT=( MAX_SIZE * DRIFT) / 100))
-                        CURR_DRIFT=${CURR_DRIFT%.*}
-                fi
-        else
-                let $((DIFF=MAX_SIZE - y))
-                if [ ${DIFF} -gt ${CURR_DRIFT} ]; then
-                        echo "Difference too big (${DIFF} vs ${CURR_DRIFT}): rebalancing"
-                        REBALANCE="YES"
-                fi
+
+        # Let's find most loaded and least loaded values.
+        if [ ${y} -gt ${MAX_LOAD} ]; then
+                MAX_LOAD=${y}
+        fi
+        if [ ${NUM_HOSTS} -eq 0 ]; then
+                # First time around, initialize some values.
+                MIN_LOAD=${y}
+                M_UNIT=${z}
+        elif [ $MIN_LOAD -gt ${y} ]; then
+                MIN_LOAD=${y}
         fi
 
         # This is the load of the node in measurement unit (ie MB or GB or
         # TB). If we are using different units, we need to rebalance.
-        if [ -z "${M_UNIT}" ]; then
-                M_UNIT=${z}
-        else
-                if [ "${M_UNIT}" != "${z}" ]; then
-                        echo "Difference too big (different units): rebalancing"
-                        REBALANCE="YES"
-                fi
+        if [ "${M_UNIT}" != "${z}" ]; then
+                echo "Difference too big (different units): rebalancing"
+                REBALANCE="YES"
         fi
 
         # All good: we parsed this node.
         let $((NUM_HOSTS += 1))
+
+        # Let's query the master node, and capture the following:
+        #  $7 - the key (token) assigned to the node
+        #  $2 - the IP address of the node
+        #  $3 - the load (in size) of the node
+        #  $4 - the measurement unit of the load (MB, GB, TB)
+        # We sort the result to ensure we move tokens around the list.
 done < <(ssh $MASTER $CMD status|grep UN|awk '{print $7, $2, $3, $4}'|sort) 
+
+# Sanity check on what we parsed.
 if [ -z "$DB_HOSTS" ]; then
-        echo "Cannot find Cassandra pool!"
+        echo "Error: cannot find Cassandra pool!"
         exit 1
 fi
 if [ $AS_NUM_HOSTS -ne $NUM_HOSTS ]; then
@@ -99,6 +110,25 @@ if [ $AS_NUM_HOSTS -ne $NUM_HOSTS ]; then
         exit 1
 fi
 echo "Found $NUM_HOSTS Cassandra nodes ($DB_HOSTS)"
+
+# We have the load of the node (size in MB, GB or TB). We'll rebalance
+# only if the difference between the most loaded and the least loaded node
+# is less than $DRIFT %. 
+if [ "$REBALANCE" = "NO" ]; then
+        # Avoid weird errors while working with 0.
+        set +e
+
+        # Calculate DRIFT % of the loaded node, and check it's within
+        # distance of the MIN_LOAD node.
+        CURR_DRIFT=0
+        let $((CURR_DRIFT=(MAX_LOAD * DRIFT) / 100))
+        let $((DIFF=MAX_LOAD - MIN_LOAD))
+        if [ ${DIFF} -gt ${CURR_DRIFT} ]; then
+                echo "Difference too big (${DIFF} ${M_UNIT}): rebalancing"
+                REBALANCE="YES"
+        fi
+        set -e
+fi
 
 # Rebalance only if we have more than one node.
 if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
