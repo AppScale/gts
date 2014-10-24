@@ -59,8 +59,11 @@ MAX_LOAD=0
 MIN_LOAD=0
 M_UNIT=""
 REBALANCE="NO"
+OLD_KEYS=""
 while read -r a x y z ; do
-        # Let's record the IP addresses of the nodes.
+        # Let's record the IP addresses of the nodes, and also the list of
+        # the keys (tokens) we are currently using.
+        OLD_KEYS="${OLD_KEYS} ${a}"
         if [ -z "${DB_HOSTS}" ]; then
                 DB_HOSTS="${x}"
         else
@@ -167,9 +170,20 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         # Loop through the nodes, and assign the new token. This will
         # trigger Cassandra to move data around.
         for x in $DB_HOSTS ; do
+                IN_USE="NO"
                 key="$(sed -n ${num_key}p $TMP_FILE.sorted)"
-                echo "   node $x gets token $key"
-                ssh $MASTER "$CMD -h $x move $key" > /dev/null
+
+                # If the key is already in use, we have to do nothing.
+                for y in $OLD_KEYS ; do
+                        if [ "$y" = "$key" ]; then
+                                echo "   $key already in use, skipping it"
+                                IN_USE="YES"
+                        fi
+                done
+                if [ "$IN_USE" = "NO" ]; then
+                        echo "   node $x gets token $key"
+                        ssh $MASTER "$CMD -h $x move $key" > /dev/null
+                fi
                 let $((num_key += slice))
         done
 fi
@@ -185,5 +199,5 @@ for x in $DB_HOSTS ; do
         ssh $MASTER "$CMD cleanup -h $x" > /dev/null
 done
  
-# Repair DB and delete temp files.
+# Delete temp files.
 rm -f $TMP_FILE $TMP_FILE.sorted
