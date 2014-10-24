@@ -54,8 +54,8 @@ module AppDashboard
   # Returns:
   #   true if the AppDashboard was started successfully, and false otherwise.
   def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
-    # TODO: tell the tools to disallow uploading apps called 'apichecker'
-    # or APP_NAME, and have start_appengine to do the same.   
+    # TODO: tell the tools to disallow uploading apps called 
+    # APP_NAME, and have start_appengine to do the same.   
     app_manager = AppManagerClient.new(HelperFunctions.local_ip())
 
     app_location = "/var/apps/#{APP_NAME}/app"

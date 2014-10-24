@@ -27,20 +27,6 @@ class DashboardDataRoot(ndb.Model):
   replication = ndb.IntegerProperty()
 
 
-class ApiStatus(ndb.Model):
-  """ A Datastore Model that contains information about the current state of an
-  Google App Engine API that AppScale provides support for.
-
-  Fields:
-    id: A str that corresponds to the name of the Google App Engine API. This
-      field isn't explicitly defined because all ndb.Models have a str id
-      that uniquely identifies them in the Datastore.
-    status: A str that indicates what the current status of the API is (e.g.,
-      running, failed, unknown).
-  """
-  status = ndb.StringProperty()
-
-
 class ServerStatus(ndb.Model):
   """ A Datastore Model that contains information about a single virtual machine
   running in this AppScale deployment.
@@ -217,7 +203,6 @@ class AppDashboardData():
     """
     self.update_head_node_ip()
     self.update_database_info()
-    self.update_api_status()
     self.update_status_info()
     self.update_application_info()
     self.update_users()
@@ -298,43 +283,6 @@ class AppDashboardData():
     except Exception as err:
       logging.exception(err)
       return None
-
-
-  def get_api_status(self):
-    """ Retrieves the current status of Google App Engine APIs in this AppScale
-    deployment from the Datastore.
-
-    Returns:
-      A dict, where each key is the name of an API (a str), and each value
-      indicates if the API is running, has failed, or is in an unknown state
-      (also a str).
-    """
-    return dict((api.key.id(), api.status) for api in self.get_all(ApiStatus))
-
-
-  def update_api_status(self):
-    """ Updates the Datastore with the newest information about the health of
-    the Google App Engine APIs available in this AppScale deployment, by
-    contacting the AppController. """
-    try:
-      acc = self.helper.get_appcontroller_client()
-      updated_status = acc.get_api_status()
-      updated_datastore_entries = []
-      for api_name, api_status in updated_status.iteritems():
-        store = self.get_by_id(ApiStatus, api_name)
-        if store and store.status != api_status:
-          store.status = api_status
-          updated_datastore_entries.append(store)
-        elif not store:
-          store = ApiStatus(id = api_name, status = api_status)
-          updated_datastore_entries.append(store)
-        else:
-          # There has been no update.
-          pass
-      if updated_datastore_entries:
-        ndb.put_multi(updated_datastore_entries)
-    except Exception as err:
-      logging.exception(err)
 
 
   def get_status_info(self):

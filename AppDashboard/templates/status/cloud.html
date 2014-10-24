@@ -21,47 +21,10 @@
             {% endif %}
             </span>
 				</div><!-- End .row-fluid -->
+              {% if is_user_cloud_admin %}
                 <div class="row-fluid">
-                    <div class="span6">
-                        <div class="box chart gradient">
-                            <div class="title">
-                                <h4>
-                                    <span class="icon16 icomoon-icon-bars"></span>
-                                    <span>AppScale API Status</span>
-                                </h4>
-                            </div>
-                                <div class="content noPad">
-                                    <table class="table">
-                                      <thead>
-                                        <tr>
-                                          <th>API Service</th>
-                                          <th>Status</th>
-                                        </tr>
-                                      </thead>
-                                      {% for service in sorted_service_names %}
-                                      <!--API Status Hooks -->
-                                      <tbody>
-                                        <tr>
-                                        <td align="center">{{ service }}</td>
-                                        {% if service_info[service] == 'running' %}
-                                          <td align="center"><img src="images/status_running.png"></td>
-                                        {% elif service_info[service] == 'failed' %}
-                                          <td align="center"><img src="images/status_failed.gif"></td>
-                                        {% else %}
-                                          <td align="center"><img src="images/status_unknown.gif"></td>
-                                        {% endif %}
-                                      </tr>
-                                    {% endfor %}
-
-                                      </tbody>
-                                    </table>
-                                </div>
-
-                            </div><!-- End .box -->
-
-                        </div><!-- End .span6 -->
-
-						<div class="span6">
+                        
+	          <div class="span6">
                             <div class="box gradient">
                                 <div class="title">
                                     <h4>
@@ -146,6 +109,7 @@
                               </div>
 
                             </div><!-- End .box -->
+              {% endif %}
              {% if is_user_cloud_admin %}<!--Start Cloud Admin View-->
                         </div><!-- End .span3 -->
 

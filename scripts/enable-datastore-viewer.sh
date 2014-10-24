@@ -54,7 +54,7 @@ if [ ! -e /etc/nginx/sites-enabled ]; then
 fi
 
 # Get the list of running applications, and corresponding ports.
-ps ax | grep appserver | grep -Ev '(grep|appscaledashboard|apichecker)' | grep -- '--admin_port' | sed 's;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g' | sort -ru | while read port app_id; do
+ps ax | grep appserver | grep -Ev '(grep|appscaledashboard)' | grep -- '--admin_port' | sed 's;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g' | sort -ru | while read port app_id; do
         # Enable only for specified apps.
         if [ -n "$APPS_ID" ]; then
                 found="no"

@@ -37,7 +37,6 @@ require 'infrastructure_manager_client'
 require 'monit_interface'
 require 'nginx'
 require 'taskqueue'
-require 'apichecker'
 require 'user_app_client'
 require 'zkinterface'
 
@@ -194,12 +193,6 @@ class Djinn
   attr_accessor :restored
 
 
-  # A Hash that lists the status of each Google App Engine API made available
-  # within AppScale. Keys are the names of the APIs (e.g., memcache), and
-  # values are the statuses of those APIs (e.g., running).
-  attr_accessor :api_status
-
-
   # An Array that lists the CPU, disk, and memory usage of each machine in this
   # AppScale deployment. Used as a cache so that it does not need to be
   # generated in response to AppDashboard requests.
@@ -249,12 +242,6 @@ class Djinn
   attr_accessor :app_upload_reservations
 
 
-  # A Fixnum that indicates the time (in seconds since epoch) when this
-  # AppController last contacted the API Checker for the health of each Google
-  # App Engine app.
-  attr_accessor :last_api_status
-
-
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -277,12 +264,6 @@ class Djinn
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
   CONFIG_FILE_LOCATION = "/etc/appscale"
-
-
-  # The location on the local filesystem where the AppController writes
-  # information about the status of App Engine APIs, which the AppDashboard
-  # will read and display to users.
-  HEALTH_FILE = "#{CONFIG_FILE_LOCATION}/health.json"
 
 
   # The location on the local filesystem where the AppController periodically
@@ -436,7 +417,7 @@ class Djinn
   # An Array of Strings, where each String is an appid that corresponds to an
   # application that cannot be relocated within AppScale, because system
   # services assume that they run at a specific location.
-  RESERVED_APPS = [AppDashboard::APP_NAME, "apichecker"]
+  RESERVED_APPS = [AppDashboard::APP_NAME]
 
 
   # A Fixnum that indicates what the first port is that can be used for hosting
@@ -452,10 +433,6 @@ class Djinn
   # A String that is returned to callers of set_property that provide an invalid
   # instance variable name to set.
   KEY_NOT_FOUND = "No property exists with the given name."
-
-  # A Fixnum that indicates how often the AppController on this node should ping
-  # the API checker app for the status of each App Engine API, in seconds.
-  API_STATUS_CHECK_IN_FREQUENCY = 300
 
 
   # Creates a new Djinn, which holds all the information needed to configure
@@ -489,7 +466,6 @@ class Djinn
     @state = "AppController just started"
     @num_appengines = 1
     @restored = false
-    @api_status = {}
     @all_stats = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
@@ -502,7 +478,6 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
-    @last_api_status = 0
   end
 
 
@@ -730,11 +705,6 @@ class Djinn
         stop_ejabberd()
       end
 
-      if my_node.is_shadow? or my_node.is_appengine?
-        ApiChecker.stop()
-      end
-
-      maybe_stop_taskqueue_worker("apichecker")
       maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
 
       jobs_to_run = my_node.jobs
@@ -1450,7 +1420,6 @@ class Djinn
       update_firewall()
       write_memcache_locations()
       write_zookeeper_locations()
-      update_api_status()
       flush_log_buffer()
 
       update_local_nodes()
@@ -2428,9 +2397,10 @@ class Djinn
       elsif k == "@my_index" or k == "@api_status"
         # Don't back up @my_index - it's a node-specific pointer that
         # indicates which node is "our node" and thus should be regenerated
-        # via find_me_in_locations. Also don't worry about @api_status - it
-        # can take up a lot of space and can easily be regenerated with new
-        # data.
+        # via find_me_in_locations. 
+        # Also don't worry about @api_status - (used to be for deprecated
+        # API checker) it can take up a lot of space and can easily be 
+        # regenerated with new data.
         next
       end
 
@@ -2711,105 +2681,6 @@ class Djinn
     }
 
     HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
-  end
-
-  # Gets the status of the APIs of the AppScale deployment.
-  #
-  # Args:
-  #   secret: A string with the shared key for authentication.
-  # Returns:
-  #   A JSON string with the status of the APIs.
-  def get_api_status(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-    begin
-      return HelperFunctions.read_file(HEALTH_FILE)
-    rescue Errno::ENOENT
-      Djinn.log_warn("Couldn't read our API status - generating it now.")
-      update_api_status()
-      begin
-        return HelperFunctions.read_file(HEALTH_FILE)
-      rescue Errno::ENOENT
-        Djinn.log_warn("Couldn't generate API status at this time.")
-        return ''
-      end
-    end
-  end
-
-  # Contacts the API Checker application to learn which Google App Engine APIs
-  # are running, which have failed, and which are in an unknown state. To
-  # determine if an API is alive, we keep a running tally of its state and see
-  # if it was alive for a majority of the times we checked up on it.
-  # TODO: Consider only using 'running' if it was alive on every check and
-  # add a 'degraded' state for cases where it was not alive on a check.
-  #
-  # Returns:
-  #   A JSON-encoded Hash that maps each API name to its state (e.g., running,
-  #   failed).
-  def generate_api_status()
-    if Time.now.to_i - @last_api_status < API_STATUS_CHECK_IN_FREQUENCY
-      Djinn.log_debug("Not enough time has passed since last time we " +
-        "gathered API status - will try again later.")
-      return
-    end
-
-    if my_node.is_appengine?
-      apichecker_host = my_node.private_ip
-    else
-      apichecker_host = get_shadow.private_ip
-    end
-
-    Djinn.log_debug("Generating new API status by contacting API checker " +
-      "at #{apichecker_host}")
-    apichecker_url = "http://#{apichecker_host}:#{ApiChecker::SERVER_PORT}/health/all"
-
-    data = {}
-    begin
-      response = Net::HTTP.get_response(URI.parse(apichecker_url))
-      data = JSON.load(response.body)
-
-      if data.class != Hash
-        Djinn.log_error("API status received from host at #{apichecker_url} " +
-          "was not a Hash, but was a #{data.class.name} containing: #{data}")
-        return
-      end
-    rescue Exception => e
-      Djinn.log_error("Couldn't get API status from host at #{apichecker_url}")
-      Djinn.log_warn("ApiChecker at #{apichecker_host} appears to be down - will " +
-          "try again later.")
-      return
-    end
-
-    majorities = {}
-
-    data.each { |k, v|
-      @api_status[k] = [] if @api_status[k].nil?
-      @api_status[k] << v
-
-      # If not enough API statuses are known yet, pad it with 'running' to avoid
-      # accidentally claiming that an API has failed without sufficient evidence
-      # of its failure.
-      @api_status[k] = HelperFunctions.shorten_to_n_items(10, @api_status[k],
-        "running")
-      majorities[k] = HelperFunctions.find_majority_item(@api_status[k])
-    }
-
-    @last_api_status = Time.now.to_i
-
-    json_state = JSON.dump(majorities)
-    return json_state
-  end
-
-
-  # Writes a file to the local filesystem that indicates if each Google App
-  # Engine API is currently running fine, experiences errors, or is in an
-  # unknown state.
-  def update_api_status()
-    api_status = generate_api_status()
-    if !api_status.nil? and !api_status.empty?
-      HelperFunctions.write_file(HEALTH_FILE, api_status)
-    end
   end
 
 
@@ -3266,26 +3137,6 @@ class Djinn
     set_uaserver_ips()
     start_api_services()
 
-    # Since apichecker does health checks on the app engine apis,
-    # start it up there.
-
-    apichecker_ip = get_shadow.public_ip
-    apichecker_private_ip = get_shadow.private_ip
-    apichecker_ip = my_node.public_ip if my_node.is_appengine?
-    apichecker_private_ip = my_node.private_ip if my_node.is_appengine?
-    ApiChecker.init(apichecker_ip, apichecker_private_ip,  @@secret)
-
-    if my_node.is_shadow? or my_node.is_appengine?
-      ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
-      @app_info_map['apichecker'] = {
-        'nginx' => ApiChecker::SERVER_PORT,
-        'nginx_https' => Nginx.get_ssl_port_for_app(ApiChecker::SERVER_PORT),
-        'haproxy' => HAProxy.app_listen_port(-1),
-        'appengine' => ["#{apichecker_private_ip}:19999"],
-        'language' => 'python27'
-      }
-    end
-
     # Start the AppDashboard.
     if my_node.is_login?
       update_node_info_cache()
@@ -3298,8 +3149,6 @@ class Djinn
     Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
     CronHelper.update_cron(get_login.public_ip, AppDashboard::LISTEN_PORT,
       AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
-
-    maybe_start_taskqueue_worker("apichecker")
 
     if my_node.is_login?
       TaskQueue.start_flower(@options['flower_password'])
