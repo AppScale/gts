@@ -136,17 +136,30 @@ fi
 
 # Rebalance only if we have more than one node.
 if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
+        # Sanity check: make sure we have keys to work on. Some hosts may
+        # not have it yet, but at least one should have them.
+        NEED_UPGRADE="YES"
+        for x in $DB_HOSTS ; do
+                # Only newest version of AppScale can do it. 
+                if ssh $x "if [ ! -e ${KEY_SAMPLES} ];  then exit 1; fi" ; then 
+                        NEED_UPGRADE="NO"
+                        break
+                fi
+        done
+        if [ "$NEED_UPGRADE" = "YES" ]; then
+                echo "AppScale needs to be upgraded."
+                exit 1
+        fi
+
         echo "Rebalancing nodes."
 
         # Collect samples key per host and order it.
         TMP_FILE="/tmp/rangekeysample.$$"
         echo "" > $TMP_FILE
         for x in $DB_HOSTS ; do
-                # Only newest version of AppScale can do it.
-                if ! ssh $x "if [ ! -e ${KEY_SAMPLES} ];  then exit 1; fi" ; then 
-                        echo "AppScale needs to be upgraded."
-                        exit 1
-                fi
+                # Since some hosts may not have the keys yet, let's make
+                # subsequent ssh works.
+                ssh $x "touch ${KEY_SAMPLES}"
 
                 # Make sure we don't have more than MAX_KEYS.
                 ssh $x "tail -n ${MAX_KEYS} -q ${KEY_SAMPLES} > /tmp/pippo$$; mv /tmp/pippo$$ ${KEY_SAMPLES}"
