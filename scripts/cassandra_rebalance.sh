@@ -67,7 +67,7 @@ while read -r a x y z ; do
                 DB_HOSTS="${DB_HOSTS} ${x}"
         fi
 
-        # No arithmethic with decimal point.
+        # No arithmetic with decimal point.
         y=${y%.*}
 
         # Let's find most loaded and least loaded values.
