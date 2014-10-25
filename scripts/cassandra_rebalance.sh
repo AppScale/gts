@@ -56,7 +56,7 @@ fi
 NUM_HOSTS=0
 DB_HOSTS=""
 MAX_LOAD=0
-MIN_LOAD=0
+MIN_LOAD=-1
 M_UNIT=""
 REBALANCE="NO"
 OLD_KEYS=""
@@ -77,11 +77,11 @@ while read -r a x y z ; do
         if [ ${y} -gt ${MAX_LOAD} ]; then
                 MAX_LOAD=${y}
         fi
-        if [ ${NUM_HOSTS} -eq 0 ]; then
+        if [ ${MIN_LOAD} -lt 0 ]; then
                 # First time around, initialize some values.
                 MIN_LOAD=${y}
                 M_UNIT=${z}
-        elif [ $MIN_LOAD -gt ${y} ]; then
+        elif [ ${MIN_LOAD} -gt ${y} ]; then
                 MIN_LOAD=${y}
         fi
 
@@ -92,19 +92,19 @@ while read -r a x y z ; do
                 REBALANCE="YES"
         fi
 
-        # All good: we parsed this node.
-        let $((NUM_HOSTS += 1))
-
         # Let's query the Cassandra pool (via the master node) and capture
         # the following: 
-        #  $7 - the key (token) assigned to the node
-        #  $2 - the IP address of the node
-        #  $3 - the load (in size) of the node
-        #  $4 - the measurement unit of the load (MB, GB, TB)
+        #  $8 - the key (token) assigned to the node
+        #  $1 - the IP address of the node
+        #  $5 - the load (in size) of the node
+        #  $6 - the measurement unit of the load (MB, GB, TB)
         # We sort the result to ensure we move tokens around the list.
-done < <(ssh $MASTER $CMD status|grep UN|awk '{print $7, $2, $3, $4}'|sort) 
+done < <(ssh $MASTER $CMD ring|grep Up|awk '{print $8, $1, $5, $6}'|sort) 
 
-# Sanity check on what we parsed.
+# Sanity check on what we parsed. Cound the number of nodes that are up
+# (ie not moving or down) and see if it is consistent with what we have
+# configured.
+NUM_HOSTS=$(ssh $MASTER $CMD status|grep ^UN|wc -l)
 if [ -z "$DB_HOSTS" ]; then
         echo "Error: cannot find Cassandra pool!"
         exit 1
