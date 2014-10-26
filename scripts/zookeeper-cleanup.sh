@@ -19,7 +19,7 @@ if [ ! -d "${ZK_DIR}" ]; then
 fi
 
 # It runs only on the Zookeeper node.
-if ${MONIT_CMD} summary |grep zookeeper > /dev/null ; then
+if ! ${MONIT_CMD} summary |grep zookeeper > /dev/null ; then
         echo "Zookeeper is not running"
         exit 1
 fi
