@@ -155,10 +155,6 @@ class TestAppManager(unittest.TestCase):
                         .and_return(1)
     self.assertEqual(-1, app_manager_server.start_app(configuration))
 
-  def test_choose_db_location(self):
-    db_locations = ['127.0.0.1']
-    self.assertEqual("localhost", app_manager_server.choose_db_location(db_locations))
-
   def test_create_python_app_env(self):
     env_vars = app_manager_server.create_python_app_env('1', '2')
     self.assertEqual('1', env_vars['MY_IP_ADDRESS'])

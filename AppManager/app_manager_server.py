@@ -281,19 +281,6 @@ def wait_on_app(port):
                 (url, MAX_FETCH_ATTEMPTS))
   return False
 
-def choose_db_location(db_locations):
-  """ Given a string containing multiple datastore locations
-      select one randomly to spread load.
-
-  Args:
-    db_locations: A list of datastore locations
-  Returns:
-    An IP address that can be used for datastore access
-  Raise:
-    ValueError: if there are no locations given in the args.
-  """
-  return DATASTORE_PATH
-
 def create_python_app_env(public_ip, app_name):
   """ Returns the environment variables the python application server uses.
 
@@ -340,7 +327,7 @@ def create_python27_start_cmd(app_name,
   Returns:
     A string of the start command.
   """
-  db_location = choose_db_location(db_locations)
+  db_location = DATASTORE_PATH
   cmd = ["python",
          constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
          "--port " + str(port),
@@ -434,7 +421,7 @@ def create_java_start_cmd(app_name,
   Returns:
     A string of the start command.
   """
-  db_location = choose_db_location(db_locations)
+  db_location = DATASTORE_PATH
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
