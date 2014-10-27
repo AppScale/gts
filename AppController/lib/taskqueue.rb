@@ -76,12 +76,12 @@ module TaskQueue
     start_cmd = "/usr/sbin/service rabbitmq-server restart"
     stop_cmd = "/usr/sbin/service rabbitmq-server stop"
     match_cmd = "sname rabbit"
-    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+    #MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
+    #  env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
 
     # Next, start up the TaskQueue Server.
-    start_taskqueue_server()
-    HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
+    #start_taskqueue_server()
+    #HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
   end
 
 
@@ -106,9 +106,9 @@ module TaskQueue
     else
       Djinn.log_debug("Not erasing RabbitMQ state")
     end
-
+    return
     # Wait for RabbitMQ on master node to come up
-    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
+    #Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
@@ -133,7 +133,7 @@ module TaskQueue
           Djinn.log_debug("Done starting rabbitmq_slave on this node")
 
           Djinn.log_debug("Starting TaskQueue server on slave node")
-          start_taskqueue_server()
+          #start_taskqueue_server()
           Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
           HelperFunctions.sleep_until_port_is_open("localhost", 
             TASKQUEUE_SERVER_PORT)
@@ -144,7 +144,7 @@ module TaskQueue
         tries_left -= 1
         Djinn.log_warn("Waited for RabbitMQ to start, but timed out. " +
           "Retries left #{tries_left}.")
-        Djinn.log_run("ps ax | grep rabbit | grep -v grep | awk '{print $1}' | xargs kill -9")
+        #Djinn.log_run("ps ax | grep rabbit | grep -v grep | awk '{print $1}' | xargs kill -9")
         if clear_data
           self.erase_local_files()
         end
@@ -158,6 +158,7 @@ module TaskQueue
 
   # Starts the AppScale TaskQueue server.
   def self.start_taskqueue_server()
+    return
     Djinn.log_debug("Starting taskqueue_server on this node")
     script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
     start_cmd = "#{PYTHON_EXEC} #{script}"
@@ -172,17 +173,17 @@ module TaskQueue
   def self.stop()
     Djinn.log_debug("Shutting down celery workers")
     stop_cmd = "python -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
-    Djinn.log_run(stop_cmd)
+    #Djinn.log_run(stop_cmd)
     Djinn.log_debug("Shutting down RabbitMQ")
-    MonitInterface.stop(:rabbitmq)
-    self.stop_taskqueue_server()
+    #MonitInterface.stop(:rabbitmq)
+    #self.stop_taskqueue_server()
   end
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    Djinn.log_run(TASKQUEUE_STOP_CMD)
-    MonitInterface.stop(:taskqueue)
+    #Djinn.log_run(TASKQUEUE_STOP_CMD)
+    #MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
 
@@ -200,10 +201,10 @@ module TaskQueue
   # to ensure that we start up RabbitMQ without left-over state from previous
   # runs.
   def self.erase_local_files()
-    Djinn.log_run("rm -rf /var/log/rabbitmq/*")
-    Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
-    Djinn.log_run("rm -rf /etc/appscale/celery/")
-    Djinn.log_run("rm -rf #{CELERY_STATE_DIR}/*")
+    #Djinn.log_run("rm -rf /var/log/rabbitmq/*")
+    #Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
+    #Djinn.log_run("rm -rf /etc/appscale/celery/")
+    #Djinn.log_run("rm -rf #{CELERY_STATE_DIR}/*")
   end
 
 
@@ -216,13 +217,13 @@ module TaskQueue
   def self.start_flower(flower_password)
     start_cmd = "/usr/local/bin/flower --basic_auth=appscale:#{flower_password}"
     stop_cmd = "/bin/ps ax | /bin/grep flower | /bin/grep -v grep | /usr/bin/awk '{print $1}' | xargs kill -9"
-    MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
+    #MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
   end
 
 
   # Stops the Flower Server on this machine.
   def self.stop_flower()
-    MonitInterface.stop(:flower)
+    #MonitInterface.stop(:flower)
   end
 
 

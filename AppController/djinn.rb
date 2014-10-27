@@ -701,11 +701,11 @@ class Djinn
       # in xen/kvm deployments we actually want to keep the boxes
       # turned on since that was the state they started in
 
-      if my_node.is_login?
-        stop_ejabberd()
-      end
+      #if my_node.is_login?
+      #  stop_ejabberd()
+      #end
 
-      maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
+      #maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
 
       jobs_to_run = my_node.jobs
       commands = {
@@ -730,9 +730,9 @@ class Djinn
         stop_datastore_server()
       end
 
-      TaskQueue.stop() if my_node.is_taskqueue_master?
-      TaskQueue.stop() if my_node.is_taskqueue_slave?
-      TaskQueue.stop_flower() if my_node.is_login?
+      #TaskQueue.stop() if my_node.is_taskqueue_master?
+      #TaskQueue.stop() if my_node.is_taskqueue_slave?
+      #TaskQueue.stop_flower() if my_node.is_login?
 
       stop_app_manager_server()
       stop_infrastructure_manager()
@@ -1218,7 +1218,7 @@ class Djinn
       end
 
       Djinn.log_debug("(stop_app) Maybe stopping taskqueue worker")
-      maybe_stop_taskqueue_worker(app_name)
+      #maybe_stop_taskqueue_worker(app_name)
       Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       APPS_LOCK.synchronize {
@@ -1280,11 +1280,11 @@ class Djinn
   # Args:
   #   app: The application ID.
   def maybe_start_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new()
-      result = tqc.start_worker(app)
-      Djinn.log_info("Starting TaskQueue worker for app #{app}: #{result}")
-    end
+    #if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
+    #  tqc = TaskQueueClient.new()
+    #  result = tqc.start_worker(app)
+    #  Djinn.log_info("Starting TaskQueue worker for app #{app}: #{result}")
+    #end
   end
 
   # Reload the queue information of an app and reload the queues if needed.
@@ -1292,11 +1292,11 @@ class Djinn
   # Args:
   #   app: The application ID.
   def maybe_reload_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new()
-      result = tqc.reload_worker(app)
-      Djinn.log_info("Checking TaskQueue worker for app #{app}: #{result}")
-    end
+    #if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
+    #  tqc = TaskQueueClient.new()
+    #  result = tqc.reload_worker(app)
+    #  Djinn.log_info("Checking TaskQueue worker for app #{app}: #{result}")
+    #end
   end
 
   def update(app_names, secret)
@@ -3189,7 +3189,7 @@ class Djinn
     threads = []
     if my_node.is_login?
       threads << Thread.new {
-        start_ejabberd()
+        #start_ejabberd()
       }
     end
 
@@ -4030,15 +4030,15 @@ HOSTS
   def start_ejabberd()
     @state = "Starting up XMPP server"
     my_public = my_node.public_ip
-    Ejabberd.stop()
+    #Ejabberd.stop()
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_public, get_db_master.private_ip, @@secret)
-    Ejabberd.write_config_file(my_public)
-    Ejabberd.start()
+    #Ejabberd.write_auth_script(my_public, get_db_master.private_ip, @@secret)
+    #Ejabberd.write_config_file(my_public)
+    #Ejabberd.start()
   end
 
   def stop_ejabberd()
-    Ejabberd.stop()
+    #Ejabberd.stop()
   end
 
   # Start the AppDashboard web service which allows users to login,
@@ -5099,16 +5099,16 @@ HOSTS
 
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
-    if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
-      stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " +
-        "xmpp_receiver.py #{app}"
-      watch_name = "xmpp-#{app}"
-      MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
-      Djinn.log_debug("App #{app} does need xmpp receive functionality")
-    else
-      Djinn.log_debug("App #{app} does not need xmpp receive functionality")
-    end
+    #if Ejabberd.does_app_need_receive?(app, app_language)
+    #  start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+    #  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " +
+    #    "xmpp_receiver.py #{app}"
+    #  watch_name = "xmpp-#{app}"
+    #  MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
+    #  Djinn.log_debug("App #{app} does need xmpp receive functionality")
+    #else
+    #  Djinn.log_debug("App #{app} does not need xmpp receive functionality")
+    #end
   end
 
   # Stop the xmpp receiver for an applicaiton.

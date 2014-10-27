@@ -34,8 +34,8 @@ module Ejabberd
     start_cmd = "bash #{START_EJABBERD_SCRIPT}"
     stop_cmd = "/etc/init.d/ejabberd stop"
     match_cmd = "sname ejabberd"
-    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+    #MonitInterface.start(:ejabberd, start_cmd, stop_cmd, ports=9999,
+    #  env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   end
 
   def self.stop
@@ -43,7 +43,7 @@ module Ejabberd
   end
 
   def self.clear_online_users
-    Djinn.log_run("rm #{ONLINE_USERS_FILE}")
+    #Djinn.log_run("rm #{ONLINE_USERS_FILE}")
   end
 
   def self.does_app_need_receive?(app, runtime)
@@ -235,8 +235,8 @@ logging.info("extauth script terminating")
 SCRIPT
 
     HelperFunctions.write_file(AUTH_SCRIPT_LOCATION, auth_script)
-    Djinn.log_run("chown ejabberd #{AUTH_SCRIPT_LOCATION}")
-    Djinn.log_run("chmod +x #{AUTH_SCRIPT_LOCATION}")
+    #Djinn.log_run("chown ejabberd #{AUTH_SCRIPT_LOCATION}")
+    #Djinn.log_run("chmod +x #{AUTH_SCRIPT_LOCATION}")
   end
 
   def self.write_config_file(my_private_ip)
