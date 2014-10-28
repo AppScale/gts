@@ -163,7 +163,7 @@ EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
 
-    # This put in place the logrotate rules.
+    # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
         cp ${APPSCALE_HOME}/scripts/appscale-logotate.conf /etc/logrotate.d/appscale
     fi
