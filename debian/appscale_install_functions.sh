@@ -19,24 +19,24 @@ export APPSCALE_VERSION=2.0.0
 
 pip_wrapper () 
 {
-  # We have seen quite a few network/DNS issues lately, so much so that
-  # it takes a couple of tries to install packages with pip. This
-  # wrapper ensure that we are a bit more persitent.
-  if [ -n "$1" ] ; then
-    for x in {1..5} ; do
-      if pip install --upgrade $1 ; then
-        return
-      else
-        echo "Failed to install $1: retrying ..."
-        sleep $x
-      fi
-    done
-    echo "Failed to install $1: giving up."
-    exit 1
-  else
-    echo "Need an argument for pip!"
-    exit 1
-  fi
+    # We have seen quite a few network/DNS issues lately, so much so that
+    # it takes a couple of tries to install packages with pip. This
+    # wrapper ensure that we are a bit more persitent.
+    if [ -n "$1" ] ; then
+        for x in {1..5} ; do
+            if pip install --upgrade $1 ; then
+                return
+            else
+                echo "Failed to install $1: retrying ..."
+                sleep $x
+            fi
+        done
+        echo "Failed to install $1: giving up."
+        exit 1
+    else
+        echo "Need an argument for pip!"
+        exit 1
+    fi
 }
 
 increaseconnections()
@@ -87,7 +87,7 @@ setupntp()
     service ntp stop
     for x in {1..5} ; do
         if ntpdate pool.ntp.org ; then
-                break
+            break
         fi
         sleep $x
     done
