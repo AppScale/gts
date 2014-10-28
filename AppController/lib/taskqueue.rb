@@ -115,8 +115,9 @@ module TaskQueue
     # start the server, reset it to join the head node
     hostname = `hostname`.chomp()
     start_cmds = ["/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
-                  "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
-                  "/usr/sbin/rabbitmqctl start_app"]
+                   "/usr/sbin/rabbitmqctl stop_app",
+                   "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
+                   "/usr/sbin/rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
