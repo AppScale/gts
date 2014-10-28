@@ -162,6 +162,11 @@ JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
+
+    # This put in place the logrotate rules.
+    if [ -d /etc/logrotate.d/ ]; then
+        cp ${APPSCALE_HOME}/scripts/appscale-logotate.conf /etc/logrotate.d/appscale
+    fi
 }
 
 installthrift()
