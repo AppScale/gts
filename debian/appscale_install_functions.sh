@@ -23,7 +23,7 @@ pip_wrapper ()
   # it takes a couple of tries to install packages with pip. This
   # wrapper ensure that we are a bit more persitent.
   if [ -n "$1" ] ; then
-    for x in 1 2 3 4 5 ; do
+    for x in {1..5} ; do
       if pip install --upgrade $1 ; then
         return
       else
@@ -82,9 +82,17 @@ setupntp()
     echo -e "\nmaxpoll 6" >> /etc/ntp.conf
 
     # This ensure that we synced first, to allow ntpd to stay
-    # synchronized.
+    # synchronized. We have seen temporary failures in reaching out to the
+    # ntp pool, so we'll make sure we try few times.
     service ntp stop
-    ntpdate pool.ntp.org
+    for x in {1..5} ; do
+        if ntpdate pool.ntp.org ; then
+                break
+        fi
+    done
+    if [ $x -ge 5 ]; then
+        echo "Cannot sync clock: you may have issues!"
+    fi
     service ntp start
 }
 
