@@ -91,7 +91,7 @@ setupntp()
         fi
         sleep $x
     done
-    if [ $x -ge 5 ]; then
+    if [ $x -gt 5 ]; then
         echo "Cannot sync clock: you may have issues!"
     fi
     service ntp start
