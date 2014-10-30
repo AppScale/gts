@@ -47,11 +47,11 @@ MASTER="$(cat /etc/appscale/masters|head -n 1)"
 
 # Sanity checks.
 if [ $AS_NUM_HOSTS -lt 1 ]; then
-        echo "Error: cannot find Database nodes!"
+        echo "Error: cannot find Database nodes."
         exit 1
 fi
 if [ -z "$MASTER" ]; then
-        echo "Error: cannot find the master Database node!"
+        echo "Error: cannot find the master Database node."
         exit 1
 fi
  
@@ -77,14 +77,10 @@ while read -r a x y z ; do
 
                 # First time around, initialize some values.
                 MIN_LOAD=${y}
-                M_UNIT=${z}
+                M_UNIT="${z}"
         else
                 DB_HOSTS="${DB_HOSTS} ${x}"
         fi
-
-        # Make sure we don't have more than MAX_KEYS on each host, then
-        # copy over the keys.
-        ssh $x "if [ -e ${KEY_SAMPLES} ]; then tail -n ${MAX_KEYS} -q ${KEY_SAMPLES} > /tmp/pippo$$; mv /tmp/pippo$$ ${KEY_SAMPLES}; cat ${KEY_SAMPLES}; fi" >> $TMP_FILE
 
         # Let's find most and least loaded values.
         [ ${y} -gt ${MAX_LOAD} ] && MAX_LOAD=${y}
@@ -92,9 +88,7 @@ while read -r a x y z ; do
 
         # This is the load of the node in measurement unit (ie MB or GB or
         # TB). If we are using different units, we need to rebalance.
-        if [ "${M_UNIT}" != "${z}" ]; then
-                REBALANCE="YES"
-        fi
+        [ "${M_UNIT}" != "${z}" ] && REBALANCE="YES"
 
         # Let's query the Cassandra pool (via the master node) and capture
         # the following: 
@@ -114,11 +108,11 @@ echo "done."
 # configured.
 NUM_HOSTS=$(ssh $MASTER $CMD status|grep ^UN|wc -l)
 if [ -z "$DB_HOSTS" ]; then
-        echo "Error: cannot find Cassandra pool!"
+        echo "Error: cannot find Cassandra pool."
         exit 1
 fi
 if [ $AS_NUM_HOSTS -ne $NUM_HOSTS ]; then
-        echo "Error: discrepancy in the number of nodes available!"
+        echo "Error: discrepancy in the number of nodes available."
         exit 1
 fi
 echo "Found $NUM_HOSTS Cassandra nodes ($DB_HOSTS)"
@@ -142,9 +136,17 @@ if [ "$REBALANCE" = "NO" ]; then
         set -e
 fi
 
-# Sanity check on the keys: only newer version of AppScale have them
+# Make sure we don't have more than MAX_KEYS on each host, then copy over
+# the keys.
+for x in ${DB_HOSTS} ; do 
+        if ! ssh ${x} "if [ -e ${KEY_SAMPLES} ]; then tail -n ${MAX_KEYS} -q ${KEY_SAMPLES} > /tmp/pippo$$; mv /tmp/pippo$$ ${KEY_SAMPLES}; cat ${KEY_SAMPLES}; fi" >> $TMP_FILE ; then
+                echo "Failed to collect keys from $x."
+                exit 1
+        fi
+done
+# Sanity check on the keys: only newer version of AppScale have them.
 if [ $(cat $TMP_FILE|wc -l) -lt 1 ]; then
-        echo "Rebalance requires newer version of AppScale. Continue with cleanup."
+        echo "Rebalance requires newer version of AppScale. Continuing with cleanup."
         REBALANCE="NO"
 else
         sort -g  $TMP_FILE > $TMP_FILE.sorted
@@ -153,16 +155,13 @@ rm -f $TMP_FILE
 
 # Rebalance only if we have more than one node.
 if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
-        echo "Rebalancing nodes."
-
         # Sliced it amongst the hosts.
         lines="$(cat $TMP_FILE.sorted|wc -l)"
         slice=0
         let $((slice = lines / NUM_HOSTS))
         [ $slice -lt 1 ] && exit 0
 
-        # Inform how many keys we got.
-        echo "   working on $lines keys. Picking every $slice keys."
+        echo "Rebalancing nodes: working on $lines keys, picking every $slice keys."
         num_key=$slice
 
         # Loop through the nodes, and assign the new token. This will
@@ -181,7 +180,7 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
                 if [ "$IN_USE" = "NO" ]; then
                         echo -n "   node $x gets token $key..."
                         if ! ssh $MASTER "$CMD -h $x move $key" > /dev/null ; then
-                                echo "failed"
+                                echo "failed."
                                 exit 1
                         fi
                         echo "done."
@@ -198,12 +197,12 @@ echo "Repairing and cleaning nodes."
 for x in $DB_HOSTS ; do
         echo -n "   working on $x: repairing..."
         if  ! ssh $MASTER "$CMD -h $x repair -pr ${KEYSPACE}" > /dev/null ; then
-                echo "failed"
+                echo "failed."
                 exit 1
         fi
         echo -n "cleaning..."
         if ! ssh $MASTER "$CMD -h $x cleanup" > /dev/null ; then
-                echo "failed"
+                echo "failed."
                 exit 1
         fi
         echo "done."
