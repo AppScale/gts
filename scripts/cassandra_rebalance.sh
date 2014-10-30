@@ -68,6 +68,9 @@ while read -r a x y z ; do
         # Keep the list of currently used keys (tokens).
         OLD_KEYS="${OLD_KEYS} ${a}"
 
+        # No decimal points.
+        y=${y%.*}
+
         # Let's record the IP addresses of the nodes.
         if [ -z "${DB_HOSTS}" ]; then
                 DB_HOSTS="${x}"
@@ -83,8 +86,7 @@ while read -r a x y z ; do
         # copy over the keys.
         ssh $x "if [ -e ${KEY_SAMPLES} ]; then tail -n ${MAX_KEYS} -q ${KEY_SAMPLES} > /tmp/pippo$$; mv /tmp/pippo$$ ${KEY_SAMPLES}; cat ${KEY_SAMPLES}; fi" >> $TMP_FILE
 
-        # Let's find most and least loaded values. No decimal point.
-        y=${y%.*}
+        # Let's find most and least loaded values.
         [ ${y} -gt ${MAX_LOAD} ] && MAX_LOAD=${y}
         [ ${MIN_LOAD} -gt ${y} ] && MIN_LOAD=${y}
 
