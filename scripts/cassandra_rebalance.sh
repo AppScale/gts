@@ -195,7 +195,7 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
                 done
                 if [ "$IN_USE" = "NO" ]; then
                         echo "   node $x gets token $key"
-                        ssh $MASTER "$CMD -h $x move $key" > /dev/null
+                        ssh $MASTER "$CMD -h $x move $key" 
                 fi
                 let $((num_key += slice))
         done
@@ -206,10 +206,17 @@ fi
 # pertinent to the node (for ecample because of a re-balance).
 echo "Repairing and cleaning nodes."
 for x in $DB_HOSTS ; do
-        echo -n "   working on $x: repairing,"
-        ssh $MASTER "$CMD repair -pr ${KEYSPACE} -h $x" > /dev/null
-        echo " cleaning."
-        ssh $MASTER "$CMD cleanup -h $x" > /dev/null
+        echo -n "   working on $x: repairing..."
+        if  ! ssh $MASTER "$CMD -h $x repair -pr ${KEYSPACE}" > /dev/null ; then
+                echo "failed"
+                exit 1
+        fi
+        echo -n "cleaning..."
+        if ! ssh $MASTER "$CMD -h $x cleanup" > /dev/null ; then
+                echo "failed"
+                exit 1
+        fi
+        echo "done."
 done
  
 # Delete temp files.
