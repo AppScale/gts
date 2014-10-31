@@ -23,8 +23,8 @@ set -e
 help() {
         echo "$0 [-parallel]"
         echo
-        echo " Repair and clans an AppScale Cassandra cluster."
-        echo "   -parallel              run repair in parallel on all nodes"
+        echo " Repairs and cleans an AppScale Cassandra cluster."
+        echo "   -parallel              run repair in parallel on all nodes."
         echo
 }
 
@@ -42,7 +42,6 @@ if ! am_i_login_node ; then
         echo "This script runs on the head node (on this deployment $LOGIN_IP)."
         exit 1
 fi
-
  
 # Parse command line.
 while [ $# -gt 0 ]; do
@@ -54,7 +53,6 @@ while [ $# -gt 0 ]; do
         help
         exit 1
 done
-
 
 # Let's see how many nodes AppScale believes we have.
 AS_NUM_HOSTS="$(cat /etc/appscale/masters /etc/appscale/slaves|sort -u|wc -l)"

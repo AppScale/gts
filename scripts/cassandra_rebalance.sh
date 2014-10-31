@@ -23,7 +23,18 @@ MAX_KEYS="10000"
 # Temporary files to old the sample keys.
 TMP_FILE="/tmp/rangekeysample.$$"
 
+# Run in parallel?
+PARALLEL="NO"
+
 set -e
+
+help() {
+        echo "$0 [-parallel]"
+        echo
+        echo " Rebalance an AppScale Cassandra cluster."
+        echo "   -parallel              run rebalance in parallel on all nodes"
+        echo
+}
  
 # This script can only run on the login node.
 am_i_login_node() {
@@ -40,6 +51,16 @@ if ! am_i_login_node ; then
         exit 1
 fi
 
+# Parse command line.
+while [ $# -gt 0 ]; do
+        if [ "$1" = "-parallel" ]; then
+                PARALLEL="YES"
+                shift
+                continue
+        fi
+        help
+        exit 1
+done
  
 # Let's see how many nodes AppScale believes we have.
 AS_NUM_HOSTS="$(cat /etc/appscale/masters /etc/appscale/slaves|sort -u|wc -l)"
@@ -179,9 +200,13 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
                 done
                 if [ "$IN_USE" = "NO" ]; then
                         echo -n "   node $x gets token $key..."
-                        if ! ssh $MASTER "$CMD -h $x move $key" > /dev/null ; then
-                                echo "failed."
-                                exit 1
+                        if [ "$PARALLEL" = "NO" ]; then
+                                if ! ssh $MASTER "$CMD -h $x move $key" > /dev/null ; then
+                                        echo "failed."
+                                        exit 1
+                                fi
+                        else
+                                ( ssh $MASTER "$CMD -h $x move $key" ) &
                         fi
                         echo "done."
                 fi
@@ -189,21 +214,3 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
         done
 fi
 rm -f $TMP_FILE.sorted
-
-# Repair needs to be done before gc_grace_seconds expires to avoid deleted
-# rows to resurface on replicas. Cleanup will delete rows no longer
-# pertinent to the node (for ecample because of a re-balance).
-echo "Repairing and cleaning nodes."
-for x in $DB_HOSTS ; do
-        echo -n "   working on $x: repairing..."
-        if  ! ssh $MASTER "$CMD -h $x repair -pr ${KEYSPACE}" > /dev/null ; then
-                echo "failed."
-                exit 1
-        fi
-        echo -n "cleaning..."
-        if ! ssh $MASTER "$CMD -h $x cleanup" > /dev/null ; then
-                echo "failed."
-                exit 1
-        fi
-        echo "done."
-done
