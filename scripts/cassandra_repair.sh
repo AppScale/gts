@@ -15,16 +15,16 @@ CMD="/root/appscale/AppDB/cassandra/cassandra/bin/nodetool"
 # The keyspace we want to work on.
 KEYSPACE="Keyspace1"
 
-# Do we run in parallel?
-PARALLEL="NO"
+# Do we run cleanup?
+CLEANUP="NO"
 
 set -e
  
 help() {
-        echo "$0 [-parallel]"
+        echo "$0 [-cleanup]"
         echo
-        echo " Repairs and cleans an AppScale Cassandra cluster."
-        echo "   -parallel              run repair in parallel on all nodes."
+        echo " Repairs and optionally cleans an AppScale Cassandra cluster."
+        echo "   -cleanup              run also cleanup."
         echo
 }
 
@@ -45,8 +45,8 @@ fi
  
 # Parse command line.
 while [ $# -gt 0 ]; do
-        if [ "$1" = "-parallel" ]; then
-                PARALLEL="YES"
+        if [ "$1" = "-cleanup" ]; then
+                CLEANUP="YES"
                 shift
                 continue
         fi
@@ -86,20 +86,16 @@ while read -r x y ; do
                 ;;
         UN)
                 echo -n "Working on $y: repairing..."
-                if [ "$PARALLEL" = "NO" ]; then
-                        if  ! ssh $y "$CMD repair -pr ${KEYSPACE}" > /dev/null ; then
-                                echo "failed."
-                                exit 1
-                        fi
+                if  ! ssh $y "$CMD repair -pr ${KEYSPACE}" > /dev/null ; then
+                        echo "failed."
+                        exit 1
+                fi
+                if [ "$CLEANUP" = "YES" ]; then
                         echo -n "cleaning..."
                         if ! ssh $y "$CMD cleanup" > /dev/null ; then
                                 echo "failed."
                                 exit 1
                         fi
-                else
-                        ( ssh $y "$CMD repair -pr ${KEYSPACE}") &
-                        echo -n "cleaning..."
-                        ( ssh $y "$CMD cleanup" ) &
                 fi
                 echo "done."
                 ;;
