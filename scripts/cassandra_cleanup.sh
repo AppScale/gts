@@ -1,15 +1,15 @@
 #!/bin/bash
 #
-# Simple script to repair and clan a Cassandra pool. This works only for
+# Simple script to repair and clean a Cassandra pool. This works only for
 # AppScale deployment.
 #
 # Repair needs to be done before gc_grace_seconds expires to avoid deleted
 # rows to resurface on replicas. Cleanup will delete rows no longer
-# pertinent to the node (for ecample because of a re-balance).
+# pertinent to the node (for example because of a re-balance).
 #
 # Author: graziano
 
-# Where to find the command to query cassadra.
+# Where to find the command to query cassandra.
 CMD="/root/appscale/AppDB/cassandra/cassandra/bin/nodetool"
 
 # The keyspace we want to work on.
@@ -79,10 +79,10 @@ while read -r x y ; do
                 echo "Skipping node $y since it is Moving."
                 ;;
         UL)
-                echo "Skipping node $y since it is Leaving"
+                echo "Skipping node $y since it is Leaving."
                 ;;
         UJ)
-                echo "Skipping node $y since it is Joining"
+                echo "Skipping node $y since it is Joining."
                 ;;
         UN)
                 echo -n "Working on $y: repairing..."
@@ -97,9 +97,9 @@ while read -r x y ; do
                                 exit 1
                         fi
                 else
-                        ( ssh $MASTER "$CMD -h $y repair -pr ${KEYSPACE}") &
+                        ( ssh $y "$CMD repair -pr ${KEYSPACE}") &
                         echo -n "cleaning..."
-                        ( ssh $MASTER "$CMD -h $y cleanup" ) &
+                        ( ssh $y "$CMD cleanup" ) &
                 fi
                 echo "done."
                 ;;

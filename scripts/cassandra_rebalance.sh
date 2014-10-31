@@ -20,7 +20,7 @@ KEY_SAMPLES="/opt/appscale/rangekeysample.out"
 # Keep only this many keys around.
 MAX_KEYS="10000"
 
-# Temporary files to old the sample keys.
+# Temporary files to hold the sample keys.
 TMP_FILE="/tmp/rangekeysample.$$"
 
 # Run in parallel?
@@ -112,7 +112,7 @@ while read -r a x y z ; do
         [ ${MIN_LOAD} -gt ${y} ] && MIN_LOAD=${y}
 
         # This is the load of the node in measurement unit (ie MB or GB or
-        # TB). If we are using different units, we need to rebalance.
+        # TB). If we detects different units, we need to rebalance.
         [ "${M_UNIT}" != "${z}" ] && REBALANCE="YES"
 
         # Let's query the Cassandra pool (via the master node) and capture
@@ -169,9 +169,9 @@ for x in ${DB_HOSTS} ; do
                 exit 1
         fi
 done
-# Sanity check on the keys: only newer version of AppScale have them.
+# Sanity check on the keys: only newer versions of AppScale have them.
 if [ $(cat $TMP_FILE|wc -l) -lt 1 ]; then
-        echo "Rebalance requires newer version of AppScale. Continuing with cleanup."
+        echo "Rebalance requires newer version of AppScale."
         REBALANCE="NO"
 else
         sort -g  $TMP_FILE > $TMP_FILE.sorted
@@ -180,7 +180,7 @@ rm -f $TMP_FILE
 
 # Rebalance only if we have more than one node.
 if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
-        # Sliced it amongst the hosts.
+        # Slice it amongst the hosts.
         lines="$(cat $TMP_FILE.sorted|wc -l)"
         slice=0
         let $((slice = lines / NUM_HOSTS))
