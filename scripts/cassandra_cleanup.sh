@@ -15,8 +15,19 @@ CMD="/root/appscale/AppDB/cassandra/cassandra/bin/nodetool"
 # The keyspace we want to work on.
 KEYSPACE="Keyspace1"
 
+# Do we run in parallel?
+PARALLEL="NO"
+
 set -e
  
+help() {
+        echo "$0 [-parallel]"
+        echo
+        echo " Repair and clans an AppScale Cassandra cluster."
+        echo "   -parallel              run repair in parallel on all nodes"
+        echo
+}
+
 # This script can only run on the login node.
 am_i_login_node() {
         LOGIN_IP="$(cat /etc/appscale/login_private_ip)"
@@ -33,6 +44,18 @@ if ! am_i_login_node ; then
 fi
 
  
+# Parse command line.
+while [ $# -gt 0 ]; do
+        if [ "$1" = "-parallel" ]; then
+                PARALLEL="YES"
+                shift
+                continue
+        fi
+        help
+        exit 1
+done
+
+
 # Let's see how many nodes AppScale believes we have.
 AS_NUM_HOSTS="$(cat /etc/appscale/masters /etc/appscale/slaves|sort -u|wc -l)"
 MASTER="$(cat /etc/appscale/masters|head -n 1)"
@@ -61,14 +84,20 @@ while read -r x y ; do
                 ;;
         UN)
                 echo -n "Working on $y: repairing..."
-                if  ! ssh $MASTER "$CMD -h $y repair -pr ${KEYSPACE}" > /dev/null ; then
-                        echo "failed."
-                        exit 1
-                fi
-                echo -n "cleaning..."
-                if ! ssh $MASTER "$CMD -h $y cleanup" > /dev/null ; then
-                        echo "failed."
-                        exit 1
+                if [ "$PARALLEL" = "NO" ]; then
+                        if  ! ssh $MASTER "$CMD -h $y repair -pr ${KEYSPACE}" > /dev/null ; then
+                                echo "failed."
+                                exit 1
+                        fi
+                        echo -n "cleaning..."
+                        if ! ssh $MASTER "$CMD -h $y cleanup" > /dev/null ; then
+                                echo "failed."
+                                exit 1
+                        fi
+                else
+                        ( ssh $MASTER "$CMD -h $y repair -pr ${KEYSPACE}") &
+                        echo -n "cleaning..."
+                        ( ssh $MASTER "$CMD -h $y cleanup" ) &
                 fi
                 echo "done."
                 ;;
