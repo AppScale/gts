@@ -87,12 +87,12 @@ while read -r x y ; do
         UN)
                 echo -n "Working on $y: repairing..."
                 if [ "$PARALLEL" = "NO" ]; then
-                        if  ! ssh $MASTER "$CMD -h $y repair -pr ${KEYSPACE}" > /dev/null ; then
+                        if  ! ssh $y "$CMD repair -pr ${KEYSPACE}" > /dev/null ; then
                                 echo "failed."
                                 exit 1
                         fi
                         echo -n "cleaning..."
-                        if ! ssh $MASTER "$CMD -h $y cleanup" > /dev/null ; then
+                        if ! ssh $y "$CMD cleanup" > /dev/null ; then
                                 echo "failed."
                                 exit 1
                         fi

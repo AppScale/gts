@@ -210,7 +210,7 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
                                         exit 1
                                 fi
                         else
-                                ( ssh $MASTER "$CMD -h $x move $key" ) &
+                                ( ssh $x "$CMD move $key" ) &
                         fi
                         echo "done."
                 fi
