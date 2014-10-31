@@ -69,6 +69,10 @@ if [ -z "$MASTER" ]; then
 fi
  
 while read -r x y ; do
+        # Make sure we got the host key.
+        ssh-keygen -R ${y}
+        ssh-keyscan -H ${y} >> ~/.ssh/known_hosts
+
         # Let's skip all the nodes that are not in 'Normal' state.
         case "$x" in 
         UM)

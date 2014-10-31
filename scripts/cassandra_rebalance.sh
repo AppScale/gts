@@ -103,6 +103,10 @@ while read -r a x y z ; do
                 DB_HOSTS="${DB_HOSTS} ${x}"
         fi
 
+        # Make sure we got the host key.
+        ssh-keygen -R ${x}
+        ssh-keyscan -H ${x} >> ~/.ssh/known_hosts
+
         # Let's find most and least loaded values.
         [ ${y} -gt ${MAX_LOAD} ] && MAX_LOAD=${y}
         [ ${MIN_LOAD} -gt ${y} ] && MIN_LOAD=${y}
@@ -201,7 +205,7 @@ if [ ${NUM_HOSTS} -gt 1 -a "${REBALANCE}" = "YES" ]; then
                 if [ "$IN_USE" = "NO" ]; then
                         echo -n "   node $x gets token $key..."
                         if [ "$PARALLEL" = "NO" ]; then
-                                if ! ssh $MASTER "$CMD -h $x move $key" > /dev/null ; then
+                                if ! ssh $x "$CMD move $key" > /dev/null ; then
                                         echo "failed."
                                         exit 1
                                 fi
