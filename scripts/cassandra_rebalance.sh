@@ -40,6 +40,28 @@ if ! am_i_login_node ; then
         exit 1
 fi
 
+# This function makes sure we have the ssh key of the host. It wont'
+# change it once saved it.
+test_get_ssh_host_key() {
+        # Sanity check.
+        if [ -z "$1" ]; then
+                echo "Need a hostname or IP address."
+                return 1
+        fi
+
+        # Check if we have it already.
+        if ! ssh-keygen -F ${1} > /dev/null ; then
+                ssh-keyscan -H ${1} >> ~/.ssh/known_hosts 2> /dev/null
+        fi
+
+        return 0
+}
+
+# This is to ensure we have all the ssh host keys of all components.
+for x in  $(cat /etc/appscale/all_ips); do
+        test_get_ssh_host_key $x
+done
+
 # Let's see how many nodes AppScale believes we have.
 AS_NUM_HOSTS="$(cat /etc/appscale/masters /etc/appscale/slaves|sort -u|wc -l)"
 MASTER="$(cat /etc/appscale/masters|head -n 1)"
@@ -80,10 +102,6 @@ while read -r a x y z ; do
         else
                 DB_HOSTS="${DB_HOSTS} ${x}"
         fi
-
-        # Make sure we got the host key.
-        ssh-keygen -R ${x}
-        ssh-keyscan -H ${x} >> ~/.ssh/known_hosts
 
         # Let's find most and least loaded values.
         [ ${y} -gt ${MAX_LOAD} ] && MAX_LOAD=${y}

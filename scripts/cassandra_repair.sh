@@ -43,6 +43,28 @@ if ! am_i_login_node ; then
         exit 1
 fi
  
+# This function makes sure we have the ssh key of the host. It wont'
+# change it once saved it.
+test_get_ssh_host_key() {
+        # Sanity check.
+        if [ -z "$1" ]; then
+                echo "Need a hostname or IP address."
+                return 1
+        fi
+
+        # Check if we have it already.
+        if ! ssh-keygen -F ${1} > /dev/null ; then
+                ssh-keyscan -H ${1} >> ~/.ssh/known_hosts 2> /dev/null
+        fi
+
+        return 0
+}
+
+# This is to ensure we have all the ssh host keys of all components.
+for x in  $(cat /etc/appscale/all_ips); do
+        test_get_ssh_host_key $x
+done
+
 # Parse command line.
 while [ $# -gt 0 ]; do
         if [ "$1" = "-cleanup" ]; then
@@ -69,10 +91,6 @@ if [ -z "$MASTER" ]; then
 fi
  
 while read -r x y ; do
-        # Make sure we got the host key.
-        ssh-keygen -R ${y}
-        ssh-keyscan -H ${y} >> ~/.ssh/known_hosts
-
         # Let's skip all the nodes that are not in 'Normal' state.
         case "$x" in 
         UM)
