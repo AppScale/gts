@@ -228,11 +228,7 @@ rebalance() {
 
 # This function run both cleanup or repair depending on the parameter.
 repair_or_cleanup() {
-        if [ -n "$1" -a "$1" = "CLEANUP" ]; then
-                OP="CLEANUP"
-        else
-                OP="REPAIR"
-        fi
+        IPS_TO_USE=""
 
         while read -r x y ; do
                 # Let's skip all the nodes that are not in 'Normal' state.
@@ -247,22 +243,7 @@ repair_or_cleanup() {
                         echo "Skipping node $y since it is Joining."
                         ;;
                 UN)
-                        echo -n "Working on $y: "
-                        if [ "$OP" = "REPAIR" ]; then
-                                echo -n " repairing..."
-                                if  ! ssh $y "$CMD repair -pr ${KEYSPACE}" > /dev/null ; then
-                                        echo "failed."
-                                        exit 1
-                                fi
-                        fi
-                        if [ "$OP" = "CLEANUP" ]; then
-                                echo -n "cleaning..."
-                                if ! ssh $y "$CMD cleanup" > /dev/null ; then
-                                        echo "failed."
-                                        exit 1
-                                fi
-                        fi
-                        echo "done."
+                        IPS_TO_USE="${IPS_TO_USE} $y"
                         ;;
                 *)
                         echo "Unknown status $x for node $y."
@@ -275,6 +256,25 @@ repair_or_cleanup() {
                 #  $1 - the status of the node
                 #  $2 - the IP address of the node.
         done < <(ssh $MASTER $CMD status|grep ^U|awk '{print $1, $2}') 
+
+        # Run the operation.
+        for x in ${IPS_TO_USE} ; do
+                echo -n "Working on $x:"
+                if [ -n "$1" -a "$1" = "CLEANUP" ]; then
+                        echo -n "cleaning..."
+                        if ! ssh $x "$CMD cleanup" > /dev/null ; then
+                                echo "failed."
+                                exit 1
+                        fi
+                else
+                        echo -n "repairing..."
+                        if  ! ssh $x "$CMD repair -pr ${KEYSPACE}" > /dev/null ; then
+                                echo "failed."
+                                exit 1
+                        fi
+                fi
+                echo "done."
+        done
 }
 
 # Parse command line.
