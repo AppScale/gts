@@ -38,16 +38,18 @@ help() {
 
 # This script can only run on the login node.
 am_i_login_node() {
-        LOGIN_IP="$(cat /etc/appscale/login_private_ip)"
-        for x in $(ip addr show|awk '/inet / {print $2}'|sed 's;/.*;;') ; do
-                [ "$LOGIN_IP" = "$x" ] && return 0
-        done
+        if [ -e /etc/appscale/login_private_ip ]; then
+                LOGIN_IP="$(cat /etc/appscale/login_private_ip)"
+                for x in $(ip addr show|awk '/inet / {print $2}'|sed 's;/.*;;') ; do
+                        [ "$LOGIN_IP" = "$x" ] && return 0
+                done
+        fi
         return 1
 }
 
 # Check if we are on the head node.
 if ! am_i_login_node ; then
-        echo "This script runs on the head node (on this deployment $LOGIN_IP)."
+        echo "This script runs on the head node."
         exit 1
 fi
 
@@ -277,22 +279,29 @@ repair_or_cleanup() {
         done
 }
 
-# Parse command line.
+# Parse command line, and run commands.
+DONE="NO"
 while [ $# -ge 0 ]; do
         if [ "$1" = "-rebalance" ]; then
                 rebalance
+                DONE="YES"
                 shift
                 continue
         fi
         if [ "$1" = "-repair" ]; then
                 repair_or_cleanup
+                DONE="YES"
                 shift
                 continue
         fi
         if [ "$1" = "-cleanup" ]; then
                 repair_or_cleanup CLEANUP
+                DONE="YES"
                 shift
                 continue
+        fi
+        if [ ${DONE} = "YES" ]; then
+                exit 0
         fi
         help
         exit 1
