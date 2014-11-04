@@ -19,24 +19,24 @@ export APPSCALE_VERSION=2.0.0
 
 pip_wrapper () 
 {
-  # We have seen quite a few network/DNS issues lately, so much so that
-  # it takes a couple of tries to install packages with pip. This
-  # wrapper ensure that we are a bit more persitent.
-  if [ -n "$1" ] ; then
-    for x in 1 2 3 4 5 ; do
-      if pip install --upgrade $1 ; then
-        return
-      else
-        echo "Failed to install $1: retrying ..."
-        sleep $x
-      fi
-    done
-    echo "Failed to install $1: giving up."
-    exit 1
-  else
-    echo "Need an argument for pip!"
-    exit 1
-  fi
+    # We have seen quite a few network/DNS issues lately, so much so that
+    # it takes a couple of tries to install packages with pip. This
+    # wrapper ensure that we are a bit more persitent.
+    if [ -n "$1" ] ; then
+        for x in {1..5} ; do
+            if pip install --upgrade $1 ; then
+                return
+            else
+                echo "Failed to install $1: retrying ..."
+                sleep $x
+            fi
+        done
+        echo "Failed to install $1: giving up."
+        exit 1
+    else
+        echo "Need an argument for pip!"
+        exit 1
+    fi
 }
 
 increaseconnections()
@@ -82,9 +82,18 @@ setupntp()
     echo -e "\nmaxpoll 6" >> /etc/ntp.conf
 
     # This ensure that we synced first, to allow ntpd to stay
-    # synchronized.
+    # synchronized. We have seen temporary failures in reaching out to the
+    # ntp pool, so we'll make sure we try few times.
     service ntp stop
-    ntpdate pool.ntp.org
+    for x in {1..5} ; do
+        if ntpdate pool.ntp.org ; then
+            break
+        fi
+        sleep $x
+    done
+    if [ $x -gt 5 ]; then
+        echo "Cannot sync clock: you may have issues!"
+    fi
     service ntp start
 }
 
@@ -162,6 +171,11 @@ JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
+
+    # This puts in place the logrotate rules.
+    if [ -d /etc/logrotate.d/ ]; then
+        cp ${APPSCALE_HOME}/scripts/appscale-logotate.conf /etc/logrotate.d/appscale
+    fi
 }
 
 installthrift()

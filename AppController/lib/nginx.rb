@@ -497,15 +497,20 @@ CONFIG
   end
 
   # Create the configuration file for the datastore_server
-  def self.create_datastore_server_config(my_ip, proxy_port)
+  def self.create_datastore_server_config(all_private_ips, proxy_port)
     config = <<CONFIG
 upstream #{DatastoreServer::NAME} {
-    server #{my_ip}:#{proxy_port};
+CONFIG
+    all_private_ips.each { |ip|
+      config += <<CONFIG 
+    server #{ip}:#{proxy_port};
+CONFIG
+    }
+    config += <<CONFIG
 }
     
 server {
     listen #{DatastoreServer::LISTEN_PORT_NO_SSL};
-    server_name #{my_ip};
     root /root/appscale/AppDB/;
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log  /var/log/nginx/datastore_server.access.log upstream;
@@ -524,9 +529,10 @@ server {
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
       proxy_redirect off;
+      proxy_next_upstream     error timeout invalid_header http_500;
       proxy_pass http://#{DatastoreServer::NAME};
       client_max_body_size 30M;
-      proxy_connect_timeout 600;
+      proxy_connect_timeout 5;
       client_body_timeout 600;
       proxy_read_timeout 600;
     }
@@ -562,6 +568,8 @@ server {
 
       client_body_timeout 600;
       proxy_read_timeout 600;
+      proxy_next_upstream     error timeout invalid_header http_500;
+      proxy_connect_timeout 5;
       #Increase file size so larger applications can be uploaded
       client_max_body_size 30M;
       # go to proxy

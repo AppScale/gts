@@ -2353,6 +2353,18 @@ class Djinn
   end
 
 
+  def configure_db_nginx()
+    all_db_private_ips = []
+    @nodes.each { | node |
+      if node.is_db_master? or node.is_db_slave?
+        all_db_private_ips.push(node.private_ip)
+      end
+    }
+    Nginx.create_datastore_server_config(all_db_private_ips, DatastoreServer::PROXY_PORT)
+    Nginx.reload()
+  end
+
+
   def write_database_info()
     table = @options["table"]
     replication = @options["replication"]
@@ -3129,6 +3141,7 @@ class Djinn
 
     initialize_server()
 
+    configure_db_nginx()
     write_memcache_locations()
     write_apploadbalancer_location()
     find_nearest_taskqueue()
@@ -3395,8 +3408,6 @@ class Djinn
     zoo_connection = get_zk_connection_string(@nodes)
     DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
-    Nginx.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT)
-    Nginx.reload()
 
     # TODO check the return value
     DatastoreServer.is_running(my_ip)
@@ -4101,7 +4112,7 @@ HOSTS
       db_private_ip = @userappserver_private_ip
     end
 
-    Djinn.log_debug("Starting appengine - pbserver is at [#{db_private_ip}]")
+    Djinn.log_debug("Starting appengine")
 
     uac = UserAppClient.new(db_private_ip, @@secret)
     if @restored == false
