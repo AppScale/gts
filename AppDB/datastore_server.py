@@ -647,7 +647,9 @@ class DatastoreDistributed():
     """
     ancestor = ""
     tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
-    ancestor += tokens[0] + dbconstants.KIND_SEPARATOR
+    # Strip off the empty placeholder and also do not include the last kind.
+    for token in tokens[:-2]:
+      ancestor += token + dbconstants.KIND_SEPARATOR
     return ancestor
 
   @staticmethod
@@ -2906,9 +2908,9 @@ class DatastoreDistributed():
       self._NAMESPACE_SEPARATOR, name_space, index_id, self._SEPARATOR)
 
     if definition.ancestor() == 1:
-      ent_key = DatastoreDistributed.__encode_index_pb(query.ancestor().path())
-      ancestor_str = DatastoreDistributed.get_ancestor_key_from_ent_key(ent_key)
+      ancestor_str = self.__encode_index_pb(query.ancestor().path())
       pre_comp_index_key += "{0}{1}".format(ancestor_str, self._SEPARATOR) 
+
     value = ''
     index_value = ""
     equality_value = ""
