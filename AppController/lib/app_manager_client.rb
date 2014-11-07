@@ -167,12 +167,13 @@ class AppManagerClient
   #
   # Args:
   #   app_name: A String representing the name of the application.
+  #   language: A String, the language the app is written in.
   # Returns:
   #   An Array of process IDs that were killed, that had been hosting the app.
-  def restart_app_instances_for_app(app_name)
+  def restart_app_instances_for_app(app_name, language)
     result = ""
     make_call(MAX_TIME_OUT, false, "restart_app_instances_for_app") {
-      result = @conn.restart_app_instances_for_app(app_name)
+      result = @conn.restart_app_instances_for_app(app_name, language)
     }
     return result
   end
