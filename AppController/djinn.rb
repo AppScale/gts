@@ -659,7 +659,8 @@ class Djinn
         end
         next if not node.is_appengine?
         app_manager = AppManagerClient.new(node.private_ip)
-        app_manager.restart_app_instances_for_app(appid, @app_info_map[appid]['language'])
+        app_manager.restart_app_instances_for_app(appid,
+          @app_info_map[appid]['language'])
       }
     }
 
