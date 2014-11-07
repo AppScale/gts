@@ -659,7 +659,7 @@ class Djinn
         end
         next if not node.is_appengine?
         app_manager = AppManagerClient.new(node.private_ip)
-        app_manager.restart_app_instances_for_app(appid)
+        app_manager.restart_app_instances_for_app(appid, @app_info_map[appid]['language'])
       }
     }
 
@@ -4333,7 +4333,8 @@ HOSTS
         }
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
-        result = app_manager.restart_app_instances_for_app(app)
+        result = app_manager.restart_app_instances_for_app(app, 
+          @app_info_map[app]['language'])
       end
 
       if is_new_app
