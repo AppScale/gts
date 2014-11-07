@@ -31,7 +31,7 @@ class AppManagerClient
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
-    @conn.add_method("restart_app_instances_for_app", "app_name")
+    @conn.add_method("restart_app_instances_for_app", "app_name", "language")
   end
 
   # Make a SOAP call out to the AppManager. 
