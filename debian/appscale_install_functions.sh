@@ -200,6 +200,8 @@ installappserverjava()
         # Delete unnecessary files.
 	rm -rfv src lib
     fi
+    # Use our class path for modified jars.
+    cp ./dev_appserver.sh ./appengine-java-sdk-repacked/bin/ 
 }
 
 installtornado()

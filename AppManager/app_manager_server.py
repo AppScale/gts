@@ -140,9 +140,6 @@ def start_app(config):
     env_vars.update(create_python_app_env(config['load_balancer_ip'],
                             config['app_name']))
   elif config['language'] == constants.JAVA:
-    copy_successful = copy_modified_jars(config['app_name'])
-    if not copy_successful:
-      return BAD_PID
     start_cmd = create_java_start_cmd(config['app_name'],
                             config['app_port'],
                             config['load_balancer_ip'],
@@ -373,39 +370,6 @@ def locate_dir(path, dir_name):
           and result.endswith("/WEB-INF/%s" % dir):
           logging.info("Found lib/ at: %s" % result)
           return result
-
-def copy_modified_jars(app_name):
-  """ Copies the changes made to the Java SDK
-  for AppScale into the apps lib folder.
-
-  Args:
-    app_name: The name of the application to run
-
-  Returns:
-    False if there were any errors, True if success
-  """
-  appscale_home = constants.APPSCALE_HOME
-
-  app_dir = "/var/apps/" + app_name + "/app/"
-  lib_dir = locate_dir(app_dir, "lib")
-
-  cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
-                              "appengine-java-sdk-repacked/lib/user/*.jar " +\
-                              lib_dir, shell=True)
-  if cp_result != 0:
-    logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
-                  "to lib directory of " + app_name)
-    return False
-
-  cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
-                              "appengine-java-sdk-repacked/lib/impl/" +\
-                              "appscale-*.jar " + lib_dir, shell=True)
-
-  if cp_result != 0:
-    logging.error("Failed to copy email jars to lib directory of " + app_name)
-    return False
-
-  return True
 
 def create_java_start_cmd(app_name,
                           port,
