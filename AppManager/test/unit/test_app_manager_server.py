@@ -178,8 +178,7 @@ class TestAppManager(unittest.TestCase):
     app_id = 'testapp'
     cmd = app_manager_server.create_java_start_cmd(app_id,
                                             '20000',
-                                            '127.0.0.2',
-                                            db_locations)
+                                            '127.0.0.2')
     assert fake_secret in cmd
     assert app_id in cmd
 
