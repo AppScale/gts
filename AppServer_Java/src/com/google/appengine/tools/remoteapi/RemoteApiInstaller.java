@@ -6,9 +6,10 @@ import com.google.appengine.api.users.dev.LoginCookieUtils;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.Delegate;
 import com.google.apphosting.api.ApiProxy.Environment;
+
+/* The imports were changed to point to the repackaged classes. */
 import com.google.appengine.repackaged.org.apache.commons.httpclient.Cookie;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.NameValuePair;
-
 import com.google.appengine.repackaged.org.apache.commons.httpclient.HttpClient;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.HttpStatus;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.PostMethod;
@@ -250,11 +251,13 @@ public class RemoteApiInstaller {
   }
 
   /**
-   * Submits credentials and gets cookies for logging in to App Engine.
+   * Submits credentials and gets cookies for logging in to AppScale.
    * (Also downloads the appId from the remote API.)
    * @return an AppEngineClient containing credentials (if successful)
    * @throws LoginException for a login failure
    * @throws IOException for other connection failures
+   *
+   * Modified to only get credentials for AppScale.
    */
   private AppEngineClient loginImpl(RemoteApiOptions options) throws IOException {
     List<Cookie> authCookies;
