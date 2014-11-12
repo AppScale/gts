@@ -294,7 +294,6 @@ public class RemoteApiInstaller {
    * Fetches the AppScale Cookie for being considered the admin.
    */
   public static List<Cookie> getAppScaleServerCookie(String hostname, String email, String password) {
-
     HttpClient client = new HttpClient();
     PostMethod method = new PostMethod("https://" + hostname + ":1443/users/authenticate");
     NameValuePair[] data = {
@@ -303,8 +302,7 @@ public class RemoteApiInstaller {
     };
     method.setRequestBody(data);
     List<Cookie> authCookies = new ArrayList<Cookie>();
-    try{
-      client.executeMethod(method);
+    try {
       client.executeMethod(method);
       Cookie[] cookies = client.getState().getCookies();
       for (int ii = 0; ii < cookies.length; ii++) {
@@ -348,7 +346,6 @@ public class RemoteApiInstaller {
    * Parses the response from the remote API as a YAML map.
    */
   static Map<String, String> parseYamlMap(String input) {
-
     Map<String, String> result = new HashMap<String, String>();
     input = input.trim();
     if (!input.startsWith("{") || !input.endsWith("}")) {
@@ -366,9 +363,7 @@ public class RemoteApiInstaller {
     return result;
   }
 
-  static List<Cookie> parseSerializedCredentials(String expectedEmail, String expectedHost,
-      String serializedCredentials) throws IOException {
-
+  static List<Cookie> parseSerializedCredentials(String expectedEmail, String expectedHost, String serializedCredentials) throws IOException {
     Map<String, List<String>> props = parseProperties(serializedCredentials);
     checkOneProperty(props, "email");
     checkOneProperty(props, "host");
