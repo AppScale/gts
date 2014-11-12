@@ -129,6 +129,12 @@
     <copy file="src/com/google/appengine/tools/development/webdefault.xml" tofile="${gae_dist}/com/google/appengine/tools/development/" />
   </target>
 
+  <target name="update-remote-jar" depends="compile, repack-sdk, update-local-runtime-jar, update-tools-api-jar, update-api-stubs-jar, update-local-runtime-jar">
+    <jar destfile="${gae_dist}/lib/appengine-remote-api.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/tools/remoteapi/RemoteApiInstaller*" />
+    </jar>
+  </target>
+
   <target name="update-tools-api-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/appengine-tools-api.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/tools/development/DevAppServerMain*" />
@@ -142,7 +148,7 @@
     </jar>
   </target>
 
-  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-agent-runtime-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar" />
+  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-agent-runtime-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar, update-remote-jar" />
 
   <target name="install" depends="update-jars" />
 
