@@ -45,6 +45,7 @@ from google.appengine.api import apiproxy_stub
 
 MAX_REQUEST_SIZE = 32 << 20
 
+MAX_RETRIES = 5
 
 class MailServiceStub(apiproxy_stub.APIProxyStub):
   """Python only mail service stub.
@@ -188,7 +189,7 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
       mail_messages.append(email_message)
     return mail_messages
 
-  def _SendSMTP(self, mime_message, smtp_lib=smtplib.SMTP):
+  def _SendSMTP(self, mime_message, smtp_lib=smtplib.SMTP, retries=MAX_RETRIES):
     """Send MIME message via SMTP.
 
     Connects to SMTP server and sends MIME message.  If user is supplied
@@ -198,7 +199,11 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
     Args:
       mime_message: MimeMessage to send.  Create using ToMIMEMessage.
       smtp_lib: Class of SMTP library.  Used for dependency injection.
+      retries: Number of retries left.
     """
+    if retries == 0:
+      logging.error("Unable to send email--no more retries!")
+      raise 
     smtp = smtp_lib()
     try:
       smtp.connect(self._smtp_host, self._smtp_port)
@@ -215,6 +220,9 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
 
       tos = [mime_message[to] for to in ['To', 'Cc', 'Bcc'] if mime_message[to]]
       smtp.sendmail(mime_message['From'], tos, mime_message.as_string())
+    except smtplib.SMTPException, e:
+      logging.error("Sending email exception: {0}".format(e))
+      self._SendSMTP(mime_message, smtp_lib=smtp_lib, retries=retries-1)
     finally:
       smtp.quit()
 
@@ -297,7 +305,7 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
     _Base64EncodeAttachments(mime_message)
     if self._smtp_host:
 
-      self._SendSMTP(mime_message, smtp_lib)
+      self._SendSMTP(mime_message, smtp_lib, retries=MAX_RETRIES)
     elif self._enable_sendmail:
       self._SendSendmail(mime_message, popen, sendmail_command)
     else:
