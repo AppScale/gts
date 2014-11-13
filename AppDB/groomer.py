@@ -378,7 +378,8 @@ class DatastoreGroomer(threading.Thread):
         # Fetch latest composites for this entity
         composites = self.get_composite_indexes(app_prefix, kind)
 
-        # Remove previous regular indexes and composites if it's not a TOMBSTONE.
+        # Remove previous regular indexes and composites if it's not a
+        # TOMBSTONE.
         if bad_entry:
           self.delete_indexes(bad_entry)
           self.delete_composite_indexes(bad_entry, composites)
@@ -461,7 +462,8 @@ class DatastoreGroomer(threading.Thread):
               .format(app_prefix, txn_id))
           self.zoo_keeper.release_lock(app_prefix, txn_id)
         except zk.ZKTransactionException, zk_exception:
-          logging.error("Caught exception: {0}\nIgnoring...".format(zk_exception))
+          logging.error("Caught exception: {0}\nIgnoring...".format(
+            zk_exception))
           # There was an exception releasing the lock, but 
           # the hard delete has already happened.
           pass
