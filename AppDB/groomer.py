@@ -400,6 +400,7 @@ class DatastoreGroomer(threading.Thread):
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
+      logging.error("Caught exception {0}".format(zk_exception))
       success = False
     finally:
       if not success:
@@ -453,6 +454,7 @@ class DatastoreGroomer(threading.Thread):
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
       success = False
     finally:
       if not success:
