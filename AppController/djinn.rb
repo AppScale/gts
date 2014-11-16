@@ -4184,8 +4184,12 @@ HOSTS
     # First, make sure we can download the app, and if we can't, throw up a
     # dummy app letting the user know there was a problem.
     if !copy_app_to_local(app)
-      place_error_app(app, "ERROR: Failed to copy app: #{app}")
-      app_language = "python27"
+      Djinn.log_error("ERROR UPLOADING APP. CHECK APPLICATION LOGS.")
+      if app_language == "python27":
+        place_error_app(app, "ERROR: Failed to copy app: #{app}")
+      else
+        return
+      end 
     end
 
     # Next, make sure their app has an app.yaml or appengine-web.xml in it,
@@ -4193,9 +4197,12 @@ HOSTS
     # (which can happen if the scp fails on a large app), throw up a dummy
     # app.
     if !HelperFunctions.app_has_config_file?(app_path)
-      place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " +
-        app)
-      app_language = "python27"
+      Djinn.log_error("ERROR UPLOADING APP. NO YAMP OR XML FILE FOUND.")
+      if app_language == "python27":
+        place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " + app)
+      else
+        return
+      end       
     end
 
     HelperFunctions.setup_app(app)
@@ -4267,7 +4274,10 @@ HOSTS
         # This specific exception may be a json parse error
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
                     " Exception of #{e.class} with message #{e.message}"
-        place_error_app(app, error_msg)
+        Djinn.log_error(error_msg)
+        if app_language == "python27"
+          place_error_app(app, error_msg)
+        end
         static_handlers = []
       end
 
@@ -4311,8 +4321,12 @@ HOSTS
             @options['max_memory'])
 
           if pid == -1
-            place_error_app(app, "ERROR: Unable to start application " + \
+            Djinn.log_error("ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.")
+            if app_language == "python27"
+              place_error_app(app, "ERROR: Unable to start application " + \
+                "#{app}. Please check the application logs.")
+            end
           end
 
           # Tell the AppController at the login node (which runs HAProxy) that a
