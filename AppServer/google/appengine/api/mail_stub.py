@@ -200,7 +200,7 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
       mime_message: MimeMessage to send.  Create using ToMIMEMessage.
       smtp_lib: Class of SMTP library.  Used for dependency injection.
     """
-    smtp = smtp_lib(timeout=.5)
+    smtp = smtp_lib()
     try:
       smtp.connect(self._smtp_host, self._smtp_port)
 
