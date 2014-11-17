@@ -378,7 +378,8 @@ class DatastoreGroomer(threading.Thread):
         # Fetch latest composites for this entity
         composites = self.get_composite_indexes(app_prefix, kind)
 
-        # Remove previous regular indexes and composites if it's not a TOMBSTONE.
+        # Remove previous regular indexes and composites if it's not a
+        # TOMBSTONE.
         if bad_entry:
           self.delete_indexes(bad_entry)
           self.delete_composite_indexes(bad_entry, composites)
@@ -399,6 +400,7 @@ class DatastoreGroomer(threading.Thread):
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
+      logging.error("Caught exception {0}".format(zk_exception))
       success = False
     finally:
       if not success:
@@ -428,16 +430,21 @@ class DatastoreGroomer(threading.Thread):
     success = False
     app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
-    
-    if self.zoo_keeper.is_blacklisted(app_prefix, version):
-      logging.error("Found a blacklisted item for version {0} on key {1}".\
-        format(version, key))
-      return True
-      #TODO actually fix the badlisted entity
-      return self.fix_badlisted_entity(key, version)
- 
-    txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+
     try:
+      if self.zoo_keeper.is_blacklisted(app_prefix, version):
+        logging.error("Found a blacklisted item for version {0} on key {1}".\
+          format(version, key))
+        return True
+        #TODO actually fix the badlisted entity
+        return self.fix_badlisted_entity(key, version)
+    except zk.ZKTransactionException, zk_exception:
+      logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
+      return False
+
+    try:
+      txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
         success = self.hard_delete_row(key)
         if success:
@@ -447,18 +454,21 @@ class DatastoreGroomer(threading.Thread):
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
       success = False
     finally:
       if not success:
-        if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
-          logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
-            .format(app_prefix, txn_id))
-      try:
-        self.zoo_keeper.release_lock(app_prefix, txn_id)
-      except zk.ZKTransactionException, zk_exception:
-        # There was an exception releasing the lock, but 
-        # the hard delete has already happened.
-        pass
+        try:
+          if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
+            logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
+              .format(app_prefix, txn_id))
+          self.zoo_keeper.release_lock(app_prefix, txn_id)
+        except zk.ZKTransactionException, zk_exception:
+          logging.error("Caught exception: {0}\nIgnoring...".format(
+            zk_exception))
+          # There was an exception releasing the lock, but 
+          # the hard delete has already happened.
+          pass
 
     if success:
       self.num_deletes += 1
@@ -558,14 +568,20 @@ class DatastoreGroomer(threading.Thread):
       True on success, False otherwise.
     """
     app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
-    if not self.zoo_keeper.is_blacklisted(app_prefix, txn_id):
-      self.clean_journal_entries(txn_id, key)
-    else:
-      logging.error("Found a blacklisted item for version {0} on key {1}".\
-        format(txn_id, key))
+    try:
+      if not self.zoo_keeper.is_blacklisted(app_prefix, txn_id):
+        self.clean_journal_entries(txn_id, key)
+      else:
+        logging.error("Found a blacklisted item for version {0} on key {1}".\
+          format(txn_id, key))
+        return True
+        #TODO fix the badlisted entity. 
+        return self.fix_badlisted_entity(key, txn_id)
+    except zk.ZKTransactionException, zk_exception:
+      logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
       return True
-      #TODO fix the badlisted entity. 
-      return self.fix_badlisted_entity(key, txn_id)
+
     return True
 
   def process_entity(self, entity):
