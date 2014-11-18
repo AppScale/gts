@@ -38,7 +38,7 @@ Highlights of features/bugs in this release:
 - More fault tolerance with datastore operations and better load balancing
 - Fixed broken unit tests
 - Log rotation for saving disk space
-- Remove conflicting jars when upload a Java application
+- Remove conflicting jars when uploading a Java application
 - Make sure jars are copied in when a java application is re-uploaded
 - Remote API support for java (custom jar to include in application)
 - Retry logic for sending emails (python)
