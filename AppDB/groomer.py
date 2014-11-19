@@ -106,6 +106,9 @@ class DatastoreGroomer(threading.Thread):
         except zk.ZKTransactionException, zk_exception:
           logging.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
+        except zk.ZKInternalException, zk_exception:
+          logging.error("Unable to release zk lock {0}.".\
+            format(str(zk_exception)))
       else:
         logging.info("Did not get the groomer lock.")
 
@@ -402,6 +405,9 @@ class DatastoreGroomer(threading.Thread):
     except zk.ZKTransactionException, zk_exception:
       logging.error("Caught exception {0}".format(zk_exception))
       success = False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Caught exception {0}".format(zk_exception))
+      success = False
     finally:
       if not success:
         if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
@@ -412,6 +418,8 @@ class DatastoreGroomer(threading.Thread):
       except zk.ZKTransactionException, zk_exception:
         # There was an exception releasing the lock, but 
         # the replacement has already happened.
+        pass
+      except zk.ZKInternalException, zk_exception:
         pass
 
     return True
@@ -442,7 +450,10 @@ class DatastoreGroomer(threading.Thread):
       logging.error("Caught exception {0}, backing off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
-
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
+      return False
     try:
       txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
@@ -454,6 +465,9 @@ class DatastoreGroomer(threading.Thread):
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      success = False
+    except zk.ZKInternalException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
       success = False
     finally:
@@ -468,8 +482,9 @@ class DatastoreGroomer(threading.Thread):
             zk_exception))
           # There was an exception releasing the lock, but 
           # the hard delete has already happened.
-          pass
-
+        except zk.ZKInternalException, zk_exception:
+          logging.error("Caught exception: {0}\nIgnoring...".format(
+            zk_exception))
     if success:
       self.num_deletes += 1
 
@@ -579,6 +594,11 @@ class DatastoreGroomer(threading.Thread):
         return self.fix_badlisted_entity(key, txn_id)
     except zk.ZKTransactionException, zk_exception:
       logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
+      return True
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Caught exception: {0}, backing off!".format(
+      zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return True
 
@@ -849,6 +869,7 @@ class DatastoreGroomer(threading.Thread):
     start = time.time()
     last_key = ""
     self.reset_statistics()
+    self.composite_index_cache = {}
 
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
