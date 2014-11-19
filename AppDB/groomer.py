@@ -906,6 +906,9 @@ class DatastoreGroomer(threading.Thread):
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))
         time.sleep(self.DB_ERROR_PERIOD)
+      except dbconstants.AppScaleDBConnectionError, connection_error:
+        logging.error("Error getting a batch: {0}".format(connection_error))
+        time.sleep(self.DB_ERROR_PERIOD)
 
     timestamp = datetime.datetime.utcnow()
 
