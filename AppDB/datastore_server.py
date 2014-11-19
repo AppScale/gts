@@ -14,6 +14,7 @@ import logging
 import md5
 import os
 import random
+import resource
 import sys
 import time
 
@@ -26,7 +27,7 @@ import dbconstants
 import groomer
 import helper_functions
 
-from zkappscale import zktransaction as zk
+from zkappscale import zktransaction_stub as zk
 from zkappscale.zktransaction import ZKBadRequest
 from zkappscale.zktransaction import ZKInternalException
 from zkappscale.zktransaction import ZKTransactionException
