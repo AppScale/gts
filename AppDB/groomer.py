@@ -7,6 +7,7 @@ import logging
 import os
 import random
 import re
+import resource
 import sys
 import threading
 import time
@@ -35,6 +36,10 @@ from dashboard_logs import RequestLogLine
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
 from distributed_tq import TaskName
+
+# Set internal memory limit.
+MEGABYTE_LIMIT = 500
+resource.setrlimit(resource.RLIMIT_AS, (MEGABYTE_LIMIT * 1048576L, -1L))
 
 
 class DatastoreGroomer(threading.Thread):
@@ -156,6 +161,7 @@ class DatastoreGroomer(threading.Thread):
       int(txn_id) - 1)
     last_key = start_row
 
+    keys_to_delete = []
     while True:
       try:
         results = self.db_access.range_query(dbconstants.JOURNAL_TABLE, 
