@@ -52,6 +52,11 @@ module Nginx
 
   CHANNELSERVER_PORT = 5280
 
+  # User/apps soap server SSL port.
+  UASERVER_SSL_PORT = 4343
+
+  # User/apps soap server bind port. 
+  UASERVER_NON_SSL_PORT = 4342
 
   def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
@@ -584,6 +589,59 @@ CONFIG
 
   end
 
+  def self.create_uaserver_config(all_private_ips)
+    config = <<CONFIG
+upstream uaserver {
+CONFIG
+    all_private_ips.each { |ip|
+      config += <<CONFIG
+    server #{ip}:#{UASERVER_NON_SSL_PORT};
+CONFIG
+    }
+    config += <<CONFIG
+}
+ 
+server {
+    listen #{UASERVER_SSL_PORT};
+    ssl on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 400 https://$host:$server_port$request_uri;
+    error_page 497 https://$host:$server_port$request_uri;
+
+    root /root/appscale/AppDB/public;
+    #access_log  /var/log/nginx/datastore_server_encrypt.access.log upstream;
+    #error_log  /var/log/nginx/datastore_server_encrypt.error.log;
+    access_log off;
+    error_log  /dev/null crit;
+    ignore_invalid_headers off;
+
+    rewrite_log off;
+    error_page 502 /502.html;
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+
+      client_body_timeout 600;
+      proxy_read_timeout 600;
+      proxy_next_upstream     error timeout invalid_header http_500;
+      proxy_connect_timeout 5;
+      #Increase file size so larger applications can be uploaded
+      client_max_body_size 30M;
+      # go to proxy
+      proxy_pass http://uaserver;
+    }
+}
+CONFIG
+    config_path = File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}")
+    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+  end
 
   # A generic function for creating nginx config files used by appscale services
   def self.create_app_config(my_public_ip, my_private_ip, proxy_port, 

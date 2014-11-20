@@ -15,7 +15,6 @@ import time
 from dbconstants import *
 import appscale_datastore
 
-from M2Crypto import SSL
 import SOAPpy
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
@@ -33,13 +32,13 @@ DEFAULT_APP_LOCATION = ".flatfile_apps"
 
 DEFAULT_DATASTORE = "cassandra"
 
-DEFAULT_SSL_PORT = 4343
+DEFAULT_PORT = 4342
 
-DEFAULT_PORT = 9899
+DEFAULT_SSL_PORT = 4343
 
 IP_TABLE = "IPS___"
 
-DEFAULT_ENCRYPTION = 1
+DEFAULT_ENCRYPTION = 0
 
 VALID_DATASTORES = []   
 
@@ -55,9 +54,7 @@ app_location = DEFAULT_APP_LOCATION
 
 datastore_type = DEFAULT_DATASTORE
 
-encryptOn = DEFAULT_ENCRYPTION
-
-bindport = DEFAULT_SSL_PORT
+bindport = DEFAULT_PORT
 
 ERROR_CODES = []
 
@@ -911,10 +908,8 @@ def usage():
   print "      --type or -t for type of datastore"
   print "        type available: cassandra"
   print "      --port or -p for server port"
-  print "      --http for http rather than ssl"
 
 if __name__ == "__main__":
-  encrypt = 1
 
   for ii in range(1,len(sys.argv)):
     if sys.argv[ii] in ("-h", "--help"): 
@@ -935,8 +930,6 @@ if __name__ == "__main__":
     elif sys.argv[ii] in ('-s','--secret'):
       super_secret = sys.argv[ii + 1]
       ii += 1
-    elif sys.argv[ii] in ('--http'):
-      encrypt = 0
     else:
       pass
 
@@ -973,19 +966,9 @@ if __name__ == "__main__":
   if super_secret == "":
     FILE = open(SECRET_LOCATION, 'r')
     super_secret = FILE.read()
+  server = SOAPpy.SOAPServer((ip,bindport))
 
-  # Secure Socket Layer
-  if encrypt == 1:
-    ssl_context = SSL.Context()
-    cert_location = CERT_LOCATION
-    key_location = KEY_LOCATION
-    ssl_context.load_cert(cert_location, key_location)
-
-    server = SOAPpy.SOAPServer((ip, bindport), ssl_context = ssl_context)
-  else:
-    server = SOAPpy.SOAPServer((ip,bindport))
   #Register Functions
-
   server.registerFunction(add_class)
   server.registerFunction(add_instance)
   server.registerFunction(does_user_exist)
@@ -1026,8 +1009,5 @@ if __name__ == "__main__":
   server.registerFunction(set_capabilities)
 
   while 1:
-    try:
-      # Run Server
-      server.serve_forever()
-    except SSL.SSLError, e:
-      print "SSL ERROR: " + str(e)
+    # Run Server
+    server.serve_forever()
