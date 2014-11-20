@@ -194,7 +194,7 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    #If they come here using HTTPS, bounce them to the correct scheme
+    #If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
     #{always_secure_locations}
@@ -224,7 +224,7 @@ server {
     ssl_certificate_key /etc/nginx/mykey.pem;
     ignore_invalid_headers off;
 
-    #If they come here using HTTP, bounce them to the correct scheme
+    #If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
  
@@ -371,7 +371,7 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    #If they come here using HTTPS, bounce them to the correct scheme
+    #If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
     #{always_secure_locations}
@@ -398,7 +398,7 @@ server {
     #error_log /dev/null crit;
     ignore_invalid_headers off;
 
-    #If they come here using HTTPS, bounce them to the correct scheme
+    #If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
     rewrite_log off;
@@ -425,7 +425,7 @@ server {
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
-    #If they come here using HTTP, bounce them to the correct scheme
+    #If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
@@ -551,7 +551,7 @@ server {
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
-    #If they come here using HTTP, bounce them to the correct scheme
+    #If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
@@ -608,7 +608,7 @@ server {
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
-    #If they come here using HTTP, bounce them to the correct scheme
+    #If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
@@ -657,7 +657,7 @@ CONFIG
       # redirect all request to ssl port.
       config += <<CONFIG
 server {
-    #If they come here using HTTPS, bounce them to the correct scheme
+    #If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
 
@@ -667,7 +667,7 @@ server {
 
 server {
  
-    #If they come here using HTTP, bounce them to the correct scheme
+    #If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
@@ -677,7 +677,7 @@ server {
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
-    #If they come here using HTTP, bounce them to the correct scheme
+    #If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 CONFIG

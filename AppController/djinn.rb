@@ -2353,6 +2353,7 @@ class Djinn
     return "OK"
   end
 
+  # Creates an Nginx configuration file for the Users/Apps soap server.
   def configure_uaserver_nginx()
     all_db_private_ips = []
     @nodes.each { | node |

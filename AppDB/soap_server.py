@@ -966,7 +966,7 @@ if __name__ == "__main__":
   if super_secret == "":
     FILE = open(SECRET_LOCATION, 'r')
     super_secret = FILE.read()
-  server = SOAPpy.SOAPServer((ip,bindport))
+  server = SOAPpy.SOAPServer((ip, bindport))
 
   #Register Functions
   server.registerFunction(add_class)
