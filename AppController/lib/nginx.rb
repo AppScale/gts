@@ -589,6 +589,10 @@ CONFIG
 
   end
 
+  # Creates an Nginx configuration file for the Users/Apps soap server.
+  # 
+  # Args:
+  #   all_private_ips: A list of strings, the IPs on which the datastore is running. 
   def self.create_uaserver_config(all_private_ips)
     config = <<CONFIG
 upstream uaserver {
