@@ -359,11 +359,11 @@ def locate_dir(path, dir_name):
   """
   paths = []
 
-  for root, sub_dirs, _ in os.walk(path):
+  for root, sub_dirs, files in os.walk(path):
     for sub_dir in sub_dirs:
       if dir_name == sub_dir:
         result = os.path.abspath(os.path.join(root, sub_dir))
-        if dir == "WEB-INF":
+        if sub_dir == "WEB-INF":
           logging.info("Found WEB-INF/ at: {0}".format(result))
           paths.append(result)
         elif sub_dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \

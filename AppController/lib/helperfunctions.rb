@@ -999,7 +999,11 @@ module HelperFunctions
   def self.get_web_inf_dir(untar_dir)
     locations = Array.new()
     Dir["#{untar_dir}/**/"].each { |path| locations.push(path) if path =~ /^#{untar_dir}\/(.*\/)*WEB-INF\/$/ }
-    return locations.sort_by{|s| s.length}[0]
+    if !locations.empty?
+      return locations.sort_by{|s| s.length}[0]
+    else
+      return ""
+    end
   end
 
   # Finds the path to appengine-web.xml configuration file.
