@@ -71,13 +71,13 @@ def convert_config_from_json(config):
   logging.info("Configuration for app:" + str(config))
   try:
     config = json.loads(config)
-  except ValueError, e:
+  except ValueError, error:
     logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
+                   (error.__class__, str(error)))
     return None
-  except TypeError, e:
+  except TypeError, error:
     logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
+                   (error.__class__, str(error)))
     return None
 
   if is_config_valid(config):
@@ -355,28 +355,39 @@ def locate_dir(path, dir_name):
     dir_name: The directory we are looking for
 
   Returns:
-    The absolute path of the directory we are looking for.
+    The absolute path of the directory we are looking for, None otherwise.
   """
+  paths = []
+
   for root, sub_dirs, files in os.walk(path):
-    for dir in sub_dirs:
-      if dir_name == dir:
-        result = os.path.abspath(os.path.join(root, dir))
-        if dir == "WEB-INF" and result.count(os.sep) <= path.count(os.sep) + 1:
-          logging.info("Found WEB-INF/ at: %s" % result)
-          return result
-        elif dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
-          and result.endswith("/WEB-INF/%s" % dir):
-          logging.info("Found lib/ at: %s" % result)
-          return result
+    for sub_dir in sub_dirs:
+      if dir_name == sub_dir:
+        result = os.path.abspath(os.path.join(root, sub_dir))
+        if sub_dir == "WEB-INF":
+          logging.info("Found WEB-INF/ at: {0}".format(result))
+          paths.append(result)
+        elif sub_dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
+            and result.endswith("/WEB-INF/{0}".format(sub_dir)):
+          logging.info("Found lib/ at: {0}".format(result))
+          paths.append(result)
+
+  if len(paths) > 0:
+    sorted_paths = sorted(paths, key = lambda s: len(s))
+    return sorted_paths[0]
+  else:
+    return None
 
 def remove_conflicting_jars(app_name):
   """ Removes jars uploaded which may conflict with AppScale jars.
 
   Args:
-    app_name: The name of the application to run
+    app_name: The name of the application to run.
   """
   app_dir = "/var/apps/" + app_name + "/app/"
   lib_dir = locate_dir(app_dir, "lib")
+  if not lib_dir:
+    logging.warn("Lib directory not found in app code while updating.")
+    return
   logging.info("Removing jars from {0}".format(lib_dir))
   subprocess.call("rm -f " + lib_dir + \
     "/appengine-api-1.0-sdk-*.jar", shell=True)
@@ -404,6 +415,17 @@ def copy_modified_jars(app_name):
 
   app_dir = "/var/apps/" + app_name + "/app/"
   lib_dir = locate_dir(app_dir, "lib")
+
+  if not lib_dir:
+    web_inf_dir = locate_dir(app_dir, "WEB-INF")
+    lib_dir = web_inf_dir + os.sep + "lib"
+    logging.info("Creating lib directory at: {0}".format(lib_dir))
+    mkdir_result = subprocess.call("mkdir " + lib_dir, shell=True)
+
+    if mkdir_result != 0:
+      logging.error("Failed to create missing lib directory in: {0}.".
+        format(web_inf_dir))
+      return False
 
   cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
                               "appengine-java-sdk-repacked/lib/user/*.jar " +\
