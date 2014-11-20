@@ -71,13 +71,13 @@ def convert_config_from_json(config):
   logging.info("Configuration for app:" + str(config))
   try:
     config = json.loads(config)
-  except ValueError, e:
+  except ValueError, error:
     logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
+                   (error.__class__, str(error)))
     return None
-  except TypeError, e:
+  except TypeError, error:
     logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
+                   (error.__class__, str(error)))
     return None
 
   if is_config_valid(config):
@@ -359,15 +359,15 @@ def locate_dir(path, dir_name):
   """
   paths = []
 
-  for root, sub_dirs, files in os.walk(path):
-    for dir in sub_dirs:
-      if dir_name == dir:
-        result = os.path.abspath(os.path.join(root, dir))
+  for root, sub_dirs, _ in os.walk(path):
+    for sub_dir in sub_dirs:
+      if dir_name == sub_dir:
+        result = os.path.abspath(os.path.join(root, sub_dir))
         if dir == "WEB-INF":
           logging.info("Found WEB-INF/ at: {0}".format(result))
           paths.append(result)
-        elif dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
-            and result.endswith("/WEB-INF/{0}".format(dir)):
+        elif sub_dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
+            and result.endswith("/WEB-INF/{0}".format(sub_dir)):
           logging.info("Found lib/ at: {0}".format(result))
           paths.append(result)
 
