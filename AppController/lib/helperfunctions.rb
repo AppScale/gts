@@ -409,7 +409,7 @@ module HelperFunctions
   def self.app_has_config_file?(tar_gz_location)
     file_listing = HelperFunctions.shell("tar -ztf #{tar_gz_location}")
     app_yaml_regex = /app\.yaml/
-    appengine_web_xml_regex = /.*\/WEB-INF\/appengine-web\.xml/
+    appengine_web_xml_regex = /(.\/)*WEB-INF\/appengine-web\.xml/
     if file_listing =~ app_yaml_regex or file_listing =~ appengine_web_xml_regex
       return true
     else
@@ -997,7 +997,9 @@ module HelperFunctions
   # Returns:
   #  The directory that contains WEB-INF inside a Java app.
   def self.get_web_inf_dir(untar_dir)
-    Dir["#{untar_dir}/**/"].each { |path| return path if path =~ /^#{untar_dir}\/(?:(?!\/).)*(?:\/)?WEB-INF\/$/ }
+    locations = Array.new()
+    Dir["#{untar_dir}/**/"].each { |path| locations.push(path) if path =~ /^#{untar_dir}\/(.*\/)*WEB-INF\/$/ }
+    return locations.sort_by{|s| s.length}[0]
   end
 
   # Finds the path to appengine-web.xml configuration file.
