@@ -4088,7 +4088,7 @@ HOSTS
   #            the reason why we couldn't start their application.
   #   language: The language the application is written in.
   def place_error_app(app_name, err_msg, language)
-    Djinn.log_info("Placing error application for #{app_name} because of: #{err_msg}")
+    Djinn.log_error("Placing error application for #{app_name} because of: #{err_msg}")
     ea = ErrorApp.new(app_name, err_msg)
     ea.generate(language)
   end
