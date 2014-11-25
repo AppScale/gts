@@ -46,7 +46,9 @@ class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
  
   # The amount of seconds between polling to get the groomer lock.
-  LOCK_POLL_PERIOD = 24 * 60 * 60
+  # Each datastore server does this poll, so it happens the number
+  # of datastore servers within this lock period.
+  LOCK_POLL_PERIOD = 7 * 24 * 60 * 60 # <- 7 days
 
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
@@ -413,6 +415,9 @@ class DatastoreGroomer(threading.Thread):
       success = False
     except zk.ZKInternalException, zk_exception:
       logging.error("Caught exception {0}".format(zk_exception))
+      success = False
+    except dbconstants.AppScaleDBCOnnectionError, db_exception:
+      logging.error("Caught exception {0}".format(db_exception))
       success = False
     finally:
       if not success:
