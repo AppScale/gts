@@ -781,7 +781,7 @@ class DatastoreGroomer(threading.Thread):
       query = RequestLogLine.query()
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
-    for entity in query.fetch():
+    for entity in query.iter():
       logging.debug("Removing {0}".format(entity))
       entity.key.delete()
       counter += 1
