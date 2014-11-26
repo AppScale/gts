@@ -3,7 +3,6 @@
 # Cleanup old Zookeeper transactions.
 #
 
-# Common variables.
 MONIT_CMD="$(which monit)"
 LOG4J_CONF="/root/log4j.xml"
 ZK_DIR="/opt/appscale/zookeeper"
@@ -18,13 +17,13 @@ if [ ! -d "${ZK_DIR}" ]; then
         exit 2
 fi
 
-# It runs only on the Zookeeper node.
-if ! ${MONIT_CMD} summary |grep zookeeper > /dev/null ; then
-        echo "Zookeeper is not running"
+# Run only on Zookeeper node.
+if [ ! ${MONIT_CMD} summary | grep zookeeper > /dev/null ]; then
+        echo "Zookeeper is not running."
         exit 1
 fi
 
-# We need to have the configuration for log4j.
+# Create configuration for log4j.
 if [ ! -e ${LOG4J_CONF} ]; then
         cat <<EOF > ${LOG4J_CONF}
 <?xml version="1.0" encoding="UTF-8" ?>
