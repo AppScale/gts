@@ -3359,8 +3359,8 @@ class Djinn
   def start_taskqueue_slave()
     # All slaves connect to the master to start
     master_ip = nil
-    @nodes.each { |node|
-      master_ip = node.private_ip if node.is_taskqueue_master?
+    @nodes.each_with_index { |node, index|
+      master_ip =  "appscale-image#{index}" if node.is_taskqueue_master?
     }
 
     TaskQueue.start_slave(master_ip, @options['clear_datastore'])

@@ -73,8 +73,8 @@ module TaskQueue
 
     # First, start up RabbitMQ.
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
-    start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}"
-    stop_cmd = "/usr/sbin/rabbitmqctl stop"
+    start_cmd = "/usr/sbin/service rabbitmq-server restart"
+    stop_cmd = "/usr/sbin/service rabbitmq-server stop"
     match_cmd = "sname rabbit"
     MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
       env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
@@ -114,11 +114,12 @@ module TaskQueue
 
     # start the server, reset it to join the head node
     hostname = `hostname`.chomp()
-    start_cmds = ["/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
-                  "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
+    start_cmds = ["/usr/sbin/service rabbitmq-server restart",
+                  "/usr/sbin/rabbitmqctl stop_app",
+                  "/usr/sbin/rabbitmqctl cluster rabbit@#{master_ip}",
                   "/usr/sbin/rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
-    stop_cmd = "/usr/sbin/rabbitmqctl stop"
+    stop_cmd = "/usr/sbin/service rabbitmq-server stop"
     match_cmd = "sname rabbit"
 
     tries_left = RABBIT_START_RETRY
