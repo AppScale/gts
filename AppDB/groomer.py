@@ -465,8 +465,18 @@ class DatastoreGroomer(threading.Thread):
       logging.error("Caught exception {0}, backing off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
+
+    txn_id = 0
     try:
       txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+    except zk.ZKTransactionException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      return False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      return False
+
+    try:
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
         success = self.hard_delete_row(key)
         if success:
