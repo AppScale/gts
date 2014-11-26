@@ -46,7 +46,9 @@ class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
  
   # The amount of seconds between polling to get the groomer lock.
-  LOCK_POLL_PERIOD = 24 * 60 * 60
+  # Each datastore server does this poll, so it happens the number
+  # of datastore servers within this lock period.
+  LOCK_POLL_PERIOD = 7 * 24 * 60 * 60 # <- 7 days
 
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
@@ -414,6 +416,9 @@ class DatastoreGroomer(threading.Thread):
     except zk.ZKInternalException, zk_exception:
       logging.error("Caught exception {0}".format(zk_exception))
       success = False
+    except dbconstants.AppScaleDBCOnnectionError, db_exception:
+      logging.error("Caught exception {0}".format(db_exception))
+      success = False
     finally:
       if not success:
         if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
@@ -460,8 +465,18 @@ class DatastoreGroomer(threading.Thread):
       logging.error("Caught exception {0}, backing off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
+
+    txn_id = 0
     try:
       txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+    except zk.ZKTransactionException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      return False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      return False
+
+    try:
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
         success = self.hard_delete_row(key)
         if success:
@@ -776,7 +791,7 @@ class DatastoreGroomer(threading.Thread):
       query = RequestLogLine.query()
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
-    for entity in query.fetch():
+    for entity in query.iter():
       logging.debug("Removing {0}".format(entity))
       entity.key.delete()
       counter += 1
