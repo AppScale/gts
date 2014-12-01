@@ -46,6 +46,6 @@ if [ ! -e ${LOG4J_CONF} ]; then
 EOF
 fi
 
-# Clean Zookeper transactions.
+# Clean Zookeeper transactions.
 java -cp /root/:/usr/lib/zookeeper/zookeeper.jar:/usr/lib/zookeeper/lib/slf4j-api-1.6.1.jar:/usr/lib/zookeeper/lib/slf4j-log4j12-1.6.1.jar:/usr/lib/zookeeper/liblog4j-1.2.15.jar:conf:/usr/lib/zookeeper/lib/* -Dlog4j.debug org.apache.zookeeper.server.PurgeTxnLog ${ZK_DIR} ${ZK_DIR} -n 3
 
