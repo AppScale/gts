@@ -180,12 +180,12 @@ class DatastoreGroomer(threading.Thread):
       except dbconstants.AppScaleDBConnectionError, db_error:
         logging.error("Error hard deleting keys {0} --> {1}".format(
           keys_to_delete, db_error))
-        logging.error("backing off!")
+        logging.error("Backing off!")
         time.sleep(self.DB_ERROR_PERIOD)
         return False 
       except Exception, exception:
         logging.error("Caught unexcepted exception {0}".format(exception))
-        logging.error("backing off!")
+        logging.error("Backing off!")
         time.sleep(self.DB_ERROR_PERIOD)
         return False
      
@@ -462,11 +462,11 @@ class DatastoreGroomer(threading.Thread):
         #TODO actually fix the badlisted entity
         return self.fix_badlisted_entity(key, version)
     except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      logging.error("Caught exception {0}, Backing off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
     except zk.ZKInternalException, zk_exception:
-      logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      logging.error("Caught exception {0}, Backing off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
 
@@ -475,12 +475,12 @@ class DatastoreGroomer(threading.Thread):
       txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
     except zk.ZKTransactionException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("backing off!")
+      logging.error("Backing off!")
       time.sleep(self.DB_ERROR_PERIOD)
       return False
     except zk.ZKInternalException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("backing off!")
+      logging.error("Backing off!")
       time.sleep(self.DB_ERROR_PERIOD)
       return False
 
@@ -495,12 +495,12 @@ class DatastoreGroomer(threading.Thread):
         success = False
     except zk.ZKTransactionException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("backing off!")
+      logging.error("Backing off!")
       time.sleep(self.DB_ERROR_PERIOD)
       success = False
     except zk.ZKInternalException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("backing off!")
+      logging.error("Backing off!")
       time.sleep(self.DB_ERROR_PERIOD)
       success = False
     finally:
