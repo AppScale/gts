@@ -180,9 +180,13 @@ class DatastoreGroomer(threading.Thread):
       except dbconstants.AppScaleDBConnectionError, db_error:
         logging.error("Error hard deleting keys {0} --> {1}".format(
           keys_to_delete, db_error))
+        logging.error("backing off!")
+        time.sleep(self.DB_ERROR_PERIOD)
         return False 
       except Exception, exception:
         logging.error("Caught unexcepted exception {0}".format(exception))
+        logging.error("backing off!")
+        time.sleep(self.DB_ERROR_PERIOD)
         return False
      
   def hard_delete_row(self, row_key):
@@ -471,9 +475,13 @@ class DatastoreGroomer(threading.Thread):
       txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
     except zk.ZKTransactionException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
       return False
     except zk.ZKInternalException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
       return False
 
     try:
@@ -487,9 +495,13 @@ class DatastoreGroomer(threading.Thread):
         success = False
     except zk.ZKTransactionException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
       success = False
     except zk.ZKInternalException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
       success = False
     finally:
       if not success:
