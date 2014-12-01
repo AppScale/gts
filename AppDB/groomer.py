@@ -462,11 +462,11 @@ class DatastoreGroomer(threading.Thread):
         #TODO actually fix the badlisted entity
         return self.fix_badlisted_entity(key, version)
     except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}, Backing off!".format(zk_exception))
+      logging.error("Caught exception {0}.\nBacking off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
     except zk.ZKInternalException, zk_exception:
-      logging.error("Caught exception {0}, Backing off!".format(zk_exception))
+      logging.error("Caught exception {0}.\nBacking off!".format(zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return False
 
