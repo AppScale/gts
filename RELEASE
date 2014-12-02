@@ -43,6 +43,8 @@ Highlights of features/bugs in this release:
 - Remote API support for java (custom jar to include in application)
 - Retry logic for sending emails (python)
 - Have a java error application when an upload goes bad
+- Fast start script for easy single node deployment
+- RabbitMQ fix for node clustering
 
 AppScale version 2.0.0, released June, 2014
 Highlights of features/bugs in this release:
