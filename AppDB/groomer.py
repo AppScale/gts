@@ -7,6 +7,7 @@ import logging
 import os
 import random
 import re
+import resource
 import sys
 import threading
 import time
@@ -36,12 +37,18 @@ from dashboard_logs import RequestLogLine
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
 from distributed_tq import TaskName
 
+# Set internal memory limit.
+MEGABYTE_LIMIT = 500
+resource.setrlimit(resource.RLIMIT_AS, (MEGABYTE_LIMIT * 1048576L, -1L))
+
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
  
   # The amount of seconds between polling to get the groomer lock.
-  LOCK_POLL_PERIOD = 24 * 60 * 60
+  # Each datastore server does this poll, so it happens the number
+  # of datastore servers within this lock period.
+  LOCK_POLL_PERIOD = 7 * 24 * 60 * 60 # <- 7 days
 
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
@@ -106,6 +113,9 @@ class DatastoreGroomer(threading.Thread):
         except zk.ZKTransactionException, zk_exception:
           logging.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
+        except zk.ZKInternalException, zk_exception:
+          logging.error("Unable to release zk lock {0}.".\
+            format(str(zk_exception)))
       else:
         logging.info("Did not get the groomer lock.")
 
@@ -153,6 +163,7 @@ class DatastoreGroomer(threading.Thread):
       int(txn_id) - 1)
     last_key = start_row
 
+    keys_to_delete = []
     while True:
       try:
         results = self.db_access.range_query(dbconstants.JOURNAL_TABLE, 
@@ -169,9 +180,13 @@ class DatastoreGroomer(threading.Thread):
       except dbconstants.AppScaleDBConnectionError, db_error:
         logging.error("Error hard deleting keys {0} --> {1}".format(
           keys_to_delete, db_error))
+        logging.error("Backing off!")
+        time.sleep(self.DB_ERROR_PERIOD)
         return False 
       except Exception, exception:
         logging.error("Caught unexcepted exception {0}".format(exception))
+        logging.error("Backing off!")
+        time.sleep(self.DB_ERROR_PERIOD)
         return False
      
   def hard_delete_row(self, row_key):
@@ -402,6 +417,12 @@ class DatastoreGroomer(threading.Thread):
     except zk.ZKTransactionException, zk_exception:
       logging.error("Caught exception {0}".format(zk_exception))
       success = False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Caught exception {0}".format(zk_exception))
+      success = False
+    except dbconstants.AppScaleDBCOnnectionError, db_exception:
+      logging.error("Caught exception {0}".format(db_exception))
+      success = False
     finally:
       if not success:
         if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
@@ -412,6 +433,8 @@ class DatastoreGroomer(threading.Thread):
       except zk.ZKTransactionException, zk_exception:
         # There was an exception releasing the lock, but 
         # the replacement has already happened.
+        pass
+      except zk.ZKInternalException, zk_exception:
         pass
 
     return True
@@ -439,12 +462,29 @@ class DatastoreGroomer(threading.Thread):
         #TODO actually fix the badlisted entity
         return self.fix_badlisted_entity(key, version)
     except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      logging.error("Caught exception {0}.\nBacking off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
+      return False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Caught exception {0}.\nBacking off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
+      return False
+
+    txn_id = 0
+    try:
+      txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+    except zk.ZKTransactionException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("Backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
+      return False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("Backing off!")
       time.sleep(self.DB_ERROR_PERIOD)
       return False
 
     try:
-      txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
         success = self.hard_delete_row(key)
         if success:
@@ -455,6 +495,13 @@ class DatastoreGroomer(threading.Thread):
         success = False
     except zk.ZKTransactionException, zk_exception:
       logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("Backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
+      success = False
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Exception tossed: {0}".format(zk_exception))
+      logging.error("Backing off!")
+      time.sleep(self.DB_ERROR_PERIOD)
       success = False
     finally:
       if not success:
@@ -468,8 +515,9 @@ class DatastoreGroomer(threading.Thread):
             zk_exception))
           # There was an exception releasing the lock, but 
           # the hard delete has already happened.
-          pass
-
+        except zk.ZKInternalException, zk_exception:
+          logging.error("Caught exception: {0}\nIgnoring...".format(
+            zk_exception))
     if success:
       self.num_deletes += 1
 
@@ -579,6 +627,11 @@ class DatastoreGroomer(threading.Thread):
         return self.fix_badlisted_entity(key, txn_id)
     except zk.ZKTransactionException, zk_exception:
       logging.error("Caught exception {0}, backing off!".format(zk_exception))
+      time.sleep(self.DB_ERROR_PERIOD)
+      return True
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Caught exception: {0}, backing off!".format(
+      zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
       return True
 
@@ -750,7 +803,7 @@ class DatastoreGroomer(threading.Thread):
       query = RequestLogLine.query()
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
-    for entity in query.fetch():
+    for entity in query.iter():
       logging.debug("Removing {0}".format(entity))
       entity.key.delete()
       counter += 1
@@ -849,6 +902,7 @@ class DatastoreGroomer(threading.Thread):
     start = time.time()
     last_key = ""
     self.reset_statistics()
+    self.composite_index_cache = {}
 
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
@@ -878,6 +932,9 @@ class DatastoreGroomer(threading.Thread):
         last_key = entities[-1].keys()[0]
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))
+        time.sleep(self.DB_ERROR_PERIOD)
+      except dbconstants.AppScaleDBConnectionError, connection_error:
+        logging.error("Error getting a batch: {0}".format(connection_error))
         time.sleep(self.DB_ERROR_PERIOD)
 
     timestamp = datetime.datetime.utcnow()

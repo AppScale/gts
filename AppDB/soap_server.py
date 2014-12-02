@@ -15,64 +15,55 @@ import time
 from dbconstants import *
 import appscale_datastore
 
-from M2Crypto import SSL
 import SOAPpy
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import constants
+import appscale_info
 
-#TODO(raj): Comment all these constants.
-
+# Name of the application table which stores AppScale application information.
 APP_TABLE = APPS_TABLE
 
+# Name of the users table which stores information about AppScale users.
 USER_TABLE = USERS_TABLE
 
-DEFAULT_USER_LOCATION = ".flatfile_users"
-
-DEFAULT_APP_LOCATION = ".flatfile_apps"
-
+# The default datastore used to store user and app information.
 DEFAULT_DATASTORE = "cassandra"
 
+# The port this server binds to.
+DEFAULT_PORT = 4342
+
+# The port avaialble from the outside via SSL.
 DEFAULT_SSL_PORT = 4343
 
-DEFAULT_PORT = 9899
-
+# The table which 
 IP_TABLE = "IPS___"
 
-DEFAULT_ENCRYPTION = 1
-
-VALID_DATASTORES = []   
-
-CERT_LOCATION = constants.APPSCALE_HOME + "/.appscale/certs/mycert.pem" 
-
-KEY_LOCATION = constants.APPSCALE_HOME + "/.appscale/certs/mykey.pem" 
-
-SECRET_LOCATION = constants.APPSCALE_HOME + "/.appscale/secret.key"
-
-user_location = DEFAULT_USER_LOCATION
-
-app_location = DEFAULT_APP_LOCATION
-
+# The default datastore used.
 datastore_type = DEFAULT_DATASTORE
 
-encryptOn = DEFAULT_ENCRYPTION
+# The port this application binds to.
+bindport = DEFAULT_PORT
 
-bindport = DEFAULT_SSL_PORT
-
+# The datastore error codes.
 ERROR_CODES = []
 
+# Global secret to validate incoming soap requests.
 super_secret = ""
 
-DEBUG = True
-
+# Datastore accessor.
 db = []
 
+# The schema we use to store user information.
 user_schema = []
 
+# The schema we use to store app information.
 app_schema = []
 
+# The application name regex to validate an application ID.
 APPNAME_REGEX = r'^[\d\w\.@-]+$'
 
+# Different types of valid users created.
 VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 
 class Users:
@@ -538,7 +529,7 @@ def add_instance(appname, host, port, secret):
     return "false"
 
   # We only have one host/port for each app.
-  result = db.put_entity(APP_TABLE, appname, columns, [host,str(port)]) 
+  result = db.put_entity(APP_TABLE, appname, columns, [host, str(port)]) 
   if result[0] not in ERROR_CODES:
     return "false"
   return "true" 
@@ -843,26 +834,6 @@ def get_key_block(app_id, block_size, secret):
     return "false"
   return key
 
-def commit_ip(ip, email, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  result = db.put_entity(IP_TABLE, ip, ['email'], [email])
-  if result[0] not in ERROR_CODES:
-    return "false:" + result[0]
-  return "true"
-
-def get_ip(ip, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  result = db.get_entity(IP_TABLE, ip, ['email'])
-  if result[0] not in ERROR_CODES or len(result) != 2:
-    return "false:" + result[0]
-  return result[1] 
-
 def is_user_cloud_admin(username, secret):
   global db
   global super_secret
@@ -911,42 +882,29 @@ def usage():
   print "      --type or -t for type of datastore"
   print "        type available: cassandra"
   print "      --port or -p for server port"
-  print "      --http for http rather than ssl"
 
 if __name__ == "__main__":
-  encrypt = 1
-
-  for ii in range(1,len(sys.argv)):
+  """ Main function for running the server. """
+  for ii in range(1, len(sys.argv)):
     if sys.argv[ii] in ("-h", "--help"): 
       usage()
       sys.exit()
-    elif sys.argv[ii] in ('-a', "--apps"):
-      app_location = sys.argv[ii + 1]
-      ii += 1
-    elif sys.argv[ii] in ('-u', "--users"):
-      user_location = sys.argv[ii + 1]
-      ii += 1
     elif sys.argv[ii] in ('-t', "--type"):
       datastore_type = sys.argv[ii + 1]
       ii += 1
     elif sys.argv[ii] in ('-p', "--port"):
       bindport = int(sys.argv[ii + 1] )
       ii += 1
-    elif sys.argv[ii] in ('-s','--secret'):
-      super_secret = sys.argv[ii + 1]
-      ii += 1
-    elif sys.argv[ii] in ('--http'):
-      encrypt = 0
     else:
       pass
 
   db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
   ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
-  VALID_DATASTORES = appscale_datastore.DatastoreFactory.valid_datastores()
-  if not datastore_type in VALID_DATASTORES:
+  if not datastore_type in \
+    appscale_datastore.DatastoreFactory.valid_datastores():
     exit(2)
 
-  # Keep trying until it gets the schema
+  # Keep trying until it gets the schema.
   timeout = 5
   while 1:
     user_schema = db.get_schema(USER_TABLE)
@@ -955,7 +913,6 @@ if __name__ == "__main__":
       Users.attributes_ = user_schema
     else:
       time.sleep(timeout)
-      #timeout = timeout * 2
       continue
     app_schema = db.get_schema(APP_TABLE)
     if app_schema[0] in ERROR_CODES:
@@ -963,29 +920,14 @@ if __name__ == "__main__":
       Apps.attributes_ = app_schema
     else:
       time.sleep(timeout)
-      #timeout = timeout * 2
       continue
     break
 
-  # socket.gethostbyname(socket.gethostname())
   ip = "0.0.0.0"
+  super_secret = appscale_info.get_secret()
+  server = SOAPpy.SOAPServer((ip, bindport))
 
-  if super_secret == "":
-    FILE = open(SECRET_LOCATION, 'r')
-    super_secret = FILE.read()
-
-  # Secure Socket Layer
-  if encrypt == 1:
-    ssl_context = SSL.Context()
-    cert_location = CERT_LOCATION
-    key_location = KEY_LOCATION
-    ssl_context.load_cert(cert_location, key_location)
-
-    server = SOAPpy.SOAPServer((ip, bindport), ssl_context = ssl_context)
-  else:
-    server = SOAPpy.SOAPServer((ip,bindport))
-  #Register Functions
-
+  # Register soap functions.
   server.registerFunction(add_class)
   server.registerFunction(add_instance)
   server.registerFunction(does_user_exist)
@@ -999,12 +941,10 @@ if __name__ == "__main__":
   server.registerFunction(get_tar)
   server.registerFunction(get_token)
   server.registerFunction(get_version)
-  server.registerFunction(get_ip)
   server.registerFunction(commit_new_user)
   server.registerFunction(commit_new_app)
   server.registerFunction(commit_tar)
   server.registerFunction(commit_new_token)
-  server.registerFunction(commit_ip)
   server.registerFunction(delete_instance)
   server.registerFunction(delete_all_users)
   server.registerFunction(delete_all_apps)
@@ -1026,8 +966,4 @@ if __name__ == "__main__":
   server.registerFunction(set_capabilities)
 
   while 1:
-    try:
-      # Run Server
-      server.serve_forever()
-    except SSL.SSLError, e:
-      print "SSL ERROR: " + str(e)
+    server.serve_forever()

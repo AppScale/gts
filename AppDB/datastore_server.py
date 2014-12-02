@@ -14,6 +14,7 @@ import logging
 import md5
 import os
 import random
+import resource
 import sys
 import time
 
@@ -84,6 +85,10 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
+
+# Set internal memory limit.
+MEGABYTE_LIMIT = 750
+resource.setrlimit(resource.RLIMIT_AS, (MEGABYTE_LIMIT * 1048576L, -1L))
 
 
 def clean_app_id(app_id):
@@ -1558,11 +1563,14 @@ class DatastoreDistributed():
         # Zero id's are entities which do not yet exist.
         del db_results[row_key]
       else:
-        db_results[row_key] = {
-          dbconstants.APP_ENTITY_SCHEMA[0]: 
-            journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
-          dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
-        }
+        if dbconstants.JOURNAL_SCHEMA[0] not in journal_entities[journal_key]:
+          del db_results[row_key]
+        else:
+          db_results[row_key] = {
+            dbconstants.APP_ENTITY_SCHEMA[0]: 
+              journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
+            dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
+          }
     return db_results
 
   def remove_tombstoned_entities(self, result):

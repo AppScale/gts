@@ -114,9 +114,14 @@ module TaskQueue
 
     # start the server, reset it to join the head node
     hostname = `hostname`.chomp()
-    start_cmds = ["/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
-                  "/usr/sbin/rabbitmqctl cluster rabbit@#{hostname}",
-                  "/usr/sbin/rabbitmqctl start_app"]
+    start_cmds = [
+      # Restarting the RabbitMQ server ensures that we read the correct cookie.
+      "service rabbitmq-server restart",
+      "/usr/sbin/rabbitmqctl stop_app",
+      # Read master hostname given the master IP.
+      "/usr/sbin/rabbitmqctl cluster rabbit@`cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`",
+      "/usr/sbin/rabbitmqctl start_app"
+    ]
     full_cmd = "#{start_cmds.join('; ')}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
