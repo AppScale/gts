@@ -4,7 +4,7 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-AppScale version 2.1.0, released November, 2014
+AppScale version 2.1.0, released December, 2014
 Highlights of features/bugs in this release:
 - Updated bootstrap script
 - No longer overwriting SSL cert and private key on "appscale down"
