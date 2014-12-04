@@ -642,6 +642,28 @@ class DatastoreDistributed():
                                           kind_row_values) 
 
   @staticmethod
+  def get_ancestor_paths_from_ent_key(ent_key):
+    """ Get a list of key string for the ancestor portion of a composite key.
+    All subpaths are required.
+
+    Args:
+      ent_key: A string of the entire path of an entity.
+    Returns:
+      A list of strs of the path of the ancestor.
+    """
+    ancestor_list = []
+    tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
+    # Strip off the empty placeholder and also do not include the last kind.
+    tokens = tokens[:-2]
+    for num_elements in range(0, len(tokens)):
+      ancestor = ""
+      for token in tokens[0:num_elements + 1]:
+        ancestor += token + dbconstants.KIND_SEPARATOR
+      ancestor_list.append(ancestor)
+    return ancestor_list
+
+
+  @staticmethod
   def get_ancestor_key_from_ent_key(ent_key):
     """ Get the key string for the ancestor portion of a composite key.
 
@@ -770,9 +792,8 @@ class DatastoreDistributed():
       DatastoreDistributed._NAMESPACE_SEPARATOR, name_space, composite_id,
       DatastoreDistributed._SEPARATOR)
     if definition.ancestor() == 1:
-      ancestor = DatastoreDistributed.get_ancestor_key_from_ent_key(ent_key)
-      pre_comp_index_key += "{0}{1}".format(ancestor,
-        DatastoreDistributed._SEPARATOR) 
+      ancestor_list = DatastoreDistributed.get_ancestor_paths_from_ent_key(
+        ent_key)
 
     property_list_names = [prop.name() for prop in entity.property_list()]
     multivalue_dict = {}
@@ -828,9 +849,18 @@ class DatastoreDistributed():
          
       # We append the ent key to have unique keys if entities happen
       # to share the same index values (and ancestor).
-      composite_key = "{0}{1}{2}".format(pre_comp_index_key, index_value,
-        ent_key)
-      all_keys.append(composite_key)
+      if definition.ancestor() == 1:
+        for ancestor in ancestor_list:
+          pre_comp_key = pre_comp_index_key + "{0}{1}".format(ancestor,
+            DatastoreDistributed._SEPARATOR) 
+          composite_key = "{0}{1}{2}".format(pre_comp_key, index_value,
+            ent_key)
+          all_keys.append(composite_key)
+      else:
+        composite_key = "{0}{1}{2}".format(pre_comp_index_key, index_value,
+          ent_key)
+        all_keys.append(composite_key)
+ 
     return all_keys
   
   def insert_composite_indexes(self, entities, composite_indexes):
