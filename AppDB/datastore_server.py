@@ -14,7 +14,6 @@ import logging
 import md5
 import os
 import random
-import resource
 import sys
 import time
 
@@ -85,10 +84,6 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
-
-# Set internal memory limit.
-MEGABYTE_LIMIT = 750
-resource.setrlimit(resource.RLIMIT_AS, (MEGABYTE_LIMIT * 1048576L, -1L))
 
 
 def clean_app_id(app_id):
