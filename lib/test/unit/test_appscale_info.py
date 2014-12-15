@@ -43,6 +43,13 @@ class TestAppScaleInfo(unittest.TestCase):
        .should_receive("read").and_return("")
     self.assertEquals(appscale_info.get_taskqueue_nodes(), [])
 
+
+  def test_get_search_location(self):
+    flexmock(file_io).should_receive("read").and_return("private_ip:port")
+    self.assertEquals(appscale_info.get_search_location(), "private_ip:port")
+
+    flexmock(file_io).should_receive("read").and_raise(IOError)
+    self.assertEquals(appscale_info.get_search_location(), "")
       
 if __name__ == "__main__":
   unittest.main()
