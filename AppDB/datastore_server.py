@@ -3548,10 +3548,8 @@ class ClearHandler(tornado.web.RequestHandler):
   """ Defines what to do when the webserver receives a /clear HTTP request. """
 
   @tornado.web.asynchronous
-  def get(self):
-    """ Handles get request for the web server. Returns that it is currently
-        up in json.
-    """
+  def post(self):
+    """ Handles POST requests for clearing datastore server stats. """
     global STATS
     STATS = {}
     self.write({"message": "Statistics for this server cleared."})
