@@ -107,7 +107,9 @@ class SearchService():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    return ""
+    request = search_service_pb.IndexDocumentRequest(data)
+    response = search_service_pb.IndexDocumentResponse()
+    return response
 
   def list_indexes(self, app_id, data):
     """ Lists all indexes for an application.
@@ -118,7 +120,9 @@ class SearchService():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    return ""
+    request = search_service_pb.ListIndexesRequest(data)
+    response = search_service_pb.ListIndexesResponse()
+    return response
   
   def list_documents(self, app_id, data):
     """ List all documents for an application.
@@ -129,7 +133,9 @@ class SearchService():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    return ""
+    request = search_service_pb.ListDocumentsRequest(data)
+    response = search_service_pb.ListDocumentsResponse()
+    return response
 
   def search(self, app_id, data):
     """ Search within a document.
@@ -140,5 +146,7 @@ class SearchService():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    return ""
+    request = search_service_pb.SearchRequest(data)
+    response = search_service_pb.SearchResponse()
+    return response
 
