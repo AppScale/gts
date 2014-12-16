@@ -27,8 +27,7 @@ class MainHandler(tornado.web.RequestHandler):
     if pb_type == "Request":
       response = self.search_service.remote_request(app_id, app_data)
     else:
-      response = self.search_service.unknown_request(app_id,
-        http_request_data, pb_type)
+      response = self.search_service.unknown_request(pb_type)
 
     request.connection.write_headers(
       tornado.httputil.ResponseStartLine('HTTP/1.1', 200, 'OK'),
