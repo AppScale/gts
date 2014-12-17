@@ -1,0 +1,110 @@
+#!/usr/bin/ruby -w
+
+
+# First-party Ruby libraries
+require 'timeout'
+
+
+# Imports for AppController libraries
+$:.unshift File.join(File.dirname(__FILE__))
+require 'djinn_job_data'
+require 'helperfunctions'
+require 'monit_interface'
+
+
+# To implement support for the Google App Engine Search, we use
+# the open source lucene. This module provides
+# methods that automatically configure and deploy SOLR.
+module Search
+
+  # AppScale install directory  
+  APPSCALE_HOME = ENV["APPSCALE_HOME"]
+
+  # The port that SOLR server runs on, by default.
+  SOLR_SERVER_PORT = 8983
+ 
+  # The port where the TaskQueue server runs on, by default. 
+  SEARCH_SERVER_PORT = 53423
+
+  # The python executable path.
+  PYTHON_EXEC = "python"
+
+   # The longest we'll wait for SOLR to come up in seconds.
+  MAX_WAIT_FOR_SOLR = 30
+
+  # Stop command for search server.
+  SEARCH_STOP_CMD = "/bin/kill -9 `ps aux | grep search_server.py | awk {'print $2'}`"
+
+  # Search location file.
+  SEARCH_LOCATION_FILE = "/etc/appscale/search_location"
+
+  # SOLR persistent state location.
+  SOLR_STATE_DIR = ""
+
+  # Starts a service that we refer to as a "search_master".
+  #
+  # Args:
+  #   clear_data: A boolean that indicates whether or not SOLR state should
+  #     be erased before starting SOLR.
+  def self.start_master(clear_data)
+    Djinn.log_info("Starting Search Master")
+
+    if clear_data
+      Djinn.log_debug("Erasing SOLR state")
+      self.erase_local_files()
+    else
+      Djinn.log_debug("Not erasing SOLR state")
+    end
+
+    # First, start up SOLR.
+    Djinn.log_run("mkdir -p #{SOLR_STATE_DIR}")
+    start_cmd = ""
+    stop_cmd = ""
+    match_cmd = ""
+    MonitInterface.start(:solr, start_cmd, stop_cmd, ports=9999,
+      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+
+    # Next, start up the TaskQueue Server.
+    start_search_server()
+    HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
+  end
+
+
+  # Starts the AppScale search server.
+  def self.start_search_server()
+    Djinn.log_debug("Starting search server on this node")
+    script = "#{APPSCALE_HOME}/SearchService/search_server.py"
+    start_cmd = "#{PYTHON_EXEC} #{script}"
+    stop_cmd = SEARCH_STOP_CMD
+    env_vars = {}
+    MonitInterface.start(:search, start_cmd, stop_cmd, SEARCH_SERVER_PORT,
+      env_vars)
+    Djinn.log_debug("Done starting search_server on this node")
+  end
+
+  # Stops SOLR and the search server on this node.
+  def self.stop()
+    Djinn.log_debug("Shutting down SOLR")
+    stop_cmd = ""
+    Djinn.log_run(stop_cmd)
+    self.stop_search_server()
+  end
+
+  # Stops the AppScale search server.
+  def self.stop_search_server()
+    Djinn.log_debug("Stopping search_server on this node")
+    Djinn.log_run(SEARCH_STOP_CMD)
+    MonitInterface.stop(:search)
+    Djinn.log_debug("Done stopping search_server on this node")
+  end
+
+
+  # Erases all the files that SOLR normally writes to, which can be useful
+  # to ensure that we start up SOLR without left-over state from previous
+  # runs.
+  def self.erase_local_files()
+    #Djinn.log_run("rm -rf /var/log/search/*")
+  end
+
+
+end
