@@ -65,9 +65,8 @@ module Search
     Djinn.log_run("cp -r /root/appscale/SearchService/templates/schemaless-appscale /opt/appscale/solr/")
     start_cmd = "/root/appscale/SearchService/solr/solr/bin/solr start -noprompt -s /opt/appscale/solr/schemaless-appscale/solr/"
     stop_cmd = "/root/appscale/SearchService/solr/solr/bin/solr stop -all"
-    match_cmd = "-Dsolr.solr.home=/opt/appscale/solr/schemaless-appscale/solr/"
-    MonitInterface.start(:solr, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+    MonitInterface.start(:solr, start_cmd, stop_cmd, ports=SOLR_SERVER_PORT,
+      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd="solr")
     HelperFunctions.sleep_until_port_is_open("localhost", SOLR_SERVER_PORT)
     Djinn.log_debug("Done starting SOLR.")
   end

@@ -22,7 +22,7 @@ class TestInfrastructureManagerService(TestCase):
      .should_receive('get_secret')
      .and_return('secret'))
     self.service, self.port = self.__start_service()
-    sleep(2)
+    #sleep(2)
 
 
   def test_service(self):

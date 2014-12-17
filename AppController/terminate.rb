@@ -16,12 +16,15 @@ module TerminateHelper
     `rm -f #{APPSCALE_HOME}/.appscale/database_info`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
+    `rm -f /var/log/appscale/*.log.*`
     `rm -f /var/log/appscale/*.log`
+    `rm -f /var/log/appscale/*.gz`
     `rm -rf /var/log/appscale/celery_workers`
     `rm -f /var/appscale/*.pid`
     `rm -f /etc/nginx/sites-enabled/*.conf`
     `rm -f /etc/monit/conf.d/*.cfg`
     `rm -f /etc/appscale/port-*.txt`
+    `rm -f /etc/appscale/search_location`
 
     # TODO: It may be wise to save the apps for when AppScale starts up
     # later.
@@ -62,6 +65,7 @@ module TerminateHelper
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
     `rm -rf /opt/appscale/celery`
+    `rm -rf /opt/appscale/search`
   end
 
 
@@ -96,6 +100,9 @@ module TerminateHelper
 
      # RabbitMQ, ejabberd
      "epmd", "beam", "ejabberd_auth.py", "celery",
+
+     # Search API
+     "solr",
 
      # Last resort
      "python", "java", "/usr/bin/python"

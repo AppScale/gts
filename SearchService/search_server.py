@@ -1,6 +1,8 @@
 """ Top level server for the Search API. """
 from search_api import SearchService
 
+import logging
+
 import tornado.httpserver
 import tornado.httputil
 import tornado.ioloop
