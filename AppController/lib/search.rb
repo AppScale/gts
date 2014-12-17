@@ -29,9 +29,6 @@ module Search
   # The python executable path.
   PYTHON_EXEC = "python"
 
-   # The longest we'll wait for SOLR to come up in seconds.
-  MAX_WAIT_FOR_SOLR = 30
-
   # Stop command for search server.
   SEARCH_STOP_CMD = "/bin/kill -9 `ps aux | grep search_server.py | awk {'print $2'}`"
 
@@ -39,7 +36,7 @@ module Search
   SEARCH_LOCATION_FILE = "/etc/appscale/search_location"
 
   # SOLR persistent state location.
-  SOLR_STATE_DIR = ""
+  SOLR_STATE_DIR = "/opt/appscale/solr/data"
 
   # Starts a service that we refer to as a "search_master".
   #
@@ -47,55 +44,65 @@ module Search
   #   clear_data: A boolean that indicates whether or not SOLR state should
   #     be erased before starting SOLR.
   def self.start_master(clear_data)
-    Djinn.log_info("Starting Search Master")
+    Djinn.log_info("Starting Search Master.")
 
     if clear_data
-      Djinn.log_debug("Erasing SOLR state")
       self.erase_local_files()
     else
-      Djinn.log_debug("Not erasing SOLR state")
+      Djinn.log_debug("Resuming from previous SOLR state if it exists.")
     end
 
     # First, start up SOLR.
-    Djinn.log_run("mkdir -p #{SOLR_STATE_DIR}")
-    start_cmd = ""
-    stop_cmd = ""
-    match_cmd = ""
-    MonitInterface.start(:solr, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
-
-    # Next, start up the TaskQueue Server.
+    start_solr()
+    # Start up the search server which handles API calls from applications.
     start_search_server()
-    HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
   end
 
+  # Start up SOLR.
+  def self.start_solr()
+    Djinn.log_debug("Starting SOLR.")
+    Djinn.log_run("mkdir -p #{SOLR_STATE_DIR}")
+    start_cmd = "/root/appscale/SearchService/solr/solr/bin/solr start -noprompt -s /opt/appscale/solr/schemaless-appscale/solr/"
+    stop_cmd = "/root/appscale/SearchService/solr/solr/bin/solr stop -all"
+    match_cmd = "-Dsolr.solr.home=/opt/appscale/solr/schemaless-appscale/solr/"
+    MonitInterface.start(:solr, start_cmd, stop_cmd, ports=9999,
+      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+    HelperFunctions.sleep_until_port_is_open("localhost", SOLR_SERVER_PORT)
+    Djinn.log_debug("Done starting SOLR.")
+  end
 
   # Starts the AppScale search server.
   def self.start_search_server()
-    Djinn.log_debug("Starting search server on this node")
+    Djinn.log_debug("Starting search server on this node.")
     script = "#{APPSCALE_HOME}/SearchService/search_server.py"
     start_cmd = "#{PYTHON_EXEC} #{script}"
     stop_cmd = SEARCH_STOP_CMD
     env_vars = {}
     MonitInterface.start(:search, start_cmd, stop_cmd, SEARCH_SERVER_PORT,
       env_vars)
+    HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
     Djinn.log_debug("Done starting search_server on this node")
+  end
+
+  # Stops the SOLR process on this node.
+  def self.stop_solr()
+    Djinn.log_debug("Stopping SOLR on this node.")
+    MonitInterface.stop(:solr)
+    Djinn.log_debug("Done stopping SOLR.")
   end
 
   # Stops SOLR and the search server on this node.
   def self.stop()
-    Djinn.log_debug("Shutting down SOLR")
-    stop_cmd = ""
-    Djinn.log_run(stop_cmd)
     self.stop_search_server()
+    self.stop_solr()
   end
+
 
   # Stops the AppScale search server.
   def self.stop_search_server()
-    Djinn.log_debug("Stopping search_server on this node")
-    Djinn.log_run(SEARCH_STOP_CMD)
+    Djinn.log_debug("Stopping search_server on this node.")
     MonitInterface.stop(:search)
-    Djinn.log_debug("Done stopping search_server on this node")
+    Djinn.log_debug("Done stopping search_server on this node.")
   end
 
 
@@ -103,8 +110,10 @@ module Search
   # to ensure that we start up SOLR without left-over state from previous
   # runs.
   def self.erase_local_files()
-    #Djinn.log_run("rm -rf /var/log/search/*")
+    Djinn.log_debug("Erasing SOLR state")
+    Djinn.log_run("rm -rf /opt/appscale/solr/schemaless-appscale/")
+    Djinn.log_run("rm -rf #{SOLR_STATE_DIR}")
+    Djinn.log_debug("Done removing SOLR state")
   end
-
 
 end
