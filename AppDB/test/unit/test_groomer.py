@@ -4,6 +4,7 @@
 import datetime
 import os
 import sys
+import time
 import unittest
 from flexmock import flexmock
 
@@ -111,6 +112,8 @@ class TestGroomer(unittest.TestCase):
     dsg.should_receive("get_entity_batch").and_return([])
     dsg.should_receive("process_entity")
     dsg.should_receive("update_statistics").and_raise(Exception)
+    dsg.should_receive("remove_old_logs").and_return()
+    dsg.should_receive("remove_old_tasks_entities").and_return()
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     self.assertRaises(Exception, dsg.run_groomer)
@@ -162,6 +165,8 @@ class TestGroomer(unittest.TestCase):
     zookeeper.should_receive("is_blacklisted").and_return(False)
     zookeeper.should_receive("notify_failed_transaction").and_return(True)
 
+    flexmock(time)
+    time.should_receive('sleep').and_return()
 
     flexmock(FakeDatastore)
     FakeDatastore.should_receive("batch_delete")
@@ -250,6 +255,6 @@ class TestGroomer(unittest.TestCase):
     stats.should_receive("KindStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertRaises(Exception, dsg.create_kind_stat_entry, 0, 0, 0)
-     
+
 if __name__ == "__main__":
   unittest.main()    
