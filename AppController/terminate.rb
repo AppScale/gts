@@ -24,7 +24,7 @@ module TerminateHelper
     `rm -f /etc/nginx/sites-enabled/*.conf`
     `rm -f /etc/monit/conf.d/*.cfg`
     `rm -f /etc/appscale/port-*.txt`
-    `rm -f /etc/appscale/search_location`
+    `rm -f /etc/appscale/search_ip`
 
     # TODO: It may be wise to save the apps for when AppScale starts up
     # later.

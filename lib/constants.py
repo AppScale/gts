@@ -73,5 +73,5 @@ DASHBOARD_APP_ID = "appscaledashboard"
 RESERVED_APP_IDS = [DASHBOARD_APP_ID]
 
 # Location of where the search service is running.
-SEARCH_FILE_LOC = "/etc/appscale/search_location"
+SEARCH_FILE_LOC = "/etc/appscale/search_ip"
 

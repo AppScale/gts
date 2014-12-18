@@ -33,7 +33,7 @@ module Search
   SEARCH_STOP_CMD = "/bin/kill -9 `ps aux | grep search_server.py | awk {'print $2'}`"
 
   # Search location file.
-  SEARCH_LOCATION_FILE = "/etc/appscale/search_location"
+  SEARCH_LOCATION_FILE = "/etc/appscale/search_ip"
 
   # SOLR persistent state location.
   SOLR_STATE_DIR = "/opt/appscale/solr/data"
