@@ -1,7 +1,10 @@
 """ Class for handling searialized Search requests. """
-import lucene
+import logging
 import os
 import sys
+import uuid
+
+import solr_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api.search import search_service_pb
@@ -13,7 +16,7 @@ class SearchService():
     """ Constructor function for the search service. Initializes the lucene
     connection. 
     """
-    return
+    self.solr_conn = solr_interface.Solr()
 
   def unknown_request(self, pb_type):
     """ Handlers unknown request types.
@@ -26,11 +29,10 @@ class SearchService():
     raise NotImplementedError("Unknown request of operation {0}".format(
       pb_type))
 
-  def remote_request(self, app_id, app_data):
+  def remote_request(self, app_data):
     """ Handles remote requests with serialized protocol buffers. 
 
     Args:
-      app_id: A str. The application identifier.
       app_data: A str. Serialized request data of the application.
     Returns:
       A str. Searialized protocol buffer response.  
@@ -61,20 +63,15 @@ class SearchService():
       http_request_data = apirequest.request()
 
     if method == "IndexDocument":
-      response, errcode, errdetail = self.index_document(app_id,
-        http_request_data)
+      response, errcode, errdetail = self.index_document(http_request_data)
     elif method == "DeleteDocument":
-      response, errcode, errdetail = self.delete_document(app_id,
-        http_request_data)
+      response, errcode, errdetail = self.delete_document(http_request_data)
     elif method == "ListIndexes":
-      response, errcode, errdetail = self.list_indexes(app_id,
-        http_request_data)
+      response, errcode, errdetail = self.list_indexes(http_request_data)
     elif method == "ListDocuments":
-      response, errcode, errdetail = self.list_documents(app_id,
-        http_request_data)
+      response, errcode, errdetail = self.list_documents(http_request_data)
     elif method == "Search":
-      response, errcode, errdetail = self.search(app_id,
-        http_request_data)
+      response, errcode, errdetail = self.search(http_request_data)
 
     if response:
       apiresponse.set_response(response)
@@ -87,24 +84,44 @@ class SearchService():
 
     return apiresponse.Encode()
 
-  def index_document(self, app_id, data):
+  def index_document(self, data):
     """ Index a new document or update an existing document.
  
     Args:
-      app_id: A str. The application identifier.
       data: A str. Searialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.IndexDocumentRequest(data)
     response = search_service_pb.IndexDocumentResponse()
-    return response, 0, "" 
+    params = request.params()
 
-  def delete_document(self, app_id, data):
+    document_list = params.document_list()
+    index_spec = params.index_spec()
+    
+    for doc in document_list:
+      doc_id = doc.id()
+      # Assign an ID if not present.
+      if not doc_id:
+        doc_id = str(uuid.uuid4())
+        doc.set_id(doc_id)
+      response.add_doc_id(doc_id)
+   
+      new_status = response.add_status()
+      try:  
+        self.solr_conn.update_document(doc_id, doc, index_spec)
+        new_status.set_code(search_service_pb.SearchServiceError.OK) 
+      except Exception, exception:
+        logging.exception(exception)
+        new_status.set_code(
+          search_service_pb.SearchServiceError.INTERNAL_ERROR)
+
+    return response, 0, ""
+
+  def delete_document(self, data):
     """ Deletes a document.
  
     Args:
-      app_id: A str. The application identifier.
       data: A str. Searialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
@@ -113,11 +130,10 @@ class SearchService():
     response = search_service_pb.DeleteDocumentResponse()
     return response, 0, ""
 
-  def list_indexes(self, app_id, data):
+  def list_indexes(self, data):
     """ Lists all indexes for an application.
    
     Args:
-      app_id: A str. The application identifier.
       data: A str. Searialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
@@ -126,11 +142,10 @@ class SearchService():
     response = search_service_pb.ListIndexesResponse()
     return response, 0, ""
   
-  def list_documents(self, app_id, data):
+  def list_documents(self, data):
     """ List all documents for an application.
  
     Args:
-      app_id: A str. The application identifier.
       data: A str. Searialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
@@ -139,11 +154,10 @@ class SearchService():
     response = search_service_pb.ListDocumentsResponse()
     return response, 0, ""
 
-  def search(self, app_id, data):
+  def search(self, data):
     """ Search within a document.
  
     Args:
-      app_id: A str. The application identifier.
       data: A str. Searialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
