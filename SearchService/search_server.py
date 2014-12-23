@@ -8,6 +8,7 @@ import tornado.httputil
 import tornado.ioloop
 import tornado.web
 import time
+
 # Default port for the search API web server.
 DEFAULT_PORT = 53423
 
@@ -20,11 +21,12 @@ class MainHandler(tornado.web.RequestHandler):
 
   @tornado.web.asynchronous
   def post(self):
+    """ A POST handler for request to this server. """
     request = self.request
     http_request_data = request.body
     app_data = request.headers['appdata']
     pb_type = request.headers['protocolbuffertype']
-    app_data  = app_data.split(':')
+    app_data = app_data.split(':')
     app_id = app_data[0]
     if pb_type == "Request":
       response = self.search_service.remote_request(app_id, app_data)
@@ -46,6 +48,7 @@ def get_application():
     ], )
 
 if __name__ == "__main__":
+  logging.getLogger().setLevel(logging.INFO) 
   logging.info("Starting server on port {0}".format(DEFAULT_PORT))
   http_server = tornado.httpserver.HTTPServer(get_application())
   http_server.bind(DEFAULT_PORT)

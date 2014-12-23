@@ -9,9 +9,9 @@ from flexmock import flexmock
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import search_server
 
-class TestDistributedTaskQueue(unittest.TestCase):                              
+class TestDistributedSearchServer(unittest.TestCase):                              
   """                                                                           
-  A set of test cases for the distributed taskqueue module                      
+  A set of test cases for the search module.
   """            
   def test_get_application(self):
     self.assertNotEqual(None, search_server.get_application())
