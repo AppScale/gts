@@ -19,7 +19,7 @@ class SearchService():
     self.solr_conn = solr_interface.Solr()
 
   def unknown_request(self, pb_type):
-    """ Handlers unknown request types.
+    """ Handles unknown request types.
 
     Args:
       pb_type: The protocol buffer type.
@@ -35,7 +35,7 @@ class SearchService():
     Args:
       app_data: A str. Serialized request data of the application.
     Returns:
-      A str. Searialized protocol buffer response.  
+      A str. Serialized protocol buffer response.  
     """
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(app_data)
@@ -88,7 +88,7 @@ class SearchService():
     """ Index a new document or update an existing document.
  
     Args:
-      data: A str. Searialize protocol buffer.
+      data: A str. Serialized protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
@@ -122,7 +122,7 @@ class SearchService():
     """ Deletes a document.
  
     Args:
-      data: A str. Searialize protocol buffer.
+      data: A str. Serialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
@@ -134,7 +134,7 @@ class SearchService():
     """ Lists all indexes for an application.
    
     Args:
-      data: A str. Searialize protocol buffer.
+      data: A str. Serialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
@@ -146,7 +146,7 @@ class SearchService():
     """ List all documents for an application.
  
     Args:
-      data: A str. Searialize protocol buffer.
+      data: A str. Serialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
@@ -158,7 +158,7 @@ class SearchService():
     """ Search within a document.
  
     Args:
-      data: A str. Searialize protocol buffer.
+      data: A str. Serialize protocol buffer.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """

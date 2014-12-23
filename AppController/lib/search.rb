@@ -13,11 +13,11 @@ require 'monit_interface'
 
 
 # To implement support for the Google App Engine Search, we use
-# the open source lucene. This module provides
+# the open source SOLR. This module provides
 # methods that automatically configure and deploy SOLR.
 module Search
 
-  # AppScale install directory  
+  # AppScale install directory.
   APPSCALE_HOME = ENV["APPSCALE_HOME"]
 
   # The port that SOLR server runs on, by default.
@@ -81,7 +81,7 @@ module Search
     MonitInterface.start(:search, start_cmd, stop_cmd, SEARCH_SERVER_PORT,
       env_vars)
     HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
-    Djinn.log_debug("Done starting search_server on this node")
+    Djinn.log_debug("Done starting search_server on this node.")
   end
 
   # Stops the SOLR process on this node.
@@ -110,10 +110,10 @@ module Search
   # to ensure that we start up SOLR without left-over state from previous
   # runs.
   def self.erase_local_files()
-    Djinn.log_debug("Erasing SOLR state")
+    Djinn.log_debug("Erasing SOLR state.")
     Djinn.log_run("rm -rf /opt/appscale/solr/schemaless-appscale/")
     Djinn.log_run("rm -rf #{SOLR_STATE_DIR}")
-    Djinn.log_debug("Done removing SOLR state")
+    Djinn.log_debug("Done removing SOLR state.")
   end
 
 end

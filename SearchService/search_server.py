@@ -21,6 +21,7 @@ class MainHandler(tornado.web.RequestHandler):
 
   @tornado.web.asynchronous
   def post(self):
+    """ A POST handler for request to this server. """
     request = self.request
     http_request_data = request.body
     pb_type = request.headers['protocolbuffertype']
@@ -43,6 +44,7 @@ def get_application():
     ], )
 
 if __name__ == "__main__":
+  logging.getLogger().setLevel(logging.INFO) 
   logging.info("Starting server on port {0}".format(DEFAULT_PORT))
   http_server = tornado.httpserver.HTTPServer(get_application())
   http_server.bind(DEFAULT_PORT)

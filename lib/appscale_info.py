@@ -116,4 +116,5 @@ def get_search_location():
   try:
     return file_io.read(constants.SEARCH_FILE_LOC).rstrip()
   except IOError:
+    logging.warning("Search role is not configured.")
     return ""
