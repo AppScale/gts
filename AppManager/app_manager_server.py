@@ -543,7 +543,7 @@ if __name__ == "__main__":
       usage()
       sys.exit()
 
-  INTERNAL_IP = socket.gethostbyname(socket.gethostname())
+  INTERNAL_IP = appscale_info.get_private_ip()
   SERVER = SOAPpy.SOAPServer((INTERNAL_IP, constants.APP_MANAGER_PORT))
 
   SERVER.registerFunction(start_app)
