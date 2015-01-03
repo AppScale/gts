@@ -109,7 +109,7 @@ class SearchService():
    
       new_status = response.add_status()
       try:  
-        self.solr_conn.update_document(doc_id, doc, index_spec)
+        self.solr_conn.update_document(request.app_id(), doc_id, doc, index_spec)
         new_status.set_code(search_service_pb.SearchServiceError.OK) 
       except Exception, exception:
         logging.exception(exception)

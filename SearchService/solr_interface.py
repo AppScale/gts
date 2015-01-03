@@ -100,7 +100,7 @@ class Solr():
 
     field_list = []
     for update in updates:
-      field_list.append({'name': update['name'], 'type': udpate['type'],
+      field_list.append({'name': update['name'], 'type': update['type'],
         'stored': True, 'indexed': True, 'multiValued': false})
 
     json_request = simplejson.dumps(field_list)
@@ -116,41 +116,47 @@ class Solr():
       raise search_exceptions.InternalError("Malformed response from SOLR.")
 
     # Create a list of documents to update.
-    docs = []
-    #docs.append(
+    # TODO
 
-  def to_dictionary(self, index, document):
-    """ Converted an index and document into a dictionary for document updates.
+  def to_solr_doc(self, doc):
+    """ Converts to an internal SOLR document. 
 
     Args:
-      index:
-      document:
+      doc: A document_pb.Document type.
     Returns:
-      A dictionary which can be sent as a payload to SOLR.
+      A converted Document type.
     """
-    INDEX_NAME = "_gaeindex_name"
-
-    solr_dict = {}
-    solr_dict['id'] = document.id()
-    solr_dict[INDEX_NAME] = index.name
-    solr_dict[INDEX_LOCALE] = "en"
-    # TODO handle different languages. Each value also has a lang.
-    # TODO map the types to the values that SOLR accepts.
-    for field in document.field_list():
-      value = field.value()
-      if value.type() == FieldValue.DATE:
-        pass #TODO
-      elif value.type() == FieldValue.GEO:
-        pass #TODO
-      elif value.type() == FieldValue.HTML: 
-        pass #TODO
-      elif value.type() == FieldValue.NUMBER:
-        pass #TODO
-      elif value.type() == FieldValue.TEXT:
-        solr_dict[index_name + "_" + field.name()] = value.string_value()
+    fields = []
+    for field in doc.field_list():
+      value = field.value().string_value()
+      field_type = field.value().type()
+      if field_type == FieldValue.TEXT:
+        lang = field.value().language()
+        name = field.name() + "_" + Field.TEXT_ + lang
+        new_field = Field(name, Field.TEXT_ + lang, value=value)
+      elif field_type == FieldValue.HTML:
+        lang = field.value().language()
+        name = field.name() + "_" + Field.HTML + lang
+        new_field = Field(name, Field.HTML, value=value)
+      elif field_type == FieldValue.ATOM:
+        name = field.name() + "_" + Field.ATOM
+        new_field = Field(name, Field.ATOM, value=value.lower())
+      elif field_type == FieldValue.DATE:
+        name = field.name() + "_" + Field.DATE
+        new_field = Field(name, Field.DATE, value=value)
+      elif  field_type == FieldValue.NUMBER:
+        name = field.name() + "_" + Field.NUMBER
+        new_field = Field(name, Field.NUMBER, value=value)
+      elif field_type == FieldValue.GEO:
+        geo = field.value.geo()
+        name = field.name() + "_" + Field.GEO
+        new_field = Field(name, Field.GEO, geo.lat + "," + geo.lng())
       else:
-        solr_dict[index_name + "_" + field.name()] = value.string_value()
-    return
+        logging.error("Unknown field type {0}".format(field_type))
+        raise search_exceptions.InternalError(
+          "Unknown or unimplemented field type!")
+      fields.append(new_field)
+    return Document(doc.id(), doc.language(), fields)
 
   def compute_updates(self, current_fields, doc_fields):
     """ Computes the updates needed to update a document in SOLR.
@@ -159,7 +165,7 @@ class Solr():
       current_fields: The current SOLR schema fields set.
       doc_fields: The fields that need to be updated.
     Returns:
-      A list of updates required.
+      A list of fields that require updates.
     """
     fields_to_update = []
     for doc_field in doc_fields:
@@ -189,6 +195,13 @@ class Index():
 
 class Document():
   """ Represents a document stored in SOLR. """
+
+  # Prefix code for index name.
+  INDEX_NAME = "_gaeindex_name"
+  
+  # Prefix code for index locale.
+  INDEX_LOCALE = "_gaeindex_locale"
+
   def __init__(self, identifier, language, fields):
     """ Constructor for Document in SOLR. """
     self.id = identifier
@@ -198,11 +211,37 @@ class Document():
 class Header():
   """ Represents a header in SOLR. """
   def __init__(self, status, qtime):
+    """ Constructor for Header type. """
     self.status = status
     self.qtime = qtime
 
 class Field():
-  """ """
-  def __init__(self):
-    pass
+  """ Field item in a document. """
 
+  TEXT = "text_ws"
+  TEXT_FR = "text_fr"
+  TEXT_ = "text_"
+  HTML = "html"
+  ATOM = "atom"
+  GEO = "geo"
+  DATE = "date"
+  NUMBER = "number"
+
+  def __init__(self, name, field_type, stored=True, indexed=True, 
+    multi_valued=False, value=None):
+    """ Constructor for Field type. """
+    self.name = name
+    self.field_type = field_type
+    self.stored = stored
+    self.indexed = indexed
+    self.multi_valued = multi_valued
+    self.value = value
+
+class Results():
+  """ Results from SOLR. """
+
+  def __init__(self, num_found, docs, header):
+    """ Constructor for Results type. """
+    self.num_found = num_found
+    self.docs = docs
+    self.header = header
