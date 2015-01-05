@@ -4,7 +4,49 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current version is 2.0.0, released June, 2014
+AppScale version 2.1.0, released December, 2014
+Highlights of features/bugs in this release:
+- Updated bootstrap script
+- No longer overwriting SSL cert and private key on "appscale down"
+- NDB patch
+- Remove duplicates of host names found in ZooKeeper
+- Better logging in AppController
+- Use default HAProxy health checking
+- Allowing connections to self signed certificates for remote API
+- Email fix to allow for multiple attachments (python)
+- Removed API checker
+- Script to enable datastore viewer by IP
+- White listed future builtins
+- No longer storing temporary queues
+- Reloading taskqueue queues on redeploy
+- Increased concurrency of taskqueue celery workers to 10
+- Handle new queues when queue definitions change
+- Provide an empty cursor if requested
+- Force HTTPS when pointing to port 443 (python)
+- Dashboard navigation fixes
+- Ancestors for composites now always point to the root entity
+- Fixed maximum number of groups in a XG transaction
+- Catch exceptions for ZK errors in datastore server
+- Throw correct exceptions on illegal XG operations (needed for objectify)
+- Java has its datastore set to HighReplication
+- Added OFair to celery workers to not prefetch tasks
+- Increased the number of datastore servers to be a multiple of CPU cores
+- Improved groomer to handle more errors and retry
+- Disable ssl3 (POODLE)
+- Have Groomer delete logs older than 7 days
+- Clean up transaction journal in groomer
+- More fault tolerance with datastore operations and better load balancing
+- Fixed broken unit tests
+- Log rotation for saving disk space
+- Remove conflicting jars when uploading a Java application
+- Make sure jars are copied in when a java application is re-uploaded
+- Remote API support for java (custom jar to include in application)
+- Retry logic for sending emails (python)
+- Have a java error application when an upload goes bad
+- Fast start script for easy single node deployment
+- RabbitMQ fix for node clustering
+
+AppScale version 2.0.0, released June, 2014
 Highlights of features/bugs in this release:
 - Better error messages for AppScale tools
 - Moved to package installation of most installed software (faster build)

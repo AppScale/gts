@@ -45,6 +45,7 @@ from google.appengine.api import apiproxy_stub
 
 MAX_REQUEST_SIZE = 32 << 20
 
+MAX_RETRIES = 5
 
 class MailServiceStub(apiproxy_stub.APIProxyStub):
   """Python only mail service stub.

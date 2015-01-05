@@ -51,3 +51,9 @@ ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
 
 # Start AppScale.
 appscale up
+
+# Download sample app.
+wget -O guestbook.tar.gz http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz
+
+# Deploy sample app.
+appscale deploy /root/guestbook.tar.gz

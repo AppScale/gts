@@ -178,8 +178,7 @@ class TestAppManager(unittest.TestCase):
     app_id = 'testapp'
     cmd = app_manager_server.create_java_start_cmd(app_id,
                                             '20000',
-                                            '127.0.0.2',
-                                            db_locations)
+                                            '127.0.0.2')
     assert fake_secret in cmd
     assert app_id in cmd
 
@@ -210,7 +209,7 @@ class TestAppManager(unittest.TestCase):
   def test_restart_app_instances_for_app(self):
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)
-    actual = app_manager_server.restart_app_instances_for_app('test')
+    actual = app_manager_server.restart_app_instances_for_app('test', 'python')
     self.assertEquals(True, actual)
 
   def test_stop_app(self):

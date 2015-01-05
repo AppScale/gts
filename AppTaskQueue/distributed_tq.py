@@ -289,7 +289,7 @@ class DistributedTaskQueue():
 
     app_id = self.__cleanse(request['app_id'])
 
-    hostname = socket.gethostbyname(socket.gethostname())
+    hostname = appscale_info.get_private_ip()
 
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 

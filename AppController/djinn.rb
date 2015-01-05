@@ -659,7 +659,8 @@ class Djinn
         end
         next if not node.is_appengine?
         app_manager = AppManagerClient.new(node.private_ip)
-        app_manager.restart_app_instances_for_app(appid)
+        app_manager.restart_app_instances_for_app(appid,
+          @app_info_map[appid]['language'])
       }
     }
 
@@ -2352,6 +2353,17 @@ class Djinn
     return "OK"
   end
 
+  # Creates an Nginx configuration file for the Users/Apps soap server.
+  def configure_uaserver_nginx()
+    all_db_private_ips = []
+    @nodes.each { | node |
+      if node.is_db_master? or node.is_db_slave?
+        all_db_private_ips.push(node.private_ip)
+      end
+    }
+    Nginx.create_uaserver_config(all_db_private_ips)
+    Nginx.reload()
+  end
 
   def configure_db_nginx()
     all_db_private_ips = []
@@ -3394,6 +3406,8 @@ class Djinn
     port = [4343]
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
+
+    configure_uaserver_nginx()
   end
 
   def start_datastore_server
@@ -4085,10 +4099,11 @@ HOSTS
   #   app_name: Name of application to construct an error application for
   #   err_msg: A String message that will be displayed as
   #            the reason why we couldn't start their application.
-  def place_error_app(app_name, err_msg)
-    Djinn.log_info("Placing error application for #{app_name} because of: #{err_msg}")
+  #   language: The language the application is written in.
+  def place_error_app(app_name, err_msg, language)
+    Djinn.log_error("Placing error application for #{app_name} because of: #{err_msg}")
     ea = ErrorApp.new(app_name, err_msg)
-    ea.generate()
+    ea.generate(language)
   end
 
   def start_appengine()
@@ -4183,7 +4198,7 @@ HOSTS
     # First, make sure we can download the app, and if we can't, throw up a
     # dummy app letting the user know there was a problem.
     if !copy_app_to_local(app)
-      place_error_app(app, "ERROR: Failed to copy app: #{app}")
+      place_error_app(app, "ERROR: Failed to copy app: #{app}", app_language)
       app_language = "python27"
     end
 
@@ -4193,8 +4208,7 @@ HOSTS
     # app.
     if !HelperFunctions.app_has_config_file?(app_path)
       place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " +
-        app)
-      app_language = "python27"
+        app, app_language)
     end
 
     HelperFunctions.setup_app(app)
@@ -4266,7 +4280,7 @@ HOSTS
         # This specific exception may be a json parse error
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
                     " Exception of #{e.class} with message #{e.message}"
-        place_error_app(app, error_msg)
+        place_error_app(app, error_msg, app_language)
         static_handlers = []
       end
 
@@ -4311,7 +4325,7 @@ HOSTS
 
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
-                "#{app}. Please check the application logs.")
+                "#{app}. Please check the application logs.", app_language)
           end
 
           # Tell the AppController at the login node (which runs HAProxy) that a
@@ -4333,7 +4347,8 @@ HOSTS
         }
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
-        result = app_manager.restart_app_instances_for_app(app)
+        result = app_manager.restart_app_instances_for_app(app, 
+          @app_info_map[app]['language'])
       end
 
       if is_new_app

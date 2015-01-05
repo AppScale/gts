@@ -2,11 +2,9 @@
 """
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import glob
 import json
 import logging
 import os
-import random
 import SOAPpy
 import socket
 import subprocess
@@ -73,13 +71,13 @@ def convert_config_from_json(config):
   logging.info("Configuration for app:" + str(config))
   try:
     config = json.loads(config)
-  except ValueError, e:
+  except ValueError, error:
     logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
+                   (error.__class__, str(error)))
     return None
-  except TypeError, e:
+  except TypeError, error:
     logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
+                   (error.__class__, str(error)))
     return None
 
   if is_config_valid(config):
@@ -132,21 +130,19 @@ def start_app(config):
                             config['load_balancer_ip'],
                             config['app_port'],
                             config['load_balancer_ip'],
-                            config['xmpp_ip'],
-                            config['dblocations'],
-                            config['language'])
+                            config['xmpp_ip'])
     logging.info(start_cmd)
-    stop_cmd = create_python27_stop_cmd(config['app_port'], config['language'])
+    stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(config['load_balancer_ip'],
                             config['app_name']))
   elif config['language'] == constants.JAVA:
+    remove_conflicting_jars(config['app_name'])
     copy_successful = copy_modified_jars(config['app_name'])
     if not copy_successful:
       return BAD_PID
     start_cmd = create_java_start_cmd(config['app_name'],
                             config['app_port'],
-                            config['load_balancer_ip'],
-                            config['dblocations'])
+                            config['load_balancer_ip'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env())
   else:
@@ -206,12 +202,12 @@ def stop_app_instance(app_name, port):
   return True
 
 
-def restart_app_instances_for_app(app_name):
+def restart_app_instances_for_app(app_name, language):
   """ Restarts all instances of a Google App Engine application on this machine.
 
   Args:
     app_name: The application ID corresponding to the app to restart.
-
+    language: The language the application is written in.
   Returns:
     True if successful, and False otherwise.
   """
@@ -219,7 +215,9 @@ def restart_app_instances_for_app(app_name):
     logging.error("Unable to kill app process %s on because of " +\
                   "invalid name for application"%(app_name))
     return False
-
+  if language == "java":
+    remove_conflicting_jars(app_name)
+    copy_modified_jars(app_name)
   logging.info("Restarting application %s"%app_name)
   watch = "app___" + app_name
   return monit_interface.restart(watch)
@@ -312,9 +310,7 @@ def create_python27_start_cmd(app_name,
                               login_ip,
                               port,
                               load_balancer_host,
-                              xmpp_ip,
-                              db_locations,
-                              py_version):
+                              xmpp_ip):
   """ Creates the start command to run the python application server.
 
   Args:
@@ -323,7 +319,6 @@ def create_python27_start_cmd(app_name,
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
     xmpp_ip: The IP of the XMPP service
-    py_version: The version of python to use
   Returns:
     A string of the start command.
   """
@@ -360,19 +355,51 @@ def locate_dir(path, dir_name):
     dir_name: The directory we are looking for
 
   Returns:
-    The absolute path of the directory we are looking for.
+    The absolute path of the directory we are looking for, None otherwise.
   """
+  paths = []
+
   for root, sub_dirs, files in os.walk(path):
-    for dir in sub_dirs:
-      if dir_name == dir:
-        result = os.path.abspath(os.path.join(root, dir))
-        if dir == "WEB-INF" and result.count(os.sep) <= path.count(os.sep) + 1:
-          logging.info("Found WEB-INF/ at: %s" % result)
-          return result
-        elif dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
-          and result.endswith("/WEB-INF/%s" % dir):
-          logging.info("Found lib/ at: %s" % result)
-          return result
+    for sub_dir in sub_dirs:
+      if dir_name == sub_dir:
+        result = os.path.abspath(os.path.join(root, sub_dir))
+        if sub_dir == "WEB-INF":
+          logging.info("Found WEB-INF/ at: {0}".format(result))
+          paths.append(result)
+        elif sub_dir == "lib" and result.count(os.sep) <= path.count(os.sep) + 2 \
+            and result.endswith("/WEB-INF/{0}".format(sub_dir)):
+          logging.info("Found lib/ at: {0}".format(result))
+          paths.append(result)
+
+  if len(paths) > 0:
+    sorted_paths = sorted(paths, key = lambda s: len(s))
+    return sorted_paths[0]
+  else:
+    return None
+
+def remove_conflicting_jars(app_name):
+  """ Removes jars uploaded which may conflict with AppScale jars.
+
+  Args:
+    app_name: The name of the application to run.
+  """
+  app_dir = "/var/apps/" + app_name + "/app/"
+  lib_dir = locate_dir(app_dir, "lib")
+  if not lib_dir:
+    logging.warn("Lib directory not found in app code while updating.")
+    return
+  logging.info("Removing jars from {0}".format(lib_dir))
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-api-1.0-sdk-*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-api-stubs-*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-api-labs-*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-jsr107cache-*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/jsr107cache-*.jar", shell=True)
+
 
 def copy_modified_jars(app_name):
   """ Copies the changes made to the Java SDK
@@ -388,6 +415,17 @@ def copy_modified_jars(app_name):
 
   app_dir = "/var/apps/" + app_name + "/app/"
   lib_dir = locate_dir(app_dir, "lib")
+
+  if not lib_dir:
+    web_inf_dir = locate_dir(app_dir, "WEB-INF")
+    lib_dir = web_inf_dir + os.sep + "lib"
+    logging.info("Creating lib directory at: {0}".format(lib_dir))
+    mkdir_result = subprocess.call("mkdir " + lib_dir, shell=True)
+
+    if mkdir_result != 0:
+      logging.error("Failed to create missing lib directory in: {0}.".
+        format(web_inf_dir))
+      return False
 
   cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
                               "appengine-java-sdk-repacked/lib/user/*.jar " +\
@@ -409,15 +447,13 @@ def copy_modified_jars(app_name):
 
 def create_java_start_cmd(app_name,
                           port,
-                          load_balancer_host,
-                          db_locations):
+                          load_balancer_host):
   """ Creates the start command to run the java application server.
 
   Args:
     app_name: The name of the application to run
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
-    xmpp_ip: The IP of the XMPP service
   Returns:
     A string of the start command.
   """
@@ -446,17 +482,7 @@ def create_java_start_cmd(app_name,
 
   return ' '.join(cmd)
 
-def choose_python_executable(py_version):
-  """ Selects the correct executable of python to use.
-
-  Args:
-    py_version: A string of the python version
-  Returns:
-    String of python executable path
-  """
-  return "/usr/bin/python"
-
-def create_python27_stop_cmd(port, py_version):
+def create_python27_stop_cmd(port):
   """ This creates the stop command for an application which is
   uniquely identified by a port number. Additional portions of the
   start command are included to prevent the termination of other
@@ -464,7 +490,6 @@ def create_python27_stop_cmd(port, py_version):
 
   Args:
     port: The port which the application server is running
-    py_version: The python version the app is currently using
   Returns:
     A string of the stop command.
   """
@@ -513,23 +538,23 @@ def usage():
 # MAIN
 ################################
 if __name__ == "__main__":
-  for ii in range(1, len(sys.argv)):
-    if sys.argv[ii] in ("-h", "--help"):
+  for args_index in range(1, len(sys.argv)):
+    if sys.argv[args_index] in ("-h", "--help"):
       usage()
       sys.exit()
 
-  internal_ip = socket.gethostbyname(socket.gethostname())
-  server = SOAPpy.SOAPServer((internal_ip, constants.APP_MANAGER_PORT))
+  INTERNAL_IP = appscale_info.get_private_ip()
+  SERVER = SOAPpy.SOAPServer((INTERNAL_IP, constants.APP_MANAGER_PORT))
 
-  server.registerFunction(start_app)
-  server.registerFunction(stop_app)
-  server.registerFunction(stop_app_instance)
-  server.registerFunction(restart_app_instances_for_app)
+  SERVER.registerFunction(start_app)
+  SERVER.registerFunction(stop_app)
+  SERVER.registerFunction(stop_app_instance)
+  SERVER.registerFunction(restart_app_instances_for_app)
 
   file_io.set_logging_format()
 
   while 1:
     try:
-      server.serve_forever()
+      SERVER.serve_forever()
     except SSL.SSLError:
       pass
