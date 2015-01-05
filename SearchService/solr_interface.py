@@ -60,6 +60,7 @@ class Solr():
       if conn.getcode() != 200:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
+      status = response['responseHeader']['status'] 
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
@@ -81,42 +82,109 @@ class Solr():
     schema = Schema(filtered_fields, response['responseHeader'])
     return Index(index_name, schema)
 
-  def update_document(self, app_id, doc_id, doc, index_spec):
-    """ Updates a document in SOLR.
+  def update_schema(self, updates):
+    """ Updates the schema of a document.
 
     Args:
-      app_id: A str, the application identifier.
-      doc_id: A str, the unique ID a document.
-      doc: The document to update.
-      index_spec: An index specification.
+      updates: A list of updates to apply.
     """
-    solr_url = "http://{0}:{1}/solr/update/json?commit=true".format(
-      self._search_location, self.SOLR_SERVER_PORT)
-    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    # TODO is field_list right? Correct types?
-    updates = self.compute_updates(index.schema.fields, doc.field_list())
-    if len(updates) == 0:
-      return
-
     field_list = []
     for update in updates:
-      field_list.append({'name': update['name'], 'type': update['type'],
-        'stored': True, 'indexed': True, 'multiValued': false})
+      field_list.append({'name': update.name, 'type': update.field_type,
+        'stored': True, 'indexed': True, 'multiValued': False})
+
+    solr_url = "http://{0}:{1}/solr/schema/fields".format(
+      self._search_location, self.SOLR_SERVER_PORT)
 
     json_request = simplejson.dumps(field_list)
+    logging.debug("JSON payload: {0}".format(json_request))
     try:
       conn = urllib2.urlopen(solr_url, json_request)
       if conn.getcode() != 200:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
+      status = response['responseHeader']['status'] 
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
         exception))
       raise search_exceptions.InternalError("Malformed response from SOLR.")
 
+    if status != 0:
+      raise search_exceptions.InternalError(
+        "SOLR response status of {0}".format(status))
+
+  def to_solr_hash_map(self, index, solr_doc):
+    """ Converts a set of fields to a hash map/dictionary to send to SOLR.
+
+    Args:
+      index: A Index type.
+      solr_doc: A Document type.
+    Returns:
+      A dictionary to send for field/value updates.
+    """
+    hash_map = {}
+    hash_map['id'] = solr_doc.id
+    hash_map[Document.INDEX_NAME] = index.name
+    if solr_doc.language:
+      hash_map[Document.INDEX_LOCALE] = solr_doc.language
+
+    for field in solr_doc.fields:
+      value = field.value
+      field_type = field.field_type
+      if field_type == Field.HTML:
+        hash_map[index.name + "_" + field.name] = value
+      elif field_type == Field.ATOM:
+        hash_map[index.name + "_" + field.name] = value
+      elif field_type == Field.NUMBER:
+        hash_map[index.name + "_" + field.name] = value
+      elif field_type == Field.DATE:
+        #TODO format this date to be  
+        hash_map[index.name + "_" + field.name] = value
+      elif field_type == Field.GEO:
+        hash_map[index.name + "_" + field.name] = value
+      else: 
+        hash_map[index.name + "_" + field.name] = value
+    return hash_map
+
+  def update_document(self, app_id, doc, index_spec):
+    """ Updates a document in SOLR.
+
+    Args:
+      app_id: A str, the application identifier.
+      doc: The document to update.
+      index_spec: An index specification.
+    """
+    solr_doc = self.to_solr_doc(doc)
+
+    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
+    # TODO is field_list right? Correct types?
+    updates = self.compute_updates(index.schema.fields, solr_doc.fields)
+    if len(updates) > 0:
+      self.update_schema(updates)
+
     # Create a list of documents to update.
-    # TODO
+    docs = []
+    hash_map = self.to_solr_hash_map(index, solr_document)
+    docs.append(hash_map)
+    json_payload = simplejson.loads(docs)
+    solr_url = "http://{0}:{1}/solr/update/json?commit=true".format(
+      self._search_location, self.SOLR_SERVER_PORT)
+    try:
+      conn = urllib2.urlopen(solr_url, json_payload)
+      if conn.getcode() != 200:
+        raise search_exceptions.InternalError("Malformed response from SOLR.")
+      response = simplejson.load(conn)
+      status = response['responseHeader']['status'] 
+      logging.debug("Response: {0}".format(response))
+    except ValueError, exception:
+      logging.error("Unable to decode json from SOLR server: {0}".format(
+        exception))
+      raise search_exceptions.InternalError("Malformed response from SOLR.")
+
+    if status != 0:
+      raise search_exceptions.InternalError(
+        "SOLR response status of {0}".format(status))
 
   def to_solr_doc(self, doc):
     """ Converts to an internal SOLR document. 
@@ -165,11 +233,11 @@ class Solr():
       current_fields: The current SOLR schema fields set.
       doc_fields: The fields that need to be updated.
     Returns:
-      A list of fields that require updates.
+      A list of Fields that require updates.
     """
     fields_to_update = []
     for doc_field in doc_fields:
-      doc_name = doc_field['name']  
+      doc_name = doc_field.name
       found = False
       for current_field in current_fields:
         current_name = current_field['name']
