@@ -147,26 +147,17 @@ class Solr():
         hash_map[index.name + "_" + field.name] = value
     return hash_map
 
-  def update_document(self, app_id, doc, index_spec):
-    """ Updates a document in SOLR.
+  def commit_update(self, hash_map):
+    """ Commits field/value changes to SOLR.
 
     Args:
-      app_id: A str, the application identifier.
-      doc: The document to update.
-      index_spec: An index specification.
+      hash_map: A dictionary to send to SOLR.
+    Raises:
+       search_exceptions.InternalError: On failure.
     """
-    solr_doc = self.to_solr_doc(doc)
-
-    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    # TODO is field_list right? Correct types?
-    updates = self.compute_updates(index.schema.fields, solr_doc.fields)
-    if len(updates) > 0:
-      self.update_schema(updates)
-
-    # Create a list of documents to update.
     docs = []
-    hash_map = self.to_solr_hash_map(index, solr_document)
     docs.append(hash_map)
+
     json_payload = simplejson.loads(docs)
     solr_url = "http://{0}:{1}/solr/update/json?commit=true".format(
       self._search_location, self.SOLR_SERVER_PORT)
@@ -185,6 +176,25 @@ class Solr():
     if status != 0:
       raise search_exceptions.InternalError(
         "SOLR response status of {0}".format(status))
+
+  def update_document(self, app_id, doc, index_spec):
+    """ Updates a document in SOLR.
+
+    Args:
+      app_id: A str, the application identifier.
+      doc: The document to update.
+      index_spec: An index specification.
+    """
+    solr_doc = self.to_solr_doc(doc)
+
+    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
+    updates = self.compute_updates(index.schema.fields, solr_doc.fields)
+    if len(updates) > 0:
+      self.update_schema(updates)
+
+    # Create a list of documents to update.
+    hash_map = self.to_solr_hash_map(index, solr_document)
+    self.commit_updates(hash_map)
 
   def to_solr_doc(self, doc):
     """ Converts to an internal SOLR document. 
