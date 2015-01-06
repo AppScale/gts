@@ -12,6 +12,18 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import solr_interface
 import search_exceptions
 
+class FakeDocument():
+  INDEX_NAME = "indexname"
+  INDEX_LOCALE = "indexlocale"
+  def __init__(self):
+    self.fields = []
+    self.id = "id"
+    self.language = "lang"
+
+class FakeIndex():
+  def __init__(self):
+    self.name = "name"
+
 class FakeUpdate():
   def __init__(self, name, field_type):
     self.name = name
@@ -79,3 +91,33 @@ class TestSolrInterface(unittest.TestCase):
     dictionary = {"responseHeader":{"status":0}}
     simplejson.should_receive("load").and_return(dictionary)
     solr.update_schema(updates)
+
+  def test_to_solr_hash_map(self):
+    appscale_info = flexmock()
+    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    solr = solr_interface.Solr()
+    self.assertNotEqual(solr.to_solr_hash_map(FakeIndex(), FakeDocument()), {})
+
+  def test_commit_update(self):
+    appscale_info = flexmock()
+    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    solr = solr_interface.Solr()
+    
+    flexmock(simplejson)
+    simplejson.should_receive("loads").and_return({})
+
+    flexmock(urllib2)
+    urllib2.should_receive("urlopen").and_return(FakeConnection(False))
+    self.assertRaises(search_exceptions.InternalError, solr.commit_update, {})
+
+    simplejson.should_receive("load").and_raise(ValueError)
+    urllib2.should_receive("urlopen").and_return(FakeConnection(True))
+    self.assertRaises(search_exceptions.InternalError, solr.commit_update, {})
+
+    dictionary = {'responseHeader':{'status': 1}}
+    simplejson.should_receive("load").and_return(dictionary).once()
+    self.assertRaises(search_exceptions.InternalError, solr.commit_update, {})
+
+    dictionary = {'responseHeader':{'status': 0}}
+    simplejson.should_receive("load").and_return(dictionary).once()
+    solr.commit_update({})

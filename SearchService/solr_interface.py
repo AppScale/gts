@@ -60,7 +60,6 @@ class Solr():
       if conn.getcode() != 200:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
-      status = response['responseHeader']['status'] 
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
@@ -139,8 +138,9 @@ class Solr():
       elif field_type == Field.NUMBER:
         hash_map[index.name + "_" + field.name] = value
       elif field_type == Field.DATE:
-        #TODO format this date to be  
-        hash_map[index.name + "_" + field.name] = value
+        iso8601 = time.strftime("%Y-%m-%dT%H:%M:%S", 
+          time.localtime(int(value)))
+        hash_map[index.name + "_" + field.name] = iso8601
       elif field_type == Field.GEO:
         hash_map[index.name + "_" + field.name] = value
       else: 
