@@ -3,6 +3,7 @@ import logging
 import os
 import simplejson
 import sys
+import time
 import urllib2
 
 import search_exceptions
@@ -193,8 +194,8 @@ class Solr():
       self.update_schema(updates)
 
     # Create a list of documents to update.
-    hash_map = self.to_solr_hash_map(index, solr_document)
-    self.commit_updates(hash_map)
+    hash_map = self.to_solr_hash_map(index, solr_doc)
+    self.commit_update(hash_map)
 
   def to_solr_doc(self, doc):
     """ Converts to an internal SOLR document. 

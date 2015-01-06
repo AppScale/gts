@@ -17,22 +17,11 @@
 """ AppScale Search API stub."""
 
 import logging
-import os
-import string
-import tempfile
-import threading
-import urllib
-import uuid
 
-from google.appengine.datastore import document_pb
 from google.appengine.api import apiproxy_stub
-from google.appengine.api.namespace_manager import namespace_manager
-from google.appengine.api.search import query_parser
-from google.appengine.api.search import QueryParser
 from google.appengine.api.search import search
 from google.appengine.api.search import search_service_pb
 from google.appengine.api.search import search_util
-from google.appengine.api.search.simple_search_stub import SimpleIndex
 from google.appengine.ext.remote_api import remote_api_pb                       
 from google.appengine.runtime import apiproxy_errors
 
@@ -52,53 +41,14 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
   _VERSION = 1
 
-  def __init__(self, service_name='search', index_file=None):
+  def __init__(self, service_name='search'):
     """ Constructor.
 
     Args:
       service_name: Service name expected for all calls.
       index_file: The file to which search indexes will be persisted.
     """
-    self.__indexes = {}
-    self.__index_file = index_file
-    self.__index_file_lock = threading.Lock()
     super(SearchServiceStub, self).__init__(service_name)
-
-    self.Read()
-
-  def _InvalidRequest(self, status, exception):
-    status.set_code(search_service_pb.SearchServiceError.INVALID_REQUEST)
-    status.set_error_detail(exception.message)
-
-  def _UnknownIndex(self, status, index_spec):
-    status.set_code(search_service_pb.SearchServiceError.OK)
-    status.set_error_detail('no index for %r' % index_spec)
-
-  def _GetNamespace(self, namespace):
-    """ Get namespace name.
-
-    Args:
-      namespace: Namespace provided in request arguments.
-
-    Returns:
-      If namespace is None, returns the name of the current global namespace. If
-      namespace is not None, returns namespace.
-    """
-    if namespace is not None:
-      return namespace
-    return namespace_manager.get_namespace()
-
-  def _GetIndex(self, index_spec, create=False):
-    namespace = self._GetNamespace(index_spec.namespace())
-
-    index = self.__indexes.setdefault(namespace, {}).get(index_spec.name())
-    if index is None:
-      if create:
-        index = SimpleIndex(index_spec)
-        self.__indexes[namespace][index_spec.name()] = index
-      else:
-        return None
-    return index
 
   def _Dynamic_IndexDocument(self, request, response):
     """ A local implementation of SearchService.IndexDocument RPC.
@@ -160,39 +110,12 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     """
     return
 
-  def _ReadFromFile(self):
-    self.__index_file_lock.acquire()
-    try:
-      if os.path.isfile(self.__index_file):
-        version, indexes = pickle.load(open(self.__index_file, 'rb'))
-        if version == self._VERSION:
-          return indexes
-        logging.warning(
-            'Saved search indexes are not compatible with this version of the '
-            'SDK. Search indexes have been cleared.')
-      else:
-        logging.warning(
-            'Could not read search indexes from %s', self.__index_file)
-    except (AttributeError, LookupError, ImportError, NameError, TypeError,
-            ValueError, pickle.PickleError, IOError), e:
-      logging.warning(
-          'Could not read indexes from %s. Try running with the '
-          '--clear_search_index flag. Cause:\n%r' % (self.__index_file, e))
-    finally:
-      self.__index_file_lock.release()
-
-    return {}
-
   def Read(self):
     """ Read search indexes from the index file.
 
     This method is a no-op if index_file is set to None.
     """
-    if not self.__index_file:
-      return
-    read_indexes = self._ReadFromFile()
-    if read_indexes:
-      self.__indexes = read_indexes
+    return
 
   def _RemoteSend(self, request, response, method):
     """ Sends a request remotely to the datstore server. """
