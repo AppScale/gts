@@ -12,6 +12,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import solr_interface
 import search_exceptions
 
+class FakeUpdate():
+  def __init__(self, name, field_type):
+    self.name = name
+    self.field_type = field_type
+
 class FakeConnection():
   def __init__(self, is_good_code):
     self.code = 200
@@ -50,3 +55,27 @@ class TestSolrInterface(unittest.TestCase):
     simplejson.should_receive("load").and_return(dictionary)
     index = solr.get_index("app_id", "ns", "name")
     self.assertEquals(index.schema.fields[0]['name'], "index_ns_name_")
+
+  def test_update_schema(self):
+    appscale_info = flexmock()
+    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    solr = solr_interface.Solr()
+
+    flexmock(urllib2)
+    urllib2.should_receive("urlopen").and_return(FakeConnection(False))
+    updates = []
+    self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
+
+    updates = [FakeUpdate('name1', 'type1'), FakeUpdate('name2', 'type2')]
+    flexmock(simplejson)
+    simplejson.should_receive("load").and_raise(ValueError)
+    urllib2.should_receive("urlopen").and_return(FakeConnection(True))
+    self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
+
+    dictionary = {"responseHeader":{"status":1}}
+    simplejson.should_receive("load").and_return(dictionary)
+    self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
+    
+    dictionary = {"responseHeader":{"status":0}}
+    simplejson.should_receive("load").and_return(dictionary)
+    solr.update_schema(updates)
