@@ -17,6 +17,50 @@ from google.appengine.ext.remote_api import remote_api_pb
 class FakeSolr():
   def __init__(self):
     pass
+  def update_document(self, app_id, doc_id, doc, index_spec):
+    pass
+
+class FakeDocument():
+  def __init__(self):
+    self.doc_id = None
+  def id(self):
+    return self.doc_id
+  def set_id(self, doc_id):
+    self.doc_id = doc_id
+
+class FakeIndexSpec():
+  def __init__(self):
+    pass
+  
+class FakeParams():
+  def __init__(self):
+    pass
+  def document_list(self):
+    return [FakeDocument()]
+  def index_spec(self):
+    return FakeIndexSpec()
+
+class FakeIndexDocumentRequest():
+  def __init__(self, data):
+    pass
+  def params(self):
+    return FakeParams()
+  def app_id(self):
+    return "appid"
+
+class FakeStatus():
+  def __init__(self):
+    pass
+  def set_code(self, code):
+    pass
+
+class FakeIndexDocumentResponse():
+  def __init__(self):
+    pass
+  def add_doc_id(self, doc_id):
+    pass
+  def add_status(self):
+    return FakeStatus()
 
 class FakeRequest():
   def __init__(self):
@@ -67,4 +111,15 @@ class TestSearchApi(unittest.TestCase):
 
     
   def test_index_document(self):
-    pass
+    solr_interface = flexmock()
+    solr_interface.should_receive("Solr").and_return(FakeSolr())
+    solr_interface.should_receive("update_document") 
+    fake_response = FakeIndexDocumentResponse()
+    flexmock(search_service_pb) 
+    search_service_pb.should_receive("IndexDocumentRequest").and_return(FakeIndexDocumentRequest("data"))
+    search_service_pb.should_receive("IndexDocumentResponse").and_return(fake_response)
+    search_service = search_api.SearchService() 
+    search_service = flexmock(search_service)
+
+    self.assertEquals(search_service.index_document("app_data"), (fake_response, 0, ""))
+
