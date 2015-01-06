@@ -31,6 +31,12 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 # Where the SSL private key is placed for encrypted communication.
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
+# The location on the system that has the IP of the search server.
+_SEARCH_LOCATION_FILE = "/etc/appscale/search_ip"
+
+# The port that the search server is running on.  
+_SEARCH_PORT = 53423
+
 class SearchServiceStub(apiproxy_stub.APIProxyStub):
   """ AppScale backed Search service stub.
 
@@ -41,6 +47,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
   _VERSION = 1
 
+
   def __init__(self, service_name='search'):
     """ Constructor.
 
@@ -49,7 +56,17 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       index_file: The file to which search indexes will be persisted.
     """
     super(SearchServiceStub, self).__init__(service_name)
-
+    contents = None
+    try:
+      FILE = open(_SEARCH_LOCATION_FILE, 'r')
+      contents = FILE.read()
+      contents += ":" + str(_SEARCH_PORT)
+      FILE.close()
+      logging.info("Search server set to {0}".format(contents)) 
+    except Exception, e:
+      logging.warn("No search role configured. Search location set to None.")
+    self.__search_location = contents
+ 
   def _Dynamic_IndexDocument(self, request, response):
     """ A local implementation of SearchService.IndexDocument RPC.
 
@@ -119,13 +136,16 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
   def _RemoteSend(self, request, response, method):
     """ Sends a request remotely to the datstore server. """
+    if not self.__search_location:
+      raise search.InternalError("Search service not configured.")
+
     api_request = remote_api_pb.Request()
     api_request.set_method(method)
     api_request.set_service_name("search")
     api_request.set_request(request.Encode())
 
     api_response = remote_api_pb.Response()
-    api_response = api_request.sendCommand(self.__datastore_location,
+    api_response = api_request.sendCommand(self.__search_location,
       "",
       api_response,
       1,
@@ -134,7 +154,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       CERT_LOCATION)
 
     if not api_response or not api_response.has_response():
-      raise datastore_errors.InternalError(
+      raise search.InternalError(
           'No response from db server on %s requests.' % method)
 
     if api_response.has_application_error():
