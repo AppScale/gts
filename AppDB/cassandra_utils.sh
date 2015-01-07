@@ -41,7 +41,7 @@ if ! am_i_login_node ; then
 fi
 
 # Check for other running instances of this script.
-output=$(ps aux | grep "/bin/sh -c bash /root/db_repair.sh" | grep -v grep | wc -l)
+output=$(ps aux | grep "/bin/sh -c bash /root/cassandra_utils.sh" | grep -v grep | wc -l)
 if [ "$output" -gt "1" ]; then
         echo -e "\nAnother instance is already running. Exiting..."
         exit 1
@@ -114,7 +114,7 @@ repair_or_cleanup() {
 
         # Perform operation.
         for x in ${IPS_TO_USE} ; do
-		echo
+        		echo
                 echo -n "Working on $x:"
                 if [ -n "$1" -a "$1" = "CLEANUP" ]; then
                         echo -n "cleaning..."
