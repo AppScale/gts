@@ -14,7 +14,7 @@ KEYSPACE="Keyspace1"
 set -e
 
 help() {
-        echo "$0 {-cleanup|-rebalance|-repair}"
+        echo "$0 {-cleanup|-repair}"
         echo
         echo "Utility for an AppScale Cassandra cluster:"
         echo "   -repair               repair the cluster (should run routinely)."
