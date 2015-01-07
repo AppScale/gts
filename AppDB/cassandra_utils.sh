@@ -114,7 +114,7 @@ repair_or_cleanup() {
 
         # Perform operation.
         for x in ${IPS_TO_USE} ; do
-        		echo
+                echo
                 echo -n "Working on $x:"
                 if [ -n "$1" -a "$1" = "CLEANUP" ]; then
                         echo -n "cleaning..."
