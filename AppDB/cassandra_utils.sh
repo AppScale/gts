@@ -13,6 +13,8 @@ KEYSPACE="Keyspace1"
 
 set -e
 
+[ -x "$CMD" ] || { echo "Cannot find nodetool command. Exiting..."; exit 1; }
+
 help() {
         echo "$0 {-cleanup|-repair}"
         echo
@@ -113,12 +115,13 @@ repair_or_cleanup() {
         done < <(ssh $MASTER $CMD status|grep ^U|awk '{print $1, $2}')
 
         # Perform operation.
+        echo
+        date
         for x in ${IPS_TO_USE} ; do
-                echo
-                echo -n "Working on $x:"
+                echo -n "$x: "
                 if [ -n "$1" -a "$1" = "CLEANUP" ]; then
                         echo -n "cleaning..."
-                        if ! ssh $x "$CMD cleanup" > /dev/null ; then
+                        if ! (time ssh $x "$CMD cleanup" > /dev/null) ; then
                                 echo "failed."
                                 exit 1
                         fi
