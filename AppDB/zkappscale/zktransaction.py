@@ -1162,6 +1162,7 @@ class ZKTransaction:
     reconnect_error = False
     try:
       self.handle.stop()
+      self.handle.close()
     except kazoo.exceptions.ZookeeperError as close_exception:
       reconnect_error = True
       logging.exception(close_exception)
