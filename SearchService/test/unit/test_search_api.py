@@ -61,6 +61,8 @@ class FakeIndexDocumentResponse():
     pass
   def add_status(self):
     return FakeStatus()
+  def Encode(self):
+    return "encoded"
 
 class FakeRequest():
   def __init__(self):
@@ -121,5 +123,5 @@ class TestSearchApi(unittest.TestCase):
     search_service = search_api.SearchService() 
     search_service = flexmock(search_service)
 
-    self.assertEquals(search_service.index_document("app_data"), (fake_response, 0, ""))
+    self.assertEquals(search_service.index_document("app_data"), ("encoded", 0, ""))
 

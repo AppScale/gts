@@ -78,7 +78,7 @@ class TestSolrInterface(unittest.TestCase):
     updates = []
     self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
 
-    updates = [FakeUpdate('name1', 'type1'), FakeUpdate('name2', 'type2')]
+    updates = [{'name': 'name1', 'type':'type1'}]
     flexmock(simplejson)
     simplejson.should_receive("load").and_raise(ValueError)
     urllib2.should_receive("urlopen").and_return(FakeConnection(True))
