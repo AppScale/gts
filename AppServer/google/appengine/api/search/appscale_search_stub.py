@@ -48,12 +48,12 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
   _VERSION = 1
 
 
-  def __init__(self, service_name='search'):
+  def __init__(self, service_name='search', app_id=""):
     """ Constructor.
 
     Args:
       service_name: Service name expected for all calls.
-      index_file: The file to which search indexes will be persisted.
+      app_id: The application identifier. 
     """
     super(SearchServiceStub, self).__init__(service_name)
     contents = None
@@ -66,6 +66,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     except Exception, e:
       logging.warn("No search role configured. Search location set to None.")
     self.__search_location = contents
+    self.__app_id = app_id
  
   def _Dynamic_IndexDocument(self, request, response):
     """ A local implementation of SearchService.IndexDocument RPC.
@@ -76,6 +77,8 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       request: A search_service_pb.IndexDocumentRequest.
       response: An search_service_pb.IndexDocumentResponse.
     """
+    if not request.has_app_id():
+      request.set_app_id(self.__app_id)
     self._RemoteSend(request, response, "IndexDocument")
 
   def _Dynamic_DeleteDocument(self, request, response):

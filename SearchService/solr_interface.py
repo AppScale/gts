@@ -90,16 +90,17 @@ class Solr():
     """
     field_list = []
     for update in updates:
-      field_list.append({'name': update.name, 'type': update.field_type,
-        'stored': True, 'indexed': True, 'multiValued': False})
+      field_list.append({'name': update['name'], 'type': update['type'],
+        'stored': 'true', 'indexed': 'true', 'multiValued': 'false'})
 
     solr_url = "http://{0}:{1}/solr/schema/fields".format(
       self._search_location, self.SOLR_SERVER_PORT)
-
     json_request = simplejson.dumps(field_list)
-    logging.debug("JSON payload: {0}".format(json_request))
     try:
-      conn = urllib2.urlopen(solr_url, json_request)
+      content_length = len(json_request)
+      req = urllib2.Request(solr_url, data=json_request)
+      req.add_header('Content-Type', 'application/json')
+      conn = urllib2.urlopen(req) 
       if conn.getcode() != 200:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
@@ -158,14 +159,17 @@ class Solr():
     """
     docs = []
     docs.append(hash_map)
-
-    json_payload = simplejson.loads(docs)
+    json_payload = simplejson.dumps(docs)
     solr_url = "http://{0}:{1}/solr/update/json?commit=true".format(
       self._search_location, self.SOLR_SERVER_PORT)
     try:
-      conn = urllib2.urlopen(solr_url, json_payload)
+      req = urllib2.Request(solr_url, data=json_payload)
+      req.add_header('Content-Type', 'application/json')
+      conn = urllib2.urlopen(req) 
       if conn.getcode() != 200:
-        raise search_exceptions.InternalError("Malformed response from SOLR.")
+        logging.error("Got code {0} with URL {1} and payload {2}".format(conn.getcode(), 
+          solr_url, json_payload))
+        raise search_exceptions.InternalError("Bad request sent to SOLR.")
       response = simplejson.load(conn)
       status = response['responseHeader']['status'] 
       logging.debug("Response: {0}".format(response))
@@ -189,7 +193,7 @@ class Solr():
     solr_doc = self.to_solr_doc(doc)
 
     index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    updates = self.compute_updates(index.schema.fields, solr_doc.fields)
+    updates = self.compute_updates(index.name, index.schema.fields, solr_doc.fields)
     if len(updates) > 0:
       self.update_schema(updates)
 
@@ -211,24 +215,24 @@ class Solr():
       field_type = field.value().type()
       if field_type == FieldValue.TEXT:
         lang = field.value().language()
-        name = field.name() + "_" + Field.TEXT_ + lang
+        name = field.name()# + "_" + Field.TEXT_ + lang
         new_field = Field(name, Field.TEXT_ + lang, value=value)
       elif field_type == FieldValue.HTML:
         lang = field.value().language()
-        name = field.name() + "_" + Field.HTML + lang
+        name = field.name()# + "_" + Field.HTML + lang
         new_field = Field(name, Field.HTML, value=value)
       elif field_type == FieldValue.ATOM:
-        name = field.name() + "_" + Field.ATOM
+        name = field.name()# + "_" + Field.ATOM
         new_field = Field(name, Field.ATOM, value=value.lower())
       elif field_type == FieldValue.DATE:
-        name = field.name() + "_" + Field.DATE
+        name = field.name()# + "_" + Field.DATE
         new_field = Field(name, Field.DATE, value=value)
       elif  field_type == FieldValue.NUMBER:
-        name = field.name() + "_" + Field.NUMBER
+        name = field.name()# + "_" + Field.NUMBER
         new_field = Field(name, Field.NUMBER, value=value)
       elif field_type == FieldValue.GEO:
         geo = field.value.geo()
-        name = field.name() + "_" + Field.GEO
+        name = field.name()# + "_" + Field.GEO
         new_field = Field(name, Field.GEO, geo.lat + "," + geo.lng())
       else:
         logging.error("Unknown field type {0}".format(field_type))
@@ -237,14 +241,15 @@ class Solr():
       fields.append(new_field)
     return Document(doc.id(), doc.language(), fields)
 
-  def compute_updates(self, current_fields, doc_fields):
+  def compute_updates(self, index_name, current_fields, doc_fields):
     """ Computes the updates needed to update a document in SOLR.
   
     Args:
+      index_name: A str, the index name.
       current_fields: The current SOLR schema fields set.
       doc_fields: The fields that need to be updated.
     Returns:
-      A list of Fields that require updates.
+      A list of dictionaries with SOLR field names that require updates.
     """
     fields_to_update = []
     for doc_field in doc_fields:
@@ -252,10 +257,14 @@ class Solr():
       found = False
       for current_field in current_fields:
         current_name = current_field['name']
-        if current_name == doc_name:
+        if current_name == index_name + "_" + doc_name:
           found = True
       if not found:
-        fields_to_update.append(doc_field)
+        new_field = {'name': index_name + "_" + doc_name, 'type':
+          doc_field.field_type}
+        fields_to_update.append(new_field)
+    #TODO add fields to delete also.
+    logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
 class Schema():

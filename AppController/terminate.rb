@@ -65,7 +65,7 @@ module TerminateHelper
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
     `rm -rf /opt/appscale/celery`
-    `rm -rf /opt/appscale/search`
+    `rm -rf /opt/appscale/solr`
   end
 
 

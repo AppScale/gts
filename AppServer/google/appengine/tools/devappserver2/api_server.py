@@ -364,7 +364,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'search',
-      appscale_search_stub.SearchServiceStub())
+      appscale_search_stub.SearchServiceStub(app_id=app_id))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'modules',

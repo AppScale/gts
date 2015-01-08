@@ -109,14 +109,14 @@ class SearchService():
    
       new_status = response.add_status()
       try:  
-        self.solr_conn.update_document(request.app_id(), doc_id, doc, index_spec)
+        self.solr_conn.update_document(request.app_id(), doc, index_spec)
         new_status.set_code(search_service_pb.SearchServiceError.OK) 
       except Exception, exception:
         logging.exception(exception)
         new_status.set_code(
           search_service_pb.SearchServiceError.INTERNAL_ERROR)
 
-    return response, 0, ""
+    return response.Encode(), 0, ""
 
   def delete_document(self, data):
     """ Deletes a document.
@@ -163,6 +163,10 @@ class SearchService():
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.SearchRequest(data)
+    logging.debug("Search request: {0}".format(request))
     response = search_service_pb.SearchResponse()
-    return response, 0, ""
+    response.set_matched_count(0)
+    response.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
+    logging.debug("Search response: {0}".format(response))
+    return response.Encode(), 0, ""
 

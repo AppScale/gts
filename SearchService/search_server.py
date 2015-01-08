@@ -15,9 +15,9 @@ DEFAULT_PORT = 53423
 class MainHandler(tornado.web.RequestHandler):
   """ Main handler class. """
   
-  def initialize(self, search):
+  def initialize(self, search_service):
     """ Class for initializing search service web handler. """
-    self.search_service = search
+    self.search_service = search_service
 
   @tornado.web.asynchronous
   def post(self):
