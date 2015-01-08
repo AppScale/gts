@@ -185,6 +185,7 @@ class ZKTransaction:
     logging.info("Closing ZK connection")
     self.stop_gc()
     self.handle.stop()
+    self.handle.close()
 
   def increment_and_get_counter(self, path, value):
     """ Increment a counter atomically.
@@ -1162,6 +1163,7 @@ class ZKTransaction:
     reconnect_error = False
     try:
       self.handle.stop()
+      self.handle.close()
     except kazoo.exceptions.ZookeeperError as close_exception:
       reconnect_error = True
       logging.exception(close_exception)
