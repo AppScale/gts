@@ -1,13 +1,11 @@
 #!/usr/bin/env python
+""" Interface to the AppController. """
 
 # General-purpose Python library imports
 import json
-import logging
-import re
 import socket
 import ssl
 import sys
-import time
 
 
 # Third-party imports
@@ -15,8 +13,8 @@ import SOAPpy
 
 
 # AppScale-specific imports
-from custom_exceptions import AppControllerException
-from custom_exceptions import TimeoutException
+class AppControllerException(Exception):
+  """ AppController exception. """
 
 
 class AppControllerClient():
@@ -33,6 +31,9 @@ class AppControllerClient():
   # The port that the AppController runs on by default.
   PORT = 17443
 
+
+  # Maximum number of times we try a call to the AppController.
+  MAX_RETRIES = 3
 
   # The number of seconds we should wait for when waiting for the UserAppServer
   # to start up.
@@ -57,10 +58,11 @@ class AppControllerClient():
     self.secret = secret
 
 
-  def call(self, function, *args):
+  def call(self, retries, function, *args):
     """Runs the given function, retrying it if a transient error is seen.
 
     Args:
+      retries: The number of times to retry.
       function: The function that should be executed.
       *args: The arguments that will be passed to function.
     Returns:
@@ -69,6 +71,10 @@ class AppControllerClient():
       AppControllerException: If the AppController we're trying to connect to is
         not running at the given IP address, or if it rejects the SOAP request.
     """
+    if retries <= 0:
+      raise AppControllerException(
+        "Ran out of retries calling the AppController. ")
+
     try:
       result = function(*args)
 
@@ -80,9 +86,7 @@ class AppControllerClient():
     except (ssl.SSLError, socket.error):
       sys.stderr.write("Saw SSL exception when communicating with the " \
         "AppController, retrying momentarily.")
-      return self.call(function, *args)
-
-    return retval
+      return self.call(retries - 1, function, *args)
 
 
   def set_parameters(self, locations, credentials, app=None):
@@ -102,8 +106,8 @@ class AppControllerClient():
     if app is None:
       app = 'none'
 
-    result = self.call(self.server.set_parameters, locations, credentials,
-      [app], self.secret)
+    result = self.call(self.MAX_RETRIES, self.server.set_parameters, locations, 
+      credentials, [app], self.secret)
     if result.startswith('Error'):
       raise AppControllerException(result)
 
@@ -116,7 +120,8 @@ class AppControllerClient():
       A list of the public IP addresses of each machine in this AppScale
       deployment.
     """
-    return json.loads(self.call(self.server.get_all_public_ips, self.secret))
+    return json.loads(self.call(self.MAX_RETRIES,
+      self.server.get_all_public_ips, self.secret))
 
 
   def get_role_info(self):
@@ -127,7 +132,8 @@ class AppControllerClient():
       A dict that contains the public IP address, private IP address, and a list
       of the API services that each node runs in this AppScale deployment.
     """
-    return json.loads(self.call(self.server.get_role_info, self.secret))
+    return json.loads(self.call(self.MAX_RETRIES, self.server.get_role_info,
+      self.secret))
 
 
   def get_status(self):
@@ -142,7 +148,7 @@ class AppControllerClient():
       A str containing information about the CPU, memory, and disk usage of that
       machine, as well as where the UserAppServer is located.
     """
-    return self.call(self.server.status, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.status, self.secret)
 
 
   def get_api_status(self):
@@ -155,7 +161,8 @@ class AppControllerClient():
     Returns:
       A dict that maps each API name (a str) to its status (also a str).
     """
-    return json.loads(self.call(self.server.get_api_status, self.secret))
+    return json.loads(self.call(self.MAX_RETRIES, self.server.get_api_status,
+      self.secret))
 
 
   def get_database_information(self):
@@ -168,8 +175,8 @@ class AppControllerClient():
       'table', for historical reasons) and the replication factor (with the
       key 'replication').
     """
-    return json.loads(self.call(self.server.get_database_information,
-      self.secret))
+    return json.loads(self.call(self.MAX_RETRIES,
+      self.server.get_database_information, self.secret))
 
 
   def upload_app(self, filename, file_suffix, email):
@@ -186,12 +193,8 @@ class AppControllerClient():
       A str that indicates either that the app was successfully uploaded, or the
       reason why the application upload failed.
     """
-    timeout_upload_data = json.dumps({
-      'status' : 'timed out'
-    })
-
-    return json.loads(self.call(self.server.upload_app, filename, file_suffix,
-      email, self.secret))
+    return json.loads(self.call(self.MAX_RETRIES, self.server.upload_app,
+      filename, file_suffix, email, self.secret))
 
 
   def get_app_upload_status(self, reservation_id):
@@ -204,8 +207,8 @@ class AppControllerClient():
     Returns:
       A str with the status of the application being uploaded.
     """
-    return self.call(self.server.get_app_upload_status, reservation_id,
-      self.secret)
+    return self.call(self.MAX_RETRIES, self.server.get_app_upload_status,
+      reservation_id, self.secret)
 
 
   def get_stats(self):
@@ -216,7 +219,8 @@ class AppControllerClient():
       A list of dicts, where each dict contains server-level statistics (e.g.,
         CPU, memory, disk usage) about one machine.
     """
-    return json.loads(self.call(self.server.get_stats_json, self.secret))
+    return json.loads(self.call(self.MAX_RETRIES, self.server.get_stats_json,
+      self.secret))
 
 
   def is_initialized(self):
@@ -227,7 +231,8 @@ class AppControllerClient():
       A bool that indicates if all API services have finished starting up on
       this machine.
     """
-    return self.call(self.server.is_done_initializing, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.is_done_initializing,
+      self.secret)
 
 
   def start_roles_on_nodes(self, roles_to_nodes):
@@ -239,8 +244,8 @@ class AppControllerClient():
     Returns:
       The result of executing the SOAP call on the remote AppController.
     """
-    return self.call(self.server.start_roles_on_nodes, roles_to_nodes,
-      self.secret)
+    return self.call(self.MAX_RETRIES, self.server.start_roles_on_nodes,
+      roles_to_nodes, self.secret)
 
 
   def stop_app(self, app_id):
@@ -251,7 +256,8 @@ class AppControllerClient():
     Returns:
       The result of telling the AppController to no longer host the app.
     """
-    return self.call(self.server.stop_app, app_id, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.stop_app, app_id,
+      self.secret)
 
 
   def is_app_running(self, app_id):
@@ -263,7 +269,8 @@ class AppControllerClient():
     Returns:
       True if the application is running, False otherwise.
     """
-    return self.call(self.server.is_app_running, app_id, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.is_app_running, app_id,
+      self.secret)
 
 
   def done_uploading(self, app_id, remote_app_location):
@@ -275,8 +282,8 @@ class AppControllerClient():
       remote_app_location: A str that indicates the location on the remote
         machine where the App Engine application can be found.
     """
-    return self.call(self.server.done_uploading, app_id, remote_app_location,
-      self.secret)
+    return self.call(self.MAX_RETRIES, self.server.done_uploading, app_id,
+      remote_app_location, self.secret)
 
 
   def update(self, apps_to_run):
@@ -287,7 +294,8 @@ class AppControllerClient():
       apps_to_run: A list of apps to start running on nodes running the App
         Engine service.
     """
-    return self.call(self.server.update, apps_to_run, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.update, apps_to_run,
+      self.secret)
 
 
   def gather_logs(self):
@@ -295,7 +303,7 @@ class AppControllerClient():
     stored in the AppDashboard's static file directory, so that users can
     download it.
     """
-    return self.call(self.server.gather_logs, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.gather_logs, self.secret)
 
 
   def run_groomer(self):
@@ -303,4 +311,4 @@ class AppControllerClient():
     been soft deleted, and to generate statistics about the entities still in
     the Datastore (which can be viewed in the AppDashboard).
     """
-    return self.call(self.server.run_groomer, self.secret)
+    return self.call(self.MAX_RETRIES, self.server.run_groomer, self.secret)
