@@ -267,6 +267,10 @@ class Solr():
     logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
+  def get_query(self):
+    """ """
+    pass
+
 class Schema():
   """ Represents a schema in SOLR. """
   def __init__(self, fields , response_header):

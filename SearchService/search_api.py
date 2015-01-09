@@ -4,6 +4,7 @@ import os
 import sys
 import uuid
 
+import query_parser
 import solr_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
@@ -164,6 +165,13 @@ class SearchService():
     """
     request = search_service_pb.SearchRequest(data)
     logging.debug("Search request: {0}".format(request))
+    params = request.params()
+    app_id = request.app_id()
+    index = self.solr_conn.get_index(app_id, index_spec.namespace(),
+      index_spec.name())
+    query = query_parser.QueryParser(index)
+    qstr = query.parse(params)
+
     response = search_service_pb.SearchResponse()
     response.set_matched_count(0)
     response.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
