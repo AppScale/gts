@@ -1160,20 +1160,17 @@ class ZKTransaction:
   def reestablish_connection(self):
     """ Checks the connection and resets it as needed. """
     logging.warning("Re-establishing ZooKeeper connection.")
-    reconnect_error = False
     try:
       self.handle.stop()
       self.handle.close()
     except kazoo.exceptions.ZookeeperError as close_exception:
-      reconnect_error = True
       logging.exception(close_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
-      reconnect_error = True
       logging.exception(kazoo_exception)
     except Exception as exception:
-      reconnect_error = True
       logging.exception(exception)
 
+    reconnect_error = False
     self.handle = kazoo.client.KazooClient(hosts=self.host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
 
