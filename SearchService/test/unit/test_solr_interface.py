@@ -121,3 +121,22 @@ class TestSolrInterface(unittest.TestCase):
     dictionary = {'responseHeader':{'status': 0}}
     simplejson.should_receive("load").and_return(dictionary).once()
     solr.commit_update({})
+
+  def test_update_document(self):
+    appscale_info = flexmock()
+    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    solr = solr_interface.Solr()
+    solr = solr_interface.Solr()
+    solr = flexmock(solr) 
+    solr.should_receive("to_solr_doc").and_return(None).once()
+    solr.should_receive("get_index").and_return(None).once()
+    solr.should_receive("compute_updates").and_return([]).once()
+    solr.should_receive("to_solr_hash_map").and_return(None).once()
+    solr.should_receive("commit_update").and_return(None).once()
+    solr.update_document("app_id", None, None)
+     
+    solr.should_receive("compute_updates").and_return([1,2]).once()
+    solr.should_receive("update_schema").twice()
+    solr.update_document("app_id", None, None)
+
+    solr.should_receive("to_solr_hash_map").and_return(None).once()
