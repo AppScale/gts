@@ -164,14 +164,14 @@ class SearchService():
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.SearchRequest(data)
-    logging.debug("Search request: {0}".format(request))
+    logging.info("Search request: {0}".format(request))
     params = request.params()
     app_id = request.app_id()
+    index_spec = params.index_spec()
     index = self.solr_conn.get_index(app_id, index_spec.namespace(),
       index_spec.name())
-    query = query_parser.QueryParser(index)
-    qstr = query.parse(params)
-
+    parser = query_parser.SolrQueryParser(index)
+    qstr = parser.get_solr_query_string(request.params().query())
     response = search_service_pb.SearchResponse()
     response.set_matched_count(0)
     response.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
