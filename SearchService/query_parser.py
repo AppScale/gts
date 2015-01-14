@@ -12,14 +12,18 @@ from google.appengine.api.search import QueryParser
 
 class SolrQueryParser():
   """ Class for parsing search queries. """
-  def __init__(self, index):
+  def __init__(self, index, app_id, namespace):
     """ Constructor for query parsing. 
     
     Args:
       index: An Index for the query to run.
+      app_id: A str, the application ID.
+      namespace: A str, the current namespace.
     """
     self.__index = index
     self.__fields = []
+    self.__app_id = app_id
+    self.__namespace = namespace
 
   def get_solr_query_string(self, query):
     """ Parses the query and returns a query string.
@@ -31,19 +35,19 @@ class SolrQueryParser():
     Returns:
       A SOLR string.
     """
-    expression = "q={0}:{1}".format(Document.INDEX_NAME, self.__index.name) 
+    query_string = "q={0}:{1} ".format(Document.INDEX_NAME, self.__index.name) 
     if len(query) > 0:
       self.__fields = []
       query = urllib.unquote(query)
       query = query.strip()
       if not isinstance(query, unicode):
         query = unicode(query, 'utf-8')
-      logging.info("Query: {0}".format(query))
+      logging.debug("Query: {0}".format(query))
       query_tree = query_parser.ParseAndSimplify(query)
-      logging.info("DUMP :{0}".format(self.__dump_tree(query_tree)))
-      query_string = expression + self.__create_string(query_tree)
+      logging.debug("DUMP :{0}".format(self.__dump_tree(query_tree)))
+      query_string += "AND " + self.__create_string(query_tree)
     # Deal with orders and other fields. TODO
-    logging.info("SOLR STRING: {0}".format(query_string))
+    logging.debug("SOLR STRING: {0}".format(query_string))
     return query_string
 
   def __create_string(self, query_tree):
@@ -56,42 +60,60 @@ class SolrQueryParser():
     """
     q_str = ""
     if query_tree.getType() == QueryParser.CONJUNCTION:
-      q_str += " AND ("
+      q_str += "("
       for index, child in enumerate(query_tree.children):
         if index != 0:
-          q_str += " AND " # This right? TODO
+          q_str += " AND "
         q_str += self.__create_string(child)
       q_str += ")"
       return q_str
     elif query_tree.getType() == QueryParser.DISJUNCTION:
-      q_str += " AND ( "
+      q_str += " AND ("
       for index, child in enumerate(query_tree.children):
         if index != 0:
-          q_str += " OR "  # This right? TODO
+          q_str += " OR "
         q_str += self.__create_string(child)
       q_str += ")"
       return q_str
     elif query_tree.getType() == QueryParser.NEGATION:
-      q_str += " NOT ( "
+      q_str += " NOT ("
       for index, child in enumerate(query_tree.children):
         if index != 0:
-          q_str += " AND " # This right? TODO
+          q_str += " AND "
         q_str += self.__create_string(child)
       q_str += ")"
       return q_str
     elif query_tree.getType() in query_parser.COMPARISON_TYPES:
       field, match = query_tree.children
-      logging.info("Field: {0}, Match: {1}".format(field.getType(), match))
       if field.getType() == QueryParser.GLOBAL:
-        logging.info("Node: {0}".format(field.toStringTree()))
-        q_str += "AND {0} ".format(field.getText())
+        field = query_parser.GetQueryNodeText(match)
+        field = self.__escape_chars(field) #TODO
+        q_str += " \"{0}\" ".format(field)
       else:
-        internal_field_name = self.__get_internal_field_name("SOMEFIELD") #TODO
-        escaped_value = self.__escape_chars("VALUE") #TODO
-        q_str += "AND {0}:\"{1}\" ".format(internal_field_name, escaped_value)
+        field = query_parser.GetQueryNodeText(field)
+        match = query_parser.GetQueryNodeText(match)
+        internal_field_name = self.__get_internal_field_name(field) #TODO
+        escaped_value = self.__escape_chars(match) #TODO
+        op = self.__get_operator(query_tree.getType())
+        q_str += " {0}{1}\"{2}\" ".format(internal_field_name, op, escaped_value)
       return q_str
-    logging.info("Did not match {0}".format(query_tree.getType()))
+    logging.warning("No node match for {0}".format(query_tree.getType()))
     return ""
+
+  # TODO handle range operators
+
+  def __get_operator(self, op_code):
+    """ Returns the string equivalent of the operation code.
+   
+    Args:
+      op_code: An int which maps to a comparison operator.
+    Returns:
+      A str, the SOLR operator which maps from the operator code.
+    """
+    # TODO
+    if op_code == QueryParser.EQ:
+      return ":"
+    return ":"
 
   def __escape_chars(self, value):
     """ Puts in escape characters for certain characters which are a part of
@@ -102,7 +124,6 @@ class SolrQueryParser():
     Returns:
       A str, the escaped value.
     """
-    return "VALUE"
     new_value = ""
     for char in value:
       if char in ['\\', '+', '-', '!', '(', ')', ':', '^', '[', ']', '"', 
@@ -119,10 +140,11 @@ class SolrQueryParser():
     Returns:
       A str, the internal field name for SOLR. 
     """
-    return "FIELDNAME"
-    for field in self.__index.fields:
-      if field.name == field_name:
-        return "{0}_{1}".format(self.__index.name, field.name)
+    for field in self.__index.schema.fields:
+      if field['name'].endswith(field_name) and \
+        field['name'].startswith("{0}_{1}_".format(self.__app_id,
+        self.__namespace)):
+        return field['name']
     logging.error("Unable to find field name {0}".format(field_name))
     return ""
 

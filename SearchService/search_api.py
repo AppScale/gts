@@ -94,6 +94,7 @@ class SearchService():
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.IndexDocumentRequest(data)
+    logging.debug("APP ID: {0}".format(request.app_id())) 
     response = search_service_pb.IndexDocumentResponse()
     params = request.params()
 
@@ -109,7 +110,7 @@ class SearchService():
       response.add_doc_id(doc_id)
    
       new_status = response.add_status()
-      try:  
+      try:
         self.solr_conn.update_document(request.app_id(), doc, index_spec)
         new_status.set_code(search_service_pb.SearchServiceError.OK) 
       except Exception, exception:
@@ -164,13 +165,14 @@ class SearchService():
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.SearchRequest(data)
-    logging.info("Search request: {0}".format(request))
+    logging.debug("Search request: {0}".format(request))
     params = request.params()
     app_id = request.app_id()
     index_spec = params.index_spec()
+    namespace = index_spec.namespace()
     index = self.solr_conn.get_index(app_id, index_spec.namespace(),
       index_spec.name())
-    parser = query_parser.SolrQueryParser(index)
+    parser = query_parser.SolrQueryParser(index, app_id, namespace)
     qstr = parser.get_solr_query_string(request.params().query())
     response = search_service_pb.SearchResponse()
     response.set_matched_count(0)

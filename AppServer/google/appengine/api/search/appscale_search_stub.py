@@ -118,6 +118,8 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       request: A search_service_pb.SearchRequest.
       response: An search_service_pb.SearchResponse.
     """
+    if not request.has_app_id():
+      request.set_app_id(self.__app_id)
     self._RemoteSend(request, response, "Search")
 
   def __repr__(self):

@@ -78,7 +78,6 @@ class Solr():
     for field in response['fields']:
       if field['name'].startswith("{0}_".format(index_name)):
         filtered_fields.append(field)
-
     schema = Schema(filtered_fields, response['responseHeader'])
     return Index(index_name, schema)
 
