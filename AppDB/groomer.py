@@ -99,12 +99,12 @@ class DatastoreGroomer(threading.Thread):
     """ Starts the main loop of the groomer thread. """
     while True:
       time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
-      logging.info("Trying to get groomer lock.")
+      logging.debug("Trying to get groomer lock.")
       if self.get_groomer_lock():
         logging.info("Got the groomer lock.")
         self.run_groomer()
         try:
-          self.zoo_keeper.release_datastore_groomer_lock()
+          self.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
         except zk.ZKTransactionException, zk_exception:
           logging.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
@@ -120,7 +120,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    return self.zoo_keeper.get_datastore_groomer_lock()
+    return self.zoo_keeper.get_lock_with_path(zk.DS_GROOM_LOCK_PATH)
 
   def get_entity_batch(self, last_key):
     """ Gets a batch of entites to operate on.
@@ -934,7 +934,6 @@ class DatastoreGroomer(threading.Thread):
 
     timestamp = datetime.datetime.utcnow()
 
-
     if not self.update_statistics(timestamp):
       logging.error("There was an error updating the statistics")
 
@@ -958,7 +957,7 @@ def main():
   datastore_path = "{0}:8888".format(master)
   ds_groomer = DatastoreGroomer(zookeeper, table, datastore_path)
   try:
-    ds_groomer.run_groomer()
+    ds_groomer.run()
   finally:
     zookeeper.close()
 

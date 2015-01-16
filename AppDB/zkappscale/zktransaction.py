@@ -74,6 +74,9 @@ GC_TIME_PATH = "gclast_time"
 # Lock path for the datastore groomer.
 DS_GROOM_LOCK_PATH = "/appscale_datastore_groomer"
 
+# Lock path for the datastore backup.
+DS_BACKUP_LOCK_PATH = "/appscale_datastore_backup"
+
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
@@ -1302,18 +1305,20 @@ class ZKTransaction:
       return True
     return False
 
-  def get_datastore_groomer_lock(self):
-    """ Tries to get the lock for the datastore groomer. 
+  def get_lock_with_path(self, path):
+    """ Tries to get the lock based on path.
 
+    Args:
+      path: A str, the lock path.
     Returns:
       True if the lock was obtained, False otherwise.
     """
     try:
       now = str(time.time())
-      self.run_with_retry(self.handle.create, DS_GROOM_LOCK_PATH, value=now,
+      self.run_with_retry(self.handle.create, path, value=now,
         acl=ZOO_ACL_OPEN, ephemeral=True)
     except kazoo.exceptions.NoNodeError:
-      logging.debug("Couldn't create path {0}".format(DS_GROOM_LOCK_PATH))
+      logging.error("Couldn't create path {0}".format(path))
       return False
     except kazoo.exceptions.NodeExistsError:
       return False
@@ -1340,18 +1345,20 @@ class ZKTransaction:
       
     return True
 
-  def release_datastore_groomer_lock(self):
-    """ Releases the datastore groomer lock. 
+  def release_lock_with_path(self, path):
+    """ Releases lock based on path.
    
+    Args:
+      path: A str, the lock path.
     Returns:
       True on success, False on system failures.
     Raises:
       ZKTransactionException: If the lock could not be released.
     """
     try:
-      self.run_with_retry(self.handle.delete, DS_GROOM_LOCK_PATH)
+      self.run_with_retry(self.handle.delete, path)
     except kazoo.exceptions.NoNodeError:
-      raise ZKTransactionException("Unable to delete datastore groomer lock.")
+      raise ZKTransactionException("Unable to delete lock: {0}".format(path))
     except kazoo.exceptions.SystemZookeeperError as sys_exception:
       logging.exception(sys_exception)
       self.reestablish_connection()
