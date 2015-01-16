@@ -15,12 +15,12 @@ from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import dbconstants
-import datastore_server
 import appscale_datastore_batch
+import datastore_server
+import dbconstants
+import entity_utils
 import groomer
 
-from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
 
 
@@ -79,7 +79,7 @@ class TestGroomer(unittest.TestCase):
 
   def test_get_groomer_lock(self):
     zookeeper = flexmock()
-    zookeeper.should_receive("get_datastore_groomer_lock").and_return(True)
+    zookeeper.should_receive("get_lock_with_path").and_return(True)
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertEquals(True, dsg.get_groomer_lock())
 
@@ -91,18 +91,18 @@ class TestGroomer(unittest.TestCase):
     self.assertEquals(False, dsg.hard_delete_row("some_key"))
 
   def test_get_root_key_from_entity_key(self):
-    self.assertEquals("hi/bye\x01", groomer.DatastoreGroomer.\
+    self.assertEquals("hi/bye\x01", entity_utils.\
       get_root_key_from_entity_key("hi/bye\x01otherstuff\x01moar"))
 
-    self.assertEquals("hi/\x01", groomer.DatastoreGroomer.\
+    self.assertEquals("hi/\x01", entity_utils.\
       get_root_key_from_entity_key("hi/\x01otherstuff\x01moar"))
 
   def test_get_prefix_from_entity(self):
-    self.assertEquals("hi\x00bye", groomer.DatastoreGroomer.\
+    self.assertEquals("hi\x00bye", entity_utils.\
       get_prefix_from_entity_key("hi\x00bye\x00some\x00other\x00stuff"))
 
     # Test empty namespace (very common).
-    self.assertEquals("hi\x00", groomer.DatastoreGroomer.\
+    self.assertEquals("hi\x00", entity_utils.\
       get_prefix_from_entity_key("hi\x00\x00some\x00other\x00stuff"))
 
   def test_run_groomer(self):
@@ -174,10 +174,13 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.should_receive("hard_delete_row").and_return(True)
-    flexmock(groomer.DatastoreGroomer).should_receive(
+
+    flexmock(entity_utils)
+    entity_utils.should_receive(
       "get_root_key_from_entity_key").and_return("key")
-    flexmock(groomer.DatastoreGroomer).should_receive(
+    entity_utils.should_receive(
       "get_prefix_from_entity_key").and_return("app/ns")
+
     dsg.db_access = FakeDatastore()
 
     # Successful operation.
