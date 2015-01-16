@@ -33,7 +33,7 @@ def get_prefix_from_entity_key(entity_key):
   tokens = entity_key.split(KEY_DELIMITER)
   return tokens[0] + KEY_DELIMITER + tokens[1]
 
-def fetch_journal_entry(self, key):
+def fetch_journal_entry(db_access, key):
   """ Fetches the given key from the journal.
 
   Args:
@@ -41,7 +41,7 @@ def fetch_journal_entry(self, key):
   Returns:
     The entity fetched from the datastore, or None if it was deleted.
   """
-  result = self.db_access.batch_get_entity(JOURNAL_TABLE, [key],
+  result = db_access.batch_get_entity(JOURNAL_TABLE, [key],
     JOURNAL_SCHEMA)
   if len(result.keys()) == 0:
     return None

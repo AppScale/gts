@@ -1,5 +1,5 @@
-""" This process grooms the datastore cleaning up old state and 
-calculates datastore statistics. Removes tombstoned items for garbage 
+""" This process grooms the datastore cleaning up old state and
+calculates datastore statistics. Removes tombstoned items for garbage
 collection.
 """
 import datetime
@@ -39,7 +39,7 @@ from distributed_tq import TaskName
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
- 
+
   # The amount of seconds between polling to get the groomer lock.
   # Each datastore server does this poll, so it happens the number
   # of datastore servers within this lock period.
@@ -49,14 +49,14 @@ class DatastoreGroomer(threading.Thread):
   DB_ERROR_PERIOD = 30
 
   # The number of entities retrieved in a datastore request.
-  BATCH_SIZE = 100 
+  BATCH_SIZE = 100
 
   # Any kind that is of __*__ is private and should not have stats.
   PRIVATE_KINDS = '__(.*)__'
 
   # Any kind that is of _*_ is protected and should not have stats.
   PROTECTED_KINDS = '_(.*)_'
-  
+
   # The amount of time in seconds before we want to clean up task name holders.
   TASK_NAME_TIMEOUT = 24 * 60 * 60
 
@@ -70,7 +70,7 @@ class DatastoreGroomer(threading.Thread):
   NO_COMPOSITES = "NO_COMPS_INDEXES_HERE"
 
   def __init__(self, zoo_keeper, table_name, ds_path):
-    """ Constructor. 
+    """ Constructor.
 
     Args:
       zk: ZooKeeper client.
@@ -84,6 +84,8 @@ class DatastoreGroomer(threading.Thread):
     threading.Thread.__init__(self)
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
+    self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
+      self.table_name)
     self.datastore_path = ds_path
     self.stats = {}
     self.namespace_info = {}
@@ -115,8 +117,8 @@ class DatastoreGroomer(threading.Thread):
         logging.info("Did not get the groomer lock.")
 
   def get_groomer_lock(self):
-    """ Tries to acquire the lock to the datastore groomer. 
-  
+    """ Tries to acquire the lock to the datastore groomer.
+
     Returns:
       True on success, False otherwise.
     """
@@ -129,8 +131,8 @@ class DatastoreGroomer(threading.Thread):
       last_key: The last key from a previous query.
     Returns:
       A list of entities.
-    """ 
-    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
+    """
+    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
       dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE,
       start_inclusive=False)
 
@@ -145,14 +147,14 @@ class DatastoreGroomer(threading.Thread):
     """ Remove journal entries that are no longer needed. Assumes
     transaction numbers are only increasing.
 
-    Args: 
+    Args:
       txn_id: An int of the transaction number to delete up to.
       key: A str, the entity table key for which we are deleting.
     Returns:
-      True on success, False otherwise. 
+      True on success, False otherwise.
     """
     if txn_id == 0:
-      return True 
+      return True
     start_row = datastore_server.DatastoreDistributed.get_journal_key(key, 0)
     end_row = datastore_server.DatastoreDistributed.get_journal_key(key,
       int(txn_id) - 1)
@@ -161,7 +163,7 @@ class DatastoreGroomer(threading.Thread):
     keys_to_delete = []
     while True:
       try:
-        results = self.db_access.range_query(dbconstants.JOURNAL_TABLE, 
+        results = self.db_access.range_query(dbconstants.JOURNAL_TABLE,
           dbconstants.JOURNAL_SCHEMA, last_key, end_row, self.BATCH_SIZE,
           start_inclusive=False, end_inclusive=True)
         if len(results) == 0:
@@ -177,17 +179,17 @@ class DatastoreGroomer(threading.Thread):
           keys_to_delete, db_error))
         logging.error("Backing off!")
         time.sleep(self.DB_ERROR_PERIOD)
-        return False 
+        return False
       except Exception, exception:
         logging.error("Caught unexcepted exception {0}".format(exception))
         logging.error("Backing off!")
         time.sleep(self.DB_ERROR_PERIOD)
         return False
-     
+
   def hard_delete_row(self, row_key):
     """ Does a hard delete on a given row key to the entity
         table.
-   
+
     Args:
       row_key: A str representing the row key to delete.
     Returns:
@@ -199,19 +201,19 @@ class DatastoreGroomer(threading.Thread):
     except dbconstants.AppScaleDBConnectionError, db_error:
       logging.error("Error hard deleting key {0}-->{1}".format(
         row_key, db_error))
-      return False 
+      return False
     except Exception, exception:
       logging.error("Caught unexcepted exception {0}".format(exception))
       return False
- 
+
     return True
 
   @staticmethod
   def get_root_key_from_entity_key(key):
-    """ Extract the root key from an entity key. We 
+    """ Extract the root key from an entity key. We
         remove any excess children from a string to get to
         the root key.
-    
+
     Args:
       entity_key: A string representing a row key.
     Returns:
@@ -269,12 +271,12 @@ class DatastoreGroomer(threading.Thread):
     end_key = datastore_server.DatastoreDistributed.get_meta_data_key(
       app_id, "index", dbconstants.TERMINATING_STRING)
 
-    results = self.db_access.range_query(dbconstants.METADATA_TABLE, 
-      dbconstants.METADATA_TABLE, start_key, end_key, 
+    results = self.db_access.range_query(dbconstants.METADATA_TABLE,
+      dbconstants.METADATA_TABLE, start_key, end_key,
       dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES)
     list_result = []
     for list_item in results:
-      for key, value in list_item.iteritems():
+      for _, value in list_item.iteritems():
         list_result.append(value['data'])
 
     self.composite_index_cache[app_id] = self.NO_COMPOSITES
@@ -295,7 +297,7 @@ class DatastoreGroomer(threading.Thread):
 
   def clean_up_composite_indexes(self):
     """ Deletes old composite indexes and bad references.
- 
+
     Returns:
       True on success, False otherwise.
     """
@@ -303,9 +305,9 @@ class DatastoreGroomer(threading.Thread):
 
   def get_composite_indexes(self, app_id, kind):
     """ Fetches the composite indexes for a kind.
- 
+
     Args:
-      app_id: The application ID. 
+      app_id: The application ID.
       kind: A string, the kind for which we need composite indexes.
     Returns:
       A list of composite indexes.
@@ -315,7 +317,7 @@ class DatastoreGroomer(threading.Thread):
 
     if app_id in self.composite_index_cache:
       if self.composite_index_cache[app_id] == self.NO_COMPOSITES:
-        return [] 
+        return []
       elif kind in self.composite_index_cache[app_id]:
         return self.composite_index_cache[app_id][kind]
       else:
@@ -336,10 +338,10 @@ class DatastoreGroomer(threading.Thread):
 
   def delete_composite_indexes(self, entity, composites):
     """ Deletes composite indexes for an entity.
-  
+
     Args:
       entity: An EntityProto.
-      composites: A list of datastore_pb.CompositeIndexes composite indexes. 
+      composites: A list of datastore_pb.CompositeIndexes composite indexes.
     """
     row_keys = datastore_server.DatastoreDistributed.\
       get_composite_indexes_rows([entity], composites)
@@ -354,7 +356,7 @@ class DatastoreGroomer(threading.Thread):
       key: The key to the entity table.
       version: The bad version of the entity.
     Returns:
-      True on success, False otherwise. 
+      True on success, False otherwise.
     """
     app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
@@ -366,7 +368,7 @@ class DatastoreGroomer(threading.Thread):
         valid_id = self.zoo_keeper.get_valid_transaction_id(app_prefix,
           version, key)
         # Insert the entity along with regular indexes and composites.
-        ds_distributed = self.register_db_accessor(app_prefix) 
+        ds_distributed = self.register_db_accessor(app_prefix)
         bad_key = datastore_server.DatastoreDistributed.get_journal_key(key,
           version)
         good_key = datastore_server.DatastoreDistributed.get_journal_key(key,
@@ -376,7 +378,7 @@ class DatastoreGroomer(threading.Thread):
         good_entry = self.fetch_journal_entry(good_key)
         bad_entry = self.fetch_journal_entry(bad_key)
 
-        # Get the kind to lookup composite indexes. 
+        # Get the kind to lookup composite indexes.
         kind = None
         if good_entry:
           kind = datastore_server.DatastoreDistributed.get_entity_kind(
@@ -397,13 +399,13 @@ class DatastoreGroomer(threading.Thread):
         # Overwrite the entity table with the correct version.
         # Insert into entity table, regular indexes, and composites.
         if good_entry:
-          # TODO 
+          # TODO
           #self.db_access.batch_put_entities(...)
           #self.insert_indexes(good_entry)
           #self.insert_composite_indexes(good_entry, composites)
           pass
         else:
-          # TODO 
+          # TODO
           #self.db_access.batch_delete_entities(...)
           pass
         del ds_distributed
@@ -426,7 +428,7 @@ class DatastoreGroomer(threading.Thread):
       try:
         self.zoo_keeper.release_lock(app_prefix, txn_id)
       except zk.ZKTransactionException, zk_exception:
-        # There was an exception releasing the lock, but 
+        # There was an exception releasing the lock, but
         # the replacement has already happened.
         pass
       except zk.ZKInternalException, zk_exception:
@@ -435,10 +437,10 @@ class DatastoreGroomer(threading.Thread):
     return True
 
   def process_tombstone(self, key, entity, version):
-    """ Processes any entities which have been soft deleted. 
+    """ Processes any entities which have been soft deleted.
         Does an actual delete to reclaim disk space.
 
-    Args: 
+    Args:
       key: The key to the entity table.
       entity: The entity in string serialized form.
       version: The version of the entity in the datastore.
@@ -508,7 +510,7 @@ class DatastoreGroomer(threading.Thread):
         except zk.ZKTransactionException, zk_exception:
           logging.error("Caught exception: {0}\nIgnoring...".format(
             zk_exception))
-          # There was an exception releasing the lock, but 
+          # There was an exception releasing the lock, but
           # the hard delete has already happened.
         except zk.ZKInternalException, zk_exception:
           logging.error("Caught exception: {0}\nIgnoring...".format(
@@ -520,7 +522,7 @@ class DatastoreGroomer(threading.Thread):
     return success
 
   def initialize_kind(self, app_id, kind):
-    """ Puts a kind into the statistics object if 
+    """ Puts a kind into the statistics object if
         it does not already exist.
     Args:
       app_id: The application ID.
@@ -532,7 +534,7 @@ class DatastoreGroomer(threading.Thread):
       self.stats[app_id][kind] = {'size': 0, 'number': 0}
 
   def initialize_namespace(self, app_id, namespace):
-    """ Puts a namespace into the namespace object if 
+    """ Puts a namespace into the namespace object if
         it does not already exist.
     Args:
       app_id: The application ID.
@@ -549,12 +551,12 @@ class DatastoreGroomer(threading.Thread):
   def process_statistics(self, key, entity, size):
     """ Processes an entity and adds to the global statistics.
 
-    Args: 
+    Args:
       key: The key to the entity table.
       entity: EntityProto entity.
       size: A int of the size of the entity.
     Returns:
-      True on success, False otherwise. 
+      True on success, False otherwise.
     """
     kind = datastore_server.DatastoreDistributed.get_entity_kind(entity.key())
     namespace = entity.key().name_space()
@@ -576,12 +578,12 @@ class DatastoreGroomer(threading.Thread):
         .format(kind))
       return False
 
-    # Do not generate statistics for applications which are internal to 
+    # Do not generate statistics for applications which are internal to
     # AppScale.
     if app_id in self.APPSCALE_APPLICATIONS:
       return True
 
-    self.initialize_kind(app_id, kind) 
+    self.initialize_kind(app_id, kind)
     self.initialize_namespace(app_id, namespace)
     self.namespace_info[app_id][namespace]['size'] += size
     self.namespace_info[app_id][namespace]['number'] += 1
@@ -618,7 +620,7 @@ class DatastoreGroomer(threading.Thread):
         logging.error("Found a blacklisted item for version {0} on key {1}".\
           format(txn_id, key))
         return True
-        #TODO fix the badlisted entity. 
+        #TODO fix the badlisted entity.
         return self.fix_badlisted_entity(key, txn_id)
     except zk.ZKTransactionException, zk_exception:
       logging.error("Caught exception {0}, backing off!".format(zk_exception))
@@ -633,16 +635,16 @@ class DatastoreGroomer(threading.Thread):
     return True
 
   def process_entity(self, entity):
-    """ Processes an entity by updating statistics, indexes, and removes 
+    """ Processes an entity by updating statistics, indexes, and removes
         tombstones.
 
     Args:
-      entity: The entity to operate on. 
+      entity: The entity to operate on.
     Returns:
       True on success, False otherwise.
     """
     logging.debug("Process entity {0}".format(str(entity)))
-    key = entity.keys()[0] 
+    key = entity.keys()[0]
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
 
@@ -650,7 +652,7 @@ class DatastoreGroomer(threading.Thread):
     if one_entity == datastore_server.TOMBSTONE:
       return self.process_tombstone(key, one_entity, version)
 
-    ent_proto = entity_pb.EntityProto() 
+    ent_proto = entity_pb.EntityProto()
     ent_proto.ParseFromString(one_entity)
     self.verify_entity(ent_proto, key, version)
     self.process_statistics(key, ent_proto, len(one_entity))
@@ -659,17 +661,17 @@ class DatastoreGroomer(threading.Thread):
 
   def create_namespace_entry(self, namespace, size, number, timestamp):
     """ Puts a namespace into the datastore.
- 
+
     Args:
       namespace: A string, the namespace.
       size: An int representing the number of bytes taken by a namespace.
       number: The total number of entities in a namespace.
       timestamp: A datetime.datetime object.
-    Returns: 
+    Returns:
       True on success, False otherwise.
     """
     entities_to_write = []
-    namespace_stat = stats.NamespaceStat(subject_namespace=namespace, 
+    namespace_stat = stats.NamespaceStat(subject_namespace=namespace,
                                bytes=size,
                                count=number,
                                timestamp=timestamp)
@@ -685,22 +687,22 @@ class DatastoreGroomer(threading.Thread):
       logging.error("Error inserting namespace info: {0}.".\
         format(internal_error))
       return False
-    logging.debug("Done creating namespace stats") 
+    logging.debug("Done creating namespace stats")
     return True
 
 
   def create_kind_stat_entry(self, kind, size, number, timestamp):
     """ Puts a kind statistic into the datastore.
- 
+
     Args:
       kind: The entity kind.
       size: An int representing the number of bytes taken by entity kind.
       number: The total number of entities.
       timestamp: A datetime.datetime object.
-    Returns: 
+    Returns:
       True on success, False otherwise.
     """
-    kind_stat = stats.KindStat(kind_name=kind, 
+    kind_stat = stats.KindStat(kind_name=kind,
                                bytes=size,
                                count=number,
                                timestamp=timestamp)
@@ -711,18 +713,18 @@ class DatastoreGroomer(threading.Thread):
     except datastore_errors.InternalError, internal_error:
       logging.error("Error inserting kind stat: {0}.".format(internal_error))
       return False
-    logging.debug("Done creating kind stat") 
+    logging.debug("Done creating kind stat")
     return True
 
   def create_global_stat_entry(self, app_id, size, number, timestamp):
     """ Puts a global statistic into the datastore.
-    
+
     Args:
       app_id: The application identifier.
       size: The number of bytes of all entities.
       number: The total number of entities of an application.
       timestamp: A datetime.datetime object.
-    Returns: 
+    Returns:
       True on success, False otherwise.
     """
     global_stat = stats.GlobalStat(key_name=app_id,
@@ -734,11 +736,11 @@ class DatastoreGroomer(threading.Thread):
     except datastore_errors.InternalError, internal_error:
       logging.error("Error inserting global stat: {0}.".format(internal_error))
       return False
-    logging.debug("Done creating global stat") 
+    logging.debug("Done creating global stat")
     return True
 
   def remove_old_tasks_entities(self):
-    """ Queries for old tasks and removes the entity which tells 
+    """ Queries for old tasks and removes the entity which tells
     use whether a named task was enqueued.
 
     Returns:
@@ -758,7 +760,7 @@ class DatastoreGroomer(threading.Thread):
       entity.delete()
       counter += 1
     logging.error("Removed {0} task name entities".format(counter))
-    return True    
+    return True
 
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
@@ -769,10 +771,10 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A distributed_datastore.DatastoreDistributed object.
     """
-    ds_distributed = datastore_distributed.DatastoreDistributed(app_id, 
+    ds_distributed = datastore_distributed.DatastoreDistributed(app_id,
       self.datastore_path, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distributed)
-    apiproxy_stub_map.apiproxy.RegisterStub('memcache', 
+    apiproxy_stub_map.apiproxy.RegisterStub('memcache',
       memcache_distributed.MemcacheService())
     os.environ['APPLICATION_ID'] = app_id
     os.environ['APPNAME'] = app_id
@@ -780,7 +782,7 @@ class DatastoreGroomer(threading.Thread):
     return ds_distributed
 
   def remove_old_logs(self, log_timeout):
-    """ Removes old logs. 
+    """ Removes old logs.
 
     Args:
       log_timeout: The timeout value in seconds.
@@ -804,14 +806,14 @@ class DatastoreGroomer(threading.Thread):
       counter += 1
     logging.error("Removed {0} log entries.".format(counter))
     return True
- 
+
   def remove_old_statistics(self):
-    """ Does a range query on the current batch of statistics and 
+    """ Does a range query on the current batch of statistics and
         deletes them.
     """
     #TODO only remove statistics older than 30 days.
     for app_id in self.stats.keys():
-      self.register_db_accessor(app_id) 
+      self.register_db_accessor(app_id)
       query = stats.KindStat.all()
       entities = query.run()
       logging.debug("Result from kind stat query: {0}".format(str(entities)))
@@ -831,14 +833,14 @@ class DatastoreGroomer(threading.Thread):
     """ Puts the namespace information into the datastore for applications to
         access.
 
-    Args: 
-      timestamp: A datetime time stamp to know which stat items belong 
+    Args:
+      timestamp: A datetime time stamp to know which stat items belong
         together.
     Returns:
       True if there were no errors, False otherwise.
     """
     for app_id in self.namespace_info.keys():
-      ds_distributed = self.register_db_accessor(app_id) 
+      ds_distributed = self.register_db_accessor(app_id)
       namespaces = self.namespace_info[app_id].keys()
       for namespace in namespaces:
         size = self.namespace_info[app_id][namespace]['size']
@@ -856,15 +858,15 @@ class DatastoreGroomer(threading.Thread):
   def update_statistics(self, timestamp):
     """ Puts the statistics into the datastore for applications
         to access.
- 
+
     Args:
-      timestamp: A datetime time stamp to know which stat items belong 
+      timestamp: A datetime time stamp to know which stat items belong
         together.
     Returns:
       True if there were no errors, False otherwise.
     """
     for app_id in self.stats.keys():
-      ds_distributed = self.register_db_accessor(app_id) 
+      ds_distributed = self.register_db_accessor(app_id)
       total_size = 0
       total_number = 0
       kinds = self.stats[app_id].keys()
@@ -872,11 +874,11 @@ class DatastoreGroomer(threading.Thread):
         size = self.stats[app_id][kind]['size']
         number = self.stats[app_id][kind]['number']
         total_size += size
-        total_number += number 
+        total_number += number
         if not self.create_kind_stat_entry(kind, size, number, timestamp):
           return False
 
-      if not self.create_global_stat_entry(app_id, total_size, total_number, 
+      if not self.create_global_stat_entry(app_id, total_size, total_number,
                                            timestamp):
         return False
 
@@ -899,9 +901,6 @@ class DatastoreGroomer(threading.Thread):
     self.reset_statistics()
     self.composite_index_cache = {}
 
-    self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
-      self.table_name)
-
     try:
       # We do this first to clean up soft deletes later.
       self.remove_old_logs(self.LOG_STORAGE_TIMEOUT)
@@ -917,13 +916,13 @@ class DatastoreGroomer(threading.Thread):
     while True:
       try:
         entities = self.get_entity_batch(last_key)
-     
+
         if not entities:
           break
-     
+
         for entity in entities:
           self.process_entity(entity)
-     
+
         last_key = entities[-1].keys()[0]
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))

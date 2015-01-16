@@ -40,14 +40,11 @@ class DatastoreBackup(threading.Thread):
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
 
-  # Retry sleep on file io error in seconds.
+  # Retry sleep on file IO error in seconds.
   IO_ERROR_PERIOD = 30
 
   # Max backup file size in bytes.
-  MAX_FILE_SIZE = 100 * 100 * 100 # <- 10 MB
-
-  # A sentinel value to signify that this app does not have composite indexes.
-  NO_COMPOSITES = "NO_COMPS_INDEXES_HERE"
+  MAX_FILE_SIZE = 100 * 100 * 100 # <- 100 MB
 
   # Any kind that is of __*__ is private.
   PRIVATE_KINDS = '(.*)__(.*)__(.*)'
@@ -55,11 +52,8 @@ class DatastoreBackup(threading.Thread):
   # Any kind that is of _*_ is protected.
   PROTECTED_KINDS = '(.*)_(.*)_(.*)'
 
-  # Max entity batch size to be saved in bytes.
-  SUM_BATCH_SIZE = 10 * 100 * 100 # <- 2 MB
-
   def __init__(self, app_id, zoo_keeper, table_name, ds_path):
-    """ Constructor. 
+    """ Constructor.
 
     Args:
       zk: ZooKeeper client.
@@ -69,11 +63,12 @@ class DatastoreBackup(threading.Thread):
     threading.Thread.__init__(self)
 
     self.app_id = app_id
-    self.last_key = self.app_id + chr(255) * 500
+    self.last_key = self.app_id + dbconstants.TERMINATING_STRING
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
+    self.db_access = appscale_datastore_batch.DatastoreFactory.\
+      getDatastore(self.table_name)
     self.datastore_path = ds_path
-    self.composite_index_cache = {}
     self.entities_backed_up = 0
     self.filename_prefix = '{0}{1}-{2}'.format(
       self.BACKUP_FILE_LOCATION, self.app_id, time.strftime("%Y%m%d-%H%M%S"))
@@ -107,7 +102,7 @@ class DatastoreBackup(threading.Thread):
 
   def get_backup_lock(self):
     """ Tries to acquire the lock for a datastore backup.
-  
+
     Returns:
       True on success, False otherwise.
     """
@@ -122,8 +117,8 @@ class DatastoreBackup(threading.Thread):
       start_inclusive: True if first row should be included, False otherwise.
     Returns:
       A list of entities.
-    """ 
-    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
+    """
+    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
       dbconstants.APP_ENTITY_SCHEMA, first_key, self.last_key,
       batch_size, start_inclusive=start_inclusive)
 
@@ -172,8 +167,8 @@ class DatastoreBackup(threading.Thread):
       self.BACKUP_FILE_SUFFIX)
 
     try:
-      with open(filename, 'a+') as fd:
-        fd.write(pickled_entity)
+      with open(filename, 'a+') as file_d:
+        file_d.write(pickled_entity)
 
       self.entities_backed_up += 1
       self.current_file_size += len(pickled_entity)
@@ -187,18 +182,18 @@ class DatastoreBackup(threading.Thread):
         "Encountered OSError while accessing backup file {0}".format(filename))
       logging.error(os_error.message)
       return False
-    except Exception as e:
+    except Exception as exception:
       logging.error(
         "Encountered an unexpected error while accessing backup file {0}".
         format(filename))
-      logging.error(e.message)
+      logging.error(exception.message)
       return False
 
     return True
 
   def process_entity(self, entity):
-    """ Verifies entities and makes sure the batch to be backed up is under the
-    SUM_BATCH_SIZE.
+    """ Verifies entity, fetches from journal if necessary and calls
+    dump_entity.
 
     Args:
       entity: The entity to be backed up.
@@ -223,14 +218,12 @@ class DatastoreBackup(threading.Thread):
           version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
           if not self.verify_entity(key, version):
             # Fetch from the journal.
-            entity = entity_utils.fetch_journal_entry(key)
+            entity = entity_utils.fetch_journal_entry(self.db_access, key)
             one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
             if not entity:
               logging.error("Bad journal entry for key: {0} \nAnd result: {1}".
                 format(key, entity))
-
               success = False
-              pass
 
           self.dump_entity(one_entity)
         else:
@@ -265,6 +258,8 @@ class DatastoreBackup(threading.Thread):
           logging.error(
             "Zookeeper exception {0} while releasing entity lock.".
               format(zk_exception))
+
+      if success:
         break
 
     return success
@@ -273,9 +268,6 @@ class DatastoreBackup(threading.Thread):
     """ Runs the backup process. Loops on the entire dataset and dumps it into
     a file.
     """
-    self.db_access = appscale_datastore_batch.DatastoreFactory.\
-      getDatastore(self.table_name)
-
     logging.info("Backup started")
     filename = '{0}-{1}{2}'.format(self.filename_prefix, self.current_fileno,
       self.BACKUP_FILE_SUFFIX)
@@ -293,7 +285,7 @@ class DatastoreBackup(threading.Thread):
         # Fetch batch.
         entities = entities_remaining + self.get_entity_batch(first_key,
           batch_size, start_inclusive)
-     
+
         if not entities:
           break
 
