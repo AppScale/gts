@@ -1,6 +1,6 @@
 """ Utilities for parsing datastore entities. """
 
-from datastore_server import TOMBSTONE
+import datastore_server
 
 from dbconstants import JOURNAL_SCHEMA
 from dbconstants import JOURNAL_TABLE
@@ -10,7 +10,7 @@ from dbconstants import KIND_SEPARATOR
 from google.appengine.datastore import entity_pb
 
 def get_root_key_from_entity_key(key):
-  """ Extract the root key from an entity key. We
+  """ Extracts the root key from an entity key. We
       remove any excess children from a string to get to
       the root key.
 
@@ -37,6 +37,7 @@ def fetch_journal_entry(db_access, key):
   """ Fetches the given key from the journal.
 
   Args:
+    db_access: A datastore accessor.
     keys: A str, the key to fetch.
   Returns:
     The entity fetched from the datastore, or None if it was deleted.
@@ -48,7 +49,7 @@ def fetch_journal_entry(db_access, key):
 
   if JOURNAL_SCHEMA[0] in result[0]:
     ent_string = result[0][JOURNAL_SCHEMA[0]]
-    if ent_string == TOMBSTONE:
+    if ent_string == datastore_server.TOMBSTONE:
       return None
     return entity_pb.EntityProto().ParseFromString(ent_string)
   else:

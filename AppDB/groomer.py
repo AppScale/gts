@@ -14,6 +14,7 @@ import time
 import appscale_datastore_batch
 import dbconstants
 import datastore_server
+import entity_utils
 
 from zkappscale import zktransaction as zk
 
@@ -84,8 +85,7 @@ class DatastoreGroomer(threading.Thread):
     threading.Thread.__init__(self)
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
-    self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
-      self.table_name)
+    self.db_access = None
     self.datastore_path = ds_path
     self.stats = {}
     self.namespace_info = {}
@@ -208,56 +208,6 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
-  @staticmethod
-  def get_root_key_from_entity_key(key):
-    """ Extract the root key from an entity key. We
-        remove any excess children from a string to get to
-        the root key.
-
-    Args:
-      entity_key: A string representing a row key.
-    Returns:
-      The root key extracted from the row key.
-    """
-    tokens = key.split(dbconstants.KIND_SEPARATOR)
-    return tokens[0] + dbconstants.KIND_SEPARATOR
-
-  @staticmethod
-  def get_prefix_from_entity_key(entity_key):
-    """ Extracts the prefix from a key to the entity table.
-
-    Args:
-      entity_key: A str representing a row key to the entity table.
-    Returns:
-      A str representing the app prefix (app_id and namespace).
-    """
-    tokens = entity_key.split(dbconstants.KEY_DELIMITER)
-    return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
-
-  def fetch_journal_entry(self, key):
-    """ Fetches the given key from the journal.
-
-    Args:
-      keys: A str, the key to fetch.
-    Returns:
-      The entity fetched from the datastore, or None if it was deleted.
-    """
-    result = self.db_access.batch_get_entity(dbconstants.JOURNAL_TABLE, [key],
-      dbconstants.JOURNAL_SCHEMA)
-    if len(result.keys()) == 0:
-      return None
-
-    ent_string = ""
-    if dbconstants.JOURNAL_SCHEMA[0] in result[0]:
-      ent_string = result[0][dbconstants.JOURNAL_SCHEMA[0]]
-      if ent_string == datastore_server.TOMBSTONE:
-        return None
-      return entity_pb.EntityProto().ParseFromString(ent_string)
-    else:
-      logging.error("Bad journal entry for key: {0} \nAnd result: {1}".
-        format(key, result))
-      return None
-
   def load_composite_cache(self, app_id):
     """ Load the composite index cache for an application ID.
 
@@ -358,8 +308,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
-    root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
+    app_prefix = entity_utils.get_prefix_from_entity_key(key)
+    root_key = entity_utils.get_root_key_from_entity_key(key)
     # TODO watch out for the race condition of doing a GET then a PUT.
 
     try:
@@ -375,8 +325,8 @@ class DatastoreGroomer(threading.Thread):
           valid_id)
 
         # Fetch the journal and replace the bad entity.
-        good_entry = self.fetch_journal_entry(good_key)
-        bad_entry = self.fetch_journal_entry(bad_key)
+        good_entry = entity_utils.fetch_journal_entry(self.db_access, good_key)
+        bad_entry = entity_utils.fetch_journal_entry(self.db_access, bad_key)
 
         # Get the kind to lookup composite indexes.
         kind = None
@@ -448,8 +398,8 @@ class DatastoreGroomer(threading.Thread):
       True if a hard delete occurred, False otherwise.
     """
     success = False
-    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
-    root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
+    app_prefix = entity_utils.get_prefix_from_entity_key(key)
+    root_key = entity_utils.get_root_key_from_entity_key(key)
 
     try:
       if self.zoo_keeper.is_blacklisted(app_prefix, version):
@@ -612,7 +562,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
+    app_prefix = entity_utils.get_prefix_from_entity_key(key)
     try:
       if not self.zoo_keeper.is_blacklisted(app_prefix, txn_id):
         self.clean_journal_entries(txn_id, key)
@@ -895,6 +845,9 @@ class DatastoreGroomer(threading.Thread):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
     """
+    self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
+      self.table_name)
+
     logging.info("Groomer started")
     start = time.time()
     last_key = ""

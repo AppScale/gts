@@ -40,9 +40,6 @@ class DatastoreBackup(threading.Thread):
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
 
-  # Retry sleep on file IO error in seconds.
-  IO_ERROR_PERIOD = 30
-
   # Max backup file size in bytes.
   MAX_FILE_SIZE = 100 * 100 * 100 # <- 100 MB
 
