@@ -918,7 +918,7 @@ class ZKTransaction:
     except ZKInternalException as zk_exception:
       # Although there was a failure doing the async deletes, since we've
       # already released the locks above, we can safely return True here.
-      logging.exception(kazoo_exception)
+      logging.exception(zk_exception)
       self.reestablish_connection()
       return True
     except kazoo.exceptions.KazooException as kazoo_exception:
@@ -1401,7 +1401,7 @@ class ZKTransaction:
       self.reestablish_connection()
       return
     except Exception as exception:
-      logging.error("UNKNOW EXCEPTION") 
+      logging.error("UNKNOWN EXCEPTION")
       logging.exception(exception)
       self.reestablish_connection()
       return
@@ -1422,7 +1422,7 @@ class ZKTransaction:
           self.notify_failed_transaction(app_id, long(txid.lstrip(
             APP_TX_PREFIX)))
       except kazoo.exceptions.NoNodeError:
-        # Transaction id dissappeared during garbage collection.
+        # Transaction id disappeared during garbage collection.
         # The transaction may have finished successfully.
         pass
       except kazoo.exceptions.ZookeeperError as zk_exception:
@@ -1434,7 +1434,7 @@ class ZKTransaction:
         self.reestablish_connection()
         return
       except Exception as exception:
-        logging.error("UNKNOW EXCEPTION") 
+        logging.error("UNKNOWN EXCEPTION")
         logging.exception(exception)
         self.reestablish_connection()
         return 
