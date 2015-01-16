@@ -4,7 +4,6 @@ import os
 import sys
 import uuid
 
-import query_parser
 import solr_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
@@ -172,8 +171,8 @@ class SearchService():
     namespace = index_spec.namespace()
     index = self.solr_conn.get_index(app_id, index_spec.namespace(),
       index_spec.name())
-    parser = query_parser.SolrQueryParser(index, app_id, namespace)
-    qstr = parser.get_solr_query_string(request.params().query())
+    results = self.solr_conn.run_query(index, app_id, namespace,
+      request.params().query())
     response = search_service_pb.SearchResponse()
     response.set_matched_count(0)
     response.mutable_status().set_code(search_service_pb.SearchServiceError.OK)

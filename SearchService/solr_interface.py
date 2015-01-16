@@ -4,9 +4,13 @@ import os
 import simplejson
 import sys
 import time
+import urllib
 import urllib2
 
+import query_parser
 import search_exceptions
+
+from query_parser import Document
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
@@ -266,10 +270,54 @@ class Solr():
     logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
-  def get_query(self):
-    """ """
-    pass
+  def run_query(self, index, app_id, namespace, query):
+    """ Creates a SOLR query string and runs it on SOLR. 
 
+    Args:
+      index: Index for which we're running the query.
+      app_id: A str, the application identifier.
+      namespace: A str, the namespace.
+      query: A str, the query the user is executing.
+    """
+    parser = query_parser.SolrQueryParser(index, app_id, namespace)
+    solr_query = parser.get_solr_query_string(query)
+    logging.info("Solr query: {0}".format(solr_query))
+    solr_results = self.__execute_query(solr_query)
+    logging.info("Solr results: {0}".format(solr_results))
+    gae_results = self.__convert_to_gae_results(solr_results)
+    logging.info("GAE results: {0}".format(gae_results))
+    return gae_results
+
+  def __execute_query(self, solr_query):
+    """ Executes query string on SOLR. """
+    solr_url = "http://{0}:{1}/solr/select/?defType=edismax&wt=json&{2}"\
+      .format(self._search_location, self.SOLR_SERVER_PORT,
+      urllib.quote_plus(solr_query))
+    logging.info("SOLR URL: {0}".format(solr_url))
+    try:
+      req = urllib2.Request(solr_url)
+      req.add_header('Content-Type', 'application/json')
+      conn = urllib2.urlopen(req) 
+      if conn.getcode() != 200:
+        logging.error("Got code {0} with URL {1} and payload {2}".format(conn.getcode(), 
+          solr_url, json_payload))
+        raise search_exceptions.InternalError("Bad request sent to SOLR.")
+      response = simplejson.load(conn)
+      status = response['responseHeader']['status'] 
+      logging.info("Response: {0}".format(response))
+    except ValueError, exception:
+      logging.error("Unable to decode json from SOLR server: {0}".format(
+        exception))
+      raise search_exceptions.InternalError("Malformed response from SOLR.")
+
+    if status != 0:
+      raise search_exceptions.InternalError(
+        "SOLR response status of {0}".format(status))
+
+  def __convert_to_gae_results(self, solr_results):
+    """ Converts SOLR results in to GAE compatible documents. """
+    return
+ 
 class Schema():
   """ Represents a schema in SOLR. """
   def __init__(self, fields , response_header):
@@ -283,21 +331,6 @@ class Index():
     """ Constructor for SOLR index. """
     self.name = name
     self.schema = schema
-
-class Document():
-  """ Represents a document stored in SOLR. """
-
-  # Prefix code for index name.
-  INDEX_NAME = "_gaeindex_name"
-  
-  # Prefix code for index locale.
-  INDEX_LOCALE = "_gaeindex_locale"
-
-  def __init__(self, identifier, language, fields):
-    """ Constructor for Document in SOLR. """
-    self.id = identifier
-    self.language = language
-    self.fields = fields
 
 class Header():
   """ Represents a header in SOLR. """
