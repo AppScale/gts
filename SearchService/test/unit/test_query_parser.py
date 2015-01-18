@@ -14,5 +14,5 @@ class TestQueryParser(unittest.TestCase):
   A set of test cases for the query parser module.
   """            
   def test_constructor(self):
-    query_parser.SolrQueryParser("what", "appid", "namespace")
+    query_parser.SolrQueryParser("what", "appid", "namespace", 'field_spec')
 

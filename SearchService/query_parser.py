@@ -96,7 +96,7 @@ class SolrQueryParser():
     logging.info("Field string: {0}".format(field_string))
     return field_string
 
-  def __create_query_string(self, query_tree, field_spec):
+  def __create_query_string(self, query_tree):
     """ Creates a SOLR query string from a antlr3 parse tree.
     
     Args:

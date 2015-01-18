@@ -12,6 +12,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import solr_interface
 import search_exceptions
 
+class FakeSolrDoc():
+  def __init__(self):
+    self.fields = []
+
 class FakeDocument():
   INDEX_NAME = "indexname"
   INDEX_LOCALE = "indexlocale"
@@ -20,9 +24,22 @@ class FakeDocument():
     self.id = "id"
     self.language = "lang"
 
+class FakeSchema():
+  def __init__(self):
+    self.fields = []
+
 class FakeIndex():
   def __init__(self):
     self.name = "name"
+    self.schema = FakeSchema()
+
+class FakeIndexSpec():
+  def __init__(self):
+    pass
+  def namespace(self):
+    return 'ns'
+  def name(self):
+    return self.name
 
 class FakeUpdate():
   def __init__(self, name, field_type):
@@ -128,15 +145,17 @@ class TestSolrInterface(unittest.TestCase):
     solr = solr_interface.Solr()
     solr = solr_interface.Solr()
     solr = flexmock(solr) 
-    solr.should_receive("to_solr_doc").and_return(None).once()
-    solr.should_receive("get_index").and_return(None).once()
-    solr.should_receive("compute_updates").and_return([]).once()
-    solr.should_receive("to_solr_hash_map").and_return(None).once()
-    solr.should_receive("commit_update").and_return(None).once()
-    solr.update_document("app_id", None, None)
+    solr.should_receive("to_solr_doc").and_return(FakeSolrDoc())
+    solr.should_receive("get_index").and_return(FakeIndex())
+    solr.should_receive("compute_updates").and_return([])
+    solr.should_receive("to_solr_hash_map").and_return(None)
+    solr.should_receive("commit_update").and_return(None)
+    solr.update_document("app_id", None, FakeIndexSpec())
      
-    solr.should_receive("compute_updates").and_return([1,2]).once()
+    solr.should_receive("compute_updates").and_return([1,2])
     solr.should_receive("update_schema").twice()
-    solr.update_document("app_id", None, None)
+    solr.update_document("app_id", None, FakeIndexSpec())
 
     solr.should_receive("to_solr_hash_map").and_return(None).once()
+    solr.update_document("app_id", None, FakeIndexSpec())
+
