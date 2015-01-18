@@ -172,8 +172,7 @@ class SearchService():
     index = self.solr_conn.get_index(app_id, index_spec.namespace(),
       index_spec.name())
     results = self.solr_conn.run_query(index, app_id, namespace,
-      request.params().query(), request.params().field_spec(),
-      request.params().sort_spec_list())
+      request.params())
     response = search_service_pb.SearchResponse()
     response.set_matched_count(0)
     response.mutable_status().set_code(search_service_pb.SearchServiceError.OK)

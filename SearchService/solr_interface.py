@@ -270,18 +270,16 @@ class Solr():
     logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
-  def run_query(self, index, app_id, namespace, query, search_parms):
+  def run_query(self, index, app_id, namespace, search_params):
     """ Creates a SOLR query string and runs it on SOLR. 
 
     Args:
       index: Index for which we're running the query.
       app_id: A str, the application identifier.
       namespace: A str, the namespace.
-      query: A str, the query the user is executing.
-      search_parms: A search_service_pb.SearchParams.
-      field_spec: A search_service_pb.FieldSpec.
-      sort_list: A list of search_service_pb.SortSpec.
+      search_params: A search_service_pb.SearchParams.
     """
+    query = search_params.query()
     field_spec = search_params.field_spec()
     sort_list = search_params.sort_spec_list()
     parser = query_parser.SolrQueryParser(index, app_id, namespace,

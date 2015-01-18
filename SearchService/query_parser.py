@@ -71,7 +71,7 @@ class SolrQueryParser():
     logging.debug("SOLR STRING: {0}".format(query_string))
     return query_string
 
-  def __get_row_list():
+  def __get_row_limit(self):
     """ Returns the SOLR string that restricts the number of results.
 
     Returns:
@@ -79,7 +79,7 @@ class SolrQueryParser():
     """
     return "&rows={0}".format(self.__limit)
 
-  def __get_offset():
+  def __get_offset(self):
     """ Returns the SOLR string that offsets the results.
 
     Returns:
@@ -116,8 +116,9 @@ class SolrQueryParser():
     #TODO deal with default values of sort expressions.
     field_list = []
     for sort_spec in self.__sort_list:
-      new_field = "{0}_{1}".format(self.__index.name, sort_spec.expression())
-      if sort_spec.descending() == 1:
+      new_field = "{0}_{1}".format(self.__index.name,
+        sort_spec.sort_expression())
+      if sort_spec.sort_descending() == 1:
         new_field += "%20desc" 
       else:
         new_field += "%20asc"   
