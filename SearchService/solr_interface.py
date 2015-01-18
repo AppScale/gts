@@ -270,7 +270,7 @@ class Solr():
     logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
-  def run_query(self, index, app_id, namespace, query, field_spec):
+  def run_query(self, index, app_id, namespace, query, field_spec, sort_list):
     """ Creates a SOLR query string and runs it on SOLR. 
 
     Args:
@@ -279,8 +279,10 @@ class Solr():
       namespace: A str, the namespace.
       query: A str, the query the user is executing.
       field_spec: A search_service_pb.FieldSpec.
+      sort_list: A list of search_service_pb.SortSpec.
     """
-    parser = query_parser.SolrQueryParser(index, app_id, namespace, field_spec) 
+    parser = query_parser.SolrQueryParser(index, app_id, namespace,
+      field_spec, sort_list)
     solr_query = parser.get_solr_query_string(query)
     logging.info("Solr query: {0}".format(solr_query))
     solr_results = self.__execute_query(solr_query)

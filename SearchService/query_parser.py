@@ -10,7 +10,7 @@ from google.appengine.api.search import QueryParser
 
 class SolrQueryParser():
   """ Class for parsing search queries. """
-  def __init__(self, index, app_id, namespace, field_spec):
+  def __init__(self, index, app_id, namespace, field_spec, sort_list):
     """ Constructor for query parsing. 
     
     Args:
@@ -18,11 +18,13 @@ class SolrQueryParser():
       app_id: A str, the application ID.
       namespace: A str, the current namespace.
       field_spec: A search_service_pb.FieldSpec.
+      sort_list: A list of search_service_pb.SortSpec.
     """
     self.__index = index
     self.__app_id = app_id
     self.__namespace = namespace
     self.__field_spec = field_spec
+    self.__sort_list  = sort_list
 
   def get_solr_query_string(self, query):
     """ Parses the query and returns a query string.
@@ -66,20 +68,40 @@ class SolrQueryParser():
     Return:
       A str, a list of fields we want to restrict the result by.
     """
-    field_list = "&qf="
+    field_arg = "&qf="
     if self.__field_spec.name_size() == 0:
       # Select all fields from the schema.
       schema_fields = self.__index.schema.fields
-      internal_names = []
+      field_names = []
       for field in schema_fields:
-        internal_names.append(field['name'])
-      return "{0}{1}".format(field_list, self.__fields.join(','))
+        field_names.append(field['name'])
+      return "{0}{1}".format(field_arg, ','.join(field_names))
     else:
-      # Only use the ones given.
-      #TODO verify this code.
+      field_names = []
       for field_name in self.__field_spec.name_list():
-        field_list += "{0}_{1},".format(self.__index.name, field_name)
-      return "{0}{1}".format(field_list)
+        field_names.append("{0}_{1}".format(self.__index.name, field_name))
+      return "{0}{1}".format(field_arg, ','.join(field_names))
+
+  def __get_sort_list(self):
+    """ Gets the SOLR sort list argument for the SOLR query.
+
+    Returns:
+      A str, the sort portion of the SOLR query string.
+    """
+    #TODO deal with default values of sort expressions.
+    field_list = []
+    for sort_spec in self.__sort_list:
+      new_field = "{0}_{1}".format(self.__index.name, sort_spec.expression())
+      if sort_spec.descending() == 1:
+        new_field += "%20desc" 
+      else:
+        new_field += "%20asc"   
+      field_list.append(new_field)
+
+    if field_list: 
+      return "&sort={0}".format(','.join(field_list))
+    else:
+      return ""
 
   def __get_field_list(self):
     """ Gets the field list for the SOLR query.
@@ -87,7 +109,6 @@ class SolrQueryParser():
     Returns:
       A str, the field list for the query.
     """
-    #TODO need to decode the name like its done in java equivalent.
     field_string = ""
     if self.__field_spec.name_size() > 0:
       field_string += "&fl=id,"
@@ -137,8 +158,9 @@ class SolrQueryParser():
         match = query_parser.GetQueryNodeText(match)
         internal_field_name = self.__get_internal_field_name(field) #TODO
         escaped_value = self.__escape_chars(match) #TODO
-        op = self.__get_operator(query_tree.getType())
-        q_str += " {0}{1}\"{2}\"".format(internal_field_name, op, escaped_value)
+        oper = self.__get_operator(query_tree.getType())
+        q_str += " {0}{1}\"{2}\"".format(internal_field_name, oper,
+          escaped_value)
     else:
       logging.warning("No node match for {0}".format(query_tree.getType()))
     return q_str
