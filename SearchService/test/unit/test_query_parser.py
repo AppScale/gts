@@ -15,5 +15,5 @@ class TestQueryParser(unittest.TestCase):
   """            
   def test_constructor(self):
     query_parser.SolrQueryParser("what", "appid", "namespace", 'field_spec',
-      'sort_spec')
+      'sort_spec', 'limit', 'offset')
 

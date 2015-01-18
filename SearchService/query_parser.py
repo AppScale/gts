@@ -10,7 +10,8 @@ from google.appengine.api.search import QueryParser
 
 class SolrQueryParser():
   """ Class for parsing search queries. """
-  def __init__(self, index, app_id, namespace, field_spec, sort_list):
+  def __init__(self, index, app_id, namespace, field_spec, sort_list,
+    limit, offset):
     """ Constructor for query parsing. 
     
     Args:
@@ -19,12 +20,16 @@ class SolrQueryParser():
       namespace: A str, the current namespace.
       field_spec: A search_service_pb.FieldSpec.
       sort_list: A list of search_service_pb.SortSpec.
+      limit: An int, the max number of results to return.
+      offset: An int, the number of items to skip.
     """
     self.__index = index
     self.__app_id = app_id
     self.__namespace = namespace
     self.__field_spec = field_spec
     self.__sort_list  = sort_list
+    self.__limit = limit
+    self.__offset = offset
 
   def get_solr_query_string(self, query):
     """ Parses the query and returns a query string.
@@ -58,9 +63,29 @@ class SolrQueryParser():
 
     # Restrict to only fields requested or all of the fields from the schema. 
     query_string += self.__get_query_fields()
+
+    query_string += self.__get_row_limit()
+
+    query_string += self.__get_offset()
  
     logging.debug("SOLR STRING: {0}".format(query_string))
     return query_string
+
+  def __get_row_list():
+    """ Returns the SOLR string that restricts the number of results.
+
+    Returns:
+      A str that is the rows limit in a SOLR query.
+    """
+    return "&rows={0}".format(self.__limit)
+
+  def __get_offset():
+    """ Returns the SOLR string that offsets the results.
+
+    Returns:
+      A str that tells SOLR how many documents to skip.
+    """
+    return "&start={0}".format(self.__offset) 
 
   def __get_query_fields(self):
     """ Gets the query fields for a SOLR query.
