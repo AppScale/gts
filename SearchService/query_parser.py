@@ -100,12 +100,12 @@ class SolrQueryParser():
       field_names = []
       for field in schema_fields:
         field_names.append(field['name'])
-      return "{0}{1}".format(field_arg, ','.join(field_names))
+      return "{0}{1}".format(field_arg, '%2C'.join(field_names))
     else:
       field_names = []
       for field_name in self.__field_spec.name_list():
         field_names.append("{0}_{1}".format(self.__index.name, field_name))
-      return "{0}{1}".format(field_arg, ','.join(field_names))
+      return "{0}{1}".format(field_arg, '%2C'.join(field_names))
 
   def __get_sort_list(self):
     """ Gets the SOLR sort list argument for the SOLR query.
@@ -125,7 +125,7 @@ class SolrQueryParser():
       field_list.append(new_field)
 
     if field_list: 
-      return "&sort={0}".format(','.join(field_list))
+      return "&sort={0}".format('%2C'.join(field_list))
     else:
       return ""
 
@@ -136,10 +136,12 @@ class SolrQueryParser():
       A str, the field list for the query.
     """
     field_string = ""
+    field_list = []
     if self.__field_spec.name_size() > 0:
       field_string += "&fl=id,"
       for field_name in self.__field_spec.name_list():
-        field_string += "{0}_{1},".format(self.__index.name, field_name)
+        field_list.append("{0}_{1}".format(self.__index.name, field_name))
+      field_string += '%20'.join(field_list) 
     logging.info("Field string: {0}".format(field_string))
     return field_string
 
@@ -189,6 +191,9 @@ class SolrQueryParser():
           escaped_value)
     else:
       logging.warning("No node match for {0}".format(query_tree.getType()))
+    logging.info("Query string: {0}".format(q_str))
+    q_str = urllib.quote_plus(q_str)
+    logging.info("Encoded: {0}".format(q_str))
     return q_str
 
   # TODO handle range operators

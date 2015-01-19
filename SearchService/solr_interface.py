@@ -297,7 +297,7 @@ class Solr():
     """ Executes query string on SOLR. """
     solr_url = "http://{0}:{1}/solr/select/?defType=edismax&wt=json&{2}"\
       .format(self._search_location, self.SOLR_SERVER_PORT,
-      urllib.quote_plus(solr_query))
+      solr_query)
     logging.info("SOLR URL: {0}".format(solr_url))
     try:
       req = urllib2.Request(solr_url)
