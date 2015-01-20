@@ -17,8 +17,6 @@ import entity_utils
 
 from zkappscale import zktransaction as zk
 
-from google.appengine.api import datastore_errors
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
@@ -67,10 +65,12 @@ class DatastoreBackup(threading.Thread):
       getDatastore(self.table_name)
     self.datastore_path = ds_path
     self.entities_backed_up = 0
-    self.filename_prefix = '{0}{1}-{2}'.format(
-      self.BACKUP_FILE_LOCATION, self.app_id, time.strftime("%Y%m%d-%H%M%S"))
     self.current_fileno = 0
     self.current_file_size = 0
+    self.filename_prefix = '{0}{1}-{2}'.format(
+      self.BACKUP_FILE_LOCATION, self.app_id, time.strftime("%Y%m%d-%H%M%S"))
+    self.filename = '{0}-{1}{2}'.format(self.filename_prefix,
+      self.current_fileno, self.BACKUP_FILE_SUFFIX)
 
   def stop(self):
     """ Stops the backup thread. """
@@ -88,14 +88,13 @@ class DatastoreBackup(threading.Thread):
         except zk.ZKTransactionException, zk_exception:
           logging.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
-        except zk.ZKInternalException, zk_exception:
-          logging.error("Unable to release zk lock {0}.".\
-            format(str(zk_exception)))
         break
       else:
         logging.info("Did not get the backup lock. Another instance may be "
           "running.")
         time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
+
+    return True
 
   def get_backup_lock(self):
     """ Tries to acquire the lock for a datastore backup.
@@ -159,30 +158,31 @@ class DatastoreBackup(threading.Thread):
     if self.current_file_size + len(pickled_entity) > self.MAX_FILE_SIZE:
       self.current_fileno += 1
       self.current_file_size = 0
-
-    filename = '{0}-{1}{2}'.format(self.filename_prefix, self.current_fileno,
-      self.BACKUP_FILE_SUFFIX)
+      self.filename = '{0}-{1}{2}'.format(self.filename_prefix,
+        self.current_fileno, self.BACKUP_FILE_SUFFIX)
 
     try:
-      with open(filename, 'a+') as file_d:
+      with open(self.filename, 'a+') as file_d:
         file_d.write(pickled_entity)
 
       self.entities_backed_up += 1
       self.current_file_size += len(pickled_entity)
     except IOError as io_error:
       logging.error(
-        "Encountered IOError while accessing backup file {0}".format(filename))
+        "Encountered IOError while accessing backup file {0}".
+        format(self.filename))
       logging.error(io_error.message)
       return False
     except OSError as os_error:
       logging.error(
-        "Encountered OSError while accessing backup file {0}".format(filename))
+        "Encountered OSError while accessing backup file {0}".
+        format(self.filename))
       logging.error(os_error.message)
       return False
     except Exception as exception:
       logging.error(
         "Encountered an unexpected error while accessing backup file {0}".
-        format(filename))
+        format(self.filename))
       logging.error(exception.message)
       return False
 
@@ -223,6 +223,7 @@ class DatastoreBackup(threading.Thread):
               success = False
 
           self.dump_entity(one_entity)
+          success = True
         else:
           success = False
       except zk.ZKTransactionException, zk_exception:
@@ -243,7 +244,6 @@ class DatastoreBackup(threading.Thread):
             logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
               .format(app_prefix, txn_id))
           logging.error("Failed to backup entity. Retrying shortly...")
-          time.sleep(self.DB_ERROR_PERIOD)
 
         try:
           self.zoo_keeper.release_lock(app_prefix, txn_id)
@@ -258,6 +258,8 @@ class DatastoreBackup(threading.Thread):
 
       if success:
         break
+      else:
+        time.sleep(self.DB_ERROR_PERIOD)
 
     return success
 
@@ -266,9 +268,7 @@ class DatastoreBackup(threading.Thread):
     a file.
     """
     logging.info("Backup started")
-    filename = '{0}-{1}{2}'.format(self.filename_prefix, self.current_fileno,
-      self.BACKUP_FILE_SUFFIX)
-    logging.info("Backup file: {0}".format(filename))
+    logging.info("Backup file: {0}".format(self.filename))
     start = time.time()
 
     first_key = self.app_id
@@ -291,9 +291,6 @@ class DatastoreBackup(threading.Thread):
 
         first_key = entities[-1].keys()[0]
         start_inclusive = False
-      except datastore_errors.Error, error:
-        logging.error("Error getting a batch: {0}".format(error))
-        time.sleep(self.DB_ERROR_PERIOD)
       except dbconstants.AppScaleDBConnectionError, connection_error:
         logging.error("Error getting a batch: {0}".format(connection_error))
         time.sleep(self.DB_ERROR_PERIOD)
@@ -303,6 +300,8 @@ class DatastoreBackup(threading.Thread):
     time_taken = time.time() - start
     logging.info("Backed up {0} entities".format(self.entities_backed_up))
     logging.info("Backup took {0} seconds".format(str(time_taken)))
+
+    return True
 
 def main():
   """ This main function allows you to run the backup manually. """

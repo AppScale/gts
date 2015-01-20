@@ -126,7 +126,8 @@ class TestGroomer(unittest.TestCase):
     dsg = flexmock(dsg)
     dsg.should_receive('process_statistics')
     dsg.should_receive('verify_entity')
-    self.assertEquals(True, dsg.process_entity({'key':{dbconstants.APP_ENTITY_SCHEMA[0]:'ent',
+    self.assertEquals(True,
+      dsg.process_entity({'key':{dbconstants.APP_ENTITY_SCHEMA[0]:'ent',
       dbconstants.APP_ENTITY_SCHEMA[1]:'version'}}))
  
   def test_process_statistics(self):
@@ -187,7 +188,8 @@ class TestGroomer(unittest.TestCase):
     self.assertEquals(True, dsg.process_tombstone("key", "entity", "1"))
 
     # Failure on release lock but delete was successful.
-    zookeeper.should_receive("release_lock").and_raise(ZKTransactionException('zk'))
+    zookeeper.should_receive("release_lock").\
+      and_raise(ZKTransactionException('zk'))
     self.assertEquals(True, dsg.process_tombstone("key", "entity", "1"))
 
     # Hard delete failed.
@@ -199,7 +201,8 @@ class TestGroomer(unittest.TestCase):
     self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
   
     # Failed to acquire lock with an exception.
-    zookeeper.should_receive("acquire_lock").and_raise(ZKTransactionException('zk'))
+    zookeeper.should_receive("acquire_lock").\
+      and_raise(ZKTransactionException('zk'))
     self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
 
   def test_stop(self):
