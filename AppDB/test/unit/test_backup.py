@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+""" Unit tests for backup_data.py """
+
 import cPickle
 import os
 import re
@@ -15,10 +17,10 @@ import backup_data as backup
 
 from zkappscale.zktransaction import ZKTransactionException
 
-class FakeDatastore():
+class FakeDatastore(object):
   def __init__(self):
     pass
-  def range_query(self, table, schema, start, end, batch_size, 
+  def range_query(self, table, schema, start, end, batch_size,
     start_inclusive=True, end_inclusive=True):
     return []
 
@@ -89,15 +91,15 @@ class TestBackup(unittest.TestCase):
 
   def test_get_entity_batch(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
     fake_backup.db_access = FakeDatastore()
     self.assertEquals([], fake_backup.get_entity_batch('app_id', 100, True))
 
   def test_verify_entity(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
     flexmock(entity_utils).\
       should_receive('get_prefix_from_entity_key').and_return('app_prefix')
 
@@ -118,16 +120,16 @@ class TestBackup(unittest.TestCase):
 
   def test_dump_entity(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
     flexmock(cPickle).should_receive('dumps').\
       with_args(FAKE_SERIALIZED_ENTITY).and_return(FAKE_PICKLED_ENTITY)
     self.assertEquals(True, fake_backup.dump_entity(FAKE_SERIALIZED_ENTITY))
 
   def test_process_entity(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
 
     flexmock(re).should_receive('match').at_least().times(2).and_return(None)
     flexmock(entity_utils).\
@@ -171,8 +173,8 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
 
     # Test with entities.
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
     fake_backup.should_receive("get_entity_batch").\
       and_return([FAKE_SERIALIZED_ENTITY])
     fake_backup.should_receive("process_entity").\
@@ -182,14 +184,14 @@ class TestBackup(unittest.TestCase):
     self.assertEquals(True, fake_backup.run_backup())
 
     # Test with no entities.
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
     fake_backup.should_receive("get_entity_batch").and_return([])
     self.assertEquals(True, fake_backup.run_backup())
 
     # Test with exception tossed.
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper, "cassandra",
-      "localhost:8888"))
+    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+      "cassandra", "localhost:8888"))
     fake_backup.should_receive("get_entity_batch").\
       and_raise(AppScaleDBConnectionError)
     flexmock(time).should_receive('sleep').and_return()
@@ -200,4 +202,4 @@ class TestBackup(unittest.TestCase):
     os.remove(fake_backup.filename)
 
 if __name__ == "__main__":
-  unittest.main()    
+  unittest.main()

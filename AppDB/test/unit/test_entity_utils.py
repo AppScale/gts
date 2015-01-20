@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+""" Unit tests for entity_utils.py """
+
 import os
 import sys
 import unittest
@@ -11,7 +13,7 @@ from google.appengine.datastore import entity_pb
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import entity_utils
 
-class FakeDatastore():
+class FakeDatastore(object):
   def __init__(self):
     pass
   def batch_get_entity(self, table, keys, schema):
@@ -55,4 +57,4 @@ class TestEntityUtils(unittest.TestCase):
       and_return()
 
 if __name__ == "__main__":
-  unittest.main()    
+  unittest.main()
