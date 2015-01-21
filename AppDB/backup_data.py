@@ -4,12 +4,12 @@ app ID to the local filesystem.
 import argparse
 import cPickle
 import logging
+import multiprocessing
 import os
 import random
 import re
 import shutil
 import sys
-import threading
 import time
 
 import appscale_datastore_batch
@@ -22,7 +22,7 @@ from zkappscale import zktransaction as zk
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
-class DatastoreBackup(threading.Thread):
+class DatastoreBackup(multiprocessing.Process):
   """ Backs up all the entities for a set application ID. """
 
   # The amount of seconds between polling to get the backup lock.
@@ -57,7 +57,7 @@ class DatastoreBackup(threading.Thread):
       table_name: The database used (e.g. cassandra).
       ds_path: The connection path to the datastore_server.
     """
-    threading.Thread.__init__(self)
+    multiprocessing.Process.__init__(self)
 
     self.app_id = app_id
     self.last_key = self.app_id + dbconstants.TERMINATING_STRING
@@ -304,8 +304,6 @@ class DatastoreBackup(threading.Thread):
     time_taken = time.time() - start
     logging.info("Backed up {0} entities".format(self.entities_backed_up))
     logging.info("Backup took {0} seconds".format(str(time_taken)))
-
-    return True
 
 def init_parser():
   """ Initializes the command line argument parser.

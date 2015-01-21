@@ -181,13 +181,13 @@ class TestBackup(unittest.TestCase):
       with_args(FAKE_SERIALIZED_ENTITY).and_return()
     fake_backup.should_receive("get_entity_batch").\
       and_return([])
-    self.assertEquals(True, fake_backup.run_backup())
+    self.assertEquals(None, fake_backup.run_backup())
 
     # Test with no entities.
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", "localhost:8888"))
     fake_backup.should_receive("get_entity_batch").and_return([])
-    self.assertEquals(True, fake_backup.run_backup())
+    self.assertEquals(None, fake_backup.run_backup())
 
     # Test with exception tossed.
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
@@ -196,7 +196,7 @@ class TestBackup(unittest.TestCase):
       and_raise(AppScaleDBConnectionError)
     flexmock(time).should_receive('sleep').and_return()
     fake_backup.should_receive("get_entity_batch").and_return([])
-    self.assertEquals(True, fake_backup.run_backup())
+    self.assertEquals(None, fake_backup.run_backup())
 
     # Cleanup.
     os.remove(fake_backup.filename)
