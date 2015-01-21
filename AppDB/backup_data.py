@@ -1,6 +1,7 @@
 """ This process performs a backup of all the application entities for the given
 app ID to the local filesystem.
 """
+import argparse
 import cPickle
 import logging
 import os
@@ -200,6 +201,7 @@ class DatastoreBackup(threading.Thread):
     key = entity.keys()[0]
     if re.match(self.PRIVATE_KINDS, key) or re.match(self.PROTECTED_KINDS, key):
       return False
+    logging.info("Entity: {0}".format(entity))
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     if one_entity == datastore_server.TOMBSTONE:
       return False
@@ -271,7 +273,7 @@ class DatastoreBackup(threading.Thread):
     logging.info("Backup file: {0}".format(self.filename))
     start = time.time()
 
-    first_key = self.app_id
+    first_key = '{0}\x00'.format(self.app_id)
     start_inclusive = True
     entities_remaining = []
     while True:
@@ -303,14 +305,31 @@ class DatastoreBackup(threading.Thread):
 
     return True
 
+def init_parser():
+  """ Initializes the command line argument parser.
+
+  Returns:
+    A parser object.
+  """
+  parser = argparse.ArgumentParser(
+    description='Backup application code and data.')
+  parser.add_argument('-a', '--app-id', required=True,
+    help='the application ID to run the backup for')
+  parser.add_argument('-s', '--source', action='store_true',
+    default=False, help='backup the source code too. Disabled by default.')
+
+  return parser
+
 def main():
   """ This main function allows you to run the backup manually. """
+
+  parser = init_parser()
+  args = parser.parse_args()
 
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=logging.INFO)
   logging.info("Logging started")
 
-  app_id = 'guestbook27'
   zk_connection_locations = appscale_info.get_zk_locations_string()
   zookeeper = zk.ZKTransaction(host=zk_connection_locations)
   db_info = appscale_info.get_db_info()
@@ -318,7 +337,7 @@ def main():
   master = appscale_info.get_db_master_ip()
   datastore_path = "{0}:8888".format(master)
 
-  ds_backup = DatastoreBackup(app_id, zookeeper, table, datastore_path)
+  ds_backup = DatastoreBackup(args.app_id, zookeeper, table, datastore_path)
 
   try:
     ds_backup.run()
