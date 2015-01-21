@@ -1,4 +1,5 @@
 """ Top level functions for SOLR functions. """
+import calendar
 import logging
 import os
 import simplejson
@@ -10,6 +11,8 @@ import urllib2
 import query_parser
 import search_exceptions
 
+from datetime import datetime
+
 from query_parser import Document
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
@@ -17,6 +20,7 @@ import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.datastore.document_pb import FieldValue
+from google.appengine.api.search import search_service_pb
 
 class Solr():
   """ Class for doing solar operations. """
@@ -143,8 +147,10 @@ class Solr():
       elif field_type == Field.NUMBER:
         hash_map[index.name + "_" + field.name] = value
       elif field_type == Field.DATE:
-        iso8601 = time.strftime("%Y-%m-%dT%H:%M:%S", 
-          time.localtime(int(value)))
+        logging.info("GAE DATE FORMAT: {0}".format(value))
+        iso8601 = datetime.fromtimestamp(float(value)/1000).isoformat()
+        #iso8601 = time.strftime("%Y-%m-%dT%H:%M:%S", 
+        #  time.localtime(int(value)))
         hash_map[index.name + "_" + field.name] = iso8601
       elif field_type == Field.GEO:
         hash_map[index.name + "_" + field.name] = value
@@ -270,10 +276,11 @@ class Solr():
     logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
-  def run_query(self, index, app_id, namespace, search_params):
+  def run_query(self, result, index, app_id, namespace, search_params):
     """ Creates a SOLR query string and runs it on SOLR. 
 
     Args:
+      result: A search_service_pb.SearchResponse.
       index: Index for which we're running the query.
       app_id: A str, the application identifier.
       namespace: A str, the namespace.
@@ -289,13 +296,14 @@ class Solr():
     logging.info("Solr query: {0}".format(solr_query))
     solr_results = self.__execute_query(solr_query)
     logging.info("Solr results: {0}".format(solr_results))
-    gae_results = self.__convert_to_gae_results(solr_results)
-    logging.info("GAE results: {0}".format(gae_results))
-    return gae_results
+
+    logging.info("GAE results: {0}".format(result))
+    self.__convert_to_gae_results(result, solr_results, index)
+    logging.info("GAE results: {0}".format(result))
 
   def __execute_query(self, solr_query):
     """ Executes query string on SOLR. """
-    solr_url = "http://{0}:{1}/solr/select/?defType=edismax&wt=json&{2}"\
+    solr_url = "http://{0}:{1}/solr/select/?wt=json&{2}"\
       .format(self._search_location, self.SOLR_SERVER_PORT,
       solr_query)
     logging.info("SOLR URL: {0}".format(solr_url))
@@ -318,11 +326,92 @@ class Solr():
     if status != 0:
       raise search_exceptions.InternalError(
         "SOLR response status of {0}".format(status))
+    return response
 
-  def __convert_to_gae_results(self, solr_results):
-    """ Converts SOLR results in to GAE compatible documents. """
-    return
- 
+  def __convert_to_gae_results(self, result, solr_results, index):
+    """ Converts SOLR results in to GAE compatible documents. 
+
+    Args:
+      result: A search_service_pb.SearchResponse.
+      solr_results: A dictionary returned from SOLR on a search query.
+      namespace: A str, the namespace.
+      index: A Index that we are querying for.
+    """
+    logging.info("RESPONSE: {0}".format(solr_results))
+    result.set_matched_count(len(solr_results['response']['docs']) + \
+      int(solr_results['response']['start']))
+    result.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
+    for doc in solr_results['response']['docs']:
+      new_result = result.add_result()
+      self.__add_new_doc(doc, new_result, index)
+
+  def __add_new_doc(self, doc, new_result, index):
+    """ Add a new document to a query result.
+
+    Args:
+      doc: A dictionary of SOLR document attributes.
+      new_result: A search_service_pb.SearchResult.
+      index: Index we queried for.
+    """
+    new_doc = new_result.mutable_document()
+    new_doc.set_id(doc['id'])
+    new_doc.set_language(doc['_gaeindex_locale'][0])
+    logging.info("KEYS {0}".format(doc.keys()))
+    for key in doc.keys():
+      if not key.startswith(index.name):
+        continue
+      field_name = key.split("{0}_".format(index.name), 1)[1]
+      new_field = new_doc.add_field() 
+      new_field.set_name(field_name)
+      new_value = new_field.mutable_value()
+      field_type = ""
+      for field in index.schema.fields:
+        if field['name'] == "{0}_{1}".format(index.name, field_name):
+          field_type = field['type']
+      if field_type == "":
+        logging.warning("Unable to find type for {0}").format(
+          "{0}_{1}".format(index.name, field_name))
+      self.__add_field_value(new_value, doc[key], field_type)
+
+  def __add_field_value(self, new_value, value, ftype):
+    """ Adds a value to a result field.
+
+    Args:
+      new_value: 
+      value: A str, the internal value to be converted.
+      ftype: A str, the field type.
+    """
+    logging.info("FTYPE: {0}".format(ftype))
+    if ftype == Field.DATE:
+      logging.info("Date field found! {0}".format(ftype))
+      value = calendar.timegm(datetime.strptime(
+        value, "%Y-%m-%dT%H:%M:%S.%f").timetuple())
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.DATE)
+    elif ftype == Field.TEXT:
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.TEXT)
+    elif ftype == Field.HTML:
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.HTML)
+    elif ftype == Field.ATOM:
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.ATOM)
+    elif ftype == Field.NUMBER:
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.NUMBER)
+    elif ftype == Field.GEO:
+      geo = new_value.mutable_geo()
+      lat, lng = value.split(',')
+      geo.set_lat(float(lat))
+      geo.set_lng(float(lng)) 
+      new_value.set_type(FieldValue.GEO)
+    else:
+      logging.warning("Default field found!".format(ftype))
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.TEXT)
+    logging.info("New value: {0}".format(new_value))
+
 class Schema():
   """ Represents a schema in SOLR. """
   def __init__(self, fields , response_header):
