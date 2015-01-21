@@ -7,6 +7,7 @@ import logging
 import os
 import random
 import re
+import shutil
 import sys
 import threading
 import time
@@ -201,7 +202,8 @@ class DatastoreBackup(threading.Thread):
     key = entity.keys()[0]
     if re.match(self.PRIVATE_KINDS, key) or re.match(self.PROTECTED_KINDS, key):
       return False
-    logging.info("Entity: {0}".format(entity))
+    logging.debug("Entity: {0}".format(entity))
+
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     if one_entity == datastore_server.TOMBSTONE:
       return False
@@ -329,6 +331,23 @@ def main():
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=logging.INFO)
   logging.info("Logging started")
+
+  message = "Backing up "
+  if args.source:
+    message += "source and "
+  message += "data for: {0}".format(args.app_id)
+  logging.info(message)
+
+  if args.source:
+    sourcefile = '/opt/appscale/apps/{0}.tar.gz'.format(args.app_id)
+    if os.path.isfile(sourcefile):
+      try:
+        shutil.copy(sourcefile, DatastoreBackup.BACKUP_FILE_LOCATION)
+        logging.info("Source code was successfully backed up.")
+      except shutil.Error, error:
+        logging.error("Error: {0} while backing up source code. Skipping...".format(error))
+    else:
+      logging.error("Couldn't find source code for this app. Skipping...")
 
   zk_connection_locations = appscale_info.get_zk_locations_string()
   zookeeper = zk.ZKTransaction(host=zk_connection_locations)
