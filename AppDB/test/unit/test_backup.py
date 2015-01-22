@@ -11,9 +11,10 @@ import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+import backup_data as backup
+import appscale_datastore_batch
 from dbconstants import AppScaleDBConnectionError
 import entity_utils
-import backup_data as backup
 
 from zkappscale.zktransaction import ZKTransactionException
 
@@ -54,6 +55,8 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
     fake_backup = backup.DatastoreBackup('app_id', zookeeper, "cassandra",
       "localhost:8888")
+    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
+    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
 
   def test_stop(self):
     pass
@@ -73,12 +76,12 @@ class TestBackup(unittest.TestCase):
 
     # ... and successfully releasing the lock.
     zookeeper.should_receive('release_lock_with_path').and_return(True)
-    self.assertEquals(True, fake_backup.run())
+    self.assertEquals(None, fake_backup.run())
 
     # ... and failure to release the lock.
     zookeeper.should_receive('release_lock_with_path').\
       and_raise(ZKTransactionException)
-    self.assertEquals(True, fake_backup.run())
+    self.assertEquals(None, fake_backup.run())
 
   def test_get_backup_lock(self):
     zookeeper = flexmock()

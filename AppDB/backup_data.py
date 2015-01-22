@@ -96,8 +96,6 @@ class DatastoreBackup(multiprocessing.Process):
           "running.")
         time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
 
-    return True
-
   def get_backup_lock(self):
     """ Tries to acquire the lock for a datastore backup.
 
@@ -153,22 +151,19 @@ class DatastoreBackup(multiprocessing.Process):
     Returns:
       True on success, False otherwise.
     """
-    # Pickle batch of entities.
-    pickled_entity = cPickle.dumps(entity)
-
     # Open file and write pickled batch.
-    if self.current_file_size + len(pickled_entity) > self.MAX_FILE_SIZE:
+    if self.current_file_size + len(entity) > self.MAX_FILE_SIZE:
       self.current_fileno += 1
       self.current_file_size = 0
       self.filename = '{0}-{1}{2}'.format(self.filename_prefix,
         self.current_fileno, self.BACKUP_FILE_SUFFIX)
 
     try:
-      with open(self.filename, 'a+') as file_d:
-        file_d.write(pickled_entity)
+      with open(self.filename, 'a+') as file_object:
+        cPickle.dump(entity, file_object, cPickle.HIGHEST_PROTOCOL)
 
       self.entities_backed_up += 1
-      self.current_file_size += len(pickled_entity)
+      self.current_file_size += len(entity)
     except IOError as io_error:
       logging.error(
         "Encountered IOError while accessing backup file {0}".
