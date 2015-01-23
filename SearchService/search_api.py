@@ -165,7 +165,7 @@ class SearchService():
     """
     #TODO handle error conditions.
     request = search_service_pb.SearchRequest(data)
-    logging.debug("Search request: {0}".format(request))
+    logging.info("Search request: {0}".format(request))
     params = request.params()
     app_id = request.app_id()
     index_spec = params.index_spec()

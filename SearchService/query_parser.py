@@ -8,6 +8,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api.search import query_parser
 from google.appengine.api.search import QueryParser
 
+# Encoded value for a comma ','.
+COMMA = "%2C"
+
+# Encoded value for a color ':'.
+COLON = "%3A"
+
+# Encoded value for a space ' '.
+SPACE = "%20"
+
 class SolrQueryParser():
   """ Class for parsing search queries. """
   def __init__(self, index, app_id, namespace, field_spec, sort_list,
@@ -41,7 +50,8 @@ class SolrQueryParser():
     Returns:
       A SOLR string.
     """
-    query_string = "q={0}:{1}".format(Document.INDEX_NAME, self.__index.name) 
+    query_string = "q={0}{1}{2}".format(Document.INDEX_NAME, COLON, 
+      self.__index.name) 
     if len(query) > 0:
       query = urllib.unquote(query)
       query = query.strip()
@@ -50,8 +60,8 @@ class SolrQueryParser():
       logging.debug("Query: {0}".format(query))
       query_tree = query_parser.ParseAndSimplify(query)
       logging.debug("DUMP :{0}".format(self.__dump_tree(query_tree)))
-      query_string += " AND " + self.__create_query_string(query_tree)
-
+      query_string += SPACE + "AND" + SPACE + self.__create_query_string(query_tree)
+      logging.info("Query string {0}".format(query_string))
     # Use edismax as the parsing engine for more query abilities.
     query_string += "&defType=edismax"
 
@@ -100,12 +110,18 @@ class SolrQueryParser():
       field_names = []
       for field in schema_fields:
         field_names.append(field['name'])
-      return "{0}{1}".format(field_arg, '%2C'.join(field_names))
+      if field_names:
+        return "{0}{1}".format(field_arg, COMMA.join(field_names))
+      else:
+        return "{0}{1}".format(field_arg, Document.INDEX_NAME)
     else:
       field_names = []
       for field_name in self.__field_spec.name_list():
         field_names.append("{0}_{1}".format(self.__index.name, field_name))
-      return "{0}{1}".format(field_arg, '%2C'.join(field_names))
+      if field_names:
+        return "{0}{1}".format(field_arg, COMMA.join(field_names))
+      else:
+        return ""
 
   def __get_sort_list(self):
     """ Gets the SOLR sort list argument for the SOLR query.
@@ -119,13 +135,13 @@ class SolrQueryParser():
       new_field = "{0}_{1}".format(self.__index.name,
         sort_spec.sort_expression())
       if sort_spec.sort_descending() == 1:
-        new_field += "%20desc" 
+        new_field += SPACE + "desc" 
       else:
-        new_field += "%20asc"   
+        new_field += SPACE + "asc"   
       field_list.append(new_field)
 
     if field_list: 
-      return "&sort={0}".format('%2C'.join(field_list))
+      return "&sort={0}".format(COMMA.join(field_list))
     else:
       return ""
 
@@ -141,9 +157,13 @@ class SolrQueryParser():
       field_string += "&fl=id,"
       for field_name in self.__field_spec.name_list():
         field_list.append("{0}_{1}".format(self.__index.name, field_name))
-      field_string += '%20'.join(field_list) 
-    logging.info("Field string: {0}".format(field_string))
-    return field_string
+      field_string += SPACE.join(field_list) 
+      logging.info("Field string: {0}".format(field_string))
+      return field_string
+    else:
+      field_string += "&fl=id"
+      logging.info("Field string: {0}".format(field_string))
+      return field_string 
 
   def __create_query_string(self, query_tree):
     """ Creates a SOLR query string from a antlr3 parse tree.
