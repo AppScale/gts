@@ -4,6 +4,7 @@ import os
 import sys
 import uuid
 
+import search_exceptions
 import solr_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
@@ -113,6 +114,7 @@ class SearchService():
         self.solr_conn.update_document(request.app_id(), doc, index_spec)
         new_status.set_code(search_service_pb.SearchServiceError.OK) 
       except Exception, exception:
+        logging.error("Exception raised while indexing document")
         logging.exception(exception)
         new_status.set_code(
           search_service_pb.SearchServiceError.INTERNAL_ERROR)
@@ -163,18 +165,26 @@ class SearchService():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    #TODO handle error conditions.
     request = search_service_pb.SearchRequest(data)
     logging.info("Search request: {0}".format(request))
     params = request.params()
     app_id = request.app_id()
     index_spec = params.index_spec()
     namespace = index_spec.namespace()
-    index = self.solr_conn.get_index(app_id, index_spec.namespace(),
-      index_spec.name())
     response = search_service_pb.SearchResponse()
-    self.solr_conn.run_query(response, index, app_id, namespace,
-      request.params())
+    try:
+      index = self.solr_conn.get_index(app_id, index_spec.namespace(),
+        index_spec.name())
+      self.solr_conn.run_query(response, index, app_id, namespace,
+        request.params())
+    except search_exceptions.InternalError, internal_error:
+      logging.error("Exception while doing a search.")
+      logging.exception(internal_error)
+      status = response.mutable_status()
+      status.set_code(
+        search_service_pb.SearchServiceError.INTERNAL_ERROR)
+      response.set_matched_count(0)
+      return response.Encode(), 3, "Internal error."
+     
     logging.debug("Search response: {0}".format(response))
     return response.Encode(), 0, ""
-

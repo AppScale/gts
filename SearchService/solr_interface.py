@@ -56,7 +56,7 @@ class Solr():
       namespace: A str, the application namespace.
       name: A str, the index name.
     Raises:
-      search_exception.InternalError: Bad response from SOLR server.
+      search_exceptions.InternalError: Bad response from SOLR server.
     Returns:
       An index item. 
     """
@@ -322,6 +322,12 @@ class Solr():
       logging.error("Unable to decode json from SOLR server: {0}".format(
         exception))
       raise search_exceptions.InternalError("Malformed response from SOLR.")
+    except urllib2.HTTPError, http_error:
+      logging.exception(http_error)
+      # We assume no results were returned.
+      status = 0
+      response = {'response': {'docs': [], 'start': 0}}
+      #raise search_exceptions.InternalError("Bad request")
 
     if status != 0:
       raise search_exceptions.InternalError(
@@ -355,7 +361,7 @@ class Solr():
     """
     new_doc = new_result.mutable_document()
     new_doc.set_id(doc['id'])
-    new_doc.set_language(doc['_gaeindex_locale'][0])
+    new_doc.set_language(doc[Document.INDEX_LOCALE][0])
     logging.info("KEYS {0}".format(doc.keys()))
     for key in doc.keys():
       if not key.startswith(index.name):
@@ -384,9 +390,11 @@ class Solr():
     logging.info("FTYPE: {0}".format(ftype))
     if ftype == Field.DATE:
       logging.info("Date field found! {0}".format(ftype))
+      logging.info("date value: {0}".format(value))
       value = calendar.timegm(datetime.strptime(
-        value, "%Y-%m-%dT%H:%M:%S.%f").timetuple())
-      new_value.set_string_value(value)
+        value[:-1], "%Y-%m-%dT%H:%M:%S").timetuple())
+      logging.info("New date value: {0}".format(value))
+      new_value.set_string_value(str(value))
       new_value.set_type(FieldValue.DATE)
     elif ftype == Field.TEXT:
       new_value.set_string_value(value)

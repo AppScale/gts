@@ -161,8 +161,8 @@ class SolrQueryParser():
       logging.info("Field string: {0}".format(field_string))
       return field_string
     else:
-      field_string += "&fl=id"
-      logging.info("Field string: {0}".format(field_string))
+      #field_string += "&fl=id"
+      #logging.info("Field string: {0}".format(field_string))
       return field_string 
 
   def __create_query_string(self, query_tree):
