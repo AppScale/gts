@@ -147,10 +147,7 @@ class Solr():
       elif field_type == Field.NUMBER:
         hash_map[index.name + "_" + field.name] = value
       elif field_type == Field.DATE:
-        logging.info("GAE DATE FORMAT: {0}".format(value))
         iso8601 = datetime.fromtimestamp(float(value)/1000).isoformat()
-        #iso8601 = time.strftime("%Y-%m-%dT%H:%M:%S", 
-        #  time.localtime(int(value)))
         hash_map[index.name + "_" + field.name] = iso8601
       elif field_type == Field.GEO:
         hash_map[index.name + "_" + field.name] = value
@@ -273,7 +270,6 @@ class Solr():
           doc_field.field_type}
         fields_to_update.append(new_field)
     #TODO add fields to delete also.
-    logging.debug("Fields to update: {0}".format(fields_to_update))
     return fields_to_update
 
   def run_query(self, result, index, app_id, namespace, search_params):
@@ -293,20 +289,18 @@ class Solr():
       field_spec, sort_list, search_params.limit(),
       search_params.offset())
     solr_query = parser.get_solr_query_string(query)
-    logging.info("Solr query: {0}".format(solr_query))
+    logging.debug("Solr query: {0}".format(solr_query))
     solr_results = self.__execute_query(solr_query)
-    logging.info("Solr results: {0}".format(solr_results))
-
-    logging.info("GAE results: {0}".format(result))
+    logging.debug("Solr results: {0}".format(solr_results))
     self.__convert_to_gae_results(result, solr_results, index)
-    logging.info("GAE results: {0}".format(result))
+    logging.debug("GAE results: {0}".format(result))
 
   def __execute_query(self, solr_query):
     """ Executes query string on SOLR. """
     solr_url = "http://{0}:{1}/solr/select/?wt=json&{2}"\
       .format(self._search_location, self.SOLR_SERVER_PORT,
       solr_query)
-    logging.info("SOLR URL: {0}".format(solr_url))
+    logging.debug("SOLR URL: {0}".format(solr_url))
     try:
       req = urllib2.Request(solr_url)
       req.add_header('Content-Type', 'application/json')
@@ -317,7 +311,7 @@ class Solr():
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
       response = simplejson.load(conn)
       status = response['responseHeader']['status'] 
-      logging.info("Response: {0}".format(response))
+      logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
         exception))
@@ -343,7 +337,6 @@ class Solr():
       namespace: A str, the namespace.
       index: A Index that we are querying for.
     """
-    logging.info("RESPONSE: {0}".format(solr_results))
     result.set_matched_count(len(solr_results['response']['docs']) + \
       int(solr_results['response']['start']))
     result.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
@@ -362,7 +355,6 @@ class Solr():
     new_doc = new_result.mutable_document()
     new_doc.set_id(doc['id'])
     new_doc.set_language(doc[Document.INDEX_LOCALE][0])
-    logging.info("KEYS {0}".format(doc.keys()))
     for key in doc.keys():
       if not key.startswith(index.name):
         continue
@@ -387,14 +379,10 @@ class Solr():
       value: A str, the internal value to be converted.
       ftype: A str, the field type.
     """
-    logging.info("FTYPE: {0}".format(ftype))
     if ftype == Field.DATE:
-      logging.info("Date field found! {0}".format(ftype))
-      logging.info("date value: {0}".format(value))
       value = calendar.timegm(datetime.strptime(
         value[:-1], "%Y-%m-%dT%H:%M:%S").timetuple())
-      logging.info("New date value: {0}".format(value))
-      new_value.set_string_value(str(value))
+      new_value.set_string_value(str(int(value * 1000)))
       new_value.set_type(FieldValue.DATE)
     elif ftype == Field.TEXT:
       new_value.set_string_value(value)
@@ -414,11 +402,14 @@ class Solr():
       geo.set_lat(float(lat))
       geo.set_lng(float(lng)) 
       new_value.set_type(FieldValue.GEO)
-    else:
-      logging.warning("Default field found!".format(ftype))
+    elif ftype.startswith(Field.TEXT_):
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.TEXT)
-    logging.info("New value: {0}".format(new_value))
+    else:
+      logging.warning("Default field found! {0}".format(ftype))
+      new_value.set_string_value(value)
+      new_value.set_type(FieldValue.TEXT)
+    logging.debug("New value: {0}".format(new_value))
 
 class Schema():
   """ Represents a schema in SOLR. """

@@ -166,7 +166,7 @@ class SearchService():
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.SearchRequest(data)
-    logging.info("Search request: {0}".format(request))
+    logging.debug("Search request: {0}".format(request))
     params = request.params()
     app_id = request.app_id()
     index_spec = params.index_spec()

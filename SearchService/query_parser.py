@@ -59,20 +59,29 @@ class SolrQueryParser():
         query = unicode(query, 'utf-8')
       logging.debug("Query: {0}".format(query))
       query_tree = query_parser.ParseAndSimplify(query)
-      logging.debug("DUMP :{0}".format(self.__dump_tree(query_tree)))
-      query_string += SPACE + "AND" + SPACE + self.__create_query_string(query_tree)
-      logging.info("Query string {0}".format(query_string))
+      logging.debug("Tree dump:{0}".format(self.__dump_tree(query_tree)))
+      query_string += "+AND+" + self.__create_query_string(query_tree)
+      logging.debug("Query string {0}".format(query_string))
     # Use edismax as the parsing engine for more query abilities.
     query_string += "&defType=edismax"
 
+    query_fields = self.__get_query_fields()
+   
     # Get the field list for the query.
-    query_string += self.__get_field_list()
-
+    field_list = self.__get_field_list()
+    logging.debug("Field list: {0}".format(field_list))
+    if field_list:
+      query_string += field_list
+    else:
+      logging.debug("Using default field list")
+      query_string += "&fl=id+" + Document.INDEX_LOCALE + "+" + query_fields
+     
     # Set sort order.
     query_string += self.__get_sort_list()
 
     # Restrict to only fields requested or all of the fields from the schema. 
-    query_string += self.__get_query_fields()
+    query_string += "&qf=" + query_fields
+    query_string += "&pf=" + query_fields
 
     query_string += self.__get_row_limit()
 
@@ -103,7 +112,6 @@ class SolrQueryParser():
     Return:
       A str, a list of fields we want to restrict the result by.
     """
-    field_arg = "&qf="
     if self.__field_spec.name_size() == 0:
       # Select all fields from the schema.
       schema_fields = self.__index.schema.fields
@@ -111,15 +119,15 @@ class SolrQueryParser():
       for field in schema_fields:
         field_names.append(field['name'])
       if field_names:
-        return "{0}{1}".format(field_arg, COMMA.join(field_names))
+        return '+'.join(field_names)
       else:
-        return "{0}{1}".format(field_arg, Document.INDEX_NAME)
+        return Document.INDEX_NAME
     else:
       field_names = []
       for field_name in self.__field_spec.name_list():
         field_names.append("{0}_{1}".format(self.__index.name, field_name))
       if field_names:
-        return "{0}{1}".format(field_arg, COMMA.join(field_names))
+        return '+'.join(field_names)
       else:
         return ""
 
@@ -135,9 +143,9 @@ class SolrQueryParser():
       new_field = "{0}_{1}".format(self.__index.name,
         sort_spec.sort_expression())
       if sort_spec.sort_descending() == 1:
-        new_field += SPACE + "desc" 
+        new_field += "+desc" 
       else:
-        new_field += SPACE + "asc"   
+        new_field += "+asc"   
       field_list.append(new_field)
 
     if field_list: 
@@ -158,11 +166,9 @@ class SolrQueryParser():
       for field_name in self.__field_spec.name_list():
         field_list.append("{0}_{1}".format(self.__index.name, field_name))
       field_string += SPACE.join(field_list) 
-      logging.info("Field string: {0}".format(field_string))
+      logging.debug("Field string: {0}".format(field_string))
       return field_string
     else:
-      #field_string += "&fl=id"
-      #logging.info("Field string: {0}".format(field_string))
       return field_string 
 
   def __create_query_string(self, query_tree):
@@ -178,21 +184,21 @@ class SolrQueryParser():
       q_str += "("
       for index, child in enumerate(query_tree.children):
         if index != 0:
-          q_str += " AND"
+          q_str += "+AND"
         q_str += self.__create_query_string(child)
       q_str += ")"
     elif query_tree.getType() == QueryParser.DISJUNCTION:
-      q_str += " AND ("
+      q_str += "+AND+("
       for index, child in enumerate(query_tree.children):
         if index != 0:
-          q_str += " OR"
+          q_str += "+OR"
         q_str += self.__create_query_string(child)
       q_str += ")"
     elif query_tree.getType() == QueryParser.NEGATION:
-      q_str += " NOT ("
+      q_str += "+NOT+("
       for index, child in enumerate(query_tree.children):
         if index != 0:
-          q_str += " AND"
+          q_str += "+AND"
         q_str += self.__create_query_string(child)
       q_str += ")"
     elif query_tree.getType() in query_parser.COMPARISON_TYPES:
@@ -200,20 +206,20 @@ class SolrQueryParser():
       if field.getType() == QueryParser.GLOBAL:
         field = query_parser.GetQueryNodeText(match)
         field = self.__escape_chars(field) #TODO
-        q_str += " *:\"{0}\"".format(field)
+        q_str += "\"{0}\"".format(field)
       else:
         field = query_parser.GetQueryNodeText(field)
         match = query_parser.GetQueryNodeText(match)
         internal_field_name = self.__get_internal_field_name(field) #TODO
         escaped_value = self.__escape_chars(match) #TODO
         oper = self.__get_operator(query_tree.getType())
-        q_str += " {0}{1}\"{2}\"".format(internal_field_name, oper,
+        q_str += "{0}{1}\"{2}\"".format(internal_field_name, oper,
           escaped_value)
     else:
       logging.warning("No node match for {0}".format(query_tree.getType()))
-    logging.info("Query string: {0}".format(q_str))
-    q_str = urllib.quote_plus(q_str)
-    logging.info("Encoded: {0}".format(q_str))
+    logging.debug("Query string: {0}".format(q_str))
+    q_str = urllib.quote_plus(q_str, '+')
+    logging.debug("Encoded: {0}".format(q_str))
     return q_str
 
   # TODO handle range operators
