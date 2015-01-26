@@ -49,23 +49,21 @@ class DatastoreBackup(multiprocessing.Process):
   # Any kind that is of _*_ is protected.
   PROTECTED_KINDS = '(.*)_(.*)_(.*)'
 
-  def __init__(self, app_id, zoo_keeper, table_name, ds_path):
+  def __init__(self, app_id, zoo_keeper, table_name):
     """ Constructor.
 
     Args:
+      app_id: The application ID.
       zk: ZooKeeper client.
       table_name: The database used (e.g. cassandra).
-      ds_path: The connection path to the datastore_server.
     """
     multiprocessing.Process.__init__(self)
 
     self.app_id = app_id
-    self.last_key = self.app_id + dbconstants.TERMINATING_STRING
+    self.last_key = self.app_id + '\0' + dbconstants.TERMINATING_STRING
     self.zoo_keeper = zoo_keeper
-    self.table_name = table_name
     self.db_access = appscale_datastore_batch.DatastoreFactory.\
-      getDatastore(self.table_name)
-    self.datastore_path = ds_path
+      getDatastore(table_name)
     self.entities_backed_up = 0
     self.current_fileno = 0
     self.current_file_size = 0
@@ -346,11 +344,8 @@ def main():
   zookeeper = zk.ZKTransaction(host=zk_connection_locations)
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
-  master = appscale_info.get_db_master_ip()
-  datastore_path = "{0}:8888".format(master)
 
-  ds_backup = DatastoreBackup(args.app_id, zookeeper, table, datastore_path)
-
+  ds_backup = DatastoreBackup(args.app_id, zookeeper, table)
   try:
     ds_backup.run()
   finally:
