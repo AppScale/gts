@@ -18,7 +18,7 @@ def get_entities(table, schema, db):
     schema: The schema of table to get from
     db: The database accessor
   Returns: 
-    The entire table up to _MAX_ENTITIES
+    The entire table up to _BATCH_SIZE
   """
   return db.range_query(table, schema, "", "", _MAX_ENTITIES)
 

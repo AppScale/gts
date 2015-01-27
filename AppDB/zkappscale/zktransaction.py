@@ -77,6 +77,9 @@ DS_GROOM_LOCK_PATH = "/appscale_datastore_groomer"
 # Lock path for the datastore backup.
 DS_BACKUP_LOCK_PATH = "/appscale_datastore_backup"
 
+# Lock path for the datastore backup.
+DS_RESTORE_LOCK_PATH = "/appscale_datastore_restore"
+
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
