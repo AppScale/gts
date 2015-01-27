@@ -37,6 +37,10 @@ class DatastoreBackup(multiprocessing.Process):
   # The number of entities retrieved in a datastore request.
   BATCH_SIZE = 100
 
+  # Blob entity regular expressions.
+  BLOB_CHUNK_REGEX = '(.*)__BlobChunk__(.*)'
+  BLOB_INFO_REGEX = '(.*)__BlobInfo__(.*)'
+
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
 
@@ -64,13 +68,12 @@ class DatastoreBackup(multiprocessing.Process):
     self.zoo_keeper = zoo_keeper
     self.db_access = appscale_datastore_batch.DatastoreFactory.\
       getDatastore(table_name)
-    self.entities_backed_up = 0
+    self.backup_timestamp = time.strftime("%Y%m%d-%H%M%S")
+    self.backup_dir = None
     self.current_fileno = 0
+    self.set_filename()
     self.current_file_size = 0
-    self.filename_prefix = '{0}{1}-{2}'.format(
-      self.BACKUP_FILE_LOCATION, self.app_id, time.strftime("%Y%m%d-%H%M%S"))
-    self.filename = '{0}-{1}{2}'.format(self.filename_prefix,
-      self.current_fileno, self.BACKUP_FILE_SUFFIX)
+    self.entities_backed_up = 0
 
   def stop(self):
     """ Stops the backup thread. """
@@ -141,6 +144,28 @@ class DatastoreBackup(multiprocessing.Process):
 
     return True
 
+  def set_filename(self):
+    """ Creates a new backup filename. Also creates the backup folder if it
+    doesn't exist.
+    """
+    logging.info("Backup dir: {0}".format(self.backup_dir))
+    if not self.backup_dir:
+      self.backup_dir = '{0}{1}-{2}/'.format(self.BACKUP_FILE_LOCATION,
+        self.app_id, self.backup_timestamp)
+      try:
+        os.mkdir(self.backup_dir)
+      except OSError, os_error:
+        logging.warn("OSError: Backup directory already exists.")
+        logging.error(os_error.message)
+      except IOError, io_error:
+        logging.warn("ERROR while creating backup dir.")
+        logging.error(io_error.message)
+
+    file_name = '{0}-{1}-{2}{3}'.format(self.app_id, self.backup_timestamp,
+      self.current_fileno, self.BACKUP_FILE_SUFFIX)
+    self.filename = '{0}{1}'.format(self.backup_dir, file_name)
+    logging.info("Will write to backup file: {0}".format(self.filename))
+
   def dump_entity(self, entity):
     """ Dumps the entity content into a backup file.
 
@@ -152,13 +177,13 @@ class DatastoreBackup(multiprocessing.Process):
     # Open file and write pickled batch.
     if self.current_file_size + len(entity) > self.MAX_FILE_SIZE:
       self.current_fileno += 1
+      self.set_filename()
       self.current_file_size = 0
-      self.filename = '{0}-{1}{2}'.format(self.filename_prefix,
-        self.current_fileno, self.BACKUP_FILE_SUFFIX)
 
     try:
-      with open(self.filename, 'a+') as file_object:
+      with open(self.filename, 'ab+') as file_object:
         cPickle.dump(entity, file_object, cPickle.HIGHEST_PROTOCOL)
+        # file_object.write(cPickle.dumps(entity))
 
       self.entities_backed_up += 1
       self.current_file_size += len(entity)
@@ -193,8 +218,13 @@ class DatastoreBackup(multiprocessing.Process):
       True on success, False otherwise.
     """
     key = entity.keys()[0]
-    if re.match(self.PRIVATE_KINDS, key) or re.match(self.PROTECTED_KINDS, key):
-      return False
+    # Skip protected and private entities.
+    if re.match(self.PROTECTED_KINDS, key) or\
+        re.match(self.PRIVATE_KINDS, key):
+      # Do not skip blob entities.
+      if not re.match(self.BLOB_CHUNK_REGEX, key) and\
+          not re.match(self.BLOB_INFO_REGEX, key):
+        return False
     logging.debug("Entity: {0}".format(entity))
 
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
@@ -219,9 +249,11 @@ class DatastoreBackup(multiprocessing.Process):
                 format(key, entity))
               success = False
 
+          logging.info("Entity key to be stored: {0}".format(key))
           self.dump_entity(one_entity)
           success = True
         else:
+          logging.warn("Entity with key: {0} not found".format(key))
           success = False
       except zk.ZKTransactionException, zk_exception:
         logging.error("Zookeeper exception {0} while requesting entity lock".
@@ -265,7 +297,6 @@ class DatastoreBackup(multiprocessing.Process):
     a file.
     """
     logging.info("Backup started")
-    logging.info("Backup file: {0}".format(self.filename))
     start = time.time()
 
     first_key = '{0}\x00'.format(self.app_id)
