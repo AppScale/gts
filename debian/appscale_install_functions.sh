@@ -312,8 +312,6 @@ installservice()
 {
     # This must be absolete path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
-    chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-progenitor.sh ${DESTDIR}/etc/init.d/appscale-progenitor
     chmod -v a+x ${APPSCALE_HOME}/appscale-progenitor.sh
 
