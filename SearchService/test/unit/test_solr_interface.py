@@ -143,7 +143,6 @@ class TestSolrInterface(unittest.TestCase):
     appscale_info = flexmock()
     appscale_info.should_receive("get_search_location").and_return("somelocation")
     solr = solr_interface.Solr()
-    solr = solr_interface.Solr()
     solr = flexmock(solr) 
     solr.should_receive("to_solr_doc").and_return(FakeSolrDoc())
     solr.should_receive("get_index").and_return(FakeIndex())

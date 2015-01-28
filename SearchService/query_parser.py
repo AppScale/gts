@@ -11,7 +11,7 @@ from google.appengine.api.search import QueryParser
 # Encoded value for a comma ','.
 COMMA = "%2C"
 
-# Encoded value for a color ':'.
+# Encoded value for a colon ':'.
 COLON = "%3A"
 
 # Encoded value for a space ' '.
@@ -271,7 +271,13 @@ class SolrQueryParser():
     return ""
 
   def __dump_tree(self, node):
-    """ Dumps the tree contents. """
+    """ Dumps the tree contents. 
+
+    Args:
+      node: The head node to convert to a human readable string.
+    Returns:
+      A str, the tree in human readable format.
+    """
     return node.toStringTree()
 
 class Document(): 
@@ -284,7 +290,13 @@ class Document():
   INDEX_LOCALE = "_gaeindex_locale" 
  
   def __init__(self, identifier, language, fields): 
-    """ Constructor for Document in SOLR. """ 
+    """ Constructor for Document in SOLR. 
+
+    Args:
+      identifier: A str, the ID of the document.
+      language: The language the document is in.
+      fields: Field list for the document.
+    """ 
     self.id = identifier 
     self.language = language 
     self.fields = fields 

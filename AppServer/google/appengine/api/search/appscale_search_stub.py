@@ -75,7 +75,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: A search_service_pb.IndexDocumentRequest.
-      response: An search_service_pb.IndexDocumentResponse.
+      response: A search_service_pb.IndexDocumentResponse.
     """
     if not request.has_app_id():
       request.set_app_id(self.__app_id)
@@ -86,7 +86,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: A search_service_pb.DeleteDocumentRequest.
-      response: An search_service_pb.DeleteDocumentResponse.
+      response: A search_service_pb.DeleteDocumentResponse.
     """
     self._RemoteSend(request, response, "DeleteDocument")
 
@@ -95,7 +95,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: A search_service_pb.ListIndexesRequest.
-      response: An search_service_pb.ListIndexesResponse.
+      response: A search_service_pb.ListIndexesResponse.
 
     Raises:
       ResponseTooLargeError: raised for testing admin console.
@@ -107,7 +107,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: A search_service_pb.ListDocumentsRequest.
-      response: An search_service_pb.ListDocumentsResponse.
+      response: A search_service_pb.ListDocumentsResponse.
     """
     self._RemoteSend(request, response, "ListDocuments")
  
@@ -116,7 +116,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: A search_service_pb.SearchRequest.
-      response: An search_service_pb.SearchResponse.
+      response: A search_service_pb.SearchResponse.
     """
     if not request.has_app_id():
       request.set_app_id(self.__app_id)
@@ -140,7 +140,13 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     return
 
   def _RemoteSend(self, request, response, method):
-    """ Sends a request remotely to the datstore server. """
+    """ Sends a request remotely to the datstore server. 
+
+    Args:
+      request: A request object.
+      response: A response object to be filled in.
+      method: A str, the dynamic function doing the call.
+    """
     if not self.__search_location:
       raise search.InternalError("Search service not configured.")
 

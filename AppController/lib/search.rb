@@ -1,7 +1,7 @@
 #!/usr/bin/ruby -w
 
 
-# First-party Ruby libraries
+# First-party Ruby libraries.
 require 'timeout'
 
 
@@ -58,7 +58,7 @@ module Search
     start_search_server()
   end
 
-  # Start up SOLR.
+  # Starts up SOLR.
   def self.start_solr()
     Djinn.log_debug("Starting SOLR.")
     Djinn.log_run("mkdir -p #{SOLR_STATE_DIR}")
@@ -97,14 +97,12 @@ module Search
     self.stop_solr()
   end
 
-
   # Stops the AppScale search server.
   def self.stop_search_server()
     Djinn.log_debug("Stopping search_server on this node.")
     MonitInterface.stop(:search)
     Djinn.log_debug("Done stopping search_server on this node.")
   end
-
 
   # Erases all the files that SOLR normally writes to, which can be useful
   # to ensure that we start up SOLR without left-over state from previous

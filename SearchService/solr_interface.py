@@ -20,6 +20,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.datastore.document_pb import FieldValue
 from google.appengine.api.search import search_service_pb
 
+# HTTP OK code.
+HTTP_OK = 200
+
 class Solr():
   """ Class for doing solar operations. """
 
@@ -47,22 +50,24 @@ class Solr():
 
     Args:
       doc_id: A list of document IDs.
+    Raises:
+      search_exceptions.InternalError on internal errors.
     """
     solr_request = {"delete": {"id": doc_id}}
     solr_url = "http://{0}:{1}/solr/update?".format(self._search_location,
       self.SOLR_SERVER_PORT)
-    logging.info("SOLR URL: {0}".format(solr_url))
+    logging.debug("SOLR URL: {0}".format(solr_url))
     json_request = simplejson.dumps(solr_request)
-    logging.info("SOLR JSON: {0}".format(json_request))
+    logging.debug("SOLR JSON: {0}".format(json_request))
     try:
       req = urllib2.Request(solr_url, data=json_request)
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
-      if conn.getcode() != 200:
+      if conn.getcode() != HTTP_OK:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
       status = response['responseHeader']['status'] 
-      logging.info("Response: {0}".format(response))
+      logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
         exception))
@@ -94,7 +99,7 @@ class Solr():
     logging.debug("URL: {0}".format(solr_url))
     try:
       conn = urllib2.urlopen(solr_url)
-      if conn.getcode() != 200:
+      if conn.getcode() != HTTP_OK:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
       logging.debug("Response: {0}".format(response))
@@ -122,6 +127,8 @@ class Solr():
 
     Args:
       updates: A list of updates to apply.
+    Raises:
+      search_exceptions.InternalError on internal errors from SOLR.
     """
     field_list = []
     for update in updates:
@@ -135,7 +142,7 @@ class Solr():
       req = urllib2.Request(solr_url, data=json_request)
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
-      if conn.getcode() != 200:
+      if conn.getcode() != HTTP_OK:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
       response = simplejson.load(conn)
       status = response['responseHeader']['status'] 
@@ -199,7 +206,7 @@ class Solr():
       req = urllib2.Request(solr_url, data=json_payload)
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
-      if conn.getcode() != 200:
+      if conn.getcode() != HTTP_OK:
         logging.error("Got code {0} with URL {1} and payload {2}".format(
         conn.getcode(), solr_url, json_payload))
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
@@ -229,8 +236,11 @@ class Solr():
     updates = self.compute_updates(index.name, index.schema.fields,
       solr_doc.fields)
     if len(updates) > 0:
-      self.update_schema(updates)
-
+      try:
+        self.update_schema(updates)
+      except search_exceptions.InternalError, internal_error:
+        logging.error("Error updating schema.")
+        logging.exception(internal_error)
     # Create a list of documents to update.
     hash_map = self.to_solr_hash_map(index, solr_doc)
     self.commit_update(hash_map)
@@ -242,6 +252,8 @@ class Solr():
       doc: A document_pb.Document type.
     Returns:
       A converted Document type.
+    Raises:
+      search_exceptions.InternalError if field type is not valid.
     """
     fields = []
     for field in doc.field_list():
@@ -249,24 +261,24 @@ class Solr():
       field_type = field.value().type()
       if field_type == FieldValue.TEXT:
         lang = field.value().language()
-        name = field.name()# + "_" + Field.TEXT_ + lang
+        name = field.name()
         new_field = Field(name, Field.TEXT_ + lang, value=value)
       elif field_type == FieldValue.HTML:
         lang = field.value().language()
-        name = field.name()# + "_" + Field.HTML + lang
+        name = field.name()
         new_field = Field(name, Field.HTML, value=value)
       elif field_type == FieldValue.ATOM:
-        name = field.name()# + "_" + Field.ATOM
+        name = field.name()
         new_field = Field(name, Field.ATOM, value=value.lower())
       elif field_type == FieldValue.DATE:
-        name = field.name()# + "_" + Field.DATE
+        name = field.name()
         new_field = Field(name, Field.DATE, value=value)
       elif  field_type == FieldValue.NUMBER:
-        name = field.name()# + "_" + Field.NUMBER
+        name = field.name()
         new_field = Field(name, Field.NUMBER, value=value)
       elif field_type == FieldValue.GEO:
         geo = field.value.geo()
-        name = field.name()# + "_" + Field.GEO
+        name = field.name()
         new_field = Field(name, Field.GEO, geo.lat + "," + geo.lng())
       else:
         logging.error("Unknown field type {0}".format(field_type))
@@ -324,7 +336,15 @@ class Solr():
     logging.debug("GAE results: {0}".format(result))
 
   def __execute_query(self, solr_query):
-    """ Executes query string on SOLR. """
+    """ Executes query string on SOLR. 
+
+    Args:
+      solr_query: A str, the query to run.
+    Returns:
+      The results from the query executing.
+    Raises:
+      search_exceptions.InternalError on internal SOLR error.
+    """
     solr_url = "http://{0}:{1}/solr/select/?wt=json&{2}"\
       .format(self._search_location, self.SOLR_SERVER_PORT,
       solr_query)
@@ -333,7 +353,7 @@ class Solr():
       req = urllib2.Request(solr_url)
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
-      if conn.getcode() != 200:
+      if conn.getcode() != HTTP_OK:
         logging.error("Got code {0} with URL {1}.".format(
           conn.getcode(), solr_url))
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
@@ -361,7 +381,6 @@ class Solr():
     Args:
       result: A search_service_pb.SearchResponse.
       solr_results: A dictionary returned from SOLR on a search query.
-      namespace: A str, the namespace.
       index: A Index that we are querying for.
     """
     result.set_matched_count(len(solr_results['response']['docs']) + \
@@ -402,7 +421,7 @@ class Solr():
     """ Adds a value to a result field.
 
     Args:
-      new_value: 
+      new_value: Value object to fill in.
       value: A str, the internal value to be converted.
       ftype: A str, the field type.
     """
@@ -441,21 +460,36 @@ class Solr():
 class Schema():
   """ Represents a schema in SOLR. """
   def __init__(self, fields , response_header):
-    """ Constructor for SOLR schema. """
+    """ Constructor for SOLR schema. 
+
+    Args:
+      fields: A list of Fields for the schema.
+      response_header: The response header from SOLR.
+    """
     self.fields = fields
     self.response_header = response_header
 
 class Index():
   """ Represents an index in SOLR. """
   def __init__(self, name, schema):
-    """ Constructor for SOLR index. """
+    """ Constructor for SOLR index. 
+
+    Args:
+      name: A str, the name of the index.
+      schema: A Schema for this index.
+    """
     self.name = name
     self.schema = schema
 
 class Header():
   """ Represents a header in SOLR. """
   def __init__(self, status, qtime):
-    """ Constructor for Header type. """
+    """ Constructor for Header type. 
+
+    Args:
+      status: The status for this header.
+      qtime: The reported qtime from SOLR.
+    """
     self.status = status
     self.qtime = qtime
 
@@ -473,7 +507,15 @@ class Field():
 
   def __init__(self, name, field_type, stored=True, indexed=True, 
     multi_valued=False, value=None):
-    """ Constructor for Field type. """
+    """ Constructor for Field type. 
+
+    Args:
+      name: The name of the field.
+      stored: Boolean if the field is stored.
+      indexed: Boolean if the field is indexed.
+      multi_valued: Boolean if the field has multiple values.
+      value: The value of the field.
+    """
     self.name = name
     self.field_type = field_type
     self.stored = stored

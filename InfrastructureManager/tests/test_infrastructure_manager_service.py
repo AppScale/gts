@@ -22,8 +22,6 @@ class TestInfrastructureManagerService(TestCase):
      .should_receive('get_secret')
      .and_return('secret'))
     self.service, self.port = self.__start_service()
-    #sleep(2)
-
 
   def test_service(self):
     proxy = SOAPpy.SOAPProxy('http://{0}:{1}'.format('127.0.0.1', self.port))

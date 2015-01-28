@@ -1,4 +1,4 @@
-""" Class for handling searialized Search requests. """
+""" Class for handling serialized Search requests. """
 import logging
 import os
 import sys
@@ -91,7 +91,7 @@ class SearchService():
     Args:
       data: A str. Serialized protocol buffer.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.IndexDocumentRequest(data)
     logging.debug("APP ID: {0}".format(request.app_id())) 
@@ -125,9 +125,9 @@ class SearchService():
     """ Deletes a document.
  
     Args:
-      data: A str. Serialize protocol buffer.
+      data: A str. Serialized protocol buffer.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.DeleteDocumentRequest(data)
     params = request.params()
@@ -148,9 +148,9 @@ class SearchService():
     """ Lists all indexes for an application.
    
     Args:
-      data: A str. Serialize protocol buffer.
+      data: A str. Serialized protocol buffer.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.ListIndexesRequest(data)
     response = search_service_pb.ListIndexesResponse()
@@ -160,9 +160,9 @@ class SearchService():
     """ List all documents for an application.
  
     Args:
-      data: A str. Serialize protocol buffer.
+      data: A str. Serialized protocol buffer.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.ListDocumentsRequest(data)
     response = search_service_pb.ListDocumentsResponse()
@@ -172,9 +172,9 @@ class SearchService():
     """ Search within a document.
  
     Args:
-      data: A str. Serialize protocol buffer.
+      data: A str. Serialized protocol buffer.
     Returns:
-      A tuple of a encoded response, error code, and error detail.
+      A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.SearchRequest(data)
     logging.debug("Search request: {0}".format(request))
