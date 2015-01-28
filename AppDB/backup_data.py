@@ -148,7 +148,6 @@ class DatastoreBackup(multiprocessing.Process):
     """ Creates a new backup filename. Also creates the backup folder if it
     doesn't exist.
     """
-    logging.info("Backup dir: {0}".format(self.backup_dir))
     if not self.backup_dir:
       self.backup_dir = '{0}{1}-{2}/'.format(self.BACKUP_FILE_LOCATION,
         self.app_id, self.backup_timestamp)
@@ -183,7 +182,6 @@ class DatastoreBackup(multiprocessing.Process):
     try:
       with open(self.filename, 'ab+') as file_object:
         cPickle.dump(entity, file_object, cPickle.HIGHEST_PROTOCOL)
-        # file_object.write(cPickle.dumps(entity))
 
       self.entities_backed_up += 1
       self.current_file_size += len(entity)
@@ -225,7 +223,6 @@ class DatastoreBackup(multiprocessing.Process):
       if not re.match(self.BLOB_CHUNK_REGEX, key) and\
           not re.match(self.BLOB_INFO_REGEX, key):
         return False
-    logging.debug("Entity: {0}".format(entity))
 
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     if one_entity == datastore_server.TOMBSTONE:
@@ -249,9 +246,11 @@ class DatastoreBackup(multiprocessing.Process):
                 format(key, entity))
               success = False
 
-          logging.info("Entity key to be stored: {0}".format(key))
-          self.dump_entity(one_entity)
-          success = True
+          if self.dump_entity(one_entity):
+            logging.debug("Backed up key: {0}".format(key))
+            success = True
+          else:
+            success = False
         else:
           logging.warn("Entity with key: {0} not found".format(key))
           success = False
@@ -341,6 +340,8 @@ def init_parser():
     help='the application ID to run the backup for')
   parser.add_argument('-s', '--source', action='store_true',
     default=False, help='backup the source code too. Disabled by default.')
+  parser.add_argument('-d', '--debug',  required=False, action="store_true",
+    default=False, help='display debug messages')
 
   return parser
 
@@ -350,8 +351,12 @@ def main():
   parser = init_parser()
   args = parser.parse_args()
 
+  # Set up logging.
+  level = logging.INFO
+  if args.debug:
+    level = logging.DEBUG
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-    '%(lineno)s %(message)s ', level=logging.INFO)
+    '%(lineno)s %(message)s ', level=level)
   logging.info("Logging started")
 
   message = "Backing up "
