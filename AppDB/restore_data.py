@@ -3,6 +3,7 @@ given restore.
 """
 import argparse
 import cPickle
+import glob
 import logging
 import multiprocessing
 import os
@@ -11,6 +12,7 @@ import sys
 import time
 
 import appscale_datastore_batch
+from backup_data import DatastoreBackup
 import datastore_server
 import delete_all_record
 
@@ -38,7 +40,7 @@ class DatastoreRestore(multiprocessing.Process):
   # The amount of seconds between polling to get the restore lock.
   LOCK_POLL_PERIOD = 60
 
-  def __init__(self, app_id, backup_file, zoo_keeper, table_name):
+  def __init__(self, app_id, backup_dir, zoo_keeper, table_name):
     """ Constructor.
 
     Args:
@@ -50,7 +52,7 @@ class DatastoreRestore(multiprocessing.Process):
     multiprocessing.Process.__init__(self)
 
     self.app_id = app_id
-    self.backup_file = backup_file
+    self.backup_dir = backup_dir
     self.zoo_keeper = zoo_keeper
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(
       table_name)
@@ -138,7 +140,7 @@ class DatastoreRestore(multiprocessing.Process):
         index_proto.ParseFromString(index)
         indexes.append(index_proto)
 
-      #
+      # Store entities.
       try:
         self.ds_distributed.put_entities(self.app_id, ent_protos, txn_hash,
           composite_indexes=indexes)
@@ -157,27 +159,32 @@ class DatastoreRestore(multiprocessing.Process):
     logging.info("Restore started")
     start = time.time()
 
-    # Read entities from backup file.
-    entities_to_store = []
-    with open(self.backup_file, 'r') as file_object:
-      while True:
-        try:
-          entity = cPickle.load(file_object)
-          entities_to_store.append(entity)
+    for backup_file in glob.glob('{0}/*{1}'.
+        format(self.backup_dir, DatastoreBackup.BACKUP_FILE_SUFFIX)):
+      if backup_file.endswith(".backup"):
+        logging.info("Restoring \"{0}\" data from: {1}".\
+          format(self.app_id, backup_file))
+        # Read entities from backup file.
+        entities_to_store = []
+        with open(backup_file, 'rb') as file_object:
+          while True:
+            try:
+              entity = cPickle.load(file_object)
+              entities_to_store.append(entity)
 
-          # If batch size is met, store entities.
-          if len(entities_to_store) == self.BATCH_SIZE:
-            logging.info("Storing {0} entities...".
-              format(len(entities_to_store)))
-            self.store_entity_batch(entities_to_store)
-            entities_to_store = []
-        except EOFError:
-          break
+              # If batch size is met, store entities.
+              if len(entities_to_store) == self.BATCH_SIZE:
+                logging.info("Storing a batch of {0} entities...".
+                  format(len(entities_to_store)))
+                self.store_entity_batch(entities_to_store)
+                entities_to_store = []
+            except EOFError:
+              break
 
-    # Store any remaining entities.
-    if entities_to_store:
-      logging.info("Storing {0} entities...".format(len(entities_to_store)))
-      self.store_entity_batch(entities_to_store)
+        # Store any remaining entities.
+        if entities_to_store:
+          logging.info("Storing {0} entities...".format(len(entities_to_store)))
+          self.store_entity_batch(entities_to_store)
 
     time_taken = time.time() - start
     logging.info("Restored {0} entities".format(self.entities_restored))
@@ -193,9 +200,9 @@ def init_parser():
     description='Restore application code and data.')
   main_args = parser.add_argument_group('Main args')
   main_args.add_argument('-a', '--app-id', required=True,
-    help='the application ID to run recovery for')
-  main_args.add_argument('-b', '--backup-file', required=True,
-    help='the data backup file to restore from')
+    help='the application ID to restore data under')
+  main_args.add_argument('-b', '--backup-dir', required=True,
+    help='the backup directory to restore data from')
   main_args.add_argument('-c', '--clear-datastore', required=False,
     action="store_true", default=False, help='start with a clean datastore')
   main_args.add_argument('-d', '--debug',  required=False, action="store_true",
@@ -241,14 +248,14 @@ def main():
   logging.info("Logging started")
 
   # Verify backup file exists.
-  if not os.path.isfile(args.backup_file):
-    logging.error("Error while accessing backup file. Please provide a valid "
-      "backup file.")
+  if not os.path.exists(args.backup_dir):
+    logging.error("Error while accessing backup. Please provide a valid "
+      "backup directory.")
     sys.exit(1)
 
   if args.clear_datastore:
     message = "Deleting \"{0}\" data...".\
-      format(args.app_id, args.backup_file)
+      format(args.app_id, args.backup_dir)
     logging.info(message)
     try:
       delete_all_record.main('cassandra', args.app_id)
@@ -257,13 +264,6 @@ def main():
         "Exiting...".format(args.app_id))
       sys.exit(1)
 
-  # Remove this TODO
-  time.sleep(30)
-
-  message = "Restoring \"{0}\" data from: {1}...".\
-    format(args.app_id, args.backup_file)
-  logging.info(message)
-
   # Initialize connection to Zookeeper and database related variables.
   zk_connection_locations = appscale_info.get_zk_locations_string()
   zookeeper = zk.ZKTransaction(host=zk_connection_locations)
@@ -271,7 +271,7 @@ def main():
   table = db_info[':table']
 
   # Start restore process.
-  ds_restore = DatastoreRestore(args.app_id, args.backup_file, zookeeper, table)
+  ds_restore = DatastoreRestore(args.app_id, args.backup_dir, zookeeper, table)
   try:
     ds_restore.run()
   finally:
