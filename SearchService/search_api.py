@@ -130,7 +130,18 @@ class SearchService():
       A tuple of a encoded response, error code, and error detail.
     """
     request = search_service_pb.DeleteDocumentRequest(data)
+    params = request.params()
+    doc_id_list = params.doc_id_list()
     response = search_service_pb.DeleteDocumentResponse()
+    for doc_id in doc_id_list:
+      try:
+        self.solr_conn.delete_doc(doc_id)
+        response.add_status().set_code(search_service_pb.SearchServiceError.OK)
+      except Exception, exception:
+        logging.error("Exception deleting document.")
+        logging.exception(exception)
+        response.add_status().set_code(
+          search_service_pb.SearchServiceError.INTERNAL_ERROR)
     return response, 0, ""
 
   def list_indexes(self, data):

@@ -4,8 +4,6 @@ import logging
 import os
 import simplejson
 import sys
-import time
-import urllib
 import urllib2
 
 import query_parser
@@ -43,6 +41,36 @@ class Solr():
       A str, the internal name of the index.
     """
     return app_id + "_" + namespace + "_" + name  
+
+  def delete_doc(self, doc_id):
+    """ Deletes a document by doc ID.
+
+    Args:
+      doc_id: A list of document IDs.
+    """
+    solr_request = {"delete": {"id": doc_id}}
+    solr_url = "http://{0}:{1}/solr/update?".format(self._search_location,
+      self.SOLR_SERVER_PORT)
+    logging.info("SOLR URL: {0}".format(solr_url))
+    json_request = simplejson.dumps(solr_request)
+    logging.info("SOLR JSON: {0}".format(json_request))
+    try:
+      req = urllib2.Request(solr_url, data=json_request)
+      req.add_header('Content-Type', 'application/json')
+      conn = urllib2.urlopen(req) 
+      if conn.getcode() != 200:
+        raise search_exceptions.InternalError("Malformed response from SOLR.")
+      response = simplejson.load(conn)
+      status = response['responseHeader']['status'] 
+      logging.info("Response: {0}".format(response))
+    except ValueError, exception:
+      logging.error("Unable to decode json from SOLR server: {0}".format(
+        exception))
+      raise search_exceptions.InternalError("Malformed response from SOLR.")
+
+    if status != 0:
+      raise search_exceptions.InternalError(
+        "SOLR response status of {0}".format(status))
 
   def get_index(self, app_id, namespace, name):
     """ Gets an index from SOLR.
@@ -104,7 +132,6 @@ class Solr():
       self._search_location, self.SOLR_SERVER_PORT)
     json_request = simplejson.dumps(field_list)
     try:
-      content_length = len(json_request)
       req = urllib2.Request(solr_url, data=json_request)
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
@@ -173,8 +200,8 @@ class Solr():
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
       if conn.getcode() != 200:
-        logging.error("Got code {0} with URL {1} and payload {2}".format(conn.getcode(), 
-          solr_url, json_payload))
+        logging.error("Got code {0} with URL {1} and payload {2}".format(
+        conn.getcode(), solr_url, json_payload))
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
       response = simplejson.load(conn)
       status = response['responseHeader']['status'] 
@@ -199,7 +226,8 @@ class Solr():
     solr_doc = self.to_solr_doc(doc)
 
     index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    updates = self.compute_updates(index.name, index.schema.fields, solr_doc.fields)
+    updates = self.compute_updates(index.name, index.schema.fields,
+      solr_doc.fields)
     if len(updates) > 0:
       self.update_schema(updates)
 
@@ -306,8 +334,8 @@ class Solr():
       req.add_header('Content-Type', 'application/json')
       conn = urllib2.urlopen(req) 
       if conn.getcode() != 200:
-        logging.error("Got code {0} with URL {1} and payload {2}".format(conn.getcode(), 
-          solr_url, json_payload))
+        logging.error("Got code {0} with URL {1}.".format(
+          conn.getcode(), solr_url))
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
       response = simplejson.load(conn)
       status = response['responseHeader']['status'] 
@@ -321,7 +349,6 @@ class Solr():
       # We assume no results were returned.
       status = 0
       response = {'response': {'docs': [], 'start': 0}}
-      #raise search_exceptions.InternalError("Bad request")
 
     if status != 0:
       raise search_exceptions.InternalError(
