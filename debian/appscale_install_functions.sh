@@ -274,6 +274,18 @@ portinstallmonit()
     update-rc.d -f monit remove
 }
 
+installsolr()
+{
+    SOLR_VER=4.10.2
+    mkdir -p ${APPSCALE_HOME}/SearchService/solr
+    cd ${APPSCALE_HOME}/SearchService/solr
+    rm -rfv solr
+    wget $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
+    tar zxvf solr-${SOLR_VER}.tgz
+    mv -v solr-${SOLR_VER} solr
+    rm -fv solr-${SOLR_VER}.tgz
+}
+
 installcassandra()
 {
     CASSANDRA_VER=2.0.7

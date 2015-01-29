@@ -69,6 +69,14 @@ namespace :apptaskqueue do
 
 end
 
+namespace :searchservice do
+
+  task :test do
+    sh "nosetests SearchService/test/unit"
+  end
+
+end
+
 namespace :appserver do
 
   task :test do
@@ -120,4 +128,4 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
+task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'searchservice:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
