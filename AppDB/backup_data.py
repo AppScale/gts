@@ -3,6 +3,7 @@ app ID to the local filesystem.
 """
 import argparse
 import cPickle
+import errno
 import logging
 import multiprocessing
 import os
@@ -21,6 +22,8 @@ from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+
+_SOURCE_LOCATION = '/opt/appscale/apps/'
 
 class DatastoreBackup(multiprocessing.Process):
   """ Backs up all the entities for a set application ID. """
@@ -53,13 +56,18 @@ class DatastoreBackup(multiprocessing.Process):
   # Any kind that is of _*_ is protected.
   PROTECTED_KINDS = '(.*)_(.*)_(.*)'
 
-  def __init__(self, app_id, zoo_keeper, table_name):
+  def __init__(self, app_id, zoo_keeper, table_name, source_code=False,
+      skip_list=None):
     """ Constructor.
 
     Args:
       app_id: The application ID.
       zk: ZooKeeper client.
       table_name: The database used (e.g. cassandra).
+      source_code: True when a backup of the source code is requested,
+        False otherwise.
+      skip_list: A list of Kinds to be skipped during backup; empty list if
+        none.
     """
     multiprocessing.Process.__init__(self)
 
@@ -75,9 +83,28 @@ class DatastoreBackup(multiprocessing.Process):
     self.current_file_size = 0
     self.entities_backed_up = 0
 
+    if source_code:
+      self.backup_source_code()
+
   def stop(self):
     """ Stops the backup thread. """
     pass
+
+  def backup_source_code(self):
+    """ Copies the source code of the app into the backup directory.
+    Skips this step if the file is not found.
+    """
+
+    sourcefile = '{0}{1}.tar.gz'.format(_SOURCE_LOCATION, self.app_id)
+    if os.path.isfile(sourcefile):
+      try:
+        shutil.copy(sourcefile, self.backup_dir)
+        logging.info("Source code has been successfully backed up.")
+      except shutil.Error, error:
+        logging.error("Error: {0} while backing up source code. Skipping...".\
+          format(error))
+    else:
+      logging.error("Couldn't find the source code for this app. Skipping...")
 
   def run(self):
     """ Starts the main loop of the backup thread. """
@@ -147,23 +174,40 @@ class DatastoreBackup(multiprocessing.Process):
   def set_filename(self):
     """ Creates a new backup filename. Also creates the backup folder if it
     doesn't exist.
+
+    Returns:
+      True on success, False otherwise.
     """
     if not self.backup_dir:
       self.backup_dir = '{0}{1}-{2}/'.format(self.BACKUP_FILE_LOCATION,
         self.app_id, self.backup_timestamp)
       try:
-        os.mkdir(self.backup_dir)
+        os.makedirs(self.backup_dir)
+        logging.info("Backup dir created: {0}".format(self.backup_dir))
       except OSError, os_error:
-        logging.warn("OSError: Backup directory already exists.")
-        logging.error(os_error.message)
+        if os_error.errno == errno.EEXIST:
+          logging.warn("OSError: Backup directory already exists.")
+          logging.error(os_error.message)
+        elif os_error.errno == errno.ENOSPC:
+          logging.error("OSError: No space left to create backup directory.")
+          logging.error(os_error.message)
+          return False
+        elif os_error.errno == errno.EROFS:
+          logging.error("OSError: READ-ONLY filesystem detected.")
+          logging.error(os_error.message)
+          return False
       except IOError, io_error:
-        logging.warn("ERROR while creating backup dir.")
+        logging.error("IOError while creating backup dir.")
         logging.error(io_error.message)
+        return False
 
     file_name = '{0}-{1}-{2}{3}'.format(self.app_id, self.backup_timestamp,
       self.current_fileno, self.BACKUP_FILE_SUFFIX)
     self.filename = '{0}{1}'.format(self.backup_dir, file_name)
-    logging.info("Will write to backup file: {0}".format(self.filename))
+
+    logging.info("Backup file: {0}".format(self.filename))
+
+    return True
 
   def dump_entity(self, entity):
     """ Dumps the entity content into a backup file.
@@ -338,10 +382,12 @@ def init_parser():
     description='Backup application code and data.')
   parser.add_argument('-a', '--app-id', required=True,
     help='the application ID to run the backup for')
-  parser.add_argument('-s', '--source', action='store_true',
+  parser.add_argument('--source-code', action='store_true',
     default=False, help='backup the source code too. Disabled by default.')
   parser.add_argument('-d', '--debug',  required=False, action="store_true",
     default=False, help='display debug messages')
+  parser.add_argument('--skip', required=False, nargs="+",
+    help='skip the following kinds')
 
   return parser
 
@@ -360,28 +406,18 @@ def main():
   logging.info("Logging started")
 
   message = "Backing up "
-  if args.source:
+  if args.source_code:
     message += "source and "
   message += "data for: {0}".format(args.app_id)
   logging.info(message)
-
-  if args.source:
-    sourcefile = '/opt/appscale/apps/{0}.tar.gz'.format(args.app_id)
-    if os.path.isfile(sourcefile):
-      try:
-        shutil.copy(sourcefile, DatastoreBackup.BACKUP_FILE_LOCATION)
-        logging.info("Source code was successfully backed up.")
-      except shutil.Error, error:
-        logging.error("Error: {0} while backing up source code. Skipping...".format(error))
-    else:
-      logging.error("Couldn't find source code for this app. Skipping...")
 
   zk_connection_locations = appscale_info.get_zk_locations_string()
   zookeeper = zk.ZKTransaction(host=zk_connection_locations)
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
 
-  ds_backup = DatastoreBackup(args.app_id, zookeeper, table)
+  ds_backup = DatastoreBackup(args.app_id, zookeeper, table,
+    source_code=args.source_code, skip_list=args.skip)
   try:
     ds_backup.run()
   finally:
