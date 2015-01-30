@@ -142,7 +142,7 @@ class SearchService():
         logging.exception(exception)
         response.add_status().set_code(
           search_service_pb.SearchServiceError.INTERNAL_ERROR)
-    return response, 0, ""
+    return response.Encode(), 0, ""
 
   def list_indexes(self, data):
     """ Lists all indexes for an application.
@@ -166,6 +166,9 @@ class SearchService():
     """
     request = search_service_pb.ListDocumentsRequest(data)
     response = search_service_pb.ListDocumentsResponse()
+    status = response.mutable_status()
+    status.set_code(
+      search_service_pb.SearchServiceError.OK)
     return response, 0, ""
 
   def search(self, data):
