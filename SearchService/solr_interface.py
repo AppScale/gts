@@ -54,7 +54,7 @@ class Solr():
       search_exceptions.InternalError on internal errors.
     """
     solr_request = {"delete": {"id": doc_id}}
-    solr_url = "http://{0}:{1}/solr/update?".format(self._search_location,
+    solr_url = "http://{0}:{1}/solr/update?commit=true".format(self._search_location,
       self.SOLR_SERVER_PORT)
     logging.debug("SOLR URL: {0}".format(solr_url))
     json_request = simplejson.dumps(solr_request)
