@@ -5,18 +5,18 @@ BEGIN {
   flag = 0
 }
 
-# This find all the conflicts, but stop at the first stanza afterward (for
+# This finds all the conflicts, but stops at the first stanza afterward (for
 # example, Descriptions).
 /^(Conflicts):/,/^Description:/ {
     if (gsub("^Conflicts:", "")) { flag = 1 }
-    if ($0 !~ /^[ \t]/) { flag = 0 }    # stop at the first stanza
+    if ($0 !~ /^[ \t]/) { flag = 0 }    # Stop at the first stanza.
     if (flag == 0) next
     split($0, list, ",");
     for (i in list) {
         if (length(list[i]) > 0) {
             gsub("\(.+\)", "", list[i])
-            # let's make sure we are not adding packages that we should
-            # create here (ie appscale-*)
+            # Let's make sure we are not adding packages that we create
+            # here (ie appscale-*).
             if (list[i] ~ /appscale-/) { next }
             packages[count] = list[i]
             count += 1
