@@ -253,7 +253,7 @@ installgems()
     gem install -v=1.0.0 rcov ${GEMOPT}
 }
 
-installphp5-4()
+installphp54()
 {
     # In Precise we have a too old version of php. We need at least 5.4.
     if [ "$DIST" = "precise" ]; then
