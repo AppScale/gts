@@ -259,7 +259,7 @@ installphp54()
     if [ "$DIST" = "precise" ]; then
         add-apt-repository ppa:ondrej/php5-oldstable
         apt-get update
-        apt-get install php5
+        apt-get install -y php5
     fi
 }
 
