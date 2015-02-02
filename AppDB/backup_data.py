@@ -23,6 +23,7 @@ from zkappscale import zktransaction as zk
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
+# The location to look at in order to verify that an app is deployed.
 _SOURCE_LOCATION = '/opt/appscale/apps/'
 
 class DatastoreBackup(multiprocessing.Process):
@@ -412,7 +413,7 @@ def init_parser():
     help='the application ID to run the backup for')
   parser.add_argument('--source-code', action='store_true',
     default=False, help='backup the source code too. Disabled by default.')
-  parser.add_argument('-d', '--debug',  required=False, action="store_true",
+  parser.add_argument('-d', '--debug', required=False, action="store_true",
     default=False, help='display debug messages')
   parser.add_argument('--skip', required=False, nargs="+",
     help='skip the following kinds')
@@ -444,11 +445,11 @@ def main():
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
 
-  skip_list = sorted(args.skip)
+  skip_list = args.skip
   if not skip_list:
     skip_list = []
   ds_backup = DatastoreBackup(args.app_id, zookeeper, table,
-    source_code=args.source_code, skip_list=skip_list)
+    source_code=args.source_code, skip_list=sorted(skip_list))
   try:
     ds_backup.run()
   finally:
