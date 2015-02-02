@@ -56,9 +56,6 @@ def main(argv):
   entities = get_entities(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA, db)
   view_all(entities, DSC_PROPERTY_TABLE, db) 
 
-  entities = get_entities(COMPOSITE_TABLE, PROPERTY_SCHEMA, db)
-  view_all(entities, COMPOSITE_TABLE, db) 
-
   entities = get_entities(APP_KIND_TABLE, APP_KIND_SCHEMA, db)
   view_all(entities, APP_KIND_TABLE, db) 
 
