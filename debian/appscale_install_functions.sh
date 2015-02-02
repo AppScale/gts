@@ -253,16 +253,21 @@ installgems()
     gem install -v=1.0.0 rcov ${GEMOPT}
 }
 
+installphp54()
+{
+    # In Precise we have a too old version of php. We need at least 5.4.
+    if [ "$DIST" = "precise" ]; then
+        add-apt-repository ppa:ondrej/php5-oldstable
+        apt-get update
+        apt-get install -y php5
+    fi
+}
+
 postinstallnginx()
 {
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
-
-    # apache2 is a dependency pulled in by php5: make sure it doesn't use
-    # port 80.
-    service apache2 stop || true
-    update-rc.d -f apache2 remove || true
 }
 
 portinstallmonit()

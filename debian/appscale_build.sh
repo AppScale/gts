@@ -53,6 +53,14 @@ if ! apt-get install -y --force-yes ${PACKAGES}; then
     exit 1
 fi
 
+# This will remove all the conflicts packages.
+PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/remove-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/remove-list.awk {} +)"
+
+if ! apt-get remove --purge -y --force-yes ${PACKAGES}; then
+    echo "Fail to remove conflicting packages"
+    exit 1
+fi
+
 # If we have an option to switch ruby, let's make sure we use 1.8.
 if [ -n "$(apt-cache search ruby-switch)" ]; then
         echo "Make sure ruby1.8 is used"

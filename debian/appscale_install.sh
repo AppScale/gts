@@ -32,6 +32,7 @@ case "$1" in
         installxmpppy
         installappserverjava
         installjavajdk
+        installphp54
         installappserverjava
         installthrift
         installtornado
@@ -80,6 +81,7 @@ case "$1" in
         installlxml
         installxmpppy
         installjavajdk
+        installphp54
         installappserverjava
         installthrift
         installtornado
