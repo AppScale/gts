@@ -57,7 +57,7 @@ class DatastoreBackup(multiprocessing.Process):
   PROTECTED_KINDS = '(.*)_(.*)_(.*)'
 
   def __init__(self, app_id, zoo_keeper, table_name, source_code=False,
-      skip_list=None):
+      skip_list=[]):
     """ Constructor.
 
     Args:
@@ -82,6 +82,7 @@ class DatastoreBackup(multiprocessing.Process):
     self.set_filename()
     self.current_file_size = 0
     self.entities_backed_up = 0
+    self.skip_kinds = skip_list
 
     if source_code:
       self.backup_source_code()
@@ -90,11 +91,48 @@ class DatastoreBackup(multiprocessing.Process):
     """ Stops the backup thread. """
     pass
 
+  def set_filename(self):
+    """ Creates a new backup filename. Also creates the backup folder if it
+    doesn't exist.
+
+    Returns:
+      True on success, False otherwise.
+    """
+    if not self.backup_dir:
+      self.backup_dir = '{0}{1}-{2}/'.format(self.BACKUP_FILE_LOCATION,
+        self.app_id, self.backup_timestamp)
+      try:
+        os.makedirs(self.backup_dir)
+        logging.info("Backup dir created: {0}".format(self.backup_dir))
+      except OSError, os_error:
+        if os_error.errno == errno.EEXIST:
+          logging.warn("OSError: Backup directory already exists.")
+          logging.error(os_error.message)
+        elif os_error.errno == errno.ENOSPC:
+          logging.error("OSError: No space left to create backup directory.")
+          logging.error(os_error.message)
+          return False
+        elif os_error.errno == errno.EROFS:
+          logging.error("OSError: READ-ONLY filesystem detected.")
+          logging.error(os_error.message)
+          return False
+      except IOError, io_error:
+        logging.error("IOError while creating backup dir.")
+        logging.error(io_error.message)
+        return False
+
+    file_name = '{0}-{1}-{2}{3}'.format(self.app_id, self.backup_timestamp,
+      self.current_fileno, self.BACKUP_FILE_SUFFIX)
+    self.filename = '{0}{1}'.format(self.backup_dir, file_name)
+
+    logging.info("Backup file: {0}".format(self.filename))
+
+    return True
+
   def backup_source_code(self):
     """ Copies the source code of the app into the backup directory.
     Skips this step if the file is not found.
     """
-
     sourcefile = '{0}{1}.tar.gz'.format(_SOURCE_LOCATION, self.app_id)
     if os.path.isfile(sourcefile):
       try:
@@ -142,9 +180,15 @@ class DatastoreBackup(multiprocessing.Process):
     Returns:
       A list of entities.
     """
-    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
+    batch =  self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
       dbconstants.APP_ENTITY_SCHEMA, first_key, self.last_key,
       batch_size, start_inclusive=start_inclusive)
+
+    if batch:
+      logging.debug("Retrieved entities from {0} to {1}".
+        format(batch[0].keys()[0], batch[-1].keys()[0]))
+
+    return batch
 
   def verify_entity(self, key, txn_id):
     """ Verify that the entity is not blacklisted.
@@ -168,44 +212,6 @@ class DatastoreBackup(multiprocessing.Process):
       logging.error("Caught exception: {0}, backing off!".format(
         zk_exception))
       time.sleep(self.DB_ERROR_PERIOD)
-
-    return True
-
-  def set_filename(self):
-    """ Creates a new backup filename. Also creates the backup folder if it
-    doesn't exist.
-
-    Returns:
-      True on success, False otherwise.
-    """
-    if not self.backup_dir:
-      self.backup_dir = '{0}{1}-{2}/'.format(self.BACKUP_FILE_LOCATION,
-        self.app_id, self.backup_timestamp)
-      try:
-        os.makedirs(self.backup_dir)
-        logging.info("Backup dir created: {0}".format(self.backup_dir))
-      except OSError, os_error:
-        if os_error.errno == errno.EEXIST:
-          logging.warn("OSError: Backup directory already exists.")
-          logging.error(os_error.message)
-        elif os_error.errno == errno.ENOSPC:
-          logging.error("OSError: No space left to create backup directory.")
-          logging.error(os_error.message)
-          return False
-        elif os_error.errno == errno.EROFS:
-          logging.error("OSError: READ-ONLY filesystem detected.")
-          logging.error(os_error.message)
-          return False
-      except IOError, io_error:
-        logging.error("IOError while creating backup dir.")
-        logging.error(io_error.message)
-        return False
-
-    file_name = '{0}-{1}-{2}{3}'.format(self.app_id, self.backup_timestamp,
-      self.current_fileno, self.BACKUP_FILE_SUFFIX)
-    self.filename = '{0}{1}'.format(self.backup_dir, file_name)
-
-    logging.info("Backup file: {0}".format(self.filename))
 
     return True
 
@@ -260,12 +266,14 @@ class DatastoreBackup(multiprocessing.Process):
       True on success, False otherwise.
     """
     key = entity.keys()[0]
+    kind = entity_utils.get_kind_from_entity_key(key)
     # Skip protected and private entities.
-    if re.match(self.PROTECTED_KINDS, key) or\
-        re.match(self.PRIVATE_KINDS, key):
+    if re.match(self.PROTECTED_KINDS, kind) or\
+        re.match(self.PRIVATE_KINDS, kind):
       # Do not skip blob entities.
-      if not re.match(self.BLOB_CHUNK_REGEX, key) and\
-          not re.match(self.BLOB_INFO_REGEX, key):
+      if not re.match(self.BLOB_CHUNK_REGEX, kind) and\
+          not re.match(self.BLOB_INFO_REGEX, kind):
+        logging.debug("Skipping key: {0}".format(key))
         return False
 
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
@@ -349,6 +357,7 @@ class DatastoreBackup(multiprocessing.Process):
       try:
         # Compute batch size.
         batch_size = self.BATCH_SIZE - len(entities_remaining)
+        logging.info("Processing {0} entities".format(batch_size))
 
         # Fetch batch.
         entities = entities_remaining + self.get_entity_batch(first_key,
@@ -357,11 +366,30 @@ class DatastoreBackup(multiprocessing.Process):
         if not entities:
           break
 
+        index = 1
+        skip = False
         for entity in entities:
-          self.process_entity(entity)
+          first_key = entity.keys()[0]
+          kind = entity_utils.get_kind_from_entity_key(first_key)
+          for skip_kind in self.skip_kinds:
+            if re.match(skip_kind, kind):
+              logging.warn("Skipping entities of kind: {0}".format(skip_kind))
 
-        first_key = entities[-1].keys()[0]
-        start_inclusive = False
+              skip = True
+              first_key = first_key[:first_key.find(skip_kind)+
+                 len(skip_kind)+1] + dbconstants.TERMINATING_STRING
+              start_inclusive = True
+
+              self.skip_kinds = self.skip_kinds[index:]
+              break
+            index += 1
+          self.process_entity(entity)
+          if skip:
+            break
+
+        if not skip:
+          first_key = entities[-1].keys()[0]
+          start_inclusive = False
       except dbconstants.AppScaleDBConnectionError, connection_error:
         logging.error("Error getting a batch: {0}".format(connection_error))
         time.sleep(self.DB_ERROR_PERIOD)
@@ -416,8 +444,11 @@ def main():
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
 
+  skip_list = sorted(args.skip)
+  if not skip_list:
+    skip_list = []
   ds_backup = DatastoreBackup(args.app_id, zookeeper, table,
-    source_code=args.source_code, skip_list=args.skip)
+    source_code=args.source_code, skip_list=skip_list)
   try:
     ds_backup.run()
   finally:

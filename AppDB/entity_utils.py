@@ -33,6 +33,17 @@ def get_prefix_from_entity_key(entity_key):
   tokens = entity_key.split(KEY_DELIMITER)
   return tokens[0] + KEY_DELIMITER + tokens[1]
 
+def get_kind_from_entity_key(entity_key):
+  """ Extracts the kind from a key to the entity table.
+
+  Args:
+    entity_key: A str representing a row key to the entity table.
+  Returns:
+    A str representing the kind.
+  """
+  tokens = entity_key.split(KEY_DELIMITER)
+  return tokens[2].split(":")[0]
+
 def fetch_journal_entry(db_access, key):
   """ Fetches the given key from the journal.
 
