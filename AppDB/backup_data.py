@@ -444,11 +444,11 @@ def main():
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
 
-  skip_list = sorted(args.skip)
+  skip_list = args.skip
   if not skip_list:
     skip_list = []
   ds_backup = DatastoreBackup(args.app_id, zookeeper, table,
-    source_code=args.source_code, skip_list=skip_list)
+    source_code=args.source_code, skip_list=sorted(skip_list))
   try:
     ds_backup.run()
   finally:
