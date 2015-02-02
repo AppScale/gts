@@ -47,26 +47,31 @@ def delete_all(entities, table, db):
     db.batch_delete(table, ii.keys())
   logging.info("Deleted {0} entities".format(len(entities)))
 
-def main(database, first_key):
-  """ Deletes all data from the given datastore.
+def main(database, first_key, entities_only=False):
+  """ Deletes all data from datastore.
 
   Args:
     database: The datastore type (e.g. cassandra).
     first_key: A str, the first key to be deleted.
       Either the app ID or "" to delete all db data.
+    entities_only: True to delete entities from APP_ENTITY/PROPERTY tables,
+      False to delete every trace of the given app ID.
   """
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=logging.INFO)
 
+  # Tables to delete from.
   tables_to_schemas = {
     APP_ENTITY_TABLE: APP_ENTITY_SCHEMA,
     ASC_PROPERTY_TABLE: PROPERTY_SCHEMA,
     DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
-    COMPOSITE_TABLE: PROPERTY_SCHEMA,
+    COMPOSITE_TABLE: COMPOSITE_SCHEMA,
     APP_KIND_TABLE: APP_KIND_SCHEMA,
     JOURNAL_TABLE: JOURNAL_SCHEMA,
     METADATA_TABLE: METADATA_SCHEMA
   }
+
+  # Set the last key.
   last_key = first_key + '\0' + TERMINATING_STRING
   logging.info("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))

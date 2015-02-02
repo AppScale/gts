@@ -14,7 +14,7 @@ import time
 import appscale_datastore_batch
 from backup_data import DatastoreBackup
 import datastore_server
-import delete_all_record
+import delete_all_records
 
 from google.appengine.api import datastore_errors
 from google.appengine.datastore import datastore_pb
@@ -25,11 +25,13 @@ from zkappscale import zktransaction as zk
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
+_APPS_LOCATION = '/var/apps/'
+
 class DatastoreRestore(multiprocessing.Process):
   """ Backs up all the entities for a set application ID. """
 
   # The amount of time to wait for SIGINT in seconds.
-  SIGINT_TIMEOUT = 8
+  SIGINT_TIMEOUT = 5
 
   # The number of entities retrieved in a datastore request.
   BATCH_SIZE = 100
@@ -59,6 +61,7 @@ class DatastoreRestore(multiprocessing.Process):
     self.ds_distributed = datastore_server.DatastoreDistributed(
       datastore_batch, zookeeper=zoo_keeper)
     self.entities_restored = 0
+    self.indexes = []
 
   def stop(self):
     """ Stops the restore process. """
@@ -131,19 +134,10 @@ class DatastoreRestore(multiprocessing.Process):
         time.sleep(self.DB_ERROR_PERIOD)
         continue
 
-      # Retrieve existing app indexes.
-      indexes_encoded = self.ds_distributed.get_indices(self.app_id)
-      logging.debug("Retrieved indexes: {0}".format(indexes_encoded))
-      indexes = []
-      for index in indexes_encoded:
-        index_proto = entity_pb.CompositeIndex()
-        index_proto.ParseFromString(index)
-        indexes.append(index_proto)
-
       # Store entities.
       try:
         self.ds_distributed.put_entities(self.app_id, ent_protos, txn_hash,
-          composite_indexes=indexes)
+          composite_indexes=self.indexes)
         self.entities_restored += len(ent_protos)
       except datastore_errors.InternalError, internal_error:
         logging.error("ERROR inserting entities: {0}.".\
@@ -159,6 +153,14 @@ class DatastoreRestore(multiprocessing.Process):
     logging.info("Restore started")
     start = time.time()
 
+    # Retrieve existing app indexes.
+    indexes_encoded = self.ds_distributed.get_indices(self.app_id)
+    logging.info("Retrieved indexes: {0}".format(indexes_encoded))
+    for index in indexes_encoded:
+      index_proto = entity_pb.CompositeIndex()
+      index_proto.ParseFromString(index)
+      self.indexes.append(index_proto)
+
     for backup_file in glob.glob('{0}/*{1}'.
         format(self.backup_dir, DatastoreBackup.BACKUP_FILE_SUFFIX)):
       if backup_file.endswith(".backup"):
@@ -171,6 +173,7 @@ class DatastoreRestore(multiprocessing.Process):
             try:
               entity = cPickle.load(file_object)
               entities_to_store.append(entity)
+              logging.info("READ entity with key: {0}".format(entity.keys()[0]))
 
               # If batch size is met, store entities.
               if len(entities_to_store) == self.BATCH_SIZE:
@@ -227,18 +230,6 @@ def main():
   parser = init_parser()
   args = parser.parse_args()
 
-  # TODO
-  # Check if the app is deployed.
-
-  # Display warning to the user.
-  print "Please make sure \"{0}\" is deployed.".format(args.app_id)
-  print "If it's not, cancel this process now and deploy the app. (CTRL-C)"
-  try:
-    time.sleep(DatastoreRestore.SIGINT_TIMEOUT)
-  except KeyboardInterrupt:
-    print "Aborting..."
-    sys.exit(0)
-
   # Set up logging.
   level = logging.INFO
   if args.debug:
@@ -246,6 +237,13 @@ def main():
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=level)
   logging.info("Logging started")
+
+  # Verify app is deployed.
+  if not os.path.exists('{0}{1}/'.format(_APPS_LOCATION, args.app_id)):
+    logging.error("Seems that \"{0}\" is not deployed.".format(args.app_id))
+    logging.info("Please deploy \"{0}\" and try again.".\
+      format(args.app_id))
+    sys.exit(1)
 
   # Verify backup file exists.
   if not os.path.exists(args.backup_dir):
@@ -258,7 +256,7 @@ def main():
       format(args.app_id, args.backup_dir)
     logging.info(message)
     try:
-      delete_all_record.main('cassandra', args.app_id)
+      delete_all_records.main('cassandra', args.app_id, True)
     except Exception, exception:
       logging.error("Unhandled exception while deleting \"{0}\" data. " \
         "Exiting...".format(args.app_id))
@@ -271,7 +269,8 @@ def main():
   table = db_info[':table']
 
   # Start restore process.
-  ds_restore = DatastoreRestore(args.app_id, args.backup_dir, zookeeper, table)
+  ds_restore = DatastoreRestore(args.app_id.strip('/'), args.backup_dir,
+    zookeeper, table)
   try:
     ds_restore.run()
   finally:
