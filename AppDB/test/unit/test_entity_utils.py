@@ -46,6 +46,14 @@ class TestEntityUtils(unittest.TestCase):
     self.assertEquals("hi\x00", entity_utils.\
       get_prefix_from_entity_key("hi\x00\x00some\x00other\x00stuff"))
 
+  def test_get_kind_from_entity(self):
+    self.assertEquals("some", entity_utils.\
+      get_kind_from_entity_key("hi\x00bye\x00some\x00other\x00stuff"))
+
+    # Test empty namespace (very common).
+    self.assertEquals("some", entity_utils.\
+      get_kind_from_entity_key("hi\x00\x00some\x00other\x00stuff"))
+
   def test_fetch_journal_entry(self):
     flexmock(FakeDatastore()).should_receive('batch_get_entity').and_return({})
     self.assertEquals(None,
