@@ -173,7 +173,6 @@ class DatastoreRestore(multiprocessing.Process):
             try:
               entity = cPickle.load(file_object)
               entities_to_store.append(entity)
-              logging.info("READ entity with key: {0}".format(entity.keys()[0]))
 
               # If batch size is met, store entities.
               if len(entities_to_store) == self.BATCH_SIZE:
