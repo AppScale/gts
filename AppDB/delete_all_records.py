@@ -73,14 +73,19 @@ def main(database, first_key, entities_only=False):
 
   # Set the last key.
   last_key = first_key + '\0' + TERMINATING_STRING
-  logging.info("Deleting application data in the range: {0} - {1}".
+  logging.debug("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))
 
   db = appscale_datastore_batch.DatastoreFactory.getDatastore(database)
 
+  # Do not delete metadata, just entities.
+  if entities_only:
+    tables_to_schemas = {k:v for k,v in tables_to_schemas.iteritems()
+      if not k == METADATA_TABLE}
+
   # Loop through the datastore tables and delete data.
   for table, schema in tables_to_schemas.items():
-    logging.info("Deleting data from {0}".format(table))
+    logging.debug("Deleting data from {0}".format(table))
 
     start_inclusive = True
     while True:
@@ -113,7 +118,7 @@ if __name__ == "__main__":
       first_key = sys.argv[2]
 
   try:
-    main(database, first_key)
+    main(database, first_key, False)
   except:
     raise
 
