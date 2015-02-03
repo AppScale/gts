@@ -44,13 +44,16 @@ class TestBackup(unittest.TestCase):
   """
   def test_init(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
-    fake_backup.should_receive('set_filename').and_return()
 
   def test_stop(self):
+    pass
+
+  def test_set_filename(self):
+    pass
+
+  def test_backup_source_code(self):
     pass
 
   def test_run(self):
@@ -59,6 +62,9 @@ class TestBackup(unittest.TestCase):
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
+    fake_backup.should_receive('set_filename').and_return()
+    fake_backup.should_receive('backup_source_code').at_most().times(1).\
+      and_return()
 
     # Test with failure to get the backup lock.
     fake_backup.should_receive('get_backup_lock').and_return(False)
@@ -80,8 +86,6 @@ class TestBackup(unittest.TestCase):
   def test_get_backup_lock(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_lock_with_path").and_return(True)
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
@@ -90,8 +94,6 @@ class TestBackup(unittest.TestCase):
 
   def test_get_entity_batch(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.db_access = FakeDatastore()
@@ -99,8 +101,6 @@ class TestBackup(unittest.TestCase):
 
   def test_verify_entity(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     flexmock(entity_utils).\
@@ -121,13 +121,8 @@ class TestBackup(unittest.TestCase):
       should_receive('get_prefix_from_entity_key').and_return('app_prefix')
     fake_backup.verify_entity('key', 'txn_id')
 
-  def test_set_filename(self):
-    pass
-
   def test_dump_entity(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.should_receive('set_filename').at_most().times(1).and_return()
@@ -136,8 +131,6 @@ class TestBackup(unittest.TestCase):
 
   def test_process_entity(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
@@ -179,8 +172,6 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
 
     # Test with entities.
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.should_receive("get_entity_batch").\

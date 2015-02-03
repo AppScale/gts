@@ -73,20 +73,18 @@ class DatastoreBackup(multiprocessing.Process):
     multiprocessing.Process.__init__(self)
 
     self.app_id = app_id
-    self.last_key = self.app_id + '\0' + dbconstants.TERMINATING_STRING
     self.zoo_keeper = zoo_keeper
-    self.db_access = appscale_datastore_batch.DatastoreFactory.\
-      getDatastore(table_name)
+    self.table = table_name
+    self.source_code = source_code
+    self.skip_kinds = skip_list
+
+    self.last_key = self.app_id + '\0' + dbconstants.TERMINATING_STRING
     self.backup_timestamp = time.strftime("%Y%m%d-%H%M%S")
     self.backup_dir = None
     self.current_fileno = 0
-    self.set_filename()
     self.current_file_size = 0
     self.entities_backed_up = 0
-    self.skip_kinds = skip_list
-
-    if source_code:
-      self.backup_source_code()
+    self.db_access = None
 
   def stop(self):
     """ Stops the backup thread. """
@@ -151,6 +149,13 @@ class DatastoreBackup(multiprocessing.Process):
       logging.debug("Trying to get backup lock.")
       if self.get_backup_lock():
         logging.info("Got the backup lock.")
+
+        self.db_access = appscale_datastore_batch.DatastoreFactory.\
+          getDatastore(self.table)
+        self.set_filename()
+        if self.source_code:
+          self.backup_source_code()
+
         self.run_backup()
         try:
           self.zoo_keeper.release_lock_with_path(zk.DS_BACKUP_LOCK_PATH)
