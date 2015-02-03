@@ -146,6 +146,31 @@ class DatastoreRestore(multiprocessing.Process):
 
       return True
 
+  def read_from_file_and_restore(self, backup_file):
+    """ Reads entities from backup file and stores them in the datastore.
+
+    Args:
+      backup_file: A str, the backup file location to restore from.
+    """
+    entities_to_store = []
+    with open(backup_file, 'rb') as file_object:
+      while True:
+        try:
+          entity = cPickle.load(file_object)
+          entities_to_store.append(entity)
+
+          # If batch size is met, store entities.
+          if len(entities_to_store) == self.BATCH_SIZE:
+            logging.info("Storing a batch of {0} entities...".
+              format(len(entities_to_store)))
+            self.store_entity_batch(entities_to_store)
+        except EOFError:
+          break
+
+    if entities_to_store:
+      logging.info("Storing {0} entities...".format(len(entities_to_store)))
+      self.store_entity_batch(entities_to_store)
+
   def run_restore(self):
     """ Runs the restore process. Reads the backup file and stores entities
     in batches.
@@ -166,27 +191,7 @@ class DatastoreRestore(multiprocessing.Process):
       if backup_file.endswith(".backup"):
         logging.info("Restoring \"{0}\" data from: {1}".\
           format(self.app_id, backup_file))
-        # Read entities from backup file.
-        entities_to_store = []
-        with open(backup_file, 'rb') as file_object:
-          while True:
-            try:
-              entity = cPickle.load(file_object)
-              entities_to_store.append(entity)
-
-              # If batch size is met, store entities.
-              if len(entities_to_store) == self.BATCH_SIZE:
-                logging.info("Storing a batch of {0} entities...".
-                  format(len(entities_to_store)))
-                self.store_entity_batch(entities_to_store)
-                entities_to_store = []
-            except EOFError:
-              break
-
-        # Store any remaining entities.
-        if entities_to_store:
-          logging.info("Storing {0} entities...".format(len(entities_to_store)))
-          self.store_entity_batch(entities_to_store)
+        self.read_from_file_and_restore(backup_file)
 
     time_taken = time.time() - start
     logging.info("Restored {0} entities".format(self.entities_restored))
@@ -222,6 +227,36 @@ def init_parser():
 
   return parser
 
+def app_is_deployed(app_id):
+  """ Looks for the app directory in the deployed apps location.
+
+  Args:
+    app_id: A str, the application ID.
+  Returns:
+    True on success, False otherwise.
+  """
+  if not os.path.exists('{0}{1}/'.format(_APPS_LOCATION, app_id)):
+    logging.error("Seems that \"{0}\" is not deployed.".format(app_id))
+    logging.info("Please deploy \"{0}\" and try again.".\
+      format(app_id))
+    return False
+  return True
+
+def backup_dir_exists(backup_dir):
+  """ Checks it the given backup directory exists.
+
+  Args:
+    backup_dir: A str, the location of the backup directory containing all
+      backup files.
+  Returns:
+    True on success, False otherwise.
+  """
+  if not os.path.exists(backup_dir):
+    logging.error("Error while accessing backup files.")
+    logging.info("Please provide a valid backup directory.")
+    return False
+  return True
+
 def main():
   """ This main function allows you to run the restore manually. """
 
@@ -237,18 +272,15 @@ def main():
     '%(lineno)s %(message)s ', level=level)
   logging.info("Logging started")
 
-  # Verify app is deployed.
-  if not os.path.exists('{0}{1}/'.format(_APPS_LOCATION, args.app_id)):
-    logging.error("Seems that \"{0}\" is not deployed.".format(args.app_id))
-    logging.info("Please deploy \"{0}\" and try again.".\
-      format(args.app_id))
-    sys.exit(1)
+  logging.info(args)
 
-  # Verify backup file exists.
-  if not os.path.exists(args.backup_dir):
-    logging.error("Error while accessing backup. Please provide a valid "
-      "backup directory.")
-    sys.exit(1)
+  # Verify app is deployed.
+  if not app_is_deployed(args.app_id):
+    return
+
+  # Verify backup dir exists.
+  if not backup_dir_exists(args.backup_dir):
+    return
 
   if args.clear_datastore:
     message = "Deleting \"{0}\" data...".\
@@ -257,9 +289,9 @@ def main():
     try:
       delete_all_records.main('cassandra', args.app_id, True)
     except Exception, exception:
-      logging.error("Unhandled exception while deleting \"{0}\" data. " \
-        "Exiting...".format(args.app_id))
-      sys.exit(1)
+      logging.error("Unhandled exception while deleting \"{0}\" data: {1} " \
+        "Exiting...".format(args.app_id, exception.message))
+      return
 
   # Initialize connection to Zookeeper and database related variables.
   zk_connection_locations = appscale_info.get_zk_locations_string()
