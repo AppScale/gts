@@ -118,33 +118,25 @@ class DatastoreRestore(multiprocessing.Process):
 
     # Create a PutRequest with the entities to be stored.
     put_request = datastore_pb.PutRequest()
+    put_response = datastore_pb.PutResponse()
     for entity in new_entities_encoded:
       new_entity = put_request.add_entity()
       new_entity.MergeFromString(entity)
     logging.debug("Put request: {0}".format(put_request))
 
-    while True:
-      # Get locks for the batch of entities.
-      try:
-        txn_hash = self.ds_distributed.acquire_locks_for_trans(ent_protos,
-          put_request.transaction().handle())
-      except zk.ZKTransactionException, zk_exception:
-        logging.error("ERROR while requesting locks: {0}".
-          format(zk_exception.message))
-        time.sleep(self.DB_ERROR_PERIOD)
-        continue
+    try:
+      self.ds_distributed.dynamic_put(self.app_id, put_request, put_response)
+      self.entities_restored += len(ent_protos)
+    except zk.ZKInternalException, zkie:
+      logging.error("ZK internal exception for app id {0}, " \
+        "info {1}".format(self.app_id, str(zkie)))
+      return False
+    except zk.ZKTransactionException, zkte:
+      logging.error("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(self.app_id, str(zkte)))
+      return False
 
-      # Store entities.
-      try:
-        self.ds_distributed.put_entities(self.app_id, ent_protos, txn_hash,
-          composite_indexes=self.indexes)
-        self.entities_restored += len(ent_protos)
-      except datastore_errors.InternalError, internal_error:
-        logging.error("ERROR inserting entities: {0}.".\
-          format(internal_error))
-        return False
-
-      return True
+    return True
 
   def read_from_file_and_restore(self, backup_file):
     """ Reads entities from backup file and stores them in the datastore.
@@ -164,6 +156,7 @@ class DatastoreRestore(multiprocessing.Process):
             logging.info("Storing a batch of {0} entities...".
               format(len(entities_to_store)))
             self.store_entity_batch(entities_to_store)
+            entities_to_store = []
         except EOFError:
           break
 
@@ -177,14 +170,6 @@ class DatastoreRestore(multiprocessing.Process):
     """
     logging.info("Restore started")
     start = time.time()
-
-    # Retrieve existing app indexes.
-    indexes_encoded = self.ds_distributed.get_indices(self.app_id)
-    logging.info("Retrieved indexes: {0}".format(indexes_encoded))
-    for index in indexes_encoded:
-      index_proto = entity_pb.CompositeIndex()
-      index_proto.ParseFromString(index)
-      self.indexes.append(index_proto)
 
     for backup_file in glob.glob('{0}/*{1}'.
         format(self.backup_dir, DatastoreBackup.BACKUP_FILE_SUFFIX)):
