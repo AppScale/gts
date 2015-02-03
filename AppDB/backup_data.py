@@ -49,7 +49,7 @@ class DatastoreBackup(multiprocessing.Process):
   DB_ERROR_PERIOD = 30
 
   # Max backup file size in bytes.
-  MAX_FILE_SIZE = 100 * 100 * 100 # <- 100 MB
+  MAX_FILE_SIZE = 100000000 # <- 100 MB
 
   # Any kind that is of __*__ is private.
   PRIVATE_KINDS = '(.*)__(.*)__(.*)'
@@ -203,7 +203,7 @@ class DatastoreBackup(multiprocessing.Process):
     app_prefix = entity_utils.get_prefix_from_entity_key(key)
     try:
       if self.zoo_keeper.is_blacklisted(app_prefix, txn_id):
-        logging.error("Found a blacklisted item for version {0} on key {1}".\
+        logging.warn("Found a blacklisted item for version {0} on key {1}".\
           format(txn_id, key))
         return False
     except zk.ZKTransactionException, zk_exception:
@@ -293,11 +293,12 @@ class DatastoreBackup(multiprocessing.Process):
           if not self.verify_entity(key, version):
             # Fetch from the journal.
             entity = entity_utils.fetch_journal_entry(self.db_access, key)
-            one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
             if not entity:
-              logging.error("Bad journal entry for key: {0} \nAnd result: {1}".
+              logging.error("Bad journal entry for key: {0} and result: {1}".
                 format(key, entity))
               success = False
+            else:
+              one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
 
           if self.dump_entity(one_entity):
             logging.debug("Backed up key: {0}".format(key))
@@ -356,22 +357,22 @@ class DatastoreBackup(multiprocessing.Process):
     entities_remaining = []
     while True:
       try:
-        # Compute batch size.
-        batch_size = self.BATCH_SIZE - len(entities_remaining)
-        logging.info("Processing {0} entities".format(batch_size))
-
         # Fetch batch.
         entities = entities_remaining + self.get_entity_batch(first_key,
-          batch_size, start_inclusive)
+          self.BATCH_SIZE, start_inclusive)
+        logging.info("Processing {0} entities".format(self.BATCH_SIZE))
 
         if not entities:
           break
 
-        index = 1
+        # Loop through entities retrieved and if not to be skipped, process.
         skip = False
         for entity in entities:
           first_key = entity.keys()[0]
           kind = entity_utils.get_kind_from_entity_key(first_key)
+          logging.debug("Processing key: {0}".format(first_key))
+
+          index = 1
           for skip_kind in self.skip_kinds:
             if re.match(skip_kind, kind):
               logging.warn("Skipping entities of kind: {0}".format(skip_kind))
@@ -379,18 +380,17 @@ class DatastoreBackup(multiprocessing.Process):
               skip = True
               first_key = first_key[:first_key.find(skip_kind)+
                  len(skip_kind)+1] + dbconstants.TERMINATING_STRING
-              start_inclusive = True
-
+ 
               self.skip_kinds = self.skip_kinds[index:]
               break
             index += 1
-          self.process_entity(entity)
           if skip:
             break
+          self.process_entity(entity)
 
         if not skip:
           first_key = entities[-1].keys()[0]
-          start_inclusive = False
+        start_inclusive = False
       except dbconstants.AppScaleDBConnectionError, connection_error:
         logging.error("Error getting a batch: {0}".format(connection_error))
         time.sleep(self.DB_ERROR_PERIOD)
@@ -448,6 +448,7 @@ def main():
   skip_list = args.skip
   if not skip_list:
     skip_list = []
+  logging.info("Will skip the following kinds: {0}".format(sorted(skip_list)))
   ds_backup = DatastoreBackup(args.app_id, zookeeper, table,
     source_code=args.source_code, skip_list=sorted(skip_list))
   try:
