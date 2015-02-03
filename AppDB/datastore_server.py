@@ -4151,6 +4151,8 @@ def main(argv):
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
                                              getDatastore(db_type)
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
+  gc_zookeeper = zk.ZKTransaction(host=zookeeper_locations)
+
   datastore_access = DatastoreDistributed(datastore_batch, 
                                           zookeeper=zookeeper)
   if port == DEFAULT_SSL_PORT and not is_encrypted:
@@ -4159,7 +4161,7 @@ def main(argv):
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
 
-  ds_groomer = groomer.DatastoreGroomer(zookeeper, db_type, LOCAL_DATASTORE)
+  ds_groomer = groomer.DatastoreGroomer(gc_zookeeper, db_type, LOCAL_DATASTORE)
   ds_groomer.start()
 
   while 1:

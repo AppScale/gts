@@ -36,6 +36,7 @@ require 'helperfunctions'
 require 'infrastructure_manager_client'
 require 'monit_interface'
 require 'nginx'
+require 'search'
 require 'taskqueue'
 require 'user_app_client'
 require 'zkinterface'
@@ -734,6 +735,8 @@ class Djinn
       TaskQueue.stop() if my_node.is_taskqueue_master?
       TaskQueue.stop() if my_node.is_taskqueue_slave?
       TaskQueue.stop_flower() if my_node.is_login?
+
+      Search.stop() if my_node.is_search?
 
       stop_app_manager_server()
       stop_infrastructure_manager()
@@ -3158,6 +3161,7 @@ class Djinn
     write_apploadbalancer_location()
     find_nearest_taskqueue()
     write_taskqueue_nodes_file()
+    write_search_node_file()
     setup_config_files()
     set_uaserver_ips()
     start_api_services()
@@ -3265,6 +3269,12 @@ class Djinn
       }
     end
 
+    if my_node.is_search?
+      threads << Thread.new {
+        start_search_role()
+      }
+    end
+
     if my_node.is_taskqueue_master?
       threads << Thread.new {
         start_taskqueue_master()
@@ -3349,6 +3359,9 @@ class Djinn
     return true
   end
 
+  def start_search_role()
+    Search.start_master(@options['clear_datastore'])
+  end
 
   def start_taskqueue_master()
     TaskQueue.start_master(@options['clear_datastore'])
@@ -3781,9 +3794,20 @@ class Djinn
     HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
   end
 
+  # Write the location of where SOLR and the search server are located
+  # if they are configured.
+  def write_search_node_file()
+    search_ip = ""
+    @nodes.each { |node|
+      search_ip = node.private_ip if node.is_search?
+      break;
+    }
+    HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,  search_ip)
+  end
+
   # Writes a file to the local file system that tells the taskqueue master
   # all nodes which are taskqueue nodes.
-  def write_taskqueue_nodes_file
+  def write_taskqueue_nodes_file()
     taskqueue_ips = []
     @nodes.each { |node|
       taskqueue_ips << node.private_ip if node.is_taskqueue_master? or node.is_taskqueue_slave?

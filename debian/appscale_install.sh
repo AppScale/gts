@@ -32,6 +32,7 @@ case "$1" in
         installxmpppy
         installappserverjava
         installjavajdk
+        installphp54
         installappserverjava
         installthrift
         installtornado
@@ -54,6 +55,9 @@ case "$1" in
         postinstallcassandra
         ;;
         # For test only. this should be included in core and all.
+    solr)
+        installsolr
+        ;;
     zookeeper)
         installzookeeper
         postinstallzookeeper
@@ -77,6 +81,7 @@ case "$1" in
         installlxml
         installxmpppy
         installjavajdk
+        installphp54
         installappserverjava
         installthrift
         installtornado
@@ -89,6 +94,7 @@ case "$1" in
         postinstallcassandra
         postinstallrabbitmq
         installcelery
+        installsolr
         installservice
         postinstallservice
         setupntp

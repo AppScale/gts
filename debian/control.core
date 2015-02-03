@@ -36,6 +36,7 @@ Depends: appscale-tools,
          python-m2crypto,
          python-soappy,
          python-imaging,
+         python-software-properties,
          python-django,
          python-nose,
          sendmail,
@@ -66,6 +67,7 @@ Depends: appscale-tools,
          haproxy,
          libpcre3,
          php5,
+         php5-cgi,
          monit,
          libevent-2.0-5,
          liblog4j1.2-java,
@@ -78,7 +80,10 @@ Depends: appscale-tools,
          python-numpy,
          libxslt-dev,
          libxml2-dev
-Conflicts: python-protobuf
+Conflicts: python-protobuf,
+           apache2.2-common,
+           apache2.2-bin,
+           apache2-utils
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of

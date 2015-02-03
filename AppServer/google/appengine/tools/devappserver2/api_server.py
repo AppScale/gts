@@ -47,7 +47,7 @@ from google.appengine.api.capabilities import capability_stub
 from google.appengine.api.channel import channel_service_stub
 from google.appengine.api.files import file_service_stub
 from google.appengine.api.logservice import logservice_stub
-from google.appengine.api.search import simple_search_stub
+from google.appengine.api.search import appscale_search_stub
 from google.appengine.api.taskqueue import taskqueue_distributed # AS
 from google.appengine.api.prospective_search import prospective_search_stub
 from google.appengine.api.memcache import memcache_distributed # AS
@@ -364,7 +364,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'search',
-      simple_search_stub.SearchServiceStub(index_file=search_index_path))
+      appscale_search_stub.SearchServiceStub(app_id=app_id))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'modules',

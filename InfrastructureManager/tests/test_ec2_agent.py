@@ -71,8 +71,7 @@ class TestEC2Agent(TestCase):
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
     if not blocking:
-      time.sleep(2)
-
+      time.sleep(.1)
     if success:
       self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(id)['state'])
       vm_info = i.reservations.get(id)['vm_info']
@@ -99,7 +98,7 @@ class TestEC2Agent(TestCase):
     }
     result2 = i.terminate_instances(params2, 'secret')
     if not blocking:
-      time.sleep(2)
+      time.sleep(.1)
     self.assertTrue(result2['success'])
 
 
