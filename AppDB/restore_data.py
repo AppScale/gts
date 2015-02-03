@@ -56,12 +56,11 @@ class DatastoreRestore(multiprocessing.Process):
     self.app_id = app_id
     self.backup_dir = backup_dir
     self.zoo_keeper = zoo_keeper
-    datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(
-      table_name)
-    self.ds_distributed = datastore_server.DatastoreDistributed(
-      datastore_batch, zookeeper=zoo_keeper)
+    self.table = table_name
+
     self.entities_restored = 0
     self.indexes = []
+    self.ds_distributed = None
 
   def stop(self):
     """ Stops the restore process. """
@@ -73,6 +72,12 @@ class DatastoreRestore(multiprocessing.Process):
       logging.debug("Trying to get restore lock.")
       if self.get_restore_lock():
         logging.info("Got the restore lock.")
+
+        datastore_batch = appscale_datastore_batch.\
+          DatastoreFactory.getDatastore(self.table)
+        self.ds_distributed = datastore_server.\
+          DatastoreDistributed(datastore_batch, zookeeper=self.zoo_keeper)
+
         self.run_restore()
         try:
           self.zoo_keeper.release_lock_with_path(zk.DS_RESTORE_LOCK_PATH)

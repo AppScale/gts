@@ -62,10 +62,6 @@ class TestRestore(unittest.TestCase):
   """
   def test_init(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
-    flexmock(datastore_server).should_receive(
-      'DatastoreDistributed').and_return()
     fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
@@ -76,6 +72,8 @@ class TestRestore(unittest.TestCase):
     zookeeper = flexmock()
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
+    flexmock(datastore_server).should_receive(
+      'DatastoreDistributed').and_return()
     fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
@@ -99,8 +97,6 @@ class TestRestore(unittest.TestCase):
   def test_get_restore_lock(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_lock_with_path").and_return(True)
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
@@ -117,8 +113,6 @@ class TestRestore(unittest.TestCase):
 
   def test_run_restore(self):
     zookeeper = flexmock()
-    ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
@@ -141,36 +135,6 @@ class TestRestore(unittest.TestCase):
   def test_main(self):
     # TODO
     pass
-    # flexmock(restore).should_receive('init_parser').\
-    #   and_return(FakeArgumentParser())
-    #
-    # # Test with app not running.
-    # flexmock(restore).should_receive('app_is_deployed').and_return(False)
-    # flexmock(restore).main()
-    #
-    # # Test with non-existent backup dir.
-    # flexmock(restore).should_receive('app_is_deployed').and_return(True)
-    # flexmock(restore).should_receive('backup_dir_exists').and_return(False)
-    # flexmock(restore).main()
-    #
-    # # Test regular process.
-    # flexmock(restore).should_receive('backup_dir_exists').and_return(True)
-    # flexmock(delete_all_records).should_receive('main').at_most().times(1).\
-    #   and_return()
-    # flexmock(appscale_info).should_receive('get_zk_locations_string').\
-    #   and_return("locations")
-    # flexmock(zk).should_receive('ZKTransaction').and_return(flexmock(
-    #   zk.ZKTransaction))
-    # flexmock(appscale_info).should_receive('get_db_info').\
-    #   and_return({':table': 'cassandra'})
-    # zookeeper = flexmock()
-    # ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
-    # ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
-    # fake_restore = flexmock(restore.DatastoreRestore('app_id', 'some/dir',
-    #   zookeeper, 'cassandra'))
-    # fake_restore.should_receive('run').and_return()
-    # flexmock(zk).should_receive("ZKTransaction").and_return(FakeZookeeper())
-    # flexmock(restore).main()
 
 if __name__ == "__main__":
   unittest.main()
