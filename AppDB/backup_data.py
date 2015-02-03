@@ -421,7 +421,7 @@ def init_parser():
   parser.add_argument('-d', '--debug', required=False, action="store_true",
     default=False, help='display debug messages')
   parser.add_argument('--skip', required=False, nargs="+",
-    help='skip the following kinds')
+    help='skip the following kinds, separated by spaces')
 
   return parser
 
