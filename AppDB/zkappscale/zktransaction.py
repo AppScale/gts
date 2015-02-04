@@ -74,6 +74,9 @@ GC_TIME_PATH = "gclast_time"
 # Lock path for the datastore groomer.
 DS_GROOM_LOCK_PATH = "/appscale_datastore_groomer"
 
+# Lock path for the datastore backup.
+DS_BACKUP_LOCK_PATH = "/appscale_datastore_backup"
+
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
@@ -916,7 +919,7 @@ class ZKTransaction:
     except ZKInternalException as zk_exception:
       # Although there was a failure doing the async deletes, since we've
       # already released the locks above, we can safely return True here.
-      logging.exception(kazoo_exception)
+      logging.exception(zk_exception)
       self.reestablish_connection()
       return True
     except kazoo.exceptions.KazooException as kazoo_exception:
@@ -1334,18 +1337,20 @@ class ZKTransaction:
       return True
     return False
 
-  def get_datastore_groomer_lock(self):
-    """ Tries to get the lock for the datastore groomer. 
+  def get_lock_with_path(self, path):
+    """ Tries to get the lock based on path.
 
+    Args:
+      path: A str, the lock path.
     Returns:
       True if the lock was obtained, False otherwise.
     """
     try:
       now = str(time.time())
-      self.run_with_retry(self.handle.create, DS_GROOM_LOCK_PATH, value=now,
+      self.run_with_retry(self.handle.create, path, value=now,
         acl=ZOO_ACL_OPEN, ephemeral=True)
     except kazoo.exceptions.NoNodeError:
-      logging.debug("Couldn't create path {0}".format(DS_GROOM_LOCK_PATH))
+      logging.error("Couldn't create path {0}".format(path))
       return False
     except kazoo.exceptions.NodeExistsError:
       return False
@@ -1372,18 +1377,20 @@ class ZKTransaction:
       
     return True
 
-  def release_datastore_groomer_lock(self):
-    """ Releases the datastore groomer lock. 
+  def release_lock_with_path(self, path):
+    """ Releases lock based on path.
    
+    Args:
+      path: A str, the lock path.
     Returns:
       True on success, False on system failures.
     Raises:
       ZKTransactionException: If the lock could not be released.
     """
     try:
-      self.run_with_retry(self.handle.delete, DS_GROOM_LOCK_PATH)
+      self.run_with_retry(self.handle.delete, path)
     except kazoo.exceptions.NoNodeError:
-      raise ZKTransactionException("Unable to delete datastore groomer lock.")
+      raise ZKTransactionException("Unable to delete lock: {0}".format(path))
     except kazoo.exceptions.SystemZookeeperError as sys_exception:
       logging.exception(sys_exception)
       self.reestablish_connection()
@@ -1426,7 +1433,7 @@ class ZKTransaction:
       self.reestablish_connection()
       return
     except Exception as exception:
-      logging.error("UNKNOW EXCEPTION") 
+      logging.error("UNKNOWN EXCEPTION")
       logging.exception(exception)
       self.reestablish_connection()
       return
@@ -1447,7 +1454,7 @@ class ZKTransaction:
           self.notify_failed_transaction(app_id, long(txid.lstrip(
             APP_TX_PREFIX)))
       except kazoo.exceptions.NoNodeError:
-        # Transaction id dissappeared during garbage collection.
+        # Transaction id disappeared during garbage collection.
         # The transaction may have finished successfully.
         pass
       except kazoo.exceptions.ZookeeperError as zk_exception:
@@ -1459,7 +1466,7 @@ class ZKTransaction:
         self.reestablish_connection()
         return
       except Exception as exception:
-        logging.error("UNKNOW EXCEPTION") 
+        logging.error("UNKNOWN EXCEPTION")
         logging.exception(exception)
         self.reestablish_connection()
         return 
