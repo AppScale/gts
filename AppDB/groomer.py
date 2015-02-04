@@ -908,10 +908,23 @@ def main():
   master = appscale_info.get_db_master_ip()
   datastore_path = "{0}:8888".format(master)
   ds_groomer = DatastoreGroomer(zookeeper, table, datastore_path)
-  try:
-    ds_groomer.run()
-  finally:
-    zookeeper.close()
+
+  logging.debug("Trying to get groomer lock.")
+  if ds_groomer.get_groomer_lock():
+    logging.info("Got the groomer lock.")
+    ds_groomer.run_groomer()
+    try:
+      ds_groomer.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
+    except zk.ZKTransactionException, zk_exception:
+      logging.error("Unable to release zk lock {0}.".\
+        format(str(zk_exception)))
+    except zk.ZKInternalException, zk_exception:
+      logging.error("Unable to release zk lock {0}.".\
+        format(str(zk_exception)))
+    finally:
+      zookeeper.close()
+  else:
+    logging.info("Did not get the groomer lock.")
 
 if __name__ == "__main__":
   main()
