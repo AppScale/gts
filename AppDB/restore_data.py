@@ -25,6 +25,7 @@ from zkappscale import zktransaction as zk
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
+# Where to look to verify the app is deployed.
 _APPS_LOCATION = '/var/apps/'
 
 class DatastoreRestore(multiprocessing.Process):
@@ -47,7 +48,7 @@ class DatastoreRestore(multiprocessing.Process):
 
     Args:
       app_id: A str, the application ID.
-      backup_file: A str, the location of the backup file.
+      backup_dir: A str, the location of the backup file.
       zoo_keeper: A ZooKeeper client.
       table_name: The database used (e.g. cassandra).
     """
@@ -68,16 +69,15 @@ class DatastoreRestore(multiprocessing.Process):
 
   def run(self):
     """ Starts the main loop of the restore thread. """
+    datastore_batch = appscale_datastore_batch.\
+      DatastoreFactory.getDatastore(self.table)
+    self.ds_distributed = datastore_server.\
+      DatastoreDistributed(datastore_batch, zookeeper=self.zoo_keeper)
+
     while True:
       logging.debug("Trying to get restore lock.")
       if self.get_restore_lock():
         logging.info("Got the restore lock.")
-
-        datastore_batch = appscale_datastore_batch.\
-          DatastoreFactory.getDatastore(self.table)
-        self.ds_distributed = datastore_server.\
-          DatastoreDistributed(datastore_batch, zookeeper=self.zoo_keeper)
-
         self.run_restore()
         try:
           self.zoo_keeper.release_lock_with_path(zk.DS_RESTORE_LOCK_PATH)
