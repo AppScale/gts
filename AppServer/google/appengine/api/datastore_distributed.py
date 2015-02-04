@@ -46,13 +46,13 @@ from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.datastore import old_datastore_stub_util
 
-# Where the SSL certificate is placed for encrypted communication
+# Where the SSL certificate is placed for encrypted communication.
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 
-# Where the SSL private key is placed for encrypted communication
+# Where the SSL private key is placed for encrypted communication.
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
-# The default SSL port to connect to
+# The default SSL port to connect to.
 SSL_DEFAULT_PORT = 8443
 
 try:

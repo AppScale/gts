@@ -105,3 +105,16 @@ def get_db_master_ip():
     A str, the IP of the datastore master.
   """
   return file_io.read(constants.MASTERS_FILE_LOC).rstrip()
+
+def get_search_location():
+  """ Returns the IP and port of where the search service is running.
+
+  Returns:
+    A str, the IP and port in the format: IP:PORT. Empty string if the service
+    is not available.
+  """
+  try:
+    return file_io.read(constants.SEARCH_FILE_LOC).rstrip()
+  except IOError:
+    logging.warning("Search role is not configured.")
+    return ""

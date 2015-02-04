@@ -5,18 +5,18 @@ BEGIN {
   flag = 0
 }
 
-# This find all the dependencies, also build them if needed, but stop at
-# the first stanza (for example, Descriptions, or Conflicts).
+# This finds all the dependencies, also builds them if needed, but stops
+# at the first stanza (for example, Descriptions, or Conflicts).
 /^(Build-Depends|Depends):/,/^Description:/ {
     if (gsub("^Depends:", "") || gsub("^Build-Depends:","")) { flag = 1 }
-    if ($0 !~ /^[ \t]/) { flag = 0 }    # stop at the first stanza
+    if ($0 !~ /^[ \t]/) { flag = 0 }    # Stop at the first stanza.
     if (flag == 0) next
     split($0, list, ",");
     for (i in list) {
         if (length(list[i]) > 0) {
             gsub("\(.+\)", "", list[i])
-            # let's make sure we are not adding packages that we should
-            # create here (ie appscale-*)
+            # Let's make sure we are not adding packages that we create
+            # here (ie appscale-*).
             if (list[i] ~ /appscale-/) { next }
             packages[count] = list[i]
             count += 1

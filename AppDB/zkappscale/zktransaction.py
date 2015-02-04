@@ -191,6 +191,7 @@ class ZKTransaction:
     logging.info("Closing ZK connection")
     self.stop_gc()
     self.handle.stop()
+    self.handle.close()
 
   def increment_and_get_counter(self, path, value):
     """ Increment a counter atomically.
@@ -1165,18 +1166,48 @@ class ZKTransaction:
   def reestablish_connection(self):
     """ Checks the connection and resets it as needed. """
     logging.warning("Re-establishing ZooKeeper connection.")
-    reconnect_error = False
+    try:
+      self.handle.restart()
+      self.needs_connection = False
+      self.failure_count = 0
+      logging.info("Restarted ZK connection successfully.")
+      return
+    except kazoo.exceptions.ZookeeperError as close_exception:
+      logging.warning("Unable to restart ZK connection. Creating a new one.")
+      logging.exception(close_exception)
+    except kazoo.exceptions.KazooException as kazoo_exception:
+      logging.warning("Unable to restart ZK connection. Creating a new one.")
+      logging.exception(kazoo_exception)
+    except Exception as exception:
+      logging.warning("Unable to restart ZK connection. Creating a new one.")
+      logging.exception(exception)
+
     try:
       self.handle.stop()
     except kazoo.exceptions.ZookeeperError as close_exception:
-      reconnect_error = True
+      logging.error("Issue stopping ZK connection.")
       logging.exception(close_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
-      reconnect_error = True
+      logging.error("Issue stopping ZK connection.")
       logging.exception(kazoo_exception)
     except Exception as exception:
-      reconnect_error = True
+      logging.error("Issue stopping ZK connection.")
       logging.exception(exception)
+
+    try:
+      self.handle.close()
+    except kazoo.exceptions.ZookeeperError as close_exception:
+      logging.error("Issue closing ZK connection.")
+      logging.exception(close_exception)
+    except kazoo.exceptions.KazooException as kazoo_exception:
+      logging.error("Issue closing ZK connection.")
+      logging.exception(kazoo_exception)
+    except Exception as exception:
+      logging.error("Issue closing ZK connection.")
+      logging.exception(exception)
+
+    logging.warning("Creating a new connection to ZK")
+    reconnect_error = False
 
     self.handle = kazoo.client.KazooClient(hosts=self.host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
@@ -1195,6 +1226,7 @@ class ZKTransaction:
       self.needs_connection = True
       self.failure_count += 1
     else:
+      logging.info("Successfully created a new connection")
       self.needs_connection = False
       self.failure_count = 0
 

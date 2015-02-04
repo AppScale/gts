@@ -58,7 +58,7 @@ def fetch_journal_entry(db_access, key):
   if len(result.keys()) == 0:
     return None
 
-  if JOURNAL_SCHEMA[0] in result[0]:
+  if JOURNAL_SCHEMA[0] in result.keys()[0]:
     ent_string = result[0][JOURNAL_SCHEMA[0]]
     if ent_string == datastore_server.TOMBSTONE:
       return None

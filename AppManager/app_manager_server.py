@@ -54,7 +54,7 @@ TRUSTED_APPS = ["appscaledashboard"]
 TRUSTED_FLAG = "--trusted"
 
 # The location on the filesystem where the PHP executable is installed.
-PHP_CGI_LOCATION = "/usr/local/php-5.4.15/installdir/bin/php-cgi"
+PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"

@@ -9,12 +9,6 @@ include REXML
 module CronHelper
 
 
-  # A String that tells cron to update the time on this machine via ntp every
-  # five minutes, necessary to keep databases running across multiple machines
-  # in sync.
-  NTP_SYNC_CRON = "*/5 * * * * /root/appscale/ntp.sh"
-
-
   # A String that tells cron not to e-mail anyone about updates.
   NO_EMAIL_CRON = 'MAILTO=\"\"'
 
@@ -105,12 +99,10 @@ CRON
   end
 
 
-  # Erases all cron jobs on this machine, except for the one that synchronizes
-  # this machine's time via ntp.
+  # Erases all cron jobs on this machine.
   def self.clear_crontab()
     Djinn.log_run("crontab -r")
     self.add_line_to_crontab(NO_EMAIL_CRON)
-    self.add_line_to_crontab(NTP_SYNC_CRON)  
   end
 
 

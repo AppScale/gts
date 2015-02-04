@@ -283,21 +283,27 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(ex)
       raise AppScaleDBConnectionError("Exception on range_query: %s" % str(ex))
 
-    for key in keyslices:
-      if keys_only:
-        results.append(key[0]) 
-      else:
-        columns = key[1]
-        col_mapping = {}
-        for column in columns.items():
-          col_name = str(column[0]) 
-          col_val = column[1]
-          col_mapping[col_name] = col_val
-
-        k = key[0]
-        v = col_mapping
-        item = {k:v}
-        results.append(item)
+    try:
+      # keyslices iterator will throw pycassa exceptions since it pages through
+      # remotely to cassandra.
+      for key in keyslices:
+        if keys_only:
+          results.append(key[0]) 
+        else:
+          columns = key[1]
+          col_mapping = {}
+          for column in columns.items():
+            col_name = str(column[0]) 
+            col_val = column[1]
+            col_mapping[col_name] = col_val
+     
+          k = key[0]
+          v = col_mapping
+          item = {k:v}
+          results.append(item)
+    except Exception, ex:
+      logging.exception(ex)
+      raise AppScaleDBConnectionError("Exception on range_query: %s" % str(ex))
 
    
     if not start_inclusive and len(results) > 0:
