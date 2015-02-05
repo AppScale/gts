@@ -119,8 +119,9 @@ echo -n "Creating AppScalefile..."
 echo "ips_layout :" > AppScalefile
 echo "  controller : ${PRIVATE_IP}" >> AppScalefile
 echo "login : ${PUBLIC_IP}" >> AppScalefile
-echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
-echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
+echo "test : true" >> AppScalefile
+#echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
+#echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
 echo "done."
 
 # Let's allow root login (appscale will need it to come up).
