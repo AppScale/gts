@@ -257,7 +257,7 @@ installphp54()
 {
     # In Precise we have a too old version of php. We need at least 5.4.
     if [ "$DIST" = "precise" ]; then
-        add-apt-repository ppa:ondrej/php5-oldstable
+        add-apt-repository -y ppa:ondrej/php5-oldstable
         apt-get update
         apt-get install -y php5
     fi
