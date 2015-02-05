@@ -13,10 +13,6 @@
 
 ADMIN_EMAIL="a@a.com"
 ADMIN_PASSWD="aaaaaa"
-PROVIDER=""
-CURL="$(which curl)"
-IP="$(which ip)"
-APPSCALE_CMD="/usr/local/appscale-tools/bin/appscale"
 
 # Print help screen.
 usage() {
@@ -38,11 +34,11 @@ if [ "$(id -u)" != "0" ]; then
     fi
 fi
 
-# Check if we have the basic commands and environment available.
-[ -x "${CURL}" ] || { echo "error: 'curl' not found!"; exit 1; }
-[ -x "${IP}" ] || { echo "error: 'ip' not found!"; exit 1; }
-[ -x "${APPSCALE_CMD}" ] || { echo "error: 'appscale' not found!"; exit 1; }
-[ -d appscale ] || { echo "error: cannot find appscale on this image"; exit 1; }
+# Make sure this is an AppScale image.
+if [ ! -d appscale ]; then
+    echo "Cannot find appscale on this image!"
+    exit 1
+fi
 
 # Parse command line.
 while [ $# -gt 0 ]; do
@@ -76,59 +72,33 @@ done
 
 # Get the public and private IP of this instance.
 PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
-PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
-
-# Let's try to detect the environment we are using.
-if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
-    PROVIDER="AWS"
-elif ${CURL} metadata.google.internal -i |grep Metadata-Flavor: Google ; then
-    # As per https://cloud.google.com/compute/docs/metadata.
-    PROVIDER="GCE"
-else
-    # Let's assume virtualized cluster.
-    PROVIDER="CLUSTER"
+if [ -z "$PUBLIC_IP" ]; then
+    echo "Cannot get public IP of instance!"
+    exit 1
 fi
-
-# Let's make sure we got the IPs to use in the configuration.
-case "$PROVIDER" in 
-"AWS" )
-    # We have already discovered them.
-    ;;
-* )
-    # Let's discover the device used for external communication.
-    DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/')"
-    [ -z "$DEFAULT_DEV" ] || { echo "error: cannot detect the default route"; exit 1; }
-    # Let's find the IP address to use.
-    PUBLIC_IP="$($IP addr show dev $DEFAULT_DEV scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
-    # There is no Private/Public IPs in this configuratio.
-    PRIVATE_IP="$PUBLIC_IP"
-    ;;
-esac
-
-# Let's make sure we detected the IPs.
-[ -n "$PUBLIC_IP" ] || { echo "Cannot get public IP of instance!" ; exit 1 ; }
-[ -n "$PRIVATE_IP" ] || { echo "Cannot get private IP of instance!" ; exit 1 ; }
-
-# Tell the user what we detected.
-echo "Detectd enviroment: ${PROVIDER}"
-echo "Private IP found: ${PRIVATE_IP}"
-echo "Public IP found:  ${PUBLIC_IP}"
+PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
+if [ -z "$PRIVATE_IP" ]; then
+    echo "Cannot get private IP of instance!"
+    exit 1
+fi
 
 # This is to create the minimum AppScalefile.
 echo -n "Creating AppScalefile..."
 echo "ips_layout :" > AppScalefile
 echo "  controller : ${PRIVATE_IP}" >> AppScalefile
 echo "login : ${PUBLIC_IP}" >> AppScalefile
+echo "test : True" >> AppScalefile
 echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
 echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
 echo "done."
+
 
 # Let's allow root login (appscale will need it to come up).
 cat .ssh/id_rsa.pub >> .ssh/authorized_keys
 ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
 
 # Start AppScale.
-${APPSCALE_CMD} up
+appscale up
 
 # Download sample app.
 echo -n "Downloading sample app..."
@@ -136,4 +106,4 @@ wget -q -O guestbook.tar.gz http://www.appscale.com/wp-content/uploads/2014/07/g
 echo "done."
 
 # Deploy sample app.
-${APPSCALE_CMD} deploy /root/guestbook.tar.gz
+appscale deploy /root/guestbook.tar.gz
