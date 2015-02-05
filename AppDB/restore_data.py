@@ -195,25 +195,19 @@ def init_parser():
   """
   parser = argparse.ArgumentParser(
     description='Restore application code and data.')
-  main_args = parser.add_argument_group('Main args')
+  main_args = parser.add_argument_group('main args')
   main_args.add_argument('-a', '--app-id', required=True,
-    help='the application ID to restore data under')
+    help='The application ID to restore data under.')
   main_args.add_argument('-b', '--backup-dir', required=True,
-    help='the backup directory to restore data from')
+    help='The backup directory to restore data from.')
   main_args.add_argument('-c', '--clear-datastore', required=False,
-    action="store_true", default=False, help='start with a clean datastore')
+    action="store_true", default=False, help='Start with a clean datastore.')
   main_args.add_argument('-d', '--debug',  required=False, action="store_true",
-    default=False, help='display debug messages')
+    default=False, help='Display debug messages.')
 
   # TODO
   # Read in source code location and owner and deploy the app
   # before restoring data.
-  # source_args = parser.add_argument_group('Source args',
-  #   'Source code related arguments')
-  # source_args.add_argument('-s', '--source', required=False,
-  #   default=True, help='the source code file to restore from')
-  # source_args.add_argument('-o', '--owner-email', required=False,
-  #   help='the email of the application owner')
 
   return parser
 
