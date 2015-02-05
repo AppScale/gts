@@ -3,21 +3,12 @@
 """
  Cassandra Interface for AppScale
 """
-import base64
 import logging
 import os
-import string
 import sys
-import time
 
-from thrift_cass.Cassandra import Client
 from thrift_cass.ttypes import *
-from thrift import Thrift
-from thrift.transport import TSocket
-from thrift.transport import TTransport
-from thrift.protocol import TBinaryProtocol
 
-import helper_functions
 import pycassa
 
 from dbconstants import *
@@ -25,7 +16,6 @@ from dbinterface_batch import *
 from pycassa.system_manager import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
-import constants
 import file_io
 
 # This is the default cassandra connection port
