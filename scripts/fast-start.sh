@@ -11,8 +11,8 @@
 #
 # author: graziano
 
-ADMIN_EMAIL="a@a.com"
-ADMIN_PASSWD="aaaaaa"
+ADMIN_EMAIL=""
+ADMIN_PASSWD=""
 PROVIDER=""
 CURL="$(which curl)"
 IP="$(which ip)"
@@ -74,6 +74,16 @@ while [ $# -gt 0 ]; do
     exit 1
 done
 
+# Sanity check on the given options.
+if [ -n "$ADMIN_EMAIL" ]; then
+    # Not supported right now.
+    echo "--email is not supported yet"
+    exit 1
+    [ -z "${ADMIN_PASSWD}" ] || { echo "error: you need to specify password with admin email"; exit 1 }
+else
+    [ -n "${ADMIN_PASSWD}" ] || { echo "error: you need to specify admin email with password"; exit 1 }
+fi
+
 # Get the public and private IP of this instance.
 PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
 PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
@@ -105,28 +115,34 @@ case "$PROVIDER" in
     ;;
 esac
 
-# Let's make sure we detected the IPs.
-[ -n "$PUBLIC_IP" ] || { echo "Cannot get public IP of instance!" ; exit 1 ; }
-[ -n "$PRIVATE_IP" ] || { echo "Cannot get private IP of instance!" ; exit 1 ; }
+# Let's make sure we don't overwrite and existing AppScalefile.
+if [ ! -e AppScaleFile ]; then
+    # Let's make sure we detected the IPs.
+    [ -n "$PUBLIC_IP" ] || { echo "Cannot get public IP of instance!" ; exit 1 ; }
+    [ -n "$PRIVATE_IP" ] || { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
-# Tell the user what we detected.
-echo "Detectd enviroment: ${PROVIDER}"
-echo "Private IP found: ${PRIVATE_IP}"
-echo "Public IP found:  ${PUBLIC_IP}"
+    # Tell the user what we detected.
+    echo "Detectd enviroment: ${PROVIDER}"
+    echo "Private IP found: ${PRIVATE_IP}"
+    echo "Public IP found:  ${PUBLIC_IP}"
 
-# This is to create the minimum AppScalefile.
-echo -n "Creating AppScalefile..."
-echo "ips_layout :" > AppScalefile
-echo "  controller : ${PRIVATE_IP}" >> AppScalefile
-echo "login : ${PUBLIC_IP}" >> AppScalefile
-echo "test : true" >> AppScalefile
-#echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
-#echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
-echo "done."
+    # This is to create the minimum AppScalefile.
+    echo -n "Creating AppScalefile..."
+    echo "ips_layout :" > AppScalefile
+    echo "  controller : ${PRIVATE_IP}" >> AppScalefile
+    echo "login : ${PUBLIC_IP}" >> AppScalefile
+    if [ -z "${ADMIN_EMAIL}" ]; then
+        echo "test : true" >> AppScalefile
+    else
+        echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
+        echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
+    fi
+    echo "done."
 
-# Let's allow root login (appscale will need it to come up).
-cat .ssh/id_rsa.pub >> .ssh/authorized_keys
-ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
+    # Let's allow root login (appscale will need it to come up).
+    cat .ssh/id_rsa.pub >> .ssh/authorized_keys
+    ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
+fi
 
 # Start AppScale.
 ${APPSCALE_CMD} up
