@@ -3102,7 +3102,7 @@ class Djinn
 
       next unless key.class == String
       newkey = key.gsub(NOT_EMAIL_REGEX, "")
-      if newkey.include? "_key" or newkey.include? "EC2_SECRET_KEY""
+      if newkey.include? "_key" or newkey.include? "EC2_SECRET_KEY"
         if val.class == String
           newval = val.gsub(NOT_FQDN_OR_PLUS_REGEX, "")
         else
