@@ -79,9 +79,9 @@ if [ -n "$ADMIN_EMAIL" ]; then
     # Not supported right now.
     echo "--email is not supported yet"
     exit 1
-    [ -z "${ADMIN_PASSWD}" ] || { echo "error: you need to specify password with admin email"; exit 1 }
+    [ -n "${ADMIN_PASSWD}" ] || { echo "error: you need to specify password with admin email"; exit 1; }
 else
-    [ -n "${ADMIN_PASSWD}" ] || { echo "error: you need to specify admin email with password"; exit 1 }
+    [ -z "${ADMIN_PASSWD}" ] || { echo "error: you need to specify admin email with password"; exit 1; }
 fi
 
 # Get the public and private IP of this instance.
