@@ -91,7 +91,7 @@ PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
 # Let's try to detect the environment we are using.
 if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
     PROVIDER="AWS"
-elif ${CURL} metadata.google.internal -i |grep Metadata-Flavor: Google ; then
+elif ${CURL} metadata.google.internal -i |grep 'Metadata-Flavor: Google' ; then
     # As per https://cloud.google.com/compute/docs/metadata.
     PROVIDER="GCE"
 else
@@ -142,15 +142,15 @@ if [ ! -e AppScaleFile ]; then
     # Let's allow root login (appscale will need it to come up).
     cat .ssh/id_rsa.pub >> .ssh/authorized_keys
     ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
+
+    # Download sample app.
+    echo -n "Downloading sample app..."
+    wget -q -O guestbook.tar.gz http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz
+    echo "done."
 fi
 
 # Start AppScale.
 ${APPSCALE_CMD} up
-
-# Download sample app.
-echo -n "Downloading sample app..."
-wget -q -O guestbook.tar.gz http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz
-echo "done."
 
 # Deploy sample app.
 ${APPSCALE_CMD} deploy /root/guestbook.tar.gz
