@@ -125,9 +125,6 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
-    fake_backup.should_receive('set_filename').at_most().times(1).and_return()
-    fake_backup.filename = '/root/backup'
-    self.assertEquals(True, fake_backup.dump_entity(FAKE_ENCODED_ENTITY))
 
   def test_process_entity(self):
     zookeeper = flexmock()
