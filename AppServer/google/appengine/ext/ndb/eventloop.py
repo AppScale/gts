@@ -37,12 +37,25 @@ class EventLoop(object):
   """An event loop."""
 
   def __init__(self):
-    """Constructor."""
-    self.current = collections.deque()  # FIFO list of (callback, args, kwds)
-    self.idlers = collections.deque()  # Cyclic list of (callback, args, kwds)
+    """Constructor.
+
+    Fields:
+      current: a FIFO list of (callback, args, kwds). These callbacks
+        run immediately when the eventloop runs.
+      idlers: a FIFO list of (callback, args, kwds). Thes callbacks
+        run only when no other RPCs need to be fired first.
+        For example, AutoBatcher uses idler to fire a batch RPC even before
+        the batch is full.
+      queue: a sorted list of (absolute time in sec, callback, args, kwds),
+        sorted by time. These callbacks run only after the said time.
+      rpcs: a map from rpc to (callback, args, kwds). Callback is called
+        when the rpc finishes.
+    """
+    self.current = collections.deque()
+    self.idlers = collections.deque()
     self.inactive = 0  # How many idlers in a row were no-ops
-    self.queue = []  # Sorted list of (time, callback, args, kwds)
-    self.rpcs = {}  # Map of rpc -> (callback, args, kwds)
+    self.queue = []
+    self.rpcs = {}
 
   def clear(self):
     """Remove all pending events without running any."""
@@ -75,6 +88,9 @@ class EventLoop(object):
 
     Optional args lo (default 0) and hi (default len(a)) bound the
     slice of a to be searched.
+
+    Args:
+      event: a (time in sec since unix epoch, callback, args, kwds) tuple.
     """
 
     if lo < 0:

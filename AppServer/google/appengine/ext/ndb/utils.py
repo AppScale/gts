@@ -3,6 +3,7 @@
 These are not meant for use by code outside NDB.
 """
 
+import functools
 import logging
 import os
 import sys
@@ -24,13 +25,18 @@ def wrapping(wrapped):
   # A decorator to decorate a decorator's wrapper.  Following the lead
   # of Twisted and Monocle, this is supposed to make debugging heavily
   # decorated code easier.  We'll see...
-  # TODO: Evaluate; so far it hasn't helped, and it has hurt some.
+  # TODO(pcostello): This copies the functionality of functools.wraps
+  # following the patch in http://bugs.python.org/issue3445. We can replace
+  # this once upgrading to python 3.3.
   def wrapping_wrapper(wrapper):
     try:
       wrapper.__wrapped__ = wrapped
       wrapper.__name__ = wrapped.__name__
       wrapper.__doc__ = wrapped.__doc__
       wrapper.__dict__.update(wrapped.__dict__)
+      # Local functions won't have __module__ attribute.
+      if hasattr(wrapped, '__module__'):
+        wrapper.__module__ = wrapped.__module__
     except Exception:
       pass
     return wrapper
@@ -136,6 +142,54 @@ def positional(max_pos_args):
       return wrapped(*args, **kwds)
     return positional_wrapper
   return positional_decorator
+
+
+def decorator(wrapped_decorator):
+  """Converts a function into a decorator that optionally accepts keyword
+  arguments in its declaration.
+
+  Example usage:
+    @utils.decorator
+    def decorator(func, args, kwds, op1=None):
+      ... apply op1 ...
+      return func(*args, **kwds)
+
+    # Form (1), vanilla
+    @decorator
+    foo(...)
+      ...
+
+    # Form (2), with options
+    @decorator(op1=5)
+    foo(...)
+      ...
+
+  Args:
+    wrapped_decorator: A function that accepts positional args (func, args,
+      kwds) and any additional supported keyword arguments.
+
+  Returns:
+    A decorator with an additional 'wrapped_decorator' property that is set to
+  the original function.
+  """
+  def helper(_func=None, **options):
+    def outer_wrapper(func):
+      @wrapping(func)
+      def inner_wrapper(*args, **kwds):
+        return wrapped_decorator(func, args, kwds, **options)
+      return inner_wrapper
+
+    if _func is None:
+      # Form (2), with options.
+      return outer_wrapper
+
+    # Form (1), vanilla.
+    if options:
+      # Don't allow @decorator(foo, op1=5).
+      raise TypeError('positional arguments not supported')
+    return outer_wrapper(_func)
+  helper.wrapped_decorator = wrapped_decorator
+  return helper
 
 
 def tweak_logging():

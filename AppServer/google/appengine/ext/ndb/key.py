@@ -728,7 +728,6 @@ def _ReferenceFromPairs(pairs, reference=None, app=None, namespace=None):
                          (_MAX_KEYPART_BYTES, idorname))
       elem.set_name(idorname)
     elif idorname is None:
-      elem.set_id(0)
       last = True
     elif issubclass(t, (int, long)):
       if not (1 <= idorname < _MAX_LONG):

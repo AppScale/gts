@@ -821,7 +821,7 @@ class ZKTransaction:
         wish to query.
       txid: The transaction ID that we want to get a list of updated keys for.
     Returns:
-      A list of keys that have been updated in this transaction.
+      A list of (keys, txn_id) that have been updated in this transaction.
     Raises:
       ZKTransactionException: If the given transaction ID does not correspond
         to a transaction that is currently in progress.
@@ -835,7 +835,8 @@ class ZKTransaction:
           keyandtx = self.run_with_retry(self.handle.get,
             PATH_SEPARATOR.join([txpath, item]))[0]
           key = urllib.unquote_plus(keyandtx.split(PATH_SEPARATOR)[0])
-          keylist.append(key)
+          txn_id = urllib.unquote_plus(keyandtx.split(PATH_SEPARATOR)[1])
+          keylist.append((key, txn_id))
       return keylist
     except kazoo.exceptions.NoNodeError:
       raise ZKTransactionException("get_updated_key_list: Transaction ID {0} " \
@@ -967,13 +968,15 @@ class ZKTransaction:
         "{1}, is blacklisted.".format(app_id, txid))
 
 
-  def get_valid_transaction_id(self, app_id, target_txid, entity_key):
+  def get_valid_transaction_id(self, app_id, target_txid, entity_key,
+    check_blacklist=True):
     """ This returns valid transaction id for the entity key.
 
     Args:
       app_id: A str representing the application ID.
       target_txid: The transaction id that we want to check for validness.
       entity_key: The entity that the transaction operates over.
+      ignore_blacklist: Boolean if we should check the blacklist.
     Returns:
       A long containing the latest valid transaction id, or zero if there is
       none.
@@ -983,21 +986,31 @@ class ZKTransaction:
     if self.needs_connection:
       self.reestablish_connection()
 
-    if not self.is_blacklisted(app_id, target_txid):
-      return target_txid
-    # get the valid id
-    vtxpath = self.get_valid_transaction_path(app_id, entity_key)
+    # If this is an ongoing transaction give the previous value.
     try:
-      return long(self.run_with_retry(self.handle.get, vtxpath)[0])
-    except kazoo.exceptions.NoNodeError:
-      # The transaction is blacklisted, but there is no valid id.
-      return long(0)
-    except kazoo.exceptions.KazooException as kazoo_exception:
-      logging.exception(kazoo_exception)
-      self.reestablish_connection()
-      raise ZKInternalException("Couldn't get valid transaction id for " \
-        "app {0}, target txid {1}, entity key {2}".format(app_id, target_txid,
-        entity_key))
+      if self.is_in_transaction(app_id, target_txid):
+        key_list = self.get_updated_key_list(app_id, target_txid)
+        for (key, txn_id) in key_list:
+          if entity_key == key:
+            return long(txn_id)
+    except ZKTransactionException, zk_exception: 
+      # If the transaction is blacklisted.
+      # Get the valid id.
+      vtxpath = self.get_valid_transaction_path(app_id, entity_key)
+      try:
+        return long(self.run_with_retry(self.handle.get, vtxpath)[0])
+      except kazoo.exceptions.NoNodeError:
+        # Blacklisted and without a valid ID.
+        return long(0)
+      except kazoo.exceptions.KazooException as kazoo_exception:
+        logging.exception(kazoo_exception)
+        self.reestablish_connection()
+        raise ZKInternalException("Couldn't get valid transaction id for " \
+          "app {0}, target txid {1}, entity key {2}".format(app_id, target_txid,
+          entity_key))
+
+    # The given target ID is not blacklisted or in an ongoing transaction.
+    return target_txid
 
   def register_updated_key(self, app_id, current_txid, target_txid, entity_key):
     """ Registers a key which is a part of a transaction. This is to know
