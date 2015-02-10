@@ -974,6 +974,7 @@ class ReducingFuture(Future):
 # on, and they found out it was error-prone.  Should I worry?
 Return = StopIteration
 
+
 def get_return_value(err):
   # XXX Docstring
   if not err.args:
@@ -1022,10 +1023,10 @@ def synctasklet(func):
   some web application framework (e.g. a Django view function or a
   webapp.RequestHandler.get method).
   """
+  taskletfunc = tasklet(func)  # wrap at declaration time.
   @utils.wrapping(func)
   def synctasklet_wrapper(*args, **kwds):
     __ndb_debug__ = utils.func_info(func)
-    taskletfunc = tasklet(func)
     return taskletfunc(*args, **kwds).get_result()
   return synctasklet_wrapper
 
@@ -1036,6 +1037,7 @@ def toplevel(func):
   Use this for toplevel view functions such as
   webapp.RequestHandler.get() or Django view functions.
   """
+  synctaskletfunc = synctasklet(func)  # wrap at declaration time.
   @utils.wrapping(func)
   def add_context_wrapper(*args, **kwds):
     __ndb_debug__ = utils.func_info(func)
@@ -1044,7 +1046,7 @@ def toplevel(func):
     ctx = make_default_context()
     try:
       set_context(ctx)
-      return synctasklet(func)(*args, **kwds)
+      return synctaskletfunc(*args, **kwds)
     finally:
       set_context(None)
       ctx.flush().check_success()

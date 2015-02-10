@@ -25,7 +25,7 @@ __all__ = ['Context', 'ContextOptions', 'TransactionOptions', 'AutoBatcher',
 
 _LOCK_TIME = 32  # Time to lock out memcache.add() after datastore updates.
 _LOCKED = 0  # Special value to store in memcache indicating locked value.
-_LOCKED_STR = "0" # Special value for AppScale since memcache stores strings.
+
 
 # Constant for read_policy.
 EVENTUAL_CONSISTENCY = datastore_rpc.Configuration.EVENTUAL_CONSISTENCY
@@ -114,32 +114,85 @@ def _make_ctx_options(ctx_options, config_cls=ContextOptions):
 
 
 class AutoBatcher(object):
+  """Batches multiple async calls if they share the same rpc options.
+
+  Here is an example to explain what this class does.
+
+  Life of a key.get_async(options) API call:
+  *) Key gets the singleton Context instance and invokes Context.get.
+  *) Context.get calls Context._get_batcher.add(key, options). This
+     returns a future "fut" as the return value of key.get_async.
+     At this moment, key.get_async returns.
+
+  *) When more than "limit" number of _get_batcher.add() was called,
+     _get_batcher invokes its self._todo_tasklet, Context._get_tasklet,
+     with the list of keys seen so far.
+  *) Context._get_tasklet fires a MultiRPC and waits on it.
+  *) Upon MultiRPC completion, Context._get_tasklet passes on the results
+     to the respective "fut" from key.get_async.
+
+  *) If user calls "fut".get_result() before "limit" number of add() was called,
+     "fut".get_result() will repeatedly call eventloop.run1().
+  *) After processing immediate callbacks, eventloop will run idlers.
+     AutoBatcher._on_idle is an idler.
+  *) _on_idle will run the "todo_tasklet" before the batch is full.
+
+  So the engine is todo_tasklet, which is a proxy tasklet that can combine
+  arguments into batches and passes along results back to respective futures.
+  This class is mainly a helper that invokes todo_tasklet with the right
+  arguments at the right time.
+  """
 
   def __init__(self, todo_tasklet, limit):
-    # todo_tasklet is a tasklet to be called with list of (future, arg) pairs
+    """Init.
+
+    Args:
+      todo_tasklet: the tasklet that actually fires RPC and waits on a MultiRPC.
+        It should take a list of (future, arg) pairs and an "options" as
+        arguments. "options" are rpc options.
+      limit: max number of items to batch for each distinct value of "options".
+    """
     self._todo_tasklet = todo_tasklet
-    self._limit = limit  # No more than this many per callback
-    self._queues = {}  # Map options to lists of (future, arg) tuples
-    self._running = []  # Currently running tasklets
-    self._cache = {}  # Cache of in-flight todo_tasklet futures
+    self._limit = limit
+    # A map from "options" to a list of (future, arg) tuple.
+    # future is the future return from a single async operations.
+    self._queues = {}
+    self._running = []  # A list of in-flight todo_tasklet futures.
+    self._cache = {}  # Cache of in-flight todo_tasklet futures.
 
   def __repr__(self):
     return '%s(%s)' % (self.__class__.__name__, self._todo_tasklet.__name__)
 
   def run_queue(self, options, todo):
+    """Actually run the _todo_tasklet."""
     utils.logging_debug('AutoBatcher(%s): %d items',
                         self._todo_tasklet.__name__, len(todo))
-    fut = self._todo_tasklet(todo, options)
-    self._running.append(fut)
+    batch_fut = self._todo_tasklet(todo, options)
+    self._running.append(batch_fut)
     # Add a callback when we're done.
-    fut.add_callback(self._finished_callback, fut, todo)
+    batch_fut.add_callback(self._finished_callback, batch_fut, todo)
 
   def _on_idle(self):
+    """An idler eventloop can run.
+
+    Eventloop calls this when it has finished processing all immediate
+    callbacks. This method runs _todo_tasklet even before the batch is full.
+    """
     if not self.action():
       return None
     return True
 
   def add(self, arg, options=None):
+    """Adds an arg and gets back a future.
+
+    Args:
+      arg: one argument for _todo_tasklet.
+      options: rpc options.
+
+    Return:
+      An instance of future, representing the result of running
+        _todo_tasklet without batching.
+    """
     fut = tasklets.Future('%s.add(%s, %s)' % (self, arg, options))
     todo = self._queues.get(options)
     if todo is None:
@@ -171,14 +224,24 @@ class AutoBatcher(object):
     self.run_queue(options, todo)
     return True
 
-  def _finished_callback(self, fut, todo):
-    self._running.remove(fut)
-    err = fut.get_exception()
+  def _finished_callback(self, batch_fut, todo):
+    """Passes exception along.
+
+    Args:
+      batch_fut: the batch future returned by running todo_tasklet.
+      todo: (fut, option) pair. fut is the future return by each add() call.
+
+    If the batch fut was successful, it has already called fut.set_result()
+    on other individual futs. This method only handles when the batch fut
+    encountered an exception.
+    """
+    self._running.remove(batch_fut)
+    err = batch_fut.get_exception()
     if err is not None:
-      tb = fut.get_traceback()
-      for (f, _) in todo:
-        if not f.done():
-          f.set_exception(err, tb)
+      tb = batch_fut.get_traceback()
+      for (fut, _) in todo:
+        if not fut.done():
+          fut.set_exception(err, tb)
 
   @tasklets.tasklet
   def flush(self):
@@ -585,6 +648,23 @@ class Context(object):
     # If this returns None, the system default (typically, 5) will apply.
     return ContextOptions.memcache_deadline(options, self._conn.config)
 
+
+  def _load_from_cache_if_available(self, key):
+    """Returns a cached Model instance given the entity key if available.
+
+    Args:
+      key: Key instance.
+
+    Returns:
+      A Model instance if the key exists in the cache.
+    """
+    if key in self._cache:
+      entity = self._cache[key]  # May be None, meaning "doesn't exist".
+      if entity is None or entity._key == key:
+        # If entity's key didn't change later, it is ok.
+        # See issue 13.  http://goo.gl/jxjOP
+        raise tasklets.Return(entity)
+
   # TODO: What about conflicting requests to different autobatchers,
   # e.g. tasklet A calls get() on a given key while tasklet B calls
   # delete()?  The outcome is nondeterministic, depending on which
@@ -604,17 +684,12 @@ class Context(object):
       **ctx_options: Context options.
 
     Returns:
-      A Model instance it the key exists in the datastore; None otherwise.
+      A Model instance if the key exists in the datastore; None otherwise.
     """
     options = _make_ctx_options(ctx_options)
     use_cache = self._use_cache(key, options)
     if use_cache:
-      if key in self._cache:
-        entity = self._cache[key]  # May be None, meaning "doesn't exist".
-        if entity is None or entity._key == key:
-          # If entity's key didn't change later, it is ok.
-          # See issue 13.  http://goo.gl/jxjOP
-          raise tasklets.Return(entity)
+      self._load_from_cache_if_available(key)
 
     use_datastore = self._use_datastore(key, options)
     if (use_datastore and
@@ -631,10 +706,12 @@ class Context(object):
       mvalue = yield self.memcache_get(mkey, for_cas=use_datastore,
                                        namespace=ns, use_cache=True,
                                        deadline=memcache_deadline)
-      if mvalue not in (_LOCKED, _LOCKED_STR, None):
-        cls = model.Model._kind_map.get(key.kind())
-        if cls is None:
-          raise TypeError('Cannot find model class for kind %s' % key.kind())
+      # A value may have appeared while yielding.
+      if use_cache:
+        self._load_from_cache_if_available(key)
+      if mvalue not in (_LOCKED, None):
+        cls = model.Model._lookup_model(key.kind(),
+                                        self._conn.adapter.default_model)
         pb = entity_pb.EntityProto()
 
         try:
@@ -669,7 +746,7 @@ class Context(object):
       entity = yield self._get_batcher.add(key, options)
 
     if entity is not None:
-      if use_memcache and mvalue not in (_LOCKED, _LOCKED_STR):
+      if use_memcache and mvalue != _LOCKED:
         # Don't serialize the key since it's already the memcache key.
         pbs = entity._to_pb(set_key=False).SerializePartialToString()
         # Don't attempt to write to memcache if too big.  Note that we
@@ -794,7 +871,6 @@ class Context(object):
       try:
         inq = tasklets.SerialQueueFuture()
         query.run_to_queue(inq, self._conn, options)
-        is_ancestor_query = query.ancestor is not None
         while True:
           try:
             batch, i, ent = yield inq.getq()
@@ -903,10 +979,10 @@ class Context(object):
         adapter=parent._conn.adapter,
         config=parent._conn.config,
         transaction=transaction)
-      old_ds_conn = datastore._GetConnection()
       tctx = parent.__class__(conn=tconn,
                               auto_batcher_class=parent._auto_batcher_class,
                               parent_context=parent)
+      tctx._old_ds_conn = datastore._GetConnection()
       ok = False
       try:
         # Copy memcache policies.  Note that get() will never use
@@ -929,7 +1005,7 @@ class Context(object):
           raise
         except Exception:
           t, e, tb = sys.exc_info()
-          yield tconn.async_rollback(options)  # TODO: Don't block???
+          tconn.async_rollback(options)  # Fire and forget.
           if issubclass(t, datastore_errors.Rollback):
             # TODO: Raise value using tasklets.get_return_value(t)?
             return
@@ -943,7 +1019,8 @@ class Context(object):
             raise tasklets.Return(result)
             # The finally clause will run the on-commit queue.
       finally:
-        datastore._SetConnection(old_ds_conn)
+        datastore._SetConnection(tctx._old_ds_conn)
+        del tctx._old_ds_conn
         if ok:
           # Call the callbacks collected in the transaction context's
           # on-commit queue.  If the transaction failed the queue is
