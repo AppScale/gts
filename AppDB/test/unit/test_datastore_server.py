@@ -618,6 +618,7 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper = flexmock()
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
+    zookeeper.should_receive("is_in_transaction").and_return(False)
     dd = DatastoreDistributed(db_batch, zookeeper) 
     dd.ancestor_query(query, filter_info, None)
     # Now with a transaction
@@ -654,6 +655,7 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper = flexmock()
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
+    zookeeper.should_receive("is_in_transaction").and_return(False)
     dd = DatastoreDistributed(db_batch, zookeeper)
     dd.ordered_ancestor_query(query, filter_info, None)
 
@@ -689,6 +691,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("range_query").and_return([entity_proto1, tombstone1]).and_return([])
     zookeeper = flexmock()
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
+    zookeeper.should_receive("is_in_transaction").and_return(False)
     zookeeper.should_receive("acquire_lock").and_return(True)
     dd = DatastoreDistributed(db_batch, zookeeper) 
     filter_info = {

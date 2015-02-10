@@ -257,7 +257,7 @@ installphp54()
 {
     # In Precise we have a too old version of php. We need at least 5.4.
     if [ "$DIST" = "precise" ]; then
-        add-apt-repository ppa:ondrej/php5-oldstable
+        add-apt-repository -y ppa:ondrej/php5-oldstable
         apt-get update
         apt-get install -y php5
     fi
@@ -293,7 +293,7 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=2.1.0
+    CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
@@ -313,6 +313,9 @@ installcassandra()
     pip_wrapper  setuptools
     pip_wrapper  pycassa
     pip_wrapper  thrift
+
+    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
+    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
 
 postinstallcassandra()

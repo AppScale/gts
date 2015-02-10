@@ -968,15 +968,13 @@ class ZKTransaction:
         "{1}, is blacklisted.".format(app_id, txid))
 
 
-  def get_valid_transaction_id(self, app_id, target_txid, entity_key,
-    check_blacklist=True):
+  def get_valid_transaction_id(self, app_id, target_txid, entity_key):
     """ This returns valid transaction id for the entity key.
 
     Args:
       app_id: A str representing the application ID.
       target_txid: The transaction id that we want to check for validness.
       entity_key: The entity that the transaction operates over.
-      ignore_blacklist: Boolean if we should check the blacklist.
     Returns:
       A long containing the latest valid transaction id, or zero if there is
       none.
@@ -993,7 +991,7 @@ class ZKTransaction:
         for (key, txn_id) in key_list:
           if entity_key == key:
             return long(txn_id)
-    except ZKTransactionException, zk_exception: 
+    except ZKTransactionException, zk_exception:
       # If the transaction is blacklisted.
       # Get the valid id.
       vtxpath = self.get_valid_transaction_path(app_id, entity_key)
