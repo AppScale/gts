@@ -9,7 +9,8 @@ import sys
 from dbconstants import *
 import appscale_datastore_batch
 
-_MAX_ENTITIES = 1000000 
+_MAX_ENTITIES = 1000000
+
 def get_entities(table, schema, db):
   """ Gets entities from a table.
     
@@ -18,7 +19,7 @@ def get_entities(table, schema, db):
     schema: The schema of table to get from
     db: The database accessor
   Returns: 
-    The entire table up to _MAX_ENTITIES
+    The entire table up to _MAX_ENTITIES.
   """
   return db.range_query(table, schema, "", "", _MAX_ENTITIES)
 
@@ -55,9 +56,6 @@ def main(argv):
 
   entities = get_entities(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA, db)
   view_all(entities, DSC_PROPERTY_TABLE, db) 
-
-  entities = get_entities(COMPOSITE_TABLE, PROPERTY_SCHEMA, db)
-  view_all(entities, COMPOSITE_TABLE, db) 
 
   entities = get_entities(APP_KIND_TABLE, APP_KIND_SCHEMA, db)
   view_all(entities, APP_KIND_TABLE, db) 
