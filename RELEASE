@@ -19,7 +19,7 @@ Highlights of features/bugs in this release:
 - Removed ntp call in cronjob
 - Updated logic for reconnection to ZK
 - Fixed FD leak for ZK
-- Native Backup and restore for AppScale
+- Native backup and restore for AppScale
 - Catching exception from Cassandra causing groomer/garbage collection issues
 - Fixed issue when binding to private IP
 - Made unit tests run faster
