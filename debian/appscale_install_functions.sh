@@ -293,7 +293,7 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=2.1.0
+    CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
@@ -313,6 +313,9 @@ installcassandra()
     pip_wrapper  setuptools
     pip_wrapper  pycassa
     pip_wrapper  thrift
+
+    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
+    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 }
 
 postinstallcassandra()

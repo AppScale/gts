@@ -5,10 +5,10 @@ this module.  If necessary, add new imports here (in both places).
 """
 
 try:
-  from google.appengine import api
+  from google.appengine.datastore import entity_pb
   normal_environment = True
 except ImportError:
-  from google3.apphosting import api
+  from google3.storage.onestore.v3 import entity_pb
   normal_environment = False
 
 if normal_environment:
@@ -27,6 +27,9 @@ if normal_environment:
   from google.appengine.api.prospective_search import prospective_search_pb
   from google.appengine.datastore import datastore_query
   from google.appengine.datastore import datastore_rpc
+  # This line will fail miserably for any app using auto_import_fixer
+  # because auto_import_fixer only set up simple alias between
+  # google and google3. But entity_pb is move to a different path completely.
   from google.appengine.datastore import entity_pb
   from google.appengine.ext.blobstore import blobstore as ext_blobstore
   from google.appengine.ext import db
