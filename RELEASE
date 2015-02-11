@@ -4,6 +4,27 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 2.2.0, released Febuary, 2015
+Highlights of features/bugs in this release:
+- Updated NDB to latest version
+- GHOST patch
+- No more uncommitted reads outside or inside a transaction
+- PHP version fix
+- Fixed unit test
+- Initial support for Search API (experimental)
+- Fix for "+" sign in EC2 key for multinode deployments
+- Updated fast start
+- Removed unused scripts and deadcode
+- Removed apache from build
+- Removed ntp call in cronjob
+- Updated logic for reconnection to ZK
+- Fixed FD leak for ZK
+- Native backup and restore for AppScale
+- Catching exception from Cassandra causing groomer/garbage collection issues
+- Fixed issue when binding to private IP
+- Made unit tests run faster
+- Added support for all ancestor paths on composite indexes
+
 AppScale version 2.1.0, released December, 2014
 Highlights of features/bugs in this release:
 - Updated bootstrap script
