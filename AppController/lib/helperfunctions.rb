@@ -34,7 +34,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "2.1.0"
+  VER_NUM = "2.2.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
