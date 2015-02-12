@@ -259,7 +259,9 @@ installphp54()
     if [ "$DIST" = "precise" ]; then
         add-apt-repository -y ppa:ondrej/php5-oldstable
         apt-get update
-        apt-get install -y php5
+        # We need to pull also php5-cgi to ensure apache2 won't be pulled
+        # in.
+        apt-get install -y php5-cgi php5
     fi
 }
 
