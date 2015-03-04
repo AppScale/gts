@@ -36,9 +36,6 @@ DEFAULT_PORT = 4342
 # The port avaialble from the outside via SSL.
 DEFAULT_SSL_PORT = 4343
 
-# The table which 
-IP_TABLE = "IPS___"
-
 # The default datastore used.
 datastore_type = DEFAULT_DATASTORE
 
@@ -49,7 +46,7 @@ bindport = DEFAULT_PORT
 ERROR_CODES = []
 
 # Global secret to validate incoming soap requests.
-super_secret = ""
+super_secret = appscale_info.get_secret()
 
 # Datastore accessor.
 db = []
@@ -324,6 +321,41 @@ def commit_new_user(user, passwd, utype, secret):
     return "false"
   return "true"
 
+def add_admin_for_app(user, app, secret):
+  """ Grants admin role to a given application.
+
+  Admin:
+    user: A str, the user email.
+    app: A str, the application ID.
+    secret: The secret key for authentication.
+  Returns:
+    "true" on success, error message otherwise.
+  """
+  global db
+  global user_schema
+  global app_schema
+  global super_secret
+  if secret != super_secret:
+    return "Error: bad secret"
+
+  user_result = db.get_entity(USER_TABLE, user, user_schema)
+  if user_result[0] not in ERROR_CODES or len(user_result) <= 1:
+    return user_result
+
+  user_result = user_result[1:]
+  n_user = Users("a", "b", "c") 
+  n_user.unpackit(user_result)
+  n_user.applications_.append(app)
+  t = datetime.datetime.now()
+  n_user.date_change_ = str(time.mktime(t.timetuple()))
+  array = n_user.arrayit()
+
+  result = db.put_entity(USER_TABLE, user, user_schema, array) 
+  if result[0] in ERROR_CODES:
+    return "true"
+  else: 
+    return "Error: Unable to update the user."
+ 
 def commit_new_app(appname, user, language, secret):
   global db
   global user_schema
@@ -924,7 +956,6 @@ if __name__ == "__main__":
     break
 
   ip = "0.0.0.0"
-  super_secret = appscale_info.get_secret()
   server = SOAPpy.SOAPServer((ip, bindport))
 
   # Register soap functions.
@@ -941,6 +972,7 @@ if __name__ == "__main__":
   server.registerFunction(get_tar)
   server.registerFunction(get_token)
   server.registerFunction(get_version)
+  server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)
   server.registerFunction(commit_new_app)
   server.registerFunction(commit_tar)
