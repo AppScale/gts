@@ -30,6 +30,7 @@ def delete_user(server, email):
     True on success, False otherwise.
   """
   secret = appscale_info.get_secret()
+  server.disable_user(email, secret)
   return server.delete_user(email, secret) == "true"
 
 def does_user_exist(email, server):
