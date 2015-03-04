@@ -12,6 +12,7 @@ APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
 FORCE_UPGRADE="N"
 UNIT_TEST="n"
+GIT_TAG=""
 
 usage() {
         echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][-t]"
@@ -22,6 +23,7 @@ usage() {
         echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
         echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
         echo "   --force-upgrade          Force upgrade even if some check fails."
+        echo "   --tag <git-tag>          Use specific git tag (ie 2.2.0) or 'last' to use the latest release"
         echo "   -t                       Run unit tests"
         exit 1
 }
@@ -53,6 +55,15 @@ while [ $# -gt 0 ]; do
                         usage
                 fi
                 APPSCALE_BRANCH="${1}"
+                shift
+                continue
+        fi
+        if [ "${1}" = "--tag" ]; then 
+                shift
+                if [ -z "${1}" ]; then
+                        usage
+                fi
+                GIT_TAG="${1}"
                 shift
                 continue
         fi
@@ -104,6 +115,15 @@ apt-get install -y git
 if [ ! -d appscale ]; then
         git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}
         git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}
+
+        # Use tags if we specified it.
+        if [ -n "$GIT_TAG" ]; then
+                if [ "$GIT_TAG" = "last" ]; then
+                        GIT_TAG="$(cd appscale; git tag|tail -n 1)"
+                fi
+                (cd appscale; git checkout "$GIT_TAG")
+                (cd appscale-tools; git checkout "$GIT_TAG")
+        fi
 fi
 
 # Since the last step in appscale_build.sh is to create the certs directory,
