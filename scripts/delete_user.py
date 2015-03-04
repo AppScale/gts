@@ -1,4 +1,4 @@
-""" This script creates a new user. Fails if the user already exists. """
+""" This script deletes a user. """
 
 import M2Crypto
 import os
@@ -47,7 +47,7 @@ def does_user_exist(email, server):
 def usage():
   print ""
   print "Deletes a user in AppScale."
-  print "Args:  email adress"
+  print "Args: email address"
   print ""
   print "Examples:"
   print "  python delete_user.py bob@appscale.com"
@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
   server = get_soap_accessor()
   if not does_user_exist(email, server):
-    print "User does not exists."
+    print "User does not exist."
     exit(1)
 
   print "Deleting user...",

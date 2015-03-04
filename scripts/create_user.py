@@ -2,15 +2,22 @@
 
 import M2Crypto
 import os
+import SOAPpy
 import string
 import sys
-import SOAPpy
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
 import constants
 
 def random_password(length=10):
+  """ Generates a random password.
+
+  Args:
+    lenght: An int, the number of characters in the password.
+  Returns:
+    A str of random characters.
+  """
   chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
   password = ''
   for i in range(length):
@@ -56,7 +63,7 @@ def does_user_exist(email, server):
 def usage():
   print ""
   print "Creates a new user in AppScale."
-  print "Args:  email adress"
+  print "Args: email address"
   print ""
   print "Examples:"
   print "  python create_user.py bob@appscale.com"
