@@ -118,7 +118,7 @@ if [ ! -d appscale ]; then
 
         # Use tags if we specified it.
         if [ -n "$GIT_TAG" ]; then
-                if [ "$GIT_TAG" != "last" ]; then
+                if [ "$GIT_TAG" = "last" ]; then
                         GIT_TAG="$(cd appscale; git tag|tail -n 1)"
                 fi
                 (cd appscale; git checkout "$GIT_TAG")
