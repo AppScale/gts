@@ -104,3 +104,4 @@ if __name__ == "__main__":
   create_new_user(server, email, hash_password)
 
   print "The new password for {0} is: {1}".format(email, new_password)
+  print "Store this password in a safe place."
