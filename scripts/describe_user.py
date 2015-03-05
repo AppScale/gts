@@ -1,4 +1,4 @@
-""" This script dumps all users. """
+""" This script dumps AppScale attributes on a user. """
 
 import M2Crypto
 import os
@@ -22,8 +22,11 @@ def get_soap_accessor():
 
 if __name__ == "__main__":
 
+  email = sys.argv[1]
+  secret = appscale_info.get_secret()
   server = get_soap_accessor()
-  users = server.get_all_users(appscale_info.get_secret())
-  users = users.split(':')
-  for user in users:
-    print user
+  if server.does_user_exist(email, secret) != "true":
+    print "User does not exist."
+    exit(1)
+
+  print server.get_user_data(email, secret)

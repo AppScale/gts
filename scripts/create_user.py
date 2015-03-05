@@ -1,5 +1,6 @@
 """ This script creates a new user. Fails if the user already exists. """
 
+import hashlib
 import M2Crypto
 import os
 import SOAPpy
@@ -45,7 +46,7 @@ def create_new_user(server, email, password):
     True on success, False otherwise.
   """
   secret = appscale_info.get_secret()
-  ret = server.commit_new_user(email, new_password, "user", secret)
+  ret = server.commit_new_user(email, password, "user", secret)
   return not ret.startswith("Error:")
 
 def does_user_exist(email, server):
@@ -99,6 +100,7 @@ if __name__ == "__main__":
     exit(1)
 
   print "Creating user..."
-  create_new_user(server, email, new_password)
+  hash_password = hashlib.sha1(email + new_password).hexdigest()
+  create_new_user(server, email, hash_password)
 
   print "The new password for {0} is: {1}".format(email, new_password)
