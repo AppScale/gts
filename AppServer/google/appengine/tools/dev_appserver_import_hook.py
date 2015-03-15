@@ -781,6 +781,8 @@ class HardenedModulesHook(object):
       '_Crypto_Hash__MD4',
       '_Crypto_Hash__RIPEMD',
       '_Crypto_Hash__SHA256',
+      '_Crypto_PublicKey__RSA',
+      '_Crypto_Signature__PKCS1_v1_5',
       'array',
       'binascii',
       'bz2',
