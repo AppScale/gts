@@ -29,7 +29,8 @@ module CronHelper
   #   app: A String that names the appid of this application, used to find the
   #     cron configuration file on the local filesystem.
   def self.update_cron(ip, port, lang, app)
-    Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
+    Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]")
+    app_crontab = NO_EMAIL_CRON + "\n"
 
     if lang == "python27" or lang == "go" or lang == "php"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
@@ -45,7 +46,6 @@ module CronHelper
       cron_routes = yaml_file["cron"]
       return if cron_routes.nil?
 
-      app_crontab = NO_EMAIL_CRON + "\n"
       cron_routes.each { |item|
         next if item['url'].nil?
         description = item["description"]
@@ -67,7 +67,6 @@ CRON
           app_crontab << line + "\n"
         }
       }
-      write_app_crontab(app_crontab, app)
 
     elsif lang == "java"
       cron_file = "/var/apps/#{app}/app/war/WEB-INF/cron.xml"
@@ -75,7 +74,6 @@ CRON
       cron_xml = Document.new(File.new(cron_file)).root
       return if cron_xml.nil?
 
-      app_crontab = NO_EMAIL_CRON + "\n"
       cron_xml.each_element('//cron') { |item|
         description = get_from_xml(item, "description")
         # since url gets put at end of curl, need to ensure it
@@ -96,10 +94,11 @@ CRON
           app_crontab << line + "\n"
         }
       }
-      write_app_crontab(app_crontab, app)
     else
       Djinn.log_error("ERROR: lang was neither python27, go, php, nor java but was [#{lang}] (cron)")
     end
+
+    write_app_crontab(app_crontab, app)
   end
 
 
