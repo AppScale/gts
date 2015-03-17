@@ -1909,7 +1909,7 @@ class Djinn
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
     Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
-    CronHelper.clear_crontab()
+    CronHelper.clear_app_crontabs
   end
 
 

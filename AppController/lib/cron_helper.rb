@@ -103,10 +103,12 @@ CRON
   end
 
 
-  # Erases all cron jobs on this machine.
-  def self.clear_crontab()
-    Djinn.log_run("crontab -r")
-    self.add_line_to_crontab(NO_EMAIL_CRON)
+  # Erases all cron jobs for all applications.
+  #
+  # Args:
+  #   app: A String that names the appid of this application.
+  def self.clear_app_crontabs
+    Djinn.log_run('rm /etc/cron.d/appscale-*')
   end
 
 
