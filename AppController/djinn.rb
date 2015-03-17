@@ -1174,6 +1174,7 @@ class Djinn
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
     Djinn.log_run("rm -rf /var/apps/#{app_name}")
+    CronHelper.clear_app_crontab(app_name)
 
     # app shutdown process can take more than 30 seconds
     # so run it in a new thread to avoid 'execution expired'
