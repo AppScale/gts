@@ -221,10 +221,6 @@ ret = server.get_version("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_ip("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.commit_new_user("xxx", "xxx", "user", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -238,10 +234,6 @@ if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
 ret = server.commit_new_token("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.commit_ip("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -356,10 +348,6 @@ if ret != "false":
 
 ret = server.get_version(app[0], super_secret)
 if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_ip("xxx", super_secret)
-if "false" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.delete_instance(app[0], "xxx", "xxx", super_secret)
@@ -518,20 +506,6 @@ if ret != "true":
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-#################
-# Commit a new ip
-#################
-ip = helper_functions.random_string(10)
-ret = server.commit_ip(ip, user[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-###################
-# Get Email from IP
-###################
-ret = server.get_ip(ip, super_secret)
-if ret != user[0]:
-  err(helper_functions.lineno(), ret)
-#########################
 # Commit bad name for app
 #########################
 ret = server.commit_new_app("!@#$$%", user[0], "python", super_secret)

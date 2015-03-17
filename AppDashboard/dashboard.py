@@ -348,25 +348,23 @@ class LogoutPage(AppDashboard):
     """
     self.helper.logout_user(self.response)
     continue_url = self.request.get("continue")
-    if continue_url:
-      self.redirect(str(continue_url), self.response)
-    else:
-      self.redirect('/', self.response)
+    self.redirect("https://bear.appscale.com:443/Shibboleth.sso/Logout")
+      #"?return={0}".\ format(str(continue_url)))
+    #if continue_url:
+    #  self.redirect(str(continue_url), self.response)
+    #else:
+    #  self.redirect('/', self.response)
 
 
-class LoginPage(AppDashboard):
-  """ Class to handle requests to the /users/login page. """
+class LoginShibbolethPage(AppDashboard):
+  """ Class that handles the Shibboleth redirect. """
 
+  TEMPLATE = 'authorize/cloud.html'
 
-  TEMPLATE = 'users/login.html'
-
-
-  def post(self):
-    """ Handler for POST requests. """
-    user_email = self.request.get('user_email').lstrip().rstrip()
-    if self.helper.login_user(user_email, self.request.get('user_password'),
-      self.response):
-    
+  def get(self):
+    """ Handler for GET requests. """
+    user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().rstrip()
+    if self.helper.login_user(user_email, 'shibboleth', self.response):
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue={0}'.format(
           urllib.quote(str(self.request.get('continue')))\
@@ -377,17 +375,26 @@ class LoginPage(AppDashboard):
       self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),
           'user_email' : user_email,
-          'flash_message': 
-          "Incorrect username / password combination. Please try again."
+          'flash_message': "Unable to log in."
         })
 
 
+     
+class LoginPage(AppDashboard):
+  """ Class to handle requests to the /users/login page. """
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='users', template_file=self.TEMPLATE, values={
-      'continue' : self.request.get('continue')
-    })
-
+    logging.info("LoginPage: continue -> {0}".format(
+      self.request.get('continue')))
+    user_email = self.request.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().\
+      rstrip()
+    logging.info("LoginPage: user_email: {0}".format(user_email))
+    if user_email:
+      self.redirect("https://bear.appscale.com/users/shibboleth?continue={0}".format(
+        self.request.get('continue')))
+    self.redirect("https://bear.appscale.com:443/Shibboleth.sso/Login?"
+      "target=https%3A%2F%2Fbear.appscale.com%2Fusers%2Fshibboleth%3F"
+      "continue={0}".format(self.request.get('continue')))
 
 class AuthorizePage(AppDashboard):
   """ Class to handle requests to the /authorize page. """
@@ -1087,6 +1094,7 @@ app = webapp2.WSGIApplication([ ('/', StatusPage),
                                 ('/logout', LogoutPage),
                                 ('/users/logout', LogoutPage),
                                 ('/users/login', LoginPage),
+                                ('/users/shibboleth', LoginShibbolethPage),
                                 ('/users/authenticate', LoginPage),
                                 ('/login', LoginPage),
                                 ('/users/verify', LoginVerify),
