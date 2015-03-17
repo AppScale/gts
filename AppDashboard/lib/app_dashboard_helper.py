@@ -613,7 +613,7 @@ class AppDashboardHelper(object):
     """
     apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
     response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
-      value=self.get_cookie_value(email, apps),
+      value=self.get_cookie_value(email, apps), domain="appscale.com",
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
   def get_cookie_app_list(self, request):

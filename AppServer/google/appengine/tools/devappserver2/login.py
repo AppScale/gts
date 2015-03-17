@@ -168,6 +168,7 @@ def _clear_user_info_cookie(cookie_name=_COOKIE_NAME):
   cookie[cookie_name] = ''
   cookie[cookie_name]['path'] = '/'
   cookie[cookie_name]['max-age'] = '0'
+  cookie[cookie_name]['domain'] = 'appscale.com'
   return cookie[cookie_name].OutputString()
 
 
