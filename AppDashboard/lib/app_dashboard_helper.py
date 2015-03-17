@@ -744,7 +744,7 @@ class AppDashboardHelper(object):
 
 
   def login_user(self, email, password, response):
-    """ 
+    """ Creates a token and sets the user's cookie.
 
     Args:
       email: A str containing the e-mail address of the user to login.
@@ -754,18 +754,7 @@ class AppDashboardHelper(object):
     Return:
       True if the user logged in successfully, and False otherwise.
     """
-    #user_data = self.query_user_data(email)
-    #server_re = re.search(self.USER_DATA_PASSWORD_REGEX, user_data)
-    #if not server_re:
-    #  logging.error("Failed Login: {0} regex failed".format(email))
-    #  return False
-    #server_pwd = server_re.group(1)
-    #encrypted_pass = LocalState.encrypt_password(email, password)
-    #if server_pwd != encrypted_pass:
-    #  logging.info("Failed Login: {0} password mismatch".format(email))
-    #  return False
     self.create_token(email, email)
-    #self.set_appserver_cookie(email, , response)
     self.set_appserver_cookie(email, self.get_user_app_list(email), response)
     return True
 
