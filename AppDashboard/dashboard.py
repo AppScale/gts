@@ -52,6 +52,8 @@ jinja_environment = jinja2.Environment(
 # charting requests per second.
 MAX_REQUESTS_DATA_POINTS = 100
 
+# Redirect path for home page.
+DASHBOARD_HOME = "https://bear.appscale.com"
 
 class LoggedService(ndb.Model):
   """ A Datastore Model that represents all of the machines running in this
@@ -283,7 +285,7 @@ class NewUserPage(AppDashboard):
     err_msgs = self.parse_new_user_post()
     try:
       if self.process_new_user_post(err_msgs):
-        self.redirect('/', self.response)
+        self.redirect(DASHBOARD_HOME, self.response)
         return
     except AppHelperException as err:
       err_msgs['email'] = str(err)
@@ -323,7 +325,7 @@ class LoginVerify(AppDashboard):
       self.redirect(self.request.get('continue').encode('ascii','ignore'), 
         self.response)
     else:
-      self.redirect('/', self.response)
+      self.redirect(DASHBOARD_HOME, self.response)
 
 
   def get(self):
@@ -348,12 +350,12 @@ class LogoutPage(AppDashboard):
     """
     self.helper.logout_user(self.response)
     continue_url = self.request.get("continue")
-    self.redirect("https://bear.appscale.com:443/Shibboleth.sso/Logout")
+    #self.redirect("https://bear.appscale.com:443/Shibboleth.sso/Logout")
       #"?return={0}".\ format(str(continue_url)))
-    #if continue_url:
-    #  self.redirect(str(continue_url), self.response)
-    #else:
-    #  self.redirect('/', self.response)
+    if continue_url:
+      self.redirect(str(continue_url), self.response)
+    else:
+      self.redirect(DASHBOARD_HOME, self.response)
 
 
 class LoginShibbolethPage(AppDashboard):
@@ -363,14 +365,15 @@ class LoginShibbolethPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().rstrip()
+    user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().\
+      rstrip()
     if self.helper.login_user(user_email, 'shibboleth', self.response):
       if self.request.get('continue') != '':
-        self.redirect('/users/confirm?continue={0}'.format(
+        self.redirect('{1}/users/confirm?continue={0}'.format(
           urllib.quote(str(self.request.get('continue')))\
-          .encode('ascii','ignore')), self.response)
+          .encode('ascii','ignore'), DASHBOARD_HOME), self.response)
       else:
-        self.redirect('/', self.response)
+        self.redirect(DASHBOARD_HOME, self.response)
     else:
       self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),
@@ -390,11 +393,11 @@ class LoginPage(AppDashboard):
       rstrip()
     logging.info("LoginPage: user_email: {0}".format(user_email))
     if user_email:
-      self.redirect("https://bear.appscale.com/users/shibboleth?continue={0}".format(
-        self.request.get('continue')))
-    self.redirect("https://bear.appscale.com:443/Shibboleth.sso/Login?"
+      self.redirect("{1}/users/shibboleth?continue={0}".format(
+        self.request.get('continue'), DASHBOARD_HOME))
+    self.redirect("{1}/Shibboleth.sso/Login?"
       "target=https%3A%2F%2Fbear.appscale.com%2Fusers%2Fshibboleth%3F"
-      "continue={0}".format(self.request.get('continue')))
+      "continue={0}".format(self.request.get('continue'), DASHBOARD_HOME))
 
 class AuthorizePage(AppDashboard):
   """ Class to handle requests to the /authorize page. """
@@ -650,7 +653,7 @@ class LogMainPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (not apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(DASHBOARD_HOME, self.response)
 
     query = ndb.gql('SELECT * FROM LoggedService')
     all_services = []
@@ -680,7 +683,7 @@ class LogServicePage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(DASHBOARD_HOME, self.response)
 
     service = LoggedService.get_by_id(service_name)
     if service:
@@ -717,7 +720,7 @@ class LogServiceHostPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(DASHBOARD_HOME, self.response)
 
     encoded_cursor = self.request.get('next_cursor')
     if encoded_cursor and encoded_cursor != "None":
@@ -827,7 +830,7 @@ class LogDownloader(AppDashboard):
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if not is_cloud_admin:
-      self.redirect("/")
+      self.redirect(DASHBOARD_HOME)
 
     success, uuid = self.helper.gather_logs()
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
@@ -1051,10 +1054,10 @@ class StatsPage(AppDashboard):
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
     if (not apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(DASHBOARD_HOME, self.response)
 
     if app_id not in apps_user_is_admin_on:
-      self.redirect('/', self.response)
+      self.redirect(DASHBOARD_HOME, self.response)
 
     instance_info = InstanceStats.fetch_request_info(app_id)
 

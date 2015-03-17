@@ -740,7 +740,7 @@ class AppDashboardHelper(object):
     user = users.get_current_user()
     if user:
       self.create_token('invalid', user.email())
-      response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
+      response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE, domain="appscale.com")
 
 
   def login_user(self, email, password, response):
