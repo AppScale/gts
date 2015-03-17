@@ -45,6 +45,7 @@ module CronHelper
       cron_routes = yaml_file["cron"]
       return if cron_routes.nil?
 
+      app_crontab = NO_EMAIL_CRON + "\n"
       cron_routes.each { |item|
         next if item['url'].nil?
         description = item["description"]
@@ -63,15 +64,18 @@ module CronHelper
           Cron Schedule: #{line}
 CRON
           Djinn.log_debug(cron_info)
-          Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line) if !is_line_in_crontab?(line)
+          app_crontab << line + "\n"
         }
       }
+      write_app_crontab(app_crontab, app)
+
     elsif lang == "java"
       cron_file = "/var/apps/#{app}/app/war/WEB-INF/cron.xml"
       return unless File.exists?(cron_file)
       cron_xml = Document.new(File.new(cron_file)).root
       return if cron_xml.nil?
+
+      app_crontab = NO_EMAIL_CRON + "\n"
       cron_xml.each_element('//cron') { |item|
         description = get_from_xml(item, "description")
         # since url gets put at end of curl, need to ensure it
@@ -89,10 +93,10 @@ CRON
           Cron Schedule: #{line}
 CRON
           Djinn.log_debug(cron_info)
-          Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line) if !is_line_in_crontab?(line)
+          app_crontab << line + "\n"
         }
       }
+      write_app_crontab(app_crontab, app)
     else
       Djinn.log_error("ERROR: lang was neither python27, go, php, nor java but was [#{lang}] (cron)")
     end
@@ -123,15 +127,14 @@ CRON
   end
 
 
-  # Reads the crontab for this user to see if the given string is in it.
+  # Creates or overwrites an app's crontab.
   #
   # Args:
-  #   line: The String that we should search for in our crontab.
-  # Returns:
-  #   true if the String is a line in this crontab, and false otherwise.
-  def self.is_line_in_crontab?(line)
-    crontab = Djinn.log_run("crontab -l")
-    return crontab.include?(line.gsub(/"/, ""))
+  #   crontab: A String that contains the entirety of the crontab.
+  #   app: A String that names the appid of this application.
+  def self.write_app_crontab(crontab, app)
+    Djinn.log_info("Writing crontab for [#{app}]:\n#{crontab}")
+    `echo "#{crontab}" > /etc/cron.d/appscale-#{app}`
   end
 
 
