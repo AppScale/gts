@@ -24,13 +24,13 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'app_controller_client'
 require 'app_manager_client'
-require 'taskqueue_client'
 require 'blobstore'
+require 'cron_helper'
 require 'custom_exceptions'
 require 'datastore_server'
 require 'ejabberd'
 require 'error_app'
-require 'cron_helper'
+require 'groomer_service'
 require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
@@ -38,6 +38,7 @@ require 'monit_interface'
 require 'nginx'
 require 'search'
 require 'taskqueue'
+require 'taskqueue_client'
 require 'user_app_client'
 require 'zkinterface'
 
@@ -730,6 +731,7 @@ class Djinn
       if has_soap_server?(my_node)
         stop_soap_server()
         stop_datastore_server()
+        stop_groomer_service()
       end
 
       TaskQueue.stop() if my_node.is_taskqueue_master?
@@ -3230,6 +3232,7 @@ class Djinn
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
+          start_groomer_service()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(), UserAppClient::SERVER_PORT)
         end
 
@@ -3252,6 +3255,7 @@ class Djinn
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
+          start_groomer_service()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
             UserAppClient::SERVER_PORT)
         end
@@ -3391,6 +3395,17 @@ class Djinn
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
 
+  # Starts the groomer service on this node. The groomer cleans the datastore of deleted 
+  # items and removes old logs.
+  def start_groomer_service()
+    @state = "Starting Groomer Service"
+    Djinn.log_info("Starting groomer service.")
+    # Groomer requires locations of ZK.
+    write_zookeeper_locations()
+    GroomerService.start()
+    Djinn.log_info("Done starting groomer service.")
+  end
+
   def start_soap_server()
     db_master_ip = nil
     @nodes.each { |node|
@@ -3433,7 +3448,7 @@ class Djinn
 
     table = @options['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
+    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # TODO check the return value
@@ -3453,6 +3468,14 @@ class Djinn
   def stop_app_manager_server
     MonitInterface.stop(:appmanagerserver)
   end
+
+  # Stops the groomer service.
+  def stop_groomer_service()
+    Djinn.log_info("Stopping groomer service.")
+    GroomerService.stop()
+    Djinn.log_info("Done stopping groomer service.")
+  end
+
 
   def stop_datastore_server
     DatastoreServer.stop(@options['table'])
