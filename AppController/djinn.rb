@@ -3429,7 +3429,7 @@ class Djinn
     end
 
     start_cmd = ["python #{APPSCALE_HOME}/AppDB/soap_server.py",
-            "-t #{table} -s #{HelperFunctions.get_secret}"].join(' ')
+            "-t #{table}"].join(' ')
     stop_cmd = "/usr/bin/pkill -9 soap_server"
     port = [4343]
 
