@@ -1,6 +1,5 @@
 #!/bin/bash
-# Kills all running djinnServers (couldn't do pkill ruby 
-# because that would kill god as well)
+# Kills all running djinnServers.
 
 is_djinn_alive()
 {

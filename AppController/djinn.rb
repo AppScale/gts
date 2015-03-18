@@ -3256,7 +3256,6 @@ class Djinn
           start_datastore_server()
           start_soap_server()
           start_groomer_service()
-
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
             UserAppClient::SERVER_PORT)
         end
@@ -3470,6 +3469,7 @@ class Djinn
     MonitInterface.stop(:appmanagerserver)
   end
 
+  # Stops the groomer service.
   def stop_groomer_service()
     Djinn.log_info("Stopping groomer service.")
     GroomerService.stop()

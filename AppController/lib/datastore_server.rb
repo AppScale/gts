@@ -44,7 +44,7 @@ module DatastoreServer
   MULTIPLIER = 2
 
   # Starts a Datastore Server on this machine. We don't want to monitor
-  # it ourselves, so just tell god to start it and watch it.
+  # it ourselves, so just tell monit to start it and watch it.
   def self.start(master_ip, db_local_ip, my_ip, table)
     datastore_server = self.get_executable_name(table)
     ports = self.get_server_ports(table)
@@ -66,7 +66,7 @@ module DatastoreServer
 
 
   # Stops the Datastore Buffer Server running on this machine. Since it's
-  # managed by god, just tell god to shut it down.
+  # managed by monit, just tell monit to shut it down.
   def self.stop(table)
      MonitInterface.stop(:datastore_server)
   end
