@@ -23,7 +23,6 @@ import tornado.web
 
 import appscale_datastore_batch
 import dbconstants
-import groomer
 import helper_functions
 
 from zkappscale import zktransaction as zk
@@ -4095,7 +4094,6 @@ def usage():
   print "\t--type=<" + ','.join(VALID_DATASTORES) +  ">"
   print "\t--no_encryption"
   print "\t--port"
-  print "\t--zoo_keeper <zk nodes>"
 
 pb_application = tornado.web.Application([
     (r"/clear", ClearHandler),
@@ -4105,7 +4103,7 @@ pb_application = tornado.web.Application([
 def main(argv):
   """ Starts a web service for handing datastore requests. """
   global datastore_access
-  zookeeper_locations = ""
+  zookeeper_locations = appscale_info.get_zk_locations_string()
 
   db_info = appscale_info.get_db_info()
   db_type = db_info[':table']
@@ -4113,11 +4111,10 @@ def main(argv):
   is_encrypted = True
 
   try:
-    opts, args = getopt.getopt( argv, "t:p:n:z:",
-                               ["type=",
-                                "port",
-                                "no_encryption",
-                                "zoo_keeper"] )
+    opts, args = getopt.getopt(argv, "t:p:n:",
+      ["type=",
+      "port",
+      "no_encryption"])
   except getopt.GetoptError:
     usage()
     sys.exit(1)
@@ -4130,8 +4127,6 @@ def main(argv):
       port = int(arg)
     elif opt in ("-n", "--no_encryption"):
       is_encrypted = False
-    elif opt in ("-z", "--zoo_keeper"):
-      zookeeper_locations = arg
 
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
@@ -4141,7 +4136,6 @@ def main(argv):
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
                                              getDatastore(db_type)
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
-  gc_zookeeper = zk.ZKTransaction(host=zookeeper_locations)
 
   datastore_access = DatastoreDistributed(datastore_batch, 
                                           zookeeper=zookeeper)
@@ -4150,9 +4144,6 @@ def main(argv):
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
-
-  ds_groomer = groomer.DatastoreGroomer(gc_zookeeper, db_type, LOCAL_DATASTORE)
-  ds_groomer.start()
 
   while 1:
     try:

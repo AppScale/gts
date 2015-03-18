@@ -709,7 +709,7 @@ class DatastoreGroomer(threading.Thread):
       logging.debug("Removing task name {0}".format(entity.timestamp))
       entity.delete()
       counter += 1
-    logging.error("Removed {0} task name entities".format(counter))
+    logging.info("Removed {0} task name entities".format(counter))
     return True
 
   def register_db_accessor(self, app_id):
@@ -745,7 +745,7 @@ class DatastoreGroomer(threading.Thread):
       timeout = datetime.datetime.utcnow() - \
         datetime.timedelta(seconds=log_timeout)
       query = RequestLogLine.query(RequestLogLine.timestamp < timeout)
-      logging.error("The timeout time is {0}".format(timeout))
+      logging.debug("The timeout time is {0}".format(timeout))
     else:
       query = RequestLogLine.query()
     counter = 0
@@ -754,7 +754,7 @@ class DatastoreGroomer(threading.Thread):
       logging.debug("Removing {0}".format(entity))
       entity.key.delete()
       counter += 1
-    logging.error("Removed {0} log entries.".format(counter))
+    logging.info("Removed {0} log entries.".format(counter))
     return True
 
   def remove_old_statistics(self):
@@ -895,9 +895,9 @@ class DatastoreGroomer(threading.Thread):
     del self.db_access
 
     time_taken = time.time() - start
-    logging.error("Groomer cleaned {0} journal entries".format(
+    logging.info("Groomer cleaned {0} journal entries".format(
       self.journal_entries_cleaned))
-    logging.error("Groomer took {0} seconds".format(str(time_taken)))
+    logging.info("Groomer took {0} seconds".format(str(time_taken)))
 
 def main():
   """ This main function allows you to run the groomer manually. """
