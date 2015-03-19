@@ -54,6 +54,7 @@ public class DevAppServerMain
     private String              appscale_version;
     private String              admin_console_version;
     private static final String PORT_FILE_PREFIX                      = "/etc/appscale/port-";
+    private static final String SECRET_LOCATION                       = "/etc/appscale/secret.key";
 
     private final List<Option>  PARSERS                               = buildOptions(this);
     private static final String PREFIX                                = "When generating a war directory,";
@@ -213,11 +214,11 @@ public class DevAppServerMain
     {
         String appName = System.getProperty("APP_NAME");
         String portString = null;
-        BufferedReader br = null;
+        BufferedReader bufferReader = null;
         try
         {
-            br = new BufferedReader(new FileReader(PORT_FILE_PREFIX + appName + ".txt"));
-            portString = br.readLine();
+            bufferReader = new BufferedReader(new FileReader(PORT_FILE_PREFIX + appName + ".txt"));
+            portString = bufferReader.readLine();
         }
         catch(IOException e)
         {
@@ -228,7 +229,7 @@ public class DevAppServerMain
         {
             try
             {
-                if (br != null)br.close();
+                if (bufferReader != null) bufferReader.close();
             } 
             catch (IOException ex)
             {
@@ -419,11 +420,11 @@ public class DevAppServerMain
         // Set the AppScale secret.
         private void setSecret()
         {
-            BufferedReader br = null;
+            BufferedReader bufferReader = null;
             try
             {
-                br = new BufferedReader(new FileReader("/etc/appscale/secret.key"));
-                String value = br.readLine();
+                bufferReader = new BufferedReader(new FileReader(SECRET_LOCATION));
+                String value = bufferReader.readLine();
                 System.setProperty("COOKIE_SECRET", value);
             }
             catch(IOException e)
@@ -435,7 +436,7 @@ public class DevAppServerMain
             {
                try
                {
-                   if (br != null) br.close();
+                   if (bufferReader != null) bufferReader.close();
                } 
                catch (IOException ex)
                {
