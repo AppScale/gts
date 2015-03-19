@@ -73,7 +73,7 @@ module TaskQueue
 
     # First, start up RabbitMQ.
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
-    start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}"
+    start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_taskqueue_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
     MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
@@ -192,11 +192,10 @@ module TaskQueue
 
   # Erlang processes use a secret value as a password to authenticate between
   # one another. Since this is pretty much the same thing we do in AppScale
-  # with our secret key, use the same key here.
-  # TODO: Consider using a different key, so that if one key is compromised
-  # it doesn't compromise the other.
+  # with our secret key, use the same key here but hashed as to not reveal the 
+  # actual key.
   def self.write_cookie()
-    HelperFunctions.write_file(COOKIE_FILE, HelperFunctions.get_secret())
+    HelperFunctions.write_file(COOKIE_FILE, HelperFunctions.get_taskqueue_secret())
   end
 
 
