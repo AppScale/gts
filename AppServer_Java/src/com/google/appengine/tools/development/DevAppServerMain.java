@@ -174,13 +174,6 @@ public class DevAppServerMain
                 this.main.login_server = getValue();
                 System.setProperty("LOGIN_SERVER", this.main.login_server);
             }
-        }, new DevAppServerOption(main, null, "cookie_secret", false)
-        {
-            public void apply()
-            {
-                this.main.cookie = getValue();
-                System.setProperty("COOKIE_SECRET", this.main.cookie);
-            }
         }, new DevAppServerOption(main, null, "appscale_version", false)
         {
             public void apply()
@@ -394,6 +387,7 @@ public class DevAppServerMain
                 Map stringProperties = properties;
                 setTimeZone(stringProperties);
                 setGeneratedDirectory(stringProperties);
+                setSecret();
                 if (DevAppServerMain.this.disableRestrictedCheck)
                 {
                     stringProperties.put("appengine.disableRestrictedCheck", "");
@@ -401,7 +395,6 @@ public class DevAppServerMain
                 setRdbmsPropertiesFile(stringProperties, appDir, externalResourceDir);
                 stringProperties.putAll(DevAppServerMain.parsePropertiesList(DevAppServerMain.this.propertyOptions));
                 server.setServiceProperties(stringProperties);
-
                 server.start();
                 try
                 {
@@ -420,6 +413,34 @@ public class DevAppServerMain
             {
                 ex.printStackTrace();
                 System.exit(1);
+            }
+        }
+
+        // Set the AppScale secret.
+        private void setSecret()
+        {
+            BufferedReader br = null;
+            try
+            {
+                br = new BufferedReader(new FileReader("/etc/appscale/secret.key"));
+                String value = br.readLine();
+                System.setProperty("COOKIE_SECRET", value);
+            }
+            catch(IOException e)
+            {
+               System.out.println("IOException getting port from secret key file.");
+               e.printStackTrace(); 
+            }        
+            finally
+            {
+               try
+               {
+                   if (br != null) br.close();
+               } 
+               catch (IOException ex)
+               {
+                   ex.printStackTrace();
+               }
             }
         }
 
