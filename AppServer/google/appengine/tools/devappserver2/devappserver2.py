@@ -39,6 +39,9 @@ from google.appengine.tools.devappserver2 import shutdown
 from google.appengine.tools.devappserver2 import update_checker
 from google.appengine.tools.devappserver2 import wsgi_request_info
 
+sys.path.append("/root/appscale/lib")
+import appscale_info
+
 # Initialize logging early -- otherwise some library packages may
 # pre-empt our log formatting.  NOTE: the level is provisional; it may
 # be changed in main() based on the --debug flag.
@@ -435,10 +438,6 @@ def create_command_line_parser():
   # AppScale
   appscale_group = parser.add_argument_group('AppScale')
   appscale_group.add_argument(
-    '--cookie_secret',
-    help='a str that is used to authenticate SOAP requests to AppScale '
-    'services.')
-  appscale_group.add_argument(
     '--login_server',
     help='the FQDN or IP address where users should be redirected to when the '
     'app needs them to log in on a given URL.')
@@ -716,7 +715,7 @@ def main():
   options = PARSER.parse_args()
   os.environ['MY_IP_ADDRESS'] = options.host
   os.environ['MY_PORT'] = str(options.port)
-  os.environ['COOKIE_SECRET'] = options.cookie_secret
+  os.environ['COOKIE_SECRET'] = appscale_info.get_secret()
   os.environ['NGINX_HOST'] = options.nginx_host
   dev_server = DevelopmentServer()
   try:
