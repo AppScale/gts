@@ -1176,6 +1176,7 @@ class Djinn
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
     Djinn.log_run("rm -rf /var/apps/#{app_name}")
+    CronHelper.clear_app_crontab(app_name)
 
     # app shutdown process can take more than 30 seconds
     # so run it in a new thread to avoid 'execution expired'
@@ -1910,7 +1911,7 @@ class Djinn
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
     Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
-    CronHelper.clear_crontab()
+    CronHelper.clear_app_crontabs
   end
 
 

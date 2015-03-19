@@ -29,7 +29,8 @@ module CronHelper
   #   app: A String that names the appid of this application, used to find the
   #     cron configuration file on the local filesystem.
   def self.update_cron(ip, port, lang, app)
-    Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
+    Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]")
+    app_crontab = NO_EMAIL_CRON + "\n"
 
     if lang == "python27" or lang == "go" or lang == "php"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
@@ -63,15 +64,16 @@ module CronHelper
           Cron Schedule: #{line}
 CRON
           Djinn.log_debug(cron_info)
-          Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line) if !is_line_in_crontab?(line)
+          app_crontab << line + "\n"
         }
       }
+
     elsif lang == "java"
       cron_file = "/var/apps/#{app}/app/war/WEB-INF/cron.xml"
       return unless File.exists?(cron_file)
       cron_xml = Document.new(File.new(cron_file)).root
       return if cron_xml.nil?
+
       cron_xml.each_element('//cron') { |item|
         description = get_from_xml(item, "description")
         # since url gets put at end of curl, need to ensure it
@@ -89,20 +91,29 @@ CRON
           Cron Schedule: #{line}
 CRON
           Djinn.log_debug(cron_info)
-          Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line) if !is_line_in_crontab?(line)
+          app_crontab << line + "\n"
         }
       }
     else
       Djinn.log_error("ERROR: lang was neither python27, go, php, nor java but was [#{lang}] (cron)")
     end
+
+    write_app_crontab(app_crontab, app)
   end
 
 
-  # Erases all cron jobs on this machine.
-  def self.clear_crontab()
-    Djinn.log_run("crontab -r")
-    self.add_line_to_crontab(NO_EMAIL_CRON)
+  # Erases all cron jobs for all applications.
+  def self.clear_app_crontabs
+    Djinn.log_run('rm /etc/cron.d/appscale-*')
+  end
+
+
+  # Erases all cron jobs for application.
+  #
+  # Args:
+  #   app: A String that names the appid of this application.
+  def self.clear_app_crontab(app)
+    Djinn.log_run("rm /etc/cron.d/appscale-#{app}")
   end
 
 
@@ -123,15 +134,14 @@ CRON
   end
 
 
-  # Reads the crontab for this user to see if the given string is in it.
+  # Creates or overwrites an app's crontab.
   #
   # Args:
-  #   line: The String that we should search for in our crontab.
-  # Returns:
-  #   true if the String is a line in this crontab, and false otherwise.
-  def self.is_line_in_crontab?(line)
-    crontab = Djinn.log_run("crontab -l")
-    return crontab.include?(line.gsub(/"/, ""))
+  #   crontab: A String that contains the entirety of the crontab.
+  #   app: A String that names the appid of this application.
+  def self.write_app_crontab(crontab, app)
+    Djinn.log_info("Writing crontab for [#{app}]:\n#{crontab}")
+    `echo "#{crontab}" > /etc/cron.d/appscale-#{app}`
   end
 
 
@@ -291,7 +301,10 @@ CRON
 
     secret_hash = Digest::SHA1.hexdigest("#{app}/#{HelperFunctions.get_secret}")
     cron_lines.each { |cron|
-      cron << " curl -H \"X-Appengine-Cron:true\" -H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k -L http://#{ip}:#{port}#{url} 2>&1 >> /var/apps/#{app}/log/cron.log"
+      cron << " root curl -H \"X-Appengine-Cron:true\" "\
+              "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
+              "-L http://#{ip}:#{port}#{url} "\
+              "2>&1 >> /var/apps/#{app}/log/cron.log"
     }
   end
 
