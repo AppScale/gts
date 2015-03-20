@@ -396,7 +396,13 @@ module HelperFunctions
   def self.get_secret(filename="/etc/appscale/secret.key")
     return self.read_file(File.expand_path(filename), chomp=true)
   end
-  
+
+  # We use a hash of the secret to prevent showing the actual secret as a
+  # command line argument.
+  def self.get_taskqueue_secret()
+    return Digest::SHA1.hexdigest(self.get_secret())
+  end
+ 
   # Examines the given tar.gz file to see if it has an App Engine configuration
   # file in it.
   #
