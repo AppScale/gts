@@ -36,7 +36,7 @@ DEFAULT_ENCRYPTION = 1
 VALID_DATASTORES = []
 CERT_LOCATION = APPSCALE_HOME + "/.appscale/certs/mycert.pem"
 KEY_LOCATION = APPSCALE_HOME + "/.appscale/certs/mykey.pem"
-SECRET_LOCATION = APPSCALE_HOME + "/secret.key"
+SECRET_LOCATION = APPSCALE_HOME + "/.appscale/secret.key"
 user_location = DEFAULT_USER_LOCATION
 app_location = DEFAULT_APP_LOCATION
 datastore_type = DEFAULT_DATASTORE
@@ -221,10 +221,6 @@ ret = server.get_version("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_ip("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.commit_new_user("xxx", "xxx", "user", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -238,10 +234,6 @@ if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
 ret = server.commit_new_token("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.commit_ip("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -358,10 +350,6 @@ ret = server.get_version(app[0], super_secret)
 if ret != "false":
   err(helper_functions.lineno(), ret)
 
-ret = server.get_ip("xxx", super_secret)
-if "false" not in ret:
-  err(helper_functions.lineno(), ret)
-
 ret = server.delete_instance(app[0], "xxx", "xxx", super_secret)
 if ret != "false":
   err(helper_functions.lineno(), ret)
@@ -419,7 +407,7 @@ if ret != "true":
 # Commit user twice
 ###################
 ret = server.commit_new_user(user[0], user[1], "user", super_secret)
-if ret != "Error: user already exist":
+if ret != "Error: user already exists":
   err(helper_functions.lineno(), ret)
 
 ret = server.does_user_exist(user[0], super_secret)
@@ -517,19 +505,6 @@ if ret != "true":
 ##################
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "true":
-  err(helper_functions.lineno(), ret)
-#################
-# Commit a new ip
-#################
-ip = helper_functions.random_string(10)
-ret = server.commit_ip(ip, user[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-###################
-# Get Email from IP
-###################
-ret = server.get_ip(ip, super_secret)
-if ret != user[0]:
   err(helper_functions.lineno(), ret)
 #########################
 # Commit bad name for app
@@ -632,9 +607,7 @@ if ret != "true":
 # Get app data 
 ###################
 ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret \
-or host1 not in ret or port1 not in ret \
-or host2 not in ret or port2 not in ret:
+if user[0] not in ret or app[0] not in ret:
   err(helper_functions.lineno(), ret)
 ####################
 # Add class to app
