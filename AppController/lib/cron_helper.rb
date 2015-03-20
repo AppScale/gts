@@ -37,14 +37,23 @@ module CronHelper
 
       begin
         yaml_file = YAML.load_file(cron_file)
-        return if not yaml_file
-      rescue ArgumentError, Errno::ENOENT
+        unless yaml_file:
+          clear_app_crontab(app)
+          return
+        end
+      rescue ArgumentError
         Djinn.log_error("Was not able to update cron for app #{app}")
+        return
+      rescue Errno::ENOENT
+        clear_app_crontab(app)
         return
       end
 
       cron_routes = yaml_file["cron"]
-      return if cron_routes.nil?
+      if cron_routes.nil?
+        clear_app_crontab(app)
+        return
+      end
 
       cron_routes.each { |item|
         next if item['url'].nil?
@@ -104,7 +113,7 @@ CRON
 
   # Erases all cron jobs for all applications.
   def self.clear_app_crontabs
-    Djinn.log_run('rm /etc/cron.d/appscale-*')
+    Djinn.log_run('rm -f /etc/cron.d/appscale-*')
   end
 
 
@@ -113,7 +122,7 @@ CRON
   # Args:
   #   app: A String that names the appid of this application.
   def self.clear_app_crontab(app)
-    Djinn.log_run("rm /etc/cron.d/appscale-#{app}")
+    Djinn.log_run("rm -f /etc/cron.d/appscale-#{app}")
   end
 
 
