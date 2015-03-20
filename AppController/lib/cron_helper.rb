@@ -37,14 +37,19 @@ module CronHelper
 
       begin
         yaml_file = YAML.load_file(cron_file)
-        return if not yaml_file
-      rescue ArgumentError, Errno::ENOENT
+      rescue ArgumentError
         Djinn.log_error("Was not able to update cron for app #{app}")
+        return
+      rescue Errno::ENOENT
+        clear_app_crontab(app)
         return
       end
 
       cron_routes = yaml_file["cron"]
-      return if cron_routes.nil?
+      if cron_routes.nil?
+        clear_app_crontab(app)
+        return
+      end
 
       cron_routes.each { |item|
         next if item['url'].nil?
