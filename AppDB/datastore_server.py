@@ -3661,7 +3661,7 @@ class MainHandler(tornado.web.RequestHandler):
     method = apirequest.method()
     http_request_data = apirequest.request()
     start = time.time()
-    logging.info("Request type:{0}".format(method))
+    logging.debug("Request type:{0}".format(method))
     if method == "Put":
       response, errcode, errdetail = self.put_request(app_id, 
                                                  http_request_data)
@@ -3705,7 +3705,7 @@ class MainHandler(tornado.web.RequestHandler):
       errdetail = "Unknown datastore message" 
 
     time_taken = time.time() - start
-
+    logging.info("{0}/{1} took {2} seconds".format(app_id, method, time_taken))
     if method in STATS:
       if errcode in STATS[method]:
         prev_req, pre_time = STATS[method][errcode]
