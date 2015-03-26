@@ -3705,7 +3705,7 @@ class MainHandler(tornado.web.RequestHandler):
       errdetail = "Unknown datastore message" 
 
     time_taken = time.time() - start
-    logging.info("{0}/{1} took {2} seconds".format(app_id, method, time_taken))
+    logging.debug("{0}/{1} took {2} seconds".format(app_id, method, time_taken))
     if method in STATS:
       if errcode in STATS[method]:
         prev_req, pre_time = STATS[method][errcode]
