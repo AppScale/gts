@@ -13,7 +13,6 @@
 DESC="AppScale Controller"
 DIR=/root/appscale/AppController
 DAEMON=$DIR/djinnServer.rb
-RUN_SCRIPT=/root/appscale/AppController/scripts/run_controller.sh
 DAEMON_NAME=controller
 DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
@@ -22,7 +21,8 @@ PIDFILE=/var/run/$DAEMON_NAME.pid
 do_start()
 {
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas DAEMON
+   echo "start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON"
+   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON
    log_end_msg $?
 }
 
