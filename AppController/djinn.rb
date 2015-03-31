@@ -4040,10 +4040,10 @@ HOSTS
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     # Set up service for controller on remote node.
-    copy_command = "cp /root/appscale/AppController/scripts/controller /etc/init.d/"
+    copy_command = "cp /root/appscale/AppController/scripts/appcontroller /etc/init.d/"
     HelperFunctions.run_remote_command(ip, copy_command, ssh_key, NO_OUTPUT)
 
-    chmod_command = "chmod +x /etc/init.d"
+    chmod_command = "chmod +x /etc/init.d/appcontroller"
     HelperFunctions.run_remote_command(ip, chmod_command, ssh_key, NO_OUTPUT)
 
     MonitInterface.start_monit(ip, ssh_key)

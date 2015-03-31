@@ -1,19 +1,19 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          controller
+# Provides:          appcontroller
 # Required-Start:    $local_fs
 # Required-Stop:     $local_fs
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # X-Interactive:     false
-# Short-Description: Init script for AppScale controller.
-# Description:       Start/stop script for AppScale controller.
+# Short-Description: Init script for AppScale AppController.
+# Description:       Start/stop script for AppScale AppController. 
 ### END INIT INFO
 
 DESC="AppScale Controller"
 DIR=/root/appscale/AppController
 DAEMON=$DIR/djinnServer.rb
-DAEMON_NAME=controller
+DAEMON_NAME=appcontroller
 DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 . /lib/lsb/init-functions
