@@ -563,6 +563,8 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_start_roles_on_nodes_in_cluster
+    flexmock(Kernel).should_receive(:system).and_return('')
+    flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
     ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
@@ -572,6 +574,9 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_new_roles_on_nodes_in_cluster
+    flexmock(File).should_receive(:open).and_return()
+    flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
+    flexmock(Kernel).should_receive(:system).and_return('')
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
     ips_to_roles = {'1.2.3.4' => ['appengine'], '1.2.3.5' => ['appengine']}
@@ -740,6 +745,11 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_new_roles_on_nodes_in_cloud
+    flexmock(Djinn).should_receive(:initialize_nodes_in_parallel).and_return()
+    flexmock(File).should_receive(:open).and_return()
+    flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
+    flexmock(Kernel).should_receive(:system).and_return('')
+
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4 ")
