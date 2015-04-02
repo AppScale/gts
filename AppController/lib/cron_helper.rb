@@ -129,17 +129,30 @@ CRON
   private
 
 
-  # Adds a single line to this user's crontab. It is assumed that the line is
-  # correctly formatted in cron format.
+  # Checks if a crontab line is valid.
   #
   # Args:
-  #   line: A String that contains the line to add to root's crontab.
-  def self.add_line_to_crontab(line)
+  #   line: A String that contains a crontab line.
+  # Returns:
+  #   A boolean that expresses the validity of the line.
+  def self.valid_crontab_line(line)
+    crontab_exists = system('crontab -l')
+    if crontab_exists
+      `crontab -l > crontab.backup`
+    end
+
+    `echo "#{line}" > crontab.tmp`
+    line_is_valid = system('crontab crontab.tmp')
     `rm crontab.tmp`
-    `crontab -l >> crontab.tmp`
-    `echo "#{line}" >> crontab.tmp`
-    `crontab crontab.tmp`
-    `rm crontab.tmp`
+
+    if crontab_exists
+      `crontab crontab.backup`
+      `rm crontab.backup`
+    else
+      `crontab -r`
+    end
+
+    return line_is_valid
   end
 
 
@@ -315,6 +328,18 @@ CRON
               "-L http://#{ip}:#{port}#{url} "\
               "2>&1 >> /var/apps/#{app}/log/cron.log"
     }
+
+    valid_cron_lines = []
+    cron_lines.each { |line|
+      if valid_crontab_line(line)
+        valid_cron_lines << line
+      else
+        Djinn.log_error("Invalid cron line [#{line}] produced for schedule " +
+          "[#{schedule}]")
+      end
+    }
+
+    return valid_cron_lines
   end
 
 
