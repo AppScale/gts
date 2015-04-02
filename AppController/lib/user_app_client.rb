@@ -74,6 +74,7 @@ class UserAppClient
 
       Djinn.log_warn("An exception of type #{except.class} was thrown.")
       Djinn.log_warn("Retrying - calling #{callr} on UserAppServer at #{@ip}")
+      sleep(10)
       retry if retry_on_except
     end
   end

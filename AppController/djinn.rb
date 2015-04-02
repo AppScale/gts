@@ -437,6 +437,9 @@ class Djinn
   KEY_NOT_FOUND = "No property exists with the given name."
 
 
+  # Where to put logs.
+  LOG_FILE = "/var/log/appscale/controller-17443.log" 
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -448,8 +451,9 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
-    STDOUT.sync = true
-    @@log = Logger.new(STDOUT)
+    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
+
+    @@log = Logger.new(file)
     @@log.level = Logger::DEBUG
 
     @nodes = []
@@ -4034,6 +4038,13 @@ HOSTS
     # properly removed in non-cloud runs
     remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
+
+    # Set up service for controller on remote node.
+    copy_command = "cp /root/appscale/AppController/scripts/appcontroller /etc/init.d/"
+    HelperFunctions.run_remote_command(ip, copy_command, ssh_key, NO_OUTPUT)
+
+    chmod_command = "chmod +x /etc/init.d/appcontroller"
+    HelperFunctions.run_remote_command(ip, chmod_command, ssh_key, NO_OUTPUT)
 
     MonitInterface.start_monit(ip, ssh_key)
     Kernel.sleep(1)
