@@ -133,7 +133,7 @@ class ZKTransaction:
         for timed out transactions.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.ERROR)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
     # Connection instance variables.
@@ -951,22 +951,11 @@ class ZKTransaction:
     if self.needs_connection:
       self.reestablish_connection()
 
-    blacklist_root = self.get_blacklist_root_path(app_id)
     try:
-      if not self.run_with_retry(self.handle.exists, blacklist_root):
-        self.handle.create(blacklist_root, value=DEFAULT_VAL,
-          acl=ZOO_ACL_OPEN, ephemeral=False, sequence=False, makepath=True)
-    except kazoo.exceptions.KazooException as kazoo_exception:
-      logging.exception(kazoo_exception)
-      self.reestablish_connection()
-      raise ZKInternalException("Couldn't see if appid {0}'s transaction, " \
-        "{1}, is blacklisted.".format(app_id, txid))
-
-    try:
-      blacklist = self.run_with_retry(self.handle.get_children, blacklist_root)
-      return str(txid) in blacklist
-    except kazoo.exceptions.NoNodeError:  # there is no blacklist
-      return False
+      blacklist_root = self.get_blacklist_root_path(app_id)
+      blacklist_txn = PATH_SEPARATOR.join([blacklist_root, 
+        str(txid)]) 
+      return self.run_with_retry(self.handle.exists, blacklist_txn)
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
