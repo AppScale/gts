@@ -141,9 +141,11 @@ CRON
       `crontab -l > crontab.backup`
     end
 
-    `echo "#{line}" > crontab.tmp`
-    line_is_valid = system('crontab crontab.tmp')
-    `rm crontab.tmp`
+    temp_cron_file = Tempfile.new('crontab')
+    temp_cron_file.write(line + "\n")
+    temp_cron_file.close
+    line_is_valid = system("crontab #{temp_cron_file.path}")
+    temp_cron_file.unlink
 
     if crontab_exists
       `crontab crontab.backup`
