@@ -4,6 +4,22 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 2.3.0, released April, 2015
+Highlights of features/bugs in this release:
+- User management scripts
+- Whitelisted Crypto libraries in python
+- ZooKeeper autopurge
+- Separated out data grooming service
+- Crontab update fix
+- Fixed functional tests for soap server
+- Fixed ZK blacklist check
+- Fixed handling application specified environment variables
+- Validate crontab lines before inserting
+- Removed secret from command line args for application servers
+- Use hash of secret for RabbitMQ
+- AppController is now a system service
+- Improve error messages in EC2
+
 AppScale version 2.2.0, released Febuary, 2015
 Highlights of features/bugs in this release:
 - Updated NDB to latest version
