@@ -332,7 +332,7 @@ installservice()
     # This must be absolete path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
     cp ${APPSCALE_HOME_RUNTIME}/AppController/scripts/appcontroller ${DESTDIR}/etc/init.d/appscale-controller
-    chmod -v a+x ${APPSCALE_HOME}/appscale-controller
+    chmod -v a+x ${DESTDIR}/etc/init.d/appscale-controller
 
     # Make sure the init script runs each time, so that it can start the
     # AppController on system reboots.
