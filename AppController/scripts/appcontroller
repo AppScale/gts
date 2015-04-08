@@ -1,6 +1,6 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          appcontroller
+# Provides:          appscale-controller
 # Required-Start:    $local_fs
 # Required-Stop:     $local_fs
 # Default-Start:     2 3 4 5
@@ -16,10 +16,16 @@ DAEMON=$DIR/djinnServer.rb
 DAEMON_NAME=appcontroller
 DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
+SECRET_FILE=/etc/appscale/secret.key
 . /lib/lsb/init-functions
 
 do_start()
 {
+   if [ ! -e $SECRET_FILE ]; then
+     log_begin_msg "AppScale not configured: not starting."
+     exit 0
+   fi
+
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
    echo "start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON"
    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON
