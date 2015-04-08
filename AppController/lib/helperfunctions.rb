@@ -162,6 +162,7 @@ module HelperFunctions
   end
 
 
+  # Extracts the version from the VERSION file.
   def self.get_appscale_version
     version_contents = self.read_file(APPSCALE_HOME + '/VERSION')
     version_line = version_contents[/AppScale version (.*)/]
