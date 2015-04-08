@@ -4031,20 +4031,13 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/bin/ruby #{remote_home}/AppController/djinnServer.rb"
-    stop = "/usr/bin/ruby #{remote_home}/AppController/terminate.rb"
+    start = "/usr/sbin/service appscale-controller start"
+    stop = "/usr/sbin/service appscale-controller stop"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
     remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
-
-    # Set up service for controller on remote node.
-    copy_command = "cp /root/appscale/AppController/scripts/appcontroller /etc/init.d/"
-    HelperFunctions.run_remote_command(ip, copy_command, ssh_key, NO_OUTPUT)
-
-    chmod_command = "chmod +x /etc/init.d/appcontroller"
-    HelperFunctions.run_remote_command(ip, chmod_command, ssh_key, NO_OUTPUT)
 
     MonitInterface.start_monit(ip, ssh_key)
     Kernel.sleep(1)
