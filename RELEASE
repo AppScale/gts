@@ -19,6 +19,9 @@ Highlights of features/bugs in this release:
 - Use hash of secret for RabbitMQ
 - AppController is now a system service
 - Improve error messages in EC2
+- Removed duplicate entities when doing queries on list properties
+- Better handling on AppScale versions
+- Removed unused scripts
 
 AppScale version 2.2.0, released Febuary, 2015
 Highlights of features/bugs in this release:
