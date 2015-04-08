@@ -13,7 +13,7 @@
 DESC="AppScale Controller"
 DIR=/root/appscale/AppController
 DAEMON=$DIR/djinnServer.rb
-DAEMON_NAME=appcontroller
+DAEMON_NAME=appscale-controller
 DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 SECRET_FILE=/etc/appscale/secret.key
