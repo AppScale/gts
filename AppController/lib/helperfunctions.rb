@@ -34,7 +34,25 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "2.2.0"
+  def self.read_file(location, chomp=true)
+    file = File.open(location) { |f| f.read }
+    if chomp
+      return file.chomp
+    else
+      return file
+    end
+  end
+
+
+  def self.get_appscale_version
+    version_contents = self.read_file(APPSCALE_HOME + '/VERSION')
+    version_line = version_contents[/AppScale version (.*)/]
+    version_line.sub! 'AppScale version', ''
+    return version_line.strip
+  end
+
+
+  VER_NUM = self.get_appscale_version
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -144,16 +162,6 @@ module HelperFunctions
 
   def self.write_json_file(location, contents)
     self.write_file(location, JSON.dump(contents))
-  end
-
-
-  def self.read_file(location, chomp=true)
-    file = File.open(location) { |f| f.read }
-    if chomp
-      return file.chomp
-    else
-      return file
-    end
   end
 
   
