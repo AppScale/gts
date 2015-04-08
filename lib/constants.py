@@ -1,10 +1,7 @@
 """
 This file contains constants used throughout AppScale.
 """
-import os 
-
-# The current version of AppScale.
-APPSCALE_VERSION = "2.3.0"
+import os
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")

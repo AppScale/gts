@@ -15,7 +15,8 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=2.3.0
+VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
+export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
 pip_wrapper () 
 {

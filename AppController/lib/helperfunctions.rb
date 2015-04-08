@@ -34,9 +34,6 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "2.2.0"
-
-  
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
@@ -162,6 +159,15 @@ module HelperFunctions
   def self.read_json_file(location)
     data = self.read_file(location)
     return JSON.load(data)
+  end
+
+
+  # Extracts the version from the VERSION file.
+  def self.get_appscale_version
+    version_contents = self.read_file(APPSCALE_HOME + '/VERSION')
+    version_line = version_contents[/AppScale version (.*)/]
+    version_line.sub! 'AppScale version', ''
+    return version_line.strip()
   end
 
 
@@ -1324,15 +1330,17 @@ module HelperFunctions
   #     does not have the same version of AppScale installed as these
   #     tools.
   def self.ensure_version_is_supported(ip, key)
-    return if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}", key)
+    version = self.get_appscale_version()
+    return if self.does_image_have_location?(ip, "/etc/appscale/#{version}", key)
     raise AppScaleException.new("The image at #{ip} does not support " +
-      "this version of AppScale (#{VER_NUM}). Please install AppScale" +
-      " #{VER_NUM} on it and try again.")
+      "this version of AppScale (#{version}). Please install AppScale" +
+      " #{version} on it and try again.")
   end
 
 
   def self.ensure_db_is_supported(ip, db, key)
-    if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}/#{db}", key)
+    version = self.get_appscale_version()
+    if self.does_image_have_location?(ip, "/etc/appscale/#{version}/#{db}", key)
       Djinn.log_debug("Image at #{ip} supports #{db}.")
     else 
       fail_msg = "The image at #{ip} does not have support for #{db}." +
