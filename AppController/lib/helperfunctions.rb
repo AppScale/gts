@@ -167,7 +167,7 @@ module HelperFunctions
     version_contents = self.read_file(APPSCALE_HOME + '/VERSION')
     version_line = version_contents[/AppScale version (.*)/]
     version_line.sub! 'AppScale version', ''
-    return version_line.strip
+    return version_line.strip()
   end
 
 
@@ -1330,7 +1330,7 @@ module HelperFunctions
   #     does not have the same version of AppScale installed as these
   #     tools.
   def self.ensure_version_is_supported(ip, key)
-    version = self.get_appscale_version
+    version = self.get_appscale_version()
     return if self.does_image_have_location?(ip, "/etc/appscale/#{version}", key)
     raise AppScaleException.new("The image at #{ip} does not support " +
       "this version of AppScale (#{version}). Please install AppScale" +
@@ -1339,7 +1339,7 @@ module HelperFunctions
 
 
   def self.ensure_db_is_supported(ip, db, key)
-    version = self.get_appscale_version
+    version = self.get_appscale_version()
     if self.does_image_have_location?(ip, "/etc/appscale/#{version}/#{db}", key)
       Djinn.log_debug("Image at #{ip} supports #{db}.")
     else 

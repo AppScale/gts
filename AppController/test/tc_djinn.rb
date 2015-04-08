@@ -739,7 +739,7 @@ class TestDjinn < Test::Unit::TestCase
         'nginx' => Nginx::START_PORT + 1
       }
     }
-    flexmock(djinn).should_receive(:add_nodes).and_return
+    flexmock(djinn).should_receive(:add_nodes).and_return()
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
     assert_equal(node2_info['public_ip'], actual[0]['public_ip'])
     assert_equal(node1_info['public_ip'], actual[1]['public_ip'])
@@ -917,7 +917,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [original_node]
     djinn.my_index = 0
     djinn.options = options
-    flexmock(djinn).should_receive(:add_nodes).and_return
+    flexmock(djinn).should_receive(:add_nodes).and_return()
     actual = djinn.start_new_roles_on_nodes_in_cloud(ips_to_roles)
     assert_equal(true, actual.include?(node1_info))
     assert_equal(true, actual.include?(node2_info))
