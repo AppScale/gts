@@ -1879,7 +1879,9 @@ class DatastoreDistributed():
     for index, ent in enumerate(refs):
       key = keys[index]
       ent = ent[key]['reference']
-      rowkeys.append(ent)
+      # Make sure not to fetch the same entity more than once.
+      if ent not in rowkeys:
+        rowkeys.append(ent)
     return self.__fetch_entities_from_row_list(rowkeys, app_id)
 
   def __extract_entities(self, kv):
