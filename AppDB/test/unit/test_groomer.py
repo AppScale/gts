@@ -29,6 +29,8 @@ class FakeQuery():
     pass
   def run(self):
     return [FakeEntity()]
+  def fetch(self, number):
+    return [FakeEntity()]
 
 class FakeDatastore():
   def __init__(self):
@@ -68,6 +70,8 @@ class FakeEntity():
     raise Exception()
   def key(self):
     return FakeReference()
+  def query(self):
+    return FakeQuery()
 
 class TestGroomer(unittest.TestCase):
   """
@@ -261,6 +265,21 @@ class TestGroomer(unittest.TestCase):
     stats.should_receive("KindStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertRaises(Exception, dsg.create_kind_stat_entry, 0, 0, 0)
+
+  def test_remove_deprecated_dashboard_data(self):
+    zookeeper = flexmock()
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
+    dsg = flexmock(dsg)
+    dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
+    self.assertRaises(Exception, dsg.remove_deprecated_dashboard_data, FakeEntity)
+
+  def test_remove_old_dashboard_data(self):
+    zookeeper = flexmock()
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
+    dsg = flexmock(dsg)
+    dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
+    dsg.DASHBOARD_DATA_MODELS = [FakeEntity]
+    self.assertRaises(Exception, dsg.remove_old_dashboard_data)
 
 if __name__ == "__main__":
   unittest.main()    

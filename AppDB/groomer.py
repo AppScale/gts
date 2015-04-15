@@ -32,6 +32,9 @@ import appscale_info
 import constants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDashboard/lib/"))
+from app_dashboard_data import InstanceInfo
+from app_dashboard_data import ServerStatus
+from app_dashboard_data import RequestInfo
 from dashboard_logs import RequestLogLine
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
@@ -69,6 +72,16 @@ class DatastoreGroomer(threading.Thread):
 
   # A sentinel value to signify that this app does not have composite indexes.
   NO_COMPOSITES = "NO_COMPS_INDEXES_HERE"
+
+  # The amount of time in seconds dashboard data should be kept around for.
+  DASHBOARD_DATA_TIMEOUT = 60 * 60 
+
+  # The dashboard types we want to clean up after.
+  DASHBOARD_DATA_MODELS = [InstanceInfo, ServerStatus, RequestInfo]
+
+  # The number of dashboard entities to grab at a time. Makes the cleanup
+  # process have an upper limit on each run.
+  DASHBOARD_BATCH = 1000
 
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor.
@@ -142,6 +155,52 @@ class DatastoreGroomer(threading.Thread):
     self.namespace_info = {}
     self.num_deletes = 0
     self.journal_entries_cleaned = 0
+
+  def remove_deprecated_dashboard_data(self, model_type):
+    """ Remove entities that do not have timestamps in Dashboard data. 
+
+    AppScale 2.3 and earlier lacked a timestamp attribute. 
+
+    Args:
+      model_type: A class type for a ndb model.
+    """
+    query = model_type.query()
+    entities = query.fetch(self.DASHBOARD_BATCH)
+    counter = 0
+    for entity in entities:
+      if not hasattr(entity, "timestamp"):
+        entity.key.delete()
+        counter += 1
+    if counter > 0:
+      logging.warning("Removed {0} deprecated {1} dashboard entities".format(
+        counter, entity._get_kind()))
+
+  def remove_old_dashboard_data(self):
+    """ Removes old statistics from the AppScale dashbaord application. """
+    self.register_db_accessor(constants.DASHBOARD_APP_ID)
+    timeout = datetime.datetime.utcnow() - \
+      datetime.timedelta(seconds=self.DASHBOARD_DATA_TIMEOUT)
+   
+    for model_type in self.DASHBOARD_DATA_MODELS:
+      query = model_type.query()
+      query.filter(model_type.timestamp < timeout)
+      entities = query.fetch(self.DASHBOARD_BATCH)
+      counter = 0
+      kind = ""
+      for entity in entities:
+        entity.key.delete()
+        counter += 1
+        kind = entity.key.kind()
+      if counter > 0:
+        logging.info("Removed {0} {1} dashboard entities".format(counter,
+          kind))
+     
+      # Do a scan of all entities and remove any that
+      # do not have timestamps for AppScale versions 2.3 and before. 
+      # This may take some time on the initial run, but subsequent runs should
+      # be quick given a low dashboard data timeout.
+      self.remove_deprecated_dashboard_data(model_type)
+    return 
 
   def clean_journal_entries(self, txn_id, key):
     """ Remove journal entries that are no longer needed. Assumes
@@ -367,7 +426,7 @@ class DatastoreGroomer(threading.Thread):
     except zk.ZKInternalException, zk_exception:
       logging.error("Caught exception {0}".format(zk_exception))
       success = False
-    except dbconstants.AppScaleDBCOnnectionError, db_exception:
+    except dbconstants.AppScaleDBConnectionError, db_exception:
       logging.error("Caught exception {0}".format(db_exception))
       success = False
     finally:
@@ -863,6 +922,12 @@ class DatastoreGroomer(threading.Thread):
     try:
       # We do this first to clean up soft deletes later.
       self.remove_old_tasks_entities()
+    except datastore_errors.Error, error:
+      logging.error("Error while cleaning up old tasks: {0}".format(error))
+
+    try:
+      # We do this first to clean up soft deletes later.
+      self.remove_old_dashboard_data()
     except datastore_errors.Error, error:
       logging.error("Error while cleaning up old tasks: {0}".format(error))
 
