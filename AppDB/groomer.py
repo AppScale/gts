@@ -180,17 +180,15 @@ class DatastoreGroomer(threading.Thread):
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.DASHBOARD_DATA_TIMEOUT)
-   
     for model_type in self.DASHBOARD_DATA_MODELS:
-      query = model_type.query()
-      query.filter(model_type.timestamp < timeout)
+      query = model_type.query().filter(model_type.timestamp < timeout)
       entities = query.fetch(self.DASHBOARD_BATCH)
       counter = 0
       kind = ""
       for entity in entities:
+        kind = entity.key.kind()
         entity.key.delete()
         counter += 1
-        kind = entity.key.kind()
       if counter > 0:
         logging.info("Removed {0} {1} dashboard entities".format(counter,
           kind))
