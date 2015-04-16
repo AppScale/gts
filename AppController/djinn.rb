@@ -3593,7 +3593,7 @@ class Djinn
     # Commands used in the cloud environment to set the root access.
     options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
     set_authorized_keys = "sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{CONFIG_FILE_LOCATION}/ssh_access"
-    enable_root_login = "sudo mv -f #{CONFIG_FILE_LOCATION}/ssh_access /root/.ssh/authorized_keys"
+    enable_root_login = "sudo sed -n '/.*Please login/d; w/root/.ssh/authorized_keys' #{CONFIG_FILE_LOCATION}/ssh_acces"
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
     Kernel.sleep(3)
