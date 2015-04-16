@@ -523,6 +523,7 @@ class DatastoreGroomer(threading.Thread):
           logging.error("Caught exception: {0}\nIgnoring...".format(
             zk_exception))
     if success:
+      self.zoo_keeper.release_lock(app_prefix, txn_id)
       self.num_deletes += 1
 
     logging.debug("Deleting tombstone for key {0}: {1}".format(key, success))
@@ -927,7 +928,8 @@ class DatastoreGroomer(threading.Thread):
       # We do this first to clean up soft deletes later.
       self.remove_old_dashboard_data()
     except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old tasks: {0}".format(error))
+      logging.error("Error while cleaning up old dashboard items: {0}".format(
+        error))
 
     while True:
       try:
