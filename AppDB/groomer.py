@@ -523,7 +523,10 @@ class DatastoreGroomer(threading.Thread):
           logging.error("Caught exception: {0}\nIgnoring...".format(
             zk_exception))
     if success:
-      self.zoo_keeper.release_lock(app_prefix, txn_id)
+      try:
+        self.zoo_keeper.release_lock(app_prefix, txn_id)
+      except Exception, exception:
+        logging.error("Unable to release lock: {0}".format(exception))
       self.num_deletes += 1
 
     logging.debug("Deleting tombstone for key {0}: {1}".format(key, success))
