@@ -176,7 +176,7 @@ class DatastoreGroomer(threading.Thread):
         counter, entity._get_kind()))
 
   def remove_old_dashboard_data(self):
-    """ Removes old statistics from the AppScale dashbaord application. """
+    """ Removes old statistics from the AppScale dashboard application. """
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.DASHBOARD_DATA_TIMEOUT)
