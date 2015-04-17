@@ -27,7 +27,7 @@ module MonitInterface
     self.execute_remote_command("service monit start", remote_ip, remote_key)
   end
   
-  def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
+  def self.start(watch, start_cmd, stop_cmd, ports, env_vars,
     remote_ip=nil, remote_key=nil, match_cmd=start_cmd)
 
     ports = [ports] unless ports.class == Array

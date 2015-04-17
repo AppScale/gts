@@ -1,8 +1,10 @@
+require 'rubygems'
+gem 'test-unit'
+require 'test/unit'
 
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
 
-require 'rubygems'
 require 'flexmock/test_unit'
 
 
@@ -399,7 +401,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
-      ZKInterface::TIMEOUT).and_return(baz)
+      ZKInterface::ZK_TIMEOUT).and_return(baz)
     ZKInterface.init_to_ip("public_ip", "public_ip")
     assert_equal(nil, djinn.write_our_node_info)
   end
@@ -480,7 +482,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
-      ZKInterface::TIMEOUT).and_return(baz)
+      ZKInterface::ZK_TIMEOUT).and_return(baz)
     ZKInterface.init_to_ip("public_ip", "public_ip")
 
     # make sure the appcontroller does an update
@@ -538,7 +540,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
-      ZKInterface::TIMEOUT).and_return(mocked_zk)
+      ZKInterface::ZK_TIMEOUT).and_return(mocked_zk)
 
     ZKInterface.init_to_ip("public_ip", "public_ip")
     ZKInterface.lock_and_run {
@@ -696,8 +698,7 @@ class TestDjinn < Test::Unit::TestCase
     # and that the appcontrollers receive the initial message to start
     # up from our appcontroller
     flexmock(AppControllerClient).new_instances { |instance|
-      instance.should_receive(:set_parameters).with(all_nodes_serialized,
-        options_as_array, no_apps).and_return("OK")
+      instance.should_receive(:set_parameters).and_return("OK")
     }
 
     # the appcontroller will update its local /etc/hosts file
@@ -741,8 +742,8 @@ class TestDjinn < Test::Unit::TestCase
     }
     flexmock(djinn).should_receive(:add_nodes).and_return()
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
-    assert_equal(node2_info['public_ip'], actual[0]['public_ip'])
-    assert_equal(node1_info['public_ip'], actual[1]['public_ip'])
+    assert_equal(node2_info['public_ip'], actual[1]['public_ip'])
+    assert_equal(node1_info['public_ip'], actual[0]['public_ip'])
   end
 
   def test_start_new_roles_on_nodes_in_cloud
@@ -830,6 +831,8 @@ class TestDjinn < Test::Unit::TestCase
       with(/\Assh.* root@1.2.3.4 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
     flexmock(HelperFunctions).should_receive(:shell).
       with(/\Assh.* root@1.2.3.5 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+
+    flexmock(HelperFunctions).should_receive(:run_remote_command)
 
     # next, the appcontroller removes the json service metadata file
     # off of each of these nodes - assume it succeeds
@@ -1093,10 +1096,16 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(ZKInterface).should_receive(:add_roles_to_node).
       with(["memcache", "taskqueue_slave", "appengine"], open_node, "boo")
 
+    flexmock(ZKInterface).should_receive(:add_roles_to_node).
+      with(["memcache", "taskqueue_slave", "appengine"], nil, "boo")
+
+    flexmock(ZKInterface).should_receive(:run_zookeeper_operation)
+    flexmock(ZKInterface).should_receive(:lock_and_run)
+    
     # mock out writing updated nginx config files
     flexmock(Nginx).should_receive(:write_fullproxy_app_config)
     flexmock(Nginx).should_receive(:reload)
-
+    flexmock(Djinn).should_receive(:start_new_roles_on_nodes).and_return("OK")
     # Finally, make sure that we added a node
     assert_equal(1, djinn.scale_appservers_across_nodes())
   end

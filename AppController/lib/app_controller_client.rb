@@ -81,6 +81,8 @@ class AppControllerClient
       "secret")
     @conn.add_method("add_appserver_process", "app_id", "secret")
     @conn.add_method("remove_appserver_process", "app_id", "port", "secret")
+
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
   end
   
 
@@ -143,7 +145,7 @@ class AppControllerClient
     loop {
       status = get_status()
 
-      new_state = status.scan(/Current State: ([\w\s\d\.,]+)\n/).flatten.to_s.chomp
+      new_state = status.scan(/Current State: ([\w\s\d\.,]+)\n/).flatten[0].chomp
       if verbose_level == "high" and new_state != state
         puts new_state
         state = new_state
@@ -174,6 +176,7 @@ class AppControllerClient
       result = conn.set_parameters(locations, options, apps_to_start, @secret)
     }  
     HelperFunctions.log_and_crash(result) if result =~ /Error:/
+    return result
   end
 
   def set_apps(app_names)
@@ -182,6 +185,7 @@ class AppControllerClient
       result = conn.set_apps(app_names, @secret)
     }  
     HelperFunctions.log_and_crash(result) if result =~ /Error:/
+    return result
   end
 
   def status(print_output=true)
@@ -200,42 +204,42 @@ class AppControllerClient
       HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
     end
 
-    make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }
+    return make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }
   end
 
   def get_stats()
-    make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
+    return make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
   end
 
   def stop_app(app_name)
-    make_call(30, RETRY_ON_FAIL, "stop_app") { @conn.stop_app(app_name, @secret) }
+    return make_call(30, RETRY_ON_FAIL, "stop_app") { @conn.stop_app(app_name, @secret) }
   end
   
   def update(app_names)
-    make_call(30, RETRY_ON_FAIL, "update") { @conn.update(app_names, @secret) }
+    return make_call(30, RETRY_ON_FAIL, "update") { @conn.update(app_names, @secret) }
   end
 
   def is_done_initializing?()
-    make_call(30, RETRY_ON_FAIL, "is_done_initializing") { @conn.is_done_initializing(@secret) }
+    return make_call(30, RETRY_ON_FAIL, "is_done_initializing") { @conn.is_done_initializing(@secret) }
   end
 
   def is_done_loading?()
-    make_call(30, RETRY_ON_FAIL, "is_done_loading") { @conn.is_done_loading(@secret) }
+    return make_call(30, RETRY_ON_FAIL, "is_done_loading") { @conn.is_done_loading(@secret) }
   end
  
   def get_all_public_ips()
-    make_call(30, RETRY_ON_FAIL, "get_all_public_ips") { @conn.get_all_public_ips(@secret) }
+    return make_call(30, RETRY_ON_FAIL, "get_all_public_ips") { @conn.get_all_public_ips(@secret) }
   end
 
   def add_role(role)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_role") { @conn.add_role(role, @secret) }
+    return make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_role") { @conn.add_role(role, @secret) }
   end
 
   # Removed timeout here - removing cassandra slave requires it to port
   # the data it owns to somebody else, which takes ~30 seconds in the trivial
   # case
   def remove_role(role)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
+    return make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
   end
 
   def wait_for_node_to_be(new_roles)

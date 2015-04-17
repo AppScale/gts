@@ -60,7 +60,7 @@ module CronHelper
         description = item["description"]
         # since url gets put at end of curl, need to ensure it
         # is of the form /baz to prevent malicious urls
-        url = item["url"].scan(/\A(\/[\/\d\w]+)/).flatten.to_s
+        url = item["url"].scan(/\A(\/[\/\d\w]+)/).flatten[0]
         schedule = item["schedule"]
         timezone = item["timezone"] # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -87,7 +87,7 @@ CRON
         description = get_from_xml(item, "description")
         # since url gets put at end of curl, need to ensure it
         # is of the form /baz to prevent malicious urls
-        url = get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/).flatten.to_s
+        url = get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/).flatten[0]
         schedule = get_from_xml(item, "schedule")
         timezone = get_from_xml(item, "timezone") # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -249,7 +249,6 @@ CRON
   #   standard cron format. It cannot be applied to a crontab because it only
   #   specifies the frequency of the job, and not the action to perform.
   def self.convert_messy_format(schedule)
-    cron = ""
     splitted = schedule.split
 
     unless splitted.length == 3 or splitted.length == 5

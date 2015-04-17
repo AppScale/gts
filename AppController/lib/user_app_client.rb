@@ -19,14 +19,14 @@ class UserAppClient
 
 
   # The port that the UserAppServer binds to, by default.
-  SERVER_PORT = 4343
+  SERVER_PORT = 4342
 
 
   def initialize(ip, secret)
     @ip = ip
     @secret = secret
     
-    @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
+    @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{SERVER_PORT}")
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
     @conn.add_method("commit_new_app", "user", "appname", "language", "secret")
@@ -42,10 +42,10 @@ class UserAppClient
     @conn.add_method("add_instance", "appname", "host", "port", "secret")
     @conn.add_method("get_all_apps", "secret")
     @conn.add_method("get_all_users", "secret")
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
   end
 
   def make_call(timeout, retry_on_except, callr)
-    result = ""
     Djinn.log_debug("Calling #{callr} on an UserAppServer at #{@ip}")
     begin
       Timeout::timeout(timeout) do

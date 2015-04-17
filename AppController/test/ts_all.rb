@@ -1,5 +1,9 @@
+require 'rubygems'
+gem 'test-unit'
+require 'test/unit'
 
 $:.unshift File.join(File.dirname(__FILE__))
+
 # AppController library tests
 require 'tc_error_app'
 require 'tc_helperfunctions'

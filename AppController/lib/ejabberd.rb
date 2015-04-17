@@ -34,8 +34,8 @@ module Ejabberd
     start_cmd = "bash #{START_EJABBERD_SCRIPT}"
     stop_cmd = "/etc/init.d/ejabberd stop"
     match_cmd = "sname ejabberd"
-    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, 9999,
+      nil, nil, nil, match_cmd)
   end
 
   def self.stop
@@ -57,7 +57,7 @@ module Ejabberd
       end
     elsif runtime == "java"
       appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(app)
-      xml_contents = HelperFunctions.read_file(appengine_web_xml_file)
+      xml_contents = HelperFunctions.read_file(appengine_web_xml_file, true)
       if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/m
         return true
       else

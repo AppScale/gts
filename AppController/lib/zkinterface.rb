@@ -105,7 +105,7 @@ class ZKInterface
   # session (and all ephemeral locks) with our client. Setting this value at
   # or below 10 seconds has historically not been a good idea for us (as
   # sessions repeatedly time out).
-  TIMEOUT = 60
+  ZK_TIMEOUT = 60
 
 
   public
@@ -125,7 +125,7 @@ class ZKInterface
     end
 
     @@lock.synchronize {
-      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
+      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", ZK_TIMEOUT)
     }
   end
 

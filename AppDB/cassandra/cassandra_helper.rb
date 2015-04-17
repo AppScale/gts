@@ -90,7 +90,6 @@ def setup_db_config_files(master_ip, slave_ips)
   source_dir = "#{CASSANDRA_DIR}/templates"
   dest_dir = "#{CASSANDRA_DIR}/cassandra/conf"
 
-  all_ips = [master_ip, slave_ips].flatten
   local_token = get_local_token(master_ip, slave_ips)
 
   files_to_config = Djinn.log_run("ls #{source_dir}").split
@@ -147,8 +146,8 @@ def start_cassandra()
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
   stop_cmd = "/usr/bin/python /root/appscale/stop_service.py java cassandra"
   match_cmd = "/root/appscale/AppDB/cassandra"
-  MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
-    remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+  MonitInterface.start(:cassandra, start_cmd, stop_cmd, 9999, nil,
+    nil, nil, match_cmd)
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip,
     THRIFT_PORT)
 end

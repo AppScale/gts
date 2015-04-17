@@ -1,4 +1,7 @@
 # Programmer: Navraj Chohan
+require 'rubygems'
+gem 'test-unit'
+require 'test/unit'
 
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
@@ -7,7 +10,6 @@ $:.unshift File.join(File.dirname(__FILE__), "../..", "lib")
 require 'error_app'
 require 'helperfunctions'
 
-require 'rubygems'
 require 'flexmock/test_unit'
 
 

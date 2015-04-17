@@ -65,8 +65,8 @@ module Nginx
     start_cmd = "#{NGINX_BIN} -c #{MAIN_CONFIG_FILE}"
     stop_cmd = "#{NGINX_BIN} -s stop"
     match_cmd = "nginx: (.*) process"
-    MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
-      remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+    MonitInterface.start(:nginx, start_cmd, stop_cmd, 9999, nil,
+      nil, nil, match_cmd)
   end
 
   def self.stop()

@@ -32,6 +32,7 @@ class AppManagerClient
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
     @conn.add_method("restart_app_instances_for_app", "app_name", "language")
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
   end
 
   # Make a SOAP call out to the AppManager. 
@@ -48,7 +49,6 @@ class AppManagerClient
   #   the transition to the python port.
   #
   def make_call(timeout, retry_on_except, callr)
-    result = ""
     Djinn.log_debug("Calling the AppManager - #{callr}")
     begin
       Timeout::timeout(timeout) do
@@ -83,44 +83,44 @@ class AppManagerClient
     end
   end
  
-   # Wrapper for SOAP call to the AppManager to start an process instance of 
-   # an application server.
-   #
-   # Args:
-   #   app_name: Name of the application
-   #   app_port: The port to run the application server
-   #   load_balancer_ip: The public IP of the load balancer
-   #   load_balancer_port: The port of the load balancer
-   #   language: The language the application is written in
-   #   xmpp_ip: The IP for XMPP
-   #   db_locations: An Array of datastore server IPs
-   #   env_vars: A Hash of environemnt variables that should be passed to the
-   #     application to start.
-   #   max_memory: An Integer that names the maximum amount of memory (in
-   #     megabytes) that should be used for this App Engine app.
-   # Returns:
-   #   The PID of the process started
-   # Note:
-   #   We currently send hashes over in SOAP using json because 
-   #   of incompatibilities between SOAP mappings from ruby to python. 
-   #   As we convert over to python we should use native dictionaries.
-   #
-   def start_app(app_name, 
-                 app_port,
-                 load_balancer_ip,
-                 language, 
-                 xmpp_ip,
-                 db_locations,
-                 env_vars,
-                 max_memory=500)
+  # Wrapper for SOAP call to the AppManager to start an process instance of 
+  # an application server.
+  #
+  # Args:
+  #   app_name: Name of the application
+  #   app_port: The port to run the application server
+  #   load_balancer_ip: The public IP of the load balancer
+  #   load_balancer_port: The port of the load balancer
+  #   language: The language the application is written in
+  #   xmpp_ip: The IP for XMPP
+  #   db_locations: An Array of datastore server IPs
+  #   env_vars: A Hash of environemnt variables that should be passed to the
+  #     application to start.
+  #   max_memory: An Integer that names the maximum amount of memory (in
+  #     megabytes) that should be used for this App Engine app.
+  # Returns:
+  #   The PID of the process started
+  # Note:
+  #   We currently send hashes over in SOAP using json because 
+  #   of incompatibilities between SOAP mappings from ruby to python. 
+  #   As we convert over to python we should use native dictionaries.
+  #
+  def start_app(app_name, 
+                app_port,
+                load_balancer_ip,
+                language, 
+                xmpp_ip,
+                db_locations,
+                env_vars,
+                max_memory=500)
     config = {'app_name' => app_name,
-              'app_port' => app_port,
-              'load_balancer_ip' => load_balancer_ip,
-              'language' => language,
-              'xmpp_ip' => xmpp_ip,
-              'dblocations' => db_locations,
-              'env_vars' => env_vars,
-              'max_memory' => max_memory}
+             'app_port' => app_port,
+             'load_balancer_ip' => load_balancer_ip,
+             'language' => language,
+             'xmpp_ip' => xmpp_ip,
+             'dblocations' => db_locations,
+             'env_vars' => env_vars,
+             'max_memory' => max_memory}
     json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false, "start_app") {

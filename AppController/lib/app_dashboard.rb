@@ -93,7 +93,8 @@ module AppDashboard
       start_time = Time.now
       url = URI.parse("http://#{HelperFunctions.local_ip()}:#{SERVER_PORTS[0]}/status/refresh")
       http = Net::HTTP.new(url.host, url.port)
-      response = http.get(url.path)
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE if http.use_ssl?
+      http.get(url.path)
       end_time = Time.now
       Djinn.log_debug("It took #{end_time - start_time} seconds to prime the AppDashboard's cache")
     rescue Exception => e

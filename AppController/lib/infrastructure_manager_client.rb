@@ -59,6 +59,7 @@ class InfrastructureManagerClient
     @conn.add_method("terminate_instances", "parameters", "secret")
     @conn.add_method("attach_disk", "parameters", "disk_name", "instance_id",
       "secret")
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
   end
   
 
@@ -218,7 +219,7 @@ class InfrastructureManagerClient
     jobs = []
     if job.is_a?(String)
       # We only got one job, so just repeat it for each one of the nodes
-      jobs = Array.new(size=vm_info['public_ips'].length, obj=job)
+      jobs = Array.new(vm_info['public_ips'].length, job)
     else
       jobs = job
     end

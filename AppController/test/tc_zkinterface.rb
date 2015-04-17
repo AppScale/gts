@@ -1,11 +1,12 @@
+require 'rubygems'
+gem 'test-unit'
+require 'test/unit'
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require 'zkinterface'
 
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
-
-require 'rubygems'
 require 'flexmock/test_unit'
 
 
@@ -57,7 +58,7 @@ class TestZKInterface < Test::Unit::TestCase
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::ZK_TIMEOUT).
       and_return(zk)
 
     ZKInterface.init_to_ip("public_ip", "public_ip")
@@ -144,7 +145,7 @@ class TestZKInterface < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
-      ZKInterface::TIMEOUT).and_return(zk)
+      ZKInterface::ZK_TIMEOUT).and_return(zk)
 
     # first, make a connection to zookeeper 
     ZKInterface.init_to_ip("public_ip", "public_ip")
@@ -207,7 +208,7 @@ class TestZKInterface < Test::Unit::TestCase
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::ZK_TIMEOUT).
       and_return(zk)
 
     # first, make a connection to zookeeper

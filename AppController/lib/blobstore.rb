@@ -25,7 +25,8 @@ module BlobServer
 
       stop_cmd = "/usr/bin/pkill -9 blobstore_server"
 
-      MonitInterface.start(:blobstore, start_cmd, stop_cmd, blobserver_port)
+      MonitInterface.start(:blobstore, start_cmd, stop_cmd, blobserver_port,
+        nil, nil, start_cmd)
     }
   end
 
