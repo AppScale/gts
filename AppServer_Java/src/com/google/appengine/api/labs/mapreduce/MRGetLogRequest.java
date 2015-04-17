@@ -32,9 +32,10 @@ public class MRGetLogRequest extends ProtocolMessage<MRGetLogRequest> implements
 	}
 	
 	@Override
-	public void clear() {
+	public MRGetLogRequest clear() {
 		System.out.println("stub in MRGetLogRequest: clear");
 		
+		return null;
 	}
 
 	@Override

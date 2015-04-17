@@ -54,9 +54,9 @@ public class MRRunRequest extends ProtocolMessage<MRRunRequest> implements Seria
 	}
 
 	@Override
-	public void clear() {
+	public MRRunRequest clear() {
 		System.out.println("stub in MRRunRequest: clear");
-		
+		return null;
 	}
 
 	@Override

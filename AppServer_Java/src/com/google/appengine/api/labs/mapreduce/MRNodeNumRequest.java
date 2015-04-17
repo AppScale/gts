@@ -21,9 +21,10 @@ public class MRNodeNumRequest extends ProtocolMessage<MRNodeNumRequest> implemen
 	private static final long serialVersionUID = 7088956625147480383L;
 
 	@Override
-	public void clear() {
+	public MRNodeNumRequest clear() {
 		System.out.println("stub in MRNodeNumRequest: clear");
 		
+		return null;
 	}
 
 	@Override

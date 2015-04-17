@@ -31,9 +31,10 @@ public class MRGetLogResponse extends ProtocolMessage<MRGetLogResponse> implemen
 	}
 
 	@Override
-	public void clear() {
+	public MRGetLogResponse clear() {
 		System.out.println("stub in MRGetOututResponse: clear");
 		
+		return null;
 	}
 
 	@Override
