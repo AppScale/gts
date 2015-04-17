@@ -1,4 +1,4 @@
-""" Top level server for the backup. """
+""" Top level server for backup and recovery. """
 from backup_recovery import BackupService
 
 import logging
