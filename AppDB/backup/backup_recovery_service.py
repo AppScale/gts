@@ -24,11 +24,7 @@ class MainHandler(tornado.web.RequestHandler):
     """ A POST handler for request to this server. """
     request = self.request
     http_request_data = request.body
-    pb_type = request.headers['protocolbuffertype']
-    if pb_type == "Request":
-      response = self.backup_recovery_service.remote_request(http_request_data)
-    else:
-      response = self.backup_recovery_service.unknown_request(pb_type)
+    response = self.backup_recovery_service.remote_request(http_request_data)
 
     request.connection.write_headers(
       tornado.httputil.ResponseStartLine('HTTP/1.1', 200, 'OK'),
