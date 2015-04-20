@@ -29,9 +29,10 @@ public class MRGetOutputRequest extends ProtocolMessage<MRGetOutputRequest> impl
 	}
 	
 	@Override
-	public void clear() {
+	public MRGetOutputRequest clear() {
 		System.out.println("stub in MRGetOutputRequest: clear");
 		
+		return null;
 	}
 
 	@Override

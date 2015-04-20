@@ -22,9 +22,9 @@ public class MRRunResponse extends ProtocolMessage<MRRunResponse> implements Ser
 	private static final long serialVersionUID = 6671061287673019327L;
 
 	@Override
-	public void clear() {
+	public MRRunResponse clear() {
 		System.out.println("stub in MRPutResponse: clear");
-		
+		return null;
 	}
 
 	@Override

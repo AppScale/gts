@@ -33,9 +33,10 @@ public class MRNodeNumResponse extends ProtocolMessage<MRNodeNumResponse> implem
 	}
 
 	@Override
-	public void clear() {
+	public MRNodeNumResponse clear() {
 		System.out.println("stub in MRNodeNum: clear");
 		
+		return null;
 	}
 
 	@Override
