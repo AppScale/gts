@@ -9,6 +9,7 @@ require 'openssl'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
+require 'tempfile'
 require 'timeout'
 require 'yaml'
 
@@ -3592,8 +3593,10 @@ class Djinn
 
     # Commands used in the cloud environment to set the root access.
     options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
-    set_authorized_keys = "sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{CONFIG_FILE_LOCATION}/ssh_access"
-    enable_root_login = "sudo sed -n '/.*Please login/d; w/root/.ssh/authorized_keys' #{CONFIG_FILE_LOCATION}/ssh_acces"
+    temp_file = Dir::Tmpname.make_tmpname('/tmp/appscale-', nil)
+    set_authorized_keys = "sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{temp_file}"
+    enable_root_login = "sudo sed -n '/.*Please login/d; w/root/.ssh/authorized_keys' #{temp_file}"
+    clean_up = "sudo rm -f #{temp_file}"
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
     Kernel.sleep(3)
@@ -3602,6 +3605,7 @@ class Djinn
       user_name = "ubuntu"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{set_authorized_keys}'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{enable_root_login}'")
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{clean_up}'")
     elsif @options["infrastructure"] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
@@ -3612,6 +3616,7 @@ class Djinn
 
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{set_authorized_keys}'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{enable_root_login}'")
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{clean_up}'")
     end
 
     secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
