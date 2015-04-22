@@ -4033,6 +4033,7 @@ HOSTS
     }
     start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
+    match = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
@@ -4043,7 +4044,7 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
       HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
