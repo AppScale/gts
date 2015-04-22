@@ -75,7 +75,7 @@ class FakeEntity():
 
 class TestGroomer(unittest.TestCase):
   """
-  A set of test cases for the datastore groomer thread.
+  A set of test cases for the datastore groomer service.
   """
   def test_init(self):
     zookeeper = flexmock()

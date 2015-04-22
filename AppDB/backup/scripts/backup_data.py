@@ -13,6 +13,7 @@ import shutil
 import sys
 import time
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import appscale_datastore_batch
 import dbconstants
 import datastore_server
@@ -20,7 +21,7 @@ import entity_utils
 
 from zkappscale import zktransaction as zk
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))
 import appscale_info
 
 # The location to look at in order to verify that an app is deployed.
