@@ -3591,21 +3591,11 @@ class Djinn
     Djinn.log_info("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
 
-    # Commands used in the cloud environment to set the root access.
-    options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
-    temp_file = Dir::Tmpname.make_tmpname('/tmp/appscale-', nil)
-    set_authorized_keys = "sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{temp_file}"
-    enable_root_login = "sudo sed -n '/.*Please login/d; w/root/.ssh/authorized_keys' #{temp_file}"
-    clean_up = "sudo rm -f #{temp_file}"
-
-    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
-    Kernel.sleep(3)
-
+    # Get the username to use for ssh (depends on environments).
+    need_to_ssh = false
     if ["ec2", "euca"].include?(@options["infrastructure"])
       user_name = "ubuntu"
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{set_authorized_keys}'")
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{enable_root_login}'")
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{clean_up}'")
+      need_to_ssh = true
     elsif @options["infrastructure"] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
@@ -3613,10 +3603,21 @@ class Djinn
       user_name = "#{@options['gce_user']}"
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
+      need_to_ssh = true
+    end
 
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{set_authorized_keys}'")
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{enable_root_login}'")
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} '#{clean_up}'")
+    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+    Kernel.sleep(3)
+
+    # Commands used in the cloud environment to set the root access.
+    if need_to_ssh
+      temp_file = Dir::Tmpname.make_tmpname('/tmp/appscale-', nil)
+      options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+        "'sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{temp_file}'")
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+        "'sudo sed -n '/.*Please login/d; w/root/.ssh/authorized_keys' #{temp_file}'")
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} 'sudo rm -f #{temp_file}'")
     end
 
     secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
