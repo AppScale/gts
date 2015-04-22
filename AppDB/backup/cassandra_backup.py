@@ -81,4 +81,5 @@ def backup_data(backup_name):
   clear_old_snapshots()
   create_snapshot()
   files = get_snapshot_file_names(backup_name)
-  return files
+  tar_snapshots(files) 
+  return BACKUP_FILE_LOCATION
