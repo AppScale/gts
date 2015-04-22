@@ -9,7 +9,7 @@ import time
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/scripts"))
 import backup_data as backup
 import appscale_datastore_batch
 from dbconstants import AppScaleDBConnectionError

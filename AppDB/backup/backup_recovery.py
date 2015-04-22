@@ -6,8 +6,8 @@ import sys
 import threading
 import uuid
 
-import backup
 import backup_exceptions
+import cassandra_backup
 
 class BackupService():
   """ Backup service class. """
