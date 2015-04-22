@@ -84,7 +84,7 @@ def get_zk_locations_string():
   try:
     info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
     zk_json = json.loads(info) 
-    return ":2181".join(zk_json['locations']) + ":2181"
+    return ":2181,".join(zk_json['locations']) + ":2181"
   except IOError, io_error:
     logging.exception(io_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
