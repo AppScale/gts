@@ -47,5 +47,12 @@ class TestCassandraBackup(unittest.TestCase):
     cassandra_backup.tar_snapshot(['1', '2'])
     self.assertEquals(fake_tar.add_count, 2)
 
+  def test_backup_data(self):
+    flexmock(cassandra_backup).should_receive('clear_old_snapshots')
+    flexmock(cassandra_backup).should_receive('create_snapshot')
+    flexmock(cassandra_backup).should_receive('get_snapshot_file_names')
+    flexmock(cassandra_backup).should_receive('tar_snapshot')
+    self.assertEquals(cassandra_backup.BACKUP_FILE_LOCATION, cassandra_backup.backup_data("whatever"))
+
 if __name__ == "__main__":
   unittest.main()    
