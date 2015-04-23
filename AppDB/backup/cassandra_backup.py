@@ -10,6 +10,7 @@ from yaml import safe_load
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
+import monit_interface
 
 # Full path for the nodetool binary.
 NODE_TOOL = '{0}/AppDB/cassandra/cassandra/bin/nodetool'.\
@@ -20,6 +21,9 @@ BACKUP_DIR_LOCATION = "/opt/appscale/backups"
 
 # File location of where the latest backup goes.
 BACKUP_FILE_LOCATION = "{0}/backup.tar.gz".format(BACKUP_DIR_LOCATION)
+
+# Cassandra monit watch name.
+CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
 
 def clear_old_snapshots():
   """ Remove any old snapshots to minimize diskspace usage both locally. """
@@ -70,27 +74,41 @@ def get_backup_path(bucket_name):
  
 def backup_data():
   """ Backup Cassandra snapshot data directories/files. """
+  logging.info("Starting new backup.")
   clear_old_snapshots()
   create_snapshot()
   files = get_snapshot_file_names()
-  logging.error(files)
   tar_snapshot(files) 
+  logging.info("Done with backup!")
   return BACKUP_FILE_LOCATION
 
 def shut_down_cassandra():
   """ Shuts down cassandra. """
-  pass
-
+  logging.warning("Stopping Cassandra")
+  monit_interface.stop(CASSANDRA_MONIT_WATCH_NAME)
+  logging.warning("Done!")
+ 
 def remove_old_data():
   """ Removes previous node data from the cassandra deployment. """
-  pass
+  data_dir = "{0}{1}/*".format(constants.APPSCALE_DATA_DIR, "cassandra")
+  logging.warning("Removing data from {0}".format(data_dir))
+  call(["rm", "-rf", data_dir])
+  logging.warning("Done removing data!")
 
 def start_cassandra():
   """ Starts up cassandra. """
-  pass
+  logging.warning("Starting Cassandra")
+  monit_interface.start(CASSANDRA_MONIT_WATCH_NAME)
+  logging.warning("Done!")
 
+def restore_previous_backup():
+  """ Restores a previous backup into the Cassandra directory structure
+  from a tar ball. """
+  pass
+  
 def restore_data():
   """ Restores the Cassandra snapshot. """
   shut_down_cassandra()
   remove_old_data()
+  restore_previous_backup()
   start_cassandra()
