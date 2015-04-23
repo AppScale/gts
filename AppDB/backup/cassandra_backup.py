@@ -1,4 +1,5 @@
 """ Cassandra data backup. """
+import logging
 import os
 import sys
 import tarfile
@@ -24,12 +25,8 @@ def clear_old_snapshots():
   """ Remove any old snapshots to minimize diskspace usage both locally. """
   call([NODE_TOOL, 'clearsnapshot'])
 
-def create_snapshot(name):
-  """ Perform local Cassandra backup by taking a new snapshot. 
-
-  Args:
-    name: The name of the snapshot.
-  `"""
+def create_snapshot():
+  """ Perform local Cassandra backup by taking a new snapshot. """ 
   call([NODE_TOOL, 'snapshot'])
 
 def get_snapshot_file_names():
@@ -40,12 +37,10 @@ def get_snapshot_file_names():
   """
   file_list = []
   data_dir = "{0}{1}".format(constants.APPSCALE_DATA_DIR, "cassandra")
-  for _, dirnames, filenames in os.walk(data_dir):
-    for file_name in filenames: 
-      path = os.path.join("{0}{1}".format(constants.APPSCALE_DATA_DIR, 
-        dirnames), file_name)
-      if 'snapshots' in path:
-        file_list.append(path)
+  for what, dirnames, filenames in os.walk(data_dir):
+    for file_name in filenames:
+      if 'snapshots' in what:
+        file_list.append(what)
   return file_list
 
 def tar_snapshot(file_paths):
@@ -54,8 +49,9 @@ def tar_snapshot(file_paths):
   Args:
     file_paths: A list of files to tar up.
   """ 
+  call(["mkdir", "-p", BACKUP_DIR_LOCATION])
   call(["rm", "-f", BACKUP_FILE_LOCATION])
-  tar = tarfile.open(BACKUP_FILE_LOCATION, "w")
+  tar = tarfile.open(BACKUP_FILE_LOCATION, "w:gz")
   for name in file_paths:
     tar.add(name)
   tar.close()
@@ -72,14 +68,29 @@ def get_backup_path(bucket_name):
   hostname = socket.gethostname()
   return "{0}/{1}/cassandra/".format(bucket_name, hostname)
  
-def backup_data(backup_name):
-  """ Backup Cassandra snapshot data directories/files.
-
-  Args:
-    backup_name: A str, the name of the backup.
-  """
+def backup_data():
+  """ Backup Cassandra snapshot data directories/files. """
   clear_old_snapshots()
   create_snapshot()
-  files = get_snapshot_file_names(backup_name)
+  files = get_snapshot_file_names()
+  logging.error(files)
   tar_snapshot(files) 
   return BACKUP_FILE_LOCATION
+
+def shut_down_cassandra():
+  """ Shuts down cassandra. """
+  pass
+
+def remove_old_data():
+  """ Removes previous node data from the cassandra deployment. """
+  pass
+
+def start_cassandra():
+  """ Starts up cassandra. """
+  pass
+
+def restore_data():
+  """ Restores the Cassandra snapshot. """
+  shut_down_cassandra()
+  remove_old_data()
+  start_cassandra()
