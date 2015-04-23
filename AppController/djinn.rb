@@ -3593,8 +3593,8 @@ class Djinn
 
     # Get the username to use for ssh (depends on environments).
     need_to_ssh = false
+    user_name = "ubuntu"
     if ["ec2", "euca"].include?(@options["infrastructure"])
-      user_name = "ubuntu"
       need_to_ssh = true
     elsif @options["infrastructure"] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
