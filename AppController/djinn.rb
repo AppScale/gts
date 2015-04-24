@@ -3616,7 +3616,7 @@ class Djinn
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
         "'sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{temp_file}'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
-        "'sudo sed -n '/.*Please login/d; w/root/.ssh/authorized_keys' #{temp_file}'")
+        "'sudo sed -n \"/.*Please login/d; w/root/.ssh/authorized_keys\" #{temp_file}'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} 'sudo rm -f #{temp_file}'")
     end
 
