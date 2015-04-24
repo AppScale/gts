@@ -3615,7 +3615,7 @@ class Djinn
         "'sudo cp -p /root/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
         "'sudo sed -n \"/Please login/d; w/root/.ssh/authorized_keys\" " +
-        "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old")
+        "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
     end
 
     secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
