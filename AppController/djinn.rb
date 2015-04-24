@@ -9,7 +9,6 @@ require 'openssl'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
-require 'tempfile'
 require 'timeout'
 require 'yaml'
 
@@ -3611,12 +3610,12 @@ class Djinn
 
     # Commands used in the cloud environment to set the root access.
     if need_to_ssh
-      temp_file = Dir::Tmpname.make_tmpname('/tmp/appscale-', nil)
+      temp_file = "/tmp/appscale-" + rand(9999).to_s
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
         "'sudo sort -u ~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys -o #{temp_file}'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
-        "'sudo sed -i /Please login/d #{temp_file}'")
+        "'sudo sed -i \"/Please login/d\" #{temp_file}'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
         "'sudo mv #{temp_file} /root/.ssh/authorized_keys'")
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
