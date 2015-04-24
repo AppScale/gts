@@ -54,6 +54,7 @@ public class DevAppServerMain
     private String              appscale_version;
     private String              admin_console_version;
     private static final String PORT_FILE_PREFIX                      = "/etc/appscale/port-";
+    private static final String SECRET_LOCATION                       = "/etc/appscale/secret.key";
 
     private final List<Option>  PARSERS                               = buildOptions(this);
     private static final String PREFIX                                = "When generating a war directory,";
@@ -174,13 +175,6 @@ public class DevAppServerMain
                 this.main.login_server = getValue();
                 System.setProperty("LOGIN_SERVER", this.main.login_server);
             }
-        }, new DevAppServerOption(main, null, "cookie_secret", false)
-        {
-            public void apply()
-            {
-                this.main.cookie = getValue();
-                System.setProperty("COOKIE_SECRET", this.main.cookie);
-            }
         }, new DevAppServerOption(main, null, "appscale_version", false)
         {
             public void apply()
@@ -220,11 +214,11 @@ public class DevAppServerMain
     {
         String appName = System.getProperty("APP_NAME");
         String portString = null;
-        BufferedReader br = null;
+        BufferedReader bufferReader = null;
         try
         {
-            br = new BufferedReader(new FileReader(PORT_FILE_PREFIX + appName + ".txt"));
-            portString = br.readLine();
+            bufferReader = new BufferedReader(new FileReader(PORT_FILE_PREFIX + appName + ".txt"));
+            portString = bufferReader.readLine();
         }
         catch(IOException e)
         {
@@ -235,7 +229,7 @@ public class DevAppServerMain
         {
             try
             {
-                if (br != null)br.close();
+                if (bufferReader != null) bufferReader.close();
             } 
             catch (IOException ex)
             {
@@ -394,6 +388,7 @@ public class DevAppServerMain
                 Map stringProperties = properties;
                 setTimeZone(stringProperties);
                 setGeneratedDirectory(stringProperties);
+                setSecret();
                 if (DevAppServerMain.this.disableRestrictedCheck)
                 {
                     stringProperties.put("appengine.disableRestrictedCheck", "");
@@ -401,7 +396,6 @@ public class DevAppServerMain
                 setRdbmsPropertiesFile(stringProperties, appDir, externalResourceDir);
                 stringProperties.putAll(DevAppServerMain.parsePropertiesList(DevAppServerMain.this.propertyOptions));
                 server.setServiceProperties(stringProperties);
-
                 server.start();
                 try
                 {
@@ -420,6 +414,34 @@ public class DevAppServerMain
             {
                 ex.printStackTrace();
                 System.exit(1);
+            }
+        }
+
+        // Set the AppScale secret.
+        private void setSecret()
+        {
+            BufferedReader bufferReader = null;
+            try
+            {
+                bufferReader = new BufferedReader(new FileReader(SECRET_LOCATION));
+                String value = bufferReader.readLine();
+                System.setProperty("COOKIE_SECRET", value);
+            }
+            catch(IOException e)
+            {
+               System.out.println("IOException getting port from secret key file.");
+               e.printStackTrace(); 
+            }        
+            finally
+            {
+               try
+               {
+                   if (bufferReader != null) bufferReader.close();
+               } 
+               catch (IOException ex)
+               {
+                   ex.printStackTrace();
+               }
             }
         }
 

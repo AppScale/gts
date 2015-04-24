@@ -15,7 +15,8 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-export APPSCALE_VERSION=2.2.0
+VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
+export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
 pip_wrapper () 
 {
@@ -331,14 +332,12 @@ installservice()
 {
     # This must be absolete path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
-    chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-progenitor.sh ${DESTDIR}/etc/init.d/appscale-progenitor
-    chmod -v a+x ${APPSCALE_HOME}/appscale-progenitor.sh
+    cp ${APPSCALE_HOME_RUNTIME}/AppController/scripts/appcontroller ${DESTDIR}/etc/init.d/appscale-controller
+    chmod -v a+x ${DESTDIR}/etc/init.d/appscale-controller
 
-    # Make the progenitor start up when AppScale starts, so that it can start
-    # the AppController on system reboots.
-    update-rc.d -f appscale-progenitor defaults
+    # Make sure the init script runs each time, so that it can start the
+    # AppController on system reboots.
+    update-rc.d -f appscale-controller defaults
 }
 
 postinstallservice()

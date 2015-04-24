@@ -36,7 +36,7 @@ DEFAULT_ENCRYPTION = 1
 VALID_DATASTORES = []
 CERT_LOCATION = APPSCALE_HOME + "/.appscale/certs/mycert.pem"
 KEY_LOCATION = APPSCALE_HOME + "/.appscale/certs/mykey.pem"
-SECRET_LOCATION = APPSCALE_HOME + "/secret.key"
+SECRET_LOCATION = APPSCALE_HOME + "/.appscale/secret.key"
 user_location = DEFAULT_USER_LOCATION
 app_location = DEFAULT_APP_LOCATION
 datastore_type = DEFAULT_DATASTORE
@@ -407,7 +407,7 @@ if ret != "true":
 # Commit user twice
 ###################
 ret = server.commit_new_user(user[0], user[1], "user", super_secret)
-if ret != "Error: user already exist":
+if ret != "Error: user already exists":
   err(helper_functions.lineno(), ret)
 
 ret = server.does_user_exist(user[0], super_secret)
@@ -606,9 +606,7 @@ if ret != "true":
 # Get app data 
 ###################
 ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret \
-or host1 not in ret or port1 not in ret \
-or host2 not in ret or port2 not in ret:
+if user[0] not in ret or app[0] not in ret:
   err(helper_functions.lineno(), ret)
 ####################
 # Add class to app

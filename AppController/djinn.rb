@@ -24,13 +24,13 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'app_controller_client'
 require 'app_manager_client'
-require 'taskqueue_client'
 require 'blobstore'
+require 'cron_helper'
 require 'custom_exceptions'
 require 'datastore_server'
 require 'ejabberd'
 require 'error_app'
-require 'cron_helper'
+require 'groomer_service'
 require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
@@ -38,6 +38,7 @@ require 'monit_interface'
 require 'nginx'
 require 'search'
 require 'taskqueue'
+require 'taskqueue_client'
 require 'user_app_client'
 require 'zkinterface'
 
@@ -436,6 +437,9 @@ class Djinn
   KEY_NOT_FOUND = "No property exists with the given name."
 
 
+  # Where to put logs.
+  LOG_FILE = "/var/log/appscale/controller-17443.log" 
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -447,8 +451,9 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
-    STDOUT.sync = true
-    @@log = Logger.new(STDOUT)
+    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
+
+    @@log = Logger.new(file)
     @@log.level = Logger::DEBUG
 
     @nodes = []
@@ -730,6 +735,7 @@ class Djinn
       if has_soap_server?(my_node)
         stop_soap_server()
         stop_datastore_server()
+        stop_groomer_service()
       end
 
       TaskQueue.stop() if my_node.is_taskqueue_master?
@@ -1174,6 +1180,7 @@ class Djinn
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
     Djinn.log_run("rm -rf /var/apps/#{app_name}")
+    CronHelper.clear_app_crontab(app_name)
 
     # app shutdown process can take more than 30 seconds
     # so run it in a new thread to avoid 'execution expired'
@@ -1908,7 +1915,7 @@ class Djinn
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
     Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
-    CronHelper.clear_crontab()
+    CronHelper.clear_app_crontabs
   end
 
 
@@ -3230,6 +3237,7 @@ class Djinn
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
+          start_groomer_service()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(), UserAppClient::SERVER_PORT)
         end
 
@@ -3252,6 +3260,7 @@ class Djinn
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
+          start_groomer_service()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
             UserAppClient::SERVER_PORT)
         end
@@ -3391,6 +3400,17 @@ class Djinn
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
 
+  # Starts the groomer service on this node. The groomer cleans the datastore of deleted 
+  # items and removes old logs.
+  def start_groomer_service()
+    @state = "Starting Groomer Service"
+    Djinn.log_info("Starting groomer service.")
+    # Groomer requires locations of ZK.
+    write_zookeeper_locations()
+    GroomerService.start()
+    Djinn.log_info("Done starting groomer service.")
+  end
+
   def start_soap_server()
     db_master_ip = nil
     @nodes.each { |node|
@@ -3414,7 +3434,7 @@ class Djinn
     end
 
     start_cmd = ["python #{APPSCALE_HOME}/AppDB/soap_server.py",
-            "-t #{table} -s #{HelperFunctions.get_secret}"].join(' ')
+            "-t #{table}"].join(' ')
     stop_cmd = "/usr/bin/pkill -9 soap_server"
     port = [4343]
 
@@ -3433,7 +3453,7 @@ class Djinn
 
     table = @options['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
+    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # TODO check the return value
@@ -3453,6 +3473,14 @@ class Djinn
   def stop_app_manager_server
     MonitInterface.stop(:appmanagerserver)
   end
+
+  # Stops the groomer service.
+  def stop_groomer_service()
+    Djinn.log_info("Stopping groomer service.")
+    GroomerService.stop()
+    Djinn.log_info("Done stopping groomer service.")
+  end
+
 
   def stop_datastore_server
     DatastoreServer.stop(@options['table'])
@@ -4003,8 +4031,9 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/bin/ruby #{remote_home}/AppController/djinnServer.rb"
-    stop = "/usr/bin/ruby #{remote_home}/AppController/terminate.rb"
+    start = "/usr/sbin/service appscale-controller start"
+    stop = "/usr/sbin/service appscale-controller stop"
+    match = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
@@ -4015,7 +4044,7 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
       HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")

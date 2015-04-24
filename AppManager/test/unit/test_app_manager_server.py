@@ -75,11 +75,8 @@ class TestAppManager(unittest.TestCase):
                      'max_memory': 500}
     configuration = json.dumps(configuration)
 
-    fake_secret = "XXXXXX"
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
-    flexmock(appscale_info).should_receive('get_secret')\
-                           .and_return(fake_secret)
     flexmock(monit_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
     flexmock(monit_interface).should_receive('start')\
@@ -104,11 +101,8 @@ class TestAppManager(unittest.TestCase):
                      'max_memory': 500}
     configuration = json.dumps(configuration)
 
-    fake_secret = "XXXXXX"
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
-    flexmock(appscale_info).should_receive('get_secret')\
-                           .and_return(fake_secret)
     flexmock(monit_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
     flexmock(monit_interface).should_receive('start')\
@@ -136,11 +130,8 @@ class TestAppManager(unittest.TestCase):
                      'max_memory': 500}
     configuration = json.dumps(configuration)
 
-    fake_secret = "XXXXXX"
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
-    flexmock(appscale_info).should_receive('get_secret')\
-                           .and_return(fake_secret)
     flexmock(monit_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
     flexmock(monit_interface).should_receive('start')\
@@ -167,9 +158,6 @@ class TestAppManager(unittest.TestCase):
     assert 'appscale' in env_vars['APPSCALE_HOME']
 
   def test_create_java_start_cmd(self): 
-    fake_secret = "XXXXXX"
-    flexmock(appscale_info).should_receive('get_secret')\
-      .and_return(fake_secret)
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
     flexmock(app_manager_server).should_receive('locate_dir')\
@@ -179,14 +167,10 @@ class TestAppManager(unittest.TestCase):
     cmd = app_manager_server.create_java_start_cmd(app_id,
                                             '20000',
                                             '127.0.0.2')
-    assert fake_secret in cmd
     assert app_id in cmd
 
   def test_create_java_stop_cmd(self): 
-    fake_secret = "XXXXXX"
     port = "20000"
-    flexmock(appscale_info).should_receive('get_secret')\
-      .and_return(fake_secret)
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
     cmd = app_manager_server.create_java_stop_cmd(port)

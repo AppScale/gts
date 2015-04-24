@@ -563,6 +563,8 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_start_roles_on_nodes_in_cluster
+    flexmock(Kernel).should_receive(:system).and_return('')
+    flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
     ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
@@ -572,6 +574,9 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_new_roles_on_nodes_in_cluster
+    flexmock(File).should_receive(:open).and_return()
+    flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
+    flexmock(Kernel).should_receive(:system).and_return('')
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
     ips_to_roles = {'1.2.3.4' => ['appengine'], '1.2.3.5' => ['appengine']}
@@ -734,12 +739,18 @@ class TestDjinn < Test::Unit::TestCase
         'nginx' => Nginx::START_PORT + 1
       }
     }
+    flexmock(djinn).should_receive(:add_nodes).and_return()
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
     assert_equal(node2_info['public_ip'], actual[0]['public_ip'])
     assert_equal(node1_info['public_ip'], actual[1]['public_ip'])
   end
 
   def test_start_new_roles_on_nodes_in_cloud
+    flexmock(Djinn).should_receive(:initialize_nodes_in_parallel).and_return()
+    flexmock(File).should_receive(:open).and_return()
+    flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
+    flexmock(Kernel).should_receive(:system).and_return('')
+
     # mock out getting our ip address
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4 ")
@@ -906,6 +917,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [original_node]
     djinn.my_index = 0
     djinn.options = options
+    flexmock(djinn).should_receive(:add_nodes).and_return()
     actual = djinn.start_new_roles_on_nodes_in_cloud(ips_to_roles)
     assert_equal(true, actual.include?(node1_info))
     assert_equal(true, actual.include?(node2_info))

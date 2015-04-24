@@ -20,6 +20,8 @@ leaderServes=yes
 maxClientsCnxns=0
 forceSync=no
 skipACL=yes
+autopurge.snapRetainCount=5
+autopurge.purgeInterval=12
 EOF
   myid = ""
 
