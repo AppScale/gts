@@ -61,7 +61,31 @@ class BackupService():
       return self.do_backup(request)
     elif request_type == "restore":
       return self.do_restore(request)
+    elif request_type == "shutdown":
+      return self.shutdown_datastore(request)
 
+  def shutdown_datastore(self, request):
+    """ Top level function for bringing down cassandra.
+
+    Args:
+      request: A dict, the request sent by the client.
+    Returns:
+      A json string to return to the client.
+    """
+    success = True
+    reason = "success"
+    try:
+      self.__backup_lock.acquire()
+      cassandra_backup.shut_down_cassandra()
+    except backup_exceptions.BackupException, exception:
+      logging.error("Unable to shut down datastore ->\n{1}".format(
+        backup_name, exception)) 
+      success = False
+      reason = str(exception)
+    finally:
+      self.backup_lock.release()
+    return json.dumps({'success': success, 'reason': reason})
+     
   def do_backup(self, request):
     """ Top level function for doing backups.
 
@@ -72,21 +96,21 @@ class BackupService():
     """
     success = True
     reason = "success"
-    backup_name = request[self.BACKUP_NAME_TAG]
-    bucket_name = request[self.BUCKET_NAME_TAG]
     path = request[self.GCS_PATH_NAME_TAG]
-    self.__backup = backup.Backup(backup_name, bucket_name, path)
     try:
       logging.info("Acquiring lock for a backup ({0}).".format(backup_name))
       self.__backup_lock.acquire()
       logging.info("Got the lock for a backup ({0}).".format(backup_name))
-      self.__backup.run_backup()
+      self.__backup.run_backup(path)
       logging.info("Successful backup ({0})!".format(backup_name))
     except backup_exceptions.BackupException, exception:
       logging.error("Unable to complete backup {0} --> {1}".format(
         backup_name, exception)) 
       success = False
       reason = str(exception)
+    finally:
+      self.backup_lock.release()
+
     return json.dumps({'success': success, 'reason': reason})
 
   def do_restore(self, request):

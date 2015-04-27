@@ -27,8 +27,8 @@ class TestCassandraBackup(unittest.TestCase):
   def test_get_snapshot_file_names(self):
     os_mock = flexmock(os)
     os_mock.should_call('walk')
-    os_mock.should_receive('walk').and_yield(('', ['dirname'], 
-      ['/snapshots/xxx'])).once()
+    os_mock.should_receive('walk').and_yield(('/snapshots/xxx', ['dirname'], 
+      '')).once()
     self.assertEquals(['/snapshots/xxx'], 
       cassandra_backup.get_snapshot_file_names())
 
