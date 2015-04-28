@@ -3,18 +3,16 @@ import logging
 import os
 import sys
 import tarfile
-import socket
 
 from subprocess import call
-from yaml import safe_load 
+
+import backup_exceptions
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
-import monit_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
 import start_cassandra
-import shut_down_cassandra 
 
 # Full path for the nodetool binary.
 NODE_TOOL = '{0}/AppDB/cassandra/cassandra/bin/nodetool'.\
@@ -25,9 +23,6 @@ BACKUP_DIR_LOCATION = "/opt/appscale/backups"
 
 # File location of where the latest backup goes.
 BACKUP_FILE_LOCATION = "{0}/backup.tar.gz".format(BACKUP_DIR_LOCATION)
-
-# Cassandra monit watch name.
-CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
 
 # Cassandra directories to remove to get rid of data.
 CASSANDRA_DATA_SUBDIRS = ["commitlog", "Keyspace1", "saved_caches", "system",
@@ -49,7 +44,7 @@ def get_snapshot_file_names():
   """
   file_list = []
   data_dir = "{0}{1}".format(constants.APPSCALE_DATA_DIR, "cassandra")
-  for full_path, dirnames, filenames in os.walk(data_dir):
+  for full_path, _, _ in os.walk(data_dir):
     if 'snapshots' in full_path:
       file_list.append(full_path)
   return file_list
@@ -101,11 +96,12 @@ def restore_previous_backup():
     tar.close()
   except tarfile.TarError, tar_error:
     logging.exception(tar_error)
-    raise backup_exception.BRException("Exception on restore")
+    raise backup_exceptions.BRException("Exception on restore")
   logging.info("Done restoring backup tarball!")
  
 def restore_data():
   """ Restores the Cassandra snapshot. """
   remove_old_data()
+  # TODO fetch the tar ball from cloud storage.
   restore_previous_backup()
   start_cassandra.run()

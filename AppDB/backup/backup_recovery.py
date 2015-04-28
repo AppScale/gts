@@ -4,10 +4,12 @@ import json
 import os
 import sys
 import threading
-import uuid
 
 import backup_exceptions
 import cassandra_backup
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
+import shut_down_cassandra
 
 class BackupService():
   """ Backup service class. """
@@ -76,14 +78,14 @@ class BackupService():
     reason = "success"
     try:
       self.__backup_lock.acquire()
-      cassandra_backup.shut_down_cassandra()
-    except backup_exceptions.BackupException, exception:
-      logging.error("Unable to shut down datastore ->\n{1}".format(
-        backup_name, exception)) 
+      shut_down_cassandra.run()
+    except backup_exceptions.BRException, exception:
+      logging.error("Unable to shut down datastore ->\n{0}".format(
+        exception)) 
       success = False
       reason = str(exception)
     finally:
-      self.backup_lock.release()
+      self.__backup_lock.release()
     return json.dumps({'success': success, 'reason': reason})
      
   def do_backup(self, request):
@@ -98,18 +100,17 @@ class BackupService():
     reason = "success"
     path = request[self.GCS_PATH_NAME_TAG]
     try:
-      logging.info("Acquiring lock for a backup ({0}).".format(backup_name))
+      logging.info("Acquiring lock for a backup")
       self.__backup_lock.acquire()
-      logging.info("Got the lock for a backup ({0}).".format(backup_name))
-      self.__backup.run_backup(path)
-      logging.info("Successful backup ({0})!".format(backup_name))
-    except backup_exceptions.BackupException, exception:
-      logging.error("Unable to complete backup {0} --> {1}".format(
-        backup_name, exception)) 
+      logging.info("Got the lock for a backup")
+      cassandra_backup.backup_data(path)
+      logging.info("Successful backup!")
+    except backup_exceptions.BRException, exception:
+      logging.error("Unable to complete backup {0}".format(exception)) 
       success = False
       reason = str(exception)
     finally:
-      self.backup_lock.release()
+      self.__backup_lock.release()
 
     return json.dumps({'success': success, 'reason': reason})
 
@@ -122,4 +123,24 @@ class BackupService():
       A json string to return to the client.
     """
     success = True
-    return json.dumps({'success': success})
+    reason = "success"
+    path = request[self.GCS_PATH_NAME_TAG]
+    try:
+      logging.info("Acquiring lock for a restore.")
+      self.__backup_lock.acquire()
+      logging.info("Got the lock for a restore")
+      cassandra_backup.restore_data() 
+      logging.info("Successful restore")
+    except backup_exceptions.BRException, exception:
+      logging.error("Unable to complete restore {0}".format(
+        exception)) 
+      success = False
+      reason = str(exception)
+    finally:
+      self.__backup_lock.release()
+
+    return json.dumps({'success': success, 'reason': reason})
+
+if __name__ == '__main__':
+  #TODO
+  pass  
