@@ -17,6 +17,7 @@ PROVIDER=""
 CURL="$(which curl)"
 IP="$(which ip)"
 APPSCALE_CMD="/usr/local/appscale-tools/bin/appscale"
+APPSCALE_UPLOAD="/root/appscale-tools/bin/appscale-upload-app"
 
 # Print help screen.
 usage() {
@@ -137,8 +138,8 @@ esac
 # Let's make sure we don't overwrite and existing AppScalefile.
 if [ ! -e AppScaleFile ]; then
     # Let's make sure we detected the IPs.
-    [ -n "$PUBLIC_IP" ] || { echo "Cannot get public IP of instance!" ; exit 1 ; }
-    [ -n "$PRIVATE_IP" ] || { echo "Cannot get private IP of instance!" ; exit 1 ; }
+    [ -z "$PUBLIC_IP" ] && { echo "Cannot get public IP of instance!" ; exit 1 ; }
+    [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
     # Tell the user what we detected.
     echo "Detectd enviroment: ${PROVIDER}"
@@ -171,8 +172,12 @@ fi
 # Start AppScale.
 ${APPSCALE_CMD} up
 
+# Get the keyname.
+KEYNAME=$(grep keyname /root/AppScalefile |cut -f 2 -d "'")
+[ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1; }
+
 # Deploy sample app.
-${APPSCALE_CMD} deploy /root/guestbook.tar.gz
+${APPSCALE_UPLOAD} --key ${KEYNAME} --email ${ADMIN_EMAIL} /root/guestbook.tar.gz
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443
