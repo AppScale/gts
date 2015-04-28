@@ -23,6 +23,9 @@ HERMES_PORT = "4378"
 # The URL for Hermes web server.
 HERMES_URL = "http://localhost:{0}".format(HERMES_PORT)
 
+# A constant representing the Tornado HTTPError.
+HTTPError = 'HTTPError'
+
 # The interval between polls for new tasks.
 POLLING_INTERVAL = 60000
 

@@ -12,14 +12,14 @@ from tornado.options import options
 from tornado.options import parse_command_line
 import tornado.web
 
-import constants
+import hermes_constants
 from handlers import MainHandler
 from handlers import PollHandler
 from handlers import TaskHandler
 import helper
 
 # Tornado web server options.
-define("port", default=constants.HERMES_PORT, type=int)
+define("port", default=hermes_constants.HERMES_PORT, type=int)
 define("debug", default=True, type=bool)
 
 # Structure for keeping status of tasks.
@@ -29,7 +29,7 @@ def poll():
   """ Callback function that polls for new tasks based on a schedule. """
   logging.info("Time to poll for a new task.")
 
-  url = "{0}{1}".format(constants.HERMES_URL, PollHandler.PATH)
+  url = "{0}{1}".format(hermes_constants.HERMES_URL, PollHandler.PATH)
   helper.urlfetch_async(helper.create_request(url=url, method='GET'))
 
 def signal_handler(signal, frame):

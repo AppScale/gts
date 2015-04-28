@@ -2,15 +2,12 @@
 
 import json
 import logging
-import os
-import sys
+import Queue
+import threading
 from tornado.web import RequestHandler
 
-import constants
+import hermes_constants
 import helper
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "/root/appscale/lib/"))
-import appscale_info
 
 # A set of required parameters that define a task.
 REQUIRED_KEYS = ['type', 'bucket_name']
@@ -36,15 +33,15 @@ class PollHandler(RequestHandler):
 
     # Send request to AppScale Portal.
     logging.info("Sending request to AppScale Portal.")
-    url = "{0}{1}".format(constants.PORTAL_URL,
-        constants.PORTAL_POLL_PATH)
+    url = "{0}{1}".format(hermes_constants.PORTAL_URL,
+        hermes_constants.PORTAL_POLL_PATH)
     data = json.dumps({
       "secret": helper.get_deployment_id()
     })
     request = helper.create_request(url=url, method='POST', body=data)
     response = helper.urlfetch(request)
     if not response:
-      self.set_status(constants.HTTP_Codes.HTTP_OK)
+      self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
       return
     data = json.loads(response.body)
 
@@ -56,12 +53,12 @@ class PollHandler(RequestHandler):
 
     logging.info("Task to run: {0}".format(data))
     logging.info("Redirecting task request to TaskHandler.")
-    url = "{0}{1}".format(constants.HERMES_URL, TaskHandler.PATH)
+    url = "{0}{1}".format(hermes_constants.HERMES_URL, TaskHandler.PATH)
     request = helper.create_request(url, method='POST', body=data)
     # The poller can move forward without waiting for a response here.
     helper.urlfetch_async(request)
 
-    self.set_status(constants.HTTP_Codes.HTTP_OK)
+    self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
 
 class TaskHandler(RequestHandler):
   """ Handler that starts operations to complete a task. """
@@ -91,38 +88,56 @@ class TaskHandler(RequestHandler):
 
     # Gather information for sending the requests to start off the current
     # task at hand.
-    node_info = [
-      {
-        'ip': appscale_info.get_db_master_ip(),
-        'role': 'db_master',
-        'type': data['type']
-      }
-    ]
+    node_info = helper.get_node_info()
 
-    index = 0
-    for node in appscale_info.get_db_slave_ips():
-      node_info.append({
-        'ip': node,
-        'role': 'db_slave',
-        'type': data['type'],
-        'index': index
-      })
-      index += 1
+    # Ensure that we bring down affected nodes before any action while doing a
+    # restore.
+    tasks = []
+    if data['type'] == 'backup':
+      tasks = [data['type']]
+    elif data['type'] == 'restore':
+      tasks = ['shutdown', 'restore']
 
-    index = 0
-    for node in appscale_info.get_zk_node_ips():
-      node_info.append({
-        'ip': node,
-        'role': 'zk',
-        'type': data['type'],
-        'index': index
-      })
-      index += 1
+    logging.info("Tasks to execute: {0}".format(tasks))
 
-    # TODO: create a thread and a backup_recovery_service request for each node.
+    for task in tasks:
+      result_queue = Queue.Queue()
+      threads = []
+      for node in node_info:
+        # Create a br_service compatible JSON object.
+        json_data = helper.create_br_json_data(node['role'], task,
+          data['bucket_name'], node['index'])
+        request = helper.create_request(url=node['host'], method='POST',
+          body=json_data)
 
-    # Start one thread for each
-    self.set_status(constants.HTTP_Codes.HTTP_OK)
+        # Start a thread for the request.
+        thread = threading.Thread(target=send_remote_request,
+          name='{0}{1}'.format(data['type'], node['host']),
+          args=(request, result_queue,))
+        threads.append(thread)
+        thread.start()
+
+      # Wait for threads to finish.
+      for thread in threads:
+        thread.join()
+
+      results = [result_queue.get() for _ in xrange(len(node_info))]
+      logging.info("Results: {0}".format(results))
+
+      # Update TASK_STATUS. TODO
+
+    self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+
+def send_remote_request(request, result_queue):
+  """ Sends out a task request to the appropriate host and stores the
+  response in the designated queue.
+
+  Args:
+    request: A tornado.httpclient.HTTPRequest to be sent.
+    result_queue: A threadsafe Queue for putting the result in.
+  """
+  logging.info('Sending request: {0}'.format(request.body))
+  result_queue.put(helper.urlfetch(request))
 
 def finalize_task():
   """ A function that marks a task as done and puts it into the queue of

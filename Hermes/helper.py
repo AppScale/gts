@@ -1,10 +1,16 @@
 """ Helper functions for Hermes operations. """
 
+import json
 import logging
+import os
+import sys
 import tornado.httpclient
 
-import constants
+import hermes_constants
 from custom_exceptions import MissingRequestArgs
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import appscale_info
 
 def create_request(url=None, method=None, body=None):
   """ Creates a tornado.httpclient.HTTPRequest with the given parameters.
@@ -29,21 +35,23 @@ def urlfetch(request):
   Args:
     request: A tornado.httpclient.HTTPRequest object.
   Returns:
-    The response object on success, None on failure.
+    The response body on success, a failure message otherwise.
   """
 
   http_client = tornado.httpclient.HTTPClient()
   try:
     response = http_client.fetch(request)
-    return response
+    result = json.loads(response.body)
   except tornado.httpclient.HTTPError as http_error:
     logging.info("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
+    result = {'success': False, 'reason': hermes_constants.HTTPError}
   except Exception as exception:
     logging.info("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
+    result = {'success': False, 'reason': str(exception)}
   http_client.close()
-  return None
+  return result
 
 def urlfetch_async(request, callback=None):
   """ Uses a Tornado Async HTTP client to perform HTTP requests.
@@ -52,21 +60,23 @@ def urlfetch_async(request, callback=None):
     request: A tornado.httpclient.HTTPRequest object.
     callback: The callback function.
   Returns:
-    The response object on success, None on failure.
+    The response body on success, a failure message otherwise.
   """
 
   http_client = tornado.httpclient.AsyncHTTPClient()
   try:
     response = http_client.fetch(request, callback)
-    return response
+    result = json.loads(response.body)
   except tornado.httpclient.HTTPError as http_error:
     logging.info("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
+    result = {'success': False, 'reason': hermes_constants.HTTPError}
   except Exception as exception:
     logging.info("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
+    result = {'success': False, 'reason': exception.message}
   http_client.close()
-  return None
+  return result
 
 def get_br_service_url(node):
   """ Constructs the br_service url.
@@ -76,8 +86,8 @@ def get_br_service_url(node):
   Returns:
     A str, the complete URL of a br_service instance.
   """
-  return "https://{0}:{1}".format(node, constants.BR_SERVICE_PORT,
-    constants.BR_SERVICE_PATH)
+  return "https://{0}:{1}".format(node, hermes_constants.BR_SERVICE_PORT,
+    hermes_constants.BR_SERVICE_PATH)
 
 def get_deployment_id():
   """ Retrieves the deployment ID for this AppScale deployment.
@@ -88,3 +98,64 @@ def get_deployment_id():
   """
   # TODO
   return 'secret'
+
+def get_node_info():
+  """ Creates a list of JSON objects that contain node information and are
+  needed to perform a backup/restore task on the current AppScale deployment.
+  """
+  node_info = [{
+    'host': get_br_service_url(appscale_info.get_db_master_ip()),
+    'role': 'db_master',
+    'index': None
+  }]
+
+  index = 0
+  for node in appscale_info.get_db_slave_ips():
+    node_info.append({
+      'host': get_br_service_url(node),
+      'role': 'db_slave',
+      'index': index
+    })
+    index += 1
+
+  index = 0
+  for node in appscale_info.get_zk_node_ips():
+    node_info.append({
+      'host': get_br_service_url(node),
+      'role': 'zk',
+      'index': index
+    })
+    index += 1
+
+  return node_info
+
+def create_br_json_data(role, type, bucket_name, index):
+  """ Creates a JSON object with the given parameters in the format that is
+  supported by the backup_recovery_service.
+
+  Args:
+    role: A str, the role of the node that the data is for.
+    type: A str, the type of the task to be executed.
+    bucket_name: A str, the name of the bucket to use.
+    index: An int, the numeric value assigned to a db slave or zookeeper node
+      to distinguish it from the rest of its peers.
+  Returns:
+    A JSON object on success, None otherwise.
+  """
+
+  data = {}
+  if role == 'db_master':
+    data['type'] = 'cassandra_{0}'.format(type)
+    data['object_name'] = "gs://{0}{1}".format(bucket_name,
+      hermes_constants.DB_MASTER_OBJECT_NAME)
+  elif role == 'db_slave':
+    data['type'] = 'cassandra_{0}'.format(type)
+    data['object_name'] = "gs://{0}{1}".format(bucket_name,
+      hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
+  elif role == 'zk':
+    data['type'] = 'zookeeper_{0}'.format(type)
+    data['object_name'] = "gs://{0}{1}".format(bucket_name,
+      hermes_constants.ZK_OBJECT_NAME.format(index))
+  else:
+    return None
+  return json.dumps(data)
