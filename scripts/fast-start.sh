@@ -87,6 +87,12 @@ fi
 # Get the public and private IP of this instance.
 PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
 PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
+if [ "$PUBLIC_IP" = "unavailable" ]; then
+    PUBLIC_IP=""
+fi
+if [ "$PRIVATE_IP" = "unavailable" ]; then
+    PRIVATE_IP=""
+fi
 
 # Let's try to detect the environment we are using.
 if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
@@ -104,10 +110,15 @@ case "$PROVIDER" in
 "AWS" )
     # We have already discovered them.
     ;;
+"GCE" )
+    # We assume a single interface here.
+    PRIVATE_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)"
+    PUBLIC_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)"
+    ;;
 * )
     # Let's discover the device used for external communication.
-    DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/')"
-    [ -z "$DEFAULT_DEV" ] || { echo "error: cannot detect the default route"; exit 1; }
+    DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
+    [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
     # Let's find the IP address to use.
     PUBLIC_IP="$($IP addr show dev $DEFAULT_DEV scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     # There is no Private/Public IPs in this configuratio.
