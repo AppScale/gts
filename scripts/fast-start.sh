@@ -114,6 +114,10 @@ case "$PROVIDER" in
     # We assume a single interface here.
     PRIVATE_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)"
     PUBLIC_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)"
+    # Let's use a sane hostname.
+    wget -O /tmp/hostname --header "Metadata-Flavor: Google" -q http://169.254.169.254/computeMetadata/v1/instance/hostname
+    cut -f 1 -d '.' /tmp/hostname > /etc/hostname
+    hostname -b -F /etc/hostname
     ;;
 * )
     # Let's discover the device used for external communication.
