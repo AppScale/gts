@@ -12,6 +12,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
 import monit_interface
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
+import start_cassandra
+import shut_down_cassandra 
+
 # Full path for the nodetool binary.
 NODE_TOOL = '{0}/AppDB/cassandra/cassandra/bin/nodetool'.\
   format(constants.APPSCALE_HOME)
@@ -78,12 +82,6 @@ def backup_data(path):
   logging.info("Done with backup!")
   return BACKUP_FILE_LOCATION
 
-def shut_down_cassandra():
-  """ Shuts down cassandra. """
-  logging.warning("Stopping Cassandra")
-  monit_interface.stop(CASSANDRA_MONIT_WATCH_NAME, is_group=False)
-  logging.warning("Done!")
- 
 def remove_old_data():
   """ Removes previous node data from the cassandra deployment. """
   for directory in CASSANDRA_DATA_SUBDIRS:
@@ -92,12 +90,6 @@ def remove_old_data():
     logging.warning("Removing data from {0}".format(data_dir))
     call(["rm", "-rf", data_dir])
   logging.warning("Done removing data!")
-
-def start_cassandra():
-  """ Starts up cassandra. """
-  logging.warning("Starting Cassandra")
-  monit_interface.start(CASSANDRA_MONIT_WATCH_NAME, is_group=False)
-  logging.warning("Done!")
 
 def restore_previous_backup():
   """ Restores a previous backup into the Cassandra directory structure
@@ -116,4 +108,4 @@ def restore_data():
   """ Restores the Cassandra snapshot. """
   remove_old_data()
   restore_previous_backup()
-  start_cassandra()
+  start_cassandra.run()

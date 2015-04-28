@@ -35,6 +35,9 @@ STANDARD_COL_FAM = "Standard1"
 # Default time to try to connect to a node in cassandra.
 CONNECTION_TIMEOUT = 0.5
 
+# Cassandra watch name.
+CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
+
 # Uncomment this to enable logging for pycassa.
 #log = pycassa.PycassaLogger()
 #log.set_logger_name('pycassa_library')
