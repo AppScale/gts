@@ -97,7 +97,6 @@ class TaskHandler(RequestHandler):
       tasks = [data['type']]
     elif data['type'] == 'restore':
       tasks = ['shutdown', 'restore']
-
     logging.info("Tasks to execute: {0}".format(tasks))
 
     for task in tasks:
@@ -111,7 +110,7 @@ class TaskHandler(RequestHandler):
           body=json_data)
 
         # Start a thread for the request.
-        thread = threading.Thread(target=send_remote_request,
+        thread = threading.Thread(target=helper.send_remote_request,
           name='{0}{1}'.format(data['type'], node['host']),
           args=(request, result_queue,))
         threads.append(thread)
@@ -127,21 +126,3 @@ class TaskHandler(RequestHandler):
       # Update TASK_STATUS. TODO
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
-
-def send_remote_request(request, result_queue):
-  """ Sends out a task request to the appropriate host and stores the
-  response in the designated queue.
-
-  Args:
-    request: A tornado.httpclient.HTTPRequest to be sent.
-    result_queue: A threadsafe Queue for putting the result in.
-  """
-  logging.info('Sending request: {0}'.format(request.body))
-  result_queue.put(helper.urlfetch(request))
-
-def finalize_task():
-  """ A function that marks a task as done and puts it into the queue of
-  completed tasks.
-  """
-  # TODO
-  logging.info("Task is completed successfully.")

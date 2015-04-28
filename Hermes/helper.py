@@ -43,11 +43,11 @@ def urlfetch(request):
     response = http_client.fetch(request)
     result = json.loads(response.body)
   except tornado.httpclient.HTTPError as http_error:
-    logging.info("Error while trying to fetch '{0}': {1}".format(request.url,
+    logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
     result = {'success': False, 'reason': hermes_constants.HTTPError}
   except Exception as exception:
-    logging.info("Exception while trying to fetch '{0}': {1}".format(
+    logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
     result = {'success': False, 'reason': str(exception)}
   http_client.close()
@@ -68,11 +68,11 @@ def urlfetch_async(request, callback=None):
     response = http_client.fetch(request, callback)
     result = json.loads(response.body)
   except tornado.httpclient.HTTPError as http_error:
-    logging.info("Error while trying to fetch '{0}': {1}".format(request.url,
+    logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
     result = {'success': False, 'reason': hermes_constants.HTTPError}
   except Exception as exception:
-    logging.info("Exception while trying to fetch '{0}': {1}".format(
+    logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
     result = {'success': False, 'reason': exception.message}
   http_client.close()
@@ -86,7 +86,7 @@ def get_br_service_url(node):
   Returns:
     A str, the complete URL of a br_service instance.
   """
-  return "https://{0}:{1}".format(node, hermes_constants.BR_SERVICE_PORT,
+  return "https://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
     hermes_constants.BR_SERVICE_PATH)
 
 def get_deployment_id():
@@ -103,6 +103,10 @@ def get_node_info():
   """ Creates a list of JSON objects that contain node information and are
   needed to perform a backup/restore task on the current AppScale deployment.
   """
+
+  # TODO
+  # Add logic for choosing nodes that will perform a task more intelligently.
+
   node_info = [{
     'host': get_br_service_url(appscale_info.get_db_master_ip()),
     'role': 'db_master',
@@ -159,3 +163,14 @@ def create_br_json_data(role, type, bucket_name, index):
   else:
     return None
   return json.dumps(data)
+
+def send_remote_request(request, result_queue):
+  """ Sends out a task request to the appropriate host and stores the
+  response in the designated queue.
+
+  Args:
+    request: A tornado.httpclient.HTTPRequest to be sent.
+    result_queue: A threadsafe Queue for putting the result in.
+  """
+  logging.info('Sending remote request: {0}'.format(request.body))
+  result_queue.put(urlfetch(request))

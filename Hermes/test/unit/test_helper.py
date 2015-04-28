@@ -8,6 +8,7 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import helper
+import hermes_constants
 from custom_exceptions import MissingRequestArgs
 
 class FakeAsyncClient():
@@ -48,12 +49,28 @@ class TestHelper(unittest.TestCase):
     self.assertIsNotNone(helper.urlfetch, fake_request)
 
   def test_urlfetch_async(self):
-    pass
+    fake_request = FakeRequest()
+    fake_response = FakeResponse(fake_request, 200)
+    fake_client = flexmock(tornado.httpclient.AsyncHTTPClient())
+
+    fake_client.should_receive('fetch').and_return(fake_response)
+    self.assertIsNotNone(helper.urlfetch, fake_request)
 
   def test_get_br_service_url(self):
+    fake_url = 'https://host:{0}{1}'.format(hermes_constants.BR_SERVICE_PORT,
+      hermes_constants.BR_SERVICE_PATH)
+    self.assertEquals(fake_url, helper.get_br_service_url('host'))
+
+  def test_get_deployment_id(self):
     pass
 
-  def get_secret_key(self):
+  def test_get_node_info(self):
+    pass
+
+  def test_create_br_json_data(self):
+    pass
+
+  def test_send_remote_request(self):
     pass
 
 if __name__ == "__main__":
