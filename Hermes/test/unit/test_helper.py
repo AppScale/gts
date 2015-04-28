@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 
 import os
+import Queue
 import sys
-import unittest
 import tornado.httpclient
+import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import helper
 import hermes_constants
 from custom_exceptions import MissingRequestArgs
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
+import appscale_info
 
 class FakeAsyncClient():
   def fetch(self):
@@ -21,12 +25,33 @@ class FakeClient():
 
 class FakeRequest():
   def __init__(self):
-    self.url = 'http://some.url'
+    self.url = fake_url
+    self.body = fake_data
 
 class FakeResponse():
   def __init__(self, request, code):
     self.request = request
     self.code = code
+
+fake_url = 'http://some.url'
+fake_data = 'some data'
+fake_node_info = [
+  {
+    'host': fake_url,
+    'role': 'db_master',
+    'index': None
+  },
+  {
+    'host': fake_url,
+    'role': 'db_slave',
+    'index': 0
+  },
+  {
+    'host': fake_url,
+    'role': 'zk',
+    'index': 0
+  }
+]
 
 class TestHelper(unittest.TestCase):
   """ A set of test cases for Hermes helper functions. """
@@ -65,13 +90,25 @@ class TestHelper(unittest.TestCase):
     pass
 
   def test_get_node_info(self):
-    pass
+    flexmock(appscale_info).should_receive('get_db_master_ip').and_return(
+      'foo')
+    flexmock(appscale_info).should_receive('get_db_slave_ips').and_return(
+      ['bar'])
+    flexmock(appscale_info).should_receive('get_zk_node_ips').and_return(
+      ['baz'])
+    flexmock(helper).should_receive('get_br_service_url').and_return(
+      'http://some.url').at_least().times(2)
+    self.assertEquals(fake_node_info, helper.get_node_info())
 
   def test_create_br_json_data(self):
     pass
 
   def test_send_remote_request(self):
-    pass
+    flexmock(Queue.Queue).should_receive('put').and_return().at_least().times(1)
+    flexmock(helper).should_receive('urlfetch').and_return('qux').at_least().\
+      times(1)
+
+    helper.send_remote_request(FakeRequest(), Queue.Queue())
 
 if __name__ == "__main__":
   unittest.main()
