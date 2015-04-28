@@ -9,14 +9,14 @@ from subprocess import call
 import backup_exceptions
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
 import start_cassandra
-
-# Full path for the nodetool binary.
-NODE_TOOL = '{0}/AppDB/cassandra/cassandra/bin/nodetool'.\
-  format(constants.APPSCALE_HOME)
+import repair_cassandra
+from cassandra_interface import NODE_TOOL
 
 # Location where we place the tar of the nameshot.
 BACKUP_DIR_LOCATION = "/opt/appscale/backups"
@@ -36,6 +36,12 @@ def create_snapshot():
   """ Perform local Cassandra backup by taking a new snapshot. """ 
   call([NODE_TOOL, 'snapshot'])
 
+def refresh_data():
+  """ Performs a refresh of the data in Cassandra. """
+  for column_family in dbconstants.INITIAL_TABLES:
+    call([NODE_TOOL, 'refresh', cassandra_interface.KEYSPACE, 
+      column_family])
+
 def get_snapshot_file_names():
   """ Yields all file names which should be tar'ed up.
 
@@ -45,7 +51,7 @@ def get_snapshot_file_names():
   file_list = []
   data_dir = "{0}{1}".format(constants.APPSCALE_DATA_DIR, "cassandra")
   for full_path, _, _ in os.walk(data_dir):
-    if 'snapshots' in full_path:
+    if 'snapshots' in full_path or 'backups' in full_path:
       file_list.append(full_path)
   return file_list
 
@@ -62,18 +68,22 @@ def tar_snapshot(file_paths):
     tar.add(name)
   tar.close()
 
-def backup_data(path):
+def backup_data(path='', force_local=False):
   """ Backup Cassandra snapshot data directories/files. 
   
   Args:
     path: A str, the URL to use for cloud backup.
+    force_local: Do not fetch the backup from the cloud.
   """
   logging.info("Starting new backup.")
   clear_old_snapshots()
   create_snapshot()
   files = get_snapshot_file_names()
   tar_snapshot(files)
-  #cloudstore_snap(path)
+  if not force_local:
+    pass
+    # TODO
+    #cloudstore_snap(path):
   logging.info("Done with backup!")
   return BACKUP_FILE_LOCATION
 
@@ -86,9 +96,34 @@ def remove_old_data():
     call(["rm", "-rf", data_dir])
   logging.warning("Done removing data!")
 
+def restore_snapshot():
+  """ Restore snapshot into correct directories. """
+  logging.info("Restoring snapshot")
+  for directory in CASSANDRA_DATA_SUBDIRS:
+    data_dir = "{0}{1}/{2}/".format(constants.APPSCALE_DATA_DIR, "cassandra",
+      directory)
+    logging.error("Dealing with data dir {0}".format(data_dir))
+    for path, _, filenames in os.walk(data_dir):
+      for filename in filenames:
+        logging.error("Dealing with filename {0}".format(filename))
+        if not filename:
+          logging.error("skipping...")
+          continue
+        full_path = "{0}/{1}".format(
+          path, filename)
+        new_full_path = "{0}/../../{1}".format(path, filename)
+        logging.error("Moving {0} -> {1}".format(full_path, new_full_path))
+        # Move the files up into the data directory.
+        call(['mv', full_path, new_full_path])
+  logging.info("Done restoring snapshot!")
+
 def restore_previous_backup():
   """ Restores a previous backup into the Cassandra directory structure
-  from a tar ball. """
+  from a tar ball. 
+
+  Raises:
+    BRException: On untar issues.
+  """
   logging.info("Restoring backup tarball...")
   try:
     tar = tarfile.open(BACKUP_FILE_LOCATION, "r:gz")
@@ -98,10 +133,32 @@ def restore_previous_backup():
     logging.exception(tar_error)
     raise backup_exceptions.BRException("Exception on restore")
   logging.info("Done restoring backup tarball!")
+
+def  remove_local_backup_file():
+  """ Removed the local backup file. """
+  call(['rm', '-rf', BACKUP_FILE_LOCATION])
  
-def restore_data():
-  """ Restores the Cassandra snapshot. """
-  remove_old_data()
-  # TODO fetch the tar ball from cloud storage.
-  restore_previous_backup()
-  start_cassandra.run()
+def restore_data(path='', force_local=False):
+  """ Restores the Cassandra snapshot. 
+
+  Args:
+    path: The URL to fetch the backup from.
+    force_local: Do not fetch the backup from the cloud.
+  """
+  try:
+    remove_old_data()
+    # TODO fetch the tar ball from cloud storage.
+    if not force_local:
+      pass
+      # cloudstorage.fetch()
+    restore_previous_backup()
+    restore_snapshot()
+    start_cassandra.run()
+    repair_cassandra.run()
+    refresh_data()
+  finally:
+    remove_local_backup_file()
+
+if "__main__" == __name__:
+  backup_data(path='', force_local=True)
+  restore_data(path='', force_local=True)

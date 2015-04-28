@@ -17,6 +17,11 @@ from pycassa.system_manager import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import file_io
+import constants
+
+# Full path for the nodetool binary.
+NODE_TOOL = '{0}/AppDB/cassandra/cassandra/bin/nodetool'.\
+  format(constants.APPSCALE_HOME)
 
 # This is the default cassandra connection port
 CASS_DEFAULT_PORT = 9160
