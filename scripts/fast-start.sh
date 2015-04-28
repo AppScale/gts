@@ -108,7 +108,9 @@ fi
 # Let's make sure we got the IPs to use in the configuration.
 case "$PROVIDER" in 
 "AWS" )
-    # We have already discovered them.
+    # Set variables for AWS.
+    ADMIN_PASSWD="$(ec2metadata --instance-id)"
+    ADMIN_EMAIL="a@a.com"
     ;;
 "GCE" )
     # We assume a single interface here.
@@ -118,6 +120,8 @@ case "$PROVIDER" in
     wget -O /tmp/hostname --header "Metadata-Flavor: Google" -q http://169.254.169.254/computeMetadata/v1/instance/hostname
     cut -f 1 -d '.' /tmp/hostname > /etc/hostname
     hostname -b -F /etc/hostname
+    ADMIN_PASSWD="$(cat /etc/hostname)"
+    ADMIN_EMAIL="a@a.com"
     ;;
 * )
     # Let's discover the device used for external communication.
@@ -169,3 +173,6 @@ ${APPSCALE_CMD} up
 
 # Deploy sample app.
 ${APPSCALE_CMD} deploy /root/guestbook.tar.gz
+
+# Relocate to port 80.
+${APPSCALE_CMD} relocate guestbook 80 443
