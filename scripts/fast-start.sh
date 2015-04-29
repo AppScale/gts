@@ -136,7 +136,7 @@ case "$PROVIDER" in
 esac
 
 # Let's make sure we don't overwrite and existing AppScalefile.
-if [ ! -e AppScaleFile ]; then
+if [ ! -e AppScalefile ]; then
     # Let's make sure we detected the IPs.
     [ -z "$PUBLIC_IP" ] && { echo "Cannot get public IP of instance!" ; exit 1 ; }
     [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
