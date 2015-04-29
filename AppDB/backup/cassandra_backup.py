@@ -8,7 +8,8 @@ from subprocess import call
 
 import backup_exceptions
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
+import dbconstants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
@@ -17,6 +18,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
 import start_cassandra
 import repair_cassandra
 from cassandra_interface import NODE_TOOL
+from cassandra_interface import KEYSPACE
 
 # Location where we place the tar of the nameshot.
 BACKUP_DIR_LOCATION = "/opt/appscale/backups"
@@ -39,7 +41,7 @@ def create_snapshot():
 def refresh_data():
   """ Performs a refresh of the data in Cassandra. """
   for column_family in dbconstants.INITIAL_TABLES:
-    call([NODE_TOOL, 'refresh', cassandra_interface.KEYSPACE, 
+    call([NODE_TOOL, 'refresh', KEYSPACE, 
       column_family])
 
 def get_snapshot_file_names():
