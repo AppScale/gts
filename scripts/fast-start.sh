@@ -18,6 +18,9 @@ CURL="$(which curl)"
 IP="$(which ip)"
 APPSCALE_CMD="/usr/local/appscale-tools/bin/appscale"
 APPSCALE_UPLOAD="/root/appscale-tools/bin/appscale-upload-app"
+GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
+GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
+GUESTBOOK_APP="/root/guestbook.tar.gz"
 
 # Print help screen.
 usage() {
@@ -115,10 +118,10 @@ case "$PROVIDER" in
     ;;
 "GCE" )
     # We assume a single interface here.
-    PUBLIC_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)"
-    PRIVATE_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)"
+    PUBLIC_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
+    PRIVATE_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q ${GOOGLE_METADATA}/network-interfaces/0/ip)"
     # Let's use a sane hostname.
-    wget -O /tmp/hostname --header "Metadata-Flavor: Google" -q http://169.254.169.254/computeMetadata/v1/instance/hostname
+    wget -O /tmp/hostname --header "Metadata-Flavor: Google" -q ${GOOGLE_METADATA}/hostname
     cut -f 1 -d '.' /tmp/hostname > /etc/hostname
     hostname -b -F /etc/hostname
     ADMIN_PASSWD="$(cat /etc/hostname)"
@@ -165,7 +168,7 @@ if [ ! -e AppScalefile ]; then
 
     # Download sample app.
     echo -n "Downloading sample app..."
-    wget -q -O guestbook.tar.gz http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz
+    wget -q -O ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
 fi
 
@@ -173,11 +176,11 @@ fi
 ${APPSCALE_CMD} up
 
 # Get the keyname.
-KEYNAME=$(grep keyname /root/AppScalefile |cut -f 2 -d ":")
-[ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1; }
+KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
+[ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
-${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file /root/guestbook.tar.gz
+${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443
