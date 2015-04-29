@@ -173,11 +173,11 @@ fi
 ${APPSCALE_CMD} up
 
 # Get the keyname.
-KEYNAME=$(grep keyname /root/AppScalefile |cut -f 2 -d "'")
+KEYNAME=$(grep keyname /root/AppScalefile |cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1; }
 
 # Deploy sample app.
-${APPSCALE_UPLOAD} --key ${KEYNAME} --email ${ADMIN_EMAIL} /root/guestbook.tar.gz
+${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file /root/guestbook.tar.gz
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443
