@@ -119,7 +119,7 @@ module TaskQueue
       "service rabbitmq-server restart",
       "/usr/sbin/rabbitmqctl stop_app",
       # Read master hostname given the master IP.
-      "/usr/sbin/rabbitmqctl cluster rabbit@`cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`",
+      "/usr/sbin/rabbitmqctl cluster rabbit@`dig +short -x #{master_ip} | tr -d \".\"`",
       "/usr/sbin/rabbitmqctl start_app"
     ]
     full_cmd = "#{start_cmds.join('; ')}"
