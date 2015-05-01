@@ -1164,6 +1164,17 @@ class Djinn
     return 'OK'
   end
 
+  # Checks ZooKeeper to see if the deployment ID exists.
+  # Returns:
+  #   A boolean indicating whether the deployment ID has been set or not.
+  def deployment_id_exists(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    return ZKInterface.exists?('/deployment_id')
+  end
+
 
   # Removes an application and stops all AppServers hosting this application.
   #
