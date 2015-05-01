@@ -9,7 +9,7 @@ AppScale is developed and maintained by AppScale Systems, Inc., based in Santa B
 
 
 ## Why Use AppScale?
-The goal of AppScale is to provide developers with a rapid, API-driven development platform that can run applications on any cloud infrastructure. AppScale decouples app logic from its service ecosystem to give developers and cloud administrators unprecedented control over app deployment, data storage, resource use, backup, and migration.
+The goal of AppScale is to provide developers with a rapid, API-driven development platform that can run applications on any cloud infrastructure. AppScale decouples application logic from its service ecosystem to give developers and cloud administrators control over application deployment, data storage, resource use, backup, and migration.
 
 
 ## I Want ...
