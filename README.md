@@ -1,45 +1,41 @@
-![AppScale Logo](http://upload.wikimedia.org/wikipedia/commons/7/74/AppScale_Systems_Logo.png)
+# AppScale
 
-AppScale is a platform that allows users to deploy and host their 
-own Google App Engine applications. It executes automatically over 
-Amazon EC2, Google Compute Engine, Digital Ocean, Rackspace, Eucalyptus, 
-CloudStack, OpenStack, as well as Xen, VirtualBox, VMWare, and KVM. It has been
-developed and is maintained by AppScale Systems, Inc., in Santa Barbara, CA.
+[![GitHub version](https://badge.fury.io/gh/AppScale%2Fappscale.svg)](http://badge.fury.io/gh/AppScale%2Fappscale)
+[![AppScale license](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://github.com/AppScale/appscale/blob/master/LICENSE)
 
-It supports the Python, Java, PHP, and Go Google App Engine platforms.
+AppScale is an open-source cloud computing platform that automatically deploys and scales unmodified Google App Engine applications over public and private cloud systems and on-premise clusters. AppScale is modeled on the App Engine APIs and has support for Python, Go, PHP and Java applications.
 
-To find out more visit http://appscale.com
+AppScale is developed and maintained by AppScale Systems, Inc., based in Santa Barbara, California, one of the most beautiful places in the world.
 
-## Official Documentation
-https://github.com/AppScale/appscale/wiki
 
-## Latest Release ##
-The latest stable release is AppScale 2.3.1, released in April, 2015.
-Feature requests and pull requests gladly welcomed.
+## Why Use AppScale?
+The goal of AppScale is to provide developers with a rapid, API-driven development platform that can run applications on any cloud infrastructure. AppScale decouples app logic from its service ecosystem to give developers and cloud administrators unprecedented control over app deployment, data storage, resource use, backup, and migration.
 
-## Mailing List ##
-Join the mailing list for announcements, help, and to discuss 
-cloud research: http://groups.google.com/group/appscale_community
 
-## IRC ##
-Also, join us on #appscale on freenode if you have questions, suggestions, 
-comments, or just want to say hi!
-http://webchat.freenode.net/?channels=appscale&uio=d4
+## I Want ...
+* to [contribute](https://github.com/AppScale/appscale/wiki/Contribute%21)
+* to [try AppScale](https://github.com/AppScale/appscale/wiki/Running-AppScale)
+* to see [how other people use AppScale](http://www.appscale.com/why-appscale/)
+* [customer support](http://www.appscale.com/products/appscale-customer-success/)
+* to [learn more](https://github.com/AppScale/appscale/wiki)
 
-## Why Use AppScale? ##
-Our goal with AppScale is to provide an open-source cloud platform that you 
-can use to deploy your Google App Engine applications on clusters and clouds of your choice.    
 
-## Screen Shots ##
-![AppScale Dashboard Screenshot](http://www.appscale.com/wp-content/uploads/2014/06/appscale-screenshot.png)
+## Documentation
+* [Getting Started](https://github.com/AppScale/appscale/wiki/Running-AppScale)
+  * Find detailed instructions for the environment of your choice
+* Users
+  * [Managing Apps, Machines and Logs](https://github.com/AppScale/appscale/wiki/Managing-Apps%2C-Machines%2C-and-Logs)
+  * [Automated Data Persistence](https://github.com/AppScale/appscale/wiki/Automated-Data-Persistence)
+  * [Multinode Deployments](https://github.com/AppScale/appscale/wiki/Distributed-Deployment)
+  * [Making AppScale Scale](https://github.com/AppScale/appscale/wiki#making-appscale-scale)
+* Developers
+  * [Datastore Topics](https://github.com/AppScale/appscale/wiki#datastore-topics)
+  * [Advanced Topics](https://github.com/AppScale/appscale/wiki#advanced-topics)
+* Architecture
+  * AppScale's [core components](https://github.com/AppScale/appscale/wiki#learn-about-appscale-core-components)
+* [FAQs](https://github.com/AppScale/appscale/wiki/FAQs) and [Troubleshooting](https://github.com/AppScale/appscale/wiki/Troubleshooting)
 
-## Sponsors ##
-Google
+## Community and Support
+Join the [Community Google Group](http://groups.google.com/group/appscale_community) for announcements, help, and to discuss cloud research.
 
-IBM Research
-
-National Science Foundation
-
-National Institutes of Health
-
-[![Analytics](https://ga-beacon.appspot.com/UA-39403730-2/AppScale/appscale)](https://github.com/appscale/appscale)
+Also, join us on [#appscale on freenode](http://webchat.freenode.net/?channels=appscale&uio=d4) if you have questions, suggestions, comments, or just want to say hi!
