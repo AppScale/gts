@@ -1175,6 +1175,17 @@ class Djinn
     return ZKInterface.exists?('/deployment_id')
   end
 
+  # Sets deployment ID in ZooKeeper.
+  # Args:
+  #   id: A string that contains the deployment ID.
+  def set_deployment_id(secret, id)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    ZKInterface.set('/deployment_id', id, false)
+    return
+  end
 
   # Removes an application and stops all AppServers hosting this application.
   #
