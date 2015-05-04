@@ -35,13 +35,13 @@ def urlfetch(request):
   Args:
     request: A tornado.httpclient.HTTPRequest object.
   Returns:
-    The response body on success, a failure message otherwise.
+    True on success, a failure message otherwise.
   """
 
   http_client = tornado.httpclient.HTTPClient()
   try:
     response = http_client.fetch(request)
-    result = json.loads(response.body)
+    result = {'success' : True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
@@ -60,13 +60,13 @@ def urlfetch_async(request, callback=None):
     request: A tornado.httpclient.HTTPRequest object.
     callback: The callback function.
   Returns:
-    The response body on success, a failure message otherwise.
+    True on success, a failure message otherwise.
   """
 
   http_client = tornado.httpclient.AsyncHTTPClient()
   try:
     response = http_client.fetch(request, callback)
-    result = json.loads(response.body)
+    result = {'success' : True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
