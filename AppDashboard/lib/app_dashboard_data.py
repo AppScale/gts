@@ -21,10 +21,12 @@ class DashboardDataRoot(ndb.Model):
       implement support for the Datastore API (e.g., hypertable, cassandra).
     replication: An int that corresponds to the number of replicas present for
       each piece of data in the underlying datastore.
+    timestamp: A timestamp of when this entity was created.
   """
   head_node_ip = ndb.StringProperty()
   table = ndb.StringProperty()
   replication = ndb.IntegerProperty()
+  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
 class ServerStatus(ndb.Model):
@@ -40,11 +42,13 @@ class ServerStatus(ndb.Model):
     disk: The percent of hard disk space in use on this machine.
     roles: A list of strs, where each str corresponds to a service that this
       machine runs.
+    timestamp: A timestamp of when this entity was created.
   """
   cpu = ndb.StringProperty()
   memory = ndb.StringProperty()
   disk = ndb.StringProperty()
   roles = ndb.StringProperty(repeated=True)
+  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
 class RequestInfo(ndb.Model):
@@ -53,14 +57,14 @@ class RequestInfo(ndb.Model):
 
   Fields:
     app_id: A string, the application identifier.
-    timestamp: The date and time when the AppController took the measurement
-      of how many requests access haproxy for an App Engine app.
     num_of_requests: The average number of requests per second that reached
       haproxy for a Google App Engine application.
+    timestamp: The date and time when the AppController took the measurement
+      of how many requests access haproxy for an App Engine app.
   """
   app_id = ndb.StringProperty(required=True)
-  timestamp = ndb.DateTimeProperty()
   num_of_requests = ndb.FloatProperty()
+  timestamp = ndb.DateTimeProperty()
 
 
 class AppStatus(ndb.Model):
@@ -71,9 +75,11 @@ class AppStatus(ndb.Model):
     name: The application ID associated with this Google App Engine app.
     url: A URL that points to an nginx server, which serves a full proxy to
       this Google App Engine app.
+    timestamp: A timestamp of when this entity was created.
   """
   name = ndb.StringProperty()
   url = ndb.StringProperty()
+  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
 class UserInfo(ndb.Model):
@@ -92,10 +98,12 @@ class UserInfo(ndb.Model):
       interface.
     owned_apps: A list of strs, where each str represents an application ID
       that the user has administrative rights on.
+    timestamp: A timestamp of when this entity was created.
   """
   is_user_cloud_admin = ndb.BooleanProperty()
   can_upload_apps = ndb.BooleanProperty()
   owned_apps = ndb.StringProperty(repeated=True)
+  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
 class InstanceInfo(ndb.Model):
@@ -114,12 +122,13 @@ class InstanceInfo(ndb.Model):
       browser.
     language: A str that indicates if this instance is running a Python, Java,
       Go, or PHP App Engine application.
+    timestamp: A timestamp of when this entity was created.
   """
   appid = ndb.StringProperty()
   host = ndb.StringProperty()
   port = ndb.IntegerProperty()
   language = ndb.StringProperty()
-
+  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 class AppDashboardData():
   """ AppDashboardData leverages ndb (which itself utilizes Memcache and the

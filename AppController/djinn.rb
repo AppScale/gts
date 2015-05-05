@@ -3600,23 +3600,32 @@ class Djinn
     Djinn.log_info("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
 
-    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
-    Kernel.sleep(3)
-
+    # Get the username to use for ssh (depends on environments).
+    need_to_ssh = false
+    user_name = "ubuntu"
     if ["ec2", "euca"].include?(@options["infrastructure"])
-      options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
-      enable_root_login = "sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/"
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
+      need_to_ssh = true
     elsif @options["infrastructure"] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
       # sure.
+      user_name = "#{@options['gce_user']}"
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
+      need_to_ssh = true
+    end
 
+    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+    Kernel.sleep(3)
+
+    # Commands used in the cloud environment to set the root access.
+    if need_to_ssh
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
-      enable_root_login = "sudo cp /home/#{@options['gce_user']}/.ssh/authorized_keys /root/.ssh/"
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{@options['gce_user']}@#{ip} '#{enable_root_login}'")
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+        "'sudo cp -p /root/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+        "'sudo sed -n \"/Please login/d; w/root/.ssh/authorized_keys\" " +
+        "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
     end
 
     secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
@@ -4043,6 +4052,7 @@ HOSTS
     }
     start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
+    match = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
@@ -4053,7 +4063,7 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
       HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
