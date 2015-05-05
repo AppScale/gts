@@ -41,7 +41,7 @@ class PollHandler(RequestHandler):
     request = helper.create_request(url=url, method='POST', body=data)
     response = helper.urlfetch(request)
     if not response['success']:
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_DENIED)
+      self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
       return
     data = json.loads(response.body)
 
