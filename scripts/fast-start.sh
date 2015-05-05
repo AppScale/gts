@@ -17,6 +17,10 @@ PROVIDER=""
 CURL="$(which curl)"
 IP="$(which ip)"
 APPSCALE_CMD="/usr/local/appscale-tools/bin/appscale"
+APPSCALE_UPLOAD="/root/appscale-tools/bin/appscale-upload-app"
+GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
+GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
+GUESTBOOK_APP="/root/guestbook.tar.gz"
 
 # Print help screen.
 usage() {
@@ -87,6 +91,12 @@ fi
 # Get the public and private IP of this instance.
 PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
 PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
+if [ "$PUBLIC_IP" = "unavailable" ]; then
+    PUBLIC_IP=""
+fi
+if [ "$PRIVATE_IP" = "unavailable" ]; then
+    PRIVATE_IP=""
+fi
 
 # Let's try to detect the environment we are using.
 if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
@@ -102,12 +112,25 @@ fi
 # Let's make sure we got the IPs to use in the configuration.
 case "$PROVIDER" in 
 "AWS" )
-    # We have already discovered them.
+    # Set variables for AWS.
+    ADMIN_PASSWD="$(ec2metadata --instance-id)"
+    ADMIN_EMAIL="a@a.com"
+    ;;
+"GCE" )
+    # We assume a single interface here.
+    PUBLIC_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
+    PRIVATE_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q ${GOOGLE_METADATA}/network-interfaces/0/ip)"
+    # Let's use a sane hostname.
+    wget -O /tmp/hostname --header "Metadata-Flavor: Google" -q ${GOOGLE_METADATA}/hostname
+    cut -f 1 -d '.' /tmp/hostname > /etc/hostname
+    hostname -b -F /etc/hostname
+    ADMIN_PASSWD="$(cat /etc/hostname)"
+    ADMIN_EMAIL="a@a.com"
     ;;
 * )
     # Let's discover the device used for external communication.
-    DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/')"
-    [ -z "$DEFAULT_DEV" ] || { echo "error: cannot detect the default route"; exit 1; }
+    DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
+    [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
     # Let's find the IP address to use.
     PUBLIC_IP="$($IP addr show dev $DEFAULT_DEV scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     # There is no Private/Public IPs in this configuratio.
@@ -116,10 +139,10 @@ case "$PROVIDER" in
 esac
 
 # Let's make sure we don't overwrite and existing AppScalefile.
-if [ ! -e AppScaleFile ]; then
+if [ ! -e AppScalefile ]; then
     # Let's make sure we detected the IPs.
-    [ -n "$PUBLIC_IP" ] || { echo "Cannot get public IP of instance!" ; exit 1 ; }
-    [ -n "$PRIVATE_IP" ] || { echo "Cannot get private IP of instance!" ; exit 1 ; }
+    [ -z "$PUBLIC_IP" ] && { echo "Cannot get public IP of instance!" ; exit 1 ; }
+    [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
     # Tell the user what we detected.
     echo "Detectd enviroment: ${PROVIDER}"
@@ -145,12 +168,19 @@ if [ ! -e AppScaleFile ]; then
 
     # Download sample app.
     echo -n "Downloading sample app..."
-    wget -q -O guestbook.tar.gz http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz
+    wget -q -O ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
 fi
 
 # Start AppScale.
 ${APPSCALE_CMD} up
 
+# Get the keyname.
+KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
+[ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
+
 # Deploy sample app.
-${APPSCALE_CMD} deploy /root/guestbook.tar.gz
+${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
+
+# Relocate to port 80.
+${APPSCALE_CMD} relocate guestbook 80 443
