@@ -86,7 +86,7 @@ def get_br_service_url(node):
   Returns:
     A str, the complete URL of a br_service instance.
   """
-  return "https://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
+  return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
     hermes_constants.BR_SERVICE_PATH)
 
 def get_deployment_id():

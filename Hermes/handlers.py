@@ -143,7 +143,7 @@ class TaskHandler(RequestHandler):
         thread.join()
       # Harvest results.
       results = [result_queue.get() for _ in xrange(len(nodes))]
-      logging.info("Task: {0}. Results: {1}".format(task, results))
+      logging.warn("Task: {0}. Results: {1}.".format(task, results))
 
       # Update TASK_STATUS.
       successful_nodes = 0
@@ -156,7 +156,13 @@ class TaskHandler(RequestHandler):
         TASK_STATUS[data['task_id']]['status'] = TaskStatus.FAILED
       else:
         TASK_STATUS[data['task_id']]['status'] = TaskStatus.SUCCESSFUL
+      logging.info("Task: {0}. Status: {1}.".
+        format(task, TASK_STATUS[data['task_id']]['status']))
+      TASK_STATUS_LOCK.release()
 
+
+      # TODO: have this done by a callback so that this handler is decoupled
+      # TODO: from the AppScale Portal.
       # Report status.
       if task in REPORT_TASKS:
         url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
@@ -166,8 +172,9 @@ class TaskHandler(RequestHandler):
           'deployment_id': helper.get_deployment_id(),
           'status': TASK_STATUS[data['task_id']]['status']
         })
-        TASK_STATUS_LOCK.release()
         request = helper.create_request(url=url, method='POST', body=data)
         helper.urlfetch(request)
+
+      # TODO: delete the task after the op/status report is done.
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
