@@ -24,7 +24,7 @@ class BackupService():
   BUCKET_NAME_TAG = "bucket_name"
 
   # GCS path to store.
-  GCS_PATH_NAME_TAG = "path_location"
+  GCS_OBJECT_NAME_TAG = "object_name"
 
   def __init__(self):
     """ Constructor function for the backup service. """
@@ -51,19 +51,16 @@ class BackupService():
     """
     try:
       request = json.loads(request_data)
-    except ValueError, exception:
-      logging.exception(exception)
-      return self.bad_request("Caught exception: {0}".format(exception))
-    else:
-      logging.error("Invalid json request: {0}".format(request_data))
-      return self.bad_request("Bad json formatting")
+    except (TypeError, ValueError) as error:
+      logging.exception(error)
+      return self.bad_request("Exception: {0}".format(error))
 
     request_type = request[self.REQUEST_TYPE_TAG]
-    if request_type == "backup":
+    if request_type.endswith("backup"):
       return self.do_backup(request)
-    elif request_type == "restore":
+    elif request_type.endswith("restore"):
       return self.do_restore(request)
-    elif request_type == "shutdown":
+    elif request_type.endswith("shutdown"):
       return self.shutdown_datastore(request)
 
   def shutdown_datastore(self, request):
@@ -72,7 +69,7 @@ class BackupService():
     Args:
       request: A dict, the request sent by the client.
     Returns:
-      A json string to return to the client.
+      A JSON string to return to the client.
     """
     success = True
     reason = "success"
@@ -94,11 +91,11 @@ class BackupService():
     Args:
       request: A dict, the request sent by the client.
     Returns:
-      A json string to return to the client.
+      A JSON string to return to the client.
     """
     success = True
     reason = "success"
-    path = request[self.GCS_PATH_NAME_TAG]
+    path = request[self.GCS_OBJECT_NAME_TAG]
     try:
       logging.info("Acquiring lock for a backup")
       self.__backup_lock.acquire()
@@ -120,20 +117,19 @@ class BackupService():
     Args:
       request: A dict, the request sent by the client.
     Returns:
-      A json string to return to the client.
+      A JSON string to return to the client.
     """
     success = True
     reason = "success"
-    path = request[self.GCS_PATH_NAME_TAG]
+    path = request[self.GCS_OBJECT_NAME_TAG]
     try:
       logging.info("Acquiring lock for a restore.")
       self.__backup_lock.acquire()
       logging.info("Got the lock for a restore")
-      cassandra_backup.restore_data() 
+      cassandra_backup.restore_data(path)
       logging.info("Successful restore")
     except backup_exceptions.BRException, exception:
-      logging.error("Unable to complete restore {0}".format(
-        exception)) 
+      logging.error("Unable to complete restore {0}".format(exception))
       success = False
       reason = str(exception)
     finally:

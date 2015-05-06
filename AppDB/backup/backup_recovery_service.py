@@ -7,7 +7,6 @@ import tornado.httpserver
 import tornado.httputil
 import tornado.ioloop
 import tornado.web
-import time
 
 # Default port for the backup/recovery web server.
 DEFAULT_PORT = 8423
@@ -15,7 +14,7 @@ DEFAULT_PORT = 8423
 class MainHandler(tornado.web.RequestHandler):
   """ Main handler class. """
   
-  def initialize(self, br_service):
+  def initialize(self, backup_recovery_service):
     """ Class for initializing backup/recovery web handler. """
     self.backup_recovery_service = backup_recovery_service
 
@@ -32,7 +31,6 @@ class MainHandler(tornado.web.RequestHandler):
     request.connection.write(response)
     request.connection.finish()
 
-
 def get_application():
   """ Retrieves the application to feed into tornado. """
   return tornado.web.Application([
@@ -40,8 +38,9 @@ def get_application():
     ], )
 
 if __name__ == "__main__":
-  logging.getLogger().setLevel(logging.INFO) 
+  logging.getLogger().setLevel(logging.DEBUG)
   logging.info("Starting server on port {0}".format(DEFAULT_PORT))
+
   http_server = tornado.httpserver.HTTPServer(get_application())
   http_server.bind(DEFAULT_PORT)
   http_server.start(0)
