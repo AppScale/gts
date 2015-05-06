@@ -105,9 +105,10 @@ def get_node_info():
   """
 
   # TODO
-  # Add logic for choosing nodes that will perform a task more intelligently.
+  # Add logic for choosing minimal set of nodes that need to perform a task.
+  # e.g. Only the node that owns the entire keyspace.
 
-  node_info = [{
+  nodes = [{
     'host': get_br_service_url(appscale_info.get_db_master_ip()),
     'role': 'db_master',
     'index': None
@@ -115,23 +116,27 @@ def get_node_info():
 
   index = 0
   for node in appscale_info.get_db_slave_ips():
-    node_info.append({
-      'host': get_br_service_url(node),
-      'role': 'db_slave',
-      'index': index
-    })
-    index += 1
+    host = get_br_service_url(node)
+    # Make sure we don't send the same request on DB roles that reside on the
+    # same node.
+    if host not in nodes[0].values():
+      nodes.append({
+        'host': host,
+        'role': 'db_slave',
+        'index': index
+      })
+      index += 1
 
   index = 0
   for node in appscale_info.get_zk_node_ips():
-    node_info.append({
+    nodes.append({
       'host': get_br_service_url(node),
       'role': 'zk',
       'index': index
     })
     index += 1
 
-  return node_info
+  return nodes
 
 def create_br_json_data(role, type, bucket_name, index):
   """ Creates a JSON object with the given parameters in the format that is

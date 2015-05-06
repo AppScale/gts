@@ -88,7 +88,7 @@ class TaskHandler(RequestHandler):
 
     # Gather information for sending the requests to start off the current
     # task at hand.
-    node_info = helper.get_node_info()
+    nodes = helper.get_node_info()
 
     # Ensure that we bring down affected nodes before any action while doing a
     # restore.
@@ -102,7 +102,7 @@ class TaskHandler(RequestHandler):
     for task in tasks:
       result_queue = Queue.Queue()
       threads = []
-      for node in node_info:
+      for node in nodes:
         # Create a br_service compatible JSON object.
         json_data = helper.create_br_json_data(node['role'], task,
           data['bucket_name'], node['index'])
@@ -120,7 +120,7 @@ class TaskHandler(RequestHandler):
       for thread in threads:
         thread.join()
 
-      results = [result_queue.get() for _ in xrange(len(node_info))]
+      results = [result_queue.get() for _ in xrange(len(nodes))]
       logging.info("Results: {0}".format(results))
 
       # Update TASK_STATUS. TODO
