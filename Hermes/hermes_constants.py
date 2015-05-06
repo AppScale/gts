@@ -35,6 +35,9 @@ PORTAL_URL = "https://portal.appscale.com"
 # The AppScale Portal path for getting new tasks.
 PORTAL_POLL_PATH = "/get_appscale_task"
 
+# The AppScale Portal path for reporting task status.
+PORTAL_STATUS_PATH = "/report_appscale_task"
+
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
   HTTP_OK = 200

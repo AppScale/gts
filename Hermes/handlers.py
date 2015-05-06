@@ -9,8 +9,23 @@ from tornado.web import RequestHandler
 import hermes_constants
 import helper
 
-# A set of required parameters that define a task.
-REQUIRED_KEYS = ['type', 'bucket_name']
+# Structure for keeping status of tasks.
+TASK_STATUS = {}
+
+# Lock for accessing TASK_STATUS.
+TASK_STATUS_LOCK = threading.Lock()
+
+# A list of required parameters that define a task.
+REQUIRED_KEYS = ['task_id', 'type', 'bucket_name']
+
+# A list of tasks that we report status for.
+REPORT_TASKS = ['backup', 'restore']
+
+class TaskStatus(object):
+  """ A class containing all possible task states. """
+  PENDING = 'pending'
+  FAILED = 'failed'
+  SUCCESSFUL = 'successful'
 
 class MainHandler(RequestHandler):
   """ Main handler class. """
@@ -100,6 +115,13 @@ class TaskHandler(RequestHandler):
     logging.info("Tasks to execute: {0}".format(tasks))
 
     for task in tasks:
+      # Initiate the task as pending.
+      TASK_STATUS_LOCK.acquire(True)
+      TASK_STATUS[data['task_id']] = {
+        'type': task, 'num_nodes': len(nodes), 'status': TaskStatus.PENDING
+      }
+      TASK_STATUS_LOCK.release()
+
       result_queue = Queue.Queue()
       threads = []
       for node in nodes:
@@ -119,10 +141,33 @@ class TaskHandler(RequestHandler):
       # Wait for threads to finish.
       for thread in threads:
         thread.join()
-
+      # Harvest results.
       results = [result_queue.get() for _ in xrange(len(nodes))]
-      logging.info("Results: {0}".format(results))
+      logging.info("Task: {0}. Results: {1}".format(task, results))
 
-      # Update TASK_STATUS. TODO
+      # Update TASK_STATUS.
+      successful_nodes = 0
+      for result in results:
+        if result['success']:
+          successful_nodes += 1
+
+      TASK_STATUS_LOCK.acquire(True)
+      if successful_nodes < TASK_STATUS[data['task_id']]['num_nodes']:
+        TASK_STATUS[data['task_id']]['status'] = TaskStatus.FAILED
+      else:
+        TASK_STATUS[data['task_id']]['status'] = TaskStatus.SUCCESSFUL
+
+      # Report status.
+      if task in REPORT_TASKS:
+        url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
+          hermes_constants.PORTAL_STATUS_PATH)
+        data = json.dumps({
+          'task_id': data['task_id'],
+          'deployment_id': helper.get_deployment_id(),
+          'status': TASK_STATUS[data['task_id']]['status']
+        })
+        TASK_STATUS_LOCK.release()
+        request = helper.create_request(url=url, method='POST', body=data)
+        helper.urlfetch(request)
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)

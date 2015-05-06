@@ -6,11 +6,12 @@ import signal
 import socket
 import tornado.escape
 import tornado.httpclient
+import tornado.web
+
 from tornado.ioloop import IOLoop
 from tornado.options import define
 from tornado.options import options
 from tornado.options import parse_command_line
-import tornado.web
 
 import hermes_constants
 from handlers import MainHandler
@@ -21,9 +22,6 @@ import helper
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
 define("debug", default=True, type=bool)
-
-# Structure for keeping status of tasks.
-TASK_STATUS = {}
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
