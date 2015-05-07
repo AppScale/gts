@@ -12,6 +12,26 @@ from custom_exceptions import MissingRequestArgs
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
+class JSONTags(object):
+  """ A class containing all JSON tags used for Hermes functionality. """
+  BUCKET_NAME = 'bucket_name'
+  DEPLOYMENT_ID = 'deployment_id'
+  OBJECT_NAME = 'object_name'
+  STATUS = 'status'
+  SUCCESS = 'success'
+  TASK_ID = 'task_id'
+  TYPE = 'type'
+  REASON = 'reason'
+
+class NodeInfoTags(object):
+  """ A class containing all the dict keys for node information on this
+  AppScale deployment.
+  """
+  HOST = 'host'
+  INDEX = 'index'
+  NUM_NODES = 'num_nodes'
+  ROLE = 'role'
+
 def create_request(url=None, method=None, body=None):
   """ Creates a tornado.httpclient.HTTPRequest with the given parameters.
 
@@ -37,19 +57,18 @@ def urlfetch(request):
   Returns:
     True on success, a failure message otherwise.
   """
-
   http_client = tornado.httpclient.HTTPClient()
   try:
-    response = http_client.fetch(request)
-    result = {'success' : True}
+    http_client.fetch(request)
+    result = {JSONTags.SUCCESS : True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
-    result = {'success': False, 'reason': hermes_constants.HTTPError}
+    result = {JSONTags.SUCCESS: False, JSONTags.REASON: hermes_constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
-    result = {'success': False, 'reason': str(exception)}
+    result = {JSONTags.SUCCESS: False, JSONTags.REASON: str(exception)}
   http_client.close()
   return result
 
@@ -62,19 +81,18 @@ def urlfetch_async(request, callback=None):
   Returns:
     True on success, a failure message otherwise.
   """
-
   http_client = tornado.httpclient.AsyncHTTPClient()
   try:
-    response = http_client.fetch(request, callback)
-    result = {'success' : True}
+    http_client.fetch(request, callback)
+    result = {JSONTags.SUCCESS: True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
-    result = {'success': False, 'reason': hermes_constants.HTTPError}
+    result = {JSONTags.SUCCESS: False, JSONTags.REASON: hermes_constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
-    result = {'success': False, 'reason': exception.message}
+    result = {JSONTags.SUCCESS: False, JSONTags.REASON: exception.message}
   http_client.close()
   return result
 
@@ -109,9 +127,9 @@ def get_node_info():
   # e.g. Only the node that owns the entire keyspace.
 
   nodes = [{
-    'host': get_br_service_url(appscale_info.get_db_master_ip()),
-    'role': 'db_master',
-    'index': None
+    NodeInfoTags.HOST: get_br_service_url(appscale_info.get_db_master_ip()),
+    NodeInfoTags.ROLE: 'db_master',
+    NodeInfoTags.INDEX: None
   }]
 
   index = 0
@@ -121,18 +139,18 @@ def get_node_info():
     # same node.
     if host not in nodes[0].values():
       nodes.append({
-        'host': host,
-        'role': 'db_slave',
-        'index': index
+        NodeInfoTags.HOST: host,
+        NodeInfoTags.ROLE: 'db_slave',
+        NodeInfoTags.INDEX: index
       })
       index += 1
 
   index = 0
   for node in appscale_info.get_zk_node_ips():
     nodes.append({
-      'host': get_br_service_url(node),
-      'role': 'zk',
-      'index': index
+      NodeInfoTags.HOST: get_br_service_url(node),
+      NodeInfoTags.ROLE: 'zk',
+      NodeInfoTags.INDEX: index
     })
     index += 1
 
@@ -154,16 +172,16 @@ def create_br_json_data(role, type, bucket_name, index):
 
   data = {}
   if role == 'db_master':
-    data['type'] = 'cassandra_{0}'.format(type)
-    data['object_name'] = "gs://{0}{1}".format(bucket_name,
+    data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
       hermes_constants.DB_MASTER_OBJECT_NAME)
   elif role == 'db_slave':
-    data['type'] = 'cassandra_{0}'.format(type)
-    data['object_name'] = "gs://{0}{1}".format(bucket_name,
+    data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
       hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
   elif role == 'zk':
-    data['type'] = 'zookeeper_{0}'.format(type)
-    data['object_name'] = "gs://{0}{1}".format(bucket_name,
+    data[JSONTags.TYPE] = 'zookeeper_{0}'.format(type)
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
       hermes_constants.ZK_OBJECT_NAME.format(index))
   else:
     return None

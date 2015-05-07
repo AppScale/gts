@@ -51,11 +51,11 @@ class PollHandler(RequestHandler):
     url = "{0}{1}".format(hermes_constants.PORTAL_URL,
         hermes_constants.PORTAL_POLL_PATH)
     data = json.dumps({
-      "secret": helper.get_deployment_id()
+      helper.JSONTags.DEPLOYMENT_ID: helper.get_deployment_id()
     })
     request = helper.create_request(url=url, method='POST', body=data)
     response = helper.urlfetch(request)
-    if not response['success']:
+    if not response[helper.JSONTags.DEPLOYMENT_ID]:
       self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
       return
     data = json.loads(response.body)
@@ -108,17 +108,18 @@ class TaskHandler(RequestHandler):
     # Ensure that we bring down affected nodes before any action while doing a
     # restore.
     tasks = []
-    if data['type'] == 'backup':
-      tasks = [data['type']]
-    elif data['type'] == 'restore':
+    if data[helper.JSONTags.TYPE] == 'backup':
+      tasks = [data[helper.JSONTags.TYPE]]
+    elif data[helper.JSONTags.TYPE] == 'restore':
       tasks = ['shutdown', 'restore']
     logging.info("Tasks to execute: {0}".format(tasks))
 
     for task in tasks:
       # Initiate the task as pending.
       TASK_STATUS_LOCK.acquire(True)
-      TASK_STATUS[data['task_id']] = {
-        'type': task, 'num_nodes': len(nodes), 'status': TaskStatus.PENDING
+      TASK_STATUS[data[helper.JSONTags.TASK_ID]] = {
+        helper.JSONTags.TYPE: task, helper.NodeInfoTags.NUM_NODES: len(nodes),
+        helper.JSONTags.STATUS: TaskStatus.PENDING
       }
       TASK_STATUS_LOCK.release()
 
@@ -126,15 +127,17 @@ class TaskHandler(RequestHandler):
       threads = []
       for node in nodes:
         # Create a br_service compatible JSON object.
-        json_data = helper.create_br_json_data(node['role'], task,
-          data['bucket_name'], node['index'])
-        request = helper.create_request(url=node['host'], method='POST',
-          body=json_data)
+        json_data = helper.create_br_json_data(
+          node[helper.NodeInfoTags.ROLE],
+          task, data[helper.JSONTags.BUCKET_NAME],
+          node[helper.NodeInfoTags.INDEX])
+        request = helper.create_request(url=node[helper.NodeInfoTags.HOST],
+          method='POST', body=json_data)
 
         # Start a thread for the request.
         thread = threading.Thread(target=helper.send_remote_request,
-          name='{0}{1}'.format(data['type'], node['host']),
-          args=(request, result_queue,))
+          name='{0}{1}'.format(data[helper.JSONTags.TYPE],
+          node[helper.NodeInfoTags.HOST]), args=(request, result_queue,))
         threads.append(thread)
         thread.start()
 
@@ -148,18 +151,21 @@ class TaskHandler(RequestHandler):
       # Update TASK_STATUS.
       successful_nodes = 0
       for result in results:
-        if result['success']:
+        if result[helper.JSONTags.SUCCESS]:
           successful_nodes += 1
 
       TASK_STATUS_LOCK.acquire(True)
-      if successful_nodes < TASK_STATUS[data['task_id']]['num_nodes']:
-        TASK_STATUS[data['task_id']]['status'] = TaskStatus.FAILED
+      all_nodes = TASK_STATUS[data[helper.JSONTags.TASK_ID]]\
+          [helper.NodeInfoTags.NUM_NODES]
+      if successful_nodes < all_nodes:
+        TASK_STATUS[data[helper.JSONTags.TASK_ID]][helper.JSONTags.STATUS] = \
+          TaskStatus.FAILED
       else:
-        TASK_STATUS[data['task_id']]['status'] = TaskStatus.SUCCESSFUL
-      logging.info("Task: {0}. Status: {1}.".
-        format(task, TASK_STATUS[data['task_id']]['status']))
+        TASK_STATUS[data[helper.JSONTags.TASK_ID]][helper.JSONTags.STATUS] = \
+          TaskStatus.SUCCESSFUL
+      logging.info("Task: {0}. Status: {1}.".format(task,
+        TASK_STATUS[data[helper.JSONTags.TASK_ID]][helper.JSONTags.STATUS]))
       TASK_STATUS_LOCK.release()
-
 
       # TODO: have this done by a callback so that this handler is decoupled
       # TODO: from the AppScale Portal.
@@ -168,9 +174,10 @@ class TaskHandler(RequestHandler):
         url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
           hermes_constants.PORTAL_STATUS_PATH)
         data = json.dumps({
-          'task_id': data['task_id'],
-          'deployment_id': helper.get_deployment_id(),
-          'status': TASK_STATUS[data['task_id']]['status']
+          helper.JSONTags.TASK_ID: data[helper.JSONTags.TASK_ID],
+          helper.JSONTags.DEPLOYMENT_ID: helper.get_deployment_id(),
+          helper.JSONTags.STATUS: TASK_STATUS[data[helper.JSONTags.TASK_ID]]
+            [helper.JSONTags.STATUS]
         })
         request = helper.create_request(url=url, method='POST', body=data)
         helper.urlfetch(request)
