@@ -3,6 +3,7 @@
 import os
 import Queue
 import sys
+import threading
 import tornado.httpclient
 import unittest
 from flexmock import flexmock
@@ -21,6 +22,14 @@ class FakeAsyncClient():
 
 class FakeClient():
   def fetch(self):
+    pass
+
+class FakeLock():
+  def __init__(self, wrapped_class):
+    pass
+  def acquire(self):
+    pass
+  def release(self):
     pass
 
 class FakeRequest():
@@ -96,6 +105,16 @@ class TestHelper(unittest.TestCase):
     self.assertEquals(fake_node_info, helper.get_node_info())
 
   def test_create_br_json_data(self):
+    pass
+
+  def test_delete_task_from_mem(self):
+    flexmock(FakeLock(threading.Lock())).should_receive('acquire').\
+      and_return()
+    flexmock(FakeLock(threading.Lock())).should_receive('release').\
+      and_return()
+    helper.delete_task_from_mem('foo')
+
+  def test_report_status(self):
     pass
 
   def test_send_remote_request(self):

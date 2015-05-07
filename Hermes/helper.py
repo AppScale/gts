@@ -14,6 +14,10 @@ from custom_exceptions import MissingRequestArgs
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
+# The number of retries we should do to report the status of a completed task
+# to the AppScale Portal.
+REPORT_RETRIES = 5
+
 # Structure for keeping status of tasks.
 TASK_STATUS = {}
 
@@ -69,17 +73,20 @@ def urlfetch(request):
     True on success, a failure message otherwise.
   """
   http_client = tornado.httpclient.HTTPClient()
+
   try:
     http_client.fetch(request)
     result = {JSONTags.SUCCESS : True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
-    result = {JSONTags.SUCCESS: False, JSONTags.REASON: hermes_constants.HTTPError}
+    result = {JSONTags.SUCCESS: False,
+      JSONTags.REASON: hermes_constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
     result = {JSONTags.SUCCESS: False, JSONTags.REASON: str(exception)}
+
   http_client.close()
   return result
 
@@ -93,17 +100,20 @@ def urlfetch_async(request, callback=None):
     True on success, a failure message otherwise.
   """
   http_client = tornado.httpclient.AsyncHTTPClient()
+
   try:
     http_client.fetch(request, callback)
     result = {JSONTags.SUCCESS: True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
-    result = {JSONTags.SUCCESS: False, JSONTags.REASON: hermes_constants.HTTPError}
+    result = {JSONTags.SUCCESS: False,
+      JSONTags.REASON: hermes_constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
     result = {JSONTags.SUCCESS: False, JSONTags.REASON: exception.message}
+
   http_client.close()
   return result
 
@@ -126,7 +136,7 @@ def get_deployment_id():
     AppScale Portal.
   """
   # TODO
-  return 'secret'
+  return 'deployment_id'
 
 def get_node_info():
   """ Creates a list of JSON objects that contain node information and are
@@ -206,7 +216,8 @@ def delete_task_from_mem(task_id):
   """
   logging.info("Deleting task '{0}' from memory.".format(task_id))
   TASK_STATUS_LOCK.acquire(True)
-  del TASK_STATUS[task_id]
+  if task_id in TASK_STATUS.keys():
+    del TASK_STATUS[task_id]
   TASK_STATUS_LOCK.release()
 
 def report_status(task, task_id, status):
@@ -228,14 +239,18 @@ def report_status(task, task_id, status):
       JSONTags.STATUS: status
     })
     request = create_request(url=url, method='POST', body=data)
-    result = urlfetch(request)
 
-    # Delete task upon success.
-    if result[JSONTags.SUCCESS]:
-      delete_task_from_mem(task_id)
-    else: # Add callback to retry otherwise.
-      IOLoop.instance().add_callback(
-        callback=lambda: report_status(task, task_id, status))
+    for _ in range(REPORT_RETRIES):
+      result = urlfetch(request)
+
+      # Delete task upon success. Retry otherwise.
+      if result[JSONTags.SUCCESS]:
+        delete_task_from_mem(task_id)
+        return
+
+    # Finally, just delete the task from memory. AppScale Portal will do
+    # rollback for failed tasks.
+    delete_task_from_mem(task_id)
 
 def send_remote_request(request, result_queue):
   """ Sends out a task request to the appropriate host and stores the

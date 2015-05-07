@@ -163,11 +163,10 @@ class TaskHandler(RequestHandler):
           TaskStatus.SUCCESSFUL
       logging.info("Task: {0}. Status: {1}.".format(task,
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
-      TASK_STATUS_LOCK.release()
-
       IOLoop.instance().add_callback(callback=lambda:
         helper.report_status(task, data[JSONTags.TASK_ID],
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
       ))
+      TASK_STATUS_LOCK.release()
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
