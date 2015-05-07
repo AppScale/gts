@@ -43,11 +43,6 @@ fake_node_info = [
   },
   {
     'host': fake_url,
-    'role': 'db_slave',
-    'index': 0
-  },
-  {
-    'host': fake_url,
     'role': 'zk',
     'index': 0
   }
@@ -82,7 +77,7 @@ class TestHelper(unittest.TestCase):
     self.assertIsNotNone(helper.urlfetch, fake_request)
 
   def test_get_br_service_url(self):
-    fake_url = 'https://host:{0}{1}'.format(hermes_constants.BR_SERVICE_PORT,
+    fake_url = 'http://host:{0}{1}'.format(hermes_constants.BR_SERVICE_PORT,
       hermes_constants.BR_SERVICE_PATH)
     self.assertEquals(fake_url, helper.get_br_service_url('host'))
 
