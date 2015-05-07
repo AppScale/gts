@@ -4,22 +4,18 @@ import json
 import logging
 import Queue
 import threading
+from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
 import hermes_constants
 import helper
-
-# Structure for keeping status of tasks.
-TASK_STATUS = {}
-
-# Lock for accessing TASK_STATUS.
-TASK_STATUS_LOCK = threading.Lock()
+from helper import JSONTags
+from helper import NodeInfoTags
+from helper import TASK_STATUS
+from helper import TASK_STATUS_LOCK
 
 # A list of required parameters that define a task.
 REQUIRED_KEYS = ['task_id', 'type', 'bucket_name']
-
-# A list of tasks that we report status for.
-REPORT_TASKS = ['backup', 'restore']
 
 class TaskStatus(object):
   """ A class containing all possible task states. """
@@ -51,11 +47,11 @@ class PollHandler(RequestHandler):
     url = "{0}{1}".format(hermes_constants.PORTAL_URL,
         hermes_constants.PORTAL_POLL_PATH)
     data = json.dumps({
-      helper.JSONTags.DEPLOYMENT_ID: helper.get_deployment_id()
+      JSONTags.DEPLOYMENT_ID: helper.get_deployment_id()
     })
     request = helper.create_request(url=url, method='POST', body=data)
     response = helper.urlfetch(request)
-    if not response[helper.JSONTags.DEPLOYMENT_ID]:
+    if not response[JSONTags.DEPLOYMENT_ID]:
       self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
       return
     data = json.loads(response.body)
@@ -108,18 +104,18 @@ class TaskHandler(RequestHandler):
     # Ensure that we bring down affected nodes before any action while doing a
     # restore.
     tasks = []
-    if data[helper.JSONTags.TYPE] == 'backup':
-      tasks = [data[helper.JSONTags.TYPE]]
-    elif data[helper.JSONTags.TYPE] == 'restore':
+    if data[JSONTags.TYPE] == 'backup':
+      tasks = [data[JSONTags.TYPE]]
+    elif data[JSONTags.TYPE] == 'restore':
       tasks = ['shutdown', 'restore']
     logging.info("Tasks to execute: {0}".format(tasks))
 
     for task in tasks:
       # Initiate the task as pending.
       TASK_STATUS_LOCK.acquire(True)
-      TASK_STATUS[data[helper.JSONTags.TASK_ID]] = {
-        helper.JSONTags.TYPE: task, helper.NodeInfoTags.NUM_NODES: len(nodes),
-        helper.JSONTags.STATUS: TaskStatus.PENDING
+      TASK_STATUS[data[JSONTags.TASK_ID]] = {
+        JSONTags.TYPE: task, NodeInfoTags.NUM_NODES: len(nodes),
+        JSONTags.STATUS: TaskStatus.PENDING
       }
       TASK_STATUS_LOCK.release()
 
@@ -128,16 +124,18 @@ class TaskHandler(RequestHandler):
       for node in nodes:
         # Create a br_service compatible JSON object.
         json_data = helper.create_br_json_data(
-          node[helper.NodeInfoTags.ROLE],
-          task, data[helper.JSONTags.BUCKET_NAME],
-          node[helper.NodeInfoTags.INDEX])
-        request = helper.create_request(url=node[helper.NodeInfoTags.HOST],
+          node[NodeInfoTags.ROLE],
+          task, data[JSONTags.BUCKET_NAME],
+          node[NodeInfoTags.INDEX])
+        request = helper.create_request(url=node[NodeInfoTags.HOST],
           method='POST', body=json_data)
 
         # Start a thread for the request.
-        thread = threading.Thread(target=helper.send_remote_request,
-          name='{0}{1}'.format(data[helper.JSONTags.TYPE],
-          node[helper.NodeInfoTags.HOST]), args=(request, result_queue,))
+        thread = threading.Thread(
+          target=helper.send_remote_request,
+          name='{0}{1}'.
+            format(data[JSONTags.TYPE], node[NodeInfoTags.HOST]),
+          args=(request, result_queue,))
         threads.append(thread)
         thread.start()
 
@@ -151,37 +149,25 @@ class TaskHandler(RequestHandler):
       # Update TASK_STATUS.
       successful_nodes = 0
       for result in results:
-        if result[helper.JSONTags.SUCCESS]:
+        if result[JSONTags.SUCCESS]:
           successful_nodes += 1
 
       TASK_STATUS_LOCK.acquire(True)
-      all_nodes = TASK_STATUS[data[helper.JSONTags.TASK_ID]]\
-          [helper.NodeInfoTags.NUM_NODES]
+      all_nodes = TASK_STATUS[data[JSONTags.TASK_ID]]\
+          [NodeInfoTags.NUM_NODES]
       if successful_nodes < all_nodes:
-        TASK_STATUS[data[helper.JSONTags.TASK_ID]][helper.JSONTags.STATUS] = \
+        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
           TaskStatus.FAILED
       else:
-        TASK_STATUS[data[helper.JSONTags.TASK_ID]][helper.JSONTags.STATUS] = \
+        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
           TaskStatus.SUCCESSFUL
       logging.info("Task: {0}. Status: {1}.".format(task,
-        TASK_STATUS[data[helper.JSONTags.TASK_ID]][helper.JSONTags.STATUS]))
+        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
       TASK_STATUS_LOCK.release()
 
-      # TODO: have this done by a callback so that this handler is decoupled
-      # TODO: from the AppScale Portal.
-      # Report status.
-      if task in REPORT_TASKS:
-        url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
-          hermes_constants.PORTAL_STATUS_PATH)
-        data = json.dumps({
-          helper.JSONTags.TASK_ID: data[helper.JSONTags.TASK_ID],
-          helper.JSONTags.DEPLOYMENT_ID: helper.get_deployment_id(),
-          helper.JSONTags.STATUS: TASK_STATUS[data[helper.JSONTags.TASK_ID]]
-            [helper.JSONTags.STATUS]
-        })
-        request = helper.create_request(url=url, method='POST', body=data)
-        helper.urlfetch(request)
-
-      # TODO: delete the task after the op/status report is done.
+      IOLoop.instance().add_callback(callback=lambda:
+        helper.report_status(task, data[JSONTags.TASK_ID],
+        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
+      ))
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)

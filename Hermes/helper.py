@@ -4,13 +4,24 @@ import json
 import logging
 import os
 import sys
+import threading
 import tornado.httpclient
+from tornado.ioloop import IOLoop
 
 import hermes_constants
 from custom_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+
+# Structure for keeping status of tasks.
+TASK_STATUS = {}
+
+# Lock for accessing TASK_STATUS.
+TASK_STATUS_LOCK = threading.Lock()
+
+# A list of tasks that we report status for.
+REPORT_TASKS = ['backup', 'restore']
 
 class JSONTags(object):
   """ A class containing all JSON tags used for Hermes functionality. """
@@ -186,6 +197,45 @@ def create_br_json_data(role, type, bucket_name, index):
   else:
     return None
   return json.dumps(data)
+
+def delete_task_from_mem(task_id):
+  """ Deletes a task and its status from memory.
+
+  Args:
+    task_id: A str, the task ID we're deleting from memory.
+  """
+  logging.info("Deleting task '{0}' from memory.".format(task_id))
+  TASK_STATUS_LOCK.acquire(True)
+  del TASK_STATUS[task_id]
+  TASK_STATUS_LOCK.release()
+
+def report_status(task, task_id, status):
+  """ Sends a status report for the given task to the AppScale Portal.
+  Upon success, it calls a function to delete the task from memory.
+  On error, it adds a callback to retry.
+
+  Args:
+    task_id: A str, the task ID we're sending a status report for.
+    status: A str, the status for the given task.
+  """
+  if task in REPORT_TASKS:
+    logging.info("Sending status report to the AppScale Portal.")
+    url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
+      hermes_constants.PORTAL_STATUS_PATH)
+    data = json.dumps({
+      JSONTags.TASK_ID: task_id,
+      JSONTags.DEPLOYMENT_ID: get_deployment_id(),
+      JSONTags.STATUS: status
+    })
+    request = create_request(url=url, method='POST', body=data)
+    result = urlfetch(request)
+
+    # Delete task upon success.
+    if result[JSONTags.SUCCESS]:
+      delete_task_from_mem(task_id)
+    else: # Add callback to retry otherwise.
+      IOLoop.instance().add_callback(
+        callback=lambda: report_status(task, task_id, status))
 
 def send_remote_request(request, result_queue):
   """ Sends out a task request to the appropriate host and stores the
