@@ -1175,6 +1175,17 @@ class Djinn
     return ZKInterface.exists?('/deployment_id')
   end
 
+  # Retrieves the deployment ID from ZooKeeper.
+  # Returns:
+  #   A string that contains the deployment ID.
+  def get_deployment_id(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    return ZKInterface.get('/deployment_id')
+  end
+
   # Sets deployment ID in ZooKeeper.
   # Args:
   #   id: A string that contains the deployment ID.
