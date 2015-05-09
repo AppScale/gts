@@ -1,9 +1,9 @@
 """ Cassandra data backup. """
+
 import logging
 import os
 import sys
 import tarfile
-
 from subprocess import call
 
 import backup_exceptions
@@ -20,11 +20,11 @@ import repair_cassandra
 from cassandra_interface import NODE_TOOL
 from cassandra_interface import KEYSPACE
 
-# Location where we place the tar of the nameshot.
+# Location where we place the tar of the snapshot.
 BACKUP_DIR_LOCATION = "/opt/appscale/backups"
 
 # File location of where the latest backup goes.
-BACKUP_FILE_LOCATION = "{0}/backup.tar.gz".format(BACKUP_DIR_LOCATION)
+BACKUP_FILE_LOCATION = "{0}/cassandra_backup.tar.gz".format(BACKUP_DIR_LOCATION)
 
 # Cassandra directories to remove to get rid of data.
 CASSANDRA_DATA_SUBDIRS = ["commitlog", "Keyspace1", "saved_caches", "system",
