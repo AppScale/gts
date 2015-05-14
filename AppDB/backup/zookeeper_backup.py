@@ -7,6 +7,7 @@ import tarfile
 from subprocess import call
 
 import backup_exceptions
+from backup_recovery_constants import StorageTypes
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
@@ -47,16 +48,28 @@ def tar_snapshot(file_paths):
     tar.add(name)
   tar.close()
 
-def backup_data(path='', force_local=False):
+def backup_data(storage, path):
   """ Backup Zookeeper directories/files.
   
   Args:
-    path: A str, the URL to use for cloud backup.
-    force_local: Do not fetch the backup from the cloud.
+    storage: A str, one of the StorageTypes class members.
+    path: A str, the name of the backup file to be created.
+  Returns:
+    The path to the backup file on success, None otherwise.
   """
   logging.info("Starting new zk backup.")
-  logging.info("Done with zk backup!")
-  return BACKUP_FILE_LOCATION
+
+  if storage == StorageTypes.LOCAL_FS:
+    logging.info("Done with zk backup!")
+    return BACKUP_FILE_LOCATION
+  elif storage == StorageTypes.GCS:
+    # TODO
+    # Upload to GCS.
+    logging.info("Done with zk backup!")
+    return path
+  else:
+    logging.error("Storage '{0}' not supported.")
+    return None
 
 def remove_old_data():
   """ Removes previous node data from the Zookeeper deployment. """
@@ -108,16 +121,16 @@ def  remove_local_backup_file():
   """ Removed the local backup file. """
   call(['rm', '-rf', BACKUP_FILE_LOCATION])
  
-def restore_data(path='', force_local=False):
-  """ Restores the Cassandra snapshot. 
+def restore_data(storage, path):
+  """ Restores the Zookeeper snapshot.
 
   Args:
-    path: The URL to fetch the backup from.
-    force_local: Do not fetch the backup from the cloud.
+    storage: A str, one of the StorageTypes class members.
+    path: A str, the name of the backup file to be created.
   """
   logging.info("Starting new zk restore.")
   logging.info("Done with backup!")
 
 if "__main__" == __name__:
-  backup_data(path='', force_local=True)
-  restore_data(path='', force_local=True)
+  backup_data(storage='', path='')
+  restore_data(storage='', path='')

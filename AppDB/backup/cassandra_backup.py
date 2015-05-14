@@ -7,6 +7,8 @@ import tarfile
 from subprocess import call
 
 import backup_exceptions
+import gcs_helper
+from backup_recovery_constants import StorageTypes
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 import dbconstants
@@ -70,24 +72,39 @@ def tar_snapshot(file_paths):
     tar.add(name)
   tar.close()
 
-def backup_data(path='', force_local=False):
+def backup_data(storage, path):
   """ Backup Cassandra snapshot data directories/files. 
   
   Args:
-    path: A str, the URL to use for cloud backup.
-    force_local: Do not fetch the backup from the cloud.
+    storage: A str, the storage that is used for storing the backup.
+    path: A str, the full backup filename path to use for cloud backup.
+  Returns:
+    The path to the backup file on success, None otherwise.
   """
-  logging.info("Starting new backup.")
+  logging.info("Starting new db backup.")
+
   clear_old_snapshots()
   create_snapshot()
   files = get_snapshot_file_names()
   tar_snapshot(files)
-  if not force_local:
-    pass
-    # TODO
-    #cloudstore_snap(path):
-  logging.info("Done with backup!")
-  return BACKUP_FILE_LOCATION
+  if storage == StorageTypes.LOCAL_FS:
+    logging.info("Done with backup!")
+    return BACKUP_FILE_LOCATION
+  elif storage == StorageTypes.GCS:
+    return_value = path
+    # Upload to GCS.
+    if not gcs_helper.upload_to_bucket(path, BACKUP_FILE_LOCATION):
+      logging.error("Upload to GCS failed. Aborting backup...")
+      return_value = None
+    else:
+      logging.info("Done with backup!")
+
+    # Remove local backup file.
+    remove_local_backup_file()
+    return return_value
+  else:
+    logging.error("Storage '{0}' not supported.")
+    return None
 
 def remove_old_data():
   """ Removes previous node data from the cassandra deployment. """
@@ -137,30 +154,38 @@ def restore_previous_backup():
   logging.info("Done restoring backup tarball!")
 
 def  remove_local_backup_file():
-  """ Removed the local backup file. """
+  """ Removes the local backup file. """
   call(['rm', '-rf', BACKUP_FILE_LOCATION])
  
-def restore_data(path='', force_local=False):
+def restore_data(storage, path):
   """ Restores the Cassandra snapshot. 
 
   Args:
-    path: The URL to fetch the backup from.
-    force_local: Do not fetch the backup from the cloud.
+    storage: A str, one of the StorageTypes class members.
+    path: A str, the name of the backup file to be created.
   """
-  try:
-    remove_old_data()
-    # TODO fetch the tar ball from cloud storage.
-    if not force_local:
-      pass
-      # cloudstorage.fetch()
-    restore_previous_backup()
-    restore_snapshot()
-    start_cassandra.run()
-    repair_cassandra.run()
-    refresh_data()
-  finally:
-    remove_local_backup_file()
+  if storage == StorageTypes.GCS:
+    # Download backup files and store locally with a fixed name.
+    if not gcs_helper.download_from_bucket(path, BACKUP_FILE_LOCATION):
+      logging.error("Download from GCS failed. Aborting recovery...")
+      return False
+
+  # Start with a clean database.
+  remove_old_data()
+  restore_previous_backup()
+  restore_snapshot()
+
+  # Start Cassandra and repair.
+  start_cassandra.run()
+  repair_cassandra.run()
+  refresh_data()
+
+  # Local cleanup.
+  remove_local_backup_file()
+
+  logging.info("Done with restore.")
+  return True
 
 if "__main__" == __name__:
-  backup_data(path='', force_local=True)
-  restore_data(path='', force_local=True)
+  backup_data(storage='', path='')
+  restore_data(storage='', path='')
