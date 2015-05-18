@@ -72,7 +72,7 @@ def get_cassandra_snapshot_file_names():
     if 'snapshots' in full_path:
       file_list.append(full_path)
 
-  logging.info("List of snapshot paths: {0}".format(file_list))
+  logging.debug("List of snapshot paths: {0}".format(file_list))
   return file_list
 
 def tar_backup_files(file_paths):

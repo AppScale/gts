@@ -5,6 +5,7 @@ import logging
 import re
 import requests
 import subprocess
+import urllib
 
 # The upload request timeout in seconds (12 hours).
 REQUEST_TIMEOUT = 12*60*60
@@ -72,7 +73,7 @@ def download_from_bucket(full_object_name, local_path):
 
   # First send HTTP request to retrieve file metadata.
   url = "https://www.googleapis.com/storage/v1/b/{0}/o/{1}".format(
-    bucket_name, object_name)
+    bucket_name, urllib.quote_plus(object_name))
   try:
     response = requests.request('GET', url, verify=False)
     if response.status_code != 200:
@@ -103,6 +104,8 @@ def download_from_bucket(full_object_name, local_path):
 
   # Invoke 'wget' to retrieve the resource and store to local_path.
   try:
+    logging.debug("Downloading GCS object: wget -O {0} {1}".format(
+      local_path, content['mediaLink']))
     subprocess.check_output(['wget', '-O', local_path, content['mediaLink']])
   except subprocess.CalledProcessError as called_process_error:
     logging.error("Error while downloading file from GCS. Error: {0}".
