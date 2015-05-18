@@ -107,7 +107,7 @@ class TaskHandler(RequestHandler):
     if data[JSONTags.TYPE] == 'backup':
       tasks = [data[JSONTags.TYPE]]
     elif data[JSONTags.TYPE] == 'restore':
-      tasks = ['shutdown', 'restore']
+      tasks = ['restore']
     logging.info("Tasks to execute: {0}".format(tasks))
 
     for task in tasks:
