@@ -1231,4 +1231,58 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
+  def test_deployment_id_exists
+    deployment_id_exists = true
+    bad_secret = 'boo'
+    good_secret = 'blarg'
+    djinn = flexmock(Djinn.new())
+    flexmock(ZKInterface).should_receive(:exists?).
+      and_return(deployment_id_exists)
+
+    # If the secret is invalid, djinn should return BAD_SECRET_MSG.
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.deployment_id_exists(bad_secret))
+
+    # If the secret is valid, djinn should return the deployment ID.
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(deployment_id_exists, djinn.deployment_id_exists(good_secret))
+  end
+
+
+  def test_get_deployment_id
+    good_secret = 'boo'
+    bad_secret = 'blarg'
+    deployment_id = 'baz'
+    djinn = flexmock(Djinn.new())
+    flexmock(ZKInterface).should_receive(:get).
+        and_return(deployment_id)
+
+    # If the secret is invalid, djinn should return BAD_SECRET_MSG.
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.get_deployment_id(bad_secret))
+
+    # If the secret is valid, djinn should return the deployment ID.
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(deployment_id, djinn.get_deployment_id(good_secret))
+  end
+
+
+  def test_set_deployment_id
+    good_secret = 'boo'
+    bad_secret = 'blarg'
+    deployment_id = 'baz'
+    djinn = flexmock(Djinn.new())
+    flexmock(ZKInterface).should_receive(:set).and_return()
+
+    # If the secret is invalid, djinn should return BAD_SECRET_MSG.
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG,
+      djinn.set_deployment_id(bad_secret, deployment_id))
+
+    # If the secret is valid, djinn should return successfully.
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    djinn.set_deployment_id(good_secret, deployment_id)
+  end
+
+
 end
