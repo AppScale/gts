@@ -32,6 +32,7 @@ BACKUP_FILE_LOCATION = "{0}/cassandra_backup.tar.gz".format(BACKUP_DIR_LOCATION)
 
 # Cassandra directories to remove to get rid of data.
 CASSANDRA_DATA_SUBDIRS = ["Keyspace1", "system",
+  # TODO Is the rest needed?
   # "commitlog", "saved_caches",
   # "system_traces"
 ]
@@ -45,9 +46,11 @@ def clear_old_snapshots():
     logging.error('Error while deleting old Cassandra snapshots. Error: {0}'.\
       format(str(error)))
 
-def create_snapshot():
+def create_snapshot(snapshot_name=''):
   """ Perform local Cassandra backup by taking a new snapshot.
 
+  Args:
+    snapshot_name: A str, optional. A fixed name for the snapshot to create.
   Returns:
     True on success, False otherwise.
   """
@@ -265,7 +268,10 @@ def restore_data(storage, path=''):
       logging.error("Download from GCS failed. Aborting recovery...")
       return False
 
-  # create_snapshot()
+  # TODO Make sure there's a snapshot to rollback to if restore fails.
+  # Not pressing for fresh deployments.
+  # create_snapshot('rollback-snapshot')
+
   if not shut_down_cassandra.run():
     logging.error("Unable to shut down Cassandra. Aborting restore...")
     clear_old_snapshots()
