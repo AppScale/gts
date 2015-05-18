@@ -15,5 +15,7 @@ def run():
     cassandra_interface.CASSANDRA_MONIT_WATCH_NAME, is_group=False)
   logging.warning("Done!")
 
+  return True
+
 if __name__ == "__main__":
   run()

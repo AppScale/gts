@@ -30,12 +30,12 @@ class TestCassandraBackup(unittest.TestCase):
     os_mock.should_receive('walk').and_yield(('/snapshots/xxx', ['dirname'], 
       '')).once()
     self.assertEquals(['/snapshots/xxx'], 
-      cassandra_backup.get_snapshot_file_names())
+      cassandra_backup.get_cassandra_snapshot_file_names())
 
    # Test with no files present that match the filters.
     os_mock.should_receive('walk').and_yield(('', ['dirname'], 
       ['/what/what'])).once()
-    self.assertEquals([], cassandra_backup.get_snapshot_file_names())
+    self.assertEquals([], cassandra_backup.get_cassandra_snapshot_file_names())
 
   def test_tar_snapshot(self):
     flexmock(subprocess)
@@ -44,16 +44,18 @@ class TestCassandraBackup(unittest.TestCase):
     flexmock(tarfile)
     fake_tar = FakeTar()
     tarfile.should_receive('open').and_return(fake_tar)
-    cassandra_backup.tar_snapshot(['1', '2'])
+    cassandra_backup.tar_backup_files(['1', '2'])
     self.assertEquals(fake_tar.add_count, 2)
 
   def test_backup_data(self):
     flexmock(cassandra_backup).should_receive('clear_old_snapshots')
-    flexmock(cassandra_backup).should_receive('create_snapshot')
-    flexmock(cassandra_backup).should_receive('get_snapshot_file_names')
-    flexmock(cassandra_backup).should_receive('tar_snapshot')
+    flexmock(cassandra_backup).should_receive('create_snapshot').and_return(
+      True)
+    flexmock(cassandra_backup).should_receive(
+      'get_cassandra_snapshot_file_names').and_return(['some file'])
+    flexmock(cassandra_backup).should_receive('tar_backup_files')
     self.assertEquals(cassandra_backup.BACKUP_FILE_LOCATION,
-      cassandra_backup.backup_data("", "whatever"))
+      cassandra_backup.backup_data("", ""))
 
 if __name__ == "__main__":
   unittest.main()    

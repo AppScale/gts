@@ -84,27 +84,10 @@ class BackupService():
       return self.do_cassandra_backup(storage, path)
     elif request_type == "cassandra_restore":
       return self.do_cassandra_restore(storage, path)
-    elif request_type == "cassandra_shutdown":
-      return self.shutdown_datastore()
     elif request_type == "zookeeper_backup":
       return self.do_zookeeper_backup(storage, path)
     elif request_type == "zookeeper_restore":
       return self.do_zookeeper_restore(storage, path)
-    elif request_type == "zookeeper_shutdown":
-      return self.shutdown_zookeeper()
-
-  def shutdown_datastore(self):
-    """ Top level function for bringing down Cassandra.
-
-    Returns:
-      A JSON string to return to the client.
-    """
-    self.__cassandra_backup_lock.acquire(True)
-    success = shut_down_cassandra.run()
-    self.__cassandra_backup_lock.release()
-    if not success:
-      return self.bad_request('Monit error')
-    return json.dumps({'success': True})
 
   def do_cassandra_backup(self, storage, path):
     """ Top level function for doing Cassandra backups.
