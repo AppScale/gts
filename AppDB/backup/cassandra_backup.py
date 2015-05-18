@@ -265,7 +265,7 @@ def restore_data(storage, path=''):
       logging.error("Download from GCS failed. Aborting recovery...")
       return False
 
-  create_snapshot()
+  # create_snapshot()
   if not shut_down_cassandra.run():
     logging.error("Unable to shut down Cassandra. Aborting restore...")
     clear_old_snapshots()
@@ -293,5 +293,6 @@ def restore_data(storage, path=''):
 
 if "__main__" == __name__:
   logging.getLogger().setLevel(logging.DEBUG)
+
   # backup_data(storage='', path='')
   restore_data(storage='', path='')
