@@ -66,10 +66,6 @@ def main():
   logging.info("Hermes is up and listening on port: {0}.".
     format(options.port))
 
-  # Start polling loop.
-  tornado.ioloop.PeriodicCallback(poll,
-    hermes_constants.POLLING_INTERVAL).start()
-
   # Start loop for accepting http requests.
   IOLoop.instance().start()
 
