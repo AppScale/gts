@@ -53,9 +53,9 @@ class TestCassandraBackup(unittest.TestCase):
       True)
     flexmock(cassandra_backup).should_receive(
       'get_cassandra_snapshot_file_names').and_return(['some file'])
-    flexmock(cassandra_backup).should_receive('tar_backup_files')
-    self.assertEquals(cassandra_backup.BACKUP_FILE_LOCATION,
-      cassandra_backup.backup_data("", ""))
+    flexmock(cassandra_backup).should_receive('tar_backup_files').and_return(
+      'some tar')
+    cassandra_backup.backup_data("", "")
 
 if __name__ == "__main__":
   unittest.main()    
