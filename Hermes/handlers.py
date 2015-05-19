@@ -14,9 +14,6 @@ from helper import NodeInfoTags
 from helper import TASK_STATUS
 from helper import TASK_STATUS_LOCK
 
-# A list of required parameters that define a task.
-REQUIRED_KEYS = ['task_id', 'type', 'bucket_name']
-
 class TaskStatus(object):
   """ A class containing all possible task states. """
   PENDING = 'pending'
@@ -32,44 +29,6 @@ class MainHandler(RequestHandler):
   def get(self):
     """ Main GET method. Reports the status of the server. """
     self.write(json.dumps({'status': 'up'}))
-
-class PollHandler(RequestHandler):
-  """ Handler that polls for new tasks. """
-
-  # The path for this handler.
-  PATH = "/poll"
-
-  def get(self):
-    """ GET method that polls for a new task. """
-
-    # Send request to AppScale Portal.
-    logging.info("Sending request to AppScale Portal.")
-    url = "{0}{1}".format(hermes_constants.PORTAL_URL,
-        hermes_constants.PORTAL_POLL_PATH)
-    data = json.dumps({
-      JSONTags.DEPLOYMENT_ID: helper.get_deployment_id()
-    })
-    request = helper.create_request(url=url, method='POST', body=data)
-    response = helper.urlfetch(request)
-    if not response[JSONTags.DEPLOYMENT_ID]:
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
-      return
-    data = json.loads(response.body)
-
-    # Verify all necessary fields are present in the request.
-    if not set(data.keys()).issuperset(set(REQUIRED_KEYS)) or \
-        None in data.values():
-      logging.error("Missing args in request: " + self.request.body)
-      return
-
-    logging.info("Task to run: {0}".format(data))
-    logging.info("Redirecting task request to TaskHandler.")
-    url = "{0}{1}".format(hermes_constants.HERMES_URL, TaskHandler.PATH)
-    request = helper.create_request(url, method='POST', body=data)
-    # The poller can move forward without waiting for a response here.
-    helper.urlfetch_async(request)
-
-    self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
 
 class TaskHandler(RequestHandler):
   """ Handler that starts operations to complete a task. """
@@ -92,7 +51,7 @@ class TaskHandler(RequestHandler):
 
     # Verify all necessary fields are present in request.body.
     logging.info("Verifying all necessary parameters are present.")
-    if not set(data.keys()).issuperset(set(REQUIRED_KEYS)) or \
+    if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)) or \
         None in data.values():
       logging.error("Missing args in request: " + self.request.body)
       return

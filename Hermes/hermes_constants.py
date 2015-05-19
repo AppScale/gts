@@ -38,6 +38,9 @@ PORTAL_POLL_PATH = "/get_appscale_task"
 # The AppScale Portal path for reporting task status.
 PORTAL_STATUS_PATH = "/report_appscale_task"
 
+# A list of required parameters that define a task.
+REQUIRED_KEYS = ['task_id', 'type', 'bucket_name']
+
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
   HTTP_OK = 200
@@ -49,9 +52,6 @@ class TaskTypes(object):
   """ A class containing supported task types. """
   CASSANDRA_BACKUP = 'cassandra_backup'
   ZOOKEEPER_BACKUP = 'zookeeper_backup'
-
-  CASSANDRA_SHUTDOWN = 'cassanda_shutdown'
-  ZOOKEEPER_SHUTDOWN = 'zookeeper_shutdown'
 
   CASSANDRA_RESTORE = 'cassandra_restore'
   ZOOKEEPER_RESTORE = 'zookeeper_restore'

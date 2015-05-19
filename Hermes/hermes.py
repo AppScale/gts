@@ -1,6 +1,7 @@
 """ Web server/client that polls the AppScale Portal for new tasks and
 initiates actions accordingly. """
 
+import json
 import logging
 import signal
 import socket
@@ -15,9 +16,9 @@ from tornado.options import parse_command_line
 
 import hermes_constants
 from handlers import MainHandler
-from handlers import PollHandler
 from handlers import TaskHandler
 import helper
+from helper import JSONTags
 
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
@@ -25,10 +26,36 @@ define("debug", default=True, type=bool)
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
-  logging.info("Time to poll for a new task.")
+  logging.info("Polling for new task.")
 
-  url = "{0}{1}".format(hermes_constants.HERMES_URL, PollHandler.PATH)
-  helper.urlfetch_async(helper.create_request(url=url, method='GET'))
+  # Send request to AppScale Portal.
+  url = "{0}{1}".format(hermes_constants.PORTAL_URL,
+      hermes_constants.PORTAL_POLL_PATH)
+  data = json.dumps({
+    JSONTags.DEPLOYMENT_ID: helper.get_deployment_id()
+  })
+  request = helper.create_request(url=url, method='POST', body=data)
+  response = helper.urlfetch(request)
+  try:
+    data = json.loads(response.body)
+  except (TypeError, ValueError) as error:
+    logging.error("Cannot parse response from url '{0}'. Error: {1}".
+      format(url, str(error)))
+    return
+
+  # Verify all necessary fields are present in the request.
+  if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)) or \
+      None in data.values():
+    logging.error("Missing args in response: {0}".format(response))
+    return
+
+  logging.debug("Task to run: {0}".format(data))
+  logging.info("Redirecting task request to TaskHandler.")
+  url = "{0}{1}".format(hermes_constants.HERMES_URL, TaskHandler.PATH)
+  request = helper.create_request(url, method='POST', body=data)
+
+  # The poller can move forward without waiting for a response here.
+  helper.urlfetch_async(request)
 
 def signal_handler(signal, frame):
   """ Signal handler for graceful shutdown. """
@@ -37,7 +64,7 @@ def signal_handler(signal, frame):
 
 def shutdown():
   """ Shuts down the server. """
-  logging.info("Hermes shutting down.")
+  logging.warning("Hermes is shutting down.")
   IOLoop.instance().stop()
 
 def main():
@@ -51,7 +78,6 @@ def main():
 
   app = tornado.web.Application([
     (MainHandler.PATH, MainHandler),
-    (PollHandler.PATH, PollHandler),
     (TaskHandler.PATH, TaskHandler),
   ], debug=options.debug)
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 import os
 import sys
 import unittest
@@ -12,12 +13,19 @@ from hermes import poll
 from hermes import shutdown
 from hermes import signal_handler
 
+class FakeResponse(object):
+  def __init__(self):
+    self.body = "{}"
+
 class TestHelper(unittest.TestCase):
   """ A set of test cases for Hermes top level functions. """
 
   def test_poll(self):
-    flexmock(helper).should_receive('urlfetch_async').and_return()
+    flexmock(json).should_receive('dumps').and_return("data")
     flexmock(helper).should_receive('create_request').and_return()
+    flexmock(helper).should_receive('urlfetch').and_return(FakeResponse())
+    flexmock(json).should_receive('loads').and_return({})
+    flexmock(helper).should_receive('urlfetch_async').and_return()
     poll()
 
   def test_signal_handler(self):
