@@ -22,7 +22,6 @@ from helper import JSONTags
 
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
-define("debug", default=True, type=bool)
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
@@ -69,7 +68,11 @@ def shutdown():
 
 def main():
   """ Main. """
-  logging.getLogger().setLevel(logging.DEBUG)
+
+  logging_level = logging.INFO
+  if hermes_constants.DEBUG:
+    logging_level = logging.DEBUG
+  logging.getLogger().setLevel(logging_level)
 
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)
@@ -79,7 +82,7 @@ def main():
   app = tornado.web.Application([
     (MainHandler.PATH, MainHandler),
     (TaskHandler.PATH, TaskHandler),
-  ], debug=options.debug)
+  ], debug=False)
 
   try:
     app.listen(options.port)

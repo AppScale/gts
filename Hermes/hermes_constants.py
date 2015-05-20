@@ -9,6 +9,9 @@ BR_SERVICE_PATH = "/"
 # The suffix for backup files from a DB master node.
 DB_MASTER_OBJECT_NAME = '/cassandra/db_master.tar.gz'
 
+# Enable DEBUG logging.
+DEBUG = False
+
 # The suffix for backup files from a DB slave node.
 # The slave ID is populated at runtime.
 DB_SLAVE_OBJECT_NAME = '/cassandra/db_slave_{0}.tar.gz'
