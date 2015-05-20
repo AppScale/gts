@@ -366,7 +366,7 @@ class LoginShibbolethPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().\
-      rstrip()
+      rstrip().lower()
     if self.helper.login_user(user_email, 'shibboleth', self.response):
       if self.request.get('continue') != '':
         self.redirect('{1}/users/confirm?continue={0}'.format(
@@ -390,7 +390,7 @@ class LoginPage(AppDashboard):
     logging.info("LoginPage: continue -> {0}".format(
       self.request.get('continue')))
     user_email = self.request.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().\
-      rstrip()
+      rstrip().lower()
     logging.info("LoginPage: user_email: {0}".format(user_email))
     if user_email:
       self.redirect("{1}/users/shibboleth?continue={0}".format(
