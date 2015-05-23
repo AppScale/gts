@@ -1963,7 +1963,7 @@ class Djinn
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(30)
-        retry
+        redo 
       end
     }
 

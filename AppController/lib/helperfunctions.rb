@@ -914,18 +914,18 @@ module HelperFunctions
     usage['cpu'] = 0.0
     usage['mem'] = 0.0
 
-    top_results.each { |line|
+    top_results.each_line { |line|
       cpu_and_mem_usage = line.split()
       # Skip any lines that don't list the CPU and memory for a process.
       next if cpu_and_mem_usage.length != 12
       next if cpu_and_mem_usage[8] == "average:"
       next if cpu_and_mem_usage[8] == "%CPU"
-      usage['cpu'] += Float(cpu_and_mem_usage[8])
-      usage['mem'] += Float(cpu_and_mem_usage[9])
+      usage['cpu'] += cpu_and_mem_usage[8].to_f
+      usage['mem'] += cpu_and_mem_usage[9].to_i
     }
 
     usage['cpu'] /= self.get_num_cpus()
-    usage['disk'] = Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
+    usage['disk'] = 50 #Must be fixed:Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
 
     return usage
   end
