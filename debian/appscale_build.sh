@@ -61,11 +61,11 @@ if ! apt-get remove --purge -y --force-yes ${PACKAGES}; then
     exit 1
 fi
 
-# If we have an option to switch ruby, let's make sure we use 1.8.
+# If we have an option to switch ruby, let's make sure we use 1.9.
 if [ -n "$(apt-cache search ruby-switch)" ]; then
-        echo "Make sure ruby1.8 is used"
+        echo "Make sure ruby1.9 is used"
         apt-get install -y ruby-switch
-        ruby-switch --set ruby1.8
+        ruby-switch --set ruby1.9
 fi
 
 if [ $1 ]; then

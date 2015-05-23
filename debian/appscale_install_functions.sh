@@ -100,7 +100,7 @@ setupntp()
 
 installPIL()
 {
-    pip uninstall -y PIL
+    #pip uninstall -y PIL
     pip_wrapper pillow
 }
 
@@ -111,7 +111,8 @@ installlxml()
 
 installxmpppy()
 {
-    pip_wrapper xmpppy
+   echo "Warning: Skipping xmppy" 
+    #pip_wrapper xmpppy
 }
 
 setulimits()
@@ -241,17 +242,18 @@ installgems()
 {
     GEMOPT="--no-rdoc --no-ri"
     # Rake 10.0 depecates rake/rdoctask - upgrade later.
-    gem install -v=0.9.2.2 rake ${GEMOPT} 
+    gem install rake ${GEMOPT} 
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
-    gem install -v=0.9.3 zookeeper
+    gem install zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
-    gem install -v=0.8.3 httparty ${GEMOPT}
+    gem install soap4r ${GEMOPT} 
+    gem install  httparty ${GEMOPT}
     # This is for the unit testing framework.
-    gem install -v=1.0.4 flexmock ${GEMOPT}
-    gem install -v=1.0.0 rcov ${GEMOPT}
+    gem install flexmock ${GEMOPT}
+    gem install simplecov ${GEMOPT}
 }
 
 installphp54()
@@ -369,11 +371,11 @@ installpythonmemcache()
 
 installzookeeper()
 {
-  ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-  wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
-  dpkg -i /tmp/${ZK_REPO_PKG}
+  #ZK_REPO_PKG=cdh4-repository_1.0_all.deb
+  #wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+  #dpkg -i /tmp/${ZK_REPO_PKG}
   apt-get update 
-  apt-get install -y zookeeper-server 
+  apt-get install -y zookeeper 
 
   pip_wrapper kazoo
 }
