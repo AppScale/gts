@@ -37,7 +37,7 @@ module CronHelper
 
       begin
         yaml_file = YAML.load_file(cron_file)
-        unless yaml_file:
+        unless yaml_file
           clear_app_crontab(app)
           return
         end
