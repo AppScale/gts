@@ -10,9 +10,6 @@ import cassandra_backup
 import zookeeper_backup
 from backup_recovery_constants import StorageTypes
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
-import shut_down_cassandra
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../zkappscale/"))
 import shut_down_zookeeper
 

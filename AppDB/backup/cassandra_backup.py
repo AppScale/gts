@@ -136,17 +136,21 @@ def backup_data(storage, path=''):
   tar_file = tar_backup_files(files)
   if not tar_file:
     logging.error('Error while tarring up snapshot files. Aborting backup...')
+    clear_old_snapshots()
     remove_local_backup_file(tar_file)
     return None
 
   if storage == StorageTypes.LOCAL_FS:
     logging.info("Done with local db backup!")
+    clear_old_snapshots()
     return tar_file
   elif storage == StorageTypes.GCS:
     return_value = path
     # Upload to GCS.
     if not gcs_helper.upload_to_bucket(path, tar_file):
       logging.error("Upload to GCS failed. Aborting backup...")
+      clear_old_snapshots()
+      remove_local_backup_file()
       return_value = None
     else:
       logging.info("Done with db backup!")
@@ -156,6 +160,8 @@ def backup_data(storage, path=''):
     return return_value
   else:
     logging.error("Storage '{0}' not supported.")
+    clear_old_snapshots()
+    remove_local_backup_file()
     return None
 
 def shutdown_datastore(self):
