@@ -42,7 +42,7 @@ PORTAL_POLL_PATH = "/get_appscale_task"
 PORTAL_STATUS_PATH = "/report_appscale_task"
 
 # A list of required parameters that define a task.
-REQUIRED_KEYS = ['task_id', 'type', 'bucket_name']
+REQUIRED_KEYS = ['task_id', 'type', 'bucket_name', 'storage']
 
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """

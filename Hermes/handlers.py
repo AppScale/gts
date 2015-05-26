@@ -85,7 +85,7 @@ class TaskHandler(RequestHandler):
         json_data = helper.create_br_json_data(
           node[NodeInfoTags.ROLE],
           task, data[JSONTags.BUCKET_NAME],
-          node[NodeInfoTags.INDEX])
+          node[NodeInfoTags.INDEX], data[JSONTags.STORAGE])
         request = helper.create_request(url=node[NodeInfoTags.HOST],
           method='POST', body=json_data)
 

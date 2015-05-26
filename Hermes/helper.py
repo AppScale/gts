@@ -33,6 +33,7 @@ class JSONTags(object):
   DEPLOYMENT_ID = 'deployment_id'
   OBJECT_NAME = 'object_name'
   STATUS = 'status'
+  STORAGE = 'storage'
   SUCCESS = 'success'
   TASK_ID = 'task_id'
   TYPE = 'type'
@@ -177,7 +178,7 @@ def get_node_info():
 
   return nodes
 
-def create_br_json_data(role, type, bucket_name, index):
+def create_br_json_data(role, type, bucket_name, index, storage):
   """ Creates a JSON object with the given parameters in the format that is
   supported by the backup_recovery_service.
 
@@ -187,6 +188,7 @@ def create_br_json_data(role, type, bucket_name, index):
     bucket_name: A str, the name of the bucket to use.
     index: An int, the numeric value assigned to a db slave or zookeeper node
       to distinguish it from the rest of its peers.
+    storage: A str, the type of backend storage to use for a backup/recovery op.
   Returns:
     A JSON object on success, None otherwise.
   """
@@ -206,6 +208,8 @@ def create_br_json_data(role, type, bucket_name, index):
       hermes_constants.ZK_OBJECT_NAME.format(index))
   else:
     return None
+
+  data[JSONTags.STORAGE] = storage
   return json.dumps(data)
 
 def delete_task_from_mem(task_id):
