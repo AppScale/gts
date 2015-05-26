@@ -102,5 +102,6 @@ case "$1" in
         sethosts
         setulimits
         increaseconnections
+        installrequests
         ;;
 esac
