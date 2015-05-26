@@ -63,7 +63,7 @@ def create_request(url=None, method=None, body=None):
   if not url or not method:
     raise MissingRequestArgs
   return tornado.httpclient.HTTPRequest(url=url, method=method, body=body,
-    validate_cert=False)
+    validate_cert=False, request_timeout=hermes_constants.REQUEST_TIMEOUT)
 
 def urlfetch(request):
   """ Uses a Tornado HTTP client to perform HTTP requests.
