@@ -350,8 +350,6 @@ class LogoutPage(AppDashboard):
     """
     self.helper.logout_user(self.response)
     continue_url = self.request.get("continue")
-    #self.redirect("https://bear.appscale.com:443/Shibboleth.sso/Logout")
-      #"?return={0}".\ format(str(continue_url)))
     if continue_url:
       self.redirect(str(continue_url), self.response)
     else:
