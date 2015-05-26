@@ -103,7 +103,6 @@ def tar_backup_files(file_paths):
   except CalledProcessError as error:
     logging.error("Error while deleting previous backup '{0}'. Error: {1}".
       format(backup_file_location, str(error)))
-    backup_file_location += '_latest'
 
   tar = tarfile.open(backup_file_location, "w:gz")
   for name in file_paths:
@@ -306,5 +305,5 @@ def restore_data(storage, path=''):
 if "__main__" == __name__:
   logging.getLogger().setLevel(logging.DEBUG)
 
-  # backup_data(storage='', path='')
+  backup_data(storage='', path='')
   restore_data(storage='', path='')

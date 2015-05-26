@@ -1,17 +1,13 @@
 """ Class for handling serialized backup/recovery requests. """
+
 import logging
 import json
-import os
-import sys
 import threading
 
 import backup_exceptions
 import cassandra_backup
 import zookeeper_backup
 from backup_recovery_constants import StorageTypes
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../zkappscale/"))
-import shut_down_zookeeper
 
 class BackupService():
   """ Backup service class. """
@@ -139,19 +135,6 @@ class BackupService():
       self.__cassandra_backup_lock.release()
 
     return json.dumps({'success': success, 'reason': reason})
-
-  def shutdown_zookeeper(self):
-    """ Top level function for bringing down Zookeeper.
-
-    Returns:
-      A JSON string to return to the client.
-    """
-    self.__zookeeper_backup_lock.acquire(True)
-    success = shut_down_zookeeper.run()
-    self.__zookeeper_backup_lock.release()
-    if not success:
-      return self.bad_request('Monit error')
-    return json.dumps({'success': True})
 
   def do_zookeeper_backup(self, storage, path):
     """ Top level function for doing Zookeeper backups.
