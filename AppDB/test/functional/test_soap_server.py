@@ -506,6 +506,7 @@ if ret != "true":
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
+#########################
 # Commit bad name for app
 #########################
 ret = server.commit_new_app("!@#$$%", user[0], "python", super_secret)
