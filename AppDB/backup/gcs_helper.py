@@ -41,7 +41,14 @@ def upload_to_bucket(full_object_name, local_path):
     logging.debug("Response Header Location (aka /upload URL): {0}".
       format(location))
   except requests.HTTPError as error:
-    logging.error("Error on initial GCS upload".format(error))
+    logging.error("HTTPError on getting GCS session ID. Error: {0}".
+      format(error))
+    return False
+  except KeyError as key_error:
+    logging.error("KeyError on getting GCS session ID. Error: {0}.".
+      format(key_error))
+    if response:
+      logging.error("Response from GCS: {0}".format(response))
     return False
 
   # Actual file upload.

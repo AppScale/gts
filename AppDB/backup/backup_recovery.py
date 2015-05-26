@@ -63,6 +63,7 @@ class BackupService():
     """
     try:
       request = json.loads(request_data)
+      logging.info("Request received: {0}".format(request))
     except (TypeError, ValueError) as error:
       logging.exception(error)
       return self.bad_request("Unable to parse request. Exception: {0}".
@@ -104,8 +105,10 @@ class BackupService():
       logging.info("Acquiring lock for db backup.")
       self.__cassandra_backup_lock.acquire(True)
       logging.info("Got the lock for db backup.")
-      cassandra_backup.backup_data(storage, path)
-      logging.info("Successful db backup!")
+      if not cassandra_backup.backup_data(storage, path):
+        logging.error("DB backup failed!")
+      else:
+        logging.info("Successful db backup!")
     except backup_exceptions.BRException, exception:
       logging.error("Unable to complete db backup: {0}".format(exception))
       success = False
@@ -131,7 +134,6 @@ class BackupService():
       self.__cassandra_backup_lock.acquire(True)
       logging.info("Got the lock for db restore.")
       cassandra_backup.restore_data(storage, path)
-      logging.info("Successful db restore!")
     except backup_exceptions.BRException, exception:
       logging.error("Unable to complete db restore: {0}".format(exception))
       success = False
@@ -169,8 +171,10 @@ class BackupService():
       logging.info("Acquiring lock for zk backup.")
       self.__zookeeper_backup_lock.acquire(True)
       logging.info("Got the lock for zk backup.")
-      zookeeper_backup.backup_data(storage, path)
-      logging.info("Successful zk backup!")
+      if not zookeeper_backup.backup_data(storage, path):
+        logging.error("Zk backup failed!")
+      else:
+        logging.info("Successful zk backup!")
     except backup_exceptions.BRException, exception:
       logging.error("Unable to complete zk backup: {0}".format(exception))
       success = False
@@ -197,7 +201,6 @@ class BackupService():
       self.__zookeeper_backup_lock.acquire(True)
       logging.info("Got the lock for zk restore.")
       zookeeper_backup.restore_data(storage, path)
-      logging.info("Successful zk restore!")
     except backup_exceptions.BRException, exception:
       logging.error("Unable to complete zk restore: {0}".format(exception))
       success = False
