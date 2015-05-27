@@ -2,13 +2,26 @@
 
 import json
 import logging
+import os
 import re
 import requests
 import subprocess
 import urllib
 
+from backup_recovery_constants import HTTP_OK
+
 # The upload request timeout in seconds (12 hours).
 REQUEST_TIMEOUT = 12*60*60
+
+def does_file_exist(path):
+  """ Checks if the given file is in the local filesystem.
+
+  Args:
+    path: A str, the path to the file.
+  Returns:
+    True on success, False otherwise.
+  """
+  return os.path.isfile(path)
 
 def upload_to_bucket(full_object_name, local_path):
   """ Uploads a file to GCS.
@@ -21,22 +34,23 @@ def upload_to_bucket(full_object_name, local_path):
     True on success, False otherwise.
   """
   # Ensure local file is accessible.
-  try:
-    fd = open(local_path)
-    fd.close()
-  except (OSError, IOError) as error:
-    logging.error("Error while opening file '{0}' for uploading to GCS. "
-      "Error: {1}". format(local_path, str(error)))
+  if not does_file_exist(local_path):
+    logging.error("Local file '{0}' doesn't exist. Aborting upload to "
+      "GCS.".format(local_path))
     return False
 
   # Extract bucket and object name for GCS.
   bucket_name, object_name = extract_gcs_tokens(full_object_name)
+  if bucket_name == '' or object_name == '':
+    logging.error("Full GCS object name is invalid. Aborting upload to "
+      "GCS.".format(local_path))
+    return False
 
   # First HTTP request that initiates the upload.
   url = 'https://www.googleapis.com/upload/storage/v1/b/{0}' \
         '/o?uploadType=resumable&name={1}'.format(bucket_name, object_name)
   try:
-    response = requests.post(url, verify=False)
+    response = gcs_post_request(url)
     location = response.headers['Location']
     logging.debug("Response Header Location (aka /upload URL): {0}".
       format(location))
@@ -48,15 +62,13 @@ def upload_to_bucket(full_object_name, local_path):
     logging.error("KeyError on getting GCS session ID. Error: {0}.".
       format(key_error))
     if response:
-      logging.error("Response from GCS: {0}".format(response))
+      logging.error("Response from GCS: {0}".format(str(response)))
     return False
 
   # Actual file upload.
   new_url = location
   try:
-    response = requests.request('PUT', new_url, data=open(local_path, 'rb'),
-      headers={'content-type': 'application/x-gzip'},
-      timeout=REQUEST_TIMEOUT, verify=False)
+    response = gcs_put_request(new_url, local_path)
     logging.debug("Final GCS response: {0}".format(str(response)))
   except requests.HTTPError as error:
     logging.error("Error on initial GCS upload".format(error))
@@ -77,13 +89,17 @@ def download_from_bucket(full_object_name, local_path):
   """
   # Extract bucket and object name for GCS.
   bucket_name, object_name = extract_gcs_tokens(full_object_name)
+  if bucket_name == '' or object_name == '':
+    logging.error("Full GCS object name is invalid. Aborting download from "
+      "GCS.".format(local_path))
+    return False
 
   # First send HTTP request to retrieve file metadata.
   url = "https://www.googleapis.com/storage/v1/b/{0}/o/{1}".format(
     bucket_name, urllib.quote_plus(object_name))
   try:
-    response = requests.request('GET', url, verify=False)
-    if response.status_code != 200:
+    response = gcs_get_request(url)
+    if response.status_code != HTTP_OK:
       logging.error("Error on retrieving GCS file metadata. Status code: {0}".
         format(response.status_code))
       return False
@@ -119,7 +135,7 @@ def download_from_bucket(full_object_name, local_path):
       format(called_process_error))
     return False
 
-  logging.info("Successfully downloaded '{0}' from GCS. "
+  logging.info("Successfully downloaded '{0}' from GCS."
     "Local file name is '{1}'.".format(full_object_name, local_path))
   return True
 
@@ -136,7 +152,7 @@ def extract_gcs_tokens(full_object_name):
 
   tokens = full_object_name.split('/')
   if len(tokens) < 3:
-    logging.error("Malformed GCS path '{0}'. Aborting upload to GCS.".format(
+    logging.error("Malformed GCS path '{0}'. Aborting GCS operation.".format(
       full_object_name))
     return bucket_name, object_name
 
@@ -147,3 +163,35 @@ def extract_gcs_tokens(full_object_name):
   object_name += tokens[-1]
 
   return bucket_name, object_name
+
+def gcs_get_request(url):
+  """ Performs a GET request to the given url.
+
+  Args:
+    url: A str, the URL to POST to.
+  Raises:
+    HTTPError if the resource cannot be reached.
+  """
+  return requests.request('GET', url, verify=False)
+
+def gcs_post_request(url):
+  """ Performs a POST request to the given url.
+
+  Args:
+    url: A str, the URL to POST to.
+  Raises:
+    HTTPError if the resource cannot be reached.
+  """
+  return requests.request('POST', url, verify=False)
+
+def gcs_put_request(url, local_path):
+  """ Performs a PUT request to the given url.
+
+  Args:
+    url: A str, the URL to send data to.
+  Raises:
+    HTTPError if the resource cannot be reached.
+  """
+  return requests.request('PUT', url, data=open(local_path, 'rb'),
+    headers={'content-type': 'application/x-gzip'},
+    timeout=REQUEST_TIMEOUT, verify=False)

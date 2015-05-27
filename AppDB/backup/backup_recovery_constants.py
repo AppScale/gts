@@ -1,5 +1,8 @@
 """ Constants useful for backup_recovery_service operations. """
 
+# HTTP Codes.
+HTTP_OK = 200
+
 class StorageTypes(object):
   """ A class containing the supported types of storage infrastructures
   for backups. """
