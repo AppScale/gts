@@ -76,8 +76,8 @@ def urlfetch(request):
   http_client = tornado.httpclient.HTTPClient()
 
   try:
-    http_client.fetch(request)
-    result = {JSONTags.SUCCESS : True}
+    response = http_client.fetch(request)
+    result = json.loads(response.body)
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
