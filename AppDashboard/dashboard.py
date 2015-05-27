@@ -405,6 +405,30 @@ class LoginPage(AppDashboard):
       'continue': self.request.get('continue')
     })
 
+class ShibbolethRedirect(AppDashboard):
+  """ Class that handles the Shibboleth redirect. """
+
+  # The path for the Shibboleth redirect.
+  PATH = '/users/shibboleth'
+
+  TEMPLATE = 'authorize/cloud.html'
+
+  def get(self):
+    """ Handler for GET requests. """
+    user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').strip()\
+      .lower()
+
+    self.helper.create_token(user_email, user_email)
+    user_app_list = self.helper.get_user_app_list(user_email)
+    self.helper.set_appserver_cookie(user_email, user_app_list, self.response)
+
+    if self.request.get('continue') != '':
+      continue_param = urllib.quote(self.request.get('continue'), safe='')
+      redirect_url = '{0}/users/confirm?continue={1}'\
+        .format(AppDashboardHelper.SHIBBOLETH_CONNECTOR, continue_param)
+      self.redirect(redirect_url, self.response)
+    else:
+      self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
 
 class AuthorizePage(AppDashboard):
   """ Class to handle requests to the /authorize page. """
@@ -1106,6 +1130,7 @@ app = webapp2.WSGIApplication([ (StatusPage.PATH, StatusPage),
                                 (LoginPage.PATH, LoginPage),
                                 (LoginPage.ALIAS, LoginPage),
                                 (LoginPage.ALIAS_2, LoginPage),
+                                (ShibbolethRedirect.PATH, ShibbolethRedirect),
                                 ('/users/verify', LoginVerify),
                                 ('/users/confirm', LoginVerify),
                                 ('/authorize', AuthorizePage),
