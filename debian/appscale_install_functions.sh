@@ -18,7 +18,7 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
-pip_wrapper () 
+pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
     # it takes a couple of tries to install packages with pip. This
@@ -100,19 +100,22 @@ setupntp()
 
 installPIL()
 {
-    #pip uninstall -y PIL
-    pip_wrapper pillow
+    if [ "$DIST" = "precise" ]; then
+        pip uninstall -y PIL
+    fi
+    pipwrapper pillow
 }
 
 installlxml()
 {
-    pip_wrapper lxml
+    pipwrapper lxml
 }
 
 installxmpppy()
 {
-   echo "Warning: Skipping xmppy" 
-    #pip_wrapper xmpppy
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper xmpppy
+    fi
 }
 
 setulimits()
@@ -182,7 +185,7 @@ EOF
 
 installthrift()
 {
-    pip_wrapper thrift
+    pipwrapper thrift
 }
 
 installjavajdk()
@@ -206,7 +209,7 @@ installappserverjava()
 
 installtornado()
 {
-    pip_wrapper tornado
+    pipwrapper tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
 	echo "Fail to install python tornado. Please retry."
@@ -220,12 +223,12 @@ installtornado()
 
 installflexmock()
 {
-    pip_wrapper flexmock
+    pipwrapper flexmock
 }
 
 postinstalltornado()
 {
-    pip_wrapper tornado
+    pipwrapper tornado
 }
 
 postinstallhaproxy()
@@ -315,9 +318,9 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    pip_wrapper  setuptools
-    pip_wrapper  pycassa
-    pip_wrapper  thrift
+    pipwrapper  setuptools
+    pipwrapper  pycassa
+    pipwrapper  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -371,18 +374,22 @@ installpythonmemcache()
 
 installzookeeper()
 {
-  #ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-  #wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
-  #dpkg -i /tmp/${ZK_REPO_PKG}
-  apt-get update 
-  apt-get install -y zookeeper 
+    if [ "$DIST" = "precise" ]; then
+        ZK_REPO_PKG=cdh4-repository_1.0_all.deb
+        wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+        dpkg -i /tmp/${ZK_REPO_PKG}
+        apt-get update
+        apt-get install -y zookeeper-server
+    else
+        apt-get install -y zookeeper
+    fi
 
-  pip_wrapper kazoo
+    pipwrapper kazoo
 }
 
 installpycrypto()
 {
-  pip_wrapper pycrypto
+  pipwrapper pycrypto
 }
 
 postinstallzookeeper()
@@ -403,8 +410,8 @@ keygen()
 
 installcelery()
 {
-    pip_wrapper Celery
-    pip_wrapper Flower
+    pipwrapper Celery
+    pipwrapper Flower
 }
 
 postinstallrabbitmq()
