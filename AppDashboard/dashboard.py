@@ -186,9 +186,13 @@ class StatusRefreshPage(AppDashboard):
 class StatusPage(AppDashboard):
   """ Class to handle requests to the /status page. """
 
+  # The path for the status page.
+  PATH = '/'
+
+  # Another url that serves the status page.
+  ALIAS = '/status'
 
   TEMPLATE = 'status/cloud.html'
-
 
   def get(self):
     """ Handler for GET requests. """ 
@@ -282,7 +286,7 @@ class NewUserPage(AppDashboard):
     err_msgs = self.parse_new_user_post()
     try:
       if self.process_new_user_post(err_msgs):
-        self.redirect(DASHBOARD_HOME, self.response)
+        self.redirect(StatusPage.PATH, self.response)
         return
     except AppHelperException as err:
       err_msgs['email'] = str(err)
@@ -322,7 +326,10 @@ class LoginVerify(AppDashboard):
       self.redirect(self.request.get('continue').encode('ascii','ignore'), 
         self.response)
     else:
-      self.redirect(DASHBOARD_HOME, self.response)
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
+      else:
+        self.redirect(StatusPage.PATH, self.response)
 
 
   def get(self):
@@ -350,49 +357,54 @@ class LogoutPage(AppDashboard):
     if continue_url:
       self.redirect(str(continue_url), self.response)
     else:
-      self.redirect(DASHBOARD_HOME, self.response)
-
-
-class LoginShibbolethPage(AppDashboard):
-  """ Class that handles the Shibboleth redirect. """
-
-  TEMPLATE = 'authorize/cloud.html'
-
-  def get(self):
-    """ Handler for GET requests. """
-    user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().\
-      rstrip().lower()
-    if self.helper.login_user(user_email, 'shibboleth', self.response):
-      if self.request.get('continue') != '':
-        self.redirect('{1}/users/confirm?continue={0}'.format(
-          urllib.quote(str(self.request.get('continue')))\
-          .encode('ascii','ignore'), DASHBOARD_HOME), self.response)
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
       else:
-        self.redirect(DASHBOARD_HOME, self.response)
-    else:
-      self.render_page(page='users', template_file=self.TEMPLATE, values={
-          'continue' : self.request.get('continue'),
-          'user_email' : user_email,
-          'flash_message': "Unable to log in."
-        })
+        self.redirect(StatusPage.PATH, self.response)
 
 
-     
 class LoginPage(AppDashboard):
   """ Class to handle requests to the /users/login page. """
+
+  # The path for the login page.
+  PATH = '/login'
+
+  # Another path that points to the login page.
+  ALIAS = '/users/login'
+
+  # Another path that points to the login page.
+  ALIAS_2 = '/users/authenticate'
+
+  TEMPLATE = 'users/login.html'
+
+  def post(self):
+    """ Handler for POST requests. """
+    user_email = self.request.get('user_email').lstrip().rstrip()
+    if self.helper.login_user(user_email, self.request.get('user_password'),
+      self.response):
+
+      if self.request.get('continue') != '':
+        self.redirect('/users/confirm?continue={0}'.format(
+          urllib.quote(str(self.request.get('continue')))\
+          .encode('ascii','ignore')), self.response)
+      else:
+        self.redirect('/', self.response)
+    else:
+      flash_message = 'Incorrect username / password combination. '\
+        'Please try again.'
+      self.render_page(page='users', template_file=self.TEMPLATE,
+        values={
+          'continue': self.request.get('continue'),
+          'user_email': user_email,
+          'flash_message': flash_message
+        })
+
   def get(self):
     """ Handler for GET requests. """
-    logging.info("LoginPage: continue -> {0}".format(
-      self.request.get('continue')))
-    user_email = self.request.get('HTTP_SHIB_INETORGPERSON_MAIL').lstrip().\
-      rstrip().lower()
-    logging.info("LoginPage: user_email: {0}".format(user_email))
-    if user_email:
-      self.redirect("{1}/users/shibboleth?continue={0}".format(
-        self.request.get('continue'), DASHBOARD_HOME))
-    self.redirect("{1}/Shibboleth.sso/Login?"
-      "target=https%3A%2F%2Fbear.appscale.com%2Fusers%2Fshibboleth%3F"
-      "continue={0}".format(self.request.get('continue'), DASHBOARD_HOME))
+    self.render_page(page='users', template_file=self.TEMPLATE, values={
+      'continue': self.request.get('continue')
+    })
+
 
 class AuthorizePage(AppDashboard):
   """ Class to handle requests to the /authorize page. """
@@ -648,7 +660,7 @@ class LogMainPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (not apps_user_is_admin_on):
-      self.redirect(DASHBOARD_HOME, self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     query = ndb.gql('SELECT * FROM LoggedService')
     all_services = []
@@ -678,7 +690,7 @@ class LogServicePage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect(DASHBOARD_HOME, self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     service = LoggedService.get_by_id(service_name)
     if service:
@@ -715,7 +727,7 @@ class LogServiceHostPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect(DASHBOARD_HOME, self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     encoded_cursor = self.request.get('next_cursor')
     if encoded_cursor and encoded_cursor != "None":
@@ -825,7 +837,7 @@ class LogDownloader(AppDashboard):
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if not is_cloud_admin:
-      self.redirect(DASHBOARD_HOME)
+      self.redirect(StatusPage.PATH)
 
     success, uuid = self.helper.gather_logs()
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
@@ -1048,11 +1060,11 @@ class StatsPage(AppDashboard):
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
-    if (not apps_user_is_admin_on):
-      self.redirect(DASHBOARD_HOME, self.response)
+    if not apps_user_is_admin_on:
+      self.redirect(StatusPage.PATH, self.response)
 
     if app_id not in apps_user_is_admin_on:
-      self.redirect(DASHBOARD_HOME, self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     instance_info = InstanceStats.fetch_request_info(app_id)
 
@@ -1083,18 +1095,17 @@ class RunGroomer(AppDashboard):
 
 
 # Main Dispatcher
-app = webapp2.WSGIApplication([ ('/', StatusPage),
+app = webapp2.WSGIApplication([ (StatusPage.PATH, StatusPage),
                                 ('/status/refresh', StatusRefreshPage),
-                                ('/status', StatusPage),
+                                (StatusPage.ALIAS, StatusPage),
                                 ('/status/json', StatusAsJSONPage),
                                 ('/users/new', NewUserPage),
                                 ('/users/create', NewUserPage),
                                 ('/logout', LogoutPage),
                                 ('/users/logout', LogoutPage),
-                                ('/users/login', LoginPage),
-                                ('/users/shibboleth', LoginShibbolethPage),
-                                ('/users/authenticate', LoginPage),
-                                ('/login', LoginPage),
+                                (LoginPage.PATH, LoginPage),
+                                (LoginPage.ALIAS, LoginPage),
+                                (LoginPage.ALIAS_2, LoginPage),
                                 ('/users/verify', LoginVerify),
                                 ('/users/confirm', LoginVerify),
                                 ('/authorize', AuthorizePage),
