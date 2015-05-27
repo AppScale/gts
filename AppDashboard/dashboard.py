@@ -52,9 +52,6 @@ jinja_environment = jinja2.Environment(
 # charting requests per second.
 MAX_REQUESTS_DATA_POINTS = 100
 
-# Redirect path for home page.
-DASHBOARD_HOME = "https://bear.appscale.com"
-
 class LoggedService(ndb.Model):
   """ A Datastore Model that represents all of the machines running in this
   AppScale deployment.

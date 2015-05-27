@@ -126,6 +126,18 @@ class AppDashboardHelper(object):
   # app that the AppController has no information about.
   ID_NOT_FOUND = "Reservation ID not found."
 
+  # Indicates whether or not to use Shibboleth for authentication.
+  # Note: If you decide to use Shibboleth, make sure to modify firewall.conf
+  # to only allow connections to the dashboard from the Shibboleth connector.
+  USE_SHIBBOLETH = False
+
+  # The full url of the Shibboleth connector.
+  # This is only applicable if USE_SHIBBOLETH is True.
+  SHIBBOLETH_CONNECTOR = ''
+
+  # The domain to use when setting the AppServer cookie.
+  # This is only applicable if USE_SHIBBOLETH is True.
+  SHIBBOLETH_COOKIE_DOMAIN = 'appscale.com'
 
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
