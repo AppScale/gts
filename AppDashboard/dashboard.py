@@ -405,6 +405,37 @@ class LoginPage(AppDashboard):
       'continue': self.request.get('continue')
     })
 
+class ShibbolethLoginPage(AppDashboard):
+  """ Class to handle requests to the Shibboleth login page. """
+
+  # The path for the Shibboleth login page.
+  PATH = '/login'
+
+  # Another path that points to the login page.
+  ALIAS = '/users/login'
+
+  # Another path that points to the login page.
+  ALIAS_2 = '/users/authenticate'
+
+  def get(self):
+    """ Handler for GET requests. """
+    logging.info("LoginPage: continue -> {0}".format(
+      self.request.get('continue')))
+    user_email = self.request.get('HTTP_SHIB_INETORGPERSON_MAIL').strip()\
+      .lower()
+    logging.info("LoginPage: user_email: {0}".format(user_email))
+    if user_email:
+      self.redirect("{1}/users/shibboleth?continue={0}".format(
+        self.request.get('continue'),
+        AppDashboardHelper.SHIBBOLETH_CONNECTOR))
+
+    target = '{0}/users/shibboleth?continue={1}'.format(
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR,
+      self.request.get('continue'))
+    self.redirect('{0}/Shibboleth.sso/Login?target={1}'.format(
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR,
+      urllib.quote(target, safe='')))
+
 class ShibbolethRedirect(AppDashboard):
   """ Class that handles the Shibboleth redirect. """
 
@@ -1130,6 +1161,9 @@ app = webapp2.WSGIApplication([ (StatusPage.PATH, StatusPage),
                                 (LoginPage.PATH, LoginPage),
                                 (LoginPage.ALIAS, LoginPage),
                                 (LoginPage.ALIAS_2, LoginPage),
+                                (ShibbolethLoginPage.PATH, ShibbolethLoginPage),
+                                (ShibbolethLoginPage.ALIAS, ShibbolethLoginPage),
+                                (ShibbolethLoginPage.ALIAS_2, ShibbolethLoginPage),
                                 (ShibbolethRedirect.PATH, ShibbolethRedirect),
                                 ('/users/verify', LoginVerify),
                                 ('/users/confirm', LoginVerify),
