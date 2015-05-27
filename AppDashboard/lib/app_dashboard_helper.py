@@ -624,9 +624,15 @@ class AppDashboardHelper(object):
         should be set in.
     """
     apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
-    response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
-      value=self.get_cookie_value(email, apps), domain="appscale.com",
-      expires=datetime.datetime.now() + datetime.timedelta(days=1))
+    if AppDashboardHelper.USE_SHIBBOLETH:
+      response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
+        value=self.get_cookie_value(email, apps),
+        domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN,
+        expires=datetime.datetime.now() + datetime.timedelta(days=1))
+    else:
+      response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
+        value=self.get_cookie_value(email, apps),
+        expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
   def get_cookie_app_list(self, request):
     """ Look at the user's login cookie and return the list of apps that
@@ -752,11 +758,15 @@ class AppDashboardHelper(object):
     user = users.get_current_user()
     if user:
       self.create_token('invalid', user.email())
-      response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE, domain="appscale.com")
-
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
+          domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN)
+      else:
+        response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
 
   def login_user(self, email, password, response):
-    """ Creates a token and sets the user's cookie.
+    """ Checks to see if the user has entered in a valid email and password,
+    logging the user in if they have.
 
     Args:
       email: A str containing the e-mail address of the user to login.
@@ -766,6 +776,16 @@ class AppDashboardHelper(object):
     Return:
       True if the user logged in successfully, and False otherwise.
     """
+    user_data = self.query_user_data(email)
+    server_re = re.search(self.USER_DATA_PASSWORD_REGEX, user_data)
+    if not server_re:
+      logging.error("Failed Login: {0} regex failed".format(email))
+      return False
+    server_pwd = server_re.group(1)
+    encrypted_pass = LocalState.encrypt_password(email, password)
+    if server_pwd != encrypted_pass:
+      logging.info("Failed Login: {0} password mismatch".format(email))
+      return False
     self.create_token(email, email)
     self.set_appserver_cookie(email, self.get_user_app_list(email), response)
     return True
