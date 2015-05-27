@@ -61,8 +61,6 @@ def upload_to_bucket(full_object_name, local_path):
   except KeyError as key_error:
     logging.error("KeyError on getting GCS session ID. Error: {0}.".
       format(key_error))
-    if response:
-      logging.error("Response from GCS: {0}".format(str(response)))
     return False
 
   # Actual file upload.

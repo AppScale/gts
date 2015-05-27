@@ -149,7 +149,6 @@ def backup_data(storage, path=''):
     if not gcs_helper.upload_to_bucket(path, tar_file):
       logging.error("Upload to GCS failed. Aborting backup...")
       clear_old_snapshots()
-      remove_local_backup_file()
       return_value = None
     else:
       logging.info("Done with db backup!")

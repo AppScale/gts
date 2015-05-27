@@ -108,7 +108,6 @@ def backup_data(storage, path=''):
     # Upload to GCS.
     if not gcs_helper.upload_to_bucket(path, tar_file):
       logging.error("Upload to GCS failed. Aborting backup...")
-      remove_local_backup_file()
       return_value = None
     else:
       logging.info("Done with zk backup!")
