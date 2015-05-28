@@ -1150,43 +1150,53 @@ class RunGroomer(AppDashboard):
 
 
 # Main Dispatcher
-app = webapp2.WSGIApplication([ (StatusPage.PATH, StatusPage),
-                                ('/status/refresh', StatusRefreshPage),
-                                (StatusPage.ALIAS, StatusPage),
-                                ('/status/json', StatusAsJSONPage),
-                                ('/users/new', NewUserPage),
-                                ('/users/create', NewUserPage),
-                                ('/logout', LogoutPage),
-                                ('/users/logout', LogoutPage),
-                                (LoginPage.PATH, LoginPage),
-                                (LoginPage.ALIAS, LoginPage),
-                                (LoginPage.ALIAS_2, LoginPage),
-                                (ShibbolethLoginPage.PATH, ShibbolethLoginPage),
-                                (ShibbolethLoginPage.ALIAS, ShibbolethLoginPage),
-                                (ShibbolethLoginPage.ALIAS_2, ShibbolethLoginPage),
-                                (ShibbolethRedirect.PATH, ShibbolethRedirect),
-                                ('/users/verify', LoginVerify),
-                                ('/users/confirm', LoginVerify),
-                                ('/authorize', AuthorizePage),
-                                ('/apps/?', AppConsolePage),
-                                ('/apps/stats/datastore', DatastoreStats),
-                                ('/apps/stats/requests', RequestsStats),
-                                ('/apps/stats/instances', InstanceStats),
-                                ('/apps/stats/memcache', MemcacheStats),
-                                ('/apps/new', AppUploadPage),
-                                ('/apps/upload', AppUploadPage),
-                                ('/apps/delete', AppDeletePage),
-                                ('/apps/json/?', AppsAsJSONPage),
-                                ('/apps/json/(.+)', AppsAsJSONPage),
-                                ('/apps/stats', StatsPage),
-                                ('/logs', LogMainPage),
-                                ('/logs/upload', LogUploadPage),
-                                ('/logs/(.+)/(.+)', LogServiceHostPage),
-                                ('/logs/(.+)', LogServicePage),
-                                ('/gather-logs', LogDownloader),
-                                ('/groomer', RunGroomer),
-                                ('/change-password', ChangePasswordPage)
-                              ], debug=True)
+dashboard_pages = [
+  (StatusPage.PATH, StatusPage),
+  (StatusPage.ALIAS, StatusPage),
+  ('/status/refresh', StatusRefreshPage),
+  ('/status/json', StatusAsJSONPage),
+  ('/logout', LogoutPage),
+  ('/users/logout', LogoutPage),
+  ('/users/verify', LoginVerify),
+  ('/users/confirm', LoginVerify),
+  ('/authorize', AuthorizePage),
+  ('/apps/?', AppConsolePage),
+  ('/apps/stats/datastore', DatastoreStats),
+  ('/apps/stats/requests', RequestsStats),
+  ('/apps/stats/instances', InstanceStats),
+  ('/apps/stats/memcache', MemcacheStats),
+  ('/apps/new', AppUploadPage),
+  ('/apps/upload', AppUploadPage),
+  ('/apps/delete', AppDeletePage),
+  ('/apps/json/?', AppsAsJSONPage),
+  ('/apps/json/(.+)', AppsAsJSONPage),
+  ('/apps/stats', StatsPage),
+  ('/logs', LogMainPage),
+  ('/logs/upload', LogUploadPage),
+  ('/logs/(.+)/(.+)', LogServiceHostPage),
+  ('/logs/(.+)', LogServicePage),
+  ('/gather-logs', LogDownloader),
+  ('/groomer', RunGroomer),
+  ('/change-password', ChangePasswordPage)
+]
+
+if AppDashboardHelper.USE_SHIBBOLETH:
+  dashboard_pages.extend([
+    (ShibbolethLoginPage.PATH, ShibbolethLoginPage),
+    (ShibbolethLoginPage.ALIAS, ShibbolethLoginPage),
+    (ShibbolethLoginPage.ALIAS_2, ShibbolethLoginPage),
+    (ShibbolethRedirect.PATH, ShibbolethRedirect)
+  ])
+else:
+  dashboard_pages.extend([
+    (LoginPage.PATH, LoginPage),
+    (LoginPage.ALIAS, LoginPage),
+    (LoginPage.ALIAS_2, LoginPage),
+    ('/users/new', NewUserPage),
+    ('/users/create', NewUserPage)
+  ])
+
+app = webapp2.WSGIApplication(dashboard_pages, debug=True)
 
 
 def handle_404(_, response, exception):
