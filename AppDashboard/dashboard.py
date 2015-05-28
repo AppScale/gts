@@ -410,8 +410,12 @@ class LoginPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
+    show_create_account = True
+    if AppDashboardHelper.USE_SHIBBOLETH:
+      show_create_account = False
     self.render_page(page='users', template_file=self.TEMPLATE, values={
-      'continue': self.request.get('continue')
+      'continue': self.request.get('continue'),
+      'show_create_account': show_create_account
     })
 
 class ShibbolethLoginPage(AppDashboard):
