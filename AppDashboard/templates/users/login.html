@@ -31,7 +31,13 @@
                     <input class="btn btn-primary" name="commit" type="submit" value="Login" />
                   </div>
                   </form>
-                  <br /> View the current <a href="/status">Cloud Status.</a>&nbsp;<br /></div>
+                  <div style="clear: both"></div>
+                  <div style="margin: 15px 0 20px 9px">
+                    {% if show_create_account %}
+                    <div>Don't have an account? <a href="/users/new">Create one.</a></div>
+                    {% endif %}
+                    <div>View the current <a href="/status">Cloud Status.</a></div>
+                  </div>
                 </div>
             </span>
         </div>

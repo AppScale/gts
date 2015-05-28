@@ -52,6 +52,7 @@ jinja_environment = jinja2.Environment(
 # charting requests per second.
 MAX_REQUESTS_DATA_POINTS = 100
 
+
 class LoggedService(ndb.Model):
   """ A Datastore Model that represents all of the machines running in this
   AppScale deployment.
@@ -115,13 +116,13 @@ class AppDashboard(webapp2.RequestHandler):
 
     template = jinja_environment.get_template(template_file)
     sub_vars = {
-      'logged_in' : self.helper.is_user_logged_in(),
-      'user_email' : self.helper.get_user_email(),
-      'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
-      'can_upload_apps' : self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on' : owned_apps,
-      'flower_url' : self.dstore.get_flower_url(),
-      'monit_url' : self.dstore.get_monit_url()
+      'logged_in': self.helper.is_user_logged_in(),
+      'user_email': self.helper.get_user_email(),
+      'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
+      'can_upload_apps': self.dstore.can_upload_apps(),
+      'apps_user_is_admin_on': owned_apps,
+      'flower_url': self.dstore.get_flower_url(),
+      'monit_url': self.dstore.get_monit_url()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -134,7 +135,11 @@ class AppDashboard(webapp2.RequestHandler):
     Returns:
       A str with the navigation bar rendered.
     """
-    return self.render_template(template_file='shared/navigation.html')
+    show_create_account = True
+    if AppDashboardHelper.USE_SHIBBOLETH:
+      show_create_account = False
+    return self.render_template(template_file='shared/navigation.html',
+      values={'show_create_account': show_create_account})
 
   def render_page(self, page, template_file, values=None ):
     """ Renders a template with the main layout and nav bar. """
@@ -392,11 +397,15 @@ class LoginPage(AppDashboard):
     else:
       flash_message = 'Incorrect username / password combination. '\
         'Please try again.'
+      show_create_account = True
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        show_create_account = False
       self.render_page(page='users', template_file=self.TEMPLATE,
         values={
           'continue': self.request.get('continue'),
           'user_email': user_email,
-          'flash_message': flash_message
+          'flash_message': flash_message,
+          'show_create_account': show_create_account
         })
 
   def get(self):
