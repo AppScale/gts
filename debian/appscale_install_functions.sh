@@ -253,7 +253,7 @@ installgems()
     gem install json ${GEMOPT}
     sleep 1
     gem install soap4r-ruby1.9 ${GEMOPT} 
-    gem install -v=0.11.0 httparty ${GEMOPT}
+    gem install httparty ${GEMOPT}
     # This is for the unit testing framework.
     gem install flexmock ${GEMOPT}
     gem install simplecov ${GEMOPT}

@@ -74,7 +74,7 @@ if [ "${DIST}" = "precise" ]; then
             --slave /usr/bin/rdoc rdoc /usr/bin/rdoc1.9.1
 elif [ -n "$(apt-cache search ruby-switch)" ]; then
         echo "Make sure ruby1.9 is used"
-        apt-get install -y ruby-switch
+        apt-get install -y ruby rubygems ruby-switch
         ruby-switch --set ruby1.9
 fi
 
