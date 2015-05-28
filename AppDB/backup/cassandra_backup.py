@@ -254,7 +254,7 @@ def remove_local_backup_file(local_file=BACKUP_FILE_LOCATION):
     local_file: A str, the path to the backup file to delete.
   """
   try:
-    call(['rm', '-rf', local_file])
+    call(['rm', '-f', local_file])
   except CalledProcessError as error:
     logging.error("Error while removing local backup file '{0}'. Error: {1}".\
       format(local_file, str(error)))

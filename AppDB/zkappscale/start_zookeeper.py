@@ -10,8 +10,7 @@ import monit_interface
 def run(): 
   """ Starts up cassandra. """ 
   logging.warning("Starting Zookeeper.")
-  monit_interface.start('zookeeper-9999',
-    is_group=False)
+  monit_interface.start('zookeeper-9999', is_group=False)
   logging.warning("Done!") 
 
 if __name__ == '__main__':

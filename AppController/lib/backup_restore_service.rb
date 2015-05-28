@@ -15,7 +15,6 @@ module BackupRecoveryService
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
     start_cmd = "/usr/bin/python /root/appscale/AppDB/backup/backup_recovery_service.py"
-    # The stop command doesn't work and relies on terminate.rb.
     stop_cmd = "/usr/bin/pkill -9 backup_recovery_service"
     MonitInterface.start(:backup_recovery_service, start_cmd, stop_cmd, BR_PORT,
      {})
