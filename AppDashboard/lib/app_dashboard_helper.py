@@ -139,6 +139,9 @@ class AppDashboardHelper(object):
   # This is only applicable if USE_SHIBBOLETH is True.
   SHIBBOLETH_COOKIE_DOMAIN = 'appscale.com'
 
+  # The port that the Shibboleth connector is listening on.
+  SHIBBOLETH_CONNECTOR_PORT = '443'
+
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
     every SOAP call.

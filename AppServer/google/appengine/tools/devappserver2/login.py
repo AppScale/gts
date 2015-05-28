@@ -61,7 +61,7 @@ LOGIN_ACTION = 'login'
 _COOKIE_NAME = 'dev_appserver_login'
 
 # The port that the AppDashboard serves HTTPS traffic on.
-DASHBOARD_HTTPS_PORT = "443"
+DASHBOARD_HTTPS_PORT = "1443"
 
 
 def get_user_info(http_cookie, cookie_name=_COOKIE_NAME):
@@ -266,7 +266,7 @@ def login_redirect(application_url, continue_url, start_response):
   if AppDashboardHelper.USE_SHIBBOLETH:
     redirect_url = '{0}:{1}/login?{2}={3}'.format(
       AppDashboardHelper.SHIBBOLETH_CONNECTOR,
-      DASHBOARD_HTTPS_PORT,
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR_PORT,
       CONTINUE_PARAM,
       urllib.quote(continue_url)
     )
