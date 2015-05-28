@@ -52,6 +52,9 @@ class InfrastructureManagerClient
     ip = HelperFunctions.local_ip()
     @secret = secret
     
+    # We used self signed certificates. Don't verify them.
+    OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
+
     @conn = SOAP::RPC::Driver.new("https://#{ip}:#{SERVER_PORT}")
     @conn.add_method("get_queues_in_use", "secret")
     @conn.add_method("run_instances", "parameters", "secret")
