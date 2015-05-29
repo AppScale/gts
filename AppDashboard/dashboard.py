@@ -152,14 +152,13 @@ class AppDashboard(webapp2.RequestHandler):
         page_body=self.render_template(template_file, values),
         shared_navigation=self.get_shared_navigation()
         ))
-    
+
 
 class IndexPage(AppDashboard):
   """ Class to handle requests to the / page. """
 
-
+  # The template to use for the index page.
   TEMPLATE = 'landing/index.html'
-
 
   def get(self):
     """ Handler for GET requests. """
@@ -197,6 +196,7 @@ class StatusPage(AppDashboard):
   # Another url that serves the status page.
   ALIAS = '/status'
 
+  # The template to use for the status page.
   TEMPLATE = 'status/cloud.html'
 
   def get(self):
@@ -227,9 +227,8 @@ class StatusAsJSONPage(webapp2.RequestHandler):
 class NewUserPage(AppDashboard):
   """ Class to handle requests to the /users/new and /users/create page. """
 
-
+  # The template to use for the new user page.
   TEMPLATE = 'users/new.html'
-
 
   # An int that indicates how many characters passwords must be for new user
   # accounts.
@@ -320,9 +319,8 @@ class NewUserPage(AppDashboard):
 class LoginVerify(AppDashboard):
   """ Class to handle requests to /users/confirm and /users/verify pages. """
 
-
+  # The template to use for confirmation page.
   TEMPLATE = 'users/confirm.html'
-
 
   def post(self):
     """ Handler for POST requests. """
@@ -380,6 +378,7 @@ class LoginPage(AppDashboard):
   # Another path that points to the login page.
   ALIAS_2 = '/users/authenticate'
 
+  # The template to use for rendering the login page.
   TEMPLATE = 'users/login.html'
 
   def post(self):
@@ -455,8 +454,6 @@ class ShibbolethRedirect(AppDashboard):
   # The path for the Shibboleth redirect.
   PATH = '/users/shibboleth'
 
-  TEMPLATE = 'authorize/cloud.html'
-
   def get(self):
     """ Handler for GET requests. """
     user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').strip()\
@@ -477,9 +474,8 @@ class ShibbolethRedirect(AppDashboard):
 class AuthorizePage(AppDashboard):
   """ Class to handle requests to the /authorize page. """
 
-
+  # The template to use for the authorize page.
   TEMPLATE = 'authorize/cloud.html'
-
 
   def parse_update_user_permissions(self):
     """ Update authorization matrix from form submission.
@@ -508,7 +504,6 @@ class AuthorizePage(AppDashboard):
               response += 'Error disabling {0} for {1}. '.format(perm, email)
     return response
 
-
   def post(self):
     """ Handler for POST requests. """
     if self.dstore.is_user_cloud_admin():
@@ -526,7 +521,6 @@ class AuthorizePage(AppDashboard):
         'user_perm_list':{},
         })
 
-
   def get(self):
     """ Handler for GET requests. """
     if self.dstore.is_user_cloud_admin():
@@ -543,6 +537,7 @@ class AuthorizePage(AppDashboard):
 class ChangePasswordPage(AppDashboard):
   """Class to handle user password changes."""
 
+  # The template to use for the change password page.
   TEMPLATE = 'authorize/cloud.html'
 
   def post(self):
@@ -585,9 +580,8 @@ class ChangePasswordPage(AppDashboard):
 class AppUploadPage(AppDashboard):
   """ Class to handle requests to the /apps/new page. """
 
-
+  # The template to use for the upload app page.
   TEMPLATE = 'apps/new.html'
-
 
   def post(self):
     """ Handler for POST requests. """
@@ -622,7 +616,6 @@ class AppUploadPage(AppDashboard):
         'success_message' : success_msg
       })
 
-
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE)
@@ -631,9 +624,8 @@ class AppUploadPage(AppDashboard):
 class AppDeletePage(AppDashboard):
   """ Class to handle requests to the /apps/delete page. """
 
-
+  # The template to use for the app deletion page.
   TEMPLATE = 'apps/delete.html'
-
 
   def get_app_list(self):
     """ Returns a list of apps that the currently logged-in user is an admin of.
@@ -652,7 +644,6 @@ class AppDeletePage(AppDashboard):
         if application in my_apps:
           ret_list[application] = app_list[application]
       return ret_list
-
 
   def post(self):
     """ Handler for POST requests. """
@@ -674,7 +665,6 @@ class AppDeletePage(AppDashboard):
       'apps' : self.get_app_list(),
       })
 
-
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
@@ -686,14 +676,11 @@ class AppsAsJSONPage(webapp2.RequestHandler):
   """ A class that exposes application-level info used on the Cloud Status page,
   but via JSON instead of raw HTML. """
 
-
   def get(self):
     """ Retrieves the cached information about applications running in this
     AppScale deployment as a JSON-encoded dict. """
     self.response.out.write(json.dumps(
       AppDashboardData().get_application_info()))
-
-
 
   def post(self, app_id):
     """ Saves profiling information about a Google App Engine application to the
@@ -719,9 +706,8 @@ class AppsAsJSONPage(webapp2.RequestHandler):
 class LogMainPage(AppDashboard):
   """ Class to handle requests to the /logs page. """
 
-
+  # The template to use for the logs page.
   TEMPLATE = 'logs/main.html'
-
 
   def get(self):
     """ Handler for GET requests. """
@@ -749,9 +735,8 @@ class LogMainPage(AppDashboard):
 class LogServicePage(AppDashboard):
   """ Class to handle requests to the /logs/service_name page. """
 
-
+  # The template to use for the logs service page.
   TEMPLATE = 'logs/service.html'
-
 
   def get(self, service_name):
     """ Displays a list of hosts that have logs for the given service. """
@@ -778,13 +763,11 @@ class LogServicePage(AppDashboard):
 class LogServiceHostPage(AppDashboard):
   """ Class to handle requests to the /logs/service_name/host page. """
 
-
+  # The template to use for the logs viewer for the instance.
   TEMPLATE = 'logs/viewer.html'
-
 
   # The number of logs we should present on each page.
   LOGS_PER_PAGE = 10
-
 
   def get(self, service_name, host):
     """ Displays all logs accumulated for the given service, on the named host.
@@ -829,7 +812,6 @@ class LogServiceHostPage(AppDashboard):
 
 class LogUploadPage(webapp2.RequestHandler):
   """ Class to handle requests to the /logs/upload page. """
-
 
   def post(self):
     """ Saves logs records to the Datastore for later viewing. """
@@ -892,11 +874,9 @@ class LogDownloader(AppDashboard):
   download AppScale-generated logs.
   """
 
-
   # The location where the template file can be found that waits for logs
   # to become available before redirecting to it.
   TEMPLATE = "logs/download.html"
-
 
   def get(self):
     """ Instructs the AppController to collect logs across all machines, place
@@ -916,9 +896,8 @@ class LogDownloader(AppDashboard):
 
 class AppConsolePage(AppDashboard):
 
-
+  # The template to use for the app console page.
   TEMPLATE = "apps/console.html"
-
 
   def get(self):
     is_cloud_admin = self.helper.is_user_cloud_admin()
@@ -930,7 +909,6 @@ class AppConsolePage(AppDashboard):
     self.render_page(page='console', template_file=self.TEMPLATE, values = {
       'all_apps_this_user_owns' : apps_user_is_admin_on
     })
-
 
 
 class DatastoreStats(AppDashboard):
@@ -987,7 +965,6 @@ class RequestsStats(AppDashboard):
   of requests an application gets per second.
   """
 
-
   def get(self):
     """ Handler for GET request for the requests statistics. """
     is_cloud_admin = self.helper.is_user_cloud_admin()
@@ -1000,7 +977,6 @@ class RequestsStats(AppDashboard):
 
     appid = self.request.get("appid")
     self.response.out.write(json.dumps(RequestsStats.fetch_request_info(appid)))
-
 
   @staticmethod
   def fetch_request_info(app_id):
@@ -1043,7 +1019,6 @@ class InstanceStats(AppDashboard):
     appid = self.request.get("appid")
     self.response.out.write(json.dumps(InstanceStats.fetch_request_info(appid)))
 
-
   def post(self):
     """ Adds information about one or more instances to the Datastore, for
     later viewing.
@@ -1063,7 +1038,6 @@ class InstanceStats(AppDashboard):
 
     self.response.out.write('put completed successfully!')
 
-
   def delete(self):
     """ Removes information about one or more instances from the Datastore. """
     encoded_data = self.request.body
@@ -1075,7 +1049,6 @@ class InstanceStats(AppDashboard):
       instance.key.delete()
 
     self.response.out.write('delete completed successfully!')
-
 
   @staticmethod
   def fetch_request_info(appid):
@@ -1100,7 +1073,6 @@ class InstanceStats(AppDashboard):
 class MemcacheStats(AppDashboard):
   """ Class that returns global memcache statistics. """
 
-
   def get(self):
     """ Handler for GET request for the memcache statistics. """
     if not self.helper.is_user_cloud_admin():
@@ -1112,10 +1084,10 @@ class MemcacheStats(AppDashboard):
     self.response.out.write(json.dumps(mem_stats))
 
 
-
 class StatsPage(AppDashboard):
-  """ Class to handle requests to the /logs page. """
+  """ Class to handle requests to the /apps/stats page. """
 
+  # The template to use for the stats page.
   TEMPLATE = 'apps/stats.html'
 
   def get(self):
@@ -1152,7 +1124,6 @@ class StatsPage(AppDashboard):
 
 class RunGroomer(AppDashboard):
   """ Class that dynamically updates Kind statistics in the Datastore. """
-
 
   def get(self):
     """ Calls the groomer and tells it that Kind statistics need to be
