@@ -925,7 +925,7 @@ module HelperFunctions
     }
 
     usage['cpu'] /= self.get_num_cpus()
-    usage['disk'] = 50 #Must be fixed:Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
+    usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
 
     return usage
   end
