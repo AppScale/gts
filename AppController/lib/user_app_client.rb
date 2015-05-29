@@ -27,6 +27,7 @@ class UserAppClient
     @secret = secret
     
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
     @conn.add_method("commit_new_app", "user", "appname", "language", "secret")
