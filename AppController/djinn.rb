@@ -3427,7 +3427,7 @@ class Djinn
   def start_app_manager_server()
     @state = "Starting up AppManager"
     env_vars = {}
-    start_cmd = ["/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
+    start_cmd = "/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"
     stop_cmd = "/usr/bin/pkill -9 app_manager_server"
     port = [AppManagerClient::SERVER_PORT]
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
