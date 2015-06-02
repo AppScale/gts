@@ -454,7 +454,7 @@ class Djinn
     file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
 
     @@log = Logger.new(file)
-    @@log.level = Logger::DEBUG
+    @@log.level = Logger::INFO
 
     @nodes = []
     @my_index = nil
@@ -2042,6 +2042,7 @@ class Djinn
   #     Logger::INFO) that indicates the severity of this log message.
   #   message: A String containing the message to be logged.
   def self.log_to_buffer(level, message)
+    puts message 
     return if message.empty?
     return if level < @@log.level
     time = Time.now
@@ -2502,7 +2503,7 @@ class Djinn
   #   on this machine or not.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state")
-
+    puts ZK_LOCATIONS_FILE 
     restoring_from_local = true
     if File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("Trying to restore data from ZooKeeper.")
@@ -2534,10 +2535,13 @@ class Djinn
     @@secret = json_state['@@secret']
     keyname = json_state['@options']['keyname']
 
+    puts json_state
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
+         xx = JSON.load(v.to_s) 
+         puts xx
+         v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
       # node. This node may or may not be the head node, so set those 
@@ -2578,9 +2582,9 @@ class Djinn
     json_state = {}
     zookeeper_data['locations'].each { |ip|
       begin
-        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-        Timeout.timeout(10) do
-          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
+         Djinn.log_info("Restoring AppController state from ZK at #{ip}")
+         Timeout.timeout(10) do
+          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
       end
       rescue Exception => e

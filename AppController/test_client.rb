@@ -1,5 +1,6 @@
 require 'openssl'
 require 'soap/rpc/driver'
+require 'webrick/https'
 require 'net/http'
 require "rubygems"
 require "highline/import"
