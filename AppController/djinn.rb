@@ -2457,7 +2457,8 @@ class Djinn
 
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
-
+    puts "#########################################################################################################################"
+    puts instance_variables
     instance_variables.each { |k|
       v = instance_variable_get(k)
       if k == "@nodes"
@@ -2539,9 +2540,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-         xx = JSON.load(v.to_s) 
-         puts xx
-         v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
+         v = Djinn.convert_location_array_to_class(v,keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
       # node. This node may or may not be the head node, so set those 
