@@ -371,11 +371,9 @@ installpythonmemcache()
 
 installzookeeper()
 {
-  #ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-  #wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
-  #dpkg -i /tmp/${ZK_REPO_PKG}
-  apt-get update 
-  apt-get install -y zookeeper 
+  ZK_REPO_PKG=cdh4-repository_1.0_all.deb
+  wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+  dpkg -i /tmp/${ZK_REPO_PKG}
 
   pip_wrapper kazoo
 }
