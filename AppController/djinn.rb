@@ -2042,7 +2042,7 @@ class Djinn
   #     Logger::INFO) that indicates the severity of this log message.
   #   message: A String containing the message to be logged.
   def self.log_to_buffer(level, message)
-    puts message 
+    puts  message    
     return if message.empty?
     return if level < @@log.level
     time = Time.now
@@ -2095,7 +2095,6 @@ class Djinn
     djinn_locations.each { |location|
       djinn_loc_array << location.to_hash
     }
-
     return JSON.dump(djinn_loc_array)
   end
 
@@ -2457,12 +2456,10 @@ class Djinn
 
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
-    puts "#########################################################################################################################"
-    puts instance_variables
     instance_variables.each { |k|
       v = instance_variable_get(k)
-      if k == "@nodes"
-        v = Djinn.convert_location_class_to_array(@nodes)
+      if k.to_s == "@nodes"
+        v = Djinn.convert_location_class_to_array(v)
       elsif k == "@my_index" or k == "@api_status"
         # Don't back up @my_index - it's a node-specific pointer that
         # indicates which node is "our node" and thus should be regenerated
@@ -2475,6 +2472,8 @@ class Djinn
 
       state[k] = v
     }
+
+    Djinn.log_info("backup_appcontroller_state:"+state.to_s)
 
     HelperFunctions.write_local_appcontroller_state(state)
     ZKInterface.write_appcontroller_state(state)
@@ -2504,7 +2503,6 @@ class Djinn
   #   on this machine or not.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state")
-    puts ZK_LOCATIONS_FILE 
     restoring_from_local = true
     if File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("Trying to restore data from ZooKeeper.")
@@ -2536,7 +2534,7 @@ class Djinn
     @@secret = json_state['@@secret']
     keyname = json_state['@options']['keyname']
 
-    puts json_state
+    #puts json_state
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
