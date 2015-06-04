@@ -62,7 +62,7 @@ class AppControllerClient
     @secret = secret
     
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:17443")
-    # disable certificate verification 
+    # Disable certificate verification.
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
     @conn.add_method("set_apps", "app_names", "secret")

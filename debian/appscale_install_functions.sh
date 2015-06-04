@@ -245,14 +245,14 @@ installgems()
 {
     GEMOPT="--no-rdoc --no-ri"
     # Rake 10.0 depecates rake/rdoctask - upgrade later.
-    gem install rake ${GEMOPT} 
+    gem install rake ${GEMOPT}
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
     gem install zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
-    gem install soap4r-ruby1.9 ${GEMOPT} 
+    gem install soap4r-ruby1.9 ${GEMOPT}
     gem install httparty ${GEMOPT}
     # This is for the unit testing framework.
     gem install flexmock ${GEMOPT}

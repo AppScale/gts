@@ -1963,7 +1963,7 @@ class Djinn
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(30)
-        redo 
+        redo
       end
     }
 
@@ -2042,7 +2042,7 @@ class Djinn
   #     Logger::INFO) that indicates the severity of this log message.
   #   message: A String containing the message to be logged.
   def self.log_to_buffer(level, message)
-    puts  message    
+    puts  message
     return if message.empty?
     return if level < @@log.level
     time = Time.now
