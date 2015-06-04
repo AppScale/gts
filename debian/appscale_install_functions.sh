@@ -254,6 +254,7 @@ installgems()
     sleep 1
     gem install soap4r-ruby1.9 ${GEMOPT}
     gem install httparty ${GEMOPT}
+    gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
     gem install flexmock ${GEMOPT}
     gem install simplecov ${GEMOPT}
