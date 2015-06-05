@@ -4275,7 +4275,7 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_language = app_data.scan(/language:(\w+)/).flatten.to_s
+    app_language = (app_data.scan(/language:(\w+)/).*"").to_s
 
     if is_new_app and @app_info_map[app].nil?
       @app_info_map[app] = {}
@@ -4842,7 +4842,7 @@ HOSTS
       Kernel.sleep(5)
     }
 
-    app_language = app_data.scan(/language:(\w+)/).flatten.to_s
+    app_language = (app_data.scan(/language:(\w+)/)*"").to_s
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
