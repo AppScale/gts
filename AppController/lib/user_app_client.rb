@@ -54,7 +54,9 @@ class UserAppClient
           yield if block_given?
         end
       end
-    rescue OpenSSL::SSL::SSLError
+    rescue OpenSSL::SSL::SSLError => e 
+      puts e
+      Djinn.log_warn(e)
       Djinn.log_warn("Retrying (SSL) - calling #{callr} on UserAppServer at #{@ip}")
       retry
     rescue Errno::ECONNREFUSED
