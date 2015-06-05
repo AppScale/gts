@@ -2538,7 +2538,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-         v = Djinn.convert_location_array_to_class(v,keyname)
+         v = Djinn.convert_location_array_to_class(JSON.load(v),keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
       # node. This node may or may not be the head node, so set those 

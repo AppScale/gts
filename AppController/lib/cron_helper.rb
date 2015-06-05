@@ -32,7 +32,7 @@ module CronHelper
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]")
     app_crontab = NO_EMAIL_CRON + "\n"
 
-    if lang == "python27" or lang == "go" or lang == "php"
+    if lang.to_s == "python27" or lang.to_s  == "go" or lang.to_s == "php"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
 
       begin
@@ -77,7 +77,7 @@ CRON
         }
       }
 
-    elsif lang == "java"
+    elsif lang.to_s == "java"
       cron_file = "/var/apps/#{app}/app/war/WEB-INF/cron.xml"
       return unless File.exists?(cron_file)
       cron_xml = Document.new(File.new(cron_file)).root
