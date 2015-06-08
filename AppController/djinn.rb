@@ -2836,8 +2836,9 @@ class Djinn
         Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-        Errno::ECONNRESET => exception
-        Djinn.log_warn("Exception in send_instance_info: #{exception.message}")
+        Errno::ECONNRESET => e
+        backtrace = e.backtrace.join("\n")
+        Djinn.log_warn("Error in send_instance_info: #{e.class}\n#{backtrace}")
         retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
@@ -4958,8 +4959,9 @@ HOSTS
         {'Content-Type'=>'application/json'})
       return true
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET => exception
-      Djinn.log_warn("Error sending logs: #{exception.message}")
+      Errno::ECONNRESET => e
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Error sending logs: #{e.class}\n#{backtrace}")
       retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over

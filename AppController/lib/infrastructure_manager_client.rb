@@ -102,7 +102,9 @@ class InfrastructureManagerClient
       return false if ok_to_fail
       retry
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
+      newline = "\n"
+      Djinn.log_warn("make_call: exception: #{except.class}")
+      Djinn.log_warn("#{except.backtrace.join(newline)}")
       Kernel.sleep(1)
       retry
     rescue Exception => except

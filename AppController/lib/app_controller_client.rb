@@ -125,7 +125,9 @@ class AppControllerClient
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
       return
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET, SOAP::EmptyResponseError
+      Errno::ECONNRESET, SOAP::EmptyResponseError => e
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Error in make_call: #{e.class}\n#{backtrace}")
       retry
     rescue Exception => except
       if retry_on_except
