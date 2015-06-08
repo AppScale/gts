@@ -257,7 +257,9 @@ module HelperFunctions
           sock = TCPSocket.new(ip, port)
           if use_ssl
             ssl_context = OpenSSL::SSL::SSLContext.new() 
-            ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE 
+            unless ssl_context.verify_mode
+              ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE 
+            end
             sslsocket = OpenSSL::SSL::SSLSocket.new(sock, ssl_context) 
             sslsocket.sync_close = true 
             sslsocket.connect          
