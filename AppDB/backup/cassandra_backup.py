@@ -2,11 +2,13 @@
 
 import logging
 import os
+import statvfs
 import sys
 import tarfile
 import subprocess
 from subprocess import call
 from subprocess import CalledProcessError
+from os.path import getsize
 
 import backup_exceptions
 import gcs_helper
@@ -30,6 +32,9 @@ BACKUP_DIR_LOCATION = "/opt/appscale/backups"
 # File location of where the latest backup goes.
 BACKUP_FILE_LOCATION = "{0}/cassandra_backup.tar.gz".format(BACKUP_DIR_LOCATION)
 
+# A suffix appended to an existing backup tar.
+BACKUP_ROLLBACK_SUFFIX = "_last_successful"
+
 # Cassandra directories to remove to get rid of data.
 CASSANDRA_DATA_SUBDIRS = ["Keyspace1", "system",
   # TODO Is the rest needed?
@@ -37,8 +42,11 @@ CASSANDRA_DATA_SUBDIRS = ["Keyspace1", "system",
   # "system_traces"
 ]
 
+# The percentage of disk fullness that is considered reasonable.
+PADDING_PERCENTAGE = 0.9
+
 def clear_old_snapshots():
-  """ Remove any old snapshots to minimize diskspace usage both locally. """
+  """ Remove any old snapshots to minimize disk space usage locally. """
   logging.info('Removing old Cassandra snapshots...')
   try:
     call([NODE_TOOL, 'clearsnapshot'])
@@ -78,6 +86,42 @@ def get_cassandra_snapshot_file_names():
   logging.debug("List of snapshot paths: {0}".format(file_list))
   return file_list
 
+def get_available_disk_space():
+  """ Returns the amount of available disk space under /opt/appscale.
+
+  Returns:
+    An int, the available disk space in bytes.
+  """
+  stat_struct = os.statvfs(os.path.dirname(BACKUP_DIR_LOCATION))
+  return stat_struct[statvfs.F_BAVAIL] * stat_struct[statvfs.F_BSIZE]
+
+def get_backup_size():
+  """ Sums up the size of the snapshot files that consist the backup.
+
+  Returns:
+    An int, the total size of the files consisting the backup in bytes.
+  """
+  backup_files = get_cassandra_snapshot_file_names()
+  total_size = sum(getsize(file) for file in backup_files)
+  return total_size
+
+def enough_disk_space():
+  """ Checks if there's enough available disk space for a new backup.
+
+  Returns:
+    True on success, False otherwise.
+  """
+  available_space = get_available_disk_space()
+  logging.debug("Available space: {0}".format(available_space))
+
+  backup_size = get_backup_size()
+  logging.debug("Backup size: {0}".format(backup_size))
+
+  if backup_size > available_space*PADDING_PERCENTAGE:
+    logging.warning("Not enough space for a backup.")
+    return False
+  return True
+
 def tar_backup_files(file_paths):
   """ Tars all snapshot files for a given snapshot name.
 
@@ -97,11 +141,17 @@ def tar_backup_files(file_paths):
 
   backup_file_location = BACKUP_FILE_LOCATION
 
-  # Delete previous backup.
+  if not enough_disk_space():
+    logging.error("There's not enough available space to create another "
+      "backup.")
+    return None
+
+  # Rename previous backup.
   try:
-    call(["rm", "-f", backup_file_location])
+    call(["mv", backup_file_location, "{0}{1}".
+      format(backup_file_location, BACKUP_ROLLBACK_SUFFIX)])
   except CalledProcessError as error:
-    logging.error("Error while deleting previous backup '{0}'. Error: {1}".
+    logging.error("Error while moving previous backup '{0}'. Error: {1}".
       format(backup_file_location, str(error)))
 
   tar = tarfile.open(backup_file_location, "w:gz")
@@ -120,6 +170,10 @@ def backup_data(storage, path=''):
   Returns:
     The path to the backup file on success, None otherwise.
   """
+  if storage not in (StorageTypes()).get_storage_types():
+    logging.error("Storage '{0}' not supported.")
+    return None
+
   logging.info("Starting new db backup.")
   clear_old_snapshots()
 
@@ -137,11 +191,13 @@ def backup_data(storage, path=''):
     logging.error('Error while tarring up snapshot files. Aborting backup...')
     clear_old_snapshots()
     remove_local_backup_file(tar_file)
+    # TODO Move last successful backup file.
     return None
 
   if storage == StorageTypes.LOCAL_FS:
     logging.info("Done with local db backup!")
     clear_old_snapshots()
+    # TODO Delete last successful backup file.
     return tar_file
   elif storage == StorageTypes.GCS:
     return_value = path
@@ -155,12 +211,8 @@ def backup_data(storage, path=''):
 
     # Remove local backup file.
     remove_local_backup_file(tar_file)
+    # TODO Delete last successful backup file.
     return return_value
-  else:
-    logging.error("Storage '{0}' not supported.")
-    clear_old_snapshots()
-    remove_local_backup_file()
-    return None
 
 def shutdown_datastore(self):
   """ Top level function for bringing down Cassandra.
@@ -305,4 +357,4 @@ if "__main__" == __name__:
   logging.getLogger().setLevel(logging.DEBUG)
 
   backup_data(storage='', path='')
-  restore_data(storage='', path='')
+  # restore_data(storage='', path='')

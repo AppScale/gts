@@ -248,4 +248,4 @@ if "__main__" == __name__:
   logging.getLogger().setLevel(logging.DEBUG)
 
   backup_data(storage='', path='')
-  restore_data(storage='', path='')
+  # restore_data(storage='', path='')
