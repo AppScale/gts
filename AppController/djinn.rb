@@ -1963,7 +1963,7 @@ class Djinn
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(30)
-        redo 
+        redo
       end
     }
 
@@ -2042,7 +2042,7 @@ class Djinn
   #     Logger::INFO) that indicates the severity of this log message.
   #   message: A String containing the message to be logged.
   def self.log_to_buffer(level, message)
-    puts  message    
+    puts  message
     return if message.empty?
     return if level < @@log.level
     time = Time.now
@@ -2534,7 +2534,7 @@ class Djinn
     @@secret = json_state['@@secret']
     keyname = json_state['@options']['keyname']
 
-    #puts json_state
+    # Puts json_state.
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
@@ -2793,6 +2793,7 @@ class Djinn
           url = URI.parse("https://#{get_login.public_ip}:" +
             "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
           http = Net::HTTP.new(url.host, url.port)
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           http.use_ssl = true
           response = http.post(url.path, encoded_logs,
             {'Content-Type'=>'application/json'})
@@ -2828,13 +2829,16 @@ class Djinn
           "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
         response = http.post(url.path, JSON.dump(instance_info),
           {'Content-Type'=>'application/json'})
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-        Errno::ECONNRESET
+        Errno::ECONNRESET => e
+        backtrace = e.backtrace.join("\n")
+        Djinn.log_warn("Error in send_instance_info: #{e.message}\n#{backtrace}")
         retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
@@ -2866,7 +2870,9 @@ class Djinn
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request = Net::HTTP::Delete.new(url.path)
+      request.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request.body = JSON.dump(instance_info)
       response = http.request(request)
       Djinn.log_debug("Done sending instance info to AppDashboard!")
@@ -3083,6 +3089,7 @@ class Djinn
         begin
           node.private_ip = HelperFunctions.convert_fqdn_to_ip(pri)
         rescue Exception => e
+          Djinn.log_info("Failed to convert IP: #{e.message}")
           node.private_ip = node.public_ip
         end
       end
@@ -4577,7 +4584,7 @@ HOSTS
       return :no_change
     end
 
-    monitoring_info.each { |line|
+    monitoring_info.each_line { |line|
       parsed_info = line.split(',')
       if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
         next
@@ -4947,11 +4954,14 @@ HOSTS
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/json/#{app_id}")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       response = http.post(url.path, encoded_request_info,
         {'Content-Type'=>'application/json'})
       return true
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET
+      Errno::ECONNRESET => e
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Error sending logs: #{e.message}\n#{backtrace}")
       retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over

@@ -13,7 +13,7 @@ URL = 'https://localhost:17443/'
 begin
   secret = HelperFunctions.get_secret()
   driver = SOAP::RPC::Driver.new(URL)
-  driver.options["protocol.http.ssl_config.verify_mode"] = nil 
+  driver.options["protocol.http.ssl_config.verify_mode"] = nil
   # Add remote sevice methods
   driver.add_method('status', 'secret')
   driver.add_method('is_done_initializing','secret')
@@ -32,14 +32,14 @@ begin
       menu.choice(:done, "Done") do | command |
         say("Invoking is_done_initializing")
         puts driver.is_done_initializing(secret)
-        say("Invoking is_done_loading") 
+        say("Invoking is_done_loading")
         puts driver.is_done_loading(secret)
       end
       menu.choice(:role,"Role") do | command |
         say("Invoking get_role_info")
         puts driver.get_role_info(secret)
       end
-      
+
 
 
       menu.choice(:quit, "Exit program.") { exit }

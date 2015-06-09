@@ -56,9 +56,11 @@ class AppManagerClient
           yield if block_given?
         end
       end
-    rescue OpenSSL::SSL::SSLError
+    rescue OpenSSL::SSL::SSLError => e
       Djinn.log_warn("Saw a SSLError when calling #{callr}" +
         " - trying again momentarily.")
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Exception: #{e.class}\n#{backtrace}")
       retry
     rescue Errno::ECONNREFUSED => except
       if retry_on_except
