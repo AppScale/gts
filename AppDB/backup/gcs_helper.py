@@ -2,26 +2,16 @@
 
 import json
 import logging
-import os
 import re
 import requests
 import subprocess
 import urllib
 
+import backup_recovery_helper
 from backup_recovery_constants import HTTP_OK
 
 # The upload request timeout in seconds (12 hours).
 REQUEST_TIMEOUT = 12*60*60
-
-def does_file_exist(path):
-  """ Checks if the given file is in the local filesystem.
-
-  Args:
-    path: A str, the path to the file.
-  Returns:
-    True on success, False otherwise.
-  """
-  return os.path.isfile(path)
 
 def upload_to_bucket(full_object_name, local_path):
   """ Uploads a file to GCS.
@@ -34,7 +24,7 @@ def upload_to_bucket(full_object_name, local_path):
     True on success, False otherwise.
   """
   # Ensure local file is accessible.
-  if not does_file_exist(local_path):
+  if not backup_recovery_helper.does_file_exist(local_path):
     logging.error("Local file '{0}' doesn't exist. Aborting upload to "
       "GCS.".format(local_path))
     return False
