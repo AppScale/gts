@@ -3,16 +3,17 @@
 import logging
 import os
 import statvfs
+import subprocess
 import sys
 import tarfile
-import subprocess
-from subprocess import call
-from subprocess import CalledProcessError
+
 from os.path import getsize
+from subprocess import CalledProcessError
 
 import backup_exceptions
-import gcs_helper
 import backup_recovery_helper
+import gcs_helper
+
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_FILE_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
@@ -38,7 +39,7 @@ def clear_old_snapshots():
   """ Remove any old snapshots to minimize disk space usage locally. """
   logging.info('Removing old Cassandra snapshots...')
   try:
-    call([NODE_TOOL, 'clearsnapshot'])
+    subprocess.check_call([NODE_TOOL, 'clearsnapshot'])
   except CalledProcessError as error:
     logging.error('Error while deleting old Cassandra snapshots. Error: {0}'.\
       format(str(error)))
@@ -53,7 +54,7 @@ def create_snapshot(snapshot_name=''):
   """
   logging.info('Creating new Cassandra snapshots...')
   try:
-    call([NODE_TOOL, 'snapshot'])
+    subprocess.check_call([NODE_TOOL, 'snapshot'])
   except CalledProcessError as error:
     logging.error('Error while creating new Cassandra snapshots. Error: {0}'.\
       format(str(error)))
@@ -137,17 +138,17 @@ def refresh_data():
   """ Performs a refresh of the data in Cassandra. """
   for column_family in dbconstants.INITIAL_TABLES:
     try:
-      call([NODE_TOOL, 'refresh', KEYSPACE, column_family])
+      subprocess.check_call([NODE_TOOL, 'refresh', KEYSPACE, column_family])
     except CalledProcessError as error:
       logging.error('Error while refreshing Cassandra data. Error: {0}'.\
         format(error))
 
 def remove_old_data():
-  """ Removes previous node data from the cassandra deployment. """
+  """ Removes previous node data from the Cassandra deployment. """
   for directory in CASSANDRA_DATA_SUBDIRS:
     data_dir = "{0}{1}/{2}".format(constants.APPSCALE_DATA_DIR, "cassandra",
       directory)
-    logging.warn("Removing data from {0}".format(data_dir))
+    logging.warning("Removing data from {0}".format(data_dir))
     try:
       subprocess.Popen('find /opt/appscale/cassandra -name "*" | '
         'grep ".db\|.txt\|.log" | grep -v snapshot | xargs rm', shell=True)
@@ -186,15 +187,13 @@ def restore_snapshots():
   logging.info("Done restoring Cassandra snapshots.")
   return True
 
-def shutdown_datastore(self):
+def shutdown_datastore():
   """ Top level function for bringing down Cassandra.
 
   Returns:
     True on success, False otherwise.
   """
-  self.__cassandra_backup_lock.acquire(True)
   success = shut_down_cassandra.run()
-  self.__cassandra_backup_lock.release()
   if not success:
     return False
   return True
@@ -260,7 +259,7 @@ def backup_data(storage, path=''):
   Returns:
     The path to the backup file on success, None otherwise.
   """
-  if storage not in (StorageTypes()).get_storage_types():
+  if storage not in StorageTypes().get_storage_types():
     logging.error("Storage '{0}' not supported.")
     return None
 
@@ -294,7 +293,6 @@ def backup_data(storage, path=''):
     # Upload to GCS.
     if not gcs_helper.upload_to_bucket(path, tar_file):
       logging.error("Upload to GCS failed. Aborting backup...")
-      clear_old_snapshots()
       move_secondary_backup()
       return_value = None
     else:
@@ -302,16 +300,23 @@ def backup_data(storage, path=''):
       delete_secondary_backup()
 
     # Remove local backup file(s).
+    clear_old_snapshots()
     delete_local_backup_file(tar_file)
     return return_value
 
 def restore_data(storage, path=''):
-  """ Restores the Cassandra snapshot. 
+  """ Restores the Cassandra backup.
 
   Args:
     storage: A str, one of the StorageTypes class members.
     path: A str, the name of the backup file to restore from.
+  Returns:
+    True on success, False otherwise.
   """
+  if storage not in StorageTypes().get_storage_types():
+    logging.error("Storage '{0}' not supported.")
+    return False
+
   if storage == StorageTypes.GCS:
     # Download backup file and store locally with a fixed name.
     if not gcs_helper.download_from_bucket(path, BACKUP_FILE_LOCATION):
@@ -324,15 +329,21 @@ def restore_data(storage, path=''):
 
   if not shut_down_cassandra.run():
     logging.error("Unable to shut down Cassandra. Aborting restore...")
-    clear_old_snapshots()
+    if storage == StorageTypes.GCS:
+      delete_local_backup_file()
     return False
 
   remove_old_data()
   try:
     untar_backup_files()
   except backup_exceptions.BRException as br_exception:
-    logging.exception("Exception while restoring db snapshots. Need to "
-      "rollback... Exception: {0}".format(str(br_exception)))
+    logging.exception("Error while unpacking backup files. Exception: {0}".
+      format(str(br_exception)))
+    start_cassandra.run()
+    if storage == StorageTypes.GCS:
+      delete_local_backup_file()
+    return False
+
   restore_snapshots()
 
   # Start Cassandra and repair.

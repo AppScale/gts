@@ -6,7 +6,6 @@ import os
 import sys
 import tarfile
 import subprocess
-from subprocess import call
 from subprocess import CalledProcessError
 
 import backup_exceptions
@@ -55,7 +54,7 @@ def tar_backup_files(file_paths):
 
   # Create backups dir if not there.
   try:
-    call(["mkdir", "-p", BACKUP_DIR_LOCATION])
+    subprocess.call(["mkdir", "-p", BACKUP_DIR_LOCATION])
   except CalledProcessError as error:
     logging.error("Error while creating dir '{0}'. Error: {1}".
       format(BACKUP_DIR_LOCATION, str(error)))
@@ -65,7 +64,7 @@ def tar_backup_files(file_paths):
 
   # Delete previous backup.
   try:
-    call(["rm", "-f", backup_file_location])
+    subprocess.call(["rm", "-f", backup_file_location])
   except CalledProcessError as error:
     logging.error("Error while deleting previous backup '{0}'. Error: {1}".
       format(backup_file_location, str(error)))
@@ -120,21 +119,18 @@ def backup_data(storage, path=''):
     remove_local_backup_file()
     return None
 
-def shutdown_zookeeper(self):
+def shutdown_zookeeper():
   """ Top level function for bringing down Zookeeper.
 
   Returns:
-    A JSON string to return to the client.
+    True on success, False otherwise.
   """
-  self.__zookeeper_backup_lock.acquire(True)
-  success = shut_down_zookeeper.run()
-  self.__zookeeper_backup_lock.release()
-  if not success:
-    return self.bad_request('Monit error')
-  return json.dumps({'success': True})
+  if not shut_down_zookeeper.run():
+    return False
+  return True
 
 def remove_old_data():
-  """ Removes previous node data from the cassandra deployment. """
+  """ Removes previous node data from the Zookeeper deployment. """
   for directory in ZOOKEEPER_DATA_SUBDIRS:
     data_dir = "{0}{1}/{2}".format(constants.APPSCALE_DATA_DIR, "zookeeper",
       directory)
@@ -143,7 +139,7 @@ def remove_old_data():
       # TODO
       logging.info("Done removing data!")
     except CalledProcessError as error:
-      logging.error("Error while removing old data from db. Overwriting... "
+      logging.error("Error while removing old data from zk. Overwriting... "
         "Error: {0}".format(str(error)))
 
 def untar_backup_files():
@@ -186,7 +182,7 @@ def restore_snapshots():
         logging.debug("{0} -> {1}".format(full_path, new_full_path))
         # Move the files up into the data directory.
         try:
-          call(['cp', full_path, new_full_path])
+          subprocess.call(['cp', full_path, new_full_path])
         except CalledProcessError as error:
           logging.error("Error while moving Zookeeper snapshot in place. "
             "Error: {0}".format(str(error)))
@@ -201,7 +197,7 @@ def remove_local_backup_file(local_file=BACKUP_FILE_LOCATION):
     local_file: A str, the path to the backup file to delete.
   """
   try:
-    call(['rm', '-rf', local_file])
+    subprocess.call(['rm', '-rf', local_file])
   except CalledProcessError as error:
     logging.error("Error while removing local backup file '{0}'. Error: {1}".\
       format(local_file, str(error)))
@@ -245,7 +241,7 @@ def restore_data(storage, path=''):
   return True
 
 if "__main__" == __name__:
-  logging.getLogger().setLevel(logging.DEBUG)
+  logging.getLogger().setLevel(logging.INFO)
 
   backup_data(storage='', path='')
   # restore_data(storage='', path='')
