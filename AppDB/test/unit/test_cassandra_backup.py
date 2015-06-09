@@ -28,9 +28,7 @@ class FakeTar():
     pass
 
 class TestCassandraBackup(unittest.TestCase):
-  """
-  A set of test cases for the cassandra backup.
-  """
+  """ A set of test cases for the Cassandra backup. """
 
   def test_clear_old_snapshots(self):
     flexmock(subprocess).should_receive('check_call').with_args([NODE_TOOL,
