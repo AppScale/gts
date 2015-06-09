@@ -2838,7 +2838,7 @@ class Djinn
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
         Errno::ECONNRESET => e
         backtrace = e.backtrace.join("\n")
-        Djinn.log_warn("Error in send_instance_info: #{e.class}\n#{backtrace}")
+        Djinn.log_warn("Error in send_instance_info: #{e.message}\n#{backtrace}")
         retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
@@ -4961,7 +4961,7 @@ HOSTS
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
       Errno::ECONNRESET => e
       backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Error sending logs: #{e.class}\n#{backtrace}")
+      Djinn.log_warn("Error sending logs: #{e.message}\n#{backtrace}")
       retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over
