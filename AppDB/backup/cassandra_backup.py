@@ -24,11 +24,10 @@ from backup_recovery_constants import StorageTypes
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 import dbconstants
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
-import start_cassandra
-import shut_down_cassandra
-from cassandra_interface import NODE_TOOL
-from cassandra_interface import KEYSPACE
+from cassandra import start_cassandra
+from cassandra import shut_down_cassandra
+from cassandra.cassandra_interface import NODE_TOOL
+from cassandra.cassandra_interface import KEYSPACE
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
@@ -206,11 +205,6 @@ def tar_backup_files(file_paths):
   Returns:
     The path to the tar file, None otherwise.
   """
-  # Create backups dir if it doesn't exist.
-  if not backup_recovery_helper.mkdir(BACKUP_DIR_LOCATION):
-    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
-      format(BACKUP_DIR_LOCATION))
-
   backup_file_location = BACKUP_FILE_LOCATION
 
   if not enough_disk_space():

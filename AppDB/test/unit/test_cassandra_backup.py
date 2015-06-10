@@ -14,10 +14,9 @@ import backup_recovery_helper
 import cassandra_backup
 import gcs_helper
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra/"))
-import shut_down_cassandra
-import start_cassandra
-from cassandra_interface import NODE_TOOL
+from cassandra import shut_down_cassandra
+from cassandra import start_cassandra
+from cassandra.cassandra_interface import NODE_TOOL
 
 class FakeTar():
   def __init__(self):

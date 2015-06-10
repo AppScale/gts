@@ -16,6 +16,9 @@ CASSANDRA_DATA_SUBDIRS = ["Keyspace1", "system",
   # "system_traces"
 ]
 
+# Default port for the backup/recovery web server.
+DEFAULT_PORT = 8423
+
 # HTTP Codes.
 HTTP_OK = 200
 

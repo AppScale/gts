@@ -241,7 +241,5 @@ def restore_data(storage, path=''):
   return True
 
 if "__main__" == __name__:
-  logging.getLogger().setLevel(logging.INFO)
-
   backup_data(storage='', path='')
   # restore_data(storage='', path='')

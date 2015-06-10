@@ -1,5 +1,4 @@
 """ Top level server for backup and recovery. """
-from backup_recovery import BackupService
 
 import logging
 
@@ -8,8 +7,11 @@ import tornado.httputil
 import tornado.ioloop
 import tornado.web
 
-# Default port for the backup/recovery web server.
-DEFAULT_PORT = 8423
+import backup_recovery_helper
+from backup_recovery import BackupService
+from backup_recovery_constants import BACKUP_DIR_LOCATION
+from backup_recovery_constants import DEFAULT_PORT
+from backup_recovery_constants import HTTP_OK
 
 class MainHandler(tornado.web.RequestHandler):
   """ Main handler class. """
@@ -26,7 +28,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = self.backup_recovery_service.remote_request(http_request_data)
 
     request.connection.write_headers(
-      tornado.httputil.ResponseStartLine('HTTP/1.1', 200, 'OK'),
+      tornado.httputil.ResponseStartLine('HTTP/1.1', HTTP_OK, 'OK'),
       tornado.httputil.HTTPHeaders({"Content-Length": str(len(response))}))
     request.connection.write(response)
     request.connection.finish()
@@ -38,9 +40,15 @@ def get_application():
     ], )
 
 if __name__ == "__main__":
-  logging.getLogger().setLevel(logging.DEBUG)
+  logging.getLogger().setLevel(logging.INFO)
   logging.info("Starting server on port {0}".format(DEFAULT_PORT))
 
+  # Create backups dir if it doesn't exist.
+  if not backup_recovery_helper.mkdir(BACKUP_DIR_LOCATION):
+    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+      format(BACKUP_DIR_LOCATION))
+
+  # Start Tornado.
   http_server = tornado.httpserver.HTTPServer(get_application())
   http_server.bind(DEFAULT_PORT)
   http_server.start(0)
