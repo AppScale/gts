@@ -1,4 +1,5 @@
 require 'rexml/document'
+require 'helperfunctions'
 include REXML
 
 
@@ -78,7 +79,8 @@ CRON
       }
 
     elsif lang == "java"
-      cron_file = "/var/apps/#{app}/app/war/WEB-INF/cron.xml"
+      web_inf_dir = HelperFunctions.get_web_inf_dir(HelperFunctions.get_untar_dir(app))
+      cron_file = "#{web_inf_dir}/cron.xml"
       return unless File.exists?(cron_file)
       cron_xml = Document.new(File.new(cron_file)).root
       return if cron_xml.nil?
