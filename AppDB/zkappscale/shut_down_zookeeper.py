@@ -12,5 +12,7 @@ def run():
   monit_interface.stop('zookeeper-9999', is_group=False)
   logging.warning("Done!")
 
+  return True
+
 if __name__ == "__main__":
   run()
