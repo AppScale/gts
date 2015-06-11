@@ -12,6 +12,7 @@ import urllib
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/"))
+import backup_recovery_helper
 import gcs_helper
 
 FakeDFOutput = "\nsome_fs  0 0  1   0% /"
@@ -32,23 +33,22 @@ class FakeResponse2(object):
     self.status_code = code
     self.content = ""
 
-class TestCassandraBackup(unittest.TestCase):
+class TestGCSHelper(unittest.TestCase):
   """ A set of test cases for the GCS helper. """
-
-  def test_does_file_exist(self):
-    pass
 
   def test_upload_to_bucket(self):
     # Suppress logging output.
     flexmock(logging).should_receive('error').and_return()
 
     # Test with missing local file.
-    flexmock(gcs_helper).should_receive('does_file_exist').and_return(False)
+    flexmock(backup_recovery_helper).should_receive('does_file_exist').\
+      and_return(False)
     self.assertEquals(False, gcs_helper.upload_to_bucket(FakeGCSPath,
       'some/file'))
 
     # Test with invalid GCS object name.
-    flexmock(gcs_helper).should_receive('does_file_exist').and_return(True)
+    flexmock(backup_recovery_helper).should_receive('does_file_exist').\
+      and_return(True)
     flexmock(gcs_helper).should_receive('extract_gcs_tokens').\
       and_return(('', ''))
     self.assertEquals(False, gcs_helper.upload_to_bucket(FakeInvalidGCSPath,
