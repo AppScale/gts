@@ -49,6 +49,7 @@ case "$1" in
         sethosts
         setulimits
         increaseconnections
+        installrequests
         ;;
     cassandra)
         installcassandra
@@ -101,5 +102,6 @@ case "$1" in
         sethosts
         setulimits
         increaseconnections
+        installrequests
         ;;
 esac

@@ -3214,7 +3214,8 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
-        start_zookeeper
+        start_zookeeper()
+        start_backup_service()
       end
 
       ZKInterface.init(my_node, @nodes)

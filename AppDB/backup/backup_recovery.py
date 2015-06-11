@@ -1,15 +1,13 @@
 """ Class for handling serialized backup/recovery requests. """
+
 import logging
 import json
-import os
-import sys
 import threading
 
 import backup_exceptions
 import cassandra_backup
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../cassandra/"))
-import shut_down_cassandra
+import zookeeper_backup
+from backup_recovery_constants import StorageTypes
 
 class BackupService():
   """ Backup service class. """
@@ -23,12 +21,19 @@ class BackupService():
   # Google Cloud Storage bucket tag name. 
   BUCKET_NAME_TAG = "bucket_name"
 
-  # GCS path to store.
-  GCS_OBJECT_NAME_TAG = "object_name"
+  # Google Cloud Storage object tag name.
+  OBJECT_NAME_TAG = "object_name"
+
+  # The storage infrastructure used for backups.
+  STORAGE = 'storage'
+
+  # AppScale components that can currently be backed up.
+  SUPPORTED_COMPONENTS = ['cassandra', 'zookeeper']
 
   def __init__(self):
     """ Constructor function for the backup service. """
-    self.__backup_lock = threading.Lock()
+    self.__cassandra_backup_lock = threading.Lock()
+    self.__zookeeper_backup_lock = threading.Lock()
 
   @classmethod
   def bad_request(cls, reason):
@@ -42,101 +47,152 @@ class BackupService():
     return json.dumps({'success': False, 'reason': reason})
 
   def remote_request(self, request_data):
-    """ Handles remote requests with serialized json.
+    """ Handles remote requests with serialized JSON.
 
     Args:
-      request_data: A str. Serialized json request.
+      request_data: A str, the serialized JSON request.
     Returns:
-      A str. Serialized json.
+      A str, serialized JSON.
     """
     try:
       request = json.loads(request_data)
+      logging.info("Request received: {0}".format(request))
     except (TypeError, ValueError) as error:
       logging.exception(error)
-      return self.bad_request("Exception: {0}".format(error))
+      return self.bad_request("Unable to parse request. Exception: {0}".
+        format(error))
 
     request_type = request[self.REQUEST_TYPE_TAG]
-    if request_type.endswith("backup"):
-      return self.do_backup(request)
-    elif request_type.endswith("restore"):
-      return self.do_restore(request)
-    elif request_type.endswith("shutdown"):
-      return self.shutdown_datastore(request)
+    if request_type.split('_')[0] not in self.SUPPORTED_COMPONENTS:
+      return self.bad_request("Unsupported request type '{0}'".format(request))
 
-  def shutdown_datastore(self, request):
-    """ Top level function for bringing down cassandra.
+    storage = request[self.STORAGE]
+    if storage not in StorageTypes().get_storage_types():
+      return self.bad_request("Unsupported storage type '{0}'".format(storage))
+
+    path = request[self.OBJECT_NAME_TAG]
+    if not path:
+      return self.bad_request("Missing path argument.")
+
+    if request_type == "cassandra_backup":
+      return self.do_cassandra_backup(storage, path)
+    elif request_type == "cassandra_restore":
+      return self.do_cassandra_restore(storage, path)
+    elif request_type == "zookeeper_backup":
+      return self.do_zookeeper_backup(storage, path)
+    elif request_type == "zookeeper_restore":
+      return self.do_zookeeper_restore(storage, path)
+
+  def do_cassandra_backup(self, storage, path):
+    """ Top level function for doing Cassandra backups.
 
     Args:
-      request: A dict, the request sent by the client.
+      storage: A str, one of the StorageTypes class members.
+      path: A str, the name of the backup file to be created.
     Returns:
       A JSON string to return to the client.
     """
     success = True
     reason = "success"
     try:
-      self.__backup_lock.acquire()
-      shut_down_cassandra.run()
+      logging.info("Acquiring lock for db backup.")
+      self.__cassandra_backup_lock.acquire(True)
+      logging.info("Got the lock for db backup.")
+      if not cassandra_backup.backup_data(storage, path):
+        return self.bad_request("DB backup failed!")
+      else:
+        logging.info("Successful db backup!")
     except backup_exceptions.BRException, exception:
-      logging.error("Unable to shut down datastore ->\n{0}".format(
-        exception)) 
+      logging.error("Unable to complete db backup: {0}".format(exception))
       success = False
       reason = str(exception)
     finally:
-      self.__backup_lock.release()
+      self.__cassandra_backup_lock.release()
+
     return json.dumps({'success': success, 'reason': reason})
-     
-  def do_backup(self, request):
-    """ Top level function for doing backups.
+
+  def do_cassandra_restore(self, storage, path):
+    """ Top level function for doing Cassandra restores.
 
     Args:
-      request: A dict, the request sent by the client.
+      storage: A str, one of the StorageTypes class members.
+      path: A str, the name of the backup file to be created.
     Returns:
       A JSON string to return to the client.
     """
     success = True
     reason = "success"
-    path = request[self.GCS_OBJECT_NAME_TAG]
     try:
-      logging.info("Acquiring lock for a backup")
-      self.__backup_lock.acquire()
-      logging.info("Got the lock for a backup")
-      cassandra_backup.backup_data(path)
-      logging.info("Successful backup!")
+      logging.info("Acquiring lock for db restore.")
+      self.__cassandra_backup_lock.acquire(True)
+      logging.info("Got the lock for db restore.")
+      if not cassandra_backup.restore_data(storage, path):
+        return self.bad_request("DB restore failed!")
+      else:
+        logging.info("Successful db restore!")
     except backup_exceptions.BRException, exception:
-      logging.error("Unable to complete backup {0}".format(exception)) 
+      logging.error("Unable to complete db restore: {0}".format(exception))
       success = False
       reason = str(exception)
     finally:
-      self.__backup_lock.release()
+      self.__cassandra_backup_lock.release()
 
     return json.dumps({'success': success, 'reason': reason})
 
-  def do_restore(self, request):
-    """ Top level function for doing restores.
+  def do_zookeeper_backup(self, storage, path):
+    """ Top level function for doing Zookeeper backups.
 
     Args:
-      request: A dict, the request sent by the client.
+      storage: A str, one of the StorageTypes class members.
+      path: A str, the name of the backup file to be created.
     Returns:
       A JSON string to return to the client.
     """
     success = True
     reason = "success"
-    path = request[self.GCS_OBJECT_NAME_TAG]
     try:
-      logging.info("Acquiring lock for a restore.")
-      self.__backup_lock.acquire()
-      logging.info("Got the lock for a restore")
-      cassandra_backup.restore_data(path)
-      logging.info("Successful restore")
+      logging.info("Acquiring lock for zk backup.")
+      self.__zookeeper_backup_lock.acquire(True)
+      logging.info("Got the lock for zk backup.")
+      if not zookeeper_backup.backup_data(storage, path):
+        return self.bad_request("ZK backup failed!")
+      else:
+        logging.info("Successful zk backup!")
     except backup_exceptions.BRException, exception:
-      logging.error("Unable to complete restore {0}".format(exception))
+      logging.error("Unable to complete zk backup: {0}".format(exception))
       success = False
       reason = str(exception)
     finally:
-      self.__backup_lock.release()
+      self.__zookeeper_backup_lock.release()
+      logging.info("Released lock for zk backup.")
 
     return json.dumps({'success': success, 'reason': reason})
 
-if __name__ == '__main__':
-  #TODO
-  pass  
+  def do_zookeeper_restore(self, storage, path):
+    """ Top level function for doing Zookeeper restores.
+
+    Args:
+      storage: A str, one of the StorageTypes class members.
+      path: A str, the name of the backup file to be created.
+    Returns:
+      A JSON string to return to the client.
+    """
+    success = True
+    reason = "success"
+    try:
+      logging.info("Acquiring lock for zk restore.")
+      self.__zookeeper_backup_lock.acquire(True)
+      logging.info("Got the lock for zk restore.")
+      if not zookeeper_backup.restore_data(storage, path):
+        return self.bad_request("ZK restore failed!")
+      else:
+        logging.info("Successful zk restore!")
+    except backup_exceptions.BRException, exception:
+      logging.error("Unable to complete zk restore: {0}".format(exception))
+      success = False
+      reason = str(exception)
+    finally:
+      self.__zookeeper_backup_lock.release()
+      logging.info("Released lock for zk restore.")
+
+    return json.dumps({'success': success, 'reason': reason})

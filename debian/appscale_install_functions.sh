@@ -411,3 +411,8 @@ postinstallrabbitmq()
     rabbitmqctl stop || true
     update-rc.d -f rabbitmq-server remove || true
 }
+
+installrequests()
+{
+    pip_wrapper requests
+}
