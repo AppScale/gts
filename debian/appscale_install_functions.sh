@@ -421,3 +421,13 @@ postinstallrabbitmq()
     rabbitmqctl stop || true
     update-rc.d -f rabbitmq-server remove || true
 }
+
+installVersion()
+{
+    # Install the VERSION file. We should sign it to ensure the version is
+    # correct.
+    if [ -e /etc/appscale/VERSION ]; then
+        mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
+    fi
+    cp ${APPSCALE_HOME}/VERSION /etc/appscale/
+}
