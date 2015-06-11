@@ -18,57 +18,9 @@ if [ -z "$1" ]; then
 fi
 
 case "$1" in
-    core)
-        # Scratch install of appscale including post script.
-        installappscaleprofile
-        . /etc/profile.d/appscale.sh
-        installgems
-        postinstallhaproxy
-        postinstallnginx
-        portinstallmonit
-        installPIL
-        installpythonmemcache
-        installlxml
-        installxmpppy
-        installappserverjava
-        installjavajdk
-        installphp54
-        installappserverjava
-        installthrift
-        installtornado
-        installpycrypto 
-        postinstalltornado
-        installflexmock
-        installzookeeper
-        postinstallzookeeper
-        postinstallrabbitmq
-        installcelery
-        installservice
-        postinstallservice
-        setupntp
-        sethosts
-        setulimits
-        increaseconnections
-        ;;
-    cassandra)
-        installcassandra
-        postinstallcassandra
-        ;;
-        # For test only. this should be included in core and all.
-    solr)
-        installsolr
-        ;;
-    zookeeper)
-        installzookeeper
-        postinstallzookeeper
-        ;;
-    rabbit-mq)
-        postinstallrabbitmq
-        ;; 
-    celery)
-        installcelery
-        ;;
-    all)
+    # At this time we cannot simply install pieces of AppScale, and the
+    # space saving is minimal. So we install all the components.
+    all|core|cassandra)
         # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
@@ -101,5 +53,6 @@ case "$1" in
         sethosts
         setulimits
         increaseconnections
+        installVersion
         ;;
 esac
