@@ -50,6 +50,7 @@ REQUEST_TIMEOUT = 12*60*60
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
   HTTP_OK = 200
+  HTTP_BAD_REQUEST = 400
   HTTP_DENIED = 403
   HTTP_INTERNAL_ERROR = 500
   HTTP_NOT_IMPLEMENTED = 501

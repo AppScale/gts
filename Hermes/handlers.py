@@ -47,13 +47,14 @@ class TaskHandler(RequestHandler):
     except (TypeError, ValueError) as error:
       logging.exception(error)
       logging.error("Unable to parse: {0}".format(self.request.body))
+      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     # Verify all necessary fields are present in request.body.
     logging.info("Verifying all necessary parameters are present.")
-    if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)) or \
-        None in data.values():
+    if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)):
       logging.error("Missing args in request: " + self.request.body)
+      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     # Gather information for sending the requests to start off the current
@@ -67,6 +68,10 @@ class TaskHandler(RequestHandler):
       tasks = [data[JSONTags.TYPE]]
     elif data[JSONTags.TYPE] == 'restore':
       tasks = ['restore']
+    else:
+      logging.error("Unsupported task type: '{0}'".format(data[JSONTags.TYPE]))
+      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      return
     logging.info("Tasks to execute: {0}".format(tasks))
 
     for task in tasks:
