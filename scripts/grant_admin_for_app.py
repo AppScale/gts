@@ -44,7 +44,9 @@ if __name__ == "__main__":
   if server.does_user_exist(email, secret) == "false":
     print "User does not exist."
     exit(1)
-
+  if server.does_app_exist(app_id, secret) == "false":
+    print "Application ID does not exist."
+    exit(1)
   ret = server.add_admin_for_app(email, app_id, secret)
   if ret == "true":
     print "{0} granted admin access to {1}".format(email, app_id)

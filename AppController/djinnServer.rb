@@ -99,6 +99,9 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_property", "property_regex", "secret")
     add_method(@djinn, "set_property", "property_name", "property_value",
       "secret")
+    add_method(@djinn, "deployment_id_exists", "secret")
+    add_method(@djinn, "get_deployment_id", "secret")
+    add_method(@djinn, "set_deployment_id", "secret")
   end
 end
 
