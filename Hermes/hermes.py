@@ -27,12 +27,15 @@ def poll():
   """ Callback function that polls for new tasks based on a schedule. """
   logging.info("Polling for new task.")
 
+  deployment_id = helper.get_deployment_id()
+  # If the deployment is not registered, skip.
+  if not deployment_id:
+    return
+
   # Send request to AppScale Portal.
   url = "{0}{1}".format(hermes_constants.PORTAL_URL,
       hermes_constants.PORTAL_POLL_PATH)
-  data = json.dumps({
-    JSONTags.DEPLOYMENT_ID: helper.get_deployment_id()
-  })
+  data = json.dumps({ JSONTags.DEPLOYMENT_ID: deployment_id })
   request = helper.create_request(url=url, method='POST', body=data)
   response = helper.urlfetch(request)
   try:

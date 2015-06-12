@@ -63,7 +63,6 @@ class TaskHandler(RequestHandler):
 
     # Ensure that we bring down affected nodes before any action while doing a
     # restore.
-    tasks = []
     if data[JSONTags.TYPE] == 'backup':
       tasks = [data[JSONTags.TYPE]]
     elif data[JSONTags.TYPE] == 'restore':

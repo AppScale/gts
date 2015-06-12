@@ -6,13 +6,15 @@ import os
 import sys
 import threading
 import tornado.httpclient
-from tornado.ioloop import IOLoop
 
 import hermes_constants
 from custom_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+
+sys.path.append(os.path.join("/root/appscale-tools"))
+from lib.appcontroller_client import AppControllerClient
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -129,15 +131,32 @@ def get_br_service_url(node):
   return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
     hermes_constants.BR_SERVICE_PATH)
 
+def read_file_contents(path):
+  """ Reads the contents of the given file.
+
+  Returns:
+    A str, the contents of the given file.
+  """
+  with open(path) as file_handle:
+    return file_handle.read()
+
 def get_deployment_id():
   """ Retrieves the deployment ID for this AppScale deployment.
 
   Returns:
     A str, the secret key used for registering this deployment with the
-    AppScale Portal.
+    AppScale Portal. None if the deployment is not registered.
   """
-  # TODO
-  return 'deployment_id'
+  head_node_ip_file = '/etc/appscale/head_node_ip'
+  head_node = read_file_contents(head_node_ip_file)
+
+  secret_file = '/etc/appscale/secret.key'
+  secret = read_file_contents(secret_file)
+
+  acc = AppControllerClient(head_node, secret)
+  if acc.deployment_id_exists():
+    return acc.get_deployment_id()
+  return None
 
 def get_node_info():
   """ Creates a list of JSON objects that contain node information and are
