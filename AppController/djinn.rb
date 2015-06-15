@@ -33,6 +33,7 @@ require 'error_app'
 require 'groomer_service'
 require 'haproxy'
 require 'helperfunctions'
+require 'hermes_service'
 require 'infrastructure_manager_client'
 require 'monit_interface'
 require 'nginx'
@@ -3210,6 +3211,7 @@ class Djinn
     if my_node.is_login?
       update_node_info_cache()
       start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
+      start_hermes()
     end
 
     Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
@@ -3433,7 +3435,15 @@ class Djinn
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
 
-  # Starts the groomer service on this node. The groomer cleans the datastore of deleted 
+  # Starts the Hermes service on this node.
+  def start_hermes()
+    @state = "Starting Hermes"
+    Djinn.log_info("Starting Hermes service.")
+    HermesService.start()
+    Djinn.log_info("Done starting Hermes service.")
+  end
+
+  # Starts the groomer service on this node. The groomer cleans the datastore of deleted
   # items and removes old logs.
   def start_groomer_service()
     @state = "Starting Groomer Service"

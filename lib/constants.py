@@ -63,6 +63,9 @@ ZK_DEFAULT_CONNECTION_STR = "localhost:2181"
 # Default location for the datastore master.
 MASTERS_FILE_LOC = "/etc/appscale/masters"
 
+# Default location for the datastore slaves.
+SLAVES_FILE_LOC = "/etc/appscale/slaves"
+
 # Application ID for AppScale Dashboard.
 DASHBOARD_APP_ID = "appscaledashboard"
 

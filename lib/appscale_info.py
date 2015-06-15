@@ -98,6 +98,30 @@ def get_zk_locations_string():
     logging.exception(key_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
 
+def get_zk_node_ips():
+  """ Returns a list of zookeeper node IPs.
+
+  Returns:
+    A list containing the hosts that run zookeeper roles in the current
+    AppScale deployment.
+  """
+  try:
+    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE)
+    zk_json = json.loads(info)
+    return zk_json['locations']
+  except IOError, io_error:
+    logging.exception(io_error)
+    return []
+  except ValueError, value_error:
+    logging.exception(value_error)
+    return []
+  except TypeError, type_error:
+    logging.exception(type_error)
+    return []
+  except KeyError, key_error:
+    logging.exception(key_error)
+    return []
+
 def get_db_master_ip():
   """ Returns the master datastore IP.
 
@@ -105,6 +129,18 @@ def get_db_master_ip():
     A str, the IP of the datastore master.
   """
   return file_io.read(constants.MASTERS_FILE_LOC).rstrip()
+
+def get_db_slave_ips():
+  """ Returns the slave datastore IPs.
+
+  Returns:
+    A list of IP of the datastore slaves.
+  """
+  nodes = file_io.read(constants.SLAVES_FILE_LOC).rstrip()
+  nodes = nodes.split('\n')
+  if nodes[-1] == '':
+    nodes = nodes[:-1]
+  return nodes
 
 def get_search_location():
   """ Returns the IP and port of where the search service is running.

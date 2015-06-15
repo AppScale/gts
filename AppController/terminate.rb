@@ -78,7 +78,7 @@ module TerminateHelper
     `monit quit`
 
     ["memcached",
-     "nginx", "haproxy",
+     "nginx", "haproxy", "hermes",
      "soap_server", "appscale_server", "app_manager_server", "datastore_server",
      "taskqueue_server", "AppDashboard",
 
