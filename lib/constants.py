@@ -9,6 +9,9 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 # Location of PID files for processes and applications.
 APP_PID_DIR = '/etc/appscale/'
 
+# Location of where data is persisted on disk.
+APPSCALE_DATA_DIR = '/opt/appscale/'
+
 # Location of Java AppServer.
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 

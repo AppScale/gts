@@ -24,6 +24,7 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'app_controller_client'
 require 'app_manager_client'
+require 'backup_restore_service'
 require 'blobstore'
 require 'cron_helper'
 require 'custom_exceptions'
@@ -737,6 +738,7 @@ class Djinn
         stop_soap_server()
         stop_datastore_server()
         stop_groomer_service()
+        stop_backup_service()
       end
 
       TaskQueue.stop() if my_node.is_taskqueue_master?
@@ -3247,7 +3249,8 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
-        start_zookeeper
+        start_zookeeper()
+        start_backup_service()
       end
 
       ZKInterface.init(my_node, @nodes)
@@ -3273,6 +3276,7 @@ class Djinn
           start_datastore_server()
           start_soap_server()
           start_groomer_service()
+          start_backup_service()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(), UserAppClient::SERVER_PORT)
         end
 
@@ -3296,6 +3300,7 @@ class Djinn
           start_datastore_server()
           start_soap_server()
           start_groomer_service()
+          start_backup_service()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
             UserAppClient::SERVER_PORT)
         end
@@ -3394,6 +3399,10 @@ class Djinn
     }
   end
 
+
+  def start_backup_service()
+    BackupRecoveryService.start()
+  end
 
   def start_blobstore_server()
     db_local_ip = @userappserver_private_ip
@@ -3503,16 +3512,22 @@ class Djinn
     DatastoreServer.is_running(my_ip)
   end
 
+  # Stops the Backup/Recovery service.
+  def stop_backup_service()
+    BackupRecoveryService.stop()
+  end
+
+  # Stops the blobstore server.
   def stop_blob_server
     BlobServer.stop
   end
 
+  # Stops the User/Apps soap server.
   def stop_soap_server
     MonitInterface.stop(:uaserver)
   end
 
   # Stops the AppManager service
-  #
   def stop_app_manager_server
     MonitInterface.stop(:appmanagerserver)
   end
@@ -3524,7 +3539,7 @@ class Djinn
     Djinn.log_info("Done stopping groomer service.")
   end
 
-
+  # Stops the datastore server.
   def stop_datastore_server
     DatastoreServer.stop(@options['table'])
   end
