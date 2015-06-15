@@ -16,6 +16,9 @@ from custom_exceptions import MissingRequestArgs
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import appscale_info
 
+sys.path.append(os.path.join("/root/appscale-tools"))
+from lib.appcontroller_client import AppControllerClient
+
 class FakeAsyncClient():
   def fetch(self):
     pass
@@ -90,8 +93,25 @@ class TestHelper(unittest.TestCase):
       hermes_constants.BR_SERVICE_PATH)
     self.assertEquals(fake_url, helper.get_br_service_url('host'))
 
-  def test_get_deployment_id(self):
+  def test_read_file_contents(self):
     pass
+
+  def test_get_deployment_id(self):
+    # Test with a registered AppScale deployment.
+    flexmock(helper).should_receive('read_file_contents').with_args(
+      '/etc/appscale/head_node_ip').and_return('foo')
+    flexmock(helper).should_receive('read_file_contents').with_args(
+      '/etc/appscale/secret.key').and_return('bar')
+    flexmock(AppControllerClient).should_receive('deployment_id_exists').\
+      and_return(True)
+    flexmock(AppControllerClient).should_receive('get_deployment_id').\
+      and_return('fake_id')
+    self.assertEquals('fake_id', helper.get_deployment_id())
+
+    # Test with an AppScale deployment that's not registered.
+    flexmock(AppControllerClient).should_receive('deployment_id_exists').\
+      and_return(False)
+    self.assertIsNone(helper.get_deployment_id())
 
   def test_get_node_info(self):
     flexmock(appscale_info).should_receive('get_db_master_ip').and_return(
