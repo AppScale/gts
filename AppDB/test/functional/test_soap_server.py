@@ -726,14 +726,14 @@ if "enabled:false" not in ret:
   err(helper_functions.lineno(), ret)
 ret = server.get_app_data(app2[0], super_secret)
 if "enabled:false" not in ret:
-  err(helper_function.lineno(), ret)
+  err(helper_functions.lineno(), ret)
 ########################
 # Commit a new tar ball
 #######################
 tar2 = helper_functions.random_string(10000)
 ret = server.commit_tar(app[0], tar2, super_secret)
 if ret != "true":
-  err(helper_function.lineno(), ret)
+  err(helper_functions.lineno(), ret)
 ##########################
 # Get app data and version
 ##########################
