@@ -20,7 +20,8 @@ if [ ! -e VERSION ]; then
     exit 1
 fi
 
-echo -n "Installing building environment for ${VENDOR}/${DIST} "
+echo "Installing building environment for ${VENDOR}/${DIST}"
+echo "Press Ctrl-C if this is not correct"
 
 # Let's wait few seconds to allow a Ctrl-C if building is not desirable.
 sleep 5
@@ -59,6 +60,7 @@ if [ "${DIST}" = "precise" ]; then
             --slave   /usr/bin/ri ri /usr/bin/ri1.9.1 \
             --slave /usr/bin/irb irb /usr/bin/irb1.9.1 \
             --slave /usr/bin/rdoc rdoc /usr/bin/rdoc1.9.1
+        update-alternatives --install /usr/bin/gem gem /usr/bin/gem1.9.1 400
 elif [ -n "$(apt-cache search ruby-switch)" ]; then
         echo "Make sure ruby1.9 is used"
         apt-get install -y ruby rubygems ruby-switch
