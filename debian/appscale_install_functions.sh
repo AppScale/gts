@@ -360,17 +360,17 @@ postinstallservice()
 
 installpythonmemcache()
 {
-  VERSION=1.53
+    VERSION=1.53
 
-  mkdir -pv ${APPSCALE_HOME}/downloads
-  cd ${APPSCALE_HOME}/downloads
-  wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
-  tar zxvf python-memcached-${VERSION}.tar.gz
-  cd python-memcached-${VERSION}
-  python setup.py install
-  cd ..
-  rm -fr python-memcached-${VERSION}.tar.gz
-  rm -fr python-memcached-${VERSION}
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+    tar zxvf python-memcached-${VERSION}.tar.gz
+    cd python-memcached-${VERSION}
+    python setup.py install
+    cd ..
+    rm -fr python-memcached-${VERSION}.tar.gz
+    rm -fr python-memcached-${VERSION}
 }
 
 installzookeeper()
@@ -420,4 +420,14 @@ postinstallrabbitmq()
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
     update-rc.d -f rabbitmq-server remove || true
+}
+
+installVersion()
+{
+    # Install the VERSION file. We should sign it to ensure the version is
+    # correct.
+    if [ -e /etc/appscale/VERSION ]; then
+        mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
+    fi
+    cp ${APPSCALE_HOME}/VERSION /etc/appscale/
 }
