@@ -13,7 +13,7 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 if APPSCALE_HOME:
   pass
 else:
-  APPSCALE_HOME = "/etc/appscale"
+  APPSCALE_HOME = "/root/appscale"
   print "APPSCALE_HOME env var not set. Using default " + APPSCALE_HOME
 
 APP_TABLE = "APPS__"
