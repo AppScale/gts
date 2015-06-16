@@ -2,16 +2,12 @@
 # Test for soap calls
 # Test each exit point on the soap calls
 
-import string, cgi
 import sys
 import os
 import helper_functions
 PYTHON_PATH = os.environ.get("PYTHONPATH")
 
 import SOAPpy
-import time
-import socket
-import datetime
 
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 if APPSCALE_HOME:
@@ -20,10 +16,6 @@ else:
   APPSCALE_HOME = "/etc/appscale"
   print "APPSCALE_HOME env var not set. Using default " + APPSCALE_HOME
 
-import cgitb; #cgitb.enable()
-import getopt
-import pickle
-from M2Crypto import SSL
 APP_TABLE = "APPS__"
 USER_TABLE = "USERS__"
 DEFAULT_USER_LOCATION = ".flatfile_users"
@@ -38,7 +30,6 @@ CERT_LOCATION = APPSCALE_HOME + "/.appscale/certs/mycert.pem"
 KEY_LOCATION = APPSCALE_HOME + "/.appscale/certs/mykey.pem"
 SECRET_LOCATION = APPSCALE_HOME + "/.appscale/secret.key"
 user_location = DEFAULT_USER_LOCATION
-app_location = DEFAULT_APP_LOCATION
 datastore_type = DEFAULT_DATASTORE
 encryptOn = DEFAULT_ENCRYPTION
 bindport = DEFAULT_SSL_PORT
@@ -53,7 +44,6 @@ app_schema = []
 BAD_SECRET = "Error: bad secret"
 #Navraj Chohan
 app_location = "localhost"
-bindport = DEFAULT_SSL_PORT
 encrypt = True
 appname = ""
 username = ""
