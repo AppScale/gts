@@ -414,5 +414,5 @@ postinstallrabbitmq()
 
 installrequests()
 {
-    pip_wrapper requests
+    pipwrapper requests
 }
