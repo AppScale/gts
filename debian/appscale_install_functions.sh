@@ -434,5 +434,5 @@ installVersion()
 
 installrequests()
 {
-    pip_wrapper requests
+    pipwrapper requests
 }
