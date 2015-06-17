@@ -38,7 +38,7 @@ module CronHelper
 
       begin
         yaml_file = YAML.load_file(cron_file)
-        unless yaml_file
+        unless yaml_file:
           clear_app_crontab(app)
           return
         end
@@ -61,7 +61,7 @@ module CronHelper
         description = item["description"]
         # since url gets put at end of curl, need to ensure it
         # is of the form /baz to prevent malicious urls
-        url = (item["url"].scan(/\A(\/[\/\d\w]+)/)*"").to_s
+        url = item["url"].scan(/\A(\/[\/\d\w]+)/).flatten.to_s
         schedule = item["schedule"]
         timezone = item["timezone"] # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -89,7 +89,7 @@ CRON
         description = get_from_xml(item, "description")
         # since url gets put at end of curl, need to ensure it
         # is of the form /baz to prevent malicious urls
-        url = (get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/)*"").to_s
+        url = get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/).flatten.to_s
         schedule = get_from_xml(item, "schedule")
         timezone = get_from_xml(item, "timezone") # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)

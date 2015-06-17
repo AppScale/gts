@@ -62,8 +62,6 @@ class AppControllerClient
     @secret = secret
     
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:17443")
-    # Disable certificate verification.
-    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
     @conn.add_method("set_apps", "app_names", "secret")
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
@@ -125,9 +123,7 @@ class AppControllerClient
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
       return
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET, SOAP::EmptyResponseError => e
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Error in make_call: #{e.class}\n#{backtrace}")
+      Errno::ECONNRESET, SOAP::EmptyResponseError
       retry
     rescue Exception => except
       if retry_on_except
