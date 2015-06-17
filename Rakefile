@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'rake'
-require 'rdoc/task'
+require 'rake/rdoctask'
 require 'rake/testtask'
 
 
