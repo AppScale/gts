@@ -21,7 +21,7 @@ class UserAppClient
   # The port that the UserAppServer binds to, by default.
   SERVER_PORT = 4343
 
-  # This is the minimum Timeout to use when talking to DS.
+  # This is the minimum Timeout to use when talking to the datastore.
   DS_MIN_TIMEOUT = 20
 
 

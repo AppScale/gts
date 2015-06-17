@@ -2541,7 +2541,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-         v = Djinn.convert_location_array_to_class(JSON.load(v),keyname)
+        v = Djinn.convert_location_array_to_class(JSON.load(v),keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
       # node. This node may or may not be the head node, so set those 
@@ -2582,8 +2582,8 @@ class Djinn
     json_state = {}
     zookeeper_data['locations'].each { |ip|
       begin
-         Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-         Timeout.timeout(10) do
+        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
+        Timeout.timeout(10) do
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
       end
