@@ -8,6 +8,7 @@ require 'error_app'
 require 'helperfunctions'
 
 require 'rubygems'
+require 'test/unit'
 require 'flexmock/test_unit'
 
 
