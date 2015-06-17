@@ -422,6 +422,7 @@ postinstallrabbitmq()
     update-rc.d -f rabbitmq-server remove || true
 }
 
+<<<<<<< HEAD
 installVersion()
 {
     # Install the VERSION file. We should sign it to ensure the version is
@@ -430,4 +431,9 @@ installVersion()
         mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
     fi
     cp ${APPSCALE_HOME}/VERSION /etc/appscale/
+=======
+installrequests()
+{
+    pip_wrapper requests
+>>>>>>> 730d18e2825a7d5bbce07f55b73f08bd9a222359
 }

@@ -54,5 +54,6 @@ case "$1" in
         setulimits
         increaseconnections
         installVersion
+        installrequests
         ;;
 esac

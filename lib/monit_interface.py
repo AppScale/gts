@@ -49,12 +49,14 @@ def run_with_retry(args):
 
   return False
 
-def start(watch):
+def start(watch, is_group=True):
   """ Instructs monit to start the given program, assuming that a configuration
   file has already been written for it.
 
   Args:
     watch: A str representing the name of the program to start up and monitor.
+    is_group: A bool that indicates if we want to stop a group of programs, or
+      only a single program.
   Returns:
     True if the program was started, or False if (1) the named program is not a
     valid program name, (2) if monit could not be reloaded to read the new
@@ -70,8 +72,12 @@ def start(watch):
     return False
 
   logging.info("Starting watch {0}".format(watch))
-  run_with_retry([MONIT, 'monitor', '-g', watch])
-  return run_with_retry([MONIT, 'start', '-g', watch])
+  if is_group:
+    run_with_retry([MONIT, 'monitor', '-g', watch])
+    return run_with_retry([MONIT, 'start', '-g', watch])
+  else:
+    run_with_retry([MONIT, 'monitor',  watch])
+    return run_with_retry([MONIT, 'start', watch])
 
 def stop(watch, is_group=True):
   """ Shut down the named programs monit is watching, and stop monitoring it.

@@ -69,6 +69,14 @@ namespace :apptaskqueue do
 
 end
 
+namespace :hermes do
+
+  task :test do
+    sh "nosetests Hermes/test/unit"
+  end
+
+end
+
 namespace :searchservice do
 
   task :test do
@@ -128,4 +136,4 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'searchservice:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
+task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'hermes:test', 'searchservice:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
