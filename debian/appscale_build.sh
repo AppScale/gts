@@ -70,7 +70,7 @@ fi
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
 if [ -d appscale/.appscale/certs ]; then
-        # Version 2.3.1 and prior didn't have /etc/appscale/VERSION
+        # Version 2.3.1 and prior didn't have /etc/appscale/VERSION.
         WHERE_IS_VERSION="/etc/appscale/VERSION"
         if [ ! -e ${WHERE_IS_VERSION} ]; then
                 WHERE_IS_VERSION="appscale/VERSION"

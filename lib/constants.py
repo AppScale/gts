@@ -9,6 +9,9 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 # Location of PID files for processes and applications.
 APP_PID_DIR = '/etc/appscale/'
 
+# Location of where data is persisted on disk.
+APPSCALE_DATA_DIR = '/opt/appscale/'
+
 # Location of Java AppServer.
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 
@@ -62,6 +65,9 @@ ZK_DEFAULT_CONNECTION_STR = "localhost:2181"
 
 # Default location for the datastore master.
 MASTERS_FILE_LOC = "/etc/appscale/masters"
+
+# Default location for the datastore slaves.
+SLAVES_FILE_LOC = "/etc/appscale/slaves"
 
 # Application ID for AppScale Dashboard.
 DASHBOARD_APP_ID = "appscaledashboard"

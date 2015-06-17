@@ -14,7 +14,7 @@ begin
   secret = HelperFunctions.get_secret()
   driver = SOAP::RPC::Driver.new(URL)
   driver.options["protocol.http.ssl_config.verify_mode"] = nil
-  # Add remote sevice methods
+  # Add remote sevice methods.
   driver.add_method('status', 'secret')
   driver.add_method('is_done_initializing','secret')
   driver.add_method('is_done_loading','secret')

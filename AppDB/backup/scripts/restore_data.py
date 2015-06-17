@@ -11,18 +11,18 @@ import random
 import sys
 import time
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import appscale_datastore_batch
 from backup_data import DatastoreBackup
 import datastore_server
 import delete_all_records
 
-from google.appengine.api import datastore_errors
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 
 from zkappscale import zktransaction as zk
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))
 import appscale_info
 
 # Where to look to verify the app is deployed.

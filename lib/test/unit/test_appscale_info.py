@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import unittest
@@ -43,6 +44,15 @@ class TestAppScaleInfo(unittest.TestCase):
        .should_receive("read").and_return("")
     self.assertEquals(appscale_info.get_taskqueue_nodes(), [])
 
+  def test_get_zk_node_ips(self):
+    flexmock(file_io).should_receive("read").\
+      and_return({"locations":["ip1", "ip2"],"last_updated_at":0})
+    flexmock(json).should_receive("loads").\
+      and_return({"locations":[u'ip1', u'ip2'],"last_updated_at":0})
+    self.assertEquals(appscale_info.get_zk_node_ips(), [u'ip1', u'ip2'])
+
+    flexmock(file_io).should_receive("read").and_raise(IOError)
+    self.assertEquals(appscale_info.get_zk_node_ips(), [])
 
   def test_get_search_location(self):
     flexmock(file_io).should_receive("read").and_return("private_ip:port")
@@ -50,6 +60,6 @@ class TestAppScaleInfo(unittest.TestCase):
 
     flexmock(file_io).should_receive("read").and_raise(IOError)
     self.assertEquals(appscale_info.get_search_location(), "")
-      
+
 if __name__ == "__main__":
   unittest.main()

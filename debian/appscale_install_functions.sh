@@ -390,7 +390,7 @@ installzookeeper()
 
 installpycrypto()
 {
-  pipwrapper pycrypto
+    pipwrapper pycrypto
 }
 
 postinstallzookeeper()
@@ -430,4 +430,9 @@ installVersion()
         mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
     fi
     cp ${APPSCALE_HOME}/VERSION /etc/appscale/
+}
+
+installrequests()
+{
+    pip_wrapper requests
 }
