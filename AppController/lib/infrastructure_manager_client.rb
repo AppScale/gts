@@ -53,6 +53,8 @@ class InfrastructureManagerClient
     @secret = secret
     
     @conn = SOAP::RPC::Driver.new("https://#{ip}:#{SERVER_PORT}")
+    # We used self signed certificates. Don't verify them.
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("get_queues_in_use", "secret")
     @conn.add_method("run_instances", "parameters", "secret")
     @conn.add_method("describe_instances", "parameters", "secret")
@@ -100,7 +102,9 @@ class InfrastructureManagerClient
       return false if ok_to_fail
       retry
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
+      newline = "\n"
+      Djinn.log_warn("make_call: exception: #{except.class}")
+      Djinn.log_warn("#{except.backtrace.join(newline)}")
       Kernel.sleep(1)
       retry
     rescue Exception => except
