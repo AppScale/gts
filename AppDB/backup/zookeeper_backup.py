@@ -3,7 +3,6 @@
 import json
 import kazoo.client
 import logging
-import os
 
 import backup_exceptions
 import backup_recovery_helper
@@ -203,18 +202,6 @@ def restore_data(storage, path=''):
   # Not pressing for fresh deployments.
 
   flush_zk()
-
-  # if not shut_down_zookeeper.run():
-  #   logging.error("Unable to shut down Zookeeper. Aborting restore...")
-  #   if storage == StorageTypes.GCS:
-  #     backup_recovery_helper.\
-  #       delete_local_backup_file(ZOOKEEPER_BACKUP_FILE_LOCATION)
-  #   return False
-  #
-  # # Start Zookeeper.
-  # logging.info("Starting Zookeeper.")
-  # start_zookeeper.run()
-
   try:
     backup_recovery_helper.untar_backup_files(ZOOKEEPER_BACKUP_FILE_LOCATION)
   except backup_exceptions.BRException as br_exception:

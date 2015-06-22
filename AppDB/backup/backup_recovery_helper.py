@@ -168,22 +168,6 @@ def remove(path):
     return False
   return True
 
-def remove_dir(path):
-  """ Deletes the given directory from the filesystem.
-
-  Args:
-    path: A str, the path of the directory to delete.
-  Returns:
-    True on success, False otherwise.
-  """
-  try:
-    os.rmdir(path)
-  except OSError:
-    logging.error("OSError while deleting '{0}'".
-      format(path))
-    return False
-  return True
-
 def tar_backup_files(file_paths, target):
   """ Tars all snapshot files for a given snapshot name.
 
