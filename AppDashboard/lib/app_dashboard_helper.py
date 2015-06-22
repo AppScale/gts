@@ -142,6 +142,11 @@ class AppDashboardHelper(object):
   # The port that the Shibboleth connector is listening on.
   SHIBBOLETH_CONNECTOR_PORT = '443'
 
+  # The URL to redirect to upon logging out. This is often needed to instruct
+  # the user to close their browser in order to clear the cookie set by the
+  # shibboleth IdP.
+  SHIBBOLETH_LOGOUT_URL = SHIBBOLETH_CONNECTOR + '/Shibboleth.sso/Logout'
+
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
     every SOAP call.
