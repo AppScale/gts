@@ -116,13 +116,13 @@ class AppDashboard(webapp2.RequestHandler):
 
     template = jinja_environment.get_template(template_file)
     sub_vars = {
-      'logged_in' : self.helper.is_user_logged_in(),
-      'user_email' : self.helper.get_user_email(),
-      'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
-      'can_upload_apps' : self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on' : owned_apps,
-      'flower_url' : self.dstore.get_flower_url(),
-      'monit_url' : self.dstore.get_monit_url()
+      'logged_in': self.helper.is_user_logged_in(),
+      'user_email': self.helper.get_user_email(),
+      'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
+      'can_upload_apps': self.dstore.can_upload_apps(),
+      'apps_user_is_admin_on': owned_apps,
+      'flower_url': self.dstore.get_flower_url(),
+      'monit_url': self.dstore.get_monit_url()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -135,7 +135,11 @@ class AppDashboard(webapp2.RequestHandler):
     Returns:
       A str with the navigation bar rendered.
     """
-    return self.render_template(template_file='shared/navigation.html')
+    show_create_account = True
+    if AppDashboardHelper.USE_SHIBBOLETH:
+      show_create_account = False
+    return self.render_template(template_file='shared/navigation.html',
+      values={'show_create_account': show_create_account})
 
   def render_page(self, page, template_file, values=None ):
     """ Renders a template with the main layout and nav bar. """
@@ -148,14 +152,13 @@ class AppDashboard(webapp2.RequestHandler):
         page_body=self.render_template(template_file, values),
         shared_navigation=self.get_shared_navigation()
         ))
-    
+
 
 class IndexPage(AppDashboard):
   """ Class to handle requests to the / page. """
 
-
+  # The template to use for the index page.
   TEMPLATE = 'landing/index.html'
-
 
   def get(self):
     """ Handler for GET requests. """
@@ -187,9 +190,14 @@ class StatusRefreshPage(AppDashboard):
 class StatusPage(AppDashboard):
   """ Class to handle requests to the /status page. """
 
+  # The path for the status page.
+  PATH = '/'
 
+  # Another url that serves the status page.
+  ALIAS = '/status'
+
+  # The template to use for the status page.
   TEMPLATE = 'status/cloud.html'
-
 
   def get(self):
     """ Handler for GET requests. """ 
@@ -219,9 +227,8 @@ class StatusAsJSONPage(webapp2.RequestHandler):
 class NewUserPage(AppDashboard):
   """ Class to handle requests to the /users/new and /users/create page. """
 
-
+  # The template to use for the new user page.
   TEMPLATE = 'users/new.html'
-
 
   # An int that indicates how many characters passwords must be for new user
   # accounts.
@@ -283,7 +290,7 @@ class NewUserPage(AppDashboard):
     err_msgs = self.parse_new_user_post()
     try:
       if self.process_new_user_post(err_msgs):
-        self.redirect('/', self.response)
+        self.redirect(StatusPage.PATH, self.response)
         return
     except AppHelperException as err:
       err_msgs['email'] = str(err)
@@ -312,9 +319,8 @@ class NewUserPage(AppDashboard):
 class LoginVerify(AppDashboard):
   """ Class to handle requests to /users/confirm and /users/verify pages. """
 
-
+  # The template to use for confirmation page.
   TEMPLATE = 'users/confirm.html'
-
 
   def post(self):
     """ Handler for POST requests. """
@@ -323,7 +329,10 @@ class LoginVerify(AppDashboard):
       self.redirect(self.request.get('continue').encode('ascii','ignore'), 
         self.response)
     else:
-      self.redirect('/', self.response)
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
+      else:
+        self.redirect(StatusPage.PATH, self.response)
 
 
   def get(self):
@@ -351,22 +360,33 @@ class LogoutPage(AppDashboard):
     if continue_url:
       self.redirect(str(continue_url), self.response)
     else:
-      self.redirect('/', self.response)
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
+      else:
+        self.redirect(StatusPage.PATH, self.response)
 
 
 class LoginPage(AppDashboard):
   """ Class to handle requests to the /users/login page. """
 
+  # The path for the login page.
+  PATH = '/login'
 
+  # Another path that points to the login page.
+  ALIAS = '/users/login'
+
+  # Another path that points to the login page.
+  ALIAS_2 = '/users/authenticate'
+
+  # The template to use for rendering the login page.
   TEMPLATE = 'users/login.html'
-
 
   def post(self):
     """ Handler for POST requests. """
     user_email = self.request.get('user_email').lstrip().rstrip()
     if self.helper.login_user(user_email, self.request.get('user_password'),
       self.response):
-    
+
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue={0}'.format(
           urllib.quote(str(self.request.get('continue')))\
@@ -374,27 +394,88 @@ class LoginPage(AppDashboard):
       else:
         self.redirect('/', self.response)
     else:
-      self.render_page(page='users', template_file=self.TEMPLATE, values={
-          'continue' : self.request.get('continue'),
-          'user_email' : user_email,
-          'flash_message': 
-          "Incorrect username / password combination. Please try again."
+      flash_message = 'Incorrect username / password combination. '\
+        'Please try again.'
+      show_create_account = True
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        show_create_account = False
+      self.render_page(page='users', template_file=self.TEMPLATE,
+        values={
+          'continue': self.request.get('continue'),
+          'user_email': user_email,
+          'flash_message': flash_message,
+          'show_create_account': show_create_account
         })
-
 
   def get(self):
     """ Handler for GET requests. """
+    show_create_account = True
+    if AppDashboardHelper.USE_SHIBBOLETH:
+      show_create_account = False
     self.render_page(page='users', template_file=self.TEMPLATE, values={
-      'continue' : self.request.get('continue')
+      'continue': self.request.get('continue'),
+      'show_create_account': show_create_account
     })
 
+class ShibbolethLoginPage(AppDashboard):
+  """ Class to handle requests to the Shibboleth login page. """
+
+  # The path for the Shibboleth login page.
+  PATH = '/login'
+
+  # Another path that points to the login page.
+  ALIAS = '/users/login'
+
+  # Another path that points to the login page.
+  ALIAS_2 = '/users/authenticate'
+
+  def get(self):
+    """ Handler for GET requests. """
+    logging.info("LoginPage: continue -> {0}".format(
+      self.request.get('continue')))
+    user_email = self.request.get('HTTP_SHIB_INETORGPERSON_MAIL').strip()\
+      .lower()
+    logging.info("LoginPage: user_email: {0}".format(user_email))
+    if user_email:
+      self.redirect("{1}/users/shibboleth?continue={0}".format(
+        self.request.get('continue'),
+        AppDashboardHelper.SHIBBOLETH_CONNECTOR))
+
+    target = '{0}/users/shibboleth?continue={1}'.format(
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR,
+      self.request.get('continue'))
+    self.redirect('{0}/Shibboleth.sso/Login?target={1}'.format(
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR,
+      urllib.quote(target, safe='')))
+
+class ShibbolethRedirect(AppDashboard):
+  """ Class that handles the Shibboleth redirect. """
+
+  # The path for the Shibboleth redirect.
+  PATH = '/users/shibboleth'
+
+  def get(self):
+    """ Handler for GET requests. """
+    user_email = os.environ.get('HTTP_SHIB_INETORGPERSON_MAIL').strip()\
+      .lower()
+
+    self.helper.create_token(user_email, user_email)
+    user_app_list = self.helper.get_user_app_list(user_email)
+    self.helper.set_appserver_cookie(user_email, user_app_list, self.response)
+
+    if self.request.get('continue') != '':
+      continue_param = urllib.quote(self.request.get('continue'), safe='')
+      redirect_url = '{0}/users/confirm?continue={1}'\
+        .format(AppDashboardHelper.SHIBBOLETH_CONNECTOR, continue_param)
+      self.redirect(redirect_url, self.response)
+    else:
+      self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
 
 class AuthorizePage(AppDashboard):
   """ Class to handle requests to the /authorize page. """
 
-
+  # The template to use for the authorize page.
   TEMPLATE = 'authorize/cloud.html'
-
 
   def parse_update_user_permissions(self):
     """ Update authorization matrix from form submission.
@@ -423,7 +504,6 @@ class AuthorizePage(AppDashboard):
               response += 'Error disabling {0} for {1}. '.format(perm, email)
     return response
 
-
   def post(self):
     """ Handler for POST requests. """
     if self.dstore.is_user_cloud_admin():
@@ -441,7 +521,6 @@ class AuthorizePage(AppDashboard):
         'user_perm_list':{},
         })
 
-
   def get(self):
     """ Handler for GET requests. """
     if self.dstore.is_user_cloud_admin():
@@ -458,6 +537,7 @@ class AuthorizePage(AppDashboard):
 class ChangePasswordPage(AppDashboard):
   """Class to handle user password changes."""
 
+  # The template to use for the change password page.
   TEMPLATE = 'authorize/cloud.html'
 
   def post(self):
@@ -500,9 +580,8 @@ class ChangePasswordPage(AppDashboard):
 class AppUploadPage(AppDashboard):
   """ Class to handle requests to the /apps/new page. """
 
-
+  # The template to use for the upload app page.
   TEMPLATE = 'apps/new.html'
-
 
   def post(self):
     """ Handler for POST requests. """
@@ -537,7 +616,6 @@ class AppUploadPage(AppDashboard):
         'success_message' : success_msg
       })
 
-
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE)
@@ -546,9 +624,8 @@ class AppUploadPage(AppDashboard):
 class AppDeletePage(AppDashboard):
   """ Class to handle requests to the /apps/delete page. """
 
-
+  # The template to use for the app deletion page.
   TEMPLATE = 'apps/delete.html'
-
 
   def get_app_list(self):
     """ Returns a list of apps that the currently logged-in user is an admin of.
@@ -567,7 +644,6 @@ class AppDeletePage(AppDashboard):
         if application in my_apps:
           ret_list[application] = app_list[application]
       return ret_list
-
 
   def post(self):
     """ Handler for POST requests. """
@@ -589,7 +665,6 @@ class AppDeletePage(AppDashboard):
       'apps' : self.get_app_list(),
       })
 
-
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
@@ -601,14 +676,11 @@ class AppsAsJSONPage(webapp2.RequestHandler):
   """ A class that exposes application-level info used on the Cloud Status page,
   but via JSON instead of raw HTML. """
 
-
   def get(self):
     """ Retrieves the cached information about applications running in this
     AppScale deployment as a JSON-encoded dict. """
     self.response.out.write(json.dumps(
       AppDashboardData().get_application_info()))
-
-
 
   def post(self, app_id):
     """ Saves profiling information about a Google App Engine application to the
@@ -634,16 +706,15 @@ class AppsAsJSONPage(webapp2.RequestHandler):
 class LogMainPage(AppDashboard):
   """ Class to handle requests to the /logs page. """
 
-
+  # The template to use for the logs page.
   TEMPLATE = 'logs/main.html'
-
 
   def get(self):
     """ Handler for GET requests. """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (not apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     query = ndb.gql('SELECT * FROM LoggedService')
     all_services = []
@@ -664,16 +735,15 @@ class LogMainPage(AppDashboard):
 class LogServicePage(AppDashboard):
   """ Class to handle requests to the /logs/service_name page. """
 
-
+  # The template to use for the logs service page.
   TEMPLATE = 'logs/service.html'
-
 
   def get(self, service_name):
     """ Displays a list of hosts that have logs for the given service. """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     service = LoggedService.get_by_id(service_name)
     if service:
@@ -693,13 +763,11 @@ class LogServicePage(AppDashboard):
 class LogServiceHostPage(AppDashboard):
   """ Class to handle requests to the /logs/service_name/host page. """
 
-
+  # The template to use for the logs viewer for the instance.
   TEMPLATE = 'logs/viewer.html'
-
 
   # The number of logs we should present on each page.
   LOGS_PER_PAGE = 10
-
 
   def get(self, service_name, host):
     """ Displays all logs accumulated for the given service, on the named host.
@@ -710,7 +778,7 @@ class LogServiceHostPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect('/', self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     encoded_cursor = self.request.get('next_cursor')
     if encoded_cursor and encoded_cursor != "None":
@@ -744,7 +812,6 @@ class LogServiceHostPage(AppDashboard):
 
 class LogUploadPage(webapp2.RequestHandler):
   """ Class to handle requests to the /logs/upload page. """
-
 
   def post(self):
     """ Saves logs records to the Datastore for later viewing. """
@@ -807,11 +874,9 @@ class LogDownloader(AppDashboard):
   download AppScale-generated logs.
   """
 
-
   # The location where the template file can be found that waits for logs
   # to become available before redirecting to it.
   TEMPLATE = "logs/download.html"
-
 
   def get(self):
     """ Instructs the AppController to collect logs across all machines, place
@@ -820,7 +885,7 @@ class LogDownloader(AppDashboard):
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if not is_cloud_admin:
-      self.redirect("/")
+      self.redirect(StatusPage.PATH)
 
     success, uuid = self.helper.gather_logs()
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
@@ -831,9 +896,8 @@ class LogDownloader(AppDashboard):
 
 class AppConsolePage(AppDashboard):
 
-
+  # The template to use for the app console page.
   TEMPLATE = "apps/console.html"
-
 
   def get(self):
     is_cloud_admin = self.helper.is_user_cloud_admin()
@@ -845,7 +909,6 @@ class AppConsolePage(AppDashboard):
     self.render_page(page='console', template_file=self.TEMPLATE, values = {
       'all_apps_this_user_owns' : apps_user_is_admin_on
     })
-
 
 
 class DatastoreStats(AppDashboard):
@@ -902,7 +965,6 @@ class RequestsStats(AppDashboard):
   of requests an application gets per second.
   """
 
-
   def get(self):
     """ Handler for GET request for the requests statistics. """
     is_cloud_admin = self.helper.is_user_cloud_admin()
@@ -915,7 +977,6 @@ class RequestsStats(AppDashboard):
 
     appid = self.request.get("appid")
     self.response.out.write(json.dumps(RequestsStats.fetch_request_info(appid)))
-
 
   @staticmethod
   def fetch_request_info(app_id):
@@ -958,7 +1019,6 @@ class InstanceStats(AppDashboard):
     appid = self.request.get("appid")
     self.response.out.write(json.dumps(InstanceStats.fetch_request_info(appid)))
 
-
   def post(self):
     """ Adds information about one or more instances to the Datastore, for
     later viewing.
@@ -978,7 +1038,6 @@ class InstanceStats(AppDashboard):
 
     self.response.out.write('put completed successfully!')
 
-
   def delete(self):
     """ Removes information about one or more instances from the Datastore. """
     encoded_data = self.request.body
@@ -990,7 +1049,6 @@ class InstanceStats(AppDashboard):
       instance.key.delete()
 
     self.response.out.write('delete completed successfully!')
-
 
   @staticmethod
   def fetch_request_info(appid):
@@ -1015,7 +1073,6 @@ class InstanceStats(AppDashboard):
 class MemcacheStats(AppDashboard):
   """ Class that returns global memcache statistics. """
 
-
   def get(self):
     """ Handler for GET request for the memcache statistics. """
     if not self.helper.is_user_cloud_admin():
@@ -1027,10 +1084,10 @@ class MemcacheStats(AppDashboard):
     self.response.out.write(json.dumps(mem_stats))
 
 
-
 class StatsPage(AppDashboard):
-  """ Class to handle requests to the /logs page. """
+  """ Class to handle requests to the /apps/stats page. """
 
+  # The template to use for the stats page.
   TEMPLATE = 'apps/stats.html'
 
   def get(self):
@@ -1043,11 +1100,11 @@ class StatsPage(AppDashboard):
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
-    if (not apps_user_is_admin_on):
-      self.redirect('/', self.response)
+    if not apps_user_is_admin_on:
+      self.redirect(StatusPage.PATH, self.response)
 
     if app_id not in apps_user_is_admin_on:
-      self.redirect('/', self.response)
+      self.redirect(StatusPage.PATH, self.response)
 
     instance_info = InstanceStats.fetch_request_info(app_id)
 
@@ -1068,7 +1125,6 @@ class StatsPage(AppDashboard):
 class RunGroomer(AppDashboard):
   """ Class that dynamically updates Kind statistics in the Datastore. """
 
-
   def get(self):
     """ Calls the groomer and tells it that Kind statistics need to be
     updated. """
@@ -1078,39 +1134,53 @@ class RunGroomer(AppDashboard):
 
 
 # Main Dispatcher
-app = webapp2.WSGIApplication([ ('/', StatusPage),
-                                ('/status/refresh', StatusRefreshPage),
-                                ('/status', StatusPage),
-                                ('/status/json', StatusAsJSONPage),
-                                ('/users/new', NewUserPage),
-                                ('/users/create', NewUserPage),
-                                ('/logout', LogoutPage),
-                                ('/users/logout', LogoutPage),
-                                ('/users/login', LoginPage),
-                                ('/users/authenticate', LoginPage),
-                                ('/login', LoginPage),
-                                ('/users/verify', LoginVerify),
-                                ('/users/confirm', LoginVerify),
-                                ('/authorize', AuthorizePage),
-                                ('/apps/?', AppConsolePage),
-                                ('/apps/stats/datastore', DatastoreStats),
-                                ('/apps/stats/requests', RequestsStats),
-                                ('/apps/stats/instances', InstanceStats),
-                                ('/apps/stats/memcache', MemcacheStats),
-                                ('/apps/new', AppUploadPage),
-                                ('/apps/upload', AppUploadPage),
-                                ('/apps/delete', AppDeletePage),
-                                ('/apps/json/?', AppsAsJSONPage),
-                                ('/apps/json/(.+)', AppsAsJSONPage),
-                                ('/apps/stats', StatsPage),
-                                ('/logs', LogMainPage),
-                                ('/logs/upload', LogUploadPage),
-                                ('/logs/(.+)/(.+)', LogServiceHostPage),
-                                ('/logs/(.+)', LogServicePage),
-                                ('/gather-logs', LogDownloader),
-                                ('/groomer', RunGroomer),
-                                ('/change-password', ChangePasswordPage)
-                              ], debug=True)
+dashboard_pages = [
+  (StatusPage.PATH, StatusPage),
+  (StatusPage.ALIAS, StatusPage),
+  ('/status/refresh', StatusRefreshPage),
+  ('/status/json', StatusAsJSONPage),
+  ('/logout', LogoutPage),
+  ('/users/logout', LogoutPage),
+  ('/users/verify', LoginVerify),
+  ('/users/confirm', LoginVerify),
+  ('/authorize', AuthorizePage),
+  ('/apps/?', AppConsolePage),
+  ('/apps/stats/datastore', DatastoreStats),
+  ('/apps/stats/requests', RequestsStats),
+  ('/apps/stats/instances', InstanceStats),
+  ('/apps/stats/memcache', MemcacheStats),
+  ('/apps/new', AppUploadPage),
+  ('/apps/upload', AppUploadPage),
+  ('/apps/delete', AppDeletePage),
+  ('/apps/json/?', AppsAsJSONPage),
+  ('/apps/json/(.+)', AppsAsJSONPage),
+  ('/apps/stats', StatsPage),
+  ('/logs', LogMainPage),
+  ('/logs/upload', LogUploadPage),
+  ('/logs/(.+)/(.+)', LogServiceHostPage),
+  ('/logs/(.+)', LogServicePage),
+  ('/gather-logs', LogDownloader),
+  ('/groomer', RunGroomer),
+  ('/change-password', ChangePasswordPage)
+]
+
+if AppDashboardHelper.USE_SHIBBOLETH:
+  dashboard_pages.extend([
+    (ShibbolethLoginPage.PATH, ShibbolethLoginPage),
+    (ShibbolethLoginPage.ALIAS, ShibbolethLoginPage),
+    (ShibbolethLoginPage.ALIAS_2, ShibbolethLoginPage),
+    (ShibbolethRedirect.PATH, ShibbolethRedirect)
+  ])
+else:
+  dashboard_pages.extend([
+    (LoginPage.PATH, LoginPage),
+    (LoginPage.ALIAS, LoginPage),
+    (LoginPage.ALIAS_2, LoginPage),
+    ('/users/new', NewUserPage),
+    ('/users/create', NewUserPage)
+  ])
+
+app = webapp2.WSGIApplication(dashboard_pages, debug=True)
 
 
 def handle_404(_, response, exception):

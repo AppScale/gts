@@ -35,10 +35,14 @@ import hashlib
 import logging
 import os
 import sha
+import sys
 import urllib
 
-import google
 import webapp2
+
+app_dashboard_lib = '/../../../../../AppDashboard/lib'
+sys.path.append(os.path.dirname(__file__) + app_dashboard_lib)
+from app_dashboard_helper import AppDashboardHelper
 
 # URL of the login page within the dev appserver.
 LOGIN_URL_RELATIVE = '_ah/login'
@@ -168,6 +172,9 @@ def _clear_user_info_cookie(cookie_name=_COOKIE_NAME):
   cookie[cookie_name] = ''
   cookie[cookie_name]['path'] = '/'
   cookie[cookie_name]['max-age'] = '0'
+  if AppDashboardHelper.USE_SHIBBOLETH:
+    cookie[cookie_name]['domain'] = AppDashboardHelper.\
+      SHIBBOLETH_COOKIE_DOMAIN
   return cookie[cookie_name].OutputString()
 
 
@@ -256,11 +263,20 @@ def login_redirect(application_url, continue_url, start_response):
   Returns:
     An (empty) iterable over strings containing the body of the HTTP response.
   """
-  hostname = os.environ['NGINX_HOST']
-  redirect_url = 'https://%s:%s/login?%s=%s' % (hostname,
-                                           DASHBOARD_HTTPS_PORT,
-                                           CONTINUE_PARAM,
-                                           urllib.quote(continue_url))
+  if AppDashboardHelper.USE_SHIBBOLETH:
+    redirect_url = '{0}:{1}/login?{2}={3}'.format(
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR,
+      AppDashboardHelper.SHIBBOLETH_CONNECTOR_PORT,
+      CONTINUE_PARAM,
+      urllib.quote(continue_url)
+    )
+  else:
+    hostname = os.environ['NGINX_HOST']
+    redirect_url = 'https://{0}:{1}/login?{2}={3}'.format(
+      hostname,
+      DASHBOARD_HTTPS_PORT,
+      CONTINUE_PARAM,
+      urllib.quote(continue_url))
 
   start_response('302 Requires login',
                  [('Location', redirect_url)])
@@ -279,26 +295,34 @@ class Handler(webapp2.RequestHandler):
     login_url = self.request.path_url
 
     if action:
-      # Perform the action and then redirect
+      redirect_url = continue_url or login_url
+
+      # Perform the action.
       if action.lower() == LOGOUT_ACTION.lower():
         self.response.headers['Set-Cookie'] = _clear_user_info_cookie()
+        if AppDashboardHelper.USE_SHIBBOLETH:
+          redirect_url = AppDashboardHelper.SHIBBOLETH_LOGOUT_URL
       elif action.lower() == LOGIN_ACTION.lower() and set_email:
         self.response.headers['Set-Cookie'] = _set_user_info_cookie(set_email,
                                                                     set_admin)
 
-      redirect_url = continue_url or login_url
       # URLs should be ASCII-only byte strings.
       if isinstance(redirect_url, unicode):
         redirect_url = redirect_url.encode('ascii')
 
+      # Redirect the user after performing the action.
       self.response.status = 302
       self.response.status_message = 'Redirecting to continue URL'
       self.response.headers['Location'] = redirect_url
     else:
       # Send the user to the AppDashboard to log in before letting them view the
       # specified URL.
-      appscale_login_url = "https://{0}:{1}/login".format(
-        os.environ['NGINX_HOST'], DASHBOARD_HTTPS_PORT)
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        appscale_login_url = "{0}:{1}/login".format(
+          AppDashboardHelper.SHIBBOLETH_CONNECTOR, DASHBOARD_HTTPS_PORT)
+      else:
+        appscale_login_url = "https://{0}:{1}/login".format(
+          os.environ['NGINX_HOST'], DASHBOARD_HTTPS_PORT)
       redirect_url = '{0}?{1}={2}'.format(appscale_login_url, CONTINUE_PARAM,
         continue_url)
       self.response.status = 302
