@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import tornado.httpclient
+import urllib
 
 import hermes_constants
 from custom_exceptions import MissingRequestArgs
@@ -78,8 +79,8 @@ def urlfetch(request):
   http_client = tornado.httpclient.HTTPClient()
 
   try:
-    response = http_client.fetch(request)
-    result = json.loads(response.body)
+    http_client.fetch(request)
+    result = {JSONTags.SUCCESS: True}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
@@ -148,7 +149,7 @@ def get_deployment_id():
     AppScale Portal. None if the deployment is not registered.
   """
   head_node_ip_file = '/etc/appscale/head_node_ip'
-  head_node = read_file_contents(head_node_ip_file)
+  head_node = read_file_contents(head_node_ip_file).rstrip('\n')
 
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)
@@ -253,10 +254,11 @@ def report_status(task, task_id, status):
     status: A str, the status for the given task.
   """
   if task in REPORT_TASKS:
-    logging.info("Sending status report to the AppScale Portal.")
+    logging.debug("Sending task status to the AppScale Portal. Task: {0}, "
+      "Status: {1}".format(task, status))
     url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
       hermes_constants.PORTAL_STATUS_PATH)
-    data = json.dumps({
+    data = urllib.urlencode({
       JSONTags.TASK_ID: task_id,
       JSONTags.DEPLOYMENT_ID: get_deployment_id(),
       JSONTags.STATUS: status
@@ -283,5 +285,5 @@ def send_remote_request(request, result_queue):
     request: A tornado.httpclient.HTTPRequest to be sent.
     result_queue: A threadsafe Queue for putting the result in.
   """
-  logging.info('Sending remote request: {0}'.format(request.body))
+  logging.debug('Sending remote request: {0}'.format(request.body))
   result_queue.put(urlfetch(request))
