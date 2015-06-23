@@ -295,18 +295,22 @@ class Handler(webapp2.RequestHandler):
     login_url = self.request.path_url
 
     if action:
-      # Perform the action and then redirect
+      redirect_url = continue_url or login_url
+
+      # Perform the action.
       if action.lower() == LOGOUT_ACTION.lower():
         self.response.headers['Set-Cookie'] = _clear_user_info_cookie()
+        if AppDashboardHelper.USE_SHIBBOLETH:
+          redirect_url = AppDashboardHelper.SHIBBOLETH_LOGOUT_URL
       elif action.lower() == LOGIN_ACTION.lower() and set_email:
         self.response.headers['Set-Cookie'] = _set_user_info_cookie(set_email,
                                                                     set_admin)
 
-      redirect_url = continue_url or login_url
       # URLs should be ASCII-only byte strings.
       if isinstance(redirect_url, unicode):
         redirect_url = redirect_url.encode('ascii')
 
+      # Redirect the user after performing the action.
       self.response.status = 302
       self.response.status_message = 'Redirecting to continue URL'
       self.response.headers['Location'] = redirect_url
