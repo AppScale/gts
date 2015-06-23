@@ -126,6 +126,26 @@ class AppDashboardHelper(object):
   # app that the AppController has no information about.
   ID_NOT_FOUND = "Reservation ID not found."
 
+  # Indicates whether or not to use Shibboleth for authentication.
+  # Note: If you decide to use Shibboleth, make sure to modify firewall.conf
+  # to only allow connections to the dashboard from the Shibboleth connector.
+  USE_SHIBBOLETH = False
+
+  # The full url of the Shibboleth connector.
+  # This is only applicable if USE_SHIBBOLETH is True.
+  SHIBBOLETH_CONNECTOR = ''
+
+  # The domain to use when setting the AppServer cookie.
+  # This is only applicable if USE_SHIBBOLETH is True.
+  SHIBBOLETH_COOKIE_DOMAIN = 'appscale.com'
+
+  # The port that the Shibboleth connector is listening on.
+  SHIBBOLETH_CONNECTOR_PORT = '443'
+
+  # The URL to redirect to upon logging out. This is often needed to instruct
+  # the user to close their browser in order to clear the cookie set by the
+  # shibboleth IdP.
+  SHIBBOLETH_LOGOUT_URL = SHIBBOLETH_CONNECTOR + '/Shibboleth.sso/Logout'
 
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
@@ -612,9 +632,15 @@ class AppDashboardHelper(object):
         should be set in.
     """
     apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
-    response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
-      value=self.get_cookie_value(email, apps),
-      expires=datetime.datetime.now() + datetime.timedelta(days=1))
+    if AppDashboardHelper.USE_SHIBBOLETH:
+      response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
+        value=self.get_cookie_value(email, apps),
+        domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN,
+        expires=datetime.datetime.now() + datetime.timedelta(days=1))
+    else:
+      response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
+        value=self.get_cookie_value(email, apps),
+        expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
   def get_cookie_app_list(self, request):
     """ Look at the user's login cookie and return the list of apps that
@@ -740,8 +766,11 @@ class AppDashboardHelper(object):
     user = users.get_current_user()
     if user:
       self.create_token('invalid', user.email())
-      response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
-
+      if AppDashboardHelper.USE_SHIBBOLETH:
+        response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
+          domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN)
+      else:
+        response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
 
   def login_user(self, email, password, response):
     """ Checks to see if the user has entered in a valid email and password,

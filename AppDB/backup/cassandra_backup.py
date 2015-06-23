@@ -2,23 +2,16 @@
 
 import logging
 import os
-import statvfs
 import subprocess
 import sys
-import tarfile
-
-from os.path import getsize
 from subprocess import CalledProcessError
 
 import backup_exceptions
 import backup_recovery_helper
 import gcs_helper
 
-from backup_recovery_constants import BACKUP_DIR_LOCATION
-from backup_recovery_constants import BACKUP_FILE_LOCATION
-from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
+from backup_recovery_constants import CASSANDRA_BACKUP_FILE_LOCATION
 from backup_recovery_constants import CASSANDRA_DATA_SUBDIRS
-from backup_recovery_constants import PADDING_PERCENTAGE
 from backup_recovery_constants import StorageTypes
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
@@ -29,8 +22,8 @@ from cassandra import shut_down_cassandra
 from cassandra.cassandra_interface import NODE_TOOL
 from cassandra.cassandra_interface import KEYSPACE
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
-import constants
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+from constants import APPSCALE_DATA_DIR
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -60,79 +53,6 @@ def create_snapshot(snapshot_name=''):
     return False
   return True
 
-def delete_local_backup_file(local_file=BACKUP_FILE_LOCATION):
-  """ Removes the local backup file.
-
-  Args:
-    local_file: A str, the path to the backup file to delete.
-  """
-  if not backup_recovery_helper.remove(local_file):
-    logging.warning("No local backup file to remove. Skipping...")
-
-def delete_secondary_backup():
-  """ Deletes the secondary backup if it exists, upon successful backup. """
-  if not backup_recovery_helper.remove("{0}{1}".
-      format(BACKUP_FILE_LOCATION, BACKUP_ROLLBACK_SUFFIX)):
-    logging.warning("No secondary backup to remove. Skipping...")
-
-def enough_disk_space():
-  """ Checks if there's enough available disk space for a new backup.
-
-  Returns:
-    True on success, False otherwise.
-  """
-  available_space = get_available_disk_space()
-  logging.debug("Available space: {0}".format(available_space))
-
-  backup_size = get_backup_size()
-  logging.debug("Backup size: {0}".format(backup_size))
-
-  if backup_size > available_space*PADDING_PERCENTAGE:
-    logging.warning("Not enough space for a backup.")
-    return False
-  return True
-
-def get_available_disk_space():
-  """ Returns the amount of available disk space under /opt/appscale.
-
-  Returns:
-    An int, the available disk space in bytes.
-  """
-  stat_struct = os.statvfs(os.path.dirname(BACKUP_DIR_LOCATION))
-  return stat_struct[statvfs.F_BAVAIL] * stat_struct[statvfs.F_BSIZE]
-
-def get_backup_size():
-  """ Sums up the size of the snapshot files that consist the backup.
-
-  Returns:
-    An int, the total size of the files consisting the backup in bytes.
-  """
-  backup_files = get_cassandra_snapshot_file_names()
-  total_size = sum(getsize(file) for file in backup_files)
-  return total_size
-
-def get_cassandra_snapshot_file_names():
-  """ Yields all file names which should be tar'ed up.
-
-  Returns:
-    A list of files.
-  """
-  file_list = []
-  data_dir = "{0}{1}".format(constants.APPSCALE_DATA_DIR, "cassandra")
-  for full_path, _, _ in os.walk(data_dir):
-    if 'snapshots' in full_path:
-      file_list.append(full_path)
-
-  logging.debug("List of snapshot paths: {0}".format(file_list))
-  return file_list
-
-def move_secondary_backup():
-  """ Moves the secondary backup back in place, if it exists, upon an un
-  successful backup attempt. """
-  if not backup_recovery_helper.rename("{0}{1}".format(BACKUP_FILE_LOCATION,
-      BACKUP_ROLLBACK_SUFFIX), BACKUP_FILE_LOCATION):
-    logging.warning("No secondary backup to restore. Skipping...")
-
 def refresh_data():
   """ Performs a refresh of the data in Cassandra. """
   for column_family in dbconstants.INITIAL_TABLES:
@@ -143,9 +63,9 @@ def refresh_data():
         format(error))
 
 def remove_old_data():
-  """ Removes previous node data from the Cassandra deployment. """
+  """ Removes previous node data from the Cassandra store. """
   for directory in CASSANDRA_DATA_SUBDIRS:
-    data_dir = "{0}{1}/{2}".format(constants.APPSCALE_DATA_DIR, "cassandra",
+    data_dir = "{0}{1}/{2}".format(APPSCALE_DATA_DIR, "cassandra",
       directory)
     logging.warning("Removing data from {0}".format(data_dir))
     try:
@@ -165,7 +85,7 @@ def restore_snapshots():
   logging.info("Restoring Cassandra snapshots.")
 
   for directory in CASSANDRA_DATA_SUBDIRS:
-    data_dir = "{0}{1}/{2}/".format(constants.APPSCALE_DATA_DIR, "cassandra",
+    data_dir = "{0}{1}/{2}/".format(APPSCALE_DATA_DIR, "cassandra",
       directory)
     logging.debug("Restoring in dir {0}".format(data_dir))
     for path, _, filenames in os.walk(data_dir):
@@ -192,57 +112,10 @@ def shutdown_datastore():
   Returns:
     True on success, False otherwise.
   """
-  success = shut_down_cassandra.run()
-  if not success:
+  logging.info("Shutting down Cassandra.")
+  if not shut_down_cassandra.run():
     return False
   return True
-
-def tar_backup_files(file_paths):
-  """ Tars all snapshot files for a given snapshot name.
-
-  Args:
-    file_paths: A list of files to tar up.
-  Returns:
-    The path to the tar file, None otherwise.
-  """
-  backup_file_location = BACKUP_FILE_LOCATION
-
-  if not enough_disk_space():
-    logging.error("There's not enough available space to create another "
-      "backup.")
-    return None
-
-  # Rename previous backup, if it exists.
-  if not backup_recovery_helper.rename(backup_file_location, "{0}{1}".
-      format(backup_file_location, BACKUP_ROLLBACK_SUFFIX)):
-    logging.warning("'{0}' not found. Skipping file rename...".
-      format(backup_file_location))
-
-  # Tar up the backup files.
-  tar = tarfile.open(backup_file_location, "w:gz")
-  for name in file_paths:
-    tar.add(name)
-  tar.close()
-
-  return backup_file_location
-
-def untar_backup_files():
-  """ Restores a previous backup into the Cassandra directory structure
-  from a tar ball. 
-
-  Raises:
-    BRException: On untar issues.
-  """
-  logging.info("Untarring Cassandra backup files...")
-  try:
-    tar = tarfile.open(BACKUP_FILE_LOCATION, "r:gz")
-    tar.extractall(path="/")
-    tar.close()
-  except tarfile.TarError, tar_error:
-    logging.exception(tar_error)
-    raise backup_exceptions.BRException(
-      "Exception while untarring Cassandra backup files.")
-  logging.info("Done untarring Cassandra backup files.")
 
 def backup_data(storage, path=''):
   """ Backup Cassandra snapshot data directories/files.
@@ -264,38 +137,46 @@ def backup_data(storage, path=''):
     logging.error("Failed to create Cassandra snapshots. Aborting backup...")
     return None
 
-  files = get_cassandra_snapshot_file_names()
+  files = backup_recovery_helper.get_snapshot_paths('cassandra')
   if not files:
     logging.error("No Cassandra files were found to tar up. Aborting backup...")
     return None
 
-  tar_file = tar_backup_files(files)
+  if not backup_recovery_helper.enough_disk_space('cassandra'):
+    logging.error("There's not enough available space to create another db"
+      "backup. Aborting...")
+    return None
+
+  tar_file = backup_recovery_helper.tar_backup_files(files,
+    CASSANDRA_BACKUP_FILE_LOCATION)
   if not tar_file:
     logging.error('Error while tarring up snapshot files. Aborting backup...')
     clear_old_snapshots()
-    delete_local_backup_file(tar_file)
-    move_secondary_backup()
+    backup_recovery_helper.delete_local_backup_file(tar_file)
+    backup_recovery_helper.move_secondary_backup(tar_file)
     return None
 
   if storage == StorageTypes.LOCAL_FS:
     logging.info("Done with local db backup!")
     clear_old_snapshots()
-    delete_secondary_backup()
+    backup_recovery_helper.\
+      delete_secondary_backup(CASSANDRA_BACKUP_FILE_LOCATION)
     return tar_file
   elif storage == StorageTypes.GCS:
     return_value = path
     # Upload to GCS.
     if not gcs_helper.upload_to_bucket(path, tar_file):
       logging.error("Upload to GCS failed. Aborting backup...")
-      move_secondary_backup()
+      backup_recovery_helper.move_secondary_backup(tar_file)
       return_value = None
     else:
       logging.info("Done with db backup!")
-      delete_secondary_backup()
+      backup_recovery_helper.\
+        delete_secondary_backup(CASSANDRA_BACKUP_FILE_LOCATION)
 
     # Remove local backup file(s).
     clear_old_snapshots()
-    delete_local_backup_file(tar_file)
+    backup_recovery_helper.delete_local_backup_file(tar_file)
     return return_value
 
 def restore_data(storage, path=''):
@@ -311,9 +192,12 @@ def restore_data(storage, path=''):
     logging.error("Storage '{0}' not supported.")
     return False
 
+  logging.info("Starting new db restore.")
+
   if storage == StorageTypes.GCS:
     # Download backup file and store locally with a fixed name.
-    if not gcs_helper.download_from_bucket(path, BACKUP_FILE_LOCATION):
+    if not gcs_helper.download_from_bucket(path,
+        CASSANDRA_BACKUP_FILE_LOCATION):
       logging.error("Download from GCS failed. Aborting recovery...")
       return False
 
@@ -324,32 +208,35 @@ def restore_data(storage, path=''):
   if not shut_down_cassandra.run():
     logging.error("Unable to shut down Cassandra. Aborting restore...")
     if storage == StorageTypes.GCS:
-      delete_local_backup_file()
+      backup_recovery_helper.\
+        delete_local_backup_file(CASSANDRA_BACKUP_FILE_LOCATION)
     return False
 
   remove_old_data()
   try:
-    untar_backup_files()
+    backup_recovery_helper.untar_backup_files(CASSANDRA_BACKUP_FILE_LOCATION)
   except backup_exceptions.BRException as br_exception:
     logging.exception("Error while unpacking backup files. Exception: {0}".
       format(str(br_exception)))
     start_cassandra.run()
     if storage == StorageTypes.GCS:
-      delete_local_backup_file()
+      backup_recovery_helper.\
+        delete_local_backup_file(CASSANDRA_BACKUP_FILE_LOCATION)
     return False
-
   restore_snapshots()
 
   # Start Cassandra and repair.
+  logging.info("Starting Cassandra.")
   start_cassandra.run()
   refresh_data()
 
   # Local cleanup.
   clear_old_snapshots()
   if storage == StorageTypes.GCS:
-    delete_local_backup_file()
+    backup_recovery_helper.\
+      delete_local_backup_file(CASSANDRA_BACKUP_FILE_LOCATION)
 
-  logging.info("Done with restore.")
+  logging.info("Done with db restore.")
   return True
 
 if "__main__" == __name__:
