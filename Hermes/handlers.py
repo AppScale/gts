@@ -61,18 +61,14 @@ class TaskHandler(RequestHandler):
     # task at hand.
     nodes = helper.get_node_info()
 
-    # Ensure that we bring down affected nodes before any action while doing a
-    # restore.
-    if data[JSONTags.TYPE] == 'backup':
+    if data[JSONTags.TYPE] == 'backup' or data[JSONTags.TYPE] == 'restore':
       tasks = [data[JSONTags.TYPE]]
-    elif data[JSONTags.TYPE] == 'restore':
-      tasks = ['restore']
     else:
       logging.error("Unsupported task type: '{0}'".format(data[JSONTags.TYPE]))
       self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
-    logging.info("Tasks to execute: {0}".format(tasks))
 
+    logging.debug("Tasks to execute: {0}".format(tasks))
     for task in tasks:
       # Initiate the task as pending.
       TASK_STATUS_LOCK.acquire(True)
@@ -107,7 +103,16 @@ class TaskHandler(RequestHandler):
         thread.join()
       # Harvest results.
       results = [result_queue.get() for _ in xrange(len(nodes))]
-      logging.warn("Task: {0}. Results: {1}.".format(task, results))
+      logging.debug("Task: {0}. Results: {1}.".format(task, results))
+
+      # Backup source code.
+      app_success = False
+      if task == 'backup':
+        app_success = helper.\
+          backup_apps(data[JSONTags.STORAGE], data[JSONTags.BUCKET_NAME])
+      elif task == 'restore':
+        app_success = helper.\
+          restore_apps(data[JSONTags.STORAGE], data[JSONTags.BUCKET_NAME])
 
       # Update TASK_STATUS.
       successful_nodes = 0

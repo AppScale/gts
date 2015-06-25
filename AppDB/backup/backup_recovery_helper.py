@@ -2,15 +2,21 @@
 
 import logging
 import os
+import shutil
 import statvfs
 import sys
 import tarfile
 from os.path import getsize
 
-import backup_recovery_constants
 import backup_exceptions
+import backup_recovery_constants
+import gcs_helper
+
+from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
+from backup_recovery_constants import APP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
+from backup_recovery_constants import StorageTypes
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 from constants import APPSCALE_DATA_DIR
@@ -211,3 +217,51 @@ def untar_backup_files(source):
     raise backup_exceptions.BRException(
       "Exception while untarring backup file '{0}'.".format(source))
   logging.info("Done untarring '{0}'.".format(source))
+
+def app_backup(storage, path):
+  """ Saves the app source code at the backups location on the filesystem.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+    path: A str, the name of the backup file to restore from.
+  Returns:
+    True on success, False otherwise.
+  """
+  for dir_path, _, filenames in os.walk(APP_DIR_LOCATION):
+    for filename in filenames:
+      # Copy source code tars to backups location.
+      if storage == StorageTypes.LOCAL_FS:
+        source = '{0}/{1}'.format(dir_path, filename)
+        destination = '{0}/{1}'.format(APP_BACKUP_DIR_LOCATION, filename)
+        try:
+          shutil.copy(source, destination)
+        except:
+          logging.error("Error while backing up '{0}'. ".format(source))
+          return False
+      # Upload to GCS.
+      elif storage == StorageTypes.GCS:
+        source = '{0}/{1}'.format(APP_DIR_LOCATION, filename)
+        destination = '{0}/apps/{1}'.format(path, filename)
+        logging.info("Destination: {0}".format(destination))
+        if not gcs_helper.upload_to_bucket(destination, source):
+          logging.error("Error while backing up '{0}'. ".format(source))
+          return False
+  return True
+
+def app_restore(storage, path):
+  """ Restores the app source code from the backups location on the filesystem.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+    path: A str, the name of the backup file to restore from.
+  Returns:
+    True on success, False otherwise.
+  """
+  if storage == StorageTypes.GCS:
+    # Download from GCS to backups location.
+    pass
+
+  # Copy source code tars from backups location to /opt/appscale/apps.
+  #
+
+  return True

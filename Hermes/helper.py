@@ -14,6 +14,9 @@ from custom_exceptions import MissingRequestArgs
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDB/backup/"))
+import backup_recovery_helper as BR
+
 sys.path.append(os.path.join("/root/appscale-tools"))
 from lib.appcontroller_client import AppControllerClient
 
@@ -287,3 +290,26 @@ def send_remote_request(request, result_queue):
   """
   logging.debug('Sending remote request: {0}'.format(request.body))
   result_queue.put(urlfetch(request))
+
+def backup_apps(storage, bucket):
+  """ Triggers a backup of the source code of deployed apps.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+  Returns:
+    True on success, False otherwise.
+  """
+  path = 'gs://{0}'.format(bucket)
+  return BR.app_backup(storage, path)
+
+def restore_apps(storage, bucket):
+  """ Triggers a restore of apps for the current deployment. Retrieves the
+  source code from the backup location on the filesystem.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+  Returns:
+    True on success, False otherwise.
+  """
+  path = 'gs://{0}'.format(bucket)
+  return BR.app_restore(storage, path)
