@@ -18,7 +18,7 @@ class TaskStatus(object):
   """ A class containing all possible task states. """
   PENDING = 'pending'
   FAILED = 'failed'
-  SUCCESSFUL = 'successful'
+  COMPLETE = 'complete'
 
 class MainHandler(RequestHandler):
   """ Main handler class. """
@@ -123,7 +123,7 @@ class TaskHandler(RequestHandler):
           TaskStatus.FAILED
       else:
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
-          TaskStatus.SUCCESSFUL
+          TaskStatus.COMPLETE
       logging.info("Task: {0}. Status: {1}.".format(task,
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
       IOLoop.instance().add_callback(callback=lambda:
