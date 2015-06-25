@@ -136,7 +136,10 @@ if [ -d appscale/.appscale/certs ]; then
                 exit 1
         fi
         echo
-        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR: upgrading it."
+        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR. An upgrade"
+        echo "to the latest version available will be attempted in 5 seconds."
+        sleep 5
+
         # Make sure AppScale is not running.
         MONIT=$(which monit)
         if $MONIT summary |grep controller > /dev/null ; then
@@ -148,9 +151,6 @@ if [ -d appscale/.appscale/certs ]; then
                 $MONIT quit
         fi
 
-        # This sleep is to allow the user to Ctrl-C in case an upgrade is
-        # not wanted.
-        sleep 5
         # Let's keep a copy of the old config: we need to move it to avoid
         # questions from dpkg.
         if [ -e /etc/haproxy/haproxy.cfg ]; then
@@ -175,8 +175,17 @@ if [ -d appscale/.appscale/certs ]; then
                         apt-get -o DPkg::Options::="--force-confmiss" --reinstall install monit
                 fi
         fi
-        (cd appscale; git pull)
-        (cd appscale-tools; git pull)
+
+        # This is an upgrade, so let's make sure we use a tag that has
+        # been passed, or the last one available. Let's fetch all the
+        # available tags first.
+        (cd appscale; git fetch --all)
+        (cd appscale-tools; git fetch --all)
+        if [ -z "$GIT_TAG" -o "$GIT_TAG" = "last" ]; then
+                GIT_TAG="$(cd appscale; git tag|tail -n 1)"
+        fi
+        (cd appscale; git checkout "$GIT_TAG")
+        (cd appscale-tools; git checkout "$GIT_TAG")
 fi
 
 echo -n "Building AppScale..."
