@@ -8,8 +8,7 @@ You need setup your vCenter:
   you need create a head node in vSphere
 """
 
-#from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
-from base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
+from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
 from pysphere import VIServer
 import datetime
 import glob
