@@ -15,10 +15,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDB/backup/"))
+from backup_recovery_constants import StorageTypes
 import backup_recovery_helper as BR
-
-sys.path.append(os.path.join("/root/appscale-tools"))
-from lib.appcontroller_client import AppControllerClient
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -135,15 +133,6 @@ def get_br_service_url(node):
   return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
     hermes_constants.BR_SERVICE_PATH)
 
-def read_file_contents(path):
-  """ Reads the contents of the given file.
-
-  Returns:
-    A str, the contents of the given file.
-  """
-  with open(path) as file_handle:
-    return file_handle.read()
-
 def get_deployment_id():
   """ Retrieves the deployment ID for this AppScale deployment.
 
@@ -151,13 +140,7 @@ def get_deployment_id():
     A str, the secret key used for registering this deployment with the
     AppScale Portal. None if the deployment is not registered.
   """
-  head_node_ip_file = '/etc/appscale/head_node_ip'
-  head_node = read_file_contents(head_node_ip_file).rstrip('\n')
-
-  secret_file = '/etc/appscale/secret.key'
-  secret = read_file_contents(secret_file)
-
-  acc = AppControllerClient(head_node, secret)
+  acc = appscale_info.get_appcontroller_client()
   if acc.deployment_id_exists():
     return acc.get_deployment_id()
   return None
@@ -296,11 +279,15 @@ def backup_apps(storage, bucket):
 
   Args:
     storage: A str, one of the StorageTypes class members.
+    bucket: A str, the name of the remote bucket where the backups will be
+      stored.
   Returns:
     True on success, False otherwise.
   """
-  path = 'gs://{0}'.format(bucket)
-  return BR.app_backup(storage, path)
+  full_bucket_name = ''
+  if storage == StorageTypes.GCS:
+    full_bucket_name = 'gs://{0}'.format(bucket)
+  return BR.app_backup(storage, full_bucket_name=full_bucket_name)
 
 def restore_apps(storage, bucket):
   """ Triggers a restore of apps for the current deployment. Retrieves the
@@ -308,8 +295,8 @@ def restore_apps(storage, bucket):
 
   Args:
     storage: A str, one of the StorageTypes class members.
+    bucket: A str, the name of the remote bucket where the backups are stored.
   Returns:
     True on success, False otherwise.
   """
-  path = 'gs://{0}'.format(bucket)
-  return BR.app_restore(storage, path)
+  return BR.app_restore(storage, bucket_name=bucket)
