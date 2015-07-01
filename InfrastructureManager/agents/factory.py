@@ -16,6 +16,7 @@ class InfrastructureAgentFactory:
     'euca': EucalyptusAgent,
     'gce': GCEAgent,
     'openstack': OpenStackAgent
+    'vsphere': vSphereAgent
   }
 
   def create_agent(self, infrastructure):
