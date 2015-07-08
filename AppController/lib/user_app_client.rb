@@ -21,12 +21,16 @@ class UserAppClient
   # The port that the UserAppServer binds to, by default.
   SERVER_PORT = 4343
 
+  # This is the minimum Timeout to use when talking to the datastore.
+  DS_MIN_TIMEOUT = 20
+
 
   def initialize(ip, secret)
     @ip = ip
     @secret = secret
     
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
+    @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
     @conn.add_method("commit_new_app", "user", "appname", "language", "secret")
@@ -53,7 +57,8 @@ class UserAppClient
           yield if block_given?
         end
       end
-    rescue OpenSSL::SSL::SSLError
+    rescue OpenSSL::SSL::SSLError => e
+      Djinn.log_warn(e)
       Djinn.log_warn("Retrying (SSL) - calling #{callr} on UserAppServer at #{@ip}")
       retry
     rescue Errno::ECONNREFUSED
@@ -81,7 +86,7 @@ class UserAppClient
   
   def commit_new_user(user, encrypted_password, user_type, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "commit_new_user") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "commit_new_user") {
       result = @conn.commit_new_user(user, encrypted_password, user_type, @secret)
     }
 
@@ -103,7 +108,7 @@ class UserAppClient
   
   def commit_new_app_name(user, app_name, language, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "commit_new_app_name") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "commit_new_app_name") {
       result = @conn.commit_new_app(user, app_name, language, @secret)
     }
 
@@ -125,7 +130,7 @@ class UserAppClient
     tar_contents = Base64.encode64(file.read)
     
     result = ""
-    make_call(300, retry_on_except, "commit_tar") {
+    make_call(DS_MIN_TIMEOUT * 25, retry_on_except, "commit_tar") {
       result = @conn.commit_tar(app_name, tar_contents, @secret)
     }
  
@@ -142,7 +147,7 @@ class UserAppClient
   
   def change_password(user, new_password, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "change_password") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "change_password") {
       result = @conn.change_password(user, new_password, @secret)
     }
         
@@ -157,7 +162,7 @@ class UserAppClient
 
   def delete_app(app, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "delete_app") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "delete_app") {
       result = @conn.delete_app(app, @secret)
     }
     
@@ -170,7 +175,7 @@ class UserAppClient
 
   def does_app_exist?(app, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "does_app_exist") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "does_app_exist") {
       result = @conn.is_app_enabled(app, @secret)
     }
     
@@ -183,7 +188,7 @@ class UserAppClient
   
   def does_user_exist?(user, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "does_user_exist") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "does_user_exist") {
       result = @conn.does_user_exist(user, @secret)
     }
     
@@ -192,7 +197,7 @@ class UserAppClient
 
   def get_user_data(username, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "get_user_data") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "get_user_data") {
       result = @conn.get_user_data(username, @secret)
     }
 
@@ -201,7 +206,7 @@ class UserAppClient
 
   def get_app_data(appname, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "get_app_data") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "get_app_data") {
       result = @conn.get_app_data(appname, @secret)
     }
 
@@ -210,7 +215,7 @@ class UserAppClient
 
   def delete_instance(appname, host, port, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "delete_instance") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "delete_instance") {
       result = @conn.delete_instance(appname, host, port, @secret)
     }
 
@@ -219,7 +224,7 @@ class UserAppClient
 
   def get_all_apps(retry_on_except=true)
     all_apps = ""
-    make_call(10, retry_on_except, "get_all_apps") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "get_all_apps") {
       all_apps = @conn.get_all_apps(@secret)
     }
 
@@ -230,7 +235,7 @@ class UserAppClient
 
   def get_all_users(retry_on_except=true)
     all_users = ""
-    make_call(10, retry_on_except, "get_all_users") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "get_all_users") {
       all_users = @conn.get_all_users(@secret)
     }
 
@@ -241,7 +246,7 @@ class UserAppClient
 
   def get_tar(appname, retry_on_except=true)
     result = ""
-    make_call(300, retry_on_except, "get_tar") {
+    make_call(DS_MIN_TIMEOUT * 25, retry_on_except, "get_tar") {
       result = @conn.get_tar(appname, @secret)
     }
 
@@ -250,7 +255,7 @@ class UserAppClient
 
   def add_instance(appname, host, port, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "add_instance") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "add_instance") {
       result = @conn.add_instance(appname, host, port, @secret)
     }
 
@@ -270,7 +275,7 @@ class UserAppClient
 
   def is_user_cloud_admin?(user, retry_on_except=true)
     result = ""
-    make_call(10, retry_on_except, "is_user_cloud_admin") {
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "is_user_cloud_admin") {
       result = @conn.is_user_cloud_admin(user, @secret)
     }
    

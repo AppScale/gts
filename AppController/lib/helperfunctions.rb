@@ -257,9 +257,9 @@ module HelperFunctions
           sock = TCPSocket.new(ip, port)
           if use_ssl
             ssl_context = OpenSSL::SSL::SSLContext.new() 
-            unless ssl_context.verify_mode 
+            unless ssl_context.verify_mode
               ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE 
-            end 
+            end
             sslsocket = OpenSSL::SSL::SSLSocket.new(sock, ssl_context) 
             sslsocket.sync_close = true 
             sslsocket.connect          
@@ -353,7 +353,7 @@ module HelperFunctions
       break if retval == "0"
       Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
-      if fails >= 5:
+      if fails >= 5
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
       Kernel.sleep(2)
@@ -914,18 +914,18 @@ module HelperFunctions
     usage['cpu'] = 0.0
     usage['mem'] = 0.0
 
-    top_results.each { |line|
+    top_results.each_line { |line|
       cpu_and_mem_usage = line.split()
       # Skip any lines that don't list the CPU and memory for a process.
       next if cpu_and_mem_usage.length != 12
       next if cpu_and_mem_usage[8] == "average:"
       next if cpu_and_mem_usage[8] == "%CPU"
-      usage['cpu'] += Float(cpu_and_mem_usage[8])
-      usage['mem'] += Float(cpu_and_mem_usage[9])
+      usage['cpu'] += cpu_and_mem_usage[8].to_f
+      usage['mem'] += cpu_and_mem_usage[9].to_i
     }
 
     usage['cpu'] /= self.get_num_cpus()
-    usage['disk'] = Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
+    usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
 
     return usage
   end
