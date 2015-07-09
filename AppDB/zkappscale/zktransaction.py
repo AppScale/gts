@@ -1078,7 +1078,8 @@ class ZKTransaction:
       lock_list = lockpath.split(LOCK_LIST_SEPARATOR)
     except kazoo.exceptions.NoNodeError:
       # There is no need to rollback because there is no lock.
-      pass
+      logging.info("There is no lock for transaction {0}.".format(txid))
+      return True
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.exception(zoo_exception)
       return False
