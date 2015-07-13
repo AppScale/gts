@@ -2316,27 +2316,26 @@ class DatastoreDistributed():
       new_entities = self.__fetch_entities(references, clean_app_id(query.app()))
       entities.extend(new_entities)
 
-      # If we have enough valid entities to satisfy the query, we can stop
-      # fetching more references.
+      # If we have enough valid entities to satisfy the query, we're done.
       if len(entities) >= limit:
-        return entities[:limit]
+        break
 
-      # If we received fewer references than we asked for, we do not need to ask
-      # for additional references even if some of them were invalid.
+      # If we received fewer references than we asked for, they are exhausted.
       if len(references) < current_limit:
         break
 
-      # If all of the references that we fetched were valid, we do not need to
-      # ask for more.
+      # If all of the references that we fetched were valid, we're done.
       if len(new_entities) == len(references):
         break
 
       invalid_refs = len(references) - len(new_entities)
 
       # Pad the limit to increase the likelihood of fetching all the valid
-      # references that we need. This will reduce the number of range queries
-      # we have to perform.
+      # references that we need.
       current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+
+      logging.info('{} references invalid. Fetching {} more references.'
+        .format(invalid_refs, current_limit))
 
       # Start from the last reference fetched.
       last_startrow = startrow
@@ -2348,7 +2347,8 @@ class DatastoreDistributed():
 
     if query.kind() == "__namespace__":
       entities = [self.default_namespace()] + entities
-    return entities
+
+    return entities[:limit]
 
   def remove_exists_filters(self, filter_info):
     """ Remove any filters that have EXISTS filters.
@@ -2453,8 +2453,6 @@ class DatastoreDistributed():
         end_compiled_cursor=end_compiled_cursor
       )
 
-      logging.debug('References: {}'.format(references))
-
       if property_name in query.property_name_list():
         new_entities = self.__extract_entities_from_indexes(references, direction)
       else:
@@ -2462,26 +2460,22 @@ class DatastoreDistributed():
 
       entities.extend(new_entities)
 
-      # If we have enough valid entities to satisfy the query, we can stop
-      # fetching more references.
+      # If we have enough valid entities to satisfy the query, we're done.
       if len(entities) >= limit:
-        return entities[:limit]
+        break
 
-      # If we received fewer references than we asked for, we do not need to ask
-      # for additional references even if some of them were invalid.
+      # If we received fewer references than we asked for, they are exhausted.
       if len(references) < current_limit:
         break
 
-      # If all of the references that we fetched were valid, we do not need to
-      # ask for more.
+      # If all of the references that we fetched were valid, we're done.
       if len(new_entities) == len(references):
         break
 
       invalid_refs = len(references) - len(new_entities)
 
       # Pad the limit to increase the likelihood of fetching all the valid
-      # references that we need. This will reduce the number of range queries
-      # we have to perform.
+      # references that we need.
       current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
 
       logging.info('{} references invalid. Fetching {} more references.'
@@ -2495,7 +2489,7 @@ class DatastoreDistributed():
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
 
-    return entities
+    return entities[:limit]
 
   def __apply_filters(self, 
                      filter_ops, 
