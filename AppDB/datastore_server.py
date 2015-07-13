@@ -2370,8 +2370,7 @@ class DatastoreDistributed():
     if not query.has_kind():
       return None
 
-    if order_info:
-      if order_info[0][0] == property_name:
+    if order_info and order_info[0][0] == property_name:
         direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
@@ -2452,8 +2451,7 @@ class DatastoreDistributed():
     endrow = None 
     column_names = dbconstants.PROPERTY_SCHEMA
 
-    if order_info:
-      if order_info[0][0] == property_name:
+    if order_info and order_info[0][0] == property_name:
         direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
