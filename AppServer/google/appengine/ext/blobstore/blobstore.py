@@ -437,8 +437,8 @@ def _parse_upload_info(field_storage, error_class):
   content_type = get_value(upload_content, 'content-type')
   size = get_value(upload_content, 'content-length')
   creation_string = get_value(upload_content, UPLOAD_INFO_CREATION_HEADER)
-  #md5_hash_encoded = get_value(upload_content, 'content-md5')
-  #md5_hash = base64.urlsafe_b64decode(md5_hash_encoded)
+  md5_hash_encoded = get_value(upload_content, 'content-md5')
+  md5_hash = base64.urlsafe_b64decode(md5_hash_encoded)
   gs_object_name = upload_content.get(CLOUD_STORAGE_OBJECT_HEADER, None)
 
   try:
@@ -457,7 +457,7 @@ def _parse_upload_info(field_storage, error_class):
           'creation': creation,
           'filename': filename,
           'size': size,
-          #'md5_hash': md5_hash,
+          'md5_hash': md5_hash,
           'gs_object_name': gs_object_name,
          }
 
