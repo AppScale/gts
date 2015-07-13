@@ -2294,19 +2294,57 @@ class DatastoreDistributed():
     if startrow > endrow:
       return []
 
-    result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
-                                              dbconstants.APP_KIND_SCHEMA, 
-                                              startrow, 
-                                              endrow, 
-                                              limit, 
-                                              offset=0, 
-                                              start_inclusive=start_inclusive, 
-                                              end_inclusive=end_inclusive)
+    # Since the validity of each reference is not checked until after the
+    # range query has been performed, we may need to fetch additional
+    # references in order to satisfy the query.
+    entities = []
+    current_limit = limit
+    while True:
+      references = self.datastore_batch.range_query(
+        dbconstants.APP_KIND_TABLE,
+        dbconstants.APP_KIND_SCHEMA,
+        startrow,
+        endrow,
+        current_limit,
+        offset=0,
+        start_inclusive=start_inclusive,
+        end_inclusive=end_inclusive
+      )
 
-    fetched_entities = self.__fetch_entities(result, clean_app_id(query.app()))
+      new_entities = self.__fetch_entities(references, clean_app_id(query.app()))
+      entities.extend(new_entities)
+
+      # If we have enough valid entities to satisfy the query, we can stop
+      # fetching more references.
+      if len(entities) >= limit:
+        return entities[:limit]
+
+      # If we received fewer references than we asked for, we do not need to ask
+      # for additional references even if some of them were invalid.
+      if len(references) < current_limit:
+        break
+
+      # If all of the references that we fetched were valid, we do not need to
+      # ask for more.
+      if len(new_entities) == len(references):
+        break
+
+      invalid_refs = len(references) - len(new_entities)
+
+      # Pad the limit to increase the likelihood of fetching all the valid
+      # references that we need. This will reduce the number of range queries
+      # we have to perform.
+      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+
+      # Start from the last reference fetched.
+      startrow = references[-1].keys()[0]
+
+      logging.info('{} references invalid. Fetching {} more references.'
+        .format(invalid_refs, current_limit))
+
     if query.kind() == "__namespace__":
-      fetched_entities = [self.default_namespace()] + fetched_entities
-    return fetched_entities
+      entities = [self.default_namespace()] + entities
+    return entities
 
   def remove_exists_filters(self, filter_info):
     """ Remove any filters that have EXISTS filters.
@@ -2391,23 +2429,65 @@ class DatastoreDistributed():
     if query.has_end_compiled_cursor():
       end_compiled_cursor = query.end_compiled_cursor()
 
-    references = self.__apply_filters(filter_ops, 
-                               order_info, 
-                               property_name, 
-                               query.kind(), 
-                               prefix, 
-                               limit, 
-                               0, 
-                               startrow,
-                               ancestor=ancestor,
-                               query=query,
-                               end_compiled_cursor=end_compiled_cursor)
+    # Since the validity of each reference is not checked until after the
+    # range query has been performed, we may need to fetch additional
+    # references in order to satisfy the query.
+    entities = []
+    current_limit = limit
+    while True:
+      references = self.__apply_filters(
+        filter_ops,
+        order_info,
+        property_name,
+        query.kind(),
+        prefix,
+        current_limit,
+        0,
+        startrow,
+        ancestor=ancestor,
+        query=query,
+        end_compiled_cursor=end_compiled_cursor
+      )
 
-    if property_name in query.property_name_list():
-      return self.__extract_entities_from_indexes(references, direction)
+      logging.debug('References: {}'.format(references))
 
-    return self.__fetch_entities(references, clean_app_id(query.app()))
- 
+      if property_name in query.property_name_list():
+        new_entities = self.__extract_entities_from_indexes(references, direction)
+      else:
+        new_entities = self.__fetch_entities(references, clean_app_id(query.app()))
+
+      entities.extend(new_entities)
+
+      # If we have enough valid entities to satisfy the query, we can stop
+      # fetching more references.
+      if len(entities) >= limit:
+        return entities[:limit]
+
+      # If we received fewer references than we asked for, we do not need to ask
+      # for additional references even if some of them were invalid.
+      if len(references) < current_limit:
+        break
+
+      # If all of the references that we fetched were valid, we do not need to
+      # ask for more.
+      if len(new_entities) == len(references):
+        break
+
+      invalid_refs = len(references) - len(new_entities)
+
+      # Pad the limit to increase the likelihood of fetching all the valid
+      # references that we need. This will reduce the number of range queries
+      # we have to perform.
+      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+
+      # Start from the last reference fetched.
+      startrow = references[-1].keys()[0]
+
+      logging.info('{} references invalid. Fetching {} more references.'
+        .format(invalid_refs, current_limit))
+
+    return entities
+
   def __apply_filters(self, 
                      filter_ops, 
                      order_info, 
