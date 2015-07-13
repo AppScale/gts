@@ -2256,6 +2256,8 @@ class DatastoreDistributed():
       order_info: tuple with property name and the sort order.
     Returns:
       An ordered list of entities matching the query.
+    Raises:
+      AppScaleDBError: An infinite loop is detected when fetching references.
     """
     filter_info = self.remove_exists_filters(filter_info)
     # Detect quickly if this is a kind query or not.
@@ -2337,10 +2339,12 @@ class DatastoreDistributed():
       current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
 
       # Start from the last reference fetched.
+      last_startrow = startrow
       startrow = references[-1].keys()[0]
 
-      logging.info('{} references invalid. Fetching {} more references.'
-        .format(invalid_refs, current_limit))
+      if startrow == last_startrow:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
 
     if query.kind() == "__namespace__":
       entities = [self.default_namespace()] + entities
@@ -2480,11 +2484,16 @@ class DatastoreDistributed():
       # we have to perform.
       current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
 
+      logging.info('{} references invalid. Fetching {} more references.'
+        .format(invalid_refs, current_limit))
+
+      last_startrow = startrow
       # Start from the last reference fetched.
       startrow = references[-1].keys()[0]
 
-      logging.info('{} references invalid. Fetching {} more references.'
-        .format(invalid_refs, current_limit))
+      if startrow == last_startrow:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
 
     return entities
 

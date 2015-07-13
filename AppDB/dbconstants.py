@@ -114,6 +114,16 @@ APPS_SCHEMA = [
 ###############################
 # Generic Datastore Exceptions
 ###############################
+class AppScaleDBError(Exception):
+  """ Tossed for generic datastore errors
+  """
+  def __init__(self, value):
+    Exception.__init__(self, value)
+    self.value = value
+
+  def __str__(self):
+    return repr(self.value)
+
 class AppScaleDBConnectionError(Exception):
   """ Tossed when there is a bad connection
   """ 
