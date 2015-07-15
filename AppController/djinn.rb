@@ -456,7 +456,7 @@ class Djinn
     file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
 
     @@log = Logger.new(file)
-    @@log.level = Logger::INFO
+    @@log.level = Logger::DEBUG
 
     @nodes = []
     @my_index = nil
@@ -2045,9 +2045,9 @@ class Djinn
   #     Logger::INFO) that indicates the severity of this log message.
   #   message: A String containing the message to be logged.
   def self.log_to_buffer(level, message)
-    puts  message
     return if message.empty?
     return if level < @@log.level
+    puts  message
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
@@ -2541,7 +2541,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-        v = Djinn.convert_location_array_to_class(JSON.load(v),keyname)
+        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
       # node. This node may or may not be the head node, so set those 
