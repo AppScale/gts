@@ -86,62 +86,6 @@ class AppControllerClient
   end
   
 
-  # Provides automatic retry logic for transient SOAP errors.
-  #
-  # Args:
-  #   time: A Fixnum that indicates how long the timeout should be set to when
-  #     executing the caller's block.
-  #   retry_on_except: A boolean that indicates if non-transient Exceptions
-  #     should result in the caller's block being retried or not.
-  #   callr: A String that names the caller's method, used for debugging
-  #     purposes.
-  #
-  # Raises:
-  #   FailedNodeException: if the given block contacted a machine that
-  #     is either not running or is rejecting connections.
-  #   SystemExit: If a non-transient Exception was thrown when executing the
-  #     given block.
-  # Returns:
-  #   The result of the block that was executed, or nil if the timeout was
-  #   exceeded.
-  def make_call(time, retry_on_except, callr)
-    refused_count = 0
-    max = 5
-
-    begin
-      Timeout::timeout(time) {
-        yield if block_given?
-      }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
-      if refused_count > max
-        raise FailedNodeException.new("Connection was refused. Is the " +
-          "AppController running?")
-      else
-        refused_count += 1
-        Kernel.sleep(1)
-        retry
-      end
-    rescue Timeout::Error
-      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      return
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET, SOAP::EmptyResponseError => e
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Error in make_call: #{e.class}\n#{backtrace}")
-      retry
-    rescue Exception => except
-      if retry_on_except
-        retry
-      else
-        trace = except.backtrace.join("\n")
-        HelperFunctions.log_and_crash("[#{callr}] We saw an unexpected error" +
-          " of the type #{except.class} with the following message:\n" +
-          "#{except}, with trace: #{trace}")
-      end
-    end
-  end
-
-
   def get_userappserver_ip(verbose_level="low") 
     userappserver_ip, status, state, new_state = "", "", "", ""
     loop {
@@ -174,7 +118,7 @@ class AppControllerClient
 
   def set_parameters(locations, options, apps_to_start)
     result = ""
-    make_call(10, ABORT_ON_FAIL, "set_parameters") { 
+    HelperFunctions.make_call(10, ABORT_ON_FAIL, "set_parameters") { 
       result = conn.set_parameters(locations, options, apps_to_start, @secret)
     }  
     HelperFunctions.log_and_crash(result) if result =~ /Error:/
@@ -182,7 +126,7 @@ class AppControllerClient
 
   def set_apps(app_names)
     result = ""
-    make_call(10, ABORT_ON_FAIL, "set_apps") { 
+    HelperFunctions.make_call(10, ABORT_ON_FAIL, "set_apps") { 
       result = conn.set_apps(app_names, @secret)
     }  
     HelperFunctions.log_and_crash(result) if result =~ /Error:/
@@ -204,42 +148,42 @@ class AppControllerClient
       HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
     end
 
-    make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }
+    HelperFunctions.make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }
   end
 
   def get_stats()
-    make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
+    HelperFunctions.make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
   end
 
   def stop_app(app_name)
-    make_call(30, RETRY_ON_FAIL, "stop_app") { @conn.stop_app(app_name, @secret) }
+    HelperFunctions.make_call(30, RETRY_ON_FAIL, "stop_app") { @conn.stop_app(app_name, @secret) }
   end
   
   def update(app_names)
-    make_call(30, RETRY_ON_FAIL, "update") { @conn.update(app_names, @secret) }
+    HelperFunctions.make_call(30, RETRY_ON_FAIL, "update") { @conn.update(app_names, @secret) }
   end
 
   def is_done_initializing?()
-    make_call(30, RETRY_ON_FAIL, "is_done_initializing") { @conn.is_done_initializing(@secret) }
+    HelperFunctions.make_call(30, RETRY_ON_FAIL, "is_done_initializing") { @conn.is_done_initializing(@secret) }
   end
 
   def is_done_loading?()
-    make_call(30, RETRY_ON_FAIL, "is_done_loading") { @conn.is_done_loading(@secret) }
+    HelperFunctions.make_call(30, RETRY_ON_FAIL, "is_done_loading") { @conn.is_done_loading(@secret) }
   end
  
   def get_all_public_ips()
-    make_call(30, RETRY_ON_FAIL, "get_all_public_ips") { @conn.get_all_public_ips(@secret) }
+    HelperFunctions.make_call(30, RETRY_ON_FAIL, "get_all_public_ips") { @conn.get_all_public_ips(@secret) }
   end
 
   def add_role(role)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_role") { @conn.add_role(role, @secret) }
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_role") { @conn.add_role(role, @secret) }
   end
 
   # Removed timeout here - removing cassandra slave requires it to port
   # the data it owns to somebody else, which takes ~30 seconds in the trivial
   # case
   def remove_role(role)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
   end
 
   def wait_for_node_to_be(new_roles)
@@ -266,7 +210,7 @@ class AppControllerClient
   end
 
   def get_queues_in_use()
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_queues_in_use") { 
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_queues_in_use") { 
       @conn.get_queues_in_use(@secret)
     }
   end
@@ -278,7 +222,7 @@ class AppControllerClient
   #   app_names: An Array of Strings, where each String is an appid
   #     corresponding to an application that needs to be restarted.
   def set_apps_to_restart(app_names)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
       @conn.set_apps_to_restart(app_names, @secret)
     }
   end
@@ -294,7 +238,7 @@ class AppControllerClient
   #     ip.
   #   secret: A String that is used to authenticate the caller.
   def add_appserver_to_haproxy(app_id, ip, port)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_to_haproxy") {
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_to_haproxy") {
       @conn.add_appserver_to_haproxy(app_id, ip, port, @secret)
     }
   end
@@ -310,20 +254,20 @@ class AppControllerClient
   #   port: A Fixnum that identifies the port where the AppServer was running.
   #   secret: A String that is used to authenticate the caller.
   def remove_appserver_from_haproxy(app_id, ip, port)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_from_haproxy") {
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_from_haproxy") {
       @conn.remove_appserver_from_haproxy(app_id, ip, port, @secret)
     }
   end
 
 
   def add_appserver_process(app_id)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_process") {
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_process") {
       @conn.add_appserver_process(app_id, @secret)
     }
   end
 
   def remove_appserver_process(app_id, port)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_process") {
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_process") {
       @conn.remove_appserver_process(app_id, port, @secret)
     }
   end

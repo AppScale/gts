@@ -64,67 +64,6 @@ class InfrastructureManagerClient
   end
   
 
-  # A helper method that makes SOAP calls for us. This method is mainly here to
-  # reduce code duplication: all SOAP calls expect a certain timeout and can
-  # tolerate certain exceptions, so we consolidate this code into this method.
-  # Here, the caller specifies the timeout for the SOAP call (or NO_TIMEOUT
-  # if an infinite timeout is required) as well as whether the call should
-  # be retried in the face of exceptions. Exceptions can occur if the machine
-  # is not yet running or is too busy to handle the request, so these exceptions
-  # are automatically retried regardless of the retry value. Typically
-  # callers set this to false to catch 'Connection Refused' exceptions or
-  # the like. Finally, the caller must provide a block of
-  # code that indicates the SOAP call to make: this is really all that differs
-  # between the calling methods. The result of the block is returned to the
-  # caller. 
-  def make_call(time, retry_on_except, callr, ok_to_fail=false)
-    refused_count = 0
-    max = 5
-
-    begin
-      Timeout::timeout(time) {
-        yield if block_given?
-      }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH => except
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
-      if refused_count > max
-        return false if ok_to_fail
-        Djinn.log_fatal("Connection refused. Is the AppController running?")
-        raise AppScaleException.new("Connection was refused. Is the " +
-          "AppController running?")
-      else
-        refused_count += 1
-        Kernel.sleep(1)
-        retry
-      end
-    rescue Timeout::Error
-      Djinn.log_warn("Saw a Timeout Error")
-      return false if ok_to_fail
-      retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
-      newline = "\n"
-      Djinn.log_warn("make_call: exception: #{except.class}")
-      Djinn.log_warn("#{except.backtrace.join(newline)}")
-      Kernel.sleep(1)
-      retry
-    rescue Exception => except
-      newline = "\n"
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
-      Djinn.log_warn("#{except.backtrace.join(newline)}")
-
-      if retry_on_except
-        Kernel.sleep(1)
-        retry
-      else
-        Djinn.log_fatal("Couldn't recover from a #{except.class} Exception, " +
-          "with message: #{except}")
-        raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
-          " the type #{except.class} with the following message:\n#{except}.")
-      end
-    end
-  end
-
-
   # Parses the credentials that AppControllers store and constructs a
   # Hash containing infrastructure-specific parameters.
   #
@@ -160,7 +99,7 @@ class InfrastructureManagerClient
     Djinn.log_debug("Calling run_instances with parameters " +
       "#{obscured.inspect}")
 
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "run_instances") { 
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "run_instances") { 
       @conn.run_instances(parameters.to_json, @secret)
     }
   end
@@ -170,7 +109,7 @@ class InfrastructureManagerClient
     Djinn.log_debug("Calling describe_instances with parameters " +
       "#{parameters.inspect}")
 
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "describe_instances") { 
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "describe_instances") { 
       @conn.describe_instances(parameters.to_json, @secret)
     }
   end
@@ -185,7 +124,7 @@ class InfrastructureManagerClient
     parameters['instance_ids'] = instance_ids
     parameters['region'] = options['region']
 
-    terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
+    terminate_result = HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL,
       "terminate_instances") {
       @conn.terminate_instances(parameters.to_json, @secret)
     }
@@ -264,7 +203,7 @@ class InfrastructureManagerClient
       "#{parameters.inspect}, with disk name #{disk_name} and instance id " +
       "#{instance_id}")
 
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "attach_disk") {
+    HelperFunctions.make_call(NO_TIMEOUT, RETRY_ON_FAIL, "attach_disk") {
       disk_info = @conn.attach_disk(parameters.to_json, disk_name, instance_id,
         @secret)
       Djinn.log_debug("Attach disk returned #{disk_info.inspect}")

@@ -249,6 +249,55 @@ module HelperFunctions
     }
   end
 
+  # This function is used by the 'client' (taskqueue, appcontroller,
+  # etc...) to query the service with the proper function. The calls are
+  # SOAP calls, and retry logic is built in.
+  #
+  # Args:
+  #   timeout: The maximum time to wait on a remote call
+  #   retry_on_except: Boolean if we should keep retrying the
+  #     the call
+  # Returns:
+  #   The result of the remote call.
+  # Raises:
+  #   AppScaleException: on connection refused.
+  def make_call(time, retry_on_except, callr)
+    refused_count = 0
+    max = 3
+
+    begin
+      Timeout::timeout(time) {
+        yield if block_given?
+      }
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+        OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+        Errno::ECONNRESET => except
+      newline = "\n"
+      Djinn.log_warn("Saw an Exception of class #{except.class}")
+      Djinn.log_debug("#{except.backtrace.join(newline)}")
+      if refused_count > max
+        Djinn.log_error("Failed to reach #{@ip}.")
+        raise AppScaleException.new("Connection with #{@ip} failed.")
+      else
+        refused_count += 1
+        Kernel.sleep(5)
+        retry
+      end
+    rescue Timeout::Error
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      return
+    rescue Exception => except
+      newline = "\n"
+      Djinn.log_warn("Saw an Exception of class #{except.class}")
+      Djinn.log_warn("#{except.backtrace.join(newline)}")
+      Djinn.log_fatal("Couldn't recover from a #{except.class} Exception, " +
+        "with message: #{except}")
+      raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
+        " the type #{except.class} with the following message:\n#{except}.")
+        " the type #{except.class} with the following message:\n#{except}.")
+    end
+  end
+
 
   def self.is_port_open?(ip, port, use_ssl=DONT_USE_SSL)
     begin
