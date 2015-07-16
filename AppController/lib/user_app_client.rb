@@ -71,7 +71,7 @@ class UserAppClient
           "connection with the UserAppServer at the designated location. Is " +
           "AppScale currently running?")
       end 
-   rescue Exception => except
+    rescue Exception => except
       if except.class == Interrupt
         HelperFunctions.log_and_crash("Saw an Interrupt when talking to the " +
           "UserAppServer")

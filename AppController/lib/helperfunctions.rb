@@ -116,7 +116,7 @@ module HelperFunctions
   # The location on the filesystem where the AppController writes information
   # about the exception that killed it, for the tools to retrieve and pass
   # along to the user.
-  APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
+  APPCONTROLLER_CRASHLOG_LOCATION = "/var/log/appscale/appcontroller_crashlog.txt"
 
 
   # The location on the filesystem where the AppController backs up its
@@ -1491,6 +1491,8 @@ module HelperFunctions
   #   SystemExit: Always occurs, since this method crashes the AppController.
   def self.log_and_crash(message)
     self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
+    # Try to also log to the normal log file.
+    Djinn.log_error("FATAL: #{message}")
     abort(message)
   end
 
