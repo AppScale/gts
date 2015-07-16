@@ -4427,8 +4427,8 @@ HOSTS
           break
         end
         rescue Exception => e
-          Djinn.log_warn("*** saw exception #{e}:#{e.class}")
-          pass
+          Djinn.log_warn("*** saw exception class: #{e.class}")
+          Djinn.log_warn("*** saw exception: #{e}")
         end
       }
     end
