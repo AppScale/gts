@@ -54,7 +54,12 @@ module HelperFunctions
   MAX_VM_CREATION_TIME = 1800
 
 
-  SLEEP_TIME = 20
+  # Generic sleep time, to use then an operation didn't return the proper
+  # result but we expect a retry to work its magic.
+  SLEEP_TIME = 5
+
+  # Generic number of retries to do when retry logic is needed.
+  NUM_RETRIES = 5
 
 
   IP_REGEX = /\d+\.\d+\.\d+\.\d+/
@@ -263,7 +268,9 @@ module HelperFunctions
   #   AppScaleException: on connection refused.
   def make_call(time, retry_on_except, callr)
     refused_count = 0
-    max = 3
+
+    # Don't retry if not asked to.
+    retry_on_except = NUM_RETRIES
 
     begin
       Timeout::timeout(time) {
@@ -275,12 +282,12 @@ module HelperFunctions
       newline = "\n"
       Djinn.log_warn("Saw an Exception of class #{except.class}")
       Djinn.log_debug("#{except.backtrace.join(newline)}")
-      if refused_count > max
+      if refused_count >= NUM_RETRIES
         Djinn.log_error("Failed to reach #{@ip}.")
         raise AppScaleException.new("Connection with #{@ip} failed.")
       else
         refused_count += 1
-        Kernel.sleep(5)
+        Kernel.sleep(SLEEP_TIME)
         retry
       end
     rescue Timeout::Error
@@ -293,7 +300,6 @@ module HelperFunctions
       Djinn.log_fatal("Couldn't recover from a #{except.class} Exception, " +
         "with message: #{except}")
       raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
-        " the type #{except.class} with the following message:\n#{except}.")
         " the type #{except.class} with the following message:\n#{except}.")
     end
   end
@@ -392,7 +398,7 @@ module HelperFunctions
 
     loop {
       break if File.exists?(retval_file)
-      Kernel.sleep(5)
+      Kernel.sleep(SLEEP_TIME)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -405,7 +411,7 @@ module HelperFunctions
       if fails >= 5
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
-      Kernel.sleep(2)
+      Kernel.sleep(SLEEP_TIME)
       self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
@@ -803,14 +809,14 @@ module HelperFunctions
         break
       end
       Djinn.log_debug("sleepy time")
-      sleep(5)
+      sleep(SLEEP_TIME)
     }
     
     instance_ids = []
     public_ips = []
     private_ips = []
 
-    sleep(10) # euca 2.0.3 can throw forbidden errors if we hit it too fast
+    sleep(SLEEP_TIME) # euca 2.0.3 can throw forbidden errors if we hit it too fast
     # TODO: refactor me to use rightaws gem, check for forbidden, and retry accordingly
 
     end_time = Time.now + MAX_VM_CREATION_TIME
@@ -1351,7 +1357,7 @@ module HelperFunctions
         return false
       end
     rescue Exception
-      Kernel.sleep(1)
+      Kernel.sleep(SLEEP_TIME)
       retry
     end
   end
