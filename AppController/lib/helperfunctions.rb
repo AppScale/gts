@@ -266,7 +266,7 @@ module HelperFunctions
   #   The result of the remote call.
   # Raises:
   #   AppScaleException: on connection refused.
-  def make_call(time, retry_on_except, callr)
+  def self.make_call(time, retry_on_except, callr)
     refused_count = 0
 
     # Don't retry if not asked to.
