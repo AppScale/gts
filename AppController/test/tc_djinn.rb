@@ -913,6 +913,11 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
     flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
 
+    # and makes sure communication with remote components is good.
+    flexmock(HelperFunctions).should_receive(:make_call).
+      with(10, True, "test_function").
+      and_return(true)
+
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0

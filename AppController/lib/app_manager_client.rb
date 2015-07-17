@@ -34,57 +34,6 @@ class AppManagerClient
     @conn.add_method("restart_app_instances_for_app", "app_name", "language")
   end
 
-  # Make a SOAP call out to the AppManager. 
-  # 
-  # Args: 
-  #   timeout: The maximum time to wait on a remote call
-  #   retry_on_except: Boolean if we should keep retrying the 
-  #     the call
-  # Returns:
-  #   The result of the remote call.
-  # TODO: 
-  #   This code was copy/pasted from app_controller_client 
-  #   and can be factored out to a library. Note this for 
-  #   the transition to the python port.
-  #
-  def make_call(timeout, retry_on_except, callr)
-    result = ""
-    Djinn.log_debug("Calling the AppManager - #{callr}")
-    begin
-      Timeout::timeout(timeout) do
-        begin
-          yield if block_given?
-        end
-      end
-    rescue OpenSSL::SSL::SSLError => e
-      Djinn.log_warn("Saw a SSLError when calling #{callr}" +
-        " - trying again momentarily.")
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Exception: #{e.class}\n#{backtrace}")
-      retry
-    rescue Errno::ECONNREFUSED => except
-      if retry_on_except
-        Djinn.log_warn("Saw a connection refused when calling #{callr}" +
-          " - trying again momentarily.")
-        sleep(1)
-        retry
-      else
-        trace = except.backtrace.join("\n")
-        HelperFunctions.log_and_crash("We saw an unexpected error of the " +
-          "type #{except.class} with the following message:\n#{except}, with" +
-          " trace: #{trace}")
-      end 
-   rescue Exception => except
-      if except.class == Interrupt
-        Djinn.log_fatal("Saw an Interrupt exception")
-        HelperFunctions.log_and_crash("Saw an Interrupt Exception")
-      end
-
-      Djinn.log_error("An exception of type #{except.class} was thrown: #{except}.")
-      retry if retry_on_except
-    end
-  end
- 
    # Wrapper for SOAP call to the AppManager to start an process instance of 
    # an application server.
    #
@@ -125,7 +74,7 @@ class AppManagerClient
               'max_memory' => max_memory}
     json_config = JSON.dump(config)
     result = ""
-    make_call(MAX_TIME_OUT, false, "start_app") {
+    HelperFunctions.make_call(MAX_TIME_OUT, false, "start_app") {
       result = @conn.start_app(json_config)
     }
     return result
@@ -142,7 +91,7 @@ class AppManagerClient
   #
   def stop_app_instance(app_name, port)
     result = ""
-    make_call(MAX_TIME_OUT, false, "stop_app_instance") {
+    HelperFunctions.make_call(MAX_TIME_OUT, false, "stop_app_instance") {
       result = @conn.stop_app_instance(app_name, port)
     }
     return result
@@ -158,7 +107,7 @@ class AppManagerClient
   #
   def stop_app(app_name)
     result = ""
-    make_call(MAX_TIME_OUT, false, "stop_app") {
+    HelperFunctions.make_call(MAX_TIME_OUT, false, "stop_app") {
       result = @conn.stop_app(app_name)
     }
     return result
@@ -174,7 +123,7 @@ class AppManagerClient
   #   An Array of process IDs that were killed, that had been hosting the app.
   def restart_app_instances_for_app(app_name, language)
     result = ""
-    make_call(MAX_TIME_OUT, false, "restart_app_instances_for_app") {
+    HelperFunctions.make_call(MAX_TIME_OUT, false, "restart_app_instances_for_app") {
       result = @conn.restart_app_instances_for_app(app_name, language)
     }
     return result
