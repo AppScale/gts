@@ -915,7 +915,7 @@ class TestDjinn < Test::Unit::TestCase
 
     # and makes sure communication with remote components is good.
     flexmock(HelperFunctions).should_receive(:make_call).
-      with(10, True, "test_function").
+      with(10, true, "test_function").
       and_return(true)
 
     djinn = Djinn.new()
