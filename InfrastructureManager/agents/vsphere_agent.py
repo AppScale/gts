@@ -9,10 +9,10 @@ You need setup your vCenter:
 """
 
 from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
-from utils import utils
-from pysphere import VIServer
 import datetime
+from pysphere import VIServer
 import time
+from utils import utils
 
 __author__ = 'Marco Maria Di Nicola'
 __email__ = 'marticus@hotmail.it'
@@ -31,7 +31,7 @@ class vSphereAgent(BaseAgent):
 	def configure_instance_security(self, parameters):
 		"""
 		Prepare AppScale head node in vCenter and AppScale template for cloning
-		a new virtual machines
+		a new virtual machines.
 		"""
 		return True
 
@@ -43,7 +43,7 @@ class vSphereAgent(BaseAgent):
 	      parameters  A dictionary containing the 'credentials' parameter.
 
 	    Returns:
-	      An instance of pysphere connection
+	      An instance of pysphere connection.
 		"""
 		credentials = parameters[PARAM_CREDENTIALS]
 		try:
@@ -59,10 +59,10 @@ class vSphereAgent(BaseAgent):
 		"""
 		Stop one of more vSphere instances using. The input instance IDs are
 	    fetched from the 'instance_ids' parameters in the input map. (Also
-	    see documentation for the BaseAgent class)
+	    see documentation for the BaseAgent class).
 
 	    Args:
-	      parameters  A dictionary of parameters
+	      parameters  A dictionary of parameters.
 		"""
 		instance_ids = parameters[self.PARAM_INSTANCE_IDS]
 		conn = self.open_connection(parameters)
@@ -85,7 +85,7 @@ class vSphereAgent(BaseAgent):
 	                          detect brand new AppScale deployments.
 
 	    Returns:
-	      A tuple of the form (instances, private_ips)
+	      A tuple of the form (instances, private_ips).
 		"""
 		conn = self.open_connection(parameters)
 		if conn is not None:
