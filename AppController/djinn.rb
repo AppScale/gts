@@ -4422,7 +4422,13 @@ HOSTS
         if success
           # tell ZK that we are hosting the app in case we die, so that
           # other nodes can update the UserAppServer on its behalf
-          ZKInterface.add_app_instance(app, my_public, nginx_port)
+          begin
+            ZKInterface.add_app_instance(app, my_public, nginx_port)
+          rescue Exception => e
+            backtrace = e.backtrace.join("\n")
+            Djinn.log_error("Got Exception with ZK: #{e}\n#{backtrace}")
+            HelperFunctions.log_and_crash("Unable to talk to Zookeeper.")
+          end
           break
         end
       }
