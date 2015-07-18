@@ -54,12 +54,7 @@ module HelperFunctions
   MAX_VM_CREATION_TIME = 1800
 
 
-  # Generic sleep time, to use then an operation didn't return the proper
-  # result but we expect a retry to work its magic.
-  SLEEP_TIME = 5
-
-  # Generic number of retries to do when retry logic is needed.
-  NUM_RETRIES = 5
+  SLEEP_TIME = 20
 
 
   IP_REGEX = /\d+\.\d+\.\d+\.\d+/
@@ -254,56 +249,6 @@ module HelperFunctions
     }
   end
 
-  # This function is used by the 'client' (taskqueue, appcontroller,
-  # etc...) to query the service with the proper function. The calls are
-  # SOAP calls, and retry logic is built in.
-  #
-  # Args:
-  #   timeout: The maximum time to wait on a remote call
-  #   retry_on_except: Boolean if we should keep retrying the
-  #     the call
-  # Returns:
-  #   The result of the remote call.
-  # Raises:
-  #   AppScaleException: on connection refused.
-  def self.make_call(time, retry_on_except, callr)
-    refused_count = 0
-
-    # Don't retry if not asked to.
-    retry_on_except = NUM_RETRIES
-
-    begin
-      Timeout::timeout(time) {
-        yield if block_given?
-      }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
-        OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-        Errno::ECONNRESET => except
-      newline = "\n"
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
-      Djinn.log_debug("#{except.backtrace.join(newline)}")
-      if refused_count >= NUM_RETRIES
-        Djinn.log_error("Failed to reach #{@ip}.")
-        raise AppScaleException.new("Connection with #{@ip} failed.")
-      else
-        refused_count += 1
-        Kernel.sleep(SLEEP_TIME)
-        retry
-      end
-    rescue Timeout::Error
-      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      return
-    rescue Exception => except
-      newline = "\n"
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
-      Djinn.log_warn("#{except.backtrace.join(newline)}")
-      Djinn.log_fatal("Couldn't recover from a #{except.class} Exception, " +
-        "with message: #{except}")
-      raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
-        " the type #{except.class} with the following message:\n#{except}.")
-    end
-  end
-
 
   def self.is_port_open?(ip, port, use_ssl=DONT_USE_SSL)
     begin
@@ -398,7 +343,7 @@ module HelperFunctions
 
     loop {
       break if File.exists?(retval_file)
-      Kernel.sleep(SLEEP_TIME)
+      Kernel.sleep(5)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -411,7 +356,7 @@ module HelperFunctions
       if fails >= 5
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
-      Kernel.sleep(SLEEP_TIME)
+      Kernel.sleep(2)
       self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
@@ -809,14 +754,14 @@ module HelperFunctions
         break
       end
       Djinn.log_debug("sleepy time")
-      sleep(SLEEP_TIME)
+      sleep(5)
     }
     
     instance_ids = []
     public_ips = []
     private_ips = []
 
-    sleep(SLEEP_TIME) # euca 2.0.3 can throw forbidden errors if we hit it too fast
+    sleep(10) # euca 2.0.3 can throw forbidden errors if we hit it too fast
     # TODO: refactor me to use rightaws gem, check for forbidden, and retry accordingly
 
     end_time = Time.now + MAX_VM_CREATION_TIME
@@ -1357,7 +1302,7 @@ module HelperFunctions
         return false
       end
     rescue Exception
-      Kernel.sleep(SLEEP_TIME)
+      Kernel.sleep(1)
       retry
     end
   end

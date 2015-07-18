@@ -764,7 +764,8 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(InfrastructureManagerClient).new_instances { |instance|
       instance.should_receive(:make_call).
       with(InfrastructureManagerClient::NO_TIMEOUT,
-        InfrastructureManagerClient::RETRY_ON_FAIL, "run_instances").
+        InfrastructureManagerClient::RETRY_ON_FAIL, "run_instances",
+        Proc).
       and_return({'reservation_id' => '0123456'})
 
     # let's say that the first time we do 'describe-instances', the
@@ -780,8 +781,8 @@ class TestDjinn < Test::Unit::TestCase
     ready = {'state' => 'running', 'vm_info' => new_two_nodes_info}
       instance.should_receive(:make_call).
       with(InfrastructureManagerClient::NO_TIMEOUT,
-        InfrastructureManagerClient::RETRY_ON_FAIL,
-        "describe_instances").
+        InfrastructureManagerClient::RETRY_ON_FAIL, "describe_instances",
+        Proc).
       and_return(pending, ready)
     }
 
@@ -911,18 +912,6 @@ class TestDjinn < Test::Unit::TestCase
     ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
     flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
     flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
-
-    # and makes sure communication with remote components is good.
-    flexmock(HelperFunctions).should_receive(:make_call).
-      with(InfrastructureManagerClient::NO_TIMEOUT,
-           InfrastructureManagerClient::RETRY_ON_FAIL,
-           "run_instances").
-         and_return(true)
-    flexmock(HelperFunctions).should_receive(:make_call).
-      with(InfrastructureManagerClient::NO_TIMEOUT,
-           InfrastructureManagerClient::RETRY_ON_FAIL,
-           "describe_instances").
-         and_return(true)
 
     djinn = Djinn.new()
     djinn.nodes = [original_node]

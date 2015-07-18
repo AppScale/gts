@@ -4419,16 +4419,11 @@ HOSTS
         Kernel.sleep(5)
         success = uac.add_instance(app, my_public, nginx_port)
         Djinn.log_debug("Add instance returned #{success}")
-        begin
         if success
           # tell ZK that we are hosting the app in case we die, so that
           # other nodes can update the UserAppServer on its behalf
           ZKInterface.add_app_instance(app, my_public, nginx_port)
           break
-        end
-        rescue Exception => e
-          Djinn.log_warn("*** saw exception class: #{e.class}")
-          Djinn.log_warn("*** saw exception: #{e.backtrace}")
         end
       }
     end
