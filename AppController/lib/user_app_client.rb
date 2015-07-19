@@ -58,8 +58,9 @@ class UserAppClient
         end
       end
     rescue OpenSSL::SSL::SSLError => e
-      Djinn.log_warn(e)
-      Djinn.log_warn("Retrying (SSL) - calling #{callr} on UserAppServer at #{@ip}")
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Retrying calling #{callr} on UserAppServer at #{@ip}")
+      Djinn.log_warn("Exception caught: #{e}\n#{backtrace}")
       retry
     rescue Errno::ECONNREFUSED
       if retry_on_except
