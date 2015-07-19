@@ -54,7 +54,9 @@ module HelperFunctions
   MAX_VM_CREATION_TIME = 1800
 
 
-  SLEEP_TIME = 20
+  # Generic sleep time to take while waiting for remote operation to
+  # complete.
+  SLEEP_TIME = 10
 
 
   IP_REGEX = /\d+\.\d+\.\d+\.\d+/
@@ -343,7 +345,7 @@ module HelperFunctions
 
     loop {
       break if File.exists?(retval_file)
-      Kernel.sleep(5)
+      Kernel.sleep(SLEEP_TIME)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -356,7 +358,7 @@ module HelperFunctions
       if fails >= 5
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
-      Kernel.sleep(2)
+      Kernel.sleep(SLEEP_TIME)
       self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
@@ -754,15 +756,12 @@ module HelperFunctions
         break
       end
       Djinn.log_debug("sleepy time")
-      sleep(5)
+      sleep(SLEEP_TIME)
     }
     
     instance_ids = []
     public_ips = []
     private_ips = []
-
-    sleep(10) # euca 2.0.3 can throw forbidden errors if we hit it too fast
-    # TODO: refactor me to use rightaws gem, check for forbidden, and retry accordingly
 
     end_time = Time.now + MAX_VM_CREATION_TIME
     while (now = Time.now) < end_time
@@ -1302,7 +1301,7 @@ module HelperFunctions
         return false
       end
     rescue Exception
-      Kernel.sleep(1)
+      Kernel.sleep(SLEEP_TIME)
       retry
     end
   end
