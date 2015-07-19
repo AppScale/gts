@@ -4419,7 +4419,7 @@ HOSTS
         Kernel.sleep(5)
         begin
           success = uac.add_instance(app, my_public, nginx_port)
-        rescue
+        rescue Exception => e
           backtrace = e.backtrace.join("\n")
           Djinn.log_error("Got Exception calling uac.add_instance: #{e}\n#{backtrace}")
           retry
