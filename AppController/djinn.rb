@@ -1966,7 +1966,7 @@ class Djinn
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(30)
-        retry
+        redo
       end
     }
 
@@ -2047,6 +2047,7 @@ class Djinn
   def self.log_to_buffer(level, message)
     return if message.empty?
     return if level < @@log.level
+    puts  message
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
@@ -2097,7 +2098,6 @@ class Djinn
     djinn_locations.each { |location|
       djinn_loc_array << location.to_hash
     }
-
     return JSON.dump(djinn_loc_array)
   end
 
@@ -2459,11 +2459,10 @@ class Djinn
 
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
-
     instance_variables.each { |k|
       v = instance_variable_get(k)
-      if k == "@nodes"
-        v = Djinn.convert_location_class_to_array(@nodes)
+      if k.to_s == "@nodes"
+        v = Djinn.convert_location_class_to_array(v)
       elsif k == "@my_index" or k == "@api_status"
         # Don't back up @my_index - it's a node-specific pointer that
         # indicates which node is "our node" and thus should be regenerated
@@ -2476,6 +2475,8 @@ class Djinn
 
       state[k] = v
     }
+
+    Djinn.log_info("backup_appcontroller_state:"+state.to_s)
 
     HelperFunctions.write_local_appcontroller_state(state)
     ZKInterface.write_appcontroller_state(state)
@@ -2505,7 +2506,6 @@ class Djinn
   #   on this machine or not.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state")
-
     restoring_from_local = true
     if File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("Trying to restore data from ZooKeeper.")
@@ -2537,6 +2537,7 @@ class Djinn
     @@secret = json_state['@@secret']
     keyname = json_state['@options']['keyname']
 
+    # Puts json_state.
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
@@ -2583,7 +2584,7 @@ class Djinn
       begin
         Djinn.log_info("Restoring AppController state from ZK at #{ip}")
         Timeout.timeout(10) do
-          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
+          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
       end
       rescue Exception => e
@@ -2795,6 +2796,7 @@ class Djinn
           url = URI.parse("https://#{get_login.public_ip}:" +
             "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
           http = Net::HTTP.new(url.host, url.port)
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           http.use_ssl = true
           response = http.post(url.path, encoded_logs,
             {'Content-Type'=>'application/json'})
@@ -2830,13 +2832,16 @@ class Djinn
           "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
         response = http.post(url.path, JSON.dump(instance_info),
           {'Content-Type'=>'application/json'})
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-        Errno::ECONNRESET
+        Errno::ECONNRESET => e
+        backtrace = e.backtrace.join("\n")
+        Djinn.log_warn("Error in send_instance_info: #{e.message}\n#{backtrace}")
         retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
@@ -2868,7 +2873,9 @@ class Djinn
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request = Net::HTTP::Delete.new(url.path)
+      request.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request.body = JSON.dump(instance_info)
       response = http.request(request)
       Djinn.log_debug("Done sending instance info to AppDashboard!")
@@ -3085,6 +3092,7 @@ class Djinn
         begin
           node.private_ip = HelperFunctions.convert_fqdn_to_ip(pri)
         rescue Exception => e
+          Djinn.log_info("Failed to convert IP: #{e.message}")
           node.private_ip = node.public_ip
         end
       end
@@ -3438,7 +3446,7 @@ class Djinn
   def start_app_manager_server()
     @state = "Starting up AppManager"
     env_vars = {}
-    start_cmd = ["/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
+    start_cmd = "/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"
     stop_cmd = "/usr/bin/pkill -9 app_manager_server"
     port = [AppManagerClient::SERVER_PORT]
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
@@ -4299,7 +4307,7 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_language = app_data.scan(/language:(\w+)/).flatten.to_s
+    app_language = (app_data.scan(/language:(\w+)/).*"").to_s
 
     if is_new_app and @app_info_map[app].nil?
       @app_info_map[app] = {}
@@ -4601,7 +4609,7 @@ HOSTS
       return :no_change
     end
 
-    monitoring_info.each { |line|
+    monitoring_info.each_line { |line|
       parsed_info = line.split(',')
       if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
         next
@@ -4866,7 +4874,7 @@ HOSTS
       Kernel.sleep(5)
     }
 
-    app_language = app_data.scan(/language:(\w+)/).flatten.to_s
+    app_language = (app_data.scan(/language:(\w+)/)*"").to_s
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
@@ -4971,11 +4979,14 @@ HOSTS
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/json/#{app_id}")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       response = http.post(url.path, encoded_request_info,
         {'Content-Type'=>'application/json'})
       return true
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET
+      Errno::ECONNRESET => e
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Error sending logs: #{e.message}\n#{backtrace}")
       retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over
