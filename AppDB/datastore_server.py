@@ -1878,7 +1878,7 @@ class DatastoreDistributed():
     return entities 
 
   def __extract_rowkeys_from_refs(self, refs):
-    """ Extract the rowkeys to fetch from a list of references
+    """ Extract the rowkeys to fetch from a list of references.
 
     Args:
       refs: key/value pairs where the values contain a reference to the
@@ -3325,7 +3325,7 @@ class DatastoreDistributed():
     return self.__fetch_entities(index_result, clean_app_id(query.app()))
 
   def __extract_value_from_index(self, index_entry, direction):
-    """ Takes the index values and returns the value of the property.
+    """ Takes an index entry and returns the value of the property.
 
     This function is for single property indexes only.
 
