@@ -2476,6 +2476,7 @@ class DatastoreDistributed():
     # references in order to satisfy the query.
     entities = []
     current_limit = limit
+    index_entries_to_delete = []
     while True:
       references = self.__apply_filters(
         filter_ops,
@@ -2491,7 +2492,18 @@ class DatastoreDistributed():
         end_compiled_cursor=end_compiled_cursor
       )
 
-      new_entities = self.__fetch_entities(references, app_id))
+      valid_entities = self.__fetch_entities_dict(references, app_id)
+
+      # Since the entities may be out of order due to invalid references,
+      # we construct a new list in order of valid references.
+      new_entities = []
+      for reference in references:
+        try:
+          valid_entity = self.__get_entity_for_index_entry(reference,
+                                                           valid_entities, direction, property_name)
+          new_entities.append(valid_entity)
+        except dbconstants.InvalidIndexError:
+          index_entries_to_delete.append(reference)
 
       entities.extend(new_entities)
 
@@ -3317,6 +3329,45 @@ class DatastoreDistributed():
     self.__decode_index_str(value, prop_value)
 
     return prop_value
+
+  def __get_entity_for_index_entry(self, index_entry, entities, direction,
+    property_name):
+    """ Returns a valid entity that matches a given index entry.
+
+    The main purpose of this function is to invalidate outdated index entries
+    by raising an exception.
+
+    Args:
+      index_entry: A dictionary containing an index entry.
+      entities: A dictionary of valid entities.
+      direction: The direction of the index.
+    Returns:
+      An entity.
+    Raises:
+      AppScaleDBError: The given property name is not in the matching entity.
+      InvalidIndexError: If the given index entry is not valid.
+    """
+    reference = index_entry[index_entry.keys()[0]]['reference']
+    if reference not in entities:
+      raise dbconstants.InvalidIndexError(
+        'Invalid index entry: {}'.format(index_entry))
+
+    index_value = self.__extract_value_from_index(index_entry, direction)
+
+    entity = entities[reference]
+    entity_proto = entity_pb.EntityProto(entity)
+
+    for prop in entity_proto.property_list():
+      if prop.name() != property_name:
+        continue
+
+      if index_value.Equals(prop.value()):
+        return entity
+      else:
+        raise dbconstants.InvalidIndexError(
+          'Invalid index entry: {}'.format(index_entry))
+
+    raise dbconstants.AppScaleDBError('Property name not found in entity.')
 
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
