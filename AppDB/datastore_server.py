@@ -1136,10 +1136,6 @@ class DatastoreDistributed():
                                           row_values)    
       self.update_journal(row_keys, row_values, txn_hash)
 
-    self.datastore_batch.batch_delete(dbconstants.APP_KIND_TABLE,
-                                      kind_keys, 
-                                      column_names=dbconstants.APP_KIND_SCHEMA)
-
     entities = []
     for row_key in ret:
       # Entities may not exist if this is the first put.
