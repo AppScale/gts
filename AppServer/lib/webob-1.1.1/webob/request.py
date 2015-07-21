@@ -71,6 +71,10 @@ class BaseRequest(object):
                         "Unexpected keyword: %s=%r" % (name, value))
                 setattr(self, name, value)
 
+        if ('HTTP_X_FORWARDED_SSL' in environ
+            and environ['HTTP_X_FORWARDED_SSL'] == 'on'):
+            self.scheme = 'https'
+
     # this is necessary for correct warnings depth for both
     # BaseRequest and Request (due to AdhocAttrMixin.__setattr__)
     _setattr_stacklevel = 2
