@@ -1150,7 +1150,6 @@ class DatastoreDistributed():
         entities.append(ent)
 
     # Delete associated indexes.
-    self.delete_index_entries(entities)
     if composite_indexes:
       self.delete_composite_indexes(entities, composite_indexes)
 
