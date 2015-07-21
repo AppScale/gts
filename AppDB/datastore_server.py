@@ -1860,27 +1860,64 @@ class DatastoreDistributed():
         entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
     return entities 
 
-  def __fetch_entities(self, refs, app_id):
-    """ Given the results from a table scan, get the references.
-    
-    Args: 
-      refs: key/value pairs where the values contain a reference to 
-            the entitiy table.
-      app_id: A string, the application identifier.
+  def __extract_rowkeys_from_refs(self, refs):
+    """ Extract the rowkeys to fetch from a list of references
+
+    Args:
+      refs: key/value pairs where the values contain a reference to the
+            entitiy table.
     Returns:
-      Entities retrieved from entity table.
+      A list of rowkeys.
     """
     if len(refs) == 0:
       return []
     keys = [item.keys()[0] for item in refs]
-    rowkeys = []    
+    rowkeys = []
     for index, ent in enumerate(refs):
       key = keys[index]
       ent = ent[key]['reference']
       # Make sure not to fetch the same entity more than once.
       if ent not in rowkeys:
         rowkeys.append(ent)
+    return rowkeys
+
+  def __fetch_entities(self, refs, app_id):
+    """ Given a list of references, get the entities.
+
+    Args:
+      refs: key/value pairs where the values contain a reference to
+            the entitiy table.
+      app_id: A string, the application identifier.
+    Returns:
+      A list of validated entities.
+    """
+    rowkeys = self.__extract_rowkeys_from_refs(refs)
     return self.__fetch_entities_from_row_list(rowkeys, app_id)
+
+  def __fetch_entities_dict(self, refs, app_id):
+    """ Given a list of references, return the entities as a dictionary.
+
+    Args:
+      refs: key/value pairs where the values contain a reference to
+            the entitiy table.
+      app_id: A string, the application identifier.
+    Returns:
+      A dictionary of validated entities.
+    """
+    rowkeys = self.__extract_rowkeys_from_refs(refs)
+
+    results = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+
+    results = self.validated_result(app_id, results)
+    results = self.remove_tombstoned_entities(results)
+
+    clean_results = {}
+    for key in rowkeys:
+      if key in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[key]:
+        clean_results[key] = results[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+
+    return clean_results
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
