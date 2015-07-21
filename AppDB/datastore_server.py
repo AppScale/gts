@@ -2414,7 +2414,7 @@ class DatastoreDistributed():
       return None
 
     if order_info and order_info[0][0] == property_name:
-        direction = order_info[0][1]
+      direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
 
