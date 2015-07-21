@@ -3366,6 +3366,8 @@ class DatastoreDistributed():
       InvalidIndexError: If the given index entry is not valid.
     """
     reference = index_entry[index_entry.keys()[0]]['reference']
+
+    # Check if the reference points to a deleted or invalid entity.
     if reference not in entities:
       raise dbconstants.InvalidIndexError(
         'Invalid index entry: {}'.format(index_entry))
