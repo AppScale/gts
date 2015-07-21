@@ -2420,7 +2420,9 @@ class DatastoreDistributed():
 
     prefix = self.get_table_prefix(query)
 
-    limit = self.get_limit(query) 
+    limit = self.get_limit(query)
+
+    app_id = clean_app_id(query.app())
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -2454,10 +2456,7 @@ class DatastoreDistributed():
         end_compiled_cursor=end_compiled_cursor
       )
 
-      if property_name in query.property_name_list():
-        new_entities = self.__extract_entities_from_indexes(references, direction)
-      else:
-        new_entities = self.__fetch_entities(references, clean_app_id(query.app()))
+      new_entities = self.__fetch_entities(references, app_id))
 
       entities.extend(new_entities)
 
@@ -3258,72 +3257,6 @@ class DatastoreDistributed():
       return self.__extract_entities_from_composite_indexes(query, index_result)
 
     return self.__fetch_entities(index_result, clean_app_id(query.app()))
-
-  def __extract_entities_from_indexes(self, index_result, direction):
-    """ Takes the index values and creates partial entities out of them.
-   
-    This function is for single property indexes only.
-
-    Args:
-      index_result: A list of index strings.
-      direction: The direction of the index.
-    Returns:
-      A list of EntityProtos.
-    """
-    entities = []
-    for index in index_result:
-      entity = entity_pb.EntityProto()
-      tokens = index.keys()[0].split(self._SEPARATOR)
-      app_id = tokens.pop(0)
-      namespace = tokens.pop(0)
-      kind = tokens.pop(0)
-      prop_name = tokens.pop(0)
-      value = tokens.pop(0)
-      key_string = tokens.pop(0)
-
-      if direction == datastore_pb.Query_Order.DESCENDING:
-        value = helper_functions.reverse_lex(value)
-
-      prop = entity.add_property()
-      prop.set_name(prop_name)
-      prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-      prop.set_multiple(False)
-      prop_value = prop.mutable_value()
-      self.__decode_index_str(value, prop_value)
-
-      key_string = tokens.pop(0)
-      elements = key_string.split(dbconstants.KIND_SEPARATOR)
-
-      # Set the entity group.
-      element = elements[0]
-      kind, identifier = element.split(dbconstants.ID_SEPARATOR)
-      ent_group = entity.mutable_entity_group()
-      new_element = ent_group.add_element()
-      new_element.set_type(kind)
-      if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-        new_element.set_id(int(identifier))
-      else:
-        new_element.set_name(identifier) 
- 
-      # Set the key path.
-      key = entity.mutable_key()
-      key.set_app(clean_app_id(app_id))
-      path = key.mutable_path()
-      if namespace:
-        key.set_name_space(namespace)
-      for element in elements:
-        if not element:
-          continue
-        kind, identifier = element.split(dbconstants.ID_SEPARATOR)
-        new_element = path.add_element()  
-        new_element.set_type(kind)
-        if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-          new_element.set_id(int(identifier))
-        else:
-          new_element.set_name(identifier) 
- 
-      entities.append(entity.Encode())
-    return entities
 
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
