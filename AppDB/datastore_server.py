@@ -2340,6 +2340,7 @@ class DatastoreDistributed():
       # Start from the last reference fetched.
       last_startrow = startrow
       startrow = references[-1].keys()[0]
+      start_inclusive = self._DISABLE_INCLUSIVITY
 
       if startrow == last_startrow:
         raise dbconstants.AppScaleDBError(
