@@ -17,6 +17,7 @@ from utils import utils
 
 __author__ = 'Marco Maria Di Nicola'
 __email__ = 'marticus@hotmail.it'
+__email2__ = 'dinicola.1210022@studenti.uniroma1.it'
 
 PARAM_CREDENTIALS = 'credentials'           #HOST(vCenter ip), USERNAME (vCenter), PASSWORD (vCenter)
 PARAM_IMAGE_ID = 'image_id'                 #name of AppScale Template create in vSphere some like appscale-template
