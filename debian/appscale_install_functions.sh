@@ -185,6 +185,10 @@ EOF
     fi
 }
 
+installpysphere(){
+  pip_wrapper pysphere
+}
+
 installthrift()
 {
     pip_wrapper thrift

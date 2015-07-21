@@ -30,13 +30,14 @@ case "$1" in
         installpythonmemcache
         installlxml
         installxmpppy
+        installpysphere
         installappserverjava
         installjavajdk
         installphp54
         installappserverjava
         installthrift
         installtornado
-        installpycrypto 
+        installpycrypto
         postinstalltornado
         installflexmock
         installzookeeper
@@ -65,7 +66,7 @@ case "$1" in
         ;;
     rabbit-mq)
         postinstallrabbitmq
-        ;; 
+        ;;
     celery)
         installcelery
         ;;
@@ -81,12 +82,13 @@ case "$1" in
         installpythonmemcache
         installlxml
         installxmpppy
+        installpysphere
         installjavajdk
         installphp54
         installappserverjava
         installthrift
         installtornado
-        installpycrypto 
+        installpycrypto
         installflexmock
         postinstalltornado
         installzookeeper
