@@ -527,7 +527,10 @@ class DatastoreDistributed():
                                       column_names=dbconstants.COMPOSITE_SCHEMA)
  
   def delete_index_entries(self, entities):
-    """ Deletes the entities in the DB.
+    """ Deletes the index entries for the given entities.
+
+    This only deletes the indexes in the ascending and descending property
+    tables.
 
     Args:
        entities: A list of entities for which their 
