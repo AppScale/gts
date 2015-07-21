@@ -84,7 +84,7 @@ DS_RESTORE_LOCK_PATH = "/appscale_datastore_restore"
 XG_PREFIX = "xg"
 
 # Maximum number of groups allowed in cross group transactions.
-MAX_GROUPS_FOR_XG = 5
+MAX_GROUPS_FOR_XG = 25
 
 # The separator value for the lock list when using XG transactions.
 LOCK_LIST_SEPARATOR = "!XG_LIST!"
