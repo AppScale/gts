@@ -3293,6 +3293,31 @@ class DatastoreDistributed():
 
     return self.__fetch_entities(index_result, clean_app_id(query.app()))
 
+  def __extract_value_from_index(self, index_entry, direction):
+    """ Takes the index values and returns the value of the property.
+
+    This function is for single property indexes only.
+
+    Args:
+      index_entry: A dictionary containing an index entry.
+      direction: The direction of the index.
+    Returns:
+      A property value.
+    """
+    reference_key = index_entry.keys()[0]
+    logging.debug('Reference: {}'.format(reference_key))
+    tokens = reference_key.split(self._SEPARATOR)
+    value = tokens[4]
+    if direction == datastore_pb.Query_Order.DESCENDING:
+      value = helper_functions.reverse_lex(value)
+
+    entity = entity_pb.EntityProto()
+    prop = entity.add_property()
+    prop_value = prop.mutable_value()
+    self.__decode_index_str(value, prop_value)
+
+    return prop_value
+
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
  
