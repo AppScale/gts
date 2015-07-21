@@ -2517,7 +2517,7 @@ class DatastoreDistributed():
       for reference in references:
         try:
           valid_entity = self.__get_entity_for_index_entry(reference,
-                                                           valid_entities, direction, property_name)
+            valid_entities, direction, property_name)
           new_entities.append(valid_entity)
         except dbconstants.InvalidIndexError:
           index_entries_to_delete.append(reference)
