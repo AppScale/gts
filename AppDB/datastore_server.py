@@ -2542,7 +2542,7 @@ class DatastoreDistributed():
       # references that we need.
       current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
 
-      logging.info('{} references invalid. Fetching {} more references.'
+      logging.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
 
       last_startrow = startrow
