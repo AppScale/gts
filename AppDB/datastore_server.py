@@ -554,6 +554,23 @@ class DatastoreDistributed():
     self.datastore_batch.batch_delete(dbconstants.DSC_PROPERTY_TABLE, 
                                       desc_index_keys,
                                       column_names=dbconstants.PROPERTY_SCHEMA)
+
+  def delete_invalid_index_entries(self, index_entries, direction):
+    """ Deletes the given index entries from the appropriate table.
+
+    Args:
+      index_entries: A list of invalid index entries that need to be deleted.
+      direction: The direction of the index entries.
+    """
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = dbconstants.ASC_PROPERTY_TABLE
+    else:
+      table_name = dbconstants.DSC_PROPERTY_TABLE
+
+    keys_to_delete = [item.keys()[0] for item in index_entries]
+    logging.debug('Deleting {} invalid index entries.'.format(len(keys_to_delete)))
+    self.datastore_batch.batch_delete(table_name, keys_to_delete,
+      column_names=dbconstants.PROPERTY_SCHEMA)
     
   def insert_entities(self, entities, txn_hash):
     """Inserts or updates entities in the DB.
@@ -2535,6 +2552,8 @@ class DatastoreDistributed():
       if startrow == last_startrow:
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
+
+    self.delete_invalid_index_entries(index_entries_to_delete, direction)
 
     return entities[:limit]
 
