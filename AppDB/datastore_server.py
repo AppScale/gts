@@ -3336,7 +3336,6 @@ class DatastoreDistributed():
       A property value.
     """
     reference_key = index_entry.keys()[0]
-    logging.debug('Reference: {}'.format(reference_key))
     tokens = reference_key.split(self._SEPARATOR)
     value = tokens[4]
     if direction == datastore_pb.Query_Order.DESCENDING:
