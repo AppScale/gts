@@ -527,7 +527,10 @@ class DatastoreDistributed():
                                       column_names=dbconstants.COMPOSITE_SCHEMA)
  
   def delete_index_entries(self, entities):
-    """ Deletes the entities in the DB.
+    """ Deletes the index entries for the given entities.
+
+    This only deletes the indexes in the ascending and descending property
+    tables.
 
     Args:
        entities: A list of entities for which their 
@@ -551,6 +554,23 @@ class DatastoreDistributed():
     self.datastore_batch.batch_delete(dbconstants.DSC_PROPERTY_TABLE, 
                                       desc_index_keys,
                                       column_names=dbconstants.PROPERTY_SCHEMA)
+
+  def delete_invalid_index_entries(self, index_entries, direction):
+    """ Deletes the given index entries from the appropriate table.
+
+    Args:
+      index_entries: A list of invalid index entries that need to be deleted.
+      direction: The direction of the index entries.
+    """
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = dbconstants.ASC_PROPERTY_TABLE
+    else:
+      table_name = dbconstants.DSC_PROPERTY_TABLE
+
+    keys_to_delete = [item.keys()[0] for item in index_entries]
+    logging.debug('Deleting {} invalid index entries.'.format(len(keys_to_delete)))
+    self.datastore_batch.batch_delete(table_name, keys_to_delete,
+      column_names=dbconstants.PROPERTY_SCHEMA)
     
   def insert_entities(self, entities, txn_hash):
     """Inserts or updates entities in the DB.
@@ -1136,10 +1156,6 @@ class DatastoreDistributed():
                                           row_values)    
       self.update_journal(row_keys, row_values, txn_hash)
 
-    self.datastore_batch.batch_delete(dbconstants.APP_KIND_TABLE,
-                                      kind_keys, 
-                                      column_names=dbconstants.APP_KIND_SCHEMA)
-
     entities = []
     for row_key in ret:
       # Entities may not exist if this is the first put.
@@ -1151,7 +1167,6 @@ class DatastoreDistributed():
         entities.append(ent)
 
     # Delete associated indexes.
-    self.delete_index_entries(entities)
     if composite_indexes:
       self.delete_composite_indexes(entities, composite_indexes)
 
@@ -1862,27 +1877,64 @@ class DatastoreDistributed():
         entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
     return entities 
 
-  def __fetch_entities(self, refs, app_id):
-    """ Given the results from a table scan, get the references.
-    
-    Args: 
-      refs: key/value pairs where the values contain a reference to 
-            the entitiy table.
-      app_id: A string, the application identifier.
+  def __extract_rowkeys_from_refs(self, refs):
+    """ Extract the rowkeys to fetch from a list of references.
+
+    Args:
+      refs: key/value pairs where the values contain a reference to the
+            entitiy table.
     Returns:
-      Entities retrieved from entity table.
+      A list of rowkeys.
     """
     if len(refs) == 0:
       return []
     keys = [item.keys()[0] for item in refs]
-    rowkeys = []    
+    rowkeys = []
     for index, ent in enumerate(refs):
       key = keys[index]
       ent = ent[key]['reference']
       # Make sure not to fetch the same entity more than once.
       if ent not in rowkeys:
         rowkeys.append(ent)
+    return rowkeys
+
+  def __fetch_entities(self, refs, app_id):
+    """ Given a list of references, get the entities.
+
+    Args:
+      refs: key/value pairs where the values contain a reference to
+            the entitiy table.
+      app_id: A string, the application identifier.
+    Returns:
+      A list of validated entities.
+    """
+    rowkeys = self.__extract_rowkeys_from_refs(refs)
     return self.__fetch_entities_from_row_list(rowkeys, app_id)
+
+  def __fetch_entities_dict(self, refs, app_id):
+    """ Given a list of references, return the entities as a dictionary.
+
+    Args:
+      refs: key/value pairs where the values contain a reference to
+            the entitiy table.
+      app_id: A string, the application identifier.
+    Returns:
+      A dictionary of validated entities.
+    """
+    rowkeys = self.__extract_rowkeys_from_refs(refs)
+
+    results = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+
+    results = self.validated_result(app_id, results)
+    results = self.remove_tombstoned_entities(results)
+
+    clean_results = {}
+    for key in rowkeys:
+      if key in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[key]:
+        clean_results[key] = results[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+
+    return clean_results
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
@@ -2256,6 +2308,8 @@ class DatastoreDistributed():
       order_info: tuple with property name and the sort order.
     Returns:
       An ordered list of entities matching the query.
+    Raises:
+      AppScaleDBError: An infinite loop is detected when fetching references.
     """
     filter_info = self.remove_exists_filters(filter_info)
     # Detect quickly if this is a kind query or not.
@@ -2294,19 +2348,60 @@ class DatastoreDistributed():
     if startrow > endrow:
       return []
 
-    result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
-                                              dbconstants.APP_KIND_SCHEMA, 
-                                              startrow, 
-                                              endrow, 
-                                              limit, 
-                                              offset=0, 
-                                              start_inclusive=start_inclusive, 
-                                              end_inclusive=end_inclusive)
+    # Since the validity of each reference is not checked until after the
+    # range query has been performed, we may need to fetch additional
+    # references in order to satisfy the query.
+    entities = []
+    current_limit = limit
+    while True:
+      references = self.datastore_batch.range_query(
+        dbconstants.APP_KIND_TABLE,
+        dbconstants.APP_KIND_SCHEMA,
+        startrow,
+        endrow,
+        current_limit,
+        offset=0,
+        start_inclusive=start_inclusive,
+        end_inclusive=end_inclusive
+      )
 
-    fetched_entities = self.__fetch_entities(result, clean_app_id(query.app()))
+      new_entities = self.__fetch_entities(references, clean_app_id(query.app()))
+      entities.extend(new_entities)
+
+      # If we have enough valid entities to satisfy the query, we're done.
+      if len(entities) >= limit:
+        break
+
+      # If we received fewer references than we asked for, they are exhausted.
+      if len(references) < current_limit:
+        break
+
+      # If all of the references that we fetched were valid, we're done.
+      if len(new_entities) == len(references):
+        break
+
+      invalid_refs = len(references) - len(new_entities)
+
+      # Pad the limit to increase the likelihood of fetching all the valid
+      # references that we need.
+      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+
+      logging.debug('{} references invalid. Fetching {} more references.'
+        .format(invalid_refs, current_limit))
+
+      # Start from the last reference fetched.
+      last_startrow = startrow
+      startrow = references[-1].keys()[0]
+      start_inclusive = self._DISABLE_INCLUSIVITY
+
+      if startrow == last_startrow:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
+
     if query.kind() == "__namespace__":
-      fetched_entities = [self.default_namespace()] + fetched_entities
-    return fetched_entities
+      entities = [self.default_namespace()] + entities
+
+    return entities[:limit]
 
   def remove_exists_filters(self, filter_info):
     """ Remove any filters that have EXISTS filters.
@@ -2370,15 +2465,16 @@ class DatastoreDistributed():
     if not query.has_kind():
       return None
 
-    if order_info:
-      if order_info[0][0] == property_name:
-        direction = order_info[0][1]
+    if order_info and order_info[0][0] == property_name:
+      direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
 
     prefix = self.get_table_prefix(query)
 
-    limit = self.get_limit(query) 
+    limit = self.get_limit(query)
+
+    app_id = clean_app_id(query.app())
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -2392,23 +2488,75 @@ class DatastoreDistributed():
     if query.has_end_compiled_cursor():
       end_compiled_cursor = query.end_compiled_cursor()
 
-    references = self.__apply_filters(filter_ops, 
-                               order_info, 
-                               property_name, 
-                               query.kind(), 
-                               prefix, 
-                               limit, 
-                               0, 
-                               startrow,
-                               ancestor=ancestor,
-                               query=query,
-                               end_compiled_cursor=end_compiled_cursor)
+    # Since the validity of each reference is not checked until after the
+    # range query has been performed, we may need to fetch additional
+    # references in order to satisfy the query.
+    entities = []
+    current_limit = limit
+    index_entries_to_delete = []
+    while True:
+      references = self.__apply_filters(
+        filter_ops,
+        order_info,
+        property_name,
+        query.kind(),
+        prefix,
+        current_limit,
+        0,
+        startrow,
+        ancestor=ancestor,
+        query=query,
+        end_compiled_cursor=end_compiled_cursor
+      )
 
-    if property_name in query.property_name_list():
-      return self.__extract_entities_from_indexes(references, direction)
+      valid_entities = self.__fetch_entities_dict(references, app_id)
 
-    return self.__fetch_entities(references, clean_app_id(query.app()))
- 
+      # Since the entities may be out of order due to invalid references,
+      # we construct a new list in order of valid references.
+      new_entities = []
+      for reference in references:
+        try:
+          valid_entity = self.__get_entity_for_index_entry(reference,
+            valid_entities, direction, property_name)
+          new_entities.append(valid_entity)
+        except dbconstants.InvalidIndexError:
+          index_entries_to_delete.append(reference)
+
+      entities.extend(new_entities)
+
+      # If we have enough valid entities to satisfy the query, we're done.
+      if len(entities) >= limit:
+        break
+
+      # If we received fewer references than we asked for, they are exhausted.
+      if len(references) < current_limit:
+        break
+
+      # If all of the references that we fetched were valid, we're done.
+      if len(new_entities) == len(references):
+        break
+
+      invalid_refs = len(references) - len(new_entities)
+
+      # Pad the limit to increase the likelihood of fetching all the valid
+      # references that we need.
+      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+
+      logging.debug('{} references invalid. Fetching {} more references.'
+        .format(invalid_refs, current_limit))
+
+      last_startrow = startrow
+      # Start from the last reference fetched.
+      startrow = references[-1].keys()[0]
+
+      if startrow == last_startrow:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
+
+    self.delete_invalid_index_entries(index_entries_to_delete, direction)
+
+    return entities[:limit]
+
   def __apply_filters(self, 
                      filter_ops, 
                      order_info, 
@@ -2452,8 +2600,7 @@ class DatastoreDistributed():
     endrow = None 
     column_names = dbconstants.PROPERTY_SCHEMA
 
-    if order_info:
-      if order_info[0][0] == property_name:
+    if order_info and order_info[0][0] == property_name:
         direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
@@ -3177,71 +3324,70 @@ class DatastoreDistributed():
 
     return self.__fetch_entities(index_result, clean_app_id(query.app()))
 
-  def __extract_entities_from_indexes(self, index_result, direction):
-    """ Takes the index values and creates partial entities out of them.
-   
+  def __extract_value_from_index(self, index_entry, direction):
+    """ Takes an index entry and returns the value of the property.
+
     This function is for single property indexes only.
 
     Args:
-      index_result: A list of index strings.
+      index_entry: A dictionary containing an index entry.
       direction: The direction of the index.
     Returns:
-      A list of EntityProtos.
+      A property value.
     """
-    entities = []
-    for index in index_result:
-      entity = entity_pb.EntityProto()
-      tokens = index.keys()[0].split(self._SEPARATOR)
-      app_id = tokens.pop(0)
-      namespace = tokens.pop(0)
-      kind = tokens.pop(0)
-      prop_name = tokens.pop(0)
-      value = tokens.pop(0)
-      key_string = tokens.pop(0)
+    reference_key = index_entry.keys()[0]
+    tokens = reference_key.split(self._SEPARATOR)
+    value = tokens[4]
+    if direction == datastore_pb.Query_Order.DESCENDING:
+      value = helper_functions.reverse_lex(value)
 
-      if direction == datastore_pb.Query_Order.DESCENDING:
-        value = helper_functions.reverse_lex(value)
+    entity = entity_pb.EntityProto()
+    prop = entity.add_property()
+    prop_value = prop.mutable_value()
+    self.__decode_index_str(value, prop_value)
 
-      prop = entity.add_property()
-      prop.set_name(prop_name)
-      prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-      prop.set_multiple(False)
-      prop_value = prop.mutable_value()
-      self.__decode_index_str(value, prop_value)
+    return prop_value
 
-      key_string = tokens.pop(0)
-      elements = key_string.split(dbconstants.KIND_SEPARATOR)
+  def __get_entity_for_index_entry(self, index_entry, entities, direction,
+    property_name):
+    """ Returns a valid entity that matches a given index entry.
 
-      # Set the entity group.
-      element = elements[0]
-      kind, identifier = element.split(dbconstants.ID_SEPARATOR)
-      ent_group = entity.mutable_entity_group()
-      new_element = ent_group.add_element()
-      new_element.set_type(kind)
-      if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-        new_element.set_id(int(identifier))
+    The main purpose of this function is to invalidate outdated index entries
+    by raising an exception.
+
+    Args:
+      index_entry: A dictionary containing an index entry.
+      entities: A dictionary of valid entities.
+      direction: The direction of the index.
+    Returns:
+      An entity.
+    Raises:
+      AppScaleDBError: The given property name is not in the matching entity.
+      InvalidIndexError: If the given index entry is not valid.
+    """
+    reference = index_entry[index_entry.keys()[0]]['reference']
+
+    # Check if the reference points to a deleted or invalid entity.
+    if reference not in entities:
+      raise dbconstants.InvalidIndexError(
+        'Invalid index entry: {}'.format(index_entry))
+
+    index_value = self.__extract_value_from_index(index_entry, direction)
+
+    entity = entities[reference]
+    entity_proto = entity_pb.EntityProto(entity)
+
+    for prop in entity_proto.property_list():
+      if prop.name() != property_name:
+        continue
+
+      if index_value.Equals(prop.value()):
+        return entity
       else:
-        new_element.set_name(identifier) 
- 
-      # Set the key path.
-      key = entity.mutable_key()
-      key.set_app(clean_app_id(app_id))
-      path = key.mutable_path()
-      if namespace:
-        key.set_name_space(namespace)
-      for element in elements:
-        if not element:
-          continue
-        kind, identifier = element.split(dbconstants.ID_SEPARATOR)
-        new_element = path.add_element()  
-        new_element.set_type(kind)
-        if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-          new_element.set_id(int(identifier))
-        else:
-          new_element.set_name(identifier) 
- 
-      entities.append(entity.Encode())
-    return entities
+        raise dbconstants.InvalidIndexError(
+          'Invalid index entry: {}'.format(index_entry))
+
+    raise dbconstants.AppScaleDBError('Property name not found in entity.')
 
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
@@ -3553,7 +3699,7 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    logging.error("Doing a rollback on transaction id {0} for app id {1}"
+    logging.info("Doing a rollback on transaction id {0} for app id {1}"
       .format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
