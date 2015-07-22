@@ -313,8 +313,8 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.assertEquals(True, transaction.acquire_additional_lock(self.appid,
       "txid", "somekey", True))
 
-    # Test for existing max groups 
-    lock_list = ['path1', 'path2', 'path3', 'path4', 'path5'] 
+    # Test for existing max groups
+    lock_list = ['path' + str(num+1) for num in range(zk.MAX_GROUPS_FOR_XG)]
     lock_list_str = zk.LOCK_LIST_SEPARATOR.join(lock_list)
     fake_zookeeper.should_receive('retry').with_args('get', str) \
       .and_return([lock_list_str])

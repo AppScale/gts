@@ -18,7 +18,7 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
-pip_wrapper () 
+pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
     # it takes a couple of tries to install packages with pip. This
@@ -100,18 +100,22 @@ setupntp()
 
 installPIL()
 {
-    pip uninstall -y PIL
-    pip_wrapper pillow
+    if [ "$DIST" = "precise" ]; then
+        pip uninstall -y PIL
+    fi
+    pipwrapper pillow
 }
 
 installlxml()
 {
-    pip_wrapper lxml
+    pipwrapper lxml
 }
 
 installxmpppy()
 {
-    pip_wrapper xmpppy
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper xmpppy
+    fi
 }
 
 setulimits()
@@ -181,7 +185,7 @@ EOF
 
 installthrift()
 {
-    pip_wrapper thrift
+    pipwrapper thrift
 }
 
 installjavajdk()
@@ -205,7 +209,7 @@ installappserverjava()
 
 installtornado()
 {
-    pip_wrapper tornado
+    pipwrapper tornado
     DISTP=/usr/local/lib/python2.7/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
 	echo "Fail to install python tornado. Please retry."
@@ -219,12 +223,12 @@ installtornado()
 
 installflexmock()
 {
-    pip_wrapper flexmock
+    pipwrapper flexmock
 }
 
 postinstalltornado()
 {
-    pip_wrapper tornado
+    pipwrapper tornado
 }
 
 postinstallhaproxy()
@@ -241,17 +245,19 @@ installgems()
 {
     GEMOPT="--no-rdoc --no-ri"
     # Rake 10.0 depecates rake/rdoctask - upgrade later.
-    gem install -v=0.9.2.2 rake ${GEMOPT} 
+    gem install rake ${GEMOPT}
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
-    gem install -v=0.9.3 zookeeper
+    gem install zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
-    gem install -v=0.8.3 httparty ${GEMOPT}
+    gem install soap4r-ruby1.9 ${GEMOPT}
+    gem install httparty ${GEMOPT}
+    gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
-    gem install -v=1.0.4 flexmock ${GEMOPT}
-    gem install -v=1.0.0 rcov ${GEMOPT}
+    gem install flexmock ${GEMOPT}
+    gem install simplecov ${GEMOPT}
 }
 
 installphp54()
@@ -313,9 +319,9 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    pip_wrapper  setuptools
-    pip_wrapper  pycassa
-    pip_wrapper  thrift
+    pipwrapper  setuptools
+    pipwrapper  pycassa
+    pipwrapper  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -354,33 +360,37 @@ postinstallservice()
 
 installpythonmemcache()
 {
-  VERSION=1.53
+    VERSION=1.53
 
-  mkdir -pv ${APPSCALE_HOME}/downloads
-  cd ${APPSCALE_HOME}/downloads
-  wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
-  tar zxvf python-memcached-${VERSION}.tar.gz
-  cd python-memcached-${VERSION}
-  python setup.py install
-  cd ..
-  rm -fr python-memcached-${VERSION}.tar.gz
-  rm -fr python-memcached-${VERSION}
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+    tar zxvf python-memcached-${VERSION}.tar.gz
+    cd python-memcached-${VERSION}
+    python setup.py install
+    cd ..
+    rm -fr python-memcached-${VERSION}.tar.gz
+    rm -fr python-memcached-${VERSION}
 }
 
 installzookeeper()
 {
-  ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-  wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
-  dpkg -i /tmp/${ZK_REPO_PKG}
-  apt-get update 
-  apt-get install -y zookeeper-server 
+    if [ "$DIST" = "precise" ]; then
+        ZK_REPO_PKG=cdh4-repository_1.0_all.deb
+        wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+        dpkg -i /tmp/${ZK_REPO_PKG}
+        apt-get update
+        apt-get install -y zookeeper-server
+    else
+        apt-get install -y zookeeper
+    fi
 
-  pip_wrapper kazoo
+    pipwrapper kazoo
 }
 
 installpycrypto()
 {
-  pip_wrapper pycrypto
+    pipwrapper pycrypto
 }
 
 postinstallzookeeper()
@@ -401,8 +411,8 @@ keygen()
 
 installcelery()
 {
-    pip_wrapper Celery
-    pip_wrapper Flower
+    pipwrapper Celery
+    pipwrapper Flower
 }
 
 postinstallrabbitmq()
@@ -412,7 +422,17 @@ postinstallrabbitmq()
     update-rc.d -f rabbitmq-server remove || true
 }
 
+installVersion()
+{
+    # Install the VERSION file. We should sign it to ensure the version is
+    # correct.
+    if [ -e /etc/appscale/VERSION ]; then
+        mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
+    fi
+    cp ${APPSCALE_HOME}/VERSION /etc/appscale/
+}
+
 installrequests()
 {
-    pip_wrapper requests
+    pipwrapper requests
 }
