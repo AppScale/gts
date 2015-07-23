@@ -2963,9 +2963,14 @@ class DatastoreDistributed():
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
     limit = self.get_limit(query)
+    app_id = clean_app_id(query.app())
+
+    # We only use references from the ascending property table.
+    direction = datastore_pb.Query_Order.ASCENDING
 
     count = self._MAX_COMPOSITE_WINDOW
     start_key = ""
+    index_entries_to_delete = []
     result_list = []
     force_exclusive = False
     more_results = True
@@ -3016,7 +3021,8 @@ class DatastoreDistributed():
           startrow,
           force_start_key_exclusive=force_exclusive,
           ancestor=ancestor)
-      # We do reference counting and consider any reference which matches the 
+
+      # We do reference counting and consider any reference which matches the
       # number of properties to be a match. Any others are discarded but it 
       # possible they show up on subsequent scans. 
       last_keys_of_scans = {}
@@ -3071,7 +3077,7 @@ class DatastoreDistributed():
             break
         if jump_ahead:
           start_key = first_key
-          starting_prop_name = prop_name  
+          starting_prop_name = prop_name
 
       # Purge keys which did not intersect from all equality filters and those
       # which are past the earliest reference shared by all property names 
@@ -3085,8 +3091,16 @@ class DatastoreDistributed():
       for key in keys_to_delete:
         del reference_hash[key]
 
-      result_list.extend(reference_counter_hash.keys())
-      # If the property we are setting the start key did not get the requested 
+      # If we have results, we only need to fetch enough to meet the limit.
+      to_fetch = limit - len(result_list)
+
+      entities, more_indexes_to_delete = self.__fetch_and_validate_entity_set(
+        reference_hash, to_fetch, app_id, direction)
+
+      index_entries_to_delete.extend(more_indexes_to_delete)
+      result_list.extend(entities)
+
+      # If the property we are setting the start key did not get the requested
       # amount of entities then we can stop scanning, as there are no more 
       # entities to scan from that property.
       for prop_name in temp_res:
@@ -3106,12 +3120,9 @@ class DatastoreDistributed():
       if start_key in result_list:
         force_exclusive = True
 
-    # Sort and apply the limit.
-    result_list.sort()
-    result_list = result_list[:limit]
-    result_set = self.__fetch_entities_from_row_list(result_list, 
-      clean_app_id(query.app()))
-    return result_set
+    self.delete_invalid_index_entries(index_entries_to_delete, direction)
+
+    return result_list[:limit]
 
   def does_composite_index_exist(self, query):
     """ Checks to see if the query has a composite index that can implement
