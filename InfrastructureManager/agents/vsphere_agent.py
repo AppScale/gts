@@ -91,7 +91,7 @@ class vSphereAgent(BaseAgent):
         conn = self.open_connection(parameters)
         if conn is not None:
             template = conn.get_vm_by_name(parameters[PARAM_IMAGE_ID])
-            nvm = len(server.get_registered_vms(resource_pool=parameters[PARAM_RESOURCE_POOL], advanced_filters={'config.template':False}))
+            nvm = len(conn.get_registered_vms(resource_pool=parameters[PARAM_RESOURCE_POOL], advanced_filters={'config.template':False}))
             nvm += 1
             private_ips = []
             instance_ids = []
