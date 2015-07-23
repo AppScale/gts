@@ -1922,7 +1922,17 @@ class DatastoreDistributed():
       A dictionary of validated entities.
     """
     rowkeys = self.__extract_rowkeys_from_refs(refs)
+    return self.__fetch_entities_dict_from_row_list(rowkeys, app_id)
 
+  def __fetch_entities_dict_from_row_list(self, rowkeys, app_id):
+    """ Given a list of rowkeys, return the entities as a dictionary.
+
+    Args:
+      rowkeys: A list of strings which are keys to the entitiy table.
+      app_id: A string, the application identifier.
+    Returns:
+      A dictionary of validated entities.
+    """
     results = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
 
