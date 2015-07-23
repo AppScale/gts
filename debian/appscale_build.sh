@@ -31,8 +31,8 @@ apt-get update
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
-# This will install dependencies from control.core and the specific
-# distributions.
+# This will install dependencies from control.$DIST (ie distro specific
+# packages).
 PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +)"
 if ! apt-get install -y --force-yes ${PACKAGES}; then
     echo "Fail to install depending packages for runtime."
