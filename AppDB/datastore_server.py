@@ -2974,7 +2974,7 @@ class DatastoreDistributed():
       ancestor = query.ancestor()
 
     while more_results:
-      reference_counter_hash = {}
+      reference_hash = {}
       temp_res = {}
       # We use what we learned from the previous scans to skip over any keys 
       # that we know will not be a match.
@@ -3025,10 +3025,11 @@ class DatastoreDistributed():
         for indexes in temp_res[prop_name]:
           for reference in indexes: 
             reference_key = indexes[reference]['reference']
-            if reference_key in reference_counter_hash:
-              reference_counter_hash[reference_key] += 1
-            else:
-              reference_counter_hash[reference_key] = 1
+            if reference_key not in reference_hash:
+              reference_hash[reference_key] = []
+
+            reference_hash[reference_key].append(
+              {'index': reference, 'prop_name': prop_name})
           # Of the set of entity scans we use the earliest of the set as the
           # starting point of scans to follow. This makes sure we do not miss 
           # overlapping results because different properties had different 
@@ -3076,13 +3077,13 @@ class DatastoreDistributed():
       # which are past the earliest reference shared by all property names 
       # (start_key variable). 
       keys_to_delete = []
-      for key in reference_counter_hash:
-        if reference_counter_hash[key] != len(filter_info.keys()):
+      for key in reference_hash:
+        if len(reference_hash[key]) != len(filter_info.keys()):
           keys_to_delete.append(key)
       # You cannot loop on a dictionary and delete from it at the same time.
       # Hence why the deletes happen here.
       for key in keys_to_delete:
-        del reference_counter_hash[key]
+        del reference_hash[key]
 
       result_list.extend(reference_counter_hash.keys())
       # If the property we are setting the start key did not get the requested 
