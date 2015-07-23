@@ -1946,6 +1946,60 @@ class DatastoreDistributed():
 
     return clean_results
 
+  def __fetch_and_validate_entity_set(self, index_dict, limit, app_id,
+    direction):
+    """ Fetch all the valid entities as needed from references. Keep track of
+        invalid references.
+
+    Args:
+      index_dict: A dictionary containing a list of index entries for each
+                  reference.
+      limit: An integer specifying the max number of entities needed.
+      app_id: A string, the application identifier.
+      direction: The direction of the index.
+    Returns:
+      A list of valid entities.
+      A list of index entries to delete.
+    """
+    references = index_dict.keys()
+    offset = 0
+    results = []
+    index_entries_to_delete = []
+    to_fetch = limit
+    while True:
+      refs_to_fetch = references[offset:offset + to_fetch]
+
+      # If we've exhausted the list of references, we can return.
+      if len(refs_to_fetch) == 0:
+        return results[:limit], index_entries_to_delete
+
+      entities = self.__fetch_entities_dict_from_row_list(refs_to_fetch, app_id)
+
+      for reference in entities:
+        use_result = False
+        indexes_to_check = index_dict[reference]
+        for index_info in indexes_to_check:
+          index = index_info['index']
+          prop_name = index_info['prop_name']
+          entry = {index: {'reference': reference}}
+          if self.__valid_index_entry(entry, entities, direction, prop_name):
+            use_result = True
+          else:
+            index_entries_to_delete.append(entry)
+            use_result = False
+            break
+
+        if use_result:
+          results.append(entities[reference])
+          if len(results) >= limit:
+            return results[:limit], index_entries_to_delete
+
+      offset = offset + to_fetch
+
+      # Pad the number of references to fetch to increase the likelihood of
+      # getting all the valid references that we need.
+      to_fetch = to_fetch - len(results) + zk.MAX_GROUPS_FOR_XG
+
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
         list of encoded entities.
