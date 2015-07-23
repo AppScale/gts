@@ -3060,12 +3060,14 @@ class DatastoreDistributed():
         first_key = first_keys_of_scans[prop_name]
         jump_ahead = False
         for last_prop in last_keys_of_scans:
-          if last_prop != prop_name:
-            if first_key > last_keys_of_scans[last_prop]:
-              jump_ahead = True
-            else:
-              jump_ahead = False
-              break   
+          if last_prop == prop_name:
+            continue
+
+          if first_key > last_keys_of_scans[last_prop]:
+            jump_ahead = True
+          else:
+            jump_ahead = False
+            break
         if jump_ahead:
           start_key = first_key
           starting_prop_name = prop_name  
