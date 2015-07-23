@@ -2525,11 +2525,12 @@ class DatastoreDistributed():
       # we construct a new list in order of valid references.
       new_entities = []
       for reference in references:
-        try:
-          valid_entity = self.__get_entity_for_index_entry(reference,
-            valid_entities, direction, property_name)
+        if self.__valid_index_entry(reference, valid_entities, direction,
+          property_name):
+          entity_key = reference[reference.keys()[0]]['reference']
+          valid_entity = valid_entities[entity_key]
           new_entities.append(valid_entity)
-        except dbconstants.InvalidIndexError:
+        else:
           index_entries_to_delete.append(reference)
 
       entities.extend(new_entities)
@@ -3358,44 +3359,38 @@ class DatastoreDistributed():
 
     return prop_value
 
-  def __get_entity_for_index_entry(self, index_entry, entities, direction,
-    property_name):
-    """ Returns a valid entity that matches a given index entry.
-
-    The main purpose of this function is to invalidate outdated index entries
-    by raising an exception.
+  def __valid_index_entry(self, entry, entities, direction, prop_name):
+    """ Checks if an index entry is valid.
 
     Args:
-      index_entry: A dictionary containing an index entry.
-      entities: A dictionary of valid entities.
+      entry: A dictionary containing an index entry.
+      entities: A dictionary of available valid entities.
       direction: The direction of the index.
     Returns:
-      An entity.
+      A boolean indicating whether or not the entry is valid.
     Raises:
       AppScaleDBError: The given property name is not in the matching entity.
-      InvalidIndexError: If the given index entry is not valid.
     """
-    reference = index_entry[index_entry.keys()[0]]['reference']
+    reference = entry[entry.keys()[0]]['reference']
 
-    # Check if the reference points to a deleted or invalid entity.
+    # Reference may be absent from entities if the entity was deleted or part
+    # of an invalid transaction.
     if reference not in entities:
-      raise dbconstants.InvalidIndexError(
-        'Invalid index entry: {}'.format(index_entry))
+      return False
 
-    index_value = self.__extract_value_from_index(index_entry, direction)
+    index_value = self.__extract_value_from_index(entry, direction)
 
     entity = entities[reference]
     entity_proto = entity_pb.EntityProto(entity)
 
     for prop in entity_proto.property_list():
-      if prop.name() != property_name:
+      if prop.name() != prop_name:
         continue
 
       if index_value.Equals(prop.value()):
-        return entity
+        return True
       else:
-        raise dbconstants.InvalidIndexError(
-          'Invalid index entry: {}'.format(index_entry))
+        return False
 
     raise dbconstants.AppScaleDBError('Property name not found in entity.')
 
