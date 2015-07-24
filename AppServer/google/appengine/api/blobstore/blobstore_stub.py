@@ -289,8 +289,9 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
                                   max_bytes_total,
                                   bucket_name)
 
-    protocol, host, _, _, _, _ = urlparse.urlparse(
-        self.request_data.get_request_url(request_id))
+    _, host, _, _, _, _ = urlparse.urlparse(
+      self.request_data.get_request_url(request_id))
+    protocol = self.request_data.get_scheme(request_id)
 
     response.set_url('%s://%s/%s%s' % (protocol, host, self.__uploader_path,
                                        session))

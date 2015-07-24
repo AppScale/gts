@@ -159,3 +159,16 @@ class WSGIRequestInfo(request_info.RequestInfo):
     """
     with self._lock:
       return self._request_id_to_instance.get(request_id, None)
+
+  def get_scheme(self, request_id):
+    """Returns the scheme for this request.
+
+    Args:
+      request_id: The string id of the request making the API call.
+
+    Returns:
+      One of 'http', 'https'.
+    """
+    with self._lock:
+      environ = self._request_wsgi_environ[request_id]
+      return environ['HTTP_X_FORWARDED_PROTO']
