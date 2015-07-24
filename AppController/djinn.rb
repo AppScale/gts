@@ -1858,19 +1858,24 @@ class Djinn
       end
 
       if vms_to_spawn > 0
-        Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
-        # Make sure the user has said it is ok to add more VMs before doing so.
-        allowed_vms = Integer(@options['max_images']) - @nodes.length
-        if allowed_vms < vms_to_spawn
-          Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
-            "would put us over the user-specified limit of #{@options['max']} " +
-            "VMs. Instead, spawning up #{allowed_vms}.")
-          vms_to_spawn = allowed_vms
-          if vms_to_spawn.zero?
-            Djinn.log_error("Reached the maximum number of VMs that we " +
-              "can use in this cloud deployment, so not spawning more nodes.")
-            return "Reached maximum number of VMs we can use."
+        begin
+          Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
+          # Make sure the user has said it is ok to add more VMs before doing so.
+          allowed_vms = Integer(@options['max_images']) - @nodes.length
+          if allowed_vms < vms_to_spawn
+            Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
+              "would put us over the user-specified limit of #{@options['max_images']} " +
+              "VMs. Instead, spawning up #{allowed_vms}.")
+            vms_to_spawn = allowed_vms
+            if vms_to_spawn.zero?
+              Djinn.log_error("Reached the maximum number of VMs that we " +
+                "can use in this cloud deployment, so not spawning more nodes.")
+              return "Reached maximum number of VMs we can use."
+            end
           end
+        rescue
+          Djinn.log_warn("We don't understand max_images parameter!")
+          return "We don't understand max_images parameter!"
         end
 
         disks = Array.new(size=vms_to_spawn, obj=nil)  # no persistent disks
@@ -5068,9 +5073,14 @@ HOSTS
       return 0
     end
 
-    if @nodes.length <= Integer(@options['min_images'])
-      Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
-        "minimum number of nodes the user wants to use.")
+    begin
+      if @nodes.length <= Integer(@options['min_images'])
+        Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
+          "minimum number of nodes the user wants to use.")
+        return 0
+      end
+    rescue
+      Djinn.log_warn("We don't understand min_images parameter!")
       return 0
     end
 
