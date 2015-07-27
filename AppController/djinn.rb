@@ -442,6 +442,35 @@ class Djinn
   # Where to put logs.
   LOG_FILE = "/var/log/appscale/controller-17443.log" 
 
+
+  # List of parameters allowed in the set_parameter (and in AppScalefile
+  # at this time).
+  PARAMETERS_AND_CLASS = {
+    'ips' => String,
+    'infrastructure' => String,
+    'machine' => String,
+    'instance_type' => String,
+    'gce_instance_type' => String,
+    'zone' => String,
+    'clear_datastore' => TrueClass,
+    'keyname' => String,
+    'group' => String,
+    'verbose' => TrueClass,
+    'min' => Fixnum,
+    'max' => Fixnum,
+    'client_secrets' => String,
+    'project' => String,
+    'static_ip' => String,
+    'n' => Fixnum,
+    'flower_password' => String,
+    'scp' => String,
+    'test' => TrueClass,
+    'alter_etc_resolv' => TrueClass,
+    'appengine' => Fixnum,
+    'max_memory' => Fixnum,
+    'user_commands' => String }
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -796,7 +825,6 @@ class Djinn
     # hash tables, so we need to make sure that every key maps to a value
     # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
     # so we need to make sure that the array has an even number of elements
-
     if database_credentials.length % 2 != 0
       error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
         "#{database_credentials.length}"
@@ -817,6 +845,43 @@ class Djinn
     converted_nodes = convert_fqdns_to_ips(nodes)
     @nodes = converted_nodes
     @options = sanitize_credentials()
+
+    # Check that we got good parameters.
+    @options.each = { |key, val|
+      # Is the parameter known?
+      if PARAMETER_AND_CLASS.has_key?(key) == false
+        begin
+          error_msg = "Error: unknown parameter " + key.to_s
+        rescue
+          error_msg = "Error: unknown parameter"
+        end
+        Djinn.log_error(error_msg)
+        return error_msg
+      end
+
+      # Is the parameter of the proper class?
+      if PARAMETER_AND_CLASS[key] == TrueClass
+      if val.class == PARAMETER_AND_CLASS[key]
+
+
+
+      checked = false
+      PARAMETERS_AND_CLASS.each { |param, p_class|
+        if key == param
+          if p_class == TrueClass
+            # Need to check Booleans
+          end
+          if p_class == key.class
+            checked = true
+            break
+          else
+            return "Error: wrong type for key"
+          end
+      }
+      if checked == false
+        return "Error: unknown parameter key"
+      end
+    }
 
     find_me_in_locations()
     if @my_index.nil?
@@ -3148,6 +3213,9 @@ class Djinn
     return true
   end
 
+  # This functions checks the paramenters as sent by the tools. We are
+  # checking here that they are all within the required specs, or throw an
+  # error back.
   def sanitize_credentials()
     newoptions = {}
     @options.each { |key, val|
