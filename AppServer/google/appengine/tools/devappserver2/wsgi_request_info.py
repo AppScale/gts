@@ -110,7 +110,7 @@ class WSGIRequestInfo(request_info.RequestInfo):
     with self._lock:
       environ = self._request_wsgi_environ[request_id]
       url = wsgiref.util.request_uri(environ)
-      if url[:url.find(':')] != scheme and scheme is not None:
+      if scheme is not None:
         url = "{0}{1}".format(scheme, url[url.find(':'):])
       return url
 
