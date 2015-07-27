@@ -847,7 +847,7 @@ class Djinn
     @options = sanitize_credentials()
 
     # Check that we got good parameters.
-    @options.each = { |key, val|
+    @options.each { |key, val|
       # Is the parameter known?
       if PARAMETER_AND_CLASS.has_key?(key) == false
         begin
@@ -861,25 +861,17 @@ class Djinn
 
       # Is the parameter of the proper class?
       if PARAMETER_AND_CLASS[key] == TrueClass
-      if val.class == PARAMETER_AND_CLASS[key]
-
-
-
-      checked = false
-      PARAMETERS_AND_CLASS.each { |param, p_class|
-        if key == param
-          if p_class == TrueClass
-            # Need to check Booleans
-          end
-          if p_class == key.class
-            checked = true
-            break
-          else
-            return "Error: wrong type for key"
-          end
-      }
-      if checked == false
-        return "Error: unknown parameter key"
+        if val.class != TrueClass and val.class != FalseClass
+          error_msg = "Error: parameter " + key + " is the wrong class " +\
+            val.class
+          Djinn.log_error(error_msg)
+          return error_msg
+        end
+      elsif val.class != PARAMETER_AND_CLASS[key]
+        error_msg = "Error: parameter " + key + " is the wrong class " +\
+          val.class
+        Djinn.log_error(error_msg)
+        return error_msg
       end
     }
 
@@ -1923,24 +1915,19 @@ class Djinn
       end
 
       if vms_to_spawn > 0
-        begin
-          Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
-          # Make sure the user has said it is ok to add more VMs before doing so.
-          allowed_vms = Integer(@options['max_images']) - @nodes.length
-          if allowed_vms < vms_to_spawn
-            Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
-              "would put us over the user-specified limit of #{@options['max_images']} " +
-              "VMs. Instead, spawning up #{allowed_vms}.")
-            vms_to_spawn = allowed_vms
-            if vms_to_spawn.zero?
-              Djinn.log_error("Reached the maximum number of VMs that we " +
-                "can use in this cloud deployment, so not spawning more nodes.")
-              return "Reached maximum number of VMs we can use."
-            end
+        Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
+        # Make sure the user has said it is ok to add more VMs before doing so.
+        allowed_vms = Integer(@options['max_images']) - @nodes.length
+        if allowed_vms < vms_to_spawn
+          Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
+            "would put us over the user-specified limit of #{@options['max_images']} " +
+            "VMs. Instead, spawning up #{allowed_vms}.")
+          vms_to_spawn = allowed_vms
+          if vms_to_spawn.zero?
+            Djinn.log_error("Reached the maximum number of VMs that we " +
+              "can use in this cloud deployment, so not spawning more nodes.")
+            return "Reached maximum number of VMs we can use."
           end
-        rescue
-          Djinn.log_warn("We don't understand max_images parameter!")
-          return "We don't understand max_images parameter!"
         end
 
         disks = Array.new(size=vms_to_spawn, obj=nil)  # no persistent disks
@@ -3213,9 +3200,6 @@ class Djinn
     return true
   end
 
-  # This functions checks the paramenters as sent by the tools. We are
-  # checking here that they are all within the required specs, or throw an
-  # error back.
   def sanitize_credentials()
     newoptions = {}
     @options.each { |key, val|
@@ -5141,14 +5125,9 @@ HOSTS
       return 0
     end
 
-    begin
-      if @nodes.length <= Integer(@options['min_images'])
-        Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
-          "minimum number of nodes the user wants to use.")
-        return 0
-      end
-    rescue
-      Djinn.log_warn("We don't understand min_images parameter!")
+    if @nodes.length <= Integer(@options['min_images'])
+      Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
+        "minimum number of nodes the user wants to use.")
       return 0
     end
 
