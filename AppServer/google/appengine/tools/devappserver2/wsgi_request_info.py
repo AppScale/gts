@@ -97,18 +97,22 @@ class WSGIRequestInfo(request_info.RequestInfo):
     with self._lock:
       self._request_id_to_instance[request_id] = instance
 
-  def get_request_url(self, request_id):
+  def get_request_url(self, request_id, scheme=None):
     """Returns the URL the request e.g. 'http://localhost:8080/foo?bar=baz'.
 
     Args:
       request_id: The string id of the request making the API call.
+      scheme: A string, the protocol to be used for this request URL.
 
     Returns:
       The URL of the request as a string.
     """
     with self._lock:
       environ = self._request_wsgi_environ[request_id]
-      return wsgiref.util.request_uri(environ)
+      url = wsgiref.util.request_uri(environ)
+      if url[:url.find(':')] != scheme and scheme is not None:
+        url = "{0}{1}".format(scheme, url[url.find(':'):])
+      return url
 
   def get_request_environ(self, request_id):
     """Returns a dict containing the WSGI environ for the request."""
