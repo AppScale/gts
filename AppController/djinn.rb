@@ -849,7 +849,7 @@ class Djinn
     # Check that we got good parameters.
     @options.each { |key, val|
       # Is the parameter known?
-      if PARAMETER_AND_CLASS.has_key?(key) == false
+      if PARAMETERS_AND_CLASS.has_key?(key) == false
         begin
           error_msg = "Error: unknown parameter " + key.to_s
         rescue
@@ -860,14 +860,14 @@ class Djinn
       end
 
       # Is the parameter of the proper class?
-      if PARAMETER_AND_CLASS[key] == TrueClass
+      if PARAMETERS_AND_CLASS[key] == TrueClass
         if val.class != TrueClass and val.class != FalseClass
           error_msg = "Error: parameter " + key + " is the wrong class " +\
             val.class
           Djinn.log_error(error_msg)
           return error_msg
         end
-      elsif val.class != PARAMETER_AND_CLASS[key]
+      elsif val.class != PARAMETERS_AND_CLASS[key]
         error_msg = "Error: parameter " + key + " is the wrong class " +\
           val.class
         Djinn.log_error(error_msg)
