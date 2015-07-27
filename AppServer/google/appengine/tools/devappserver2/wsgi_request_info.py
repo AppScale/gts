@@ -174,5 +174,8 @@ class WSGIRequestInfo(request_info.RequestInfo):
       One of 'http', 'https'.
     """
     with self._lock:
+      scheme = 'http'
       environ = self._request_wsgi_environ[request_id]
-      return environ['HTTP_X_FORWARDED_PROTO']
+      if environ['HTTP_X_FORWARDED_PROTO'] is not None:
+        scheme = environ['HTTP_X_FORWARDED_PROTO']
+      return scheme
