@@ -456,6 +456,7 @@ class Djinn
     'EC2_URL' => String,
     'flower_password' => String,
     'gce_instance_type' => String,
+    'gce_user' => String,
     'group' => String,
     'hostname' => String,
     'keyname' => String,
