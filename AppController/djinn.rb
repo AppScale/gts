@@ -915,7 +915,7 @@ class Djinn
       if PARAMETERS_AND_CLASS[key][1]
          # The parameter has a default, and it's not defined. Adding
          # default value.
-         @options[key] PARAMETERS_AND_CLASS[key][1]
+         @options[key] = PARAMETERS_AND_CLASS[key][1]
       end
     }
 
