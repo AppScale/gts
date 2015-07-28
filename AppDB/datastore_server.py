@@ -3386,7 +3386,10 @@ class DatastoreDistributed():
     """
     reference_key = index_entry.keys()[0]
     tokens = reference_key.split(self._SEPARATOR)
-    value = tokens[4]
+
+    # Sometimes the value can contain the separator.
+    value = self._SEPARATOR.join(tokens[4:-1])
+
     if direction == datastore_pb.Query_Order.DESCENDING:
       value = helper_functions.reverse_lex(value)
 
