@@ -468,6 +468,8 @@ class Djinn
     'alter_etc_resolv' => TrueClass,
     'appengine' => Fixnum,
     'max_memory' => Fixnum,
+    'table' => String,
+    'hostname' => String,
     'user_commands' => String }
 
 
@@ -851,9 +853,9 @@ class Djinn
       # Is the parameter known?
       if PARAMETERS_AND_CLASS.has_key?(key) == false
         begin
-          error_msg = "Error: unknown parameter " + key.to_s
+          error_msg = "Error: unknown parameter '" + key.to_s + "'."
         rescue
-          error_msg = "Error: unknown parameter"
+          error_msg = "Error: unknown parameter."
         end
         Djinn.log_error(error_msg)
         return error_msg
@@ -862,14 +864,14 @@ class Djinn
       # Is the parameter of the proper class?
       if PARAMETERS_AND_CLASS[key] == TrueClass
         if val.class != TrueClass and val.class != FalseClass
-          error_msg = "Error: parameter " + key + " is the wrong class " +\
-            val.class
+          error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
+            val.class + "'."
           Djinn.log_error(error_msg)
           return error_msg
         end
       elsif val.class != PARAMETERS_AND_CLASS[key]
-        error_msg = "Error: parameter " + key + " is the wrong class " +\
-          val.class
+        error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
+          val.class + "'."
         Djinn.log_error(error_msg)
         return error_msg
       end
