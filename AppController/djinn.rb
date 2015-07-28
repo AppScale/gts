@@ -865,13 +865,13 @@ class Djinn
       if PARAMETERS_AND_CLASS[key] == TrueClass
         if val.class != TrueClass and val.class != FalseClass
           error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
-            val.class + "'."
+            val.class.to_s + "'."
           Djinn.log_error(error_msg)
           return error_msg
         end
       elsif val.class != PARAMETERS_AND_CLASS[key]
         error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
-          val.class + "'."
+          val.class.to_s + "'."
         Djinn.log_error(error_msg)
         return error_msg
       end
