@@ -444,40 +444,43 @@ class Djinn
 
 
   # List of parameters allowed in the set_parameter (and in AppScalefile
-  # at this time).
+  # at this time). If a default value is specified, it will be used if the
+  # parameter is unspecified.
   PARAMETERS_AND_CLASS = {
-    'alter_etc_resolv' => TrueClass,
-    'appengine' => Fixnum,
-    'autoscale' => TrueClass,
-    'clear_datastore' => TrueClass,
-    'client_secrets' => String,
-    'EC2_ACCESS_KEY' => String,
-    'EC2_SECRET_KEY' => String,
-    'EC2_URL' => String,
-    'flower_password' => String,
-    'gce_instance_type' => String,
-    'gce_user' => String,
-    'group' => String,
-    'hostname' => String,
-    'keyname' => String,
-    'ips' => String,
-    'infrastructure' => String,
-    'instance_type' => String,
-    'machine' => String,
-    'max_images' => Fixnum,
-    'max_memory' => Fixnum,
-    'min_images' => Fixnum,
-    'region' => String,
-    'replication' => Fixnum,
-    'project' => String,
-    'scp' => String,
-    'static_ip' => String,
-    'table' => String,
-    'test' => TrueClass,
-    'use_spot_instances' => TrueClass,
-    'user_commands' => String,
-    'verbose' => TrueClass,
-    'zone' => String }
+    'alter_etc_resolv' => [ TrueClass, nil ],
+    'appengine' => [ Fixnum, '2' ],
+    'autoscale' => [ TrueClass, nil ],
+    'clear_datastore' => [ TrueClass, 'false' ],
+    'client_secrets' => [ String, nil ],
+    'disks' => [ String, nil ],
+    'EC2_ACCESS_KEY' => [ String, nil ],
+    'EC2_SECRET_KEY' => [ String, nil ],
+    'EC2_URL' => [ String, nil ],
+    'flower_password' => [ String, nil ],
+    'gce_instance_type' => [ String, nil ],
+    'gce_user' => [ String, nil ],
+    'group' => [ String, nil ],
+    'hostname' => [ String, nil ],
+    'keyname' => [ String, nil ],
+    'ips' => [ String, nil ],
+    'infrastructure' => [ String, nil ],
+    'instance_type' => [ String, nil ],
+    'machine' => [ String, nil ],
+    'max_images' => [ Fixnum, '0' ],
+    'max_memory' => [ Fixnum, '400' ],
+    'min_images' => [ Fixnum, '1' ],
+    'region' => [ String, nil ],
+    'replication' => [ Fixnum, '1' ],
+    'project' => [ String, nil ],
+    'scp' => [ String, nil ],
+    'static_ip' => [ String, nil ],
+    'table' => [ String, 'cassandra' ],
+    'test' => [ TrueClass, 'false' ],
+    'use_spot_instances' => [ TrueClass, nil ],
+    'user_commands' => [ String, nil ],
+    'verbose' => [ TrueClass, 'false' ],
+    'zone' => [ String, nil ]
+    }
 
 
   # Creates a new Djinn, which holds all the information needed to configure
@@ -887,18 +890,32 @@ class Djinn
       # Let's check we can convert them now to the proper class.
       msg = "Converting '" + key + "' with value '" + val + "'."
       Djinn.log_info(msg)
-      if PARAMETERS_AND_CLASS[key] == Fixnum
+      if PARAMETERS_AND_CLASS[key][0] == Fixnum
         begin
           test_value = Integer(val)
         rescue
           msg = "Warning: parameter '" + key + "' is not an integer (" +\
-            val.to_s + "). Forcing it to 0."
+            val.to_s + "). Removing it."
           Djinn.log_warn(msg)
-          @options[key] = 0.to_s
+          @options.delete(key)
         end
       else
         # Leave it as it is, since it's String and TrueClass are handled
         # directly.
+      end
+    }
+
+    # Now let's make sure the parameters that needs to have values are
+    # indeed defines, otherwise set the defaults.
+    PARAMETERS_AND_CLASS.each { |key, key_type, val|
+      if @options[key]
+        # The parameter 'key' is defined, no need to do anything.
+        next
+      end
+      if PARAMETERS_AND_CLASS[key][1]
+         # The parameter has a default, and it's not defined. Adding
+         # default value.
+         @options[key] PARAMETERS_AND_CLASS[key][1]
       end
     }
 
