@@ -887,7 +887,8 @@ class Djinn
         next
       end
 
-      # Let's check if we can convert them now to the proper class.
+      # Let's check if we can convert them now to the proper class. At
+      # this time only Integer/Fixnum needs to be checked.
       msg = "Converting '" + key + "' with value '" + val + "'."
       Djinn.log_info(msg)
       if PARAMETERS_AND_CLASS[key][0] == Fixnum
@@ -899,9 +900,6 @@ class Djinn
           Djinn.log_warn(msg)
           @options.delete(key)
         end
-      else
-        # Leave it as it is, since it's String and TrueClass are handled
-        # directly.
       end
     }
 
