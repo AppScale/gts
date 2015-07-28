@@ -1935,7 +1935,7 @@ class DatastoreDistributed():
 
     Args:
       index_dict: A dictionary containing a list of index entries for each
-                  reference.
+        reference.
       limit: An integer specifying the max number of entities needed.
       app_id: A string, the application identifier.
       direction: The direction of the index.
