@@ -555,23 +555,6 @@ class DatastoreDistributed():
                                       desc_index_keys,
                                       column_names=dbconstants.PROPERTY_SCHEMA)
 
-  def delete_invalid_index_entries(self, index_entries, direction):
-    """ Deletes the given index entries from the appropriate table.
-
-    Args:
-      index_entries: A list of invalid index entries that need to be deleted.
-      direction: The direction of the index entries.
-    """
-    if direction == datastore_pb.Query_Order.ASCENDING:
-      table_name = dbconstants.ASC_PROPERTY_TABLE
-    else:
-      table_name = dbconstants.DSC_PROPERTY_TABLE
-
-    keys_to_delete = [item.keys()[0] for item in index_entries]
-    logging.debug('Deleting {} invalid index entries.'.format(len(keys_to_delete)))
-    self.datastore_batch.batch_delete(table_name, keys_to_delete,
-      column_names=dbconstants.PROPERTY_SCHEMA)
-    
   def insert_entities(self, entities, txn_hash):
     """Inserts or updates entities in the DB.
 
@@ -1948,8 +1931,7 @@ class DatastoreDistributed():
 
   def __fetch_and_validate_entity_set(self, index_dict, limit, app_id,
     direction):
-    """ Fetch all the valid entities as needed from references. Keep track of
-        invalid references.
+    """ Fetch all the valid entities as needed from references.
 
     Args:
       index_dict: A dictionary containing a list of index entries for each
@@ -1959,19 +1941,17 @@ class DatastoreDistributed():
       direction: The direction of the index.
     Returns:
       A list of valid entities.
-      A list of index entries to delete.
     """
     references = index_dict.keys()
     offset = 0
     results = []
-    index_entries_to_delete = []
     to_fetch = limit
     while True:
       refs_to_fetch = references[offset:offset + to_fetch]
 
       # If we've exhausted the list of references, we can return.
       if len(refs_to_fetch) == 0:
-        return results[:limit], index_entries_to_delete
+        return results[:limit]
 
       entities = self.__fetch_entities_dict_from_row_list(refs_to_fetch, app_id)
 
@@ -1985,14 +1965,13 @@ class DatastoreDistributed():
           if self.__valid_index_entry(entry, entities, direction, prop_name):
             use_result = True
           else:
-            index_entries_to_delete.append(entry)
             use_result = False
             break
 
         if use_result:
           results.append(entities[reference])
           if len(results) >= limit:
-            return results[:limit], index_entries_to_delete
+            return results[:limit]
 
       offset = offset + to_fetch
 
@@ -2557,7 +2536,6 @@ class DatastoreDistributed():
     # references in order to satisfy the query.
     entities = []
     current_limit = limit
-    index_entries_to_delete = []
     while True:
       references = self.__apply_filters(
         filter_ops,
@@ -2584,8 +2562,6 @@ class DatastoreDistributed():
           entity_key = reference[reference.keys()[0]]['reference']
           valid_entity = valid_entities[entity_key]
           new_entities.append(valid_entity)
-        else:
-          index_entries_to_delete.append(reference)
 
       entities.extend(new_entities)
 
@@ -2617,8 +2593,6 @@ class DatastoreDistributed():
       if startrow == last_startrow:
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
-
-    self.delete_invalid_index_entries(index_entries_to_delete, direction)
 
     return entities[:limit]
 
@@ -2970,7 +2944,6 @@ class DatastoreDistributed():
 
     count = self._MAX_COMPOSITE_WINDOW
     start_key = ""
-    index_entries_to_delete = []
     result_list = []
     force_exclusive = False
     more_results = True
@@ -3094,10 +3067,9 @@ class DatastoreDistributed():
       # If we have results, we only need to fetch enough to meet the limit.
       to_fetch = limit - len(result_list)
 
-      entities, more_indexes_to_delete = self.__fetch_and_validate_entity_set(
-        reference_hash, to_fetch, app_id, direction)
+      entities = self.__fetch_and_validate_entity_set(reference_hash, to_fetch,
+        app_id, direction)
 
-      index_entries_to_delete.extend(more_indexes_to_delete)
       result_list.extend(entities)
 
       # If the property we are setting the start key did not get the requested
@@ -3119,8 +3091,6 @@ class DatastoreDistributed():
       # already accounted for the given entity.
       if start_key in result_list:
         force_exclusive = True
-
-    self.delete_invalid_index_entries(index_entries_to_delete, direction)
 
     return result_list[:limit]
 
