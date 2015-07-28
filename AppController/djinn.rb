@@ -861,19 +861,27 @@ class Djinn
         return error_msg
       end
 
-      # Is the parameter of the proper class?
-      if PARAMETERS_AND_CLASS[key] == TrueClass
-        if val.class != TrueClass and val.class != FalseClass
-          error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
-            val.class.to_s + "'."
-          Djinn.log_error(error_msg)
-          return error_msg
-        end
-      elsif val.class != PARAMETERS_AND_CLASS[key]
+      # Is the parameter of the proper class? The parameters will be
+      # passed in as String so we have to check if they can be turned into
+      # the proper class.
+      if val.class != String
         error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
           val.class.to_s + "'."
         Djinn.log_error(error_msg)
         return error_msg
+      elsif PARAMETERS_AND_CLASS[key] == Fixnum
+        # For integer, we just need to make sure we can convert the string
+        # to integer.
+        begin
+          test_value = Integer(val)
+        rescue
+          error_msg = "Error: parameter '" + key + "' is not an integer."
+          Djinn.log_error(error_msg)
+          return error_msg
+        end
+      else
+        # String, and Boolean (TrueClass) are handled independentely. No
+        # check needs to be done at this time.
       end
     }
 
@@ -894,7 +902,7 @@ class Djinn
       HelperFunctions.alter_etc_resolv()
     end
 
-    if @options['clear_datastore'].class == String
+    if @options['clear_datastore']
       @options['clear_datastore'] = @options['clear_datastore'].downcase == "true"
     end
     Djinn.log_debug("clear_datastore is set to #{@options['clear_datastore']}, " +
