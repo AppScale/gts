@@ -446,31 +446,33 @@ class Djinn
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time).
   PARAMETERS_AND_CLASS = {
-    'ips' => String,
-    'infrastructure' => String,
-    'machine' => String,
-    'instance_type' => String,
-    'gce_instance_type' => String,
-    'zone' => String,
-    'clear_datastore' => TrueClass,
-    'keyname' => String,
-    'group' => String,
-    'verbose' => TrueClass,
-    'min' => Fixnum,
-    'max' => Fixnum,
-    'client_secrets' => String,
-    'project' => String,
-    'static_ip' => String,
-    'n' => Fixnum,
-    'flower_password' => String,
-    'scp' => String,
-    'test' => TrueClass,
     'alter_etc_resolv' => TrueClass,
     'appengine' => Fixnum,
-    'max_memory' => Fixnum,
-    'table' => String,
+    'autoscale' => TrueClass,
+    'clear_datastore' => TrueClass,
+    'client_secrets' => String,
+    'flower_password' => String,
+    'gce_instance_type' => String,
+    'group' => String,
     'hostname' => String,
-    'user_commands' => String }
+    'keyname' => String,
+    'ips' => String,
+    'infrastructure' => String,
+    'instance_type' => String,
+    'machine' => String,
+    'max_images' => Fixnum,
+    'max_memory' => Fixnum,
+    'min_images' => Fixnum,
+    'replication' => Fixnum,
+    'project' => String,
+    'scp' => String,
+    'static_ip' => String,
+    'table' => String,
+    'test' => TrueClass,
+    'use_spot_instances' => TrueClass,
+    'user_commands' => String,
+    'verbose' => TrueClass,
+    'zone' => String }
 
 
   # Creates a new Djinn, which holds all the information needed to configure
@@ -848,40 +850,50 @@ class Djinn
     @nodes = converted_nodes
     @options = sanitize_credentials()
 
-    # Check that we got good parameters.
+    # Check that we got good parameters: we removed the unkown ones for
+    # backward compatibilty.
     @options.each { |key, val|
       # Is the parameter known?
       if PARAMETERS_AND_CLASS.has_key?(key) == false
         begin
-          error_msg = "Error: unknown parameter '" + key.to_s + "'."
+          error_msg = "Removing unknown parameter '" + key.to_s + "'."
         rescue
-          error_msg = "Error: unknown parameter."
+          error_msg = "Removing unknown parameter."
         end
-        Djinn.log_error(error_msg)
-        return error_msg
+        Djinn.log_warn(error_msg)
+        @options.delete(key)
+        next
       end
 
-      # Is the parameter of the proper class? The parameters will be
-      # passed in as String so we have to check if they can be turned into
-      # the proper class.
+      # Check that the value that came in is a String. If not, remove the
+      # parameter since we won't be able to translate it.
       if val.class != String
-        error_msg = "Error: parameter '" + key + "' is the wrong class '" +\
-          val.class.to_s + "'."
-        Djinn.log_error(error_msg)
-        return error_msg
-      elsif PARAMETERS_AND_CLASS[key] == Fixnum
-        # For integer, we just need to make sure we can convert the string
-        # to integer.
+        begin
+          error_msg = "Removing parameter '" + key + "' with unknown value '" +\
+            val.to_s + "'."
+        rescue
+          error_msg = "Removing parameter '" + key + "' has unknown value."
+        end
+        Djinn.log_warn(error_msg)
+        @options.delete(key)
+        next
+      end
+
+      # Let's check we can convert them now to the proper class.
+      log_msg = "Converting '" + key + "' with value '" + val + "'."
+      Djinn.log_info(error_msg)
+      if PARAMETERS_AND_CLASS[key] == Fixnum
         begin
           test_value = Integer(val)
         rescue
-          error_msg = "Error: parameter '" + key + "' is not an integer."
+          error_msg = "Warning: parameter '" + key + "' is not an integer (" +\
+            val.to_s + "). Forcing it to 0."
           Djinn.log_error(error_msg)
-          return error_msg
+          @options[key] = 0.to_s
         end
       else
-        # String, and Boolean (TrueClass) are handled independentely. No
-        # check needs to be done at this time.
+        # Leave it as it is, since it's String and TrueClass are handled
+        # directly.
       end
     }
 
@@ -902,11 +914,9 @@ class Djinn
       HelperFunctions.alter_etc_resolv()
     end
 
-    if @options['clear_datastore']
+    if @options['clear_datastore'].class == String
       @options['clear_datastore'] = @options['clear_datastore'].downcase == "true"
     end
-    Djinn.log_debug("clear_datastore is set to #{@options['clear_datastore']}, " +
-      "of class #{@options['clear_datastore'].class.name}")
 
     if @options['verbose'].downcase == "false"
       @@log.level = Logger::INFO
@@ -3084,8 +3094,8 @@ class Djinn
   end
 
   def parse_options
-    if @options["appengine"]
-      @num_appengines = Integer(@options["appengine"])
+    if @options['appengine']
+      @num_appengines = Integer(@options['appengine'])
     end
 
     keypath = @options['keyname'] + ".key"
@@ -4596,7 +4606,7 @@ HOSTS
   # one thread call it at a time. We also only perform scaling if the user
   # wants us to, and simply return otherwise.
   def scale_appservers_within_nodes
-    if @options["autoscale"].downcase == "true"
+    if @options['autoscale'].downcase == "true"
       perform_scaling_for_appservers()
     end
   end
