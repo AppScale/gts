@@ -830,10 +830,10 @@ class Djinn
     # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
     # so we need to make sure that the array has an even number of elements
     if database_credentials.length % 2 != 0
-      error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
+      msg = "Error: DB Credentials wasn't of even length: Len = " + \
         "#{database_credentials.length}"
-      Djinn.log_error(error_msg)
-      return error_msg
+      Djinn.log_error(msg)
+      return msg
     end
 
     possible_credentials = Hash[*database_credentials]
@@ -856,11 +856,11 @@ class Djinn
       # Is the parameter known?
       if PARAMETERS_AND_CLASS.has_key?(key) == false
         begin
-          error_msg = "Removing unknown parameter '" + key.to_s + "'."
+          msg = "Removing unknown parameter '" + key.to_s + "'."
         rescue
-          error_msg = "Removing unknown parameter."
+          msg = "Removing unknown parameter."
         end
-        Djinn.log_warn(error_msg)
+        Djinn.log_warn(msg)
         @options.delete(key)
         next
       end
@@ -869,26 +869,26 @@ class Djinn
       # parameter since we won't be able to translate it.
       if val.class != String
         begin
-          error_msg = "Removing parameter '" + key + "' with unknown value '" +\
+          msg = "Removing parameter '" + key + "' with unknown value '" +\
             val.to_s + "'."
         rescue
-          error_msg = "Removing parameter '" + key + "' has unknown value."
+          msg = "Removing parameter '" + key + "' has unknown value."
         end
-        Djinn.log_warn(error_msg)
+        Djinn.log_warn(msg)
         @options.delete(key)
         next
       end
 
       # Let's check we can convert them now to the proper class.
-      log_msg = "Converting '" + key + "' with value '" + val + "'."
-      Djinn.log_info(error_msg)
+      msg = "Converting '" + key + "' with value '" + val + "'."
+      Djinn.log_info(msg)
       if PARAMETERS_AND_CLASS[key] == Fixnum
         begin
           test_value = Integer(val)
         rescue
-          error_msg = "Warning: parameter '" + key + "' is not an integer (" +\
+          msg = "Warning: parameter '" + key + "' is not an integer (" +\
             val.to_s + "). Forcing it to 0."
-          Djinn.log_error(error_msg)
+          Djinn.log_warn(msg)
           @options[key] = 0.to_s
         end
       else
