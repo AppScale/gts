@@ -880,14 +880,14 @@ class Djinn
           msg = "Removing parameter '" + key + "' with unknown value '" +\
             val.to_s + "'."
         rescue
-          msg = "Removing parameter '" + key + "' has unknown value."
+          msg = "Removing parameter '" + key + "' with unknown value."
         end
         Djinn.log_warn(msg)
         @options.delete(key)
         next
       end
 
-      # Let's check we can convert them now to the proper class.
+      # Let's check if we can convert them now to the proper class.
       msg = "Converting '" + key + "' with value '" + val + "'."
       Djinn.log_info(msg)
       if PARAMETERS_AND_CLASS[key][0] == Fixnum
