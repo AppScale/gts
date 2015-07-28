@@ -5150,7 +5150,7 @@ HOSTS
       return 0
     end
 
-    if @nodes.length <= Integer(@options['min_images'])
+    if @nodes.length <= Integer(@options['min_images']) or @nodes.length == 1
       Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
