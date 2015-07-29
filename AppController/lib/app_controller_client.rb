@@ -211,29 +211,6 @@ class AppControllerClient
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
   end
 
-  def wait_for_node_to_be(new_roles)
-    roles = new_roles.split(":")
-
-    loop {
-      ready = true
-      status = get_status
-      Djinn.log_debug("ACC: Node at #{@ip} said [#{status}]")
-      roles.each { |role|
-        if status =~ /#{role}/
-          Djinn.log_debug("ACC: Node is #{role}")
-        else
-          ready = false
-          Djinn.log_debug("ACC: Node is not yet #{role}")
-        end
-      }
-
-      break if ready      
-    }
-
-    Djinn.log_debug("ACC: Node at #{@ip} is now #{new_roles}")
-    return
-  end
-
   def get_queues_in_use()
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_queues_in_use") { 
       @conn.get_queues_in_use(@secret)
