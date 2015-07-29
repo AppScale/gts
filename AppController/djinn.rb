@@ -509,6 +509,10 @@ class Djinn
     @@log = Logger.new(file)
     @@log.level = Logger::DEBUG
 
+    # Sends the logs to the Dashboard. WARNING: this will incur in database
+    # load.
+    @@send_logs_to_dashboard = false
+
     @nodes = []
     @my_index = nil
     @my_public_ip = nil
@@ -537,10 +541,6 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
-
-    # Sends the logs to the Dashboard. WARNING: this will incur in database
-    # load.
-    @send_logs_to_dashboard = false
 
   end
 
@@ -958,10 +958,10 @@ class Djinn
     end
 
     if @options['send_logs_to_dashboard'].downcase == "true"
-      @send_logs_to_dashboard = true
+      @@send_logs_to_dashboard = true
       Djinn.log_info("Enabling sending logs to Dashboard.")
     else
-      @send_logs_to_dashboard = false
+      @@send_logs_to_dashboard = false
       Djinn.log_info("Disabling sending logs to Dashboard.")
     end
 
@@ -2168,7 +2168,7 @@ class Djinn
     return if message.empty?
     return if level < @@log.level
     puts message
-    return if not @send_logs_to_dashboard
+    return if not @@send_logs_to_dashboard
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
