@@ -497,7 +497,10 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
+    # The log file to use. Make sure it is synchronous to ensure we get
+    # all message in case of a crash.
     file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
+    file.sync = true
 
     @@log = Logger.new(file)
     @@log.level = Logger::DEBUG
