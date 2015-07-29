@@ -443,6 +443,11 @@ class Djinn
   LOG_FILE = "/var/log/appscale/controller-17443.log" 
 
 
+  # Sends the logs to the Dashboard. WARNING: this will incur in database
+  # load.
+  SEND_LOGS_TO_DASHBOARD = false
+
+
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified.
@@ -475,6 +480,7 @@ class Djinn
     'region' => [ String, nil ],
     'replication' => [ Fixnum, '1' ],
     'project' => [ String, nil ],
+    'send_logs_to_dashboard' => [ TrueClass, 'false' ],
     'scp' => [ String, nil ],
     'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
@@ -946,6 +952,10 @@ class Djinn
 
     if @options['verbose'].downcase == "false"
       @@log.level = Logger::INFO
+    end
+
+    if @options['send_logs_to_dashboard'].downcase == "true"
+      SEND_LOGS_TO_DASHBOARD = true
     end
 
     begin
@@ -2886,29 +2896,31 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    APPS_LOCK.synchronize {
-      loop {
-        break if @@logs_buffer.empty?
-        encoded_logs = JSON.dump({
-          'service_name' => 'appcontroller',
-          'host' => my_node.public_ip,
-          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
-        })
+    if SEND_LOGS_TO_DASHBOARD
+      APPS_LOCK.synchronize {
+        loop {
+          break if @@logs_buffer.empty?
+          encoded_logs = JSON.dump({
+            'service_name' => 'appcontroller',
+            'host' => my_node.public_ip,
+            'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
+          })
 
-        begin
-          url = URI.parse("https://#{get_login.public_ip}:" +
-            "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-          http = Net::HTTP.new(url.host, url.port)
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          http.use_ssl = true
-          response = http.post(url.path, encoded_logs,
-            {'Content-Type'=>'application/json'})
-        rescue Exception
-          # Don't crash the AppController because we weren't able to send over
-          # the logs - just continue on.
-        end
+          begin
+            url = URI.parse("https://#{get_login.public_ip}:" +
+              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
+            http = Net::HTTP.new(url.host, url.port)
+            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+            http.use_ssl = true
+            response = http.post(url.path, encoded_logs,
+              {'Content-Type'=>'application/json'})
+          rescue Exception
+            # Don't crash the AppController because we weren't able to send over
+            # the logs - just continue on.
+          end
+        }
       }
-    }
+    end
   end
 
 
