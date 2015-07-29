@@ -575,7 +575,8 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_new_roles_on_nodes_in_cluster
-    flexmock(File).should_receive(:open).and_return()
+    mock_file = flexmock(File.open('/dev/null'))
+    flexmock(File).should_receive(:open).and_return(mock_file)
     flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
     flexmock(Kernel).should_receive(:system).and_return('')
     # try adding two new nodes to an appscale deployment, assuming that
@@ -748,7 +749,8 @@ class TestDjinn < Test::Unit::TestCase
 
   def test_start_new_roles_on_nodes_in_cloud
     flexmock(Djinn).should_receive(:initialize_nodes_in_parallel).and_return()
-    flexmock(File).should_receive(:open).and_return()
+    mock_file = flexmock(File.open('/dev/null'))
+    flexmock(File).should_receive(:open).and_return(mock_file)
     flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
     flexmock(Kernel).should_receive(:system).and_return('')
 
