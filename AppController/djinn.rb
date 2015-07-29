@@ -443,11 +443,6 @@ class Djinn
   LOG_FILE = "/var/log/appscale/controller-17443.log" 
 
 
-  # Sends the logs to the Dashboard. WARNING: this will incur in database
-  # load.
-  SEND_LOGS_TO_DASHBOARD = false
-
-
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified.
@@ -539,6 +534,11 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
+
+    # Sends the logs to the Dashboard. WARNING: this will incur in database
+    # load.
+    @send_logs_to_dashboard = false
+
   end
 
 
@@ -955,13 +955,13 @@ class Djinn
     end
 
     if @options['send_logs_to_dashboard'].downcase == "true"
-      SEND_LOGS_TO_DASHBOARD = true
+      @send_logs_to_dashboard = true
     else
       # Enable the logs to dashboard for this warning.
-      SEND_LOGS_TO_DASHBOARD = true
-      msg = "To enable logging to Dashboard, set SEND_LOGS_TO_DASHBOARD."
+      @send_logs_to_dashboard = true
+      msg = "To enable logging to Dashboard, set @send_logs_to_dashboard."
       self.log_to_buffer(Logger::WARN, msg)
-      SEND_LOGS_TO_DASHBOARD = false
+      @send_logs_to_dashboard = false
     end
 
     begin
@@ -2166,7 +2166,7 @@ class Djinn
   def self.log_to_buffer(level, message)
     return if message.empty?
     return if level < @@log.level
-    return if not SEND_LOGS_TO_DASHBOARD
+    return if not @send_logs_to_dashboard
     puts  message
     time = Time.now
     @@logs_buffer << {
@@ -2903,7 +2903,7 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    if SEND_LOGS_TO_DASHBOARD
+    if @send_logs_to_dashboard
       APPS_LOCK.synchronize {
         loop {
           break if @@logs_buffer.empty?
