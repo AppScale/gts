@@ -141,37 +141,6 @@ class AppControllerClient
     end
   end
 
-
-  def get_userappserver_ip(verbose_level="low") 
-    userappserver_ip, status, state, new_state = "", "", "", ""
-    loop {
-      status = get_status()
-
-      new_state = status.scan(/Current State: ([\w\s\d\.,]+)\n/).flatten.to_s.chomp
-      if verbose_level == "high" and new_state != state
-        puts new_state
-        state = new_state
-      end
-    
-      if status == "false: bad secret"
-        HelperFunctions.log_and_crash("\nWe were unable to verify your " +
-          "secret key with the head node specified in your locations " +
-          "file. Are you sure you have the correct secret key and locations " +
-          "file?\n\nSecret provided: [#{@secret}]\nHead node IP address: " +
-          "[#{@ip}]\n")
-      end
-        
-      if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != "not-up-yet"
-        userappserver_ip = $1
-        break
-      end
-      
-      sleep(10)
-    }
-    
-    return userappserver_ip
-  end
-
   def set_parameters(locations, options, apps_to_start)
     result = ""
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 

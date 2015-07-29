@@ -453,6 +453,9 @@ class Djinn
     'clear_datastore' => [ TrueClass, 'false' ],
     'client_secrets' => [ String, nil ],
     'disks' => [ String, nil ],
+    'ec2_access_key' => [ String, nil ],
+    'ec2_secret_key' => [ String, nil ],
+    'ec2_url' => [ String, nil ],
     'EC2_ACCESS_KEY' => [ String, nil ],
     'EC2_SECRET_KEY' => [ String, nil ],
     'EC2_URL' => [ String, nil ],
@@ -875,7 +878,7 @@ class Djinn
 
       # Check that the value that came in is a String. If not, remove the
       # parameter since we won't be able to translate it.
-      if val.class != String
+      if val.class != String and val.class != PARAMETERS_AND_CLASS[key][0]
         begin
           msg = "Removing parameter '" + key + "' with unknown value '" +\
             val.to_s + "'."
