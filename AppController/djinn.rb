@@ -245,6 +245,9 @@ class Djinn
   # uploading, failed because of a bad app.yaml).
   attr_accessor :app_upload_reservations
 
+  # A boolean to indicate if logs should be sent to the AppScale Dashboard
+  # or not. It will create some load to the DB layer.
+  attr_accessor :send_logs_to_dashboard
 
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
@@ -2167,7 +2170,7 @@ class Djinn
     return if message.empty?
     return if level < @@log.level
     return if not @send_logs_to_dashboard
-    puts  message
+    puts message
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
@@ -2903,31 +2906,29 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    if @send_logs_to_dashboard
-      APPS_LOCK.synchronize {
-        loop {
-          break if @@logs_buffer.empty?
-          encoded_logs = JSON.dump({
-            'service_name' => 'appcontroller',
-            'host' => my_node.public_ip,
-            'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
-          })
+    APPS_LOCK.synchronize {
+      loop {
+        break if @@logs_buffer.empty?
+        encoded_logs = JSON.dump({
+          'service_name' => 'appcontroller',
+          'host' => my_node.public_ip,
+          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
+        })
 
-          begin
-            url = URI.parse("https://#{get_login.public_ip}:" +
-              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-            http = Net::HTTP.new(url.host, url.port)
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            http.use_ssl = true
-            response = http.post(url.path, encoded_logs,
-              {'Content-Type'=>'application/json'})
-          rescue Exception
-            # Don't crash the AppController because we weren't able to send over
-            # the logs - just continue on.
-          end
-        }
+        begin
+          url = URI.parse("https://#{get_login.public_ip}:" +
+            "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
+          http = Net::HTTP.new(url.host, url.port)
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+          http.use_ssl = true
+          response = http.post(url.path, encoded_logs,
+            {'Content-Type'=>'application/json'})
+        rescue Exception
+          # Don't crash the AppController because we weren't able to send over
+          # the logs - just continue on.
+        end
       }
-    end
+    }
   end
 
 
