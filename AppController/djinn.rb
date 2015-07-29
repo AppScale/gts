@@ -959,12 +959,10 @@ class Djinn
 
     if @options['send_logs_to_dashboard'].downcase == "true"
       @send_logs_to_dashboard = true
+      Djinn.log_info("Enabling sending logs to Dashboard.")
     else
-      # Enable the logs to dashboard for this warning.
-      @send_logs_to_dashboard = true
-      msg = "To enable logging to Dashboard, set @send_logs_to_dashboard."
-      self.log_to_buffer(Logger::WARN, msg)
       @send_logs_to_dashboard = false
+      Djinn.log_info("Disabling sending logs to Dashboard.")
     end
 
     begin
@@ -2169,8 +2167,8 @@ class Djinn
   def self.log_to_buffer(level, message)
     return if message.empty?
     return if level < @@log.level
-    return if not @send_logs_to_dashboard
     puts message
+    return if not @send_logs_to_dashboard
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
