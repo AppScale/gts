@@ -195,8 +195,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
-      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False',
-      'send_logs_to_dashboard', 'True']
+      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False']
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
@@ -951,9 +950,8 @@ class TestDjinn < Test::Unit::TestCase
     Djinn.log_fatal("two")
     Djinn.log_fatal("three")
 
-    # and make sure they're not there (default is not to send to
-    # dashboard)
-    assert_equal(0, Djinn.get_logs_buffer().length)
+    # and make sure they're in there
+    assert_equal(3, Djinn.get_logs_buffer().length)
 
     # mock out sending the logs
     flexmock(Net::HTTP).new_instances { |instance|
@@ -965,8 +963,6 @@ class TestDjinn < Test::Unit::TestCase
 
     # make sure our buffer is empty again
     assert_equal([], Djinn.get_logs_buffer())
-
-    # TODO: enable send_logs_to_dashboard and redo the test
   end
 
   def test_send_request_info_to_dashboard_when_dash_is_up
