@@ -866,6 +866,7 @@ class Djinn
 
     # Check that we got good parameters: we removed the unkown ones for
     # backward compatibilty.
+    options_to_delete = []
     @options.each { |key, val|
       # Is the parameter known?
       if PARAMETERS_AND_CLASS.has_key?(key) == false
@@ -875,7 +876,7 @@ class Djinn
           msg = "Removing unknown parameter."
         end
         Djinn.log_warn(msg)
-        @options.delete(key)
+        options_to_delete.push(key)
         next
       end
 
@@ -893,7 +894,7 @@ class Djinn
           msg = "Removing parameter '" + key + "' with unknown value."
         end
         Djinn.log_warn(msg)
-        @options.delete(key)
+        options_to_delete.push(key)
         next
       end
 
@@ -908,9 +909,12 @@ class Djinn
           msg = "Warning: parameter '" + key + "' is not an integer (" +\
             val.to_s + "). Removing it."
           Djinn.log_warn(msg)
-          @options.delete(key)
+          options_to_delete.push(key)
         end
       end
+    }
+    options_to_delete.each { |key|
+      @options.delete(key)
     }
 
     # Now let's make sure the parameters that needs to have values are
