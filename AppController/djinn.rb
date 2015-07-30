@@ -888,9 +888,13 @@ class Djinn
         next
       end
 
-      # Check that the value that came in is a String. If not, remove the
-      # parameter since we won't be able to translate it.
-      if val.class != String and val.class != PARAMETERS_AND_CLASS[key][0]
+      # Check that the value that came in is a String or as final class of
+      # the parameter. There is no boolean, so TrueClass and FalseClass
+      # needs to be check both. If not, remove the parameter since we
+      # won't be able to translate it.
+      if val.class != String and (val.class != PARAMETERS_AND_CLASS[key][0] or
+          (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class !=
+          FalseClass))
         begin
           msg = "Removing parameter '" + key + "' with unknown value '" +\
             val.to_s + "'."
