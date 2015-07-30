@@ -3359,6 +3359,10 @@ class DatastoreDistributed():
     if startrow > endrow:
       return []
 
+    # TODO: Check if we should do this for other comparisons.
+    multiple_equality_filters = self.__get_multiple_equality_filters(
+      query.filter_list())
+
     index_result = self.datastore_batch.range_query(table_name, 
                                              column_names, 
                                              startrow, 
@@ -3369,9 +3373,100 @@ class DatastoreDistributed():
                                              end_inclusive=True)
     # This is a projection query.
     if query.property_name_size() > 0:
-      return self.__extract_entities_from_composite_indexes(query, index_result)
+      entities = self.__extract_entities_from_composite_indexes(query, index_result)
+    else:
+      entities = self.__fetch_entities(index_result, clean_app_id(query.app()))
 
-    return self.__fetch_entities(index_result, clean_app_id(query.app()))
+    if len(multiple_equality_filters) > 0:
+      logging.debug('Detected multiple equality filters on a repeated'
+        'property. Removing results that do not match query.')
+      entities = self.__apply_multiple_equality_filters(entities,
+        multiple_equality_filters)
+
+    return entities
+
+  def __get_multiple_equality_filters(self, filter_list):
+    """ Returns filters from the query that contain multiple equality
+      comparisons on repeated properties.
+
+    Args:
+      filter_list: A list of filters from the query.
+    Returns:
+      A dictionary that contains properties with multiple equality filters.
+    """
+    equality_filters = {}
+    for query_filter in filter_list:
+      if query_filter.op() != datastore_pb.Query_Filter.EQUAL:
+        continue
+
+      for prop in query_filter.property_list():
+        if prop.multiple():
+          if prop.name() not in equality_filters:
+            equality_filters[prop.name()] = []
+
+          equality_filters[prop.name()].append(prop)
+
+    single_eq_filters = []
+    for prop in equality_filters:
+      if len(equality_filters[prop]) < 2:
+        single_eq_filters.append(prop)
+    for prop in single_eq_filters:
+      del equality_filters[prop]
+
+    return equality_filters
+
+  def __apply_multiple_equality_filters(self, entities, filter_dict):
+    """ Removes entities that do not meet the criteria defined by multiple
+      equality filters.
+
+    Args:
+      entities: A list of entities that need filtering.
+      filter_dict: A dictionary containing the relevant filters.
+    Returns:
+      A list of filtered entities.
+    """
+    filtered_entities = []
+    for entity in entities:
+      entity_proto = entity_pb.EntityProto(entity)
+
+      relevant_props_in_entity = {}
+      for entity_prop in entity_proto.property_list():
+        if entity_prop.name() not in filter_dict:
+          continue
+
+        if entity_prop.name() not in relevant_props_in_entity:
+          relevant_props_in_entity[entity_prop.name()] = []
+
+        relevant_props_in_entity[entity_prop.name()].append(entity_prop)
+
+      passes_all_filters = True
+      for filter_prop_name in filter_dict:
+        if filter_prop_name not in relevant_props_in_entity:
+          raise dbconstants.AppScaleDBError(
+            'Property name not found in entity.')
+
+        filter_props = filter_dict[filter_prop_name]
+        entity_props = relevant_props_in_entity[filter_prop_name]
+
+        for filter_prop in filter_props:
+          # Check if filter value is in repeated property.
+          passes_filter = False
+          for entity_prop in entity_props:
+            if entity_prop.value().Equals(filter_prop.value()):
+              passes_filter = True
+              break
+
+          if not passes_filter:
+            passes_all_filters = False
+            break
+
+        if not passes_all_filters:
+          break
+
+      if passes_all_filters:
+        filtered_entities.append(entity)
+
+    return filtered_entities
 
   def __extract_value_from_index(self, index_entry, direction):
     """ Takes an index entry and returns the value of the property.
