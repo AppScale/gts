@@ -256,7 +256,7 @@ CRON
 
     unless splitted.length == 3 or splitted.length == 5
       Djinn.log_error("bad format, length = #{splitted.length}")
-      return ""
+      return [""]
     end
 
     ord = splitted[0]

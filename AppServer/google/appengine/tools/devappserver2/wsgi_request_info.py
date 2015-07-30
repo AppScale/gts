@@ -97,18 +97,22 @@ class WSGIRequestInfo(request_info.RequestInfo):
     with self._lock:
       self._request_id_to_instance[request_id] = instance
 
-  def get_request_url(self, request_id):
+  def get_request_url(self, request_id, scheme=None):
     """Returns the URL the request e.g. 'http://localhost:8080/foo?bar=baz'.
 
     Args:
       request_id: The string id of the request making the API call.
+      scheme: A string, the protocol to be used for this request URL.
 
     Returns:
       The URL of the request as a string.
     """
     with self._lock:
       environ = self._request_wsgi_environ[request_id]
-      return wsgiref.util.request_uri(environ)
+      url = wsgiref.util.request_uri(environ)
+      if scheme is not None:
+        url = "{0}{1}".format(scheme, url[url.find(':'):])
+      return url
 
   def get_request_environ(self, request_id):
     """Returns a dict containing the WSGI environ for the request."""
@@ -159,3 +163,19 @@ class WSGIRequestInfo(request_info.RequestInfo):
     """
     with self._lock:
       return self._request_id_to_instance.get(request_id, None)
+
+  def get_scheme(self, request_id):
+    """Returns the scheme for this request.
+
+    Args:
+      request_id: The string id of the request making the API call.
+
+    Returns:
+      One of 'http', 'https'.
+    """
+    with self._lock:
+      scheme = 'http'
+      environ = self._request_wsgi_environ[request_id]
+      if environ['HTTP_X_FORWARDED_PROTO'] is not None:
+        scheme = environ['HTTP_X_FORWARDED_PROTO']
+      return scheme
