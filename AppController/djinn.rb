@@ -454,6 +454,7 @@ class Djinn
     @@logs_buffer = []
 
     file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
+    file.sync = true
 
     @@log = Logger.new(file)
     @@log.level = Logger::DEBUG
