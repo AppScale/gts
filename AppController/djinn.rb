@@ -245,9 +245,6 @@ class Djinn
   # uploading, failed because of a bad app.yaml).
   attr_accessor :app_upload_reservations
 
-  # A boolean to indicate if logs should be sent to the AppScale Dashboard
-  # or not. It will create some load to the DB layer.
-  attr_accessor :send_logs_to_dashboard
 
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
@@ -478,7 +475,6 @@ class Djinn
     'region' => [ String, nil ],
     'replication' => [ Fixnum, '1' ],
     'project' => [ String, nil ],
-    'send_logs_to_dashboard' => [ TrueClass, 'false' ],
     'scp' => [ String, nil ],
     'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
@@ -509,10 +505,6 @@ class Djinn
     @@log = Logger.new(file)
     @@log.level = Logger::DEBUG
 
-    # Sends the logs to the Dashboard. WARNING: this will incur in database
-    # load.
-    @@send_logs_to_dashboard = false
-
     @nodes = []
     @my_index = nil
     @my_public_ip = nil
@@ -541,7 +533,6 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
-
   end
 
 
@@ -959,14 +950,6 @@ class Djinn
 
     if @options['verbose'].downcase == "false"
       @@log.level = Logger::INFO
-    end
-
-    if @options['send_logs_to_dashboard'].downcase == "true"
-      @@send_logs_to_dashboard = true
-      Djinn.log_info("Enabling sending logs to Dashboard.")
-    else
-      @@send_logs_to_dashboard = false
-      Djinn.log_info("Disabling sending logs to Dashboard.")
     end
 
     begin
@@ -2172,7 +2155,6 @@ class Djinn
     return if message.empty?
     return if level < @@log.level
     puts message
-    return if not @@send_logs_to_dashboard
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
@@ -5193,7 +5175,7 @@ HOSTS
       return 0
     end
 
-    if @nodes.length <= Integer(@options['min_images']) or @nodes.length == 1
+    if @nodes.length <= Integer(@options['min_images']) or @nodes.length <= 1
       Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
