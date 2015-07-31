@@ -442,6 +442,50 @@ class Djinn
   # Where to put logs.
   LOG_FILE = "/var/log/appscale/controller-17443.log" 
 
+
+  # List of parameters allowed in the set_parameter (and in AppScalefile
+  # at this time). If a default value is specified, it will be used if the
+  # parameter is unspecified.
+  PARAMETERS_AND_CLASS = {
+    'alter_etc_resolv' => [ TrueClass, nil ],
+    'appengine' => [ Fixnum, '2' ],
+    'autoscale' => [ TrueClass, nil ],
+    'clear_datastore' => [ TrueClass, 'false' ],
+    'client_secrets' => [ String, nil ],
+    'disks' => [ String, nil ],
+    'ec2_access_key' => [ String, nil ],
+    'ec2_secret_key' => [ String, nil ],
+    'ec2_url' => [ String, nil ],
+    'EC2_ACCESS_KEY' => [ String, nil ],
+    'EC2_SECRET_KEY' => [ String, nil ],
+    'EC2_URL' => [ String, nil ],
+    'flower_password' => [ String, nil ],
+    'gce_instance_type' => [ String, nil ],
+    'gce_user' => [ String, nil ],
+    'group' => [ String, nil ],
+    'hostname' => [ String, nil ],
+    'keyname' => [ String, nil ],
+    'ips' => [ String, nil ],
+    'infrastructure' => [ String, nil ],
+    'instance_type' => [ String, nil ],
+    'machine' => [ String, nil ],
+    'max_images' => [ Fixnum, '0' ],
+    'max_memory' => [ Fixnum, '400' ],
+    'min_images' => [ Fixnum, '1' ],
+    'region' => [ String, nil ],
+    'replication' => [ Fixnum, '1' ],
+    'project' => [ String, nil ],
+    'scp' => [ String, nil ],
+    'static_ip' => [ String, nil ],
+    'table' => [ String, 'cassandra' ],
+    'test' => [ TrueClass, 'false' ],
+    'use_spot_instances' => [ TrueClass, nil ],
+    'user_commands' => [ String, nil ],
+    'verbose' => [ TrueClass, 'false' ],
+    'zone' => [ String, nil ]
+    }
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -453,6 +497,8 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
+    # The log file to use. Make sure it is synchronous to ensure we get
+    # all message in case of a crash.
     file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
     file.sync = true
 
@@ -797,12 +843,11 @@ class Djinn
     # hash tables, so we need to make sure that every key maps to a value
     # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
     # so we need to make sure that the array has an even number of elements
-
     if database_credentials.length % 2 != 0
-      error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
+      msg = "Error: DB Credentials wasn't of even length: Len = " + \
         "#{database_credentials.length}"
-      Djinn.log_error(error_msg)
-      return error_msg
+      Djinn.log_error(msg)
+      return msg
     end
 
     possible_credentials = Hash[*database_credentials]
@@ -818,6 +863,73 @@ class Djinn
     converted_nodes = convert_fqdns_to_ips(nodes)
     @nodes = converted_nodes
     @options = sanitize_credentials()
+
+    # Check that we got good parameters: we removed the unkown ones for
+    # backward compatibilty.
+    options_to_delete = []
+    @options.each { |key, val|
+      # Is the parameter known?
+      if PARAMETERS_AND_CLASS.has_key?(key) == false
+        begin
+          msg = "Removing unknown parameter '" + key.to_s + "'."
+        rescue
+          msg = "Removing unknown parameter."
+        end
+        Djinn.log_warn(msg)
+        options_to_delete.push(key)
+        next
+      end
+
+      # Check that the value that came in is a String or as final class of
+      # the parameter. There is no boolean, so TrueClass and FalseClass
+      # needs to be check both. If not, remove the parameter since we
+      # won't be able to translate it.
+      if val.class != String and (val.class != PARAMETERS_AND_CLASS[key][0] or
+          (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class !=
+          FalseClass))
+        begin
+          msg = "Removing parameter '" + key + "' with unknown value '" +\
+            val.to_s + "'."
+        rescue
+          msg = "Removing parameter '" + key + "' with unknown value."
+        end
+        Djinn.log_warn(msg)
+        options_to_delete.push(key)
+        next
+      end
+
+      # Let's check if we can convert them now to the proper class. At
+      # this time only Integer/Fixnum needs to be checked.
+      msg = "Converting '" + key + "' with value '" + val + "'."
+      Djinn.log_info(msg)
+      if PARAMETERS_AND_CLASS[key][0] == Fixnum
+        begin
+          test_value = Integer(val)
+        rescue
+          msg = "Warning: parameter '" + key + "' is not an integer (" +\
+            val.to_s + "). Removing it."
+          Djinn.log_warn(msg)
+          options_to_delete.push(key)
+        end
+      end
+    }
+    options_to_delete.each { |key|
+      @options.delete(key)
+    }
+
+    # Now let's make sure the parameters that needs to have values are
+    # indeed defines, otherwise set the defaults.
+    PARAMETERS_AND_CLASS.each { |key, key_type, val|
+      if @options[key]
+        # The parameter 'key' is defined, no need to do anything.
+        next
+      end
+      if PARAMETERS_AND_CLASS[key][1]
+         # The parameter has a default, and it's not defined. Adding
+         # default value.
+         @options[key] = PARAMETERS_AND_CLASS[key][1]
+      end
+    }
 
     find_me_in_locations()
     if @my_index.nil?
@@ -839,8 +951,6 @@ class Djinn
     if @options['clear_datastore'].class == String
       @options['clear_datastore'] = @options['clear_datastore'].downcase == "true"
     end
-    Djinn.log_debug("clear_datastore is set to #{@options['clear_datastore']}, " +
-      "of class #{@options['clear_datastore'].class.name}")
 
     if @options['verbose'].downcase == "false"
       @@log.level = Logger::INFO
@@ -1864,7 +1974,7 @@ class Djinn
         allowed_vms = Integer(@options['max_images']) - @nodes.length
         if allowed_vms < vms_to_spawn
           Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
-            "would put us over the user-specified limit of #{@options['max']} " +
+            "would put us over the user-specified limit of #{@options['max_images']} " +
             "VMs. Instead, spawning up #{allowed_vms}.")
           vms_to_spawn = allowed_vms
           if vms_to_spawn.zero?
@@ -2048,7 +2158,7 @@ class Djinn
   def self.log_to_buffer(level, message)
     return if message.empty?
     return if level < @@log.level
-    puts  message
+    puts message
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
@@ -3018,8 +3128,8 @@ class Djinn
   end
 
   def parse_options
-    if @options["appengine"]
-      @num_appengines = Integer(@options["appengine"])
+    if @options['appengine']
+      @num_appengines = Integer(@options['appengine'])
     end
 
     keypath = @options['keyname'] + ".key"
@@ -4530,7 +4640,7 @@ HOSTS
   # one thread call it at a time. We also only perform scaling if the user
   # wants us to, and simply return otherwise.
   def scale_appservers_within_nodes
-    if @options["autoscale"].downcase == "true"
+    if @options['autoscale'].downcase == "true"
       perform_scaling_for_appservers()
     end
   end
@@ -5069,7 +5179,7 @@ HOSTS
       return 0
     end
 
-    if @nodes.length <= Integer(@options['min_images'])
+    if @nodes.length <= Integer(@options['min_images']) or @nodes.length <= 1
       Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
