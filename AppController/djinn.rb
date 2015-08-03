@@ -450,7 +450,7 @@ class Djinn
     'alter_etc_resolv' => [ TrueClass, nil ],
     'appengine' => [ Fixnum, '2' ],
     'autoscale' => [ TrueClass, nil ],
-    'clear_datastore' => [ TrueClass, 'false' ],
+    'clear_datastore' => [ TrueClass, 'False' ],
     'client_secrets' => [ String, nil ],
     'disks' => [ String, nil ],
     'ec2_access_key' => [ String, nil ],
@@ -478,10 +478,10 @@ class Djinn
     'scp' => [ String, nil ],
     'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
-    'test' => [ TrueClass, 'false' ],
+    'test' => [ TrueClass, 'False' ],
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
-    'verbose' => [ TrueClass, 'false' ],
+    'verbose' => [ TrueClass, 'False' ],
     'zone' => [ String, nil ]
     }
 
@@ -884,9 +884,8 @@ class Djinn
       # the parameter. There is no boolean, so TrueClass and FalseClass
       # needs to be check both. If not, remove the parameter since we
       # won't be able to translate it.
-      if val.class != String and (val.class != PARAMETERS_AND_CLASS[key][0] or
-          (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class !=
-          FalseClass))
+      if not (val.class == String or val.class == PARAMETERS_AND_CLASS[key][0] or
+         (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class == FalseClass))
         begin
           msg = "Removing parameter '" + key + "' with unknown value '" +\
             val.to_s + "'."
@@ -898,10 +897,11 @@ class Djinn
         next
       end
 
-      # Let's check if we can convert them now to the proper class. At
-      # this time only Integer/Fixnum needs to be checked.
       msg = "Converting '" + key + "' with value '" + val + "'."
       Djinn.log_info(msg)
+
+      # Let's check if we can convert them now to the proper class. At
+      # this time only Integer/Fixnum needs to be checked.
       if PARAMETERS_AND_CLASS[key][0] == Fixnum
         begin
           test_value = Integer(val)
@@ -910,7 +910,22 @@ class Djinn
             val.to_s + "). Removing it."
           Djinn.log_warn(msg)
           options_to_delete.push(key)
+          next
         end
+      end
+
+      # Booleans seem to create issues at the SOAP level (possibly because
+      # they are in a structure) with message similar to "failed to
+      # serialize detail object". We convert them here to String.
+      if PARAMETERS_AND_CLASS[key][0] == TrueClass
+        begin
+          @options[key] = val.to_s
+        rescue
+          msg = "Warning: cannot convert '" + key + "' to string. Removing it."
+          Djinn.log_warn(msg)
+          options_to_delete.push(key)
+        end
+        next
       end
     }
     options_to_delete.each { |key|
@@ -946,10 +961,6 @@ class Djinn
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.alter_etc_resolv()
-    end
-
-    if @options['clear_datastore'].class == String
-      @options['clear_datastore'] = @options['clear_datastore'].downcase == "true"
     end
 
     if @options['verbose'].downcase == "false"
@@ -2746,7 +2757,7 @@ class Djinn
     # start up Cassandra and ZooKeeper. The user may have told us to erase
     # all data on initial startup, but we don't want to erase any data we've
     # accumulated in the meanwhile.
-    json_state['@options']['clear_datastore'] = false
+    json_state['@options']['clear_datastore'] = "false"
 
     # Similarly, if the machine was halted, then no App Engine apps are
     # running, so we need to start them all back up again.
@@ -3423,7 +3434,7 @@ class Djinn
         # If we're starting AppScale with data from a previous deployment, we
         # may have to clear out all the registered app instances from the
         # UserAppServer (since nobody is currently hosting any apps).
-        if not @options['clear_datastore']
+        if not (@options['clear_datastore'].downcase == "true")
           erase_app_instance_info
         end
       }
@@ -3553,11 +3564,11 @@ class Djinn
   end
 
   def start_search_role()
-    Search.start_master(@options['clear_datastore'])
+    Search.start_master(@options['clear_datastore'].downcase == "true")
   end
 
   def start_taskqueue_master()
-    TaskQueue.start_master(@options['clear_datastore'])
+    TaskQueue.start_master(@options['clear_datastore'].downcase == "true")
     return true
   end
 
@@ -3569,7 +3580,7 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    TaskQueue.start_slave(master_ip, @options['clear_datastore'])
+    TaskQueue.start_slave(master_ip, @options['clear_datastore'].downcase == "true")
     return true
   end
 
