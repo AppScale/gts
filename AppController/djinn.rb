@@ -1016,9 +1016,30 @@ class Djinn
       stats['apps'].each { |app_name, is_loaded|
         next if !is_loaded
         next if app_name == "none"
+        stats_str << "    Information for application: #{app_name}\n"
+        stats_str << "        Language            : "
+        if !@app_info_map[app_name]['language'].nil?
+          stats_str << "#{@app_info_map[app_name]['language']}\n"
+        else
+          stats_str << "Unknown\n"
+        end
+        stats_str << "        Number of AppServers: "
         if !@app_info_map[app_name]['appengine'].nil?
-          stats_str << "    The number of AppServers for app #{app_name} is: " +
-            "#{@app_info_map[app_name]['appengine'].length}\n"
+          stats_str << "#{@app_info_map[app_name]['appengine'].length}\n"
+        else
+          stats_str << "Unknown\n"
+        end
+        stats_str << "        HTTP port           : "
+        if !@app_info_map[app_name]['nginx'].nil?
+            stats_str << "#{@app_info_map[app_name]['nginx']}\n"
+        else
+          stats_str << "Unknown\n"
+        end
+        stats_str << "        HTTPS port          : "
+        if !@app_info_map[app_name]['nginx'].nil?
+            stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
+        else
+          stats_str << "Unknown\n"
         end
       }
     end
