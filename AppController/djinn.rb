@@ -914,9 +914,9 @@ class Djinn
         end
       end
 
-      # Booleans seems to create issues at the SOAP level (possibly
-      # because they are in a structure) with message similar to "failed
-      # to serialize detail object". We convert them here to String.
+      # Booleans seem to create issues at the SOAP level (possibly because
+      # they are in a structure) with message similar to "failed to
+      # serialize detail object". We convert them here to String.
       if PARAMETERS_AND_CLASS[key][0] == TrueClass
         begin
           @options[key] = val.to_s
