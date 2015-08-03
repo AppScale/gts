@@ -86,7 +86,8 @@ end
 #     machine hosting the Database Master role.
 #   slave_ips: An Array of Strings, where each String corresponds to a private
 #     FQDN or IP address of a machine hosting a Database Slave role.
-def setup_db_config_files(master_ip, slave_ips)
+#   replication: The desired level of replication.
+def setup_db_config_files(master_ip, slave_ips, replication)
   source_dir = "#{CASSANDRA_DIR}/templates"
   dest_dir = "#{CASSANDRA_DIR}/cassandra/conf"
 
@@ -102,7 +103,7 @@ def setup_db_config_files(master_ip, slave_ips)
       contents.gsub!(/APPSCALE-LOCAL/, HelperFunctions.local_ip)
       contents.gsub!(/APPSCALE-MASTER/, master_ip)
       contents.gsub!(/APPSCALE-TOKEN/, "#{local_token}")
-      contents.gsub!(/REPLICATION/, @options["replication"])
+      contents.gsub!(/REPLICATION/, "#{replication}")
       contents.gsub!(/APPSCALE-JMX-PORT/, "7070")              
       File.open(full_path_to_write, "w+") { |dest_file|
         dest_file.write(contents)
@@ -114,7 +115,10 @@ end
 
 # Starts Cassandra on this machine. Because this machine runs the DB Master
 # role, it starts Cassandra first.
-def start_db_master()
+#
+# Args:
+#   clear_datastore: Remove any pre-existent data in the database.
+def start_db_master(clear_datastore)
   @state = "Starting up Cassandra on the head node"
   Djinn.log_info("Starting up Cassandra as master")
   start_cassandra
@@ -124,7 +128,10 @@ end
 # Starts Cassandra on this machine. This is identical to starting Cassandra as a
 # Database Master role, with the extra step of waiting for the DB Master to boot
 # Cassandra up.
-def start_db_slave()
+#
+# Args:
+#   clear_datastore: Remove any pre-existent data in the database.
+def start_db_slave(clear_datastore)
   @state = "Waiting for Cassandra to come up"
   Djinn.log_info("Starting up Cassandra as slave")
 
@@ -135,9 +142,12 @@ end
 
 
 # Starts Cassandra, and waits for it to start the Thrift service locally.
-def start_cassandra()
+#
+# Args:
+#   clear_datastore: Remove any pre-existent data in the database.
+def start_cassandra(clear_datastore)
   Djinn.log_run("pkill ThriftBroker")
-  if @options['clear_datastore']
+  if clear_datastore
     Djinn.log_info("Erasing datastore contents")
     Djinn.log_run("rm -rf /opt/appscale/cassandra*")
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")

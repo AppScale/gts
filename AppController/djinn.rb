@@ -900,8 +900,7 @@ class Djinn
       msg = "Converting '" + key + "' with value '" + val + "'."
       Djinn.log_info(msg)
 
-      # Let's check if we can convert them now to the proper class. At
-      # this time only Integer/Fixnum needs to be checked.
+      # Let's check if we can convert them now to the proper class.
       if PARAMETERS_AND_CLASS[key][0] == Fixnum
         begin
           test_value = Integer(val)
@@ -914,10 +913,12 @@ class Djinn
         end
       end
 
-      # Booleans seem to create issues at the SOAP level (possibly because
-      # they are in a structure) with message similar to "failed to
-      # serialize detail object". We convert them here to String.
-      if PARAMETERS_AND_CLASS[key][0] == TrueClass
+      # Booleans and Integer (basically non-String) seem to create issues
+      # at the SOAP level (possibly because they are in a structure) with
+      # message similar to "failed to serialize detail object". We convert
+      # them here to String.
+      if PARAMETERS_AND_CLASS[key][0] == TrueClass or
+        PARAMETERS_AND_CLASS[key][0] == Fixnum
         begin
           @options[key] = val.to_s
         rescue
@@ -3400,7 +3401,7 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
-        start_zookeeper()
+        start_zookeeper(@options['clear_datastore'].downcase == "true")
         start_backup_service()
       end
 
@@ -3415,7 +3416,7 @@ class Djinn
 
     if my_node.is_db_master?
       threads << Thread.new {
-        start_db_master()
+        start_db_master(@options['clear_datastore'].downcase == "true")
         # create initial tables
         if my_node.is_db_master?
           prime_database
@@ -3434,7 +3435,7 @@ class Djinn
         # If we're starting AppScale with data from a previous deployment, we
         # may have to clear out all the registered app instances from the
         # UserAppServer (since nobody is currently hosting any apps).
-        if not (@options['clear_datastore'].downcase == "true")
+        if @options['clear_datastore'].downcase == "true"
           erase_app_instance_info
         end
       }
@@ -3442,7 +3443,7 @@ class Djinn
 
     if my_node.is_db_slave?
       threads << Thread.new {
-        start_db_slave()
+        start_db_slave(@options['clear_datastore'].downcase == "true")
 
         # Currently we always run the Datastore Server and SOAP
         # server on the same nodes.
@@ -3968,7 +3969,7 @@ class Djinn
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips)
+    setup_db_config_files(master_ip, slave_ips, Integer(@options['replication']))
 
     update_hosts_info()
 
@@ -4592,7 +4593,7 @@ HOSTS
           pid = app_manager.start_app(app, appengine_port,
             get_load_balancer_ip(), app_language, xmpp_ip,
             [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
-            @options['max_memory'])
+            Integer(@options['max_memory']))
 
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
