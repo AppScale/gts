@@ -141,37 +141,6 @@ class AppControllerClient
     end
   end
 
-
-  def get_userappserver_ip(verbose_level="low") 
-    userappserver_ip, status, state, new_state = "", "", "", ""
-    loop {
-      status = get_status()
-
-      new_state = status.scan(/Current State: ([\w\s\d\.,]+)\n/).flatten.to_s.chomp
-      if verbose_level == "high" and new_state != state
-        puts new_state
-        state = new_state
-      end
-    
-      if status == "false: bad secret"
-        HelperFunctions.log_and_crash("\nWe were unable to verify your " +
-          "secret key with the head node specified in your locations " +
-          "file. Are you sure you have the correct secret key and locations " +
-          "file?\n\nSecret provided: [#{@secret}]\nHead node IP address: " +
-          "[#{@ip}]\n")
-      end
-        
-      if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != "not-up-yet"
-        userappserver_ip = $1
-        break
-      end
-      
-      sleep(10)
-    }
-    
-    return userappserver_ip
-  end
-
   def set_parameters(locations, options, apps_to_start)
     result = ""
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 
@@ -240,29 +209,6 @@ class AppControllerClient
   # case
   def remove_role(role)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
-  end
-
-  def wait_for_node_to_be(new_roles)
-    roles = new_roles.split(":")
-
-    loop {
-      ready = true
-      status = get_status
-      Djinn.log_debug("ACC: Node at #{@ip} said [#{status}]")
-      roles.each { |role|
-        if status =~ /#{role}/
-          Djinn.log_debug("ACC: Node is #{role}")
-        else
-          ready = false
-          Djinn.log_debug("ACC: Node is not yet #{role}")
-        end
-      }
-
-      break if ready      
-    }
-
-    Djinn.log_debug("ACC: Node at #{@ip} is now #{new_roles}")
-    return
   end
 
   def get_queues_in_use()

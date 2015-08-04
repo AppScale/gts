@@ -244,6 +244,9 @@ class TestDjinn < Test::Unit::TestCase
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
 
+    # Set the clear_datastore option.
+    djinn.options = { 'clear_datastore' => 'false' }
+
     # make sure we write the secret to the cookie file
     # throw in Proc as the last arg to the mock since we don't care about what
     # the block actually contains
@@ -281,6 +284,9 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.my_index = 1
     djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]
+
+    # Set the clear_datastore option.
+    djinn.options = { 'clear_datastore' => 'false' }
 
     # make sure we write the secret to the cookie file
     # throw in Proc as the last arg to the mock since we don't care about what
@@ -574,7 +580,8 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_new_roles_on_nodes_in_cluster
-    flexmock(File).should_receive(:open).and_return()
+    mock_file = flexmock(File.open('/dev/null'))
+    flexmock(File).should_receive(:open).and_return(mock_file)
     flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
     flexmock(Kernel).should_receive(:system).and_return('')
     # try adding two new nodes to an appscale deployment, assuming that
@@ -747,7 +754,8 @@ class TestDjinn < Test::Unit::TestCase
 
   def test_start_new_roles_on_nodes_in_cloud
     flexmock(Djinn).should_receive(:initialize_nodes_in_parallel).and_return()
-    flexmock(File).should_receive(:open).and_return()
+    mock_file = flexmock(File.open('/dev/null'))
+    flexmock(File).should_receive(:open).and_return(mock_file)
     flexmock(HelperFunctions).should_receive(:scp_file).and_return(true)
     flexmock(Kernel).should_receive(:system).and_return('')
 
