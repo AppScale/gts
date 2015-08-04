@@ -3969,7 +3969,7 @@ class Djinn
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips, Integer(@options['replication']))
+    setup_db_config_files(master_ip, slave_ips, Integer(@options["replication"]))
 
     update_hosts_info()
 

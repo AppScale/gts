@@ -121,7 +121,7 @@ end
 def start_db_master(clear_datastore)
   @state = "Starting up Cassandra on the head node"
   Djinn.log_info("Starting up Cassandra as master")
-  start_cassandra
+  start_cassandra(clear_datastore)
 end
 
 
@@ -137,7 +137,7 @@ def start_db_slave(clear_datastore)
 
   HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, THRIFT_PORT)
   Kernel.sleep(5)
-  start_cassandra
+  start_cassandra(clear_datastore)
 end
 
 
