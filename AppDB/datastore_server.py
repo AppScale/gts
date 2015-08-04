@@ -3363,27 +3363,67 @@ class DatastoreDistributed():
     multiple_equality_filters = self.__get_multiple_equality_filters(
       query.filter_list())
 
-    index_result = self.datastore_batch.range_query(table_name, 
-                                             column_names, 
-                                             startrow, 
-                                             endrow, 
-                                             limit, 
-                                             offset=0, 
-                                             start_inclusive=start_inclusive,
-                                             end_inclusive=True)
-    # This is a projection query.
-    if query.property_name_size() > 0:
-      entities = self.__extract_entities_from_composite_indexes(query, index_result)
-    else:
-      entities = self.__fetch_entities(index_result, clean_app_id(query.app()))
+    entities = []
+    current_limit = limit
+    while True:
+      references = self.datastore_batch.range_query(
+        table_name,
+        column_names,
+        startrow,
+        endrow,
+        current_limit,
+        offset=0,
+        start_inclusive=start_inclusive,
+        end_inclusive=True
+      )
 
-    if len(multiple_equality_filters) > 0:
-      logging.debug('Detected multiple equality filters on a repeated'
-        'property. Removing results that do not match query.')
-      entities = self.__apply_multiple_equality_filters(entities,
-        multiple_equality_filters)
+      # This is a projection query.
+      if query.property_name_size() > 0:
+        potential_entities = self.__extract_entities_from_composite_indexes(
+          query, references)
+      else:
+        potential_entities = self.__fetch_entities(
+          references, clean_app_id(query.app()))
 
-    return entities
+      if len(multiple_equality_filters) > 0:
+        logging.debug('Detected multiple equality filters on a repeated'
+          'property. Removing results that do not match query.')
+        potential_entities = self.__apply_multiple_equality_filters(
+          potential_entities, multiple_equality_filters)
+
+      entities.extend(potential_entities)
+
+      # If we have enough valid entities to satisfy the query, we're done.
+      if len(entities) >= limit:
+        break
+
+      # If we received fewer references than we asked for, they are exhausted.
+      if len(references) < current_limit:
+        break
+
+      # If all of the references that we fetched were valid, we're done.
+      if len(potential_entities) == len(references):
+        break
+
+      invalid_refs = len(references) - len(potential_entities)
+
+      # Pad the limit to increase the likelihood of fetching all the valid
+      # references that we need.
+      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+
+      logging.debug('{} entities do not match query. '
+        'Fetching {} more references.'
+        .format(invalid_refs, current_limit))
+
+      last_startrow = startrow
+      # Start from the last reference fetched.
+      startrow = references[-1].keys()[0]
+
+      if startrow == last_startrow:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
+
+    return entities[:limit]
 
   def __get_multiple_equality_filters(self, filter_list):
     """ Returns filters from the query that contain multiple equality
