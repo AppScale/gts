@@ -2551,16 +2551,16 @@ class DatastoreDistributed():
         end_compiled_cursor=end_compiled_cursor
       )
 
-      valid_entities = self.__fetch_entities_dict(references, app_id)
+      potential_entities = self.__fetch_entities_dict(references, app_id)
 
       # Since the entities may be out of order due to invalid references,
       # we construct a new list in order of valid references.
       new_entities = []
       for reference in references:
-        if self.__valid_index_entry(reference, valid_entities, direction,
+        if self.__valid_index_entry(reference, potential_entities, direction,
           property_name):
           entity_key = reference[reference.keys()[0]]['reference']
-          valid_entity = valid_entities[entity_key]
+          valid_entity = potential_entities[entity_key]
           new_entities.append(valid_entity)
 
       entities.extend(new_entities)
