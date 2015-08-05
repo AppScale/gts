@@ -64,8 +64,9 @@ module CronHelper
         begin
           # Parse URL to prevent malicious code from being appended.
           url = URI.parse(item['url']).to_s()
+          Djinn.log_info("Parsed cron URL: #{url}")
         rescue URI::InvalidURIError
-          Djinn.log_warn("Invalid URL: #{item['url']}. Skipping cron entry.")
+          Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
           next
         end
 
@@ -94,12 +95,14 @@ CRON
 
       cron_xml.each_element('//cron') { |item|
         description = get_from_xml(item, "description")
+        raw_url = get_from_xml(item, "url")
 
         begin
           # Parse URL to prevent malicious code from being appended.
-          url = URI.parse(item['url']).to_s()
+          url = URI.parse(raw_url).to_s()
+          Djinn.log_info("Parsed cron URL: #{url}")
         rescue URI::InvalidURIError
-          Djinn.log_warn("Invalid URL: #{item['url']}. Skipping cron entry.")
+          Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
           next
         end
 
