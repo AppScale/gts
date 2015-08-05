@@ -1,5 +1,6 @@
 require 'rexml/document'
 require 'helperfunctions'
+require 'uri'
 include REXML
 
 
@@ -59,9 +60,15 @@ module CronHelper
       cron_routes.each { |item|
         next if item['url'].nil?
         description = item["description"]
-        # since url gets put at end of curl, need to ensure it
-        # is of the form /baz to prevent malicious urls
-        url = (item["url"].scan(/\A(\/[\/\d\w]+)/)*"").to_s
+
+        begin
+          # Parse URL to prevent malicious code from being appended.
+          url = URI.parse(item['url']).to_s()
+        rescue URI::InvalidURIError
+          Djinn.log_warn("Invalid URL: #{item['url']}. Skipping cron entry.")
+          next
+        end
+
         schedule = item["schedule"]
         timezone = item["timezone"] # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -87,9 +94,15 @@ CRON
 
       cron_xml.each_element('//cron') { |item|
         description = get_from_xml(item, "description")
-        # since url gets put at end of curl, need to ensure it
-        # is of the form /baz to prevent malicious urls
-        url = (get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/)*"").to_s
+
+        begin
+          # Parse URL to prevent malicious code from being appended.
+          url = URI.parse(item['url']).to_s()
+        rescue URI::InvalidURIError
+          Djinn.log_warn("Invalid URL: #{item['url']}. Skipping cron entry.")
+          next
+        end
+
         schedule = get_from_xml(item, "schedule")
         timezone = get_from_xml(item, "timezone") # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
