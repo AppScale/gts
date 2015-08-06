@@ -265,7 +265,7 @@ class BaseRequest(object):
         The URL through the host (no path)
         """
         e = self.environ
-        url = e['wsgi.url_scheme'] + '://'
+        url = self.scheme + '://'
         if e.get('HTTP_HOST'):
             host = e['HTTP_HOST']
             if ':' in host:
@@ -276,10 +276,10 @@ class BaseRequest(object):
         else:
             host = e['SERVER_NAME']
             port = e['SERVER_PORT']
-        if self.environ['wsgi.url_scheme'] == 'https':
+        if self.scheme == 'https':
             if port == '443':
                 port = None
-        elif self.environ['wsgi.url_scheme'] == 'http':
+        elif self.scheme == 'http':
             if port == '80':
                 port = None
         url += host
