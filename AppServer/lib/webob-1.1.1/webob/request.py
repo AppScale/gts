@@ -71,10 +71,6 @@ class BaseRequest(object):
                         "Unexpected keyword: %s=%r" % (name, value))
                 setattr(self, name, value)
 
-        if ('HTTP_X_FORWARDED_SSL' in environ
-            and environ['HTTP_X_FORWARDED_SSL'] == 'on'):
-            self.scheme = 'https'
-
     # this is necessary for correct warnings depth for both
     # BaseRequest and Request (due to AdhocAttrMixin.__setattr__)
     _setattr_stacklevel = 2
@@ -137,7 +133,6 @@ class BaseRequest(object):
             self.make_body_seekable()
         return self.body_file_raw
 
-    scheme = environ_getter('wsgi.url_scheme')
     method = environ_getter('REQUEST_METHOD', 'GET')
     http_version = environ_getter('SERVER_PROTOCOL')
     script_name = environ_getter('SCRIPT_NAME', '')
@@ -253,6 +248,16 @@ class BaseRequest(object):
         self.headers.update(value)
 
     headers = property(_headers__get, _headers__set, doc=_headers__get.__doc__)
+
+    @property
+    def scheme(self):
+        environ = self.environ
+        if 'HTTP_X_FORWARDED_PROTO' in environ:
+            return environ['HTTP_X_FORWARDED_PROTO']
+        elif 'wsgi.url_scheme' in environ:
+            return environ['wsgi.url_scheme']
+        else:
+            return 'http'
 
     @property
     def host_url(self):
