@@ -71,7 +71,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "set_apps", "app_names", "secret")
     add_method(@djinn, "status", "secret")
     add_method(@djinn, "get_stats", "secret")
-    add_method(@djinn, "get_stats_json", "secret")
     add_method(@djinn, "upload_app", "archived_file", "file_suffix", "email",
       "secret")
     add_method(@djinn, "get_app_upload_status", "reservation_id", "secret")

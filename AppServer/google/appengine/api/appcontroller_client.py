@@ -112,18 +112,6 @@ class AppControllerClient():
       raise AppControllerException(result)
 
 
-  def get_all_public_ips(self):
-    """Queries the AppController for a list of all the machines running in this
-    AppScale deployment, and returns their public IP addresses.
-
-    Returns:
-      A list of the public IP addresses of each machine in this AppScale
-      deployment.
-    """
-    return json.loads(self.call(self.MAX_RETRIES,
-      self.server.get_all_public_ips, self.secret))
-
-
   def get_role_info(self):
     """Queries the AppController to determine what each node in the deployment
     is doing and how it can be externally or internally reached.

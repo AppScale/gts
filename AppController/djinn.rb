@@ -1009,6 +1009,7 @@ class Djinn
     stats = get_stats(secret)
 
     stats_str = <<-STATUS
+Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
     Currently using #{stats['cpu']} Percent CPU and #{stats['memory']} Percent Memory
     Hard disk is #{stats['disk']} Percent full
     Is currently: #{stats['roles'].join(', ')}
@@ -1055,6 +1056,19 @@ class Djinn
         end
       }
     end
+
+    # Query the other nodes in this deployment.
+    @all_stats.each { |node|
+      stats_str = <<-STATUS
+Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
+    Currently using #{node['cpu']} Percent CPU and #{node['memory']} Percent Memory
+    Hard disk is #{node['disk']} Percent full
+    Is currently: #{node['roles'].join(', ')}
+    Database is at #{node['db_location']}
+    Is in cloud: #{node['cloud']}
+    Current State: #{node['state']}
+    STATUS
+    }
 
     return stats_str
   end
@@ -1133,21 +1147,6 @@ class Djinn
       return ID_NOT_FOUND
     end
   end
-
-  # Gets the statistics of all the nodes in the AppScale deployment.
-  #
-  # Args:
-  #   secret: A string with the shared key for authentication.
-  # Returns:
-  #   A JSON string with the statistics of the nodes.
-  def get_stats_json(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
-    return JSON.dump(@all_stats)
-  end
-
 
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
