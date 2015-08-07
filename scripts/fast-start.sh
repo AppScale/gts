@@ -137,6 +137,7 @@ if [ ! -e AppScaleFile ]; then
         echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
         echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
     fi
+    echo "group : faststart-${PROVIDER}" >> AppScalefile
     echo "done."
 
     # Let's allow root login (appscale will need it to come up).
