@@ -1158,7 +1158,7 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
       ip = node.private_ip
       begin
         if ip == my_node.private_ip
-          @all_stats << get_stats()
+          @all_stats << get_stats(@@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
           @all_stats << acc.get_stats()
@@ -1513,8 +1513,8 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
       ip = @nodes[index].private_ip
       begin
         if ip == my_node.private_ip
-          result = set_apps(apps)
-        then
+          result = set_apps(apps, @@secret)
+        else
           acc = AppControllerClient.new(ip, @@secret)
           result = acc.set_apps(apps)
         end
@@ -1539,7 +1539,7 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
         ip = @nodes[index].private_ip
         begin
           if ip == my_node.private_ip
-            result = set_apps_to_restart(apps_to_restart)
+            result = set_apps_to_restart(apps_to_restart, @@secret)
           else
             acc = AppControllerClient.new(ip, @@secret)
             result = acc.set_apps_to_restart(apps_to_restart)
