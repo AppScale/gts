@@ -1019,7 +1019,7 @@ class Djinn
     # We use the cached stats we have already collected.
     @all_stats.each { |node|
       stats_str = <<-STATUS
-Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
+Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
     Currently using #{node['cpu']} Percent CPU and #{node['memory']} Percent Memory
     Hard disk is #{node['disk']} Percent full
     Is currently: #{node['roles'].join(', ')}
@@ -1031,13 +1031,13 @@ Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
       # We print the application's status only for the login node.
       if my_node.private_ip == node.private_ip
         app_names = []
-        stats['apps'].each { |k, v|
+        nodes['apps'].each { |k, v|
           app_names << k
         }
 
         stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
 
-        stats['apps'].each { |app_name, is_loaded|
+        nodes['apps'].each { |app_name, is_loaded|
           next if !is_loaded
           next if app_name == "none"
           stats_str << "    Information for application: #{app_name}\n"
