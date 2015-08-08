@@ -1029,18 +1029,21 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
     STATUS
 
       # We print the application's status only for the login node.
-      if my_node.private_ip == node.private_ip
+      if my_node.private_ip == node['private_ip']
         app_names = []
-        nodes['apps'].each { |k, v|
+        node['apps'].each { |k, v|
           app_names << k
         }
 
         stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
 
-        nodes['apps'].each { |app_name, is_loaded|
-          next if !is_loaded
-          next if app_name == "none"
+        node['apps'].each { |app_name, is_loaded|
           stats_str << "    Information for application: #{app_name}\n"
+          next if app_name == "none"
+          if !is_loaded
+            stats_str << "        Application not loaded."
+            next
+          end
           stats_str << "        Language            : "
           if !@app_info_map[app_name]['language'].nil?
             stats_str << "#{@app_info_map[app_name]['language']}\n"
