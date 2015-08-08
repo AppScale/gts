@@ -1011,9 +1011,9 @@ class Djinn
       return
     end
 
-    # If we don't have stats yet, inform to try later on.
+    # If we don't have stats (most likely getting updated), inform to try later on.
     if @all_stats.length < 1
-      stats_str = "Stats have not been collected yet: try again later."
+      stats_str = "Stats are not available now: try again later."
     end
 
     # We use the cached stats we have already collected.
@@ -1153,21 +1153,22 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache()
-    @all_stats = []
+    new_stats = []
     @nodes.each { |node|
       ip = node.private_ip
       begin
         if ip == my_node.private_ip
-          @all_stats << get_stats(@@secret)
+          new_stats << get_stats(@@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
-          @all_stats << acc.get_stats()
+          new_stats << acc.get_stats()
         end
       rescue FailedNodeException
         Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
           "not adding it to our cached info.")
       end
     }
+    @all_stats = new_stats
   end
 
 
@@ -1182,6 +1183,22 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
       :keyname => @options["keyname"] }
     return JSON.dump(tree)
   end
+
+
+  # Gets the statistics of all the nodes in the AppScale deployment.
+  #
+  # Args:
+  #   secret: A string with the shared key for authentication.
+  # Returns:
+  #   A JSON string with the statistics of the nodes.
+  def get_stats_json(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    return JSON.dump(@all_stats)
+  end
+
 
   # Gets the statistics of only this node.
   #
