@@ -1006,58 +1006,17 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    stats = get_stats(secret)
-
-    stats_str = <<-STATUS
-Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
-    Currently using #{stats['cpu']} Percent CPU and #{stats['memory']} Percent Memory
-    Hard disk is #{stats['disk']} Percent full
-    Is currently: #{stats['roles'].join(', ')}
-    Database is at #{stats['db_location']}
-    Is in cloud: #{stats['cloud']}
-    Current State: #{stats['state']}
-    STATUS
-
-    if my_node.is_login?
-      app_names = []
-      stats['apps'].each { |k, v|
-        app_names << k
-      }
-
-      stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
-
-      stats['apps'].each { |app_name, is_loaded|
-        next if !is_loaded
-        next if app_name == "none"
-        stats_str << "    Information for application: #{app_name}\n"
-        stats_str << "        Language            : "
-        if !@app_info_map[app_name]['language'].nil?
-          stats_str << "#{@app_info_map[app_name]['language']}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        Number of AppServers: "
-        if !@app_info_map[app_name]['appengine'].nil?
-          stats_str << "#{@app_info_map[app_name]['appengine'].length}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        HTTP port           : "
-        if !@app_info_map[app_name]['nginx'].nil?
-            stats_str << "#{@app_info_map[app_name]['nginx']}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        HTTPS port          : "
-        if !@app_info_map[app_name]['nginx'].nil?
-            stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-      }
+    # Login node is the only one serving this call.
+    if not my_node.is_login?
+      return
     end
 
-    # Query the other nodes in this deployment.
+    # If we don't have stats yet, inform to try later on.
+    if @all_stats.length < 1
+      stats_str = "Stats have not been collected yet: try again later."
+    end
+
+    # We use the cached stats we have already collected.
     @all_stats.each { |node|
       stats_str = <<-STATUS
 Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
@@ -1068,6 +1027,46 @@ Status of node at #{stats['ip']} (private ip: #{stats['private_ip']}):
     Is in cloud: #{node['cloud']}
     Current State: #{node['state']}
     STATUS
+
+      # We print the application's status only for the login node.
+      if my_node.private_ip == node.private_ip
+        app_names = []
+        stats['apps'].each { |k, v|
+          app_names << k
+        }
+
+        stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
+
+        stats['apps'].each { |app_name, is_loaded|
+          next if !is_loaded
+          next if app_name == "none"
+          stats_str << "    Information for application: #{app_name}\n"
+          stats_str << "        Language            : "
+          if !@app_info_map[app_name]['language'].nil?
+            stats_str << "#{@app_info_map[app_name]['language']}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+          stats_str << "        Number of AppServers: "
+          if !@app_info_map[app_name]['appengine'].nil?
+            stats_str << "#{@app_info_map[app_name]['appengine'].length}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+          stats_str << "        HTTP port           : "
+          if !@app_info_map[app_name]['nginx'].nil?
+              stats_str << "#{@app_info_map[app_name]['nginx']}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+          stats_str << "        HTTPS port          : "
+          if !@app_info_map[app_name]['nginx'].nil?
+              stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+        }
+      end
     }
 
     return stats_str
