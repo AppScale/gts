@@ -1427,7 +1427,7 @@ module HelperFunctions
       return tree['env_variables'] || {}
     elsif File.exists?(appengine_web_xml_file)
       env_vars = {}
-      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
       match_data = xml.scan(/<env-var name="(.*)" value="(.*)" \/>/)
       match_data.each { |key_and_val|
         if key_and_val.length == 2
@@ -1463,7 +1463,7 @@ module HelperFunctions
       return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"
-      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
       match_data = xml.scan(/<threadsafe>(.*)<\/threadsafe>/)
       match_data.each { |key_and_val|
         if key_and_val.length == 1
