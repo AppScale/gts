@@ -1156,10 +1156,13 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
     @all_stats = []
     @nodes.each { |node|
       ip = node.private_ip
-      acc = AppControllerClient.new(ip, @@secret)
-
       begin
-        @all_stats << acc.get_stats()
+        if ip == my_node.private_ip
+          @all_stats << get_stats()
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          @all_stats << acc.get_stats()
+        end
       rescue FailedNodeException
         Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
           "not adding it to our cached info.")
@@ -1373,10 +1376,13 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
           next if node.private_ip == my_node.private_ip
           if node.is_appengine? or node.is_login?
             ip = node.private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-
             begin
-              result = acc.stop_app(app_name)
+              if node.private_ip == my_node.private_ip
+                result = stop_app(app_name)
+              else
+                acc = AppControllerClient.new(ip, @@secret)
+                result = acc.stop_app(app_name)
+              end
               Djinn.log_debug("Removing application #{app_name} from #{ip} " +
                 "returned #{result}")
             rescue FailedNodeException
@@ -1505,9 +1511,13 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
     # Begin by starting any new App Engine apps.
     @nodes.each_index { |index|
       ip = @nodes[index].private_ip
-      acc = AppControllerClient.new(ip, @@secret)
       begin
-        result = acc.set_apps(apps)
+        if ip == my_node.private_ip
+          result = set_apps(apps)
+        then
+          acc = AppControllerClient.new(ip, @@secret)
+          result = acc.set_apps(apps)
+        end
         Djinn.log_debug("Set apps at #{ip} returned #{result}.")
       rescue FailedNodeException
         Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
@@ -1527,9 +1537,13 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
 
       @nodes.each_index { |index|
         ip = @nodes[index].private_ip
-        acc = AppControllerClient.new(ip, @@secret)
         begin
-          result = acc.set_apps_to_restart(apps_to_restart)
+          if ip == my_node.private_ip
+            result = set_apps_to_restart(apps_to_restart)
+          else
+            acc = AppControllerClient.new(ip, @@secret)
+            result = acc.set_apps_to_restart(apps_to_restart)
+          end
           Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
         rescue FailedNodeException
           Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
@@ -1634,10 +1648,6 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
       # of the apps running in AppScale. Update the files it reads to
       # reflect the most up-to-date info.
       if my_node.is_login?
-        @nodes.each { |node|
-          get_status(node)
-        }
-
         update_node_info_cache()
       end
 
@@ -2090,7 +2100,6 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
   def erase_old_data()
     Djinn.log_run("rm -rf /tmp/h*")
     Djinn.log_run("rm -f ~/.appscale_cookies")
-    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
     Nginx.clear_sites_enabled()
@@ -2384,39 +2393,6 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
       "IP #{private_ip} to a public address.")
     HelperFunctions.log_and_crash("[get public ip] Couldn't convert private " +
       "IP #{private_ip} to a public address.")
-  end
-
-  def get_status(node)
-    ip = node.private_ip
-    ssh_key = node.ssh_key
-    acc = AppControllerClient.new(ip, @@secret)
-
-    begin
-      if !acc.is_done_loading?
-        Djinn.log_info("Node at #{ip} is not done loading yet - will try " +
-          "again later.")
-        return
-      end
-    rescue FailedNodeException
-      Djinn.log_warn("Node at #{ip} is not responding to loading requests " +
-        "- will try again later.")
-    end
-
-    begin
-      status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
-      stats = acc.get_stats()
-      json_state = JSON.dump(stats)
-      HelperFunctions.write_file(status_file, json_state)
-
-      if !my_node.is_login?
-        login_ip = get_login.private_ip
-        HelperFunctions.scp_file(status_file, status_file, login_ip, ssh_key)
-      end
-    rescue FailedNodeException
-      Djinn.log_warn("Node at #{ip} is not responding to status requests " +
-        "- will try again later.")
-      return
-    end
   end
 
   # Collects all AppScale-generated logs from all machines, and places them in
