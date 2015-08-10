@@ -49,7 +49,6 @@ class TaskQueueClient
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
       raise FailedNodeException.new("Time out: is the AppController running?")
-    end
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
       OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
       Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
@@ -62,6 +61,7 @@ class TaskQueueClient
         Kernel.sleep(3)
         retry
       end
+    end
   end
 
 
