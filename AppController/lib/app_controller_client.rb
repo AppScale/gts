@@ -84,9 +84,16 @@ class AppControllerClient
     @conn.add_method("add_appserver_process", "app_id", "secret")
     @conn.add_method("remove_appserver_process", "app_id", "port", "secret")
   end
-  
 
-  # Provides automatic retry logic for transient SOAP errors.
+
+  # Provides automatic retry logic for transient SOAP errors. This code is
+  # used in few others client (it should be made in a library):
+  #   lib/infrastructure_manager_client.rb
+  #   lib/user_app_client.rb
+  #   lib/taskqueue_client.rb
+  #   lib/app_manager_client.rb
+  #   lib/app_controller_client.rb
+  # Modification in this function should be reflected on the others too.
   #
   # Args:
   #   time: A Fixnum that indicates how long the timeout should be set to when
@@ -108,38 +115,33 @@ class AppControllerClient
     refused_count = 0
     max = 5
 
+    # Do we need to retry at all?
+    if not retry_on_except
+      refused_count = max + 1
+    end
+
     begin
       Timeout::timeout(time) {
         yield if block_given?
       }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
-      if refused_count > max
-        raise FailedNodeException.new("Connection was refused. Is the " +
-          "AppController running?")
-      else
-        refused_count += 1
-        Kernel.sleep(1)
-        retry
-      end
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      return
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET, SOAP::EmptyResponseError => e
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Error in make_call: #{e.class}\n#{backtrace}")
-      retry
-    rescue Exception => except
-      if retry_on_except
-        retry
+      raise FailedNodeException.new("Time out: is the AppController running?")
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+      OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+      Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+      trace = e.backtrace.join("\n")
+      Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
+      if refused_count > max
+        raise FailedNodeException.new("[#{callr}] failed to interact with #{@ip}.")
       else
-        trace = except.backtrace.join("\n")
-        HelperFunctions.log_and_crash("[#{callr}] We saw an unexpected error" +
-          " of the type #{except.class} with the following message:\n" +
-          "#{except}, with trace: #{trace}")
+        refused_count += 1
+        Kernel.sleep(3)
+        retry
       end
     end
   end
+
 
   def set_parameters(locations, options, apps_to_start)
     result = ""

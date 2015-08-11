@@ -34,87 +34,93 @@ class AppManagerClient
     @conn.add_method("restart_app_instances_for_app", "app_name", "language")
   end
 
-  # Make a SOAP call out to the AppManager. 
-  # 
-  # Args: 
-  #   timeout: The maximum time to wait on a remote call
-  #   retry_on_except: Boolean if we should keep retrying the 
-  #     the call
-  # Returns:
-  #   The result of the remote call.
-  # TODO: 
-  #   This code was copy/pasted from app_controller_client 
-  #   and can be factored out to a library. Note this for 
-  #   the transition to the python port.
+  # Provides automatic retry logic for transient SOAP errors. This code is
+  # used in few others client (it should be made in a library):
+  #   lib/infrastructure_manager_client.rb
+  #   lib/user_app_client.rb
+  #   lib/taskqueue_client.rb
+  #   lib/app_manager_client.rb
+  #   lib/app_controller_client.rb
+  # Modification in this function should be reflected on the others too.
   #
-  def make_call(timeout, retry_on_except, callr)
-    result = ""
-    Djinn.log_debug("Calling the AppManager - #{callr}")
-    begin
-      Timeout::timeout(timeout) do
-        begin
-          yield if block_given?
-        end
-      end
-    rescue OpenSSL::SSL::SSLError => e
-      Djinn.log_warn("Saw a SSLError when calling #{callr}" +
-        " - trying again momentarily.")
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Exception: #{e.class}\n#{backtrace}")
-      retry
-    rescue Errno::ECONNREFUSED => except
-      if retry_on_except
-        Djinn.log_warn("Saw a connection refused when calling #{callr}" +
-          " - trying again momentarily.")
-        sleep(1)
-        retry
-      else
-        trace = except.backtrace.join("\n")
-        HelperFunctions.log_and_crash("We saw an unexpected error of the " +
-          "type #{except.class} with the following message:\n#{except}, with" +
-          " trace: #{trace}")
-      end 
-   rescue Exception => except
-      if except.class == Interrupt
-        Djinn.log_fatal("Saw an Interrupt exception")
-        HelperFunctions.log_and_crash("Saw an Interrupt Exception")
-      end
+  # Args:
+  #   time: A Fixnum that indicates how long the timeout should be set to when
+  #     executing the caller's block.
+  #   retry_on_except: A boolean that indicates if non-transient Exceptions
+  #     should result in the caller's block being retried or not.
+  #   callr: A String that names the caller's method, used for debugging
+  #     purposes.
+  #
+  # Raises:
+  #   FailedNodeException: if the given block contacted a machine that
+  #     is either not running or is rejecting connections.
+  #   SystemExit: If a non-transient Exception was thrown when executing the
+  #     given block.
+  # Returns:
+  #   The result of the block that was executed, or nil if the timeout was
+  #   exceeded.
+  def make_call(time, retry_on_except, callr)
+    refused_count = 0
+    max = 5
 
-      Djinn.log_error("An exception of type #{except.class} was thrown: #{except}.")
-      retry if retry_on_except
+    # Do we need to retry at all?
+    if not retry_on_except
+      refused_count = max + 1
+    end
+
+    begin
+      Timeout::timeout(time) {
+        yield if block_given?
+      }
+    rescue Timeout::Error
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      raise FailedNodeException.new("Time out: is the AppController running?")
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+      OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+      Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+      trace = e.backtrace.join("\n")
+      Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
+      if refused_count > max
+        raise FailedNodeException.new("[#{callr}] failed to interact with #{@ip}.")
+      else
+        refused_count += 1
+        Kernel.sleep(3)
+        retry
+      end
     end
   end
+
  
-   # Wrapper for SOAP call to the AppManager to start an process instance of 
-   # an application server.
-   #
-   # Args:
-   #   app_name: Name of the application
-   #   app_port: The port to run the application server
-   #   load_balancer_ip: The public IP of the load balancer
-   #   load_balancer_port: The port of the load balancer
-   #   language: The language the application is written in
-   #   xmpp_ip: The IP for XMPP
-   #   db_locations: An Array of datastore server IPs
-   #   env_vars: A Hash of environemnt variables that should be passed to the
-   #     application to start.
-   #   max_memory: An Integer that names the maximum amount of memory (in
-   #     megabytes) that should be used for this App Engine app.
-   # Returns:
-   #   The PID of the process started
-   # Note:
-   #   We currently send hashes over in SOAP using json because 
-   #   of incompatibilities between SOAP mappings from ruby to python. 
-   #   As we convert over to python we should use native dictionaries.
-   #
-   def start_app(app_name, 
-                 app_port,
-                 load_balancer_ip,
-                 language, 
-                 xmpp_ip,
-                 db_locations,
-                 env_vars,
-                 max_memory=500)
+  # Wrapper for SOAP call to the AppManager to start an process instance of
+  # an application server.
+  #
+  # Args:
+  #   app_name: Name of the application
+  #   app_port: The port to run the application server
+  #   load_balancer_ip: The public IP of the load balancer
+  #   load_balancer_port: The port of the load balancer
+  #   language: The language the application is written in
+  #   xmpp_ip: The IP for XMPP
+  #   db_locations: An Array of datastore server IPs
+  #   env_vars: A Hash of environemnt variables that should be passed to the
+  #     application to start.
+  #   max_memory: An Integer that names the maximum amount of memory (in
+  #     megabytes) that should be used for this App Engine app.
+  # Returns:
+  #   The PID of the process started
+  # Note:
+  #   We currently send hashes over in SOAP using json because
+  #   of incompatibilities between SOAP mappings from ruby to python.
+  #   As we convert over to python we should use native dictionaries.
+  #
+  def start_app(app_name,
+                app_port,
+                load_balancer_ip,
+                language,
+                xmpp_ip,
+                db_locations,
+                env_vars,
+                max_memory=500)
     config = {'app_name' => app_name,
               'app_port' => app_port,
               'load_balancer_ip' => load_balancer_ip,

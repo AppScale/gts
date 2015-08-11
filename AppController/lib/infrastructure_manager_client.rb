@@ -64,62 +64,58 @@ class InfrastructureManagerClient
   end
   
 
-  # A helper method that makes SOAP calls for us. This method is mainly here to
-  # reduce code duplication: all SOAP calls expect a certain timeout and can
-  # tolerate certain exceptions, so we consolidate this code into this method.
-  # Here, the caller specifies the timeout for the SOAP call (or NO_TIMEOUT
-  # if an infinite timeout is required) as well as whether the call should
-  # be retried in the face of exceptions. Exceptions can occur if the machine
-  # is not yet running or is too busy to handle the request, so these exceptions
-  # are automatically retried regardless of the retry value. Typically
-  # callers set this to false to catch 'Connection Refused' exceptions or
-  # the like. Finally, the caller must provide a block of
-  # code that indicates the SOAP call to make: this is really all that differs
-  # between the calling methods. The result of the block is returned to the
-  # caller. 
-  def make_call(time, retry_on_except, callr, ok_to_fail=false)
+  # Provides automatic retry logic for transient SOAP errors. This code is
+  # used in few others client (it should be made in a library):
+  #   lib/infrastructure_manager_client.rb
+  #   lib/user_app_client.rb
+  #   lib/taskqueue_client.rb
+  #   lib/app_manager_client.rb
+  #   lib/app_controller_client.rb
+  # Modification in this function should be reflected on the others too.
+  #
+  # Args:
+  #   time: A Fixnum that indicates how long the timeout should be set to when
+  #     executing the caller's block.
+  #   retry_on_except: A boolean that indicates if non-transient Exceptions
+  #     should result in the caller's block being retried or not.
+  #   callr: A String that names the caller's method, used for debugging
+  #     purposes.
+  #
+  # Raises:
+  #   FailedNodeException: if the given block contacted a machine that
+  #     is either not running or is rejecting connections.
+  #   SystemExit: If a non-transient Exception was thrown when executing the
+  #     given block.
+  # Returns:
+  #   The result of the block that was executed, or nil if the timeout was
+  #   exceeded.
+  def make_call(time, retry_on_except, callr)
     refused_count = 0
     max = 5
+
+    # Do we need to retry at all?
+    if not retry_on_except
+      refused_count = max + 1
+    end
 
     begin
       Timeout::timeout(time) {
         yield if block_given?
       }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH => except
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
+    rescue Timeout::Error
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      raise FailedNodeException.new("Time out: is the AppController running?")
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+      OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+      Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+      trace = e.backtrace.join("\n")
+      Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
       if refused_count > max
-        return false if ok_to_fail
-        Djinn.log_fatal("Connection refused. Is the AppController running?")
-        raise AppScaleException.new("Connection was refused. Is the " +
-          "AppController running?")
+        raise FailedNodeException.new("[#{callr}] failed to interact with #{@ip}.")
       else
         refused_count += 1
-        Kernel.sleep(1)
+        Kernel.sleep(3)
         retry
-      end
-    rescue Timeout::Error
-      Djinn.log_warn("Saw a Timeout Error")
-      return false if ok_to_fail
-      retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
-      newline = "\n"
-      Djinn.log_warn("make_call: exception: #{except.class}")
-      Djinn.log_warn("#{except.backtrace.join(newline)}")
-      Kernel.sleep(1)
-      retry
-    rescue Exception => except
-      newline = "\n"
-      Djinn.log_warn("Saw an Exception of class #{except.class}")
-      Djinn.log_warn("#{except.backtrace.join(newline)}")
-
-      if retry_on_except
-        Kernel.sleep(1)
-        retry
-      else
-        Djinn.log_fatal("Couldn't recover from a #{except.class} Exception, " +
-          "with message: #{except}")
-        raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
-          " the type #{except.class} with the following message:\n#{except}.")
       end
     end
   end
