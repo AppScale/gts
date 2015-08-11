@@ -1028,7 +1028,7 @@ Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
     Current State: #{node['state']}
     STATUS
 
-      # We print the application's status only for the login node.
+      # We print the application's status only when printing the login node information.
       if my_node.private_ip == node['private_ip']
         app_names = []
         node['apps'].each { |k, v|

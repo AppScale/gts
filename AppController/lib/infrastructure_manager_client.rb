@@ -82,7 +82,7 @@ class InfrastructureManagerClient
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
       raise FailedNodeException.new("Time out: is the AppController running?")
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, 
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
       OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
       Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
       trace = e.backtrace.join("\n")

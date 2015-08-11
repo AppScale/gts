@@ -69,7 +69,7 @@ class AppManagerClient
   end
 
  
-  # Wrapper for SOAP call to the AppManager to start an process instance of 
+  # Wrapper for SOAP call to the AppManager to start an process instance of
   # an application server.
   #
   # Args:
@@ -87,14 +87,14 @@ class AppManagerClient
   # Returns:
   #   The PID of the process started
   # Note:
-  #   We currently send hashes over in SOAP using json because 
-  #   of incompatibilities between SOAP mappings from ruby to python. 
+  #   We currently send hashes over in SOAP using json because
+  #   of incompatibilities between SOAP mappings from ruby to python.
   #   As we convert over to python we should use native dictionaries.
   #
-  def start_app(app_name, 
+  def start_app(app_name,
                 app_port,
                 load_balancer_ip,
-                language, 
+                language,
                 xmpp_ip,
                 db_locations,
                 env_vars,
