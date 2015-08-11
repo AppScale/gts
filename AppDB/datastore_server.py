@@ -3542,6 +3542,7 @@ class DatastoreDistributed():
       entry: A dictionary containing an index entry.
       entities: A dictionary of available valid entities.
       direction: The direction of the index.
+      prop_name: A string containing the property name.
     Returns:
       A boolean indicating whether or not the entry is valid.
     Raises:
@@ -3559,16 +3560,20 @@ class DatastoreDistributed():
     entity = entities[reference]
     entity_proto = entity_pb.EntityProto(entity)
 
+    # TODO: Return faster if not a repeated property.
+    prop_found = False
     for prop in entity_proto.property_list():
       if prop.name() != prop_name:
         continue
+      prop_found = True
 
       if index_value.Equals(prop.value()):
         return True
-      else:
-        return False
 
-    raise dbconstants.AppScaleDBError('Property name not found in entity.')
+    if not prop_found:
+      raise dbconstants.AppScaleDBError('Property name not found in entity.')
+
+    return False
 
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
