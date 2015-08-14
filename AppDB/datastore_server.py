@@ -2457,7 +2457,7 @@ class DatastoreDistributed():
     """ Keep only the first equality filter for a given property.
 
     Args:
-      potential_filter_ops: A list of tuples in the form (operation, value)
+      potential_filter_ops: A list of tuples in the form (operation, value).
     Returns:
       A filter_ops list with only one equality filter.
     """
