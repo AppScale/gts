@@ -2463,6 +2463,27 @@ class DatastoreDistributed():
         filtered[key] = filter_info[key]
     return filtered
 
+  def remove_extra_equality_filters(self, potential_filter_ops):
+    """ Keep only the first equality filter for a given property.
+
+    Args:
+      potential_filter_ops: A list of tuples in the form (operation, value)
+    Returns:
+      A filter_ops list with only one equality filter.
+    """
+    filter_ops = []
+    saw_equality_filter = False
+    for operation, value in potential_filter_ops:
+      if operation == datastore_pb.Query_Filter.EQUAL and saw_equality_filter:
+        continue
+
+      if operation == datastore_pb.Query_Filter.EQUAL:
+        saw_equality_filter = True
+
+      filter_ops.append((operation, value))
+
+    return filter_ops
+
   def __single_property_query(self, query, filter_info, order_info):
     """Performs queries satisfiable by the Single_Property tables.
 
