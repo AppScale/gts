@@ -2508,10 +2508,13 @@ class DatastoreDistributed():
       return None
 
     property_name = property_names.pop()
-    filter_ops = filter_info.get(property_name, [])
-    if len([1 for o, _ in filter_ops
-            if o == datastore_pb.Query_Filter.EQUAL]) > 1:
-      return None
+    potential_filter_ops = filter_info.get(property_name, [])
+
+    # We will apply the other equality filters after fetching the entities.
+    filter_ops = self.remove_extra_equality_filters(potential_filter_ops)
+
+    multiple_equality_filters = self.__get_multiple_equality_filters(
+      query.filter_list())
 
     if len(order_info) > 1 or (order_info and order_info[0][0] == '__key__'):
       return None
@@ -2583,6 +2586,12 @@ class DatastoreDistributed():
           entity_key = reference[reference.keys()[0]]['reference']
           valid_entity = potential_entities[entity_key]
           new_entities.append(valid_entity)
+
+      if len(multiple_equality_filters) > 0:
+        logging.debug('Detected multiple equality filters on a repeated'
+          'property. Removing results that do not match query.')
+        new_entities = self.__apply_multiple_equality_filters(
+          new_entities, multiple_equality_filters)
 
       entities.extend(new_entities)
 
