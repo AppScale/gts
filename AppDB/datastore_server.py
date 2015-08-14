@@ -1816,9 +1816,6 @@ class DatastoreDistributed():
     property_names = []
     for property_name in filter_info:
       filt = filter_info[property_name]
-      # There should only be one filter property for a given property.
-      if len(filt) > 1:
-        return False
       property_names.append(property_name)
       # We only handle equality filters for zigzag merge join queries.
       if filt[0][0] != datastore_pb.Query_Filter.EQUAL: 
@@ -2974,6 +2971,16 @@ class DatastoreDistributed():
     if query.has_ancestor():
       ancestor = query.ancestor()
 
+    # We will apply the other equality filters after fetching the entities.
+    clean_filter_info = {}
+    for prop in filter_info:
+      filter_ops = filter_info[prop]
+      clean_filter_info[prop] = self.remove_extra_equality_filters(filter_ops)
+    filter_info = clean_filter_info
+
+    multiple_equality_filters = self.__get_multiple_equality_filters(
+      query.filter_list())
+
     while more_results:
       reference_hash = {}
       temp_res = {}
@@ -3092,6 +3099,12 @@ class DatastoreDistributed():
 
       entities = self.__fetch_and_validate_entity_set(reference_hash, to_fetch,
         app_id, direction)
+
+      if len(multiple_equality_filters) > 0:
+        logging.debug('Detected multiple equality filters on a repeated'
+          'property. Removing results that do not match query.')
+        entities = self.__apply_multiple_equality_filters(
+          entities, multiple_equality_filters)
 
       result_list.extend(entities)
 
