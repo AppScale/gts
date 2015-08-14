@@ -1827,13 +1827,6 @@ class DatastoreDistributed():
     if len(filter_info) < 2:
       return False
 
-    # Check to make sure no property names show up twice.
-    # Casting a copy of the list to a set will remove duplicates, 
-    # and then we check to make sure it is still consistent with the 
-    # previous list.
-    if set(property_names[:]) != set(property_names):
-      return False
-
     for order_property_name in order_properties:
       if order_property_name not in property_names:
         return False
