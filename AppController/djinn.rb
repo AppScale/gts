@@ -1006,55 +1006,71 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    stats = get_stats(secret)
+    # Login node is the only one serving this call.
+    if not my_node.is_login?
+      return
+    end
 
-    stats_str = <<-STATUS
-    Currently using #{stats['cpu']} Percent CPU and #{stats['memory']} Percent Memory
-    Hard disk is #{stats['disk']} Percent full
-    Is currently: #{stats['roles'].join(', ')}
-    Database is at #{stats['db_location']}
-    Is in cloud: #{stats['cloud']}
-    Current State: #{stats['state']}
+    # If we don't have stats (most likely getting updated), inform to try later on.
+    if @all_stats.length < 1
+      stats_str = "Stats are not available now: try again later."
+    end
+
+    # We use the cached stats we have already collected.
+    @all_stats.each { |node|
+      stats_str = <<-STATUS
+Status of node at #{node['ip']} (private ip: #{node['private_ip']}):
+    Currently using #{node['cpu']} Percent CPU and #{node['memory']} Percent Memory
+    Hard disk is #{node['disk']} Percent full
+    Is currently: #{node['roles'].join(', ')}
+    Database is at #{node['db_location']}
+    Is in cloud: #{node['cloud']}
+    Current State: #{node['state']}
     STATUS
 
-    if my_node.is_login?
-      app_names = []
-      stats['apps'].each { |k, v|
-        app_names << k
-      }
+      # We print the application's status only when printing the login node information.
+      if my_node.private_ip == node['private_ip']
+        app_names = []
+        node['apps'].each { |k, v|
+          app_names << k
+        }
 
-      stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
+        stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
 
-      stats['apps'].each { |app_name, is_loaded|
-        next if !is_loaded
-        next if app_name == "none"
-        stats_str << "    Information for application: #{app_name}\n"
-        stats_str << "        Language            : "
-        if !@app_info_map[app_name]['language'].nil?
-          stats_str << "#{@app_info_map[app_name]['language']}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        Number of AppServers: "
-        if !@app_info_map[app_name]['appengine'].nil?
-          stats_str << "#{@app_info_map[app_name]['appengine'].length}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        HTTP port           : "
-        if !@app_info_map[app_name]['nginx'].nil?
-            stats_str << "#{@app_info_map[app_name]['nginx']}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        HTTPS port          : "
-        if !@app_info_map[app_name]['nginx'].nil?
-            stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-      }
-    end
+        node['apps'].each { |app_name, is_loaded|
+          stats_str << "    Information for application: #{app_name}\n"
+          next if app_name == "none"
+          if !is_loaded
+            stats_str << "        Application not loaded."
+            next
+          end
+          stats_str << "        Language            : "
+          if !@app_info_map[app_name]['language'].nil?
+            stats_str << "#{@app_info_map[app_name]['language']}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+          stats_str << "        Number of AppServers: "
+          if !@app_info_map[app_name]['appengine'].nil?
+            stats_str << "#{@app_info_map[app_name]['appengine'].length}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+          stats_str << "        HTTP port           : "
+          if !@app_info_map[app_name]['nginx'].nil?
+              stats_str << "#{@app_info_map[app_name]['nginx']}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+          stats_str << "        HTTPS port          : "
+          if !@app_info_map[app_name]['nginx'].nil?
+              stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
+          else
+            stats_str << "Unknown\n"
+          end
+        }
+      end
+    }
 
     return stats_str
   end
@@ -1134,36 +1150,25 @@ class Djinn
     end
   end
 
-  # Gets the statistics of all the nodes in the AppScale deployment.
-  #
-  # Args:
-  #   secret: A string with the shared key for authentication.
-  # Returns:
-  #   A JSON string with the statistics of the nodes.
-  def get_stats_json(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
-    return JSON.dump(@all_stats)
-  end
-
-
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache()
-    @all_stats = []
+    new_stats = []
     @nodes.each { |node|
       ip = node.private_ip
-      acc = AppControllerClient.new(ip, @@secret)
-
       begin
-        @all_stats << acc.get_stats()
+        if ip == my_node.private_ip
+          new_stats << get_stats(@@secret)
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          new_stats << acc.get_stats()
+        end
       rescue FailedNodeException
         Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
           "not adding it to our cached info.")
       end
     }
+    @all_stats = new_stats
   end
 
 
@@ -1178,6 +1183,22 @@ class Djinn
       :keyname => @options["keyname"] }
     return JSON.dump(tree)
   end
+
+
+  # Gets the statistics of all the nodes in the AppScale deployment.
+  #
+  # Args:
+  #   secret: A string with the shared key for authentication.
+  # Returns:
+  #   A JSON string with the statistics of the nodes.
+  def get_stats_json(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    return JSON.dump(@all_stats)
+  end
+
 
   # Gets the statistics of only this node.
   #
@@ -1372,10 +1393,13 @@ class Djinn
           next if node.private_ip == my_node.private_ip
           if node.is_appengine? or node.is_login?
             ip = node.private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-
             begin
-              result = acc.stop_app(app_name)
+              if node.private_ip == my_node.private_ip
+                result = stop_app(app_name)
+              else
+                acc = AppControllerClient.new(ip, @@secret)
+                result = acc.stop_app(app_name)
+              end
               Djinn.log_debug("Removing application #{app_name} from #{ip} " +
                 "returned #{result}")
             rescue FailedNodeException
@@ -1504,9 +1528,13 @@ class Djinn
     # Begin by starting any new App Engine apps.
     @nodes.each_index { |index|
       ip = @nodes[index].private_ip
-      acc = AppControllerClient.new(ip, @@secret)
       begin
-        result = acc.set_apps(apps)
+        if ip == my_node.private_ip
+          result = set_apps(apps, @@secret)
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          result = acc.set_apps(apps)
+        end
         Djinn.log_debug("Set apps at #{ip} returned #{result}.")
       rescue FailedNodeException
         Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
@@ -1526,9 +1554,13 @@ class Djinn
 
       @nodes.each_index { |index|
         ip = @nodes[index].private_ip
-        acc = AppControllerClient.new(ip, @@secret)
         begin
-          result = acc.set_apps_to_restart(apps_to_restart)
+          if ip == my_node.private_ip
+            result = set_apps_to_restart(apps_to_restart, @@secret)
+          else
+            acc = AppControllerClient.new(ip, @@secret)
+            result = acc.set_apps_to_restart(apps_to_restart)
+          end
           Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
         rescue FailedNodeException
           Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
@@ -1633,10 +1665,6 @@ class Djinn
       # of the apps running in AppScale. Update the files it reads to
       # reflect the most up-to-date info.
       if my_node.is_login?
-        @nodes.each { |node|
-          get_status(node)
-        }
-
         update_node_info_cache()
       end
 
@@ -2089,7 +2117,6 @@ class Djinn
   def erase_old_data()
     Djinn.log_run("rm -rf /tmp/h*")
     Djinn.log_run("rm -f ~/.appscale_cookies")
-    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
     Nginx.clear_sites_enabled()
@@ -2383,39 +2410,6 @@ class Djinn
       "IP #{private_ip} to a public address.")
     HelperFunctions.log_and_crash("[get public ip] Couldn't convert private " +
       "IP #{private_ip} to a public address.")
-  end
-
-  def get_status(node)
-    ip = node.private_ip
-    ssh_key = node.ssh_key
-    acc = AppControllerClient.new(ip, @@secret)
-
-    begin
-      if !acc.is_done_loading?
-        Djinn.log_info("Node at #{ip} is not done loading yet - will try " +
-          "again later.")
-        return
-      end
-    rescue FailedNodeException
-      Djinn.log_warn("Node at #{ip} is not responding to loading requests " +
-        "- will try again later.")
-    end
-
-    begin
-      status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
-      stats = acc.get_stats()
-      json_state = JSON.dump(stats)
-      HelperFunctions.write_file(status_file, json_state)
-
-      if !my_node.is_login?
-        login_ip = get_login.private_ip
-        HelperFunctions.scp_file(status_file, status_file, login_ip, ssh_key)
-      end
-    rescue FailedNodeException
-      Djinn.log_warn("Node at #{ip} is not responding to status requests " +
-        "- will try again later.")
-      return
-    end
   end
 
   # Collects all AppScale-generated logs from all machines, and places them in
