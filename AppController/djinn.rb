@@ -4495,10 +4495,12 @@ HOSTS
   def setup_appengine_application(app, is_new_app)
     initialize_scaling_info_for_app(app)
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_language = ""
     loop {
       begin
         app_data = uac.get_app_data(app)
         if app_data[0..4] != "Error"
+          app_language = (app_data.scan(/language:(\w+)/).*"").to_s
           break
         end
       rescue FailedNodeException
@@ -4510,7 +4512,6 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_language = (app_data.scan(/language:(\w+)/).*"").to_s
 
     if is_new_app and @app_info_map[app].nil?
       @app_info_map[app] = {}
@@ -5095,23 +5096,23 @@ HOSTS
     app_manager = AppManagerClient.new(my_node.private_ip)
 
     warmup_url = "/"
+    app_language = ""
 
     Thread.new {
       loop {
-  
         begin
           app_data = uac.get_app_data(app)
           if app_data[0..4] != "Error"
+            app_language = (app_data.scan(/language:(\w+)/)*"").to_s
             break
           end
         rescue FailedNodeException
           # Failed to talk to UserAppServer: retry again.
         end
-        Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+        Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
         Kernel.sleep(5)
       }
 
-      app_language = (app_data.scan(/language:(\w+)/)*"").to_s
       my_public = my_node.public_ip
       my_private = my_node.private_ip
 
@@ -5191,7 +5192,7 @@ HOSTS
         return
       end
 
-      Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
+      Djinn.log_debug("Get app data for #{app}")
 
       begin
         app_is_enabled = uac.does_app_exist?(app)
