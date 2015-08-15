@@ -667,6 +667,7 @@ class Djinn
     @app_info_map[appid]['nginx_https'] = https_port
     proxy_port = @app_info_map[appid]['haproxy']
     my_private = my_node.private_ip
+    my_public = my_node.public_ip
     login_ip = get_login.private_ip
 
     # Since we've changed what ports the app runs on, we should persist this
@@ -702,7 +703,6 @@ class Djinn
 
     Thread.new {
       # Next, remove the old port from the UAServer and add the new one.
-      my_public = my_node.public_ip
       uac = UserAppClient.new(@userappserver_private_ip, @@secret)
       begin
         uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
