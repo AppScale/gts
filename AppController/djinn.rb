@@ -3223,9 +3223,13 @@ class Djinn
   end
 
   def got_all_data()
+    Djinn.log_debug("[got_all_data]: checking nodes.")
     return false if @nodes == []
+    Djinn.log_debug("[got_all_data]: checking options.")
     return false if @options == {}
+    Djinn.log_debug("[got_all_data]: checking app_names.")
     return false if @app_names == []
+    Djinn.log_debug("[got_all_data]: done.")
     return true
   end
 

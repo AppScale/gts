@@ -87,7 +87,7 @@ class AppControllerClient
 
 
   # Provides automatic retry logic for transient SOAP errors. This code is
-  # used in few others client (it should be made in a library):
+  # used in few other clients (it should be made in a library):
   #   lib/infrastructure_manager_client.rb
   #   lib/user_app_client.rb
   #   lib/taskqueue_client.rb
@@ -112,33 +112,24 @@ class AppControllerClient
   #   The result of the block that was executed, or nil if the timeout was
   #   exceeded.
   def make_call(time, retry_on_except, callr)
-    refused_count = 0
-    max = 5
-
-    # Do we need to retry at all?
-    if not retry_on_except
-      refused_count = max + 1
-    end
-
     begin
       Timeout::timeout(time) {
-        yield if block_given?
+        begin
+          yield if block_given?
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+          OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+          Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+          trace = e.backtrace.join("\n")
+          Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
+          if retry_on_except
+            Kernel.sleep(1)
+            retry
+          end
+        end
       }
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
       raise FailedNodeException.new("Time out: is the AppController running?")
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
-      OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
-      trace = e.backtrace.join("\n")
-      Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
-      if refused_count > max
-        raise FailedNodeException.new("[#{callr}] failed to interact with #{@ip}.")
-      else
-        refused_count += 1
-        Kernel.sleep(3)
-        retry
-      end
     end
   end
 
