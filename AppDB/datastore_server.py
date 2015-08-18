@@ -1816,22 +1816,12 @@ class DatastoreDistributed():
     property_names = []
     for property_name in filter_info:
       filt = filter_info[property_name]
-      # There should only be one filter property for a given property.
-      if len(filt) > 1:
-        return False
       property_names.append(property_name)
       # We only handle equality filters for zigzag merge join queries.
       if filt[0][0] != datastore_pb.Query_Filter.EQUAL: 
         return False
 
     if len(filter_info) < 2:
-      return False
-
-    # Check to make sure no property names show up twice.
-    # Casting a copy of the list to a set will remove duplicates, 
-    # and then we check to make sure it is still consistent with the 
-    # previous list.
-    if set(property_names[:]) != set(property_names):
       return False
 
     for order_property_name in order_properties:
@@ -2463,6 +2453,27 @@ class DatastoreDistributed():
         filtered[key] = filter_info[key]
     return filtered
 
+  def remove_extra_equality_filters(self, potential_filter_ops):
+    """ Keep only the first equality filter for a given property.
+
+    Args:
+      potential_filter_ops: A list of tuples in the form (operation, value).
+    Returns:
+      A filter_ops list with only one equality filter.
+    """
+    filter_ops = []
+    saw_equality_filter = False
+    for operation, value in potential_filter_ops:
+      if operation == datastore_pb.Query_Filter.EQUAL and saw_equality_filter:
+        continue
+
+      if operation == datastore_pb.Query_Filter.EQUAL:
+        saw_equality_filter = True
+
+      filter_ops.append((operation, value))
+
+    return filter_ops
+
   def __single_property_query(self, query, filter_info, order_info):
     """Performs queries satisfiable by the Single_Property tables.
 
@@ -2487,10 +2498,13 @@ class DatastoreDistributed():
       return None
 
     property_name = property_names.pop()
-    filter_ops = filter_info.get(property_name, [])
-    if len([1 for o, _ in filter_ops
-            if o == datastore_pb.Query_Filter.EQUAL]) > 1:
-      return None
+    potential_filter_ops = filter_info.get(property_name, [])
+
+    # We will apply the other equality filters after fetching the entities.
+    filter_ops = self.remove_extra_equality_filters(potential_filter_ops)
+
+    multiple_equality_filters = self.__get_multiple_equality_filters(
+      query.filter_list())
 
     if len(order_info) > 1 or (order_info and order_info[0][0] == '__key__'):
       return None
@@ -2562,6 +2576,12 @@ class DatastoreDistributed():
           entity_key = reference[reference.keys()[0]]['reference']
           valid_entity = potential_entities[entity_key]
           new_entities.append(valid_entity)
+
+      if len(multiple_equality_filters) > 0:
+        logging.debug('Detected multiple equality filters on a repeated'
+          'property. Removing results that do not match query.')
+        new_entities = self.__apply_multiple_equality_filters(
+          new_entities, multiple_equality_filters)
 
       entities.extend(new_entities)
 
@@ -2951,6 +2971,16 @@ class DatastoreDistributed():
     if query.has_ancestor():
       ancestor = query.ancestor()
 
+    # We will apply the other equality filters after fetching the entities.
+    clean_filter_info = {}
+    for prop in filter_info:
+      filter_ops = filter_info[prop]
+      clean_filter_info[prop] = self.remove_extra_equality_filters(filter_ops)
+    filter_info = clean_filter_info
+
+    multiple_equality_filters = self.__get_multiple_equality_filters(
+      query.filter_list())
+
     while more_results:
       reference_hash = {}
       temp_res = {}
@@ -3069,6 +3099,12 @@ class DatastoreDistributed():
 
       entities = self.__fetch_and_validate_entity_set(reference_hash, to_fetch,
         app_id, direction)
+
+      if len(multiple_equality_filters) > 0:
+        logging.debug('Detected multiple equality filters on a repeated'
+          'property. Removing results that do not match query.')
+        entities = self.__apply_multiple_equality_filters(
+          entities, multiple_equality_filters)
 
       result_list.extend(entities)
 
