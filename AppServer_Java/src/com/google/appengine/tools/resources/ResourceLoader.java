@@ -12,7 +12,7 @@ public class ResourceLoader
     private String                DEFAULT_KEYSTORE_PASSWORD = "importkey";
     private final static String   APPSCALE_HOME_PROPERTY    = "APPSCALE_HOME";
     private final String          HADOOP_PATH               = "/AppDB/hadoop-0.20.0";
-    private final String          MEMCACHE_SERVER_IP_PATH   = "/.appscale/all_ips";
+    private final String          MEMCACHE_SERVER_IP_PATH   = "/.appscale/memcache_ips";
     private final boolean         IS_SSL                    = false;
     private final String          TMP_LOCATION              = "/tmp";
     private final String          NUM_NODES_LOCATION        = "/.appscale/num_of_nodes";
