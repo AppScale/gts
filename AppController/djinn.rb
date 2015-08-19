@@ -1649,7 +1649,11 @@ class Djinn
       write_zookeeper_locations()
       flush_log_buffer()
 
-      update_local_nodes()
+      if update_local_nodes()
+        Djinn.log_info("[job_start]: updated local node configuration")
+      else
+        Djinn.log_debug("[job_start]: no need to update local node configuration")
+      end
 
       if my_node.is_shadow?
         # Since we now backup state to ZK, don't make everyone do it.
@@ -1665,25 +1669,21 @@ class Djinn
         backup_appserver_state()
       end
 
-      # Login nodes host the AppDashboard app, which has links to each
-      # of the apps running in AppScale. Update the files it reads to
-      # reflect the most up-to-date info.
+      # Login node gets the statistic for all nodes.
       if my_node.is_login?
-        @nodes.each { |node|
-          get_status(node)
-        }
-
         update_node_info_cache()
       end
 
       # TODO: consider only calling this if new apps are found
-      start_appengine()
-      restart_appengine_apps()
-      if my_node.is_login?
-        scale_appservers_within_nodes()
-        scale_appservers_across_nodes()
-        send_instance_info_to_dashboard()
-      end
+      Thread.new {
+        start_appengine()
+        restart_appengine_apps()
+        if my_node.is_login?
+          scale_appservers_within_nodes()
+          scale_appservers_across_nodes()
+          send_instance_info_to_dashboard()
+        end
+      }
       Kernel.sleep(20)
     end
   end
@@ -2421,32 +2421,6 @@ class Djinn
       "IP #{private_ip} to a public address.")
   end
 
-  def get_status(node)
-    ip = node.private_ip
-    ssh_key = node.ssh_key
-    acc = AppControllerClient.new(ip, @@secret)
-
-    begin
-      if acc.is_done_loading?
-        status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
-        stats = acc.get_stats()
-        json_state = JSON.dump(stats)
-        HelperFunctions.write_file(status_file, json_state)
-
-        if !my_node.is_login?
-          login_ip = get_login.private_ip
-          HelperFunctions.scp_file(status_file, status_file, login_ip, ssh_key)
-        end
-      else
-        Djinn.log_info("Node at #{ip} is not done loading yet - will try " +
-          "again later.")
-      end
-    rescue FailedNodeException
-      Djinn.log_warn("Node at #{ip} is not responding to loading requests " +
-        "- will try again later.")
-    end
-  end
-
   # Collects all AppScale-generated logs from all machines, and places them in
   # a tarball in the AppDashboard running on this machine. This enables users
   # to download it for debugging purposes.
@@ -2956,27 +2930,29 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    APPS_LOCK.synchronize {
-      loop {
-        break if @@logs_buffer.empty?
-        encoded_logs = JSON.dump({
-          'service_name' => 'appcontroller',
-          'host' => my_node.public_ip,
-          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
-        })
+    Thread.new {
+      APPS_LOCK.synchronize {
+        loop {
+          break if @@logs_buffer.empty?
+          encoded_logs = JSON.dump({
+            'service_name' => 'appcontroller',
+            'host' => my_node.public_ip,
+            'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
+          })
 
-        begin
-          url = URI.parse("https://#{get_login.public_ip}:" +
-            "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-          http = Net::HTTP.new(url.host, url.port)
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          http.use_ssl = true
-          response = http.post(url.path, encoded_logs,
-            {'Content-Type'=>'application/json'})
-        rescue Exception
-          # Don't crash the AppController because we weren't able to send over
-          # the logs - just continue on.
-        end
+          begin
+            url = URI.parse("https://#{get_login.public_ip}:" +
+              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
+            http = Net::HTTP.new(url.host, url.port)
+            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+            http.use_ssl = true
+            response = http.post(url.path, encoded_logs,
+              {'Content-Type'=>'application/json'})
+          rescue Exception
+            # Don't crash the AppController because we weren't able to send over
+            # the logs - just continue on.
+          end
+        }
       }
     }
   end
@@ -3072,7 +3048,7 @@ class Djinn
       # update anything and return.
       zk_ips_info = ZKInterface.get_ip_info()
       if zk_ips_info["last_updated"] <= @last_updated
-        return "NOT UPDATED"
+        return false
       else
         Djinn.log_info("Updating data from ZK. Our timestamp, " +
           "#{@last_updated}, was older than the ZK timestamp, " +
@@ -3140,7 +3116,7 @@ class Djinn
       end
     }
 
-    return "UPDATED"
+    return true
   end
 
 
@@ -4432,29 +4408,29 @@ HOSTS
 
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
-    db_private_ip = nil
-    @nodes.each { |node|
-      if node.is_db_master? or node.is_db_slave?
-        if HelperFunctions.is_port_open?(node.private_ip, 4343,
-          HelperFunctions::USE_SSL)
-          Djinn.log_debug("UAServer port open on #{node.private_ip} - using it!")
-          db_private_ip = node.private_ip
-          break
-        else
-          Djinn.log_debug("UAServer port not open on #{node.private_ip} - skipping!")
-          next
-        end
-      end
-    }
-    if db_private_ip.nil?
-      Djinn.log_warn("Couldn't find a live db node - falling back to UAServer IP")
-      db_private_ip = @userappserver_private_ip
-    end
-
     Djinn.log_debug("Starting appengine")
 
-    uac = UserAppClient.new(db_private_ip, @@secret)
     if @restored == false
+      db_private_ip = nil
+      @nodes.each { |node|
+        if node.is_db_master? or node.is_db_slave?
+          if HelperFunctions.is_port_open?(node.private_ip, 4343,
+            HelperFunctions::USE_SSL)
+            Djinn.log_debug("UAServer port open on #{node.private_ip} - using it!")
+            db_private_ip = node.private_ip
+            break
+          else
+            Djinn.log_debug("UAServer port not open on #{node.private_ip} - skipping!")
+            next
+          end
+        end
+      }
+      if db_private_ip.nil?
+        Djinn.log_warn("Couldn't find a live db node - falling back to UAServer IP")
+        db_private_ip = @userappserver_private_ip
+      end
+
+      uac = UserAppClient.new(db_private_ip, @@secret)
       Djinn.log_info("Need to restore")
       begin
         app_list = uac.get_all_apps()
