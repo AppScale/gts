@@ -495,6 +495,7 @@ class Djinn
 
     # An Array of Hashes, where each Hash contains a log message and the time
     # it was logged.
+    @log_thread = []
     @@logs_buffer = []
 
     # The log file to use. Make sure it is synchronous to ensure we get
@@ -2923,6 +2924,7 @@ class Djinn
   #   An Array of Hashes, where each Hash has information about a single log
   #     line.
   def self.get_logs_buffer()
+    @log_thread.delete_if { |t| t.join() }
     return @@logs_buffer
   end
 
@@ -2930,7 +2932,7 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    Thread.new {
+    @log_thread << Thread.new {
       APPS_LOCK.synchronize {
         loop {
           break if @@logs_buffer.empty?

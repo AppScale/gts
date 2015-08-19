@@ -490,7 +490,7 @@ class TestDjinn < Test::Unit::TestCase
     ZKInterface.init_to_ip("public_ip", "public_ip")
 
     # make sure the appcontroller does an update
-    assert_equal("UPDATED", djinn.update_local_nodes())
+    assert_equal(true, djinn.update_local_nodes())
 
     # also make sure that the last_updated time updates to the
     # value the appcontroller receives from ZK
@@ -498,7 +498,7 @@ class TestDjinn < Test::Unit::TestCase
 
     # make sure the appcontroller doesn't update
     # since there's no new information
-    assert_equal("NOT UPDATED", djinn.update_local_nodes())
+    assert_equal(false, djinn.update_local_nodes())
 
     # finally, since done_loading can change as we start or stop roles,
     # make sure it got set back to true when it's done
