@@ -495,7 +495,6 @@ class Djinn
 
     # An Array of Hashes, where each Hash contains a log message and the time
     # it was logged.
-    @log_thread = []
     @@logs_buffer = []
 
     # The log file to use. Make sure it is synchronous to ensure we get
@@ -1642,13 +1641,20 @@ class Djinn
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
 
+    # We flush the logs on a separate thread.
+    Thread.new {
+      loop {
+        flush_log_buffer()
+        Kernel.sleep(10)
+      }
+    }
+
     while !@kill_sig_received do
       @state = "Done starting up AppScale, now in heartbeat mode"
       write_database_info()
       update_firewall()
       write_memcache_locations()
       write_zookeeper_locations()
-      flush_log_buffer()
 
       if update_local_nodes()
         Djinn.log_info("[job_start]: updated local node configuration")
@@ -2924,7 +2930,6 @@ class Djinn
   #   An Array of Hashes, where each Hash has information about a single log
   #     line.
   def self.get_logs_buffer()
-    @log_thread.delete_if { |t| t.join() }
     return @@logs_buffer
   end
 
@@ -2932,29 +2937,27 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    @log_thread << Thread.new {
-      APPS_LOCK.synchronize {
-        loop {
-          break if @@logs_buffer.empty?
-          encoded_logs = JSON.dump({
-            'service_name' => 'appcontroller',
-            'host' => my_node.public_ip,
-            'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
-          })
+    APPS_LOCK.synchronize {
+      loop {
+        break if @@logs_buffer.empty?
+        encoded_logs = JSON.dump({
+          'service_name' => 'appcontroller',
+          'host' => my_node.public_ip,
+          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
+        })
 
-          begin
-            url = URI.parse("https://#{get_login.public_ip}:" +
-              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-            http = Net::HTTP.new(url.host, url.port)
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            http.use_ssl = true
-            response = http.post(url.path, encoded_logs,
-              {'Content-Type'=>'application/json'})
-          rescue Exception
-            # Don't crash the AppController because we weren't able to send over
-            # the logs - just continue on.
-          end
-        }
+        begin
+          url = URI.parse("https://#{get_login.public_ip}:" +
+            "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
+          http = Net::HTTP.new(url.host, url.port)
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+          http.use_ssl = true
+          response = http.post(url.path, encoded_logs,
+            {'Content-Type'=>'application/json'})
+        rescue Exception
+          # Don't crash the AppController because we weren't able to send over
+          # the logs - just continue on.
+        end
       }
     }
   end
