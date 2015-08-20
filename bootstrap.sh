@@ -23,7 +23,7 @@ usage() {
         echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
         echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
         echo "   --force-upgrade          Force upgrade even if some check fails."
-        echo "   --tag <git-tag>          Use specific git tag (ie 2.2.0) or 'last' to use the latest release"
+        echo "   --tag <git-tag>          Use git tag (ie 2.2.0) or 'last' to use the latest release or 'dev' for HEAD"
         echo "   -t                       Run unit tests"
         exit 1
 }
@@ -98,6 +98,26 @@ while [ $# -gt 0 ]; do
         usage
 done
 
+# Empty tag means we use the latest available.
+if [ -z "${GIT_TAG}" ]; then
+        GIT_TAG="last"
+else
+        # We don't use Tag and Branch at the same time.
+        if [ "${APPSCALE_BRANCH}" != "master" ]; then
+                echo "--branch cannot be specified with --tag"
+                exit 1
+        fi
+        if [ "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
+                echo "--repo-branch cannot be specified with --tag"
+                exit 1
+        fi
+fi
+
+# A tag of 'dev' means don't use tag.
+if [ "${GIT_TAG}" = "dev" ]; then
+        GIT_TAG=""
+fi
+
 # At this time we expect to be installed in $HOME.
 cd $HOME
 
@@ -116,9 +136,9 @@ if [ ! -d appscale ]; then
         # We split the commands, to ensure it fails if branch doesn't
         # exists (Precise git will not fail otherwise).
         git clone ${APPSCALE_REPO} appscale
-        (cd appscale; git checkout ${APPSCALE_BRANCH})
+        (cd appscale; git checkout ${APPSCALE_BRANCH}; git fetch --all)
         git clone ${APPSCALE_TOOLS_REPO} appscale-tools
-        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
+        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH}; git fetch --all)
 
         # Use tags if we specified it.
         if [ -n "$GIT_TAG" ]; then
@@ -133,6 +153,12 @@ fi
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
 if [ -d appscale/.appscale/certs ]; then
+        # For upgrade, we don't switch across branches.
+        if [ "${APPSCALE_BRANCH}" != "master" ]; then
+                echo "Cannot use --branch when upgrading"
+                exit 1
+        fi
+
         APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' appscale/VERSION)"
         APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' appscale/VERSION)"
         if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
@@ -185,11 +211,19 @@ if [ -d appscale/.appscale/certs ]; then
         # available tags first.
         (cd appscale; git fetch --all)
         (cd appscale-tools; git fetch --all)
-        if [ -z "$GIT_TAG" -o "$GIT_TAG" = "last" ]; then
+        if [ "$GIT_TAG" = "last" ]; then
                 GIT_TAG="$(cd appscale; git tag|tail -n 1)"
         fi
-        (cd appscale; git checkout "$GIT_TAG")
-        (cd appscale-tools; git checkout "$GIT_TAG")
+
+        # We can pull a tag only if we are on the master branch.
+        CURRENT_BRANCH="$(cd appscale; git branch --no-color|grep '^*'|cut -f 2 -d ' ')"
+        if [ "${CURRENT_BRANCH}" = "master" ]; then
+                (cd appscale; git checkout "$GIT_TAG")
+                (cd appscale-tools; git checkout "$GIT_TAG")
+        else
+                (cd appscale; git pull)
+                (cd appscale-tools; git pull)
+        fi
 fi
 
 echo -n "Building AppScale..."
