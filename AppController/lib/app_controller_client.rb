@@ -51,6 +51,9 @@ class AppControllerClient
   # be found on the machine that ran that tool, or on any AppScale machine.
   attr_accessor :secret
 
+  # The port that the AppController binds to, by default.
+  SERVER_PORT = 17443
+
 
   # A constructor that requires both the IP address of the machine to communicate
   # with as well as the secret (string) needed to perform communication.
@@ -61,7 +64,7 @@ class AppControllerClient
     @ip = ip
     @secret = secret
     
-    @conn = SOAP::RPC::Driver.new("https://#{@ip}:17443")
+    @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
     # Disable certificate verification.
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
@@ -129,7 +132,7 @@ class AppControllerClient
       }
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      raise FailedNodeException.new("Time out: is the AppController running?")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
 

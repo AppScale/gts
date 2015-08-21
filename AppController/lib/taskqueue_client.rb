@@ -27,7 +27,7 @@ class TaskQueueClient
 
   # Initialization function for TaskQueueClient
   def initialize()
-    @host = HelperFunctions.read_file(NEAREST_TQ_LOCATION)
+    @ip = HelperFunctions.read_file(NEAREST_TQ_LOCATION)
   end
 
 
@@ -50,7 +50,7 @@ class TaskQueueClient
       }
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      raise FailedNodeException.new("Time out: is the AppController running?")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
 
@@ -68,7 +68,7 @@ class TaskQueueClient
     response = nil
      
     make_call(MAX_TIME_OUT, false, "start_worker"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/startworker")
+      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/startworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
@@ -92,7 +92,7 @@ class TaskQueueClient
     response = nil
      
     make_call(MAX_TIME_OUT, false, "reload_worker"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/reloadworker")
+      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/reloadworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
@@ -117,7 +117,7 @@ class TaskQueueClient
     json_config = JSON.dump(config)
     response = nil
     make_call(MAX_TIME_OUT, false, "stop_worker"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/stopworker")
+      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/stopworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }

@@ -49,10 +49,10 @@ class InfrastructureManagerClient
 
 
   def initialize(secret)
-    ip = HelperFunctions.local_ip()
+    @ip = HelperFunctions.local_ip()
     @secret = secret
     
-    @conn = SOAP::RPC::Driver.new("https://#{ip}:#{SERVER_PORT}")
+    @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
     # We used self signed certificates. Don't verify them.
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("get_queues_in_use", "secret")
@@ -83,7 +83,7 @@ class InfrastructureManagerClient
       }
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      raise FailedNodeException.new("Time out: is the AppController running?")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
 

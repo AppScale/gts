@@ -27,7 +27,9 @@ class AppManagerClient
 
   # Initialization function for AppManagerClient
   def initialize(ip)
-    @conn = SOAP::RPC::Driver.new("http://#{ip}:#{SERVER_PORT}")
+    @ip = ip
+
+    @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{SERVER_PORT}")
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
@@ -53,7 +55,7 @@ class AppManagerClient
       }
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      raise FailedNodeException.new("Time out: is the AppController running?")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
 

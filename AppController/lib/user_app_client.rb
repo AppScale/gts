@@ -68,7 +68,7 @@ class UserAppClient
       }
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      raise FailedNodeException.new("Time out: is the AppController running?")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
 
