@@ -1571,12 +1571,13 @@ class Djinn
           end
         }
       end
-    }
 
-    Djinn.log_debug("Done updating apps!")
-    # now that another app is running we can take out 'none' from the list
-    # if it was there (e.g., run-instances with no app given)
-    @app_names = @app_names - ["none"]
+      Djinn.log_debug("Done updating apps!")
+
+      # now that another app is running we can take out 'none' from the list
+      # if it was there (e.g., run-instances with no app given)
+      @app_names = @app_names - ["none"]
+    }
 
     return "OK"
   end
