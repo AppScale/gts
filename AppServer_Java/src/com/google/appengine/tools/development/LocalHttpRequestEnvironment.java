@@ -40,7 +40,7 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
      {
         super(appId, majorVersionId, deadlineMillis);
         this.loginCookieData = LoginCookieUtils.getCookieData(request);
-        this.FORCE_ADMIN = checkForceAdmin(request); 
+        this.FORCE_ADMIN = checkForceAdmin(request);
         String requestNamespace = request.getHeader("X-AppEngine-Default-Namespace");
         if (requestNamespace != null)
         {
@@ -119,7 +119,7 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
             return true;
         }
         if(this.loginCookieData == null)
-        {   
+        {
             return false;
         }
         return this.loginCookieData.isValid();
@@ -128,7 +128,7 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
     public String getEmail()
     {
         if(this.FORCE_ADMIN)
-        { 
+        {
             return "admin@admin.com";
         }
         if (this.loginCookieData == null)
@@ -160,7 +160,7 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
             if(secretHashHeader.equals(secretHash))
             {
                 return true;
-            }    
+            }
         }
         else
         {
@@ -182,7 +182,7 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
         String secretHash = toSHA1(secret.getBytes());
         return secretHash;
     }
-  
+
     private String toSHA1(byte[] convertme)
     {
         MessageDigest md = null;

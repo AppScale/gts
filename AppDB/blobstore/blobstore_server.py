@@ -10,6 +10,7 @@ http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.htm
 import cStringIO
 import datetime
 import getopt
+import hashlib
 import itertools
 import mimetools
 import os 
@@ -265,9 +266,6 @@ class UploadHandler(tornado.web.RequestHandler):
     if "boundary" in kv:
       boundary = kv["boundary"]
 
-#    urlrequest.add_header("Content-Type",
-#                          'multipart/form-data; boundary="%s"' % \
-#                          boundary)
     urlrequest.add_header("Content-Type",
                           'application/x-www-form-urlencoded')
 
@@ -300,25 +298,22 @@ class UploadHandler(tornado.web.RequestHandler):
         return 
       creation_formatted = blobstore._format_creation(creation)
       form.add_file(filekey, filename, cStringIO.StringIO(blob_key), blob_key,
-                    blobstore.BLOB_KEY_HEADER, size, creation_formatted) 
+                    blobstore.BLOB_KEY_HEADER, size, creation_formatted)
+
+      md5_handler = hashlib.md5(str(body))
       data["metadata"][filekey].append( 
         {"filename": filename, "creation-date": creation_formatted, "key": blob_key, "size": str(size),
-         "content-type": file_content_type, "md5-hash": "5da49989b037bf9fef5951fd12a5e188"})
+         "content-type": file_content_type, "md5-hash": md5_handler.hexdigest()})
 
     # Loop through form fields
     for fieldkey in self.request.arguments.keys():
       form.add_field(fieldkey, self.request.arguments[fieldkey][0])
       data[fieldkey] = self.request.arguments[fieldkey][0]
 
-#    request_body = str(form)
-
     logging.warning("URLREQ data: \n{}".format(data))
     data = urllib.urlencode(data)
     urlrequest.add_header("Content-Length", str(len(data)))
     urlrequest.add_data(data)
-
-#    urlrequest.add_header("Content-Length", str(len(request_body)))
-#    urlrequest.add_data(request_body)
 
     opener = urllib2.build_opener(SmartRedirectHandler())
     f = None
