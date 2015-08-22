@@ -15,6 +15,7 @@ import mimetools
 import os 
 import os.path
 import sys
+import urllib
 import urllib2
 
 import tornado.httpserver
@@ -264,9 +265,11 @@ class UploadHandler(tornado.web.RequestHandler):
     if "boundary" in kv:
       boundary = kv["boundary"]
 
+#    urlrequest.add_header("Content-Type",
+#                          'multipart/form-data; boundary="%s"' % \
+#                          boundary)
     urlrequest.add_header("Content-Type",
-                          'multipart/form-data; boundary="%s"' % \
-                          boundary)
+                          'application/x-www-form-urlencoded')
 
     for name, value in self.request.headers.items():
       if name.lower() not in STRIPPED_HEADERS:
@@ -281,10 +284,12 @@ class UploadHandler(tornado.web.RequestHandler):
 
     # Loop on all files in the form.
     for filekey in self.request.files.keys():
+      data = {"metadata": {filekey: []}}
       file = self.request.files[filekey][0] 
       body = file["body"]
       size = len(body)
       filename = file["filename"]
+      file_content_type = file["content_type"]
      
       blob_entity = uploadhandler.StoreBlob(file, creation)
 
@@ -296,13 +301,24 @@ class UploadHandler(tornado.web.RequestHandler):
       creation_formatted = blobstore._format_creation(creation)
       form.add_file(filekey, filename, cStringIO.StringIO(blob_key), blob_key,
                     blobstore.BLOB_KEY_HEADER, size, creation_formatted) 
+      data["metadata"][filekey].append( 
+        {"filename": filename, "creation-date": creation_formatted, "key": blob_key, "size": str(size),
+         "content-type": file_content_type, "md5-hash": "5da49989b037bf9fef5951fd12a5e188"})
 
     # Loop through form fields
     for fieldkey in self.request.arguments.keys():
       form.add_field(fieldkey, self.request.arguments[fieldkey][0])
-    request_body = str(form)
-    urlrequest.add_header("Content-Length", str(len(request_body)))
-    urlrequest.add_data(request_body)
+      data[fieldkey] = self.request.arguments[fieldkey][0]
+
+#    request_body = str(form)
+
+    logging.warning("URLREQ data: \n{}".format(data))
+    data = urllib.urlencode(data)
+    urlrequest.add_header("Content-Length", str(len(data)))
+    urlrequest.add_data(data)
+
+#    urlrequest.add_header("Content-Length", str(len(request_body)))
+#    urlrequest.add_data(request_body)
 
     opener = urllib2.build_opener(SmartRedirectHandler())
     f = None
