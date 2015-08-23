@@ -7,8 +7,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import java.util.logging.Logger;
-
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -39,6 +37,7 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
      public LocalHttpRequestEnvironment(String appId, String serverName, String majorVersionId, int instance, HttpServletRequest request, Long deadlineMillis, ServersFilterHelper serversFilterHelper)
      {
         super(appId, majorVersionId, deadlineMillis);
+
         this.loginCookieData = LoginCookieUtils.getCookieData(request);
         this.FORCE_ADMIN = checkForceAdmin(request);
         String requestNamespace = request.getHeader("X-AppEngine-Default-Namespace");
@@ -62,29 +61,16 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
         }
 
         String metadata = request.getParameter("metadata");
-        logger.warning("Metadata: " +  metadata);
         if(request.getParameter("metadata") != null) {
-/*          Map<String, String> myMap = new HashMap<String, String>();
-          String[] pairs = request.getParameter("metadata").substring(1, request.getParameter("metadata").length()).split(",");
-          for (int i=0; i<pairs.length; i++) {
-            String pair = pairs[i];
-            String[] keyValue = pair.split(":");
-            logger.warning("Key: " + keyValue[0] + " - Value: " + keyValue[1]);
-            myMap.put(keyValue[0], keyValue[1]);
-          }
-          logger.warning("Metadata MAP: " +  myMap);
-*/
           // Grab file key.
-        	String strippedDict = metadata.substring(1, metadata.length()-1);
-        	String file_key = strippedDict.substring(0, strippedDict.indexOf(':')).split("'")[1];
-        	logger.info(file_key);
-        	String partsList = strippedDict.substring(strippedDict.indexOf(':'));
-        	partsList = partsList.substring(1, partsList.length());
-        	logger.info(partsList.toString());
+          String strippedDict = metadata.substring(1, metadata.length()-1);
+          String file_key = strippedDict.substring(0, strippedDict.indexOf(':')).split("'")[1];
+          String partsList = strippedDict.substring(strippedDict.indexOf(':'));
+          partsList = partsList.substring(1, partsList.length());
 
-            HashMap<String, String> innerAttributes = new HashMap<String, String>();
-            String[] pairs = partsList.substring(2, partsList.length()-2).split(",");
-            for (int i=0; i<pairs.length; i++) {
+          HashMap<String, String> innerAttributes = new HashMap<String, String>();
+          String[] pairs = partsList.substring(2, partsList.length()-2).split(",");
+          for (int i=0; i<pairs.length; i++) {
               String pair = pairs[i];
               String key = pair.substring(0, pair.indexOf(':')).split("'")[1];
               String value;
@@ -94,16 +80,13 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
               else {
             	  value = pair.substring(pair.indexOf(':')+1, pair.length()).split("'")[1];  
               }
-//              logger.warning("Key: " + keyValue[0] + " - Value: " + keyValue[1]);
               innerAttributes.put(key, value);
           }
-          logger.warning("Inner attributes: " + innerAttributes);
 
           Map<String, List<HashMap<String, String>>> attributes = new HashMap<String, List<HashMap<String, String>>>();
           List<HashMap<String, String>> attrList = new ArrayList<HashMap<String, String>>(1);
           attrList.add(innerAttributes);
           attributes.put(file_key, attrList);
-          logger.warning("Metadata MAP: " +  attributes);
 
           request.setAttribute("com.google.appengine.api.blobstore.upload.blobinfos", attributes);
         }
