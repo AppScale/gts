@@ -60,11 +60,14 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
             this.attributes.put("com.google.appengine.request.offline", Boolean.TRUE);
         }
 
+        // AppScale: The metadata parameter is set in the Blobstore server before a blob upload callback request.
         String metadata = request.getParameter("metadata");
         if(request.getParameter("metadata") != null) {
-          // Grab file key.
           String strippedDict = metadata.substring(1, metadata.length()-1);
+
+          // Grab file key from metadata.
           String file_key = strippedDict.substring(0, strippedDict.indexOf(':')).split("'")[1];
+          // Extract BlobInfo parts from metadata.
           String partsList = strippedDict.substring(strippedDict.indexOf(':'));
           partsList = partsList.substring(1, partsList.length());
 

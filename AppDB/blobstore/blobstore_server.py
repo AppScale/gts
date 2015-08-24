@@ -12,6 +12,7 @@ import datetime
 import getopt
 import hashlib
 import itertools
+import logging
 import mimetools
 import os 
 import os.path
@@ -310,7 +311,7 @@ class UploadHandler(tornado.web.RequestHandler):
       form.add_field(fieldkey, self.request.arguments[fieldkey][0])
       data[fieldkey] = self.request.arguments[fieldkey][0]
 
-    logging.warning("URLREQ data: \n{}".format(data))
+    logging.debug("Callback data: \n{}".format(data))
     data = urllib.urlencode(data)
     urlrequest.add_header("Content-Length", str(len(data)))
     urlrequest.add_data(data)
