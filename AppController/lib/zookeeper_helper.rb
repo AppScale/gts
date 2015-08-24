@@ -53,9 +53,9 @@ EOF
   Djinn.log_run("sed -i s/^JAVA_OPTS=.*/JAVA_OPTS=\"-Xmx1024m\"/ /etc/zookeeper/conf/environment")
 end
 
-def start_zookeeper
+def start_zookeeper(clear_datastore)
   Djinn.log_info("Starting ZooKeeper")
-  if @options['clear_datastore']
+  if clear_datastore
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end

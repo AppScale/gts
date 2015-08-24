@@ -253,31 +253,38 @@ module HelperFunctions
 
 
   def self.is_port_open?(ip, port, use_ssl=DONT_USE_SSL)
+    max = 2
+    refused_count = 0
+
     begin
       Timeout::timeout(1) do
-        begin
-          sock = TCPSocket.new(ip, port)
-          if use_ssl
-            ssl_context = OpenSSL::SSL::SSLContext.new() 
-            unless ssl_context.verify_mode
-              ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE 
-            end
-            sslsocket = OpenSSL::SSL::SSLSocket.new(sock, ssl_context) 
-            sslsocket.sync_close = true 
-            sslsocket.connect          
+        sock = TCPSocket.new(ip, port)
+        if use_ssl
+          ssl_context = OpenSSL::SSL::SSLContext.new()
+          unless ssl_context.verify_mode
+            ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
           end
-          sock.close
-          return true
-        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ECONNRESET
-          return false
+          sslsocket = OpenSSL::SSL::SSLSocket.new(sock, ssl_context)
+          sslsocket.sync_close = true
+          sslsocket.connect
         end
+        sock.close
+        return true
       end
-    rescue Timeout::Error
+    rescue OpenSSL::SSL::SSLError
+      Djinn.log_debug("Retry after SSL error talking to  #{ip}:#{port}")
+      refused_count += 1
+      if refused_count > max
+        Djinn.log_warn("[is_port_open]: saw SSL error talking to  #{ip}:#{port}")
+      else
+        Kernel.sleep(1)
+        retry
+      end
+    rescue
     end
   
     return false
   end
-
 
   def self.run_remote_command(ip, command, public_key_loc, want_output)
     Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
@@ -1427,7 +1434,7 @@ module HelperFunctions
       return tree['env_variables'] || {}
     elsif File.exists?(appengine_web_xml_file)
       env_vars = {}
-      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
       match_data = xml.scan(/<env-var name="(.*)" value="(.*)" \/>/)
       match_data.each { |key_and_val|
         if key_and_val.length == 2
@@ -1463,7 +1470,7 @@ module HelperFunctions
       return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"
-      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
       match_data = xml.scan(/<threadsafe>(.*)<\/threadsafe>/)
       match_data.each { |key_and_val|
         if key_and_val.length == 1
