@@ -27,47 +27,34 @@ class TaskQueueClient
 
   # Initialization function for TaskQueueClient
   def initialize()
-    @host = HelperFunctions.read_file(NEAREST_TQ_LOCATION)
+    @ip = HelperFunctions.read_file(NEAREST_TQ_LOCATION)
   end
 
-  # Make a REST call out to the TaskQueue Server. 
-  # 
-  # Args: 
-  #   timeout: The maximum time to wait on a remote call
-  #   retry_on_except: Boolean if we should keep retrying the 
-  #     the call
-  # Returns:
-  #   The result of the remote call.
-  def make_call(timeout, retry_on_except, callr)
-    result = ""
-    Djinn.log_debug("Calling the TaskQueue Server: #{callr}")
+
+  # Check the comments in AppController/lib/app_controller_client.rb.
+  def make_call(time, retry_on_except, callr)
     begin
-      Timeout::timeout(timeout) do
+      Timeout::timeout(time) {
         begin
           yield if block_given?
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+          OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+          Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+          trace = e.backtrace.join("\n")
+          Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
+          if retry_on_except
+            Kernel.sleep(1)
+            retry
+          end
         end
-      end
-    rescue Errno::ECONNREFUSED => except
-      if retry_on_except
-        Djinn.log_warn("Saw a connection refused when calling #{callr}" +
-          " - trying again momentarily.")
-        sleep(1)
-        retry
-      else
-        trace = except.backtrace.join("\n")
-        Djinn.log_warn("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
-      end 
-   rescue Exception => except
-      if except.class == Interrupt
-        HelperFunctions.log_and_crash("Saw an Interrupt when talking to the" +
-          " TaskQueue server.")
-      end
-
-      Djinn.log_warn("An exception of type #{except.class} was thrown: #{except}.")
-      retry if retry_on_except
+      }
+    rescue Timeout::Error
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
- 
+
+
   # Wrapper for REST calls to the TaskQueue Server to start a
   # taskqueue worker on a taskqueue node.
   #
@@ -81,7 +68,7 @@ class TaskQueueClient
     response = nil
      
     make_call(MAX_TIME_OUT, false, "start_worker"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/startworker")
+      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/startworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
@@ -105,7 +92,7 @@ class TaskQueueClient
     response = nil
      
     make_call(MAX_TIME_OUT, false, "reload_worker"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/reloadworker")
+      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/reloadworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
@@ -130,7 +117,7 @@ class TaskQueueClient
     json_config = JSON.dump(config)
     response = nil
     make_call(MAX_TIME_OUT, false, "stop_worker"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/stopworker")
+      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/stopworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }

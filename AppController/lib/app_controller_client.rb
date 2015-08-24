@@ -51,6 +51,9 @@ class AppControllerClient
   # be found on the machine that ran that tool, or on any AppScale machine.
   attr_accessor :secret
 
+  # The port that the AppController binds to, by default.
+  SERVER_PORT = 17443
+
 
   # A constructor that requires both the IP address of the machine to communicate
   # with as well as the secret (string) needed to perform communication.
@@ -61,7 +64,7 @@ class AppControllerClient
     @ip = ip
     @secret = secret
     
-    @conn = SOAP::RPC::Driver.new("https://#{@ip}:17443")
+    @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
     # Disable certificate verification.
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
@@ -84,9 +87,16 @@ class AppControllerClient
     @conn.add_method("add_appserver_process", "app_id", "secret")
     @conn.add_method("remove_appserver_process", "app_id", "port", "secret")
   end
-  
 
-  # Provides automatic retry logic for transient SOAP errors.
+
+  # Provides automatic retry logic for transient SOAP errors. This code is
+  # used in few other clients (it should be made in a library):
+  #   lib/infrastructure_manager_client.rb
+  #   lib/user_app_client.rb
+  #   lib/taskqueue_client.rb
+  #   lib/app_manager_client.rb
+  #   lib/app_controller_client.rb
+  # Modification in this function should be reflected on the others too.
   #
   # Args:
   #   time: A Fixnum that indicates how long the timeout should be set to when
@@ -105,41 +115,27 @@ class AppControllerClient
   #   The result of the block that was executed, or nil if the timeout was
   #   exceeded.
   def make_call(time, retry_on_except, callr)
-    refused_count = 0
-    max = 5
-
     begin
       Timeout::timeout(time) {
-        yield if block_given?
+        begin
+          yield if block_given?
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+          OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+          Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+          trace = e.backtrace.join("\n")
+          Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
+          if retry_on_except
+            Kernel.sleep(1)
+            retry
+          end
+        end
       }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
-      if refused_count > max
-        raise FailedNodeException.new("Connection was refused. Is the " +
-          "AppController running?")
-      else
-        refused_count += 1
-        Kernel.sleep(1)
-        retry
-      end
     rescue Timeout::Error
       Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      return
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-      Errno::ECONNRESET, SOAP::EmptyResponseError => e
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Error in make_call: #{e.class}\n#{backtrace}")
-      retry
-    rescue Exception => except
-      if retry_on_except
-        retry
-      else
-        trace = except.backtrace.join("\n")
-        HelperFunctions.log_and_crash("[#{callr}] We saw an unexpected error" +
-          " of the type #{except.class} with the following message:\n" +
-          "#{except}, with trace: #{trace}")
-      end
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
+
 
   def set_parameters(locations, options, apps_to_start)
     result = ""

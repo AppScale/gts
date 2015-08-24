@@ -48,43 +48,31 @@ class UserAppClient
     @conn.add_method("get_all_users", "secret")
   end
 
-  def make_call(timeout, retry_on_except, callr)
-    result = ""
-    Djinn.log_debug("Calling #{callr} on an UserAppServer at #{@ip}")
+
+  # Check the comments in AppController/lib/app_controller_client.rb.
+  def make_call(time, retry_on_except, callr)
     begin
-      Timeout::timeout(timeout) do
+      Timeout::timeout(time) {
         begin
           yield if block_given?
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+          OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+          Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+          trace = e.backtrace.join("\n")
+          Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
+          if retry_on_except
+            Kernel.sleep(1)
+            retry
+          end
         end
-      end
-    rescue OpenSSL::SSL::SSLError => e
-      backtrace = e.backtrace.join("\n")
-      Djinn.log_warn("Retrying calling #{callr} on UserAppServer at #{@ip}")
-      Djinn.log_warn("Exception caught: #{e}\n#{backtrace}")
-      retry
-    rescue Errno::ECONNREFUSED
-      if retry_on_except
-        sleep(1)
-        Djinn.log_warn("Retrying (ConnRefused) - calling #{callr} on UserAppServer at #{@ip}")
-        retry
-      else
-        HelperFunctions.log_and_crash("We were unable to establish a " +
-          "connection with the UserAppServer at the designated location. Is " +
-          "AppScale currently running?")
-      end 
-    rescue Exception => except
-      if except.class == Interrupt
-        HelperFunctions.log_and_crash("Saw an Interrupt when talking to the " +
-          "UserAppServer")
-      end
-
-      Djinn.log_warn("An exception of type #{except.class} was thrown.")
-      Djinn.log_warn("Retrying - calling #{callr} on UserAppServer at #{@ip}")
-      sleep(10)
-      retry if retry_on_except
+      }
+    rescue Timeout::Error
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
-  
+
+
   def commit_new_user(user, encrypted_password, user_type, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "commit_new_user") {
