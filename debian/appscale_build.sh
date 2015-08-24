@@ -33,14 +33,14 @@ export APPSCALE_HOME_RUNTIME=`pwd`
 
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
-PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +)"
+PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +)"
 if ! apt-get install -y --force-yes ${PACKAGES}; then
     echo "Fail to install depending packages for runtime."
     exit 1
 fi
 
 # This will remove all the conflicts packages.
-PACKAGES="$(find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/remove-list.awk {} +) $(find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/remove-list.awk {} +)"
+PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/remove-list.awk {} +)"
 if ! apt-get remove --purge -y --force-yes ${PACKAGES}; then
     echo "Fail to remove conflicting packages"
     exit 1
