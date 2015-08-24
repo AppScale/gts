@@ -67,27 +67,21 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
 
           // Grab file key from metadata.
           String file_key = strippedDict.substring(0, strippedDict.indexOf(':')).split("'")[1];
+
           // Extract BlobInfo parts from metadata.
           String partsList = strippedDict.substring(strippedDict.indexOf(':'));
           partsList = partsList.substring(1, partsList.length());
-
           HashMap<String, String> innerAttributes = new HashMap<String, String>();
           String[] pairs = partsList.substring(2, partsList.length()-2).split(",");
           for (int i=0; i<pairs.length; i++) {
               String pair = pairs[i];
               String key = pair.substring(0, pair.indexOf(':')).split("'")[1];
-              String value;
-              if (key.equals("creation-date")) {
-            	  value = pair.substring(pair.indexOf(':')+1, pair.length()-3).split("'")[1];
-              }
-              else {
-            	  value = pair.substring(pair.indexOf(':')+1, pair.length()).split("'")[1];  
-              }
+              String value = pair.substring(pair.indexOf(':')+1, pair.length()).split("'")[1];
               innerAttributes.put(key, value);
           }
 
           Map<String, List<HashMap<String, String>>> attributes = new HashMap<String, List<HashMap<String, String>>>();
-          List<HashMap<String, String>> attrList = new ArrayList<HashMap<String, String>>(1);
+          List<HashMap<String, String>> attrList = new ArrayList<HashMap<String, String>>(innerAttributes.size());
           attrList.add(innerAttributes);
           attributes.put(file_key, attrList);
 
