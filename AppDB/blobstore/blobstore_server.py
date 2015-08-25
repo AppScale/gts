@@ -10,6 +10,7 @@ http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.htm
 import cStringIO
 import datetime
 import getopt
+import gzip
 import hashlib
 import itertools
 import logging
@@ -19,6 +20,8 @@ import os.path
 import sys
 import urllib
 import urllib2
+
+from StringIO import StringIO
 
 import tornado.httpserver
 import tornado.ioloop
@@ -245,7 +248,6 @@ class UploadHandler(tornado.web.RequestHandler):
     success_path = blob_session["success_path"]
 
     server_host = success_path[:success_path.rfind("/", 3)]
-
     if server_host.startswith("http://"):
       # Strip off the beginging of the server host
       server_host = server_host[len("http://"):]
@@ -316,15 +318,16 @@ class UploadHandler(tornado.web.RequestHandler):
     urlrequest.add_header("Content-Length", str(len(data)))
     urlrequest.add_data(data)
 
-    opener = urllib2.build_opener(SmartRedirectHandler())
-    f = None
-    redirect_path = None
-
     # We are catching the redirect error here
     # and extracting the Location to post the redirect.
     try:
-      f = opener.open(urlrequest)
-      output = f.read()
+      response = urllib2.urlopen(urlrequest)
+      output = response.read()
+      if response.info().get('Content-Encoding') == 'gzip':
+        buf = StringIO(output)
+        f = gzip.GzipFile(fileobj=buf)
+        data = f.read()
+        output = data
       self.finish(output)
     except urllib2.HTTPError, e: 
       if "Location" in e.hdrs:
@@ -338,7 +341,6 @@ class UploadHandler(tornado.web.RequestHandler):
       else:
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
         return         
-    self.finish("There was an error with your upload")
 
 def usage():
   """ The usage printed to the screen. """
