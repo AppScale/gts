@@ -61,8 +61,8 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
         }
 
         // AppScale: The metadata parameter is set in the Blobstore server before a blob upload callback request.
-        String metadata = request.getParameter("metadata");
-        if(request.getParameter("metadata") != null) {
+        String metadata = request.getParameter("blob_info_metadata");
+        if(request.getParameter("blob_info_metadata") != null) {
           String strippedDict = metadata.substring(1, metadata.length()-1);
 
           // Grab file key from metadata.
