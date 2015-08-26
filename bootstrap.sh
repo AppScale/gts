@@ -165,6 +165,29 @@ if [ -d appscale/.appscale/certs ]; then
                 echo "Cannot determine version of AppScale!"
                 exit 1
         fi
+
+        # This is an upgrade, so let's make sure we use a tag that has
+        # been passed, or the last one available. Let's fetch all the
+        # available tags first.
+        (cd appscale; git fetch --all)
+        (cd appscale-tools; git fetch --all)
+        if [ "$GIT_TAG" = "last" ]; then
+                GIT_TAG="$(cd appscale; git tag|tail -n 1)"
+        fi
+
+        # We can pull a tag only if we are on the master branch.
+        CURRENT_BRANCH="$(cd appscale; git branch --no-color|grep '^*'|cut -f 2 -d ' ')"
+        if [ "${CURRENT_BRANCH}" != "master" ]; then
+                CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
+        fi
+
+        # If CURRENT_BRANCH is empty, then we are not on master, and we
+        # are not on a released version: we don't upgrade then.
+        if [ -z "${CURRENT_BRANCH}" ]; then
+                echo "Error: git repository is not 'master' or a released version."
+                exit 1
+        fi
+
         echo
         echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR. An upgrade"
         echo "to the latest version available will be attempted in 5 seconds."
@@ -206,18 +229,9 @@ if [ -d appscale/.appscale/certs ]; then
                 fi
         fi
 
-        # This is an upgrade, so let's make sure we use a tag that has
-        # been passed, or the last one available. Let's fetch all the
-        # available tags first.
-        (cd appscale; git fetch --all)
-        (cd appscale-tools; git fetch --all)
-        if [ "$GIT_TAG" = "last" ]; then
-                GIT_TAG="$(cd appscale; git tag|tail -n 1)"
-        fi
 
-        # We can pull a tag only if we are on the master branch.
-        CURRENT_BRANCH="$(cd appscale; git branch --no-color|grep '^*'|cut -f 2 -d ' ')"
-        if [ "${CURRENT_BRANCH}" = "master" ]; then
+        # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
+        if [ -n "${GIT_TAG}" ]; then
                 (cd appscale; git checkout "$GIT_TAG")
                 (cd appscale-tools; git checkout "$GIT_TAG")
         else
