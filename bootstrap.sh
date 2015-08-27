@@ -108,7 +108,7 @@ else
                 exit 1
         fi
         if [ "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
-                echo "--repo-branch cannot be specified with --tag"
+                echo "--tools-branch cannot be specified with --tag"
                 exit 1
         fi
 fi
