@@ -141,7 +141,7 @@ if [ ! -d appscale ]; then
         (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH}; git fetch --all)
 
         # Use tags if we specified it.
-        if [ -n "$GIT_TAG" ]; then
+        if [ -n "$GIT_TAG" -a "${APPSCALE_BRANCH}" = "master" ]; then
                 if [ "$GIT_TAG" = "last" ]; then
                         GIT_TAG="$(cd appscale; git tag|tail -n 1)"
                 fi
@@ -156,6 +156,10 @@ if [ -d appscale/.appscale/certs ]; then
         # For upgrade, we don't switch across branches.
         if [ "${APPSCALE_BRANCH}" != "master" ]; then
                 echo "Cannot use --branch when upgrading"
+                exit 1
+        fi
+        if [ -z "$GIT_TAG" ]; then
+                echo "Cannot use --tag dev when upgrading"
                 exit 1
         fi
 
@@ -179,6 +183,10 @@ if [ -d appscale/.appscale/certs ]; then
         CURRENT_BRANCH="$(cd appscale; git branch --no-color|grep '^*'|cut -f 2 -d ' ')"
         if [ "${CURRENT_BRANCH}" != "master" ]; then
                 CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
+                if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
+                        echo "AppScale is at the latest release already."
+                        exit 0
+                fi
         fi
 
         # If CURRENT_BRANCH is empty, then we are not on master, and we
