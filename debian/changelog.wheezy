@@ -1,4 +1,11 @@
-appscale (1.14-0) wheezy; urgency=low
+appscale (2.3.1-0.REVNOwheezy) unstable; urgency=low
+
+  * New release (2.3.1)
+
+ -- Graziano Obertelli <g@appscale.com> Wed, 22 April 2015 16:58:00 -0800
+
+
+appscale (1.14-0) unstable; urgency=low
 
   * New release (1.14.0)
   

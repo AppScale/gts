@@ -285,7 +285,7 @@ class UploadHandler(tornado.web.RequestHandler):
 
     # Loop on all files in the form.
     for filekey in self.request.files.keys():
-      data = {"metadata": {filekey: []}}
+      data = {"blob_info_metadata": {filekey: []}}
       file = self.request.files[filekey][0] 
       body = file["body"]
       size = len(body)
@@ -304,7 +304,7 @@ class UploadHandler(tornado.web.RequestHandler):
                     blobstore.BLOB_KEY_HEADER, size, creation_formatted)
 
       md5_handler = hashlib.md5(str(body))
-      data["metadata"][filekey].append( 
+      data["blob_info_metadata"][filekey].append( 
         {"filename": filename, "creation-date": creation_formatted, "key": blob_key, "size": str(size),
          "content-type": file_content_type, "md5-hash": md5_handler.hexdigest()})
 
