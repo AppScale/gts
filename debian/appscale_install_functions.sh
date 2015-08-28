@@ -337,6 +337,9 @@ installcassandra()
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+
+    # Create separate log directory.
+    mkdir -pv /var/log/appscale/cassandra
 }
 
 postinstallcassandra()
