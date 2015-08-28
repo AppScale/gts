@@ -1,0 +1,91 @@
+Source: appscale
+Section: unknown
+Priority: optional
+Maintainer: AppScale Developer <appscale_developer@googlegroups.com>
+Build-Depends: debhelper (>= 7),
+               ant,
+               build-essential,
+               bison,
+               flex,
+               byacc,
+               libc6-dev,
+               erlang,
+               dpkg-dev,
+               dh-make,
+               debhelper,
+               fakeroot,
+               python-dev,
+               libssl-dev,
+               libevent-dev,
+               zlib1g-dev,
+               libexpat1-dev,
+               libcppunit-dev,
+               libbz2-dev,
+               libreadline-dev,
+               libxml2-dev
+Standards-Version: 3.8.0
+Homepage: https://github.com/AppScale/appscale
+
+Package: appscale-core
+Architecture: any
+Depends: appscale-tools,
+         openjdk-7-jdk,
+         openssl,
+         python-yaml,
+         python-m2crypto,
+         python-soappy,
+         python-imaging,
+         python-software-properties,
+         python-django,
+         python-nose,
+         ejabberd,
+         libprotobuf-java,
+         rsync,
+         unzip,
+         bzip2,
+         ssh,
+         ntp,
+         libssl-dev,
+         zlib1g-dev,
+         iptables, cron,
+         curl, lsof, wget,
+         memcached,
+         socat,
+         dnsutils,
+         ntpdate,
+         nginx,
+         libpcre++-dev,
+         haproxy,
+         libpcre3,
+         php5,
+         php5-cgi,
+         monit,
+         libevent-2.0-5,
+         liblog4j1.2-java,
+         libjline-java,
+         make,
+         libjpeg8-dev,
+         rabbitmq-server,
+         python-pika,
+         python-pip,
+         python-numpy,
+         libxslt-dev,
+         libxml2-dev
+Conflicts: python-protobuf,
+           apache2.2-common,
+           apache2.2-bin,
+           apache2-utils
+Description: An open-source framework for execution of GAE applications
+ An open-source research framework for execution of
+ Google AppEngine applications and investigation of
+ scalable cloud computing fabrics.
+
+
+Package: appscale-cassandra
+Architecture: any
+Depends: appscale-core,
+         python-sqlalchemy
+Description: An open-source framework for execution of GAE applications
+ An open-source research framework for execution of
+ Google AppEngine applications and investigation of
+ scalable cloud computing fabrics.

@@ -76,7 +76,13 @@ BOO
     if remote_ip
       tempfile = "/tmp/monit-#{watch}-#{port}.cfg"
       HelperFunctions.write_file(tempfile, contents)
-      HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
+      begin
+        HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
+      rescue AppScaleSCPException
+        Djinn.log_error("Failed to write monit file at #{remote_ip}")
+        Djinn.log_run("rm -rf #{tempfile}")
+        raise AppScaleSCPException.new("Failed to write monit file at #{remote_ip}")
+      end
       Djinn.log_run("rm -rf #{tempfile}")
     else
       HelperFunctions.write_file(monit_file, contents)

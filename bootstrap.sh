@@ -104,8 +104,8 @@ cd $HOME
 # Let's pull the github repositories.
 echo
 echo "Will be using the following github repo:"
-echo "git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}"
-echo "git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}"
+echo "Repo: ${APPSCALE_REPO} Branch: ${APPSCALE_BRANCH}"
+echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
 
@@ -113,8 +113,12 @@ sleep 5
 apt-get update
 apt-get install -y git
 if [ ! -d appscale ]; then
-        git clone ${APPSCALE_REPO} --branch ${APPSCALE_BRANCH}
-        git clone ${APPSCALE_TOOLS_REPO} --branch ${APPSCALE_TOOLS_BRANCH}
+        # We split the commands, to ensure it fails if branch doesn't
+        # exists (Precise git will not fail otherwise).
+        git clone ${APPSCALE_REPO} appscale
+        (cd appscale; git checkout ${APPSCALE_BRANCH})
+        git clone ${APPSCALE_TOOLS_REPO} appscale-tools
+        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
 
         # Use tags if we specified it.
         if [ -n "$GIT_TAG" ]; then

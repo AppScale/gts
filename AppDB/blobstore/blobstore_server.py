@@ -10,12 +10,18 @@ http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.htm
 import cStringIO
 import datetime
 import getopt
+import gzip
+import hashlib
 import itertools
+import logging
 import mimetools
 import os 
 import os.path
 import sys
+import urllib
 import urllib2
+
+from StringIO import StringIO
 
 import tornado.httpserver
 import tornado.ioloop
@@ -242,7 +248,6 @@ class UploadHandler(tornado.web.RequestHandler):
     success_path = blob_session["success_path"]
 
     server_host = success_path[:success_path.rfind("/", 3)]
-
     if server_host.startswith("http://"):
       # Strip off the beginging of the server host
       server_host = server_host[len("http://"):]
@@ -265,8 +270,7 @@ class UploadHandler(tornado.web.RequestHandler):
       boundary = kv["boundary"]
 
     urlrequest.add_header("Content-Type",
-                          'multipart/form-data; boundary="%s"' % \
-                          boundary)
+                          'application/x-www-form-urlencoded')
 
     for name, value in self.request.headers.items():
       if name.lower() not in STRIPPED_HEADERS:
@@ -281,10 +285,12 @@ class UploadHandler(tornado.web.RequestHandler):
 
     # Loop on all files in the form.
     for filekey in self.request.files.keys():
+      data = {"blob_info_metadata": {filekey: []}}
       file = self.request.files[filekey][0] 
       body = file["body"]
       size = len(body)
       filename = file["filename"]
+      file_content_type = file["content_type"]
      
       blob_entity = uploadhandler.StoreBlob(file, creation)
 
@@ -295,24 +301,33 @@ class UploadHandler(tornado.web.RequestHandler):
         return 
       creation_formatted = blobstore._format_creation(creation)
       form.add_file(filekey, filename, cStringIO.StringIO(blob_key), blob_key,
-                    blobstore.BLOB_KEY_HEADER, size, creation_formatted) 
+                    blobstore.BLOB_KEY_HEADER, size, creation_formatted)
+
+      md5_handler = hashlib.md5(str(body))
+      data["blob_info_metadata"][filekey].append( 
+        {"filename": filename, "creation-date": creation_formatted, "key": blob_key, "size": str(size),
+         "content-type": file_content_type, "md5-hash": md5_handler.hexdigest()})
 
     # Loop through form fields
     for fieldkey in self.request.arguments.keys():
       form.add_field(fieldkey, self.request.arguments[fieldkey][0])
-    request_body = str(form)
-    urlrequest.add_header("Content-Length", str(len(request_body)))
-    urlrequest.add_data(request_body)
+      data[fieldkey] = self.request.arguments[fieldkey][0]
 
-    opener = urllib2.build_opener(SmartRedirectHandler())
-    f = None
-    redirect_path = None
+    logging.debug("Callback data: \n{}".format(data))
+    data = urllib.urlencode(data)
+    urlrequest.add_header("Content-Length", str(len(data)))
+    urlrequest.add_data(data)
 
     # We are catching the redirect error here
     # and extracting the Location to post the redirect.
     try:
-      f = opener.open(urlrequest)
-      output = f.read()
+      response = urllib2.urlopen(urlrequest)
+      output = response.read()
+      if response.info().get('Content-Encoding') == 'gzip':
+        buf = StringIO(output)
+        f = gzip.GzipFile(fileobj=buf)
+        data = f.read()
+        output = data
       self.finish(output)
     except urllib2.HTTPError, e: 
       if "Location" in e.hdrs:
@@ -326,7 +341,6 @@ class UploadHandler(tornado.web.RequestHandler):
       else:
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
         return         
-    self.finish("There was an error with your upload")
 
 def usage():
   """ The usage printed to the screen. """

@@ -133,7 +133,6 @@ class BaseRequest(object):
             self.make_body_seekable()
         return self.body_file_raw
 
-    scheme = environ_getter('wsgi.url_scheme')
     method = environ_getter('REQUEST_METHOD', 'GET')
     http_version = environ_getter('SERVER_PROTOCOL')
     script_name = environ_getter('SCRIPT_NAME', '')
@@ -251,12 +250,22 @@ class BaseRequest(object):
     headers = property(_headers__get, _headers__set, doc=_headers__get.__doc__)
 
     @property
+    def scheme(self):
+        environ = self.environ
+        if 'HTTP_X_FORWARDED_PROTO' in environ:
+            return environ['HTTP_X_FORWARDED_PROTO']
+        elif 'wsgi.url_scheme' in environ:
+            return environ['wsgi.url_scheme']
+        else:
+            return 'http'
+
+    @property
     def host_url(self):
         """
         The URL through the host (no path)
         """
         e = self.environ
-        url = e['wsgi.url_scheme'] + '://'
+        url = self.scheme + '://'
         if e.get('HTTP_HOST'):
             host = e['HTTP_HOST']
             if ':' in host:
@@ -267,10 +276,10 @@ class BaseRequest(object):
         else:
             host = e['SERVER_NAME']
             port = e['SERVER_PORT']
-        if self.environ['wsgi.url_scheme'] == 'https':
+        if self.scheme == 'https':
             if port == '443':
                 port = None
-        elif self.environ['wsgi.url_scheme'] == 'http':
+        elif self.scheme == 'http':
             if port == '80':
                 port = None
         url += host

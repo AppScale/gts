@@ -27,6 +27,7 @@ import urllib
 import urlparse
 
 from google.appengine.api import apiproxy_stub
+from google.appengine.api import app_identity
 from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
 from google.appengine.api import urlfetch_service_pb
@@ -217,6 +218,9 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           'Host': host,
           'Accept-Encoding': 'gzip',
       }
+
+      if not follow_redirects:
+        adjusted_headers['X-Appengine-Inbound-Appid'] = app_identity.get_application_id()
 
       if payload is not None:
         adjusted_headers['Content-Length'] = len(payload)

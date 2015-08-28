@@ -18,6 +18,7 @@ if [ -z "$1" ]; then
 fi
 
 case "$1" in
+<<<<<<< HEAD
     core)
         # Scratch install of appscale including post script.
         installappscaleprofile
@@ -71,6 +72,11 @@ case "$1" in
         installcelery
         ;;
     all)
+=======
+    # At this time we cannot simply install pieces of AppScale, and the
+    # space saving is minimal. So we install all the components.
+    all|core|cassandra)
+>>>>>>> AppScale/master
         # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
@@ -104,6 +110,7 @@ case "$1" in
         sethosts
         setulimits
         increaseconnections
+        installVersion
         installrequests
         ;;
 esac
