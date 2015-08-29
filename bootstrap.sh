@@ -136,9 +136,9 @@ if [ ! -d appscale ]; then
         # We split the commands, to ensure it fails if branch doesn't
         # exists (Precise git will not fail otherwise).
         git clone ${APPSCALE_REPO} appscale
-        (cd appscale; git checkout ${APPSCALE_BRANCH}; git fetch --all)
+        (cd appscale; git checkout ${APPSCALE_BRANCH})
         git clone ${APPSCALE_TOOLS_REPO} appscale-tools
-        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH}; git fetch --all)
+        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
 
         # Use tags if we specified it.
         if [ -n "$GIT_TAG" -a "${APPSCALE_BRANCH}" = "master" ]; then
@@ -173,8 +173,8 @@ if [ -d appscale/.appscale/certs ]; then
         # This is an upgrade, so let's make sure we use a tag that has
         # been passed, or the last one available. Let's fetch all the
         # available tags first.
-        (cd appscale; git fetch --all)
-        (cd appscale-tools; git fetch --all)
+        (cd appscale; git fetch origin)
+        (cd appscale-tools; git fetch origin)
         if [ "$GIT_TAG" = "last" ]; then
                 GIT_TAG="$(cd appscale; git tag|tail -n 1)"
         fi
