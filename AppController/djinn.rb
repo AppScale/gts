@@ -4590,43 +4590,6 @@ HOSTS
       end
     end
 
-    # We only need a new full proxy config file for new apps, on the machine
-    # that runs the login service (but not in a one node deploy, where we don't
-    # do a full proxy config).
-    login_ip = get_login.private_ip
-    if my_node.is_login?
-      begin
-        static_handlers = HelperFunctions.parse_static_data(app)
-        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
-      rescue Exception => e
-        # This specific exception may be a json parse error
-        error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
-                    " Exception of #{e.class} with message #{e.message}"
-        place_error_app(app, error_msg, app_language)
-        static_handlers = []
-      end
-
-      Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip)
-
-      loop {
-        Kernel.sleep(5)
-        begin
-          success = uac.add_instance(app, my_public, nginx_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
-            break
-          end
-        rescue FailedNodeException
-          Djinn.log_ingo("Couldn't talk to #{@userappserver_private_ip} " +
-            "to add instance for application #{app}: retrying.")
-        end
-      }
-    end
-
     if my_node.is_appengine?
       # send a warmup request to the app to get it loaded - can shave a
       # number of seconds off the initial request if it's java or go
@@ -4697,6 +4660,43 @@ HOSTS
         # wait for the app to actually be running before returning
         done_uploading(app, app_path, @@secret)
       end
+    end
+
+    # We only need a new full proxy config file for new apps, on the machine
+    # that runs the login service (but not in a one node deploy, where we don't
+    # do a full proxy config).
+    login_ip = get_login.private_ip
+    if my_node.is_login?
+      begin
+        static_handlers = HelperFunctions.parse_static_data(app)
+        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
+      rescue Exception => e
+        # This specific exception may be a json parse error
+        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
+          "Exception of #{e.class} with message #{e.message}"
+        place_error_app(app, error_msg, app_language)
+        static_handlers = []
+      end
+
+      Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
+        my_private, proxy_port, static_handlers, login_ip)
+
+      loop {
+        Kernel.sleep(5)
+        begin
+          success = uac.add_instance(app, my_public, nginx_port)
+          Djinn.log_debug("Add instance returned #{success}")
+          if success
+            # tell ZK that we are hosting the app in case we die, so that
+            # other nodes can update the UserAppServer on its behalf
+            ZKInterface.add_app_instance(app, my_public, nginx_port)
+            break
+          end
+        rescue FailedNodeException
+          Djinn.log_info("Couldn't talk to #{@userappserver_private_ip} " +
+            "to add instance for application #{app}: retrying.")
+        end
+      }
     end
 
     APPS_LOCK.synchronize {
