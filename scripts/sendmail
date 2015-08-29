@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# This script is a wrapper around msmtp-mta. The idea is to have a
+# different accounts (ie remote SMTP information) per application, and the
+# ability to turn off sending email at all. Logs are saved within the
+# appscale log directory.
+#
+# msmtp expects its configuration file to be in $USER/.msmtprc. 
+#
+# If DEBUG is enabled, no email is sent, but stored locally.
+#
+
+SENDMAIL="$(which msmtp)"
+MAIL_LOG="/var/log/appscale/"
+DEBUG="Y"
+
+[ -x "${SENDMAIL}" ] || { echo "Cannot find a suitable sendmail!"; exit 1; }
+
+# If no APPNAME is defined, we use the default account.
+if [ -z "${APPNAME}" ]; then
+        APPNAME="default"
+fi
+
+if [ "${DEBUG}" != "Y" ]; then
+        ${SENDMAIL} -a "${APPNAME}" $@
+else
+        # Create an 'mbox' to check the email that would have been sent.
+        # We don't have an easy way to catch the From, so we create a fake
+        # one.
+        echo "From appscale@localhost $(date)" >> ${MAIL_LOG}/mail-${APPNAME}.log
+        tee -a ${MAIL_LOG}/mail-${APPNAME}.log > /dev/null
+fi
