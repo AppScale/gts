@@ -29,4 +29,5 @@ else
         # one.
         echo "From appscale@localhost $(date)" >> ${MAIL_LOG}/mail-${APPNAME}.log
         tee -a ${MAIL_LOG}/mail-${APPNAME}.log > /dev/null
+        echo  >> ${MAIL_LOG}/mail-${APPNAME}.log
 fi
