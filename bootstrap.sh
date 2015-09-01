@@ -107,10 +107,6 @@ else
                 echo "--branch cannot be specified with --tag"
                 exit 1
         fi
-        if [ "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
-                echo "--tools-branch cannot be specified with --tag"
-                exit 1
-        fi
 fi
 
 # A tag of 'dev' means don't use tag.
@@ -156,6 +152,10 @@ if [ -d appscale/.appscale/certs ]; then
         # For upgrade, we don't switch across branches.
         if [ "${APPSCALE_BRANCH}" != "master" ]; then
                 echo "Cannot use --branch when upgrading"
+                exit 1
+        fi
+        if [ "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
+                echo "Cannot use --tools-branch when upgrading"
                 exit 1
         fi
         if [ -z "$GIT_TAG" ]; then
