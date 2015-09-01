@@ -24,7 +24,7 @@ PARAM_PASSWORD = 'vpassword'
 PARAM_HOST = 'vhost'
 PARAM_RESOURCE_POOL = 'vresource_pool'       #name of Resouce Pool in vSphere (reservate for AppScale) some like appscale-pool
 PARAM_IMAGE_ID = 'vimage_id'                 #name of AppScale Template create in vSphere some like appscale-template
-#PARAM_INSTANCE_IDS = 'instance_ids'         #name of vm (ex: appscale1)
+PARAM_INSTANCE_IDS = 'instance_ids'         #name of vm (ex: appscale1)
 
 class vSphereAgent(BaseAgent):
 
@@ -103,7 +103,7 @@ class vSphereAgent(BaseAgent):
 			for i in range(count):
 				name = "appscale{0}".format(nvm)
 				newVM = template.clone(name,resourcepool=parameters[PARAM_RESOURCE_POOL])
-				ip = get_property('ip_address')
+				ip = newVM.get_property('ip_address')							#modificato
 				instance_ids.append(name)
 				private_ips.append(ip)
 				nvm += 1
