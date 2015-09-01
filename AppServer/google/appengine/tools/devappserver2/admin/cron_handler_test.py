@@ -63,7 +63,7 @@ class CronHandlerTest(unittest.TestCase):
     handler.dispatcher.add_request(
         method='GET',
         relative_url='/url',
-        headers=[('X-AppEngine-Cron', 'true')],
+        headers=[('X-AppEngine-Cron', 'True')],
         body='',
         source_ip='0.1.0.1').AndReturn(
             dispatcher.ResponseTuple('500 Internal Server Error', [], ''))
