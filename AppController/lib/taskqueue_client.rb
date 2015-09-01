@@ -45,6 +45,9 @@ class TaskQueueClient
           if retry_on_except
             Kernel.sleep(1)
             retry
+          else
+            raise FailedNodeException.new('Exception encountered while '\
+              "talking to #{@ip}:#{SERVER_PORT}")
           end
         end
       }
