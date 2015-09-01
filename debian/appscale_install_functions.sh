@@ -181,7 +181,7 @@ EOF
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
-        cp ${APPSCALE_HOME}/scripts/appscale-logotate.conf /etc/logrotate.d/appscale
+        cp ${APPSCALE_HOME}/scripts/appscale-logrotate.conf /etc/logrotate.d/appscale
     fi
 }
 
@@ -337,6 +337,9 @@ installcassandra()
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+
+    # Create separate log directory.
+    mkdir -pv /var/log/appscale/cassandra
 }
 
 postinstallcassandra()
