@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import urllib
+from xml.etree import ElementTree
 
 from M2Crypto import SSL
 
@@ -151,7 +152,7 @@ def start_app(config):
                             config['app_port'],
                             config['load_balancer_ip'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
-    env_vars.update(create_java_app_env())
+    env_vars.update(create_java_app_env(config['app_name']))
   else:
     logging.error("Unknown application language %s for appname %s"\
                   %(config['language'], config['app_name']))
@@ -303,14 +304,68 @@ def create_python_app_env(public_ip, app_name):
   env_vars['PYTHON_LIB'] = "{0}/AppServer/".format(constants.APPSCALE_HOME)
   return env_vars
 
-def create_java_app_env():
-  """ Returns the environment variables java application servers uses.
+def find_web_xml(app_name):
+  """ Returns the location of a Java application's appengine-web.xml file.
 
+  Args:
+    app_name: A string containing the application ID.
+  Returns:
+    A string containing the location of the file.
+  Raises:
+    BadConfigurationException if the file is not found or multiple candidates
+    are found.
+
+  """
+  app_dir = '/var/apps/{}/app'.format(app_name)
+  file_name = 'appengine-web.xml'
+  matches = []
+  for root, dirs, files in os.walk(app_dir):
+    if file_name in files and root.endswith('/WEB-INF'):
+      matches.append(os.path.join(root, file_name))
+
+  if len(matches) < 1:
+    raise BadConfigurationException(
+      'Unable to find {} file for {}'.format(file_name, app_name))
+  if len(matches) > 1:
+    raise BadConfigurationException('Found multiple {} files for {}: {}'.
+      format(file_name, app_name, matches))
+  return matches[0]
+
+def extract_env_vars_from_xml(xml_file):
+  """ Returns any custom environment variables defined in appengine-web.xml.
+
+  Args:
+    xml_file: A string containing the location of the xml file.
+  Returns:
+    A dictionary containing the custom environment variables.
+  """
+  custom_vars = {}
+  tree = ElementTree.parse(xml_file)
+  root = tree.getroot()
+  for child in root:
+    if not child.tag.endswith('env-variables'):
+      continue
+
+    for env_var in child:
+      var_dict = env_var.attrib
+      custom_vars[var_dict['name']] = var_dict['value']
+
+  return custom_vars
+
+def create_java_app_env(app_name):
+  """ Returns the environment variables Java application servers uses.
+
+  Args:
+    app_name: A string containing the application ID.
   Returns:
     A dictionary containing the environment variables
   """
-  env_vars = {}
-  env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
+  env_vars = {'APPSCALE_HOME': constants.APPSCALE_HOME}
+
+  config_file = find_web_xml(app_name)
+  custom_env_vars = extract_env_vars_from_xml(config_file)
+  env_vars.update(custom_env_vars)
+
   return env_vars
 
 def create_python27_start_cmd(app_name,
