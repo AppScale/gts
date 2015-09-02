@@ -1,6 +1,5 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import glob
 import json
 import os
 import subprocess
