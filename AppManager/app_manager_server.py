@@ -57,6 +57,15 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"
 
+class BadConfigurationException(Exception):
+  """ An application is configured incorrectly. """
+  def __init__(self, value):
+    Exception.__init__(self, value)
+    self.value = value
+
+  def __str__(self):
+    return repr(self.value)
+
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
       Validates the dictionary configuration before returning.
