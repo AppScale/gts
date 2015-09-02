@@ -6,14 +6,12 @@ import json
 import logging
 import os
 import SOAPpy
-import socket
 import subprocess
 import sys
 import time
 import urllib
 
 from M2Crypto import SSL
-
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
