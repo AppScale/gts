@@ -7,6 +7,7 @@ import sys
 import time
 import unittest
 import urllib
+from xml.etree import ElementTree
 
 from flexmock import flexmock
 
@@ -153,6 +154,45 @@ class TestAppManager(unittest.TestCase):
     self.assertEqual('2', env_vars['APPNAME'])
     assert 'appscale' in env_vars['APPSCALE_HOME']
     assert 0 < int(env_vars['GOMAXPROCS'])
+
+  def test_find_web_xml(self):
+    files = [('/var/apps/foo/app/WEB-INF', '', 'appengine-web.xml')]
+    flexmock(os).should_receive('walk').and_return(files)
+    app_manager_server.find_web_xml('foo')
+
+    files = [('', '', '')]
+    flexmock(os).should_receive('walk').and_return(files)
+    self.assertRaises(app_manager_server.BadConfigurationException,
+      app_manager_server.find_web_xml, files)
+
+    files = [
+      ('/var/apps/foo/app/WEB-INF', '', 'appengine-web.xml'),
+      ('/var/apps/foo/app/war/WEB-INF', '', 'appengine-web.xml'),
+    ]
+    flexmock(os).should_receive('walk').and_return(files)
+    self.assertRaises(app_manager_server.BadConfigurationException,
+      app_manager_server.find_web_xml, files)
+
+  def test_extract_env_vars_from_xml(self):
+    xml_template = '<appengine-web-app xmlns="http://appengine.google.com/ns/1.0">\
+                      <application>{}</application>\
+                      {}\
+                    </appengine-web-app>'
+
+    env_var_section = '<env-variables>\
+                         <env-var name="custom-var-1" value="foo"/>\
+                         <env-var name="custom-var-2" value="bar"/>\
+                       </env-variables>'
+
+    xml = xml_template.format('app-id', env_var_section)
+    flexmock(ElementTree).should_receive('parse').\
+      and_return(flexmock(getroot=lambda: ElementTree.fromstring(xml)))
+    assert len(app_manager_server.extract_env_vars_from_xml('/file.xml')) == 2
+
+    xml = xml_template.format('app-id', '')
+    flexmock(ElementTree).should_receive('parse').\
+      and_return(flexmock(getroot=lambda: ElementTree.fromstring(xml)))
+    assert app_manager_server.extract_env_vars_from_xml('/file.xml') == {}
 
   def test_create_java_app_env(self):
     app_name = 'foo'
