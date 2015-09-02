@@ -478,7 +478,6 @@ class Djinn
     'scp' => [ String, nil ],
     'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
-    'test' => [ TrueClass, 'False' ],
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
@@ -1167,13 +1166,16 @@ class Djinn
     Thread.new {
       @nodes.each { |node|
         ip = node.private_ip
-        acc = AppControllerClient.new(ip, @@secret)
-
-        begin
-          new_stats << acc.get_stats()
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
-            "not adding it to our cached info.")
+        if ip == my_node.private_ip
+          new_stats << get_stats()
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            new_stats << acc.get_stats()
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
+              "not adding it to our cached info.")
+          end
         end
       }
       @all_stats = new_stats
@@ -1538,15 +1540,20 @@ class Djinn
     Thread.new {
       # Begin by starting any new App Engine apps.
       @nodes.each_index { |index|
+        result = ""
         ip = @nodes[index].private_ip
-        acc = AppControllerClient.new(ip, @@secret)
-        begin
-          result = acc.set_apps(apps)
-          Djinn.log_debug("Set apps at #{ip} returned #{result}.")
-        rescue FailedNodeException
-          Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
-            " - skipping for now.")
+        if my_node.private_ip == ip
+          result = set_apps(apps)
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            result = acc.set_apps(apps)
+          rescue FailedNodeException
+            Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
+              " - skipping for now.")
+          end
         end
+        Djinn.log_debug("The call set_apps at #{ip} returned #{result}.")
       }
   
       # Next, restart any apps that have new code uploaded.
@@ -1560,15 +1567,20 @@ class Djinn
         }
   
         @nodes.each_index { |index|
+          result = ""
           ip = @nodes[index].private_ip
-          acc = AppControllerClient.new(ip, @@secret)
-          begin
-            result = acc.set_apps_to_restart(apps_to_restart)
-            Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
-          rescue FailedNodeException
-            Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
-              "apps - skipping for now.")
+          if my_node.private_ip == ip
+            result = set_apps_to_restart(apps_to_restart)
+          else
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              result = acc.set_apps_to_restart(apps_to_restart)
+            rescue FailedNodeException
+              Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
+                "apps - skipping for now.")
+            end
           end
+          Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
         }
       end
 
@@ -2120,8 +2132,8 @@ class Djinn
     # it to prevent race conditions.
     @state_change_lock.synchronize {
       @nodes.concat(new_nodes)
-      Djinn.log_debug("Changed nodes to #{@nodes}")
     }
+    Djinn.log_debug("Changed nodes to #{@nodes}")
 
     update_firewall()
     initialize_nodes_in_parallel(new_nodes)
