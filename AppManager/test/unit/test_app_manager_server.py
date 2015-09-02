@@ -106,6 +106,8 @@ class TestAppManager(unittest.TestCase):
                                .and_return('fakeconfig')
     flexmock(monit_interface).should_receive('start')\
                            .and_return(True)
+    flexmock(app_manager_server).should_receive('create_java_app_env').\
+      and_return({})
     flexmock(app_manager_server).should_receive('wait_on_app')\
                          .and_return(True)
     flexmock(app_manager_server).should_receive('locate_dir')\
@@ -153,7 +155,11 @@ class TestAppManager(unittest.TestCase):
     assert 0 < int(env_vars['GOMAXPROCS'])
 
   def test_create_java_app_env(self):
-    env_vars = app_manager_server.create_java_app_env()
+    app_name = 'foo'
+    flexmock(app_manager_server).should_receive('find_web_xml').and_return()
+    flexmock(app_manager_server).should_receive('extract_env_vars_from_xml').\
+      and_return({})
+    env_vars = app_manager_server.create_java_app_env(app_name)
     assert 'appscale' in env_vars['APPSCALE_HOME']
 
   def test_create_java_start_cmd(self): 
