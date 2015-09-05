@@ -64,7 +64,7 @@ def start_zookeeper(clear_datastore)
     Djinn.log_info("Initializing ZooKeeper")
     Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
     Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
-    result = `service --status-all 2> /dev/null|grep zookeeper-server`
+    result = system("service --status-all 2> /dev/null|grep zookeeper-server")
     if result == 0
       Djinn.log_run("/usr/sbin/service zookeeper-server init")
     else
@@ -75,7 +75,7 @@ def start_zookeeper(clear_datastore)
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  result = `service --status-all 2> /dev/null|grep zookeeper-server`
+  result = system("service --status-all 2> /dev/null|grep zookeeper-server")
   if result == 0
     start_cmd = "/usr/sbin/service zookeeper-server start"
     stop_cmd = "/usr/sbin/service zookeeper-server stop"

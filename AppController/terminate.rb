@@ -54,11 +54,11 @@ module TerminateHelper
     `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
 
     # Next, stop ZooKeeper politely.
-    result = `service --status-all 2> /dev/null|grep zookeeper-server`
-    if result != 1
-      `service zookeeper stop`
-    else
+    result = system("service --status-all 2> /dev/null|grep zookeeper-server")
+    if result == 0
       `service zookeeper-server stop`
+    else
+      `service zookeeper stop`
     end
   end
 
