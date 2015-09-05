@@ -1933,6 +1933,8 @@ class DatastoreDistributed():
       A list of valid entities.
     """
     references = index_dict.keys()
+    # Prevent duplicate entities across queries with a cursor.
+    references.sort()
     offset = 0
     results = []
     to_fetch = limit
@@ -1945,7 +1947,11 @@ class DatastoreDistributed():
 
       entities = self.__fetch_entities_dict_from_row_list(refs_to_fetch, app_id)
 
-      for reference in entities:
+      # Prevent duplicate entities across queries with a cursor.
+      entity_keys = entities.keys()
+      entity_keys.sort()
+
+      for reference in entity_keys:
         use_result = False
         indexes_to_check = index_dict[reference]
         for index_info in indexes_to_check:
