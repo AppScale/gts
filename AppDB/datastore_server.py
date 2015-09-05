@@ -1938,6 +1938,7 @@ class DatastoreDistributed():
     offset = 0
     results = []
     to_fetch = limit
+    added_padding = False
     while True:
       refs_to_fetch = references[offset:offset + to_fetch]
 
@@ -1971,9 +1972,13 @@ class DatastoreDistributed():
 
       offset = offset + to_fetch
 
+      to_fetch -= len(results)
+
       # Pad the number of references to fetch to increase the likelihood of
       # getting all the valid references that we need.
-      to_fetch = to_fetch - len(results) + zk.MAX_GROUPS_FOR_XG
+      if not added_padding:
+        to_fetch += zk.MAX_GROUPS_FOR_XG
+        added_padding = True
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
