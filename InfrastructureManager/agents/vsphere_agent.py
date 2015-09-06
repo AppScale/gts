@@ -101,7 +101,8 @@ class vSphereAgent(BaseAgent):
 			instance_ids = []
 			for i in range(count):
 				name = "appscale{0}".format(nvm)
-				newVM = template.clone(name)                                    #valutare se inserire una wait di 1 min
+				newVM = template.clone(name)
+				time.sleep(180)
 				ip = newVM.get_property('ip_address')							#modificato
 				time.sleep(180)
 				instance_ids.append(name)
@@ -110,6 +111,6 @@ class vSphereAgent(BaseAgent):
 			public_ips = private_ips
 			print public_ips
 			print private_ips
-			print instance_id
+			print instance_ids
 			return instance_ids, public_ips, private_ips
 		return None
