@@ -3,16 +3,16 @@
 Agent class for vSphere.
 
 You need setup your vCenter:
-	You need create a AppScale template with VMWare tools installed and to be powered on.
-  	You need create a head node in vSphere
+	you need create a AppScale template with VMWare tools installed and to be powered on.
+  	you need create a head node in vSphere
 """
 
 from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
 from pysphere import VIServer
-from utils import utils
 import datetime
 import os
 import time
+import random
 
 
 __author__ = 'Marco Maria Di Nicola'
@@ -95,16 +95,21 @@ class vSphereAgent(BaseAgent):
 		if conn is not None:
 			template = conn.get_vm_by_name(parameters[PARAM_IMAGE_ID])
 			nvm = len(conn.get_registered_vms())
-			nvm += 1
+			nvm += random.randint(0, 1000)
+			public_ips = []
 			private_ips = []
 			instance_ids = []
 			for i in range(count):
 				name = "appscale{0}".format(nvm)
 				newVM = template.clone(name)                                    #valutare se inserire una wait di 1 min
 				ip = newVM.get_property('ip_address')							#modificato
-				time.sleep(120)
+				time.sleep(180)
 				instance_ids.append(name)
 				private_ips.append(ip)
 				nvm += 1
-			return instance_ids, private_ips
+			public_ips = private_ips
+			print public_ips
+			print private_ips
+			print instance_id
+			return instance_ids, public_ips, private_ips
 		return None
