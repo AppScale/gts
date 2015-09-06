@@ -1,19 +1,18 @@
 """
 [TESTING]
 Agent class for vSphere.
-The agent need pysphere 0.1.8 you can install from pip or from esayinstall tools
 
 You need setup your vCenter:
-    you need create a AppScale template with VMWare tools installed and to be
-    powered on.
-      you need create a head node in vSphere
+	You need create a AppScale template with VMWare tools installed and to be powered on.
+  	You need create a head node in vSphere
 """
 
 from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
-import datetime
 from pysphere import VIServer
+import datetime
+import os
 import time
-from utils import utils
+
 
 __author__ = 'Marco Maria Di Nicola'
 __email__ = 'marticus@hotmail.it'
@@ -22,8 +21,7 @@ __email2__ = 'dinicola.1210022@studenti.uniroma1.it'
 PARAM_USERNAME = 'vusername'
 PARAM_PASSWORD = 'vpassword'
 PARAM_HOST = 'vhost'
-PARAM_RESOURCE_POOL = 'vresource_pool'       #name of Resouce Pool in vSphere (reservate for AppScale) some like appscale-pool
-PARAM_IMAGE_ID = 'vimage_id'                 #name of AppScale Template create in vSphere some like appscale-template
+ARAM_IMAGE_ID = 'vimage_id'                 #name of AppScale Template create in vSphere some like appscale-template
 PARAM_INSTANCE_IDS = 'instance_ids'         #name of vm (ex: appscale1)
 
 class vSphereAgent(BaseAgent):
@@ -85,24 +83,23 @@ class vSphereAgent(BaseAgent):
 	    Args:
 	      count               No. of VMs to spawned
 	      parameters          A dictionary of parameters. This must contain
-							  'credentials', 'resource_pool', 'image_id'.
+							  'credentials', 'image_id'.
 	      security_configured Uses this boolean value as an heuristic to
 	                          detect brand new AppScale deployments.
 
 	    Returns:
 	      A tuple of the form (instances, private_ips)
 		"""
-		#valutare se fare una creazione asincrona delle macchine
 		conn = self.open_connection(parameters)
 		if conn is not None:
 			template = conn.get_vm_by_name(parameters[PARAM_IMAGE_ID])
-			nvm = len(conn.get_registered_vms(resource_pool=parameters[PARAM_RESOURCE_POOL], advanced_filters={'config.template':False}))
+			nvm = len(conn.get_registered_vms())
 			nvm += 1
 			private_ips = []
 			instance_ids = []
 			for i in range(count):
 				name = "appscale{0}".format(nvm)
-				newVM = template.clone(name,resourcepool=parameters[PARAM_RESOURCE_POOL])
+				newVM = template.clone(name)                                    #valutare se inserire una wait di 1 min
 				ip = newVM.get_property('ip_address')							#modificato
 				instance_ids.append(name)
 				private_ips.append(ip)
