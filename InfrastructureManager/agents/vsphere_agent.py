@@ -22,7 +22,7 @@ __email2__ = 'dinicola.1210022@studenti.uniroma1.it'
 PARAM_USERNAME = 'vusername'
 PARAM_PASSWORD = 'vpassword'
 PARAM_HOST = 'vhost'
-ARAM_IMAGE_ID = 'vimage_id'                 #name of AppScale Template create in vSphere some like appscale-template
+PARAM_IMAGE_ID = 'vimage_id'                 #name of AppScale Template create in vSphere some like appscale-template
 PARAM_INSTANCE_IDS = 'instance_ids'         #name of vm (ex: appscale1)
 
 class vSphereAgent(BaseAgent):
