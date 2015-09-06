@@ -1167,7 +1167,7 @@ class Djinn
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
-          new_stats << get_stats()
+          new_stats << get_stats(@@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
@@ -1543,7 +1543,7 @@ class Djinn
         result = ""
         ip = @nodes[index].private_ip
         if my_node.private_ip == ip
-          result = set_apps(apps)
+          result = set_apps(apps, @@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
@@ -1570,7 +1570,7 @@ class Djinn
           result = ""
           ip = @nodes[index].private_ip
           if my_node.private_ip == ip
-            result = set_apps_to_restart(apps_to_restart)
+            result = set_apps_to_restart(apps_to_restart, @@secret)
           else
             acc = AppControllerClient.new(ip, @@secret)
             begin
