@@ -317,7 +317,11 @@ class NewUserPage(AppDashboard):
 
 
 class LoginVerify(AppDashboard):
-  """ Class to handle requests to /users/confirm and /users/verify pages. """
+  """ Class to handle requests to /users/confirm and /users/verify pages.
+
+  This page is not currently used in the default login implementation, but the
+  handler remains for compatibility with other implementations.
+  """
 
   # The template to use for confirmation page.
   TEMPLATE = 'users/confirm.html'
@@ -388,9 +392,8 @@ class LoginPage(AppDashboard):
       self.response):
 
       if self.request.get('continue') != '':
-        self.redirect('/users/confirm?continue={0}'.format(
-          urllib.quote(str(self.request.get('continue')))\
-          .encode('ascii','ignore')), self.response)
+        continue_url = self.request.get('continue').encode('ascii','ignore')
+        self.redirect(continue_url, self.response)
       else:
         self.redirect('/', self.response)
     else:
@@ -464,10 +467,8 @@ class ShibbolethRedirect(AppDashboard):
     self.helper.set_appserver_cookie(user_email, user_app_list, self.response)
 
     if self.request.get('continue') != '':
-      continue_param = urllib.quote(self.request.get('continue'), safe='')
-      redirect_url = '{0}/users/confirm?continue={1}'\
-        .format(AppDashboardHelper.SHIBBOLETH_CONNECTOR, continue_param)
-      self.redirect(redirect_url, self.response)
+      continue_url = self.request.get('continue').encode('ascii','ignore')
+      self.redirect(continue_url, self.response)
     else:
       self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
 

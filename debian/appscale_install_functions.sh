@@ -102,13 +102,15 @@ installPIL()
 {
     if [ "$DIST" = "precise" ]; then
         pip uninstall -y PIL
+        pipwrapper pillow
     fi
-    pipwrapper pillow
 }
 
 installlxml()
 {
-    pipwrapper lxml
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper lxml
+    fi
 }
 
 installxmpppy()
@@ -179,13 +181,15 @@ EOF
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
-        cp ${APPSCALE_HOME}/scripts/appscale-logotate.conf /etc/logrotate.d/appscale
+        cp ${APPSCALE_HOME}/scripts/appscale-logrotate.conf /etc/logrotate.d/appscale
     fi
 }
 
 installthrift()
 {
-    pipwrapper thrift
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper thrift
+    fi
 }
 
 installjavajdk()
@@ -209,26 +213,32 @@ installappserverjava()
 
 installtornado()
 {
-    pipwrapper tornado
-    DISTP=/usr/local/lib/python2.7/dist-packages
-    if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
-	echo "Fail to install python tornado. Please retry."
-	exit 1
-    fi
-    if [ -n "$DESTDIR" ]; then
-	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/tornado-*.egg* ${DESTDIR}${DISTP}
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper tornado
+        DISTP=/usr/local/lib/python2.7/dist-packages
+        if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
+            echo "Fail to install python tornado. Please retry."
+            exit 1
+        fi
+        if [ -n "$DESTDIR" ]; then
+            mkdir -pv ${DESTDIR}${DISTP}
+            cp -rv ${DISTP}/tornado-*.egg* ${DESTDIR}${DISTP}
+        fi
     fi
 }
 
 installflexmock()
 {
-    pipwrapper flexmock
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper flexmock
+    fi
 }
 
 postinstalltornado()
 {
-    pipwrapper tornado
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper tornado
+    fi
 }
 
 postinstallhaproxy()
@@ -319,12 +329,17 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    pipwrapper  setuptools
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper  setuptools
+        pipwrapper  thrift
+    fi
     pipwrapper  pycassa
-    pipwrapper  thrift
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+
+    # Create separate log directory.
+    mkdir -pv /var/log/appscale/cassandra
 }
 
 postinstallcassandra()
@@ -360,17 +375,19 @@ postinstallservice()
 
 installpythonmemcache()
 {
-    VERSION=1.53
+    if [ "$DIST" = "precise" ]; then
+        VERSION=1.53
 
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
-    tar zxvf python-memcached-${VERSION}.tar.gz
-    cd python-memcached-${VERSION}
-    python setup.py install
-    cd ..
-    rm -fr python-memcached-${VERSION}.tar.gz
-    rm -fr python-memcached-${VERSION}
+        mkdir -pv ${APPSCALE_HOME}/downloads
+        cd ${APPSCALE_HOME}/downloads
+        wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+        tar zxvf python-memcached-${VERSION}.tar.gz
+        cd python-memcached-${VERSION}
+        python setup.py install
+        cd ..
+        rm -fr python-memcached-${VERSION}.tar.gz
+        rm -fr python-memcached-${VERSION}
+    fi
 }
 
 installzookeeper()
@@ -381,11 +398,11 @@ installzookeeper()
         dpkg -i /tmp/${ZK_REPO_PKG}
         apt-get update
         apt-get install -y zookeeper-server
+        pipwrapper kazoo
     else
-        apt-get install -y zookeeper
+        apt-get install -y zookeeper zookeeperd zookeeper-bin
     fi
 
-    pipwrapper kazoo
 }
 
 installpycrypto()
@@ -411,7 +428,9 @@ keygen()
 
 installcelery()
 {
-    pipwrapper Celery
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper Celery
+    fi
     pipwrapper Flower
 }
 
@@ -434,5 +453,7 @@ installVersion()
 
 installrequests()
 {
-    pipwrapper requests
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper requests
+    fi
 }
