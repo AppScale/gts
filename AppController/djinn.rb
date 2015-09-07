@@ -4426,7 +4426,7 @@ HOSTS
 
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
-    Djinn.log_debug("Starting appengine")
+    Djinn.log_debug("Preparing to run AppEngine apps if needed")
 
     if @restored == false
       db_private_ip = nil
