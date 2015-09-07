@@ -496,13 +496,8 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
-    # The log file to use. Make sure it is synchronous to ensure we get
-    # all message in case of a crash.
-    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
-    file.sync = true
-
-    @@log = Logger.new(file)
-    @@log.level = Logger::DEBUG
+    @@log = nil
+    set_log_level(Logger::DEBUG)
 
     @nodes = []
     @my_index = nil
@@ -534,6 +529,22 @@ class Djinn
     @app_upload_reservations = {}
   end
 
+  # This method is needed, since we are not able to change log level on
+  # the fly (or at least we are seeing issues). So we create a new Logger
+  # each time with the desired level.
+  def set_log_level(level)
+    if @@log
+      @@log.close()
+    end
+
+    # The log file to use. Make sure it is synchronous to ensure we get
+    # all message in case of a crash.
+    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
+    file.sync = true
+
+    @@log = Logger.new(file)
+    @@log.level = level
+  end
 
   # A SOAP-exposed method that callers can use to determine if this node
   # has received information from another node and is starting up.
@@ -974,7 +985,7 @@ class Djinn
     end
 
     if @options['verbose'].downcase == "false"
-      @@log.level = Logger::INFO
+      set_log_level(Logger::INFO)
     end
 
     begin
