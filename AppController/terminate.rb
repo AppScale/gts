@@ -55,7 +55,7 @@ module TerminateHelper
 
     # Next, stop ZooKeeper politely.
     result = system("service --status-all 2> /dev/null|grep zookeeper-server")
-    if result == 0
+    if result
       `service zookeeper-server stop`
     else
       `service zookeeper stop`
