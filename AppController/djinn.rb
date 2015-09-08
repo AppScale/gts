@@ -5149,7 +5149,7 @@ HOSTS
   
       appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
       if appengine_port < 0
-        Djinn.log_error("Failed to get a port for  #{app}")
+        Djinn.log_error("Failed to get a port for #{app}")
         return
       end
       Djinn.log_debug("Adding #{app_language} app #{app} on " +
