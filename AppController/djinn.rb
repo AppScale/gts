@@ -4556,22 +4556,31 @@ HOSTS
 
     HelperFunctions.setup_app(app)
 
+    # This variable is used later on, but we want to check the availabity
+    # of ports all at the same time so we can fail early on if we have
+    # issue.
+    appengine_port = -1
     if is_new_app
-      maybe_start_taskqueue_worker(app)
-    else
-      maybe_reload_taskqueue_worker(app)
-    end
+      nginx_app_port = find_lowest_free_port(Nginx::START_PORT)
+      haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
+      appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
+      if nginx_app_port < 0 or haproxy_app_port < 0 or appengine_port < 0
+        Djinn.log_error("Cannot find an available port for application #{app}")
+        return
+      end
 
-    if is_new_app
+      maybe_start_taskqueue_worker(app)
+
       if @app_info_map[app]['nginx'].nil?
-        @app_info_map[app]['nginx'] = find_lowest_free_port(Nginx::START_PORT)
-        @app_info_map[app]['haproxy'] = find_lowest_free_port(
-          HAProxy::START_PORT)
+        @app_info_map[app]['nginx'] = nginx_app_port
+        @app_info_map[app]['haproxy'] = haproxy_app_port
         @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(
           @app_info_map[app]['nginx'])
       end
 
       @app_info_map[app]['appengine'] = []
+    else
+      maybe_reload_taskqueue_worker(app)
     end
 
     # Only take a new port for this application if there's no data about
@@ -4627,7 +4636,6 @@ HOSTS
       # deploys?
       if is_new_app
         @num_appengines.times { |index|
-          appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
           Djinn.log_info("Starting #{app_language} app #{app} on " +
             "#{HelperFunctions.local_ip()}:#{appengine_port}")
 
@@ -4756,10 +4764,11 @@ HOSTS
         Djinn.log_debug("Port #{possibly_free_port} is available for use.")
         return possibly_free_port
       else
-        Djinn.log_warn("Port #{possibly_free_port} is in use, so skipping it.")
+        Djinn.log_debug("Port #{possibly_free_port} is in use, so skipping it.")
         possibly_free_port += 1
       end
     }
+    return -1
   end
 
 
@@ -5139,6 +5148,10 @@ HOSTS
       end
   
       appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
+      if appengine_port < 0
+        Djinn.log_error("Failed to get a port for  #{app}")
+        return
+      end
       Djinn.log_debug("Adding #{app_language} app #{app} on " +
         "#{HelperFunctions.local_ip()}:#{appengine_port} ")
 
