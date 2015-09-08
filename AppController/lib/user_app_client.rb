@@ -65,7 +65,7 @@ class UserAppClient
             retry
           else
             raise FailedNodeException.new('Exception encountered while '\
-              "talking to #{@ip}:#{SERVER_PORT}")
+              "talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
       }
