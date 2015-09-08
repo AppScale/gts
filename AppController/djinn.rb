@@ -497,7 +497,7 @@ class Djinn
     @@logs_buffer = []
 
     @@log = nil
-    set_log_level(Logger::DEBUG)
+    set_log_level(Logger::INFO)
 
     @nodes = []
     @my_index = nil
@@ -984,7 +984,9 @@ class Djinn
       HelperFunctions.alter_etc_resolv()
     end
 
-    if @options['verbose'].downcase == "false"
+    if @options['verbose'].downcase == "true"
+      set_log_level(Logger::DEBUG)
+    else
       set_log_level(Logger::INFO)
     end
 
