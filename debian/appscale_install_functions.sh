@@ -278,7 +278,7 @@ installphp54()
         apt-get update
         # We need to pull also php5-cgi to ensure apache2 won't be pulled
         # in.
-        apt-get install -y php5-cgi php5
+        apt-get install --force-yes -y php5-cgi php5
     fi
 }
 
