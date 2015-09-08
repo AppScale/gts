@@ -159,7 +159,8 @@ def start_app(config):
                                              str(stop_cmd),
                                              [config['app_port']],
                                              env_vars,
-                                             config['max_memory'])
+                                             config['max_memory'],
+                                             config['xmpp_ip'])
 
   if not monit_interface.start(watch):
     logging.error("Unable to start application server with monit")

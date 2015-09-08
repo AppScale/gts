@@ -485,6 +485,10 @@ class Djinn
     'zone' => [ String, nil ]
     }
 
+    # Template used for rsyslog configuration files.
+    RSYSLOG_TEMPLATE_LOCATION = os.path.join(APPSCALE_HOME + \
+                    "/templates/rsyslog-app.conf"
+
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -1244,7 +1248,7 @@ class Djinn
     end
 
     Thread.new {
-      run_groomer_command = "python /root/appscale/AppDB/groomer.py"
+      run_groomer_command = "python #{APPSCALE_HOME}/AppDB/groomer.py"
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
@@ -4286,7 +4290,7 @@ HOSTS
     }
     start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
-    match = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
+    match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
@@ -4567,6 +4571,11 @@ HOSTS
             node.ssh_key)
         end
       }
+
+      # Setup rsyslog to store application logs.
+      template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
+      temp_file_name = "/etc/rsyslog.d/10-" + app + ".log"
+      HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
     else
       loop {
         if File.exists?(port_file)
@@ -5509,7 +5518,7 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
-      stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " +
+      stop_cmd = "/usr/bin/python #{APPSCALE_HOME}/stop_service.py " +
         "xmpp_receiver.py #{app}"
       watch_name = "xmpp-#{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)

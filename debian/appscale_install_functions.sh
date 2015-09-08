@@ -457,3 +457,18 @@ installrequests()
         pipwrapper requests
     fi
 }
+
+postinstallrsyslog()
+{
+    # We need to enable remote logging capability. We have found 2
+    # different version to configure UDP and TCP: we try both.
+    sed -i 's/#$ModLoad imudp/$ModLoad imudp/' /etc/rsyslog.conf
+    sed -i 's/#$UDPServerRun 514/$UDPServerRun 514/' /etc/rsyslog.conf
+    sed -i 's/#$ModLoad imtcp/$ModLoad imtcp/' /etc/rsyslog.conf
+    sed -i 's/#$InputTCPServerRun 514/$InputTCPServerRun 514/' /etc/rsyslog.conf
+    # This seems the newer version.
+    sed -i 's/#module(load="imudp")/module(load="imudp")/' /etc/rsyslog.conf
+    sed -i 's/#input(type="imudp" port="514")/input(type="imudp" port="514")/' /etc/rsyslog.conf
+    sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
+    sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
+}
