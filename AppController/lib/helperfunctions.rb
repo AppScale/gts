@@ -1496,8 +1496,8 @@ module HelperFunctions
   # Raises:
   #   SystemExit: Always occurs, since this method crashes the AppController.
   def self.log_and_crash(message)
-    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ": "
-      +  message)
+    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ": " +
+      message)
     # Try to also log to the normal log file.
     Djinn.log_error("FATAL: #{message}")
     abort(message)
