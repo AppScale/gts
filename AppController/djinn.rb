@@ -408,16 +408,6 @@ class Djinn
   LOGS_PER_BATCH = 25
 
 
-  # An Integer that indicates what the lowest port number is that should be
-  # used for nginx or haproxy.
-  MIN_PORT = 8080
-
-
-  # An Integer that indicates what the highest port number is that should be
-  # used for nginx or haproxy.
-  MAX_PORT = 65535
-
-
   # An Array of Strings, where each String is an appid that corresponds to an
   # application that cannot be relocated within AppScale, because system
   # services assume that they run at a specific location.
@@ -4561,7 +4551,7 @@ HOSTS
     # issue.
     appengine_port = -1
     if is_new_app
-      nginx_app_port = find_lowest_free_port(Nginx::START_PORT)
+      nginx_app_port = find_lowest_free_port(Nginx::START_PORT, Nginx::END_PORT)
       haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
       appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
       if nginx_app_port < 0 or haproxy_app_port < 0 or appengine_port < 0
@@ -4756,9 +4746,14 @@ HOSTS
   # Returns:
   #   A Fixnum corresponding to the port number that a new process can be bound
   #   to.
-  def find_lowest_free_port(starting_port)
+  def find_lowest_free_port(starting_port, ending_port=0)
     possibly_free_port = starting_port
     loop {
+      # if we have ending_port, we need to check the upper limit too.
+      if ending_port > 0 and possibly_free_port > ending_port
+        break
+
+      # Check if the port is really available.
       actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
       if actually_available.empty?
         Djinn.log_debug("Port #{possibly_free_port} is available for use.")

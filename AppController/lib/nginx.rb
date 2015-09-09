@@ -36,7 +36,11 @@ module Nginx
   MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
 
 
+  # These ports are the one visible from outside, ie the ones that we
+  # attach to running application. Default is to have a maximum of 21
+  # application (8080-8100).
   START_PORT = 8080
+  END_PORT = 8100
 
 
   # This is the start port of SSL connections to applications. Where an
