@@ -3447,7 +3447,7 @@ class Djinn
         configure_zookeeper(@nodes, @my_index)
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
-        rescue
+        rescue FailedZooKeeperOperationException
           Djinn.fatal("Couldn't start zookeeper")
           HelperFunctions.log_and_crash("Couldn't start zookeeper")
         end

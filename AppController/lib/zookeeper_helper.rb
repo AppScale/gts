@@ -71,7 +71,8 @@ def start_zookeeper(clear_datastore)
     end
     if not result
       Djinn.log_error("Failed to start zookeeper!")
-      raise Exception
+      raise Exception FailedZooKeeperOperationException.new("Failed to" +
+        " start zookeeper!")
     end
   end
 
