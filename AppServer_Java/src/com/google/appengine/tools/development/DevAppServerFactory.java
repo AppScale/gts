@@ -198,7 +198,7 @@ public class DevAppServerFactory {
    * checks when code is running in the context of a DevAppServer thread
    * handling an http request.
    */
-  private static class CustomSecurityManager extends SecurityManager {
+   static class CustomSecurityManager extends SecurityManager {
 
     private static final RuntimePermission PERMISSION_MODIFY_THREAD_GROUP =
         new RuntimePermission("modifyThreadGroup");
@@ -214,6 +214,19 @@ public class DevAppServerFactory {
 
     public CustomSecurityManager(DevAppServer devAppServer) {
       this.devAppServer = devAppServer;
+    }
+    
+    boolean appHasPermissionNonThreadCallerFrame(StackTraceElement frame) {
+        if ("sun.security.ssl.SSLSocketImpl$NotifyHandshakeThread".equals(frame.getClassName()) &&
+            "<init>".equals(frame.getMethodName())) {
+          return true;
+        }
+        if (("com.mysql.jdbc.AbandonedConnectionCleanupThread".equals(frame.getClassName()) &&
+            "<init>".equals(frame.getMethodName())) ||
+            frame.getClassName().startsWith("com.mysql.jdbc.NonRegisteringDriver")) {
+          return true;
+        }
+        return false;
     }
 
     private synchronized boolean appHasPermission(Permission perm) {
@@ -237,9 +250,7 @@ public class DevAppServerFactory {
             return true;
           }
         }
-        StackTraceElement frame = stack.getNonThreadCallerFrame();
-        if ("sun.security.ssl.SSLSocketImpl$NotifyHandshakeThread".equals(frame.getClassName()) &&
-            "<init>".equals(frame.getMethodName())) {
+        if (this.appHasPermissionNonThreadCallerFrame(stack.getNonThreadCallerFrame())) {
           return true;
         }
       }
