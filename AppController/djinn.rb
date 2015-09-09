@@ -613,18 +613,28 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    # Only the login node runs relocate.
+    if not my_node.is_login?
+      Djinn.log_warn("Only login nodes runs relocate")
+      return "Not login node"
+    end
+
     Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
     http_port = Integer(http_port)
     https_port = Integer(https_port)
 
     # First, only let users relocate apps to ports that the firewall has open
     # for App Engine apps.
-    if http_port != 80 and (http_port < 8080 or http_port > 8100)
-      return "Error: HTTP port must be 80, or in the range 8080-8100."
+    if http_port != 80 and
+       (http_port < Nginx::START_PORT or http_port > Nginx::END_PORT)
+      return "Error: HTTP port must be 80, or in the range #{START_PORT}-#{END_PORT}."
     end
 
-    if https_port != 443 and (https_port < 4380 or https_port > 4400)
-      return "Error: HTTPS port must be 443, or in the range 4380-4400."
+    if (https_port < Nginx::START_PORT + Nginx::SSL_PORT_OFFSET or https_port >
+        Nginx::END_PORT + Nginx::SSL_PORT_OFFSET) and https_port != 443
+      return "Error: HTTPS port must be 443, or in the range " +
+         "#{Nginx::START_PORT + Nginx::SSL_PORT_OFFSET}-" +
+         "#{Nginx::END_PORT + Nginx::SSL_PORT_OFFSET}."
     end
 
     # Next, make sure that no other app is using either of these ports for
@@ -675,11 +685,9 @@ class Djinn
     # out-of-band.
     backup_appserver_state()
 
-    if my_node.is_login?
-      static_handlers = HelperFunctions.parse_static_data(appid)
-      Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip)
-    end
+    static_handlers = HelperFunctions.parse_static_data(appid)
+    Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
+      my_private, proxy_port, static_handlers, login_ip)
 
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
@@ -1407,13 +1415,16 @@ class Djinn
 
       # Contact the soap server and remove the application
       if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/masters")
-        uac = UserAppClient.new(ip, @@secret)
+        uac = UserAppClient.new(@userappserver_private_ip, @@secret)
         begin
+          if not uac.does_app_exist?(app_name)
+            Djinn.log_info("(stop_app) #{app_name} does not exists")
+            return "Application #{app_name} does not exists."
+          end
           result = uac.delete_app(app_name)
-          Djinn.log_debug("(stop_app) Delete app: #{ip} returned #{result} (#{result.class})")
+          Djinn.log_debug("(stop_app) Delete app: returned #{result} (#{result.class})")
         rescue FailedNodeException
-          Djinn.log_warn("(stop_app) Delete app: failed to talk to #{ip}")
+          Djinn.log_warn("(stop_app) Delete app: failed to talk to #{@userappserver_private_ip}")
         end
       end
 
@@ -1425,8 +1436,6 @@ class Djinn
             pid = HelperFunctions.read_file(pid_file)
             Djinn.log_run("kill -9 #{pid}")
           }
-
-          result = "true"
         end
         stop_xmpp_for_app(app_name)
       end
@@ -1455,7 +1464,11 @@ class Djinn
             Djinn.log_warn("(stop_app) #{app_name} may have not been stopped")
           end
 
-          ZKInterface.remove_app_entry(app_name, my_node.public_ip)
+          begin
+            ZKInterface.remove_app_entry(app_name, my_node.public_ip)
+          rescue Exception => e
+            Djinn.log_warn("(stop_app) Zookeeper failure: #{e.message}")
+          end
         end
 
         # If this node has any information about AppServers for this app,
@@ -2148,7 +2161,6 @@ class Djinn
   def erase_old_data()
     Djinn.log_run("rm -rf /tmp/h*")
     Djinn.log_run("rm -f ~/.appscale_cookies")
-    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
     Nginx.clear_sites_enabled()
