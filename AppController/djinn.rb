@@ -4752,6 +4752,7 @@ HOSTS
       # if we have ending_port, we need to check the upper limit too.
       if ending_port > 0 and possibly_free_port > ending_port
         break
+      end
 
       # Check if the port is really available.
       actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
