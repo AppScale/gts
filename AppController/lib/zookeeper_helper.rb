@@ -60,16 +60,17 @@ def start_zookeeper(clear_datastore)
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end
 
+  # Detect which version of zookeeper script we have.
+  zk_server="zookeeper-server"
+  if system("service --status-all 2> /dev/null|grep zookeeper$")
+    zk_server="zookeeper"
+  end
+
   if !File.directory?("#{DATA_LOCATION}")
     Djinn.log_info("Initializing ZooKeeper")
     Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
     Djinn.log_run("chown -Rv zookeeper:zookeeper #{DATA_LOCATION}")
-    if system("service --status-all 2> /dev/null|grep zookeeper-server")
-      result = system("/usr/sbin/service zookeeper-server init")
-    else
-      result = system("/usr/sbin/service zookeeper init")
-    end
-    if not result
+    if not system("/usr/sbin/service #{zk_server} init")
       Djinn.log_error("Failed to start zookeeper!")
       raise Exception FailedZooKeeperOperationException.new("Failed to" +
         " start zookeeper!")
@@ -79,13 +80,8 @@ def start_zookeeper(clear_datastore)
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  if system("service --status-all 2> /dev/null|grep zookeeper-server")
-    start_cmd = "/usr/sbin/service zookeeper-server start"
-    stop_cmd = "/usr/sbin/service zookeeper-server stop"
-  else
-    start_cmd = "/usr/sbin/service zookeeper start"
-    stop_cmd = "/usr/sbin/service zookeeper stop"
-  end
+  start_cmd = "/usr/sbin/service #{zk_server} start"
+  stop_cmd = "/usr/sbin/service #{zk_server} stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
   MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
