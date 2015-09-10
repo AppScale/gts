@@ -616,7 +616,7 @@ class Djinn
     # Only the login node runs relocate.
     if not my_node.is_login?
       Djinn.log_warn("Only login nodes runs relocate")
-      return "Not login node"
+      return "Error: this is not the login node"
     end
 
     Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
