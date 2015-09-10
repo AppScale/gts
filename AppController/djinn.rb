@@ -1357,7 +1357,13 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    return ZKInterface.get('/deployment_id')
+    begin
+      return ZKInterface.get('/deployment_id')
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("(get_deployment_id) failed talking to zookeeper " +
+        "with #{e.message}")
+      return
+    end
   end
 
   # Sets deployment ID in ZooKeeper.
@@ -1368,7 +1374,12 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    ZKInterface.set('/deployment_id', id, false)
+    begin
+      ZKInterface.set('/deployment_id', id, false)
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("(set_deployment_id) failed talking to zookeeper " +
+        "with #{e.message}")
+    end
     return
   end
 
@@ -1466,8 +1477,9 @@ class Djinn
 
           begin
             ZKInterface.remove_app_entry(app_name, my_node.public_ip)
-          rescue Exception => e
-            Djinn.log_warn("(stop_app) Zookeeper failure: #{e.message}")
+          rescue FailedZooKeeperOperationException => e
+            Djinn.log_warn("(stop_app) got exception talking to " +
+              "zookeeper: #{e.message}")
           end
         end
 
@@ -1571,17 +1583,22 @@ class Djinn
         end
         Djinn.log_debug("The call set_apps at #{ip} returned #{result}.")
       }
-  
+
       # Next, restart any apps that have new code uploaded.
       apps_to_restart = current_apps_uploaded & app_names
       Djinn.log_debug("Apps to restart are #{apps_to_restart}")
       if !apps_to_restart.empty?
         apps_to_restart.each { |appid|
-          ZKInterface.clear_app_hosters(appid)
           location = "/opt/appscale/apps/#{appid}.tar.gz"
-          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+          begin
+            ZKInterface.clear_app_hosters(appid)
+            ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+          rescue FailedZooKeeperOperationException => e
+            Djinn.log_warn("(update) couldn't talk with zookeeper while " +
+              "working on app #{appid} with #{e.message}")
+          end
         }
-  
+
         @nodes.each_index { |index|
           result = ""
           ip = @nodes[index].private_ip
@@ -1810,8 +1827,14 @@ class Djinn
     end
 
     if File.exists?(location)
-      ZKInterface.add_app_entry(appname, my_node.public_ip, location)
-      result = "success"
+      begin
+        ZKInterface.add_app_entry(appname, my_node.public_ip, location)
+        result = "success"
+      rescue FailedZooKeeperOperationException => e
+        Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
+          "with #{e.message}")
+        result = "Unknown status for #{appname}: please retry."
+      end
     else
       result = "The #{appname} app was not found at #{location}."
     end
@@ -2119,10 +2142,15 @@ class Djinn
     wait_for_nodes_to_finish_loading(vms_to_use)
 
     nodes_needed.each_index { |i|
-      Djinn.log_info("Adding roles #{nodes_needed[i].join(', ')} " +
-        "to virtual machine #{vms_to_use[i]}")
-      ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i],
-        @options['keyname'])
+      begin
+        ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i],
+          @options['keyname'])
+        Djinn.log_info("Added roles #{nodes_needed[i].join(', ')} " +
+          "to virtual machine #{vms_to_use[i]}")
+      rescue FailedZooKeeperOperationException => e
+        Djinn.log_warn("(start_new_roles_on_nodes) couldn't talk to " +
+          "zookeeper while adding roles with #{e.message}")
+      end
     }
 
     wait_for_nodes_to_finish_loading(vms_to_use)
@@ -2661,7 +2689,12 @@ class Djinn
     Djinn.log_info("backup_appcontroller_state:"+state.to_s)
 
     HelperFunctions.write_local_appcontroller_state(state)
-    ZKInterface.write_appcontroller_state(state)
+    begin
+      ZKInterface.write_appcontroller_state(state)
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("Couldn't talk to zookeeper whle backing up " +
+        "appcontroller state with #{e.message}")
+    end
   end
 
   # In multinode deployments, it could be the case that we restored data
@@ -2900,7 +2933,12 @@ class Djinn
   # running on this machine to ZooKeeper, in case this AppController crashes.
   def backup_appserver_state()
     HelperFunctions.write_json_file(APPSERVER_STATE_FILE, @app_info_map)
-    ZKInterface.write_appserver_state(my_node.public_ip, @app_info_map)
+    begin
+      ZKInterface.write_appserver_state(my_node.public_ip, @app_info_map)
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("Couldn't talk to zookeeper while backing " +
+        "the appserver state with #{e.message}")
+    end
   end
 
 
@@ -2942,10 +2980,14 @@ class Djinn
   def write_our_node_info()
     # Since more than one AppController could write its data at the same
     # time, get a lock before we write to it.
-    ZKInterface.lock_and_run {
-      @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
-      ZKInterface.write_node_information(my_node, @done_loading)
-    }
+    begin
+      ZKInterface.lock_and_run {
+        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
+        ZKInterface.write_node_information(my_node, @done_loading)
+      }
+    rescue Exception => e
+      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
+    end
 
     return
   end
@@ -3076,78 +3118,83 @@ class Djinn
   # should be regenerated with up to date data from ZooKeeper. If data on
   # our node has changed, this starts or stops the necessary roles.
   def update_local_nodes()
-    ZKInterface.lock_and_run {
-      # See if the ZooKeeper data is newer than ours - if not, don't
-      # update anything and return.
-      zk_ips_info = ZKInterface.get_ip_info()
-      if zk_ips_info["last_updated"] <= @last_updated
-        return false
-      else
-        Djinn.log_info("Updating data from ZK. Our timestamp, " +
-          "#{@last_updated}, was older than the ZK timestamp, " +
-          "#{zk_ips_info['last_updated']}")
-      end
+    begin
+      ZKInterface.lock_and_run {
+        # See if the ZooKeeper data is newer than ours - if not, don't
+        # update anything and return.
+        zk_ips_info = ZKInterface.get_ip_info()
+        if zk_ips_info["last_updated"] <= @last_updated
+          return false
+        else
+          Djinn.log_info("Updating data from ZK. Our timestamp, " +
+            "#{@last_updated}, was older than the ZK timestamp, " +
+            "#{zk_ips_info['last_updated']}")
+        end
 
-      all_ips = zk_ips_info["ips"]
-      new_nodes = []
-      all_ips.each { |ip|
-        new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip),
-          @options['keyname'])
+        all_ips = zk_ips_info["ips"]
+        new_nodes = []
+        all_ips.each { |ip|
+          new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip),
+            @options['keyname'])
+        }
+
+        old_roles = my_node.jobs
+        @nodes = new_nodes
+        find_me_in_locations()
+        new_roles = my_node.jobs
+
+        Djinn.log_info("My new nodes are [#{@nodes.join(', ')}], and my new " +
+          "node is #{my_node}")
+
+        # Since we're about to possibly load and unload roles, set done_loading
+        # for our node to false, so that other nodes don't erroneously send us
+        # additional roles to do while we're in this state where lots of side
+        # effects are happening.
+        @done_loading = false
+        ZKInterface.set_done_loading(my_node.public_ip, false)
+
+        roles_to_start = new_roles - old_roles
+        if !roles_to_start.empty?
+          Djinn.log_info("Need to start [#{roles_to_start.join(', ')}] " +
+            "roles on this node")
+          roles_to_start.each { |role|
+            Djinn.log_info("Starting role #{role}")
+
+            # When starting the App Engine role, we need to make sure that we load
+            # all the App Engine apps on this machine.
+            if role == "appengine"
+              @apps_loaded = []
+            end
+            send("start_#{role}".to_sym)
+          }
+        end
+
+        roles_to_stop = old_roles - new_roles
+        if !roles_to_stop.empty?
+          Djinn.log_info("Need to stop [#{roles_to_stop.join(', ')}] " +
+            "roles on this node")
+          roles_to_stop.each { |role|
+            send("stop_#{role}".to_sym)
+          }
+        end
+
+        # And now that we're done loading/unloading roles, set done_loading for
+        # our node back to true.
+        ZKInterface.set_done_loading(my_node.public_ip, true)
+        @done_loading = true
+
+        @last_updated = zk_ips_info['last_updated']
+
+        # Finally, since the node layout changed, there may be a change in the
+        # list of AppServers, so update nginx / haproxy accordingly.
+        if my_node.is_login?
+          regenerate_nginx_config_files()
+        end
       }
-
-      old_roles = my_node.jobs
-      @nodes = new_nodes
-      find_me_in_locations()
-      new_roles = my_node.jobs
-
-      Djinn.log_info("My new nodes are [#{@nodes.join(', ')}], and my new " +
-        "node is #{my_node}")
-
-      # Since we're about to possibly load and unload roles, set done_loading
-      # for our node to false, so that other nodes don't erroneously send us
-      # additional roles to do while we're in this state where lots of side
-      # effects are happening.
-      @done_loading = false
-      ZKInterface.set_done_loading(my_node.public_ip, false)
-
-      roles_to_start = new_roles - old_roles
-      if !roles_to_start.empty?
-        Djinn.log_info("Need to start [#{roles_to_start.join(', ')}] " +
-          "roles on this node")
-        roles_to_start.each { |role|
-          Djinn.log_info("Starting role #{role}")
-
-          # When starting the App Engine role, we need to make sure that we load
-          # all the App Engine apps on this machine.
-          if role == "appengine"
-            @apps_loaded = []
-          end
-          send("start_#{role}".to_sym)
-        }
-      end
-
-      roles_to_stop = old_roles - new_roles
-      if !roles_to_stop.empty?
-        Djinn.log_info("Need to stop [#{roles_to_stop.join(', ')}] " +
-          "roles on this node")
-        roles_to_stop.each { |role|
-          send("stop_#{role}".to_sym)
-        }
-      end
-
-      # And now that we're done loading/unloading roles, set done_loading for
-      # our node back to true.
-      ZKInterface.set_done_loading(my_node.public_ip, true)
-      @done_loading = true
-
-      @last_updated = zk_ips_info['last_updated']
-
-      # Finally, since the node layout changed, there may be a change in the
-      # list of AppServers, so update nginx / haproxy accordingly.
-      if my_node.is_login?
-        regenerate_nginx_config_files()
-      end
-    }
+    rescue Exception => e
+      Djinn.log_warn("(update_local_node) saw exception #{e.message}")
+      return false
+    end
 
     return true
   end
@@ -3183,8 +3230,13 @@ class Djinn
     @nodes.delete(@nodes[index_to_remove])
 
     # Then remove the remote copy
-    ZKInterface.remove_node_information(ip)
-    @last_updated = ZKInterface.remove_ip_from_ip_list(ip)
+    begin
+      ZKInterface.remove_node_information(ip)
+      @last_updated = ZKInterface.remove_ip_from_ip_list(ip)
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("(remove_node_from_local_and_zookeeper) issues " +
+        "talking to zookeeper with #{e.message}")
+    end
   end
 
 
@@ -4730,6 +4782,9 @@ HOSTS
         rescue FailedNodeException
           Djinn.log_info("Couldn't talk to #{@userappserver_private_ip} " +
             "to add instance for application #{app}: retrying.")
+        rescue FailedZooKeeperOperationException
+          Djinn.log_info("Couldn't talk to zookeeper while trying " +
+            "to add instance for application #{app}: retrying.")
         end
       }
     end
@@ -5154,7 +5209,7 @@ HOSTS
       if app_is_enabled == "false"
         return
       end
-  
+
       appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
       if appengine_port < 0
         Djinn.log_error("Failed to get a port for #{app}")
@@ -5320,9 +5375,15 @@ HOSTS
     nodes_needed = []
     all_scaling_requests = {}
     @apps_loaded.each { |appid|
-      scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
-      all_scaling_requests[appid] = scaling_requests
-      ZKInterface.clear_scaling_requests_for_app(appid)
+      begin
+        scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
+        all_scaling_requests[appid] = scaling_requests
+        ZKInterface.clear_scaling_requests_for_app(appid)
+      rescue FailedZooKeeperOperationException => e
+        Djinn.log_warn("(scale_appservers_across_nodes) issues talking " +
+          "to zookeeper with #{e.message}")
+        next
+      end
       scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
       num_of_scale_up_requests = scale_up_requests.length
 
