@@ -1114,7 +1114,18 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    djinn = Djinn.new()
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["login"],
+      "instance_id" => "instance_id"
+    }
+
+    djinn = Djinn.new
+    djinn.my_index = 0
+    djinn.done_loading = true
+    my_node = DjinnJobData.new(role, "appscale")
+    djinn.nodes = [my_node]
     djinn.app_info_map = {
       'another-app' => {
         'nginx' => 80,
@@ -1133,7 +1144,18 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    djinn = Djinn.new()
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["login"],
+      "instance_id" => "instance_id"
+    }
+
+    djinn = Djinn.new
+    djinn.my_index = 0
+    djinn.done_loading = true
+    my_node = DjinnJobData.new(role, "appscale")
+    djinn.nodes = [my_node]
     djinn.app_info_map = {
       'another-app' => {
         'nginx' => 80,
@@ -1152,7 +1174,18 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    djinn = Djinn.new()
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["login"],
+      "instance_id" => "instance_id"
+    }
+
+    djinn = Djinn.new
+    djinn.my_index = 0
+    djinn.done_loading = true
+    my_node = DjinnJobData.new(role, "appscale")
+    djinn.nodes = [my_node]
     djinn.app_info_map = {
       'another-app' => {
         'nginx' => 80,
@@ -1171,7 +1204,18 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    djinn = Djinn.new()
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["login"],
+      "instance_id" => "instance_id"
+    }
+
+    djinn = Djinn.new
+    djinn.my_index = 0
+    djinn.done_loading = true
+    my_node = DjinnJobData.new(role, "appscale")
+    djinn.nodes = [my_node]
     djinn.app_info_map = {
       'another-app' => {
         'nginx' => 80,

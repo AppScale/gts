@@ -630,11 +630,11 @@ class Djinn
       return "Error: HTTP port must be 80, or in the range #{START_PORT}-#{END_PORT}."
     end
 
-    if (https_port < Nginx::START_PORT + Nginx::SSL_PORT_OFFSET or https_port >
-        Nginx::END_PORT + Nginx::SSL_PORT_OFFSET) and https_port != 443
+    if (https_port < Nginx::START_PORT - Nginx::SSL_PORT_OFFSET or https_port >
+        Nginx::END_PORT - Nginx::SSL_PORT_OFFSET) and https_port != 443
       return "Error: HTTPS port must be 443, or in the range " +
-         "#{Nginx::START_PORT + Nginx::SSL_PORT_OFFSET}-" +
-         "#{Nginx::END_PORT + Nginx::SSL_PORT_OFFSET}."
+         "#{Nginx::START_PORT - Nginx::SSL_PORT_OFFSET}-" +
+         "#{Nginx::END_PORT - Nginx::SSL_PORT_OFFSET}."
     end
 
     # Next, make sure that no other app is using either of these ports for
@@ -5532,9 +5532,9 @@ HOSTS
     return false
   end
 
+  # This function creates the xmpp account for the app for app named 'app',
+  # as app@login_ip.
   def start_xmpp_for_app(app, port, app_language)
-    # create xmpp account for the app
-    # for app named baz, this translates to baz@login_ip
 
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
