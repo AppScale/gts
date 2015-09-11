@@ -485,8 +485,7 @@ class Djinn
     }
 
     # Template used for rsyslog configuration files.
-    RSYSLOG_TEMPLATE_LOCATION = "os.path.join(APPSCALE_HOME" + \
-                    "/templates/rsyslog-app.conf"
+    RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/templates/rsyslog-app.conf"
 
 
   # Creates a new Djinn, which holds all the information needed to configure
