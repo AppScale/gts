@@ -471,4 +471,7 @@ postinstallrsyslog()
     sed -i 's/#input(type="imudp" port="514")/input(type="imudp" port="514")/' /etc/rsyslog.conf
     sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
     sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
+
+    # Restart the service
+    service rsyslog restart || true
 }
