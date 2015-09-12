@@ -627,7 +627,8 @@ class Djinn
     # for App Engine apps.
     if http_port != 80 and
        (http_port < Nginx::START_PORT or http_port > Nginx::END_PORT)
-      return "Error: HTTP port must be 80, or in the range #{START_PORT}-#{END_PORT}."
+      return "Error: HTTP port must be 80, or in the range" +
+        " #{Nginx::START_PORT}-#{Nginx::END_PORT}."
     end
 
     if (https_port < Nginx::START_PORT - Nginx::SSL_PORT_OFFSET or https_port >
