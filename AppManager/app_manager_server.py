@@ -15,7 +15,7 @@ import urllib
 from M2Crypto import SSL
 
 
-sys.path.append(os.path.join(os.path.dirname("__file__"), "../lib/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 import file_io
