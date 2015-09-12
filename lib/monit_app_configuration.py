@@ -7,7 +7,9 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import file_io
 
-# Template used for monit configuration files 
+# Template used for monit configuration files.
+TEMPLATE_LOCATION_SYSLOG = os.path.join(os.path.dirname(__file__)) +\
+                    "/templates/monit_template_syslog.conf"
 TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
                     "/templates/monit_template.conf"
 
@@ -36,8 +38,6 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
   if not isinstance(ports, list): raise TypeError("Expected list")
   if not isinstance(env_vars, dict): raise TypeError("Expected dict")
 
-  template = file_io.read(TEMPLATE_LOCATION)
-
   env = ""
   for ii in env_vars:
     env += "export " + str(ii) + "=\"" + str(env_vars[ii]) + "\" && "
@@ -50,11 +50,13 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
   # a key error is raised by template.format().
   for port in ports:
     if syslog_server:
+      template = file_io.read(TEMPLATE_LOCATION_SYSLOG)
       template = template.format(watch, start_cmd, stop_cmd, port, env,
-        max_memory, "-n " + syslog_server)
+        max_memory, syslog_server)
     else:
+      template = file_io.read(TEMPLATE_LOCATION)
       template = template.format(watch, start_cmd, stop_cmd, port, env,
-        max_memory, "")
+        max_memory)
 
     temp_file_name = "/etc/monit/conf.d/" + watch + '-' + \
                      str(port) + ".cfg"
