@@ -15,7 +15,7 @@ import urllib
 from M2Crypto import SSL
 
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(os.path.join(os.path.dirname("__file__"), "../lib/"))
 import appscale_info
 import constants
 import file_io
@@ -157,7 +157,7 @@ def start_app(config):
   # Reserved app won't get syslog. The syslog server is the head node,
   # which is also the host for the public xmpp address.
   syslog_server = config['xmpp_ip']
-  if config['app_name'] in RESERVED_APP_IDS:
+  if config['app_name'] in constants.RESERVED_APP_IDS:
     syslog_server = None
   monit_app_configuration.create_config_file(str(watch),
                                              str(start_cmd),
