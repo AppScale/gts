@@ -154,13 +154,18 @@ def start_app(config):
   logging.info("Stop command: " + str(stop_cmd))
   logging.info("Environment variables: " +str(env_vars))
 
+  # Reserved app won't get syslog. The syslog server is the head node,
+  # which is also the host for the public xmpp address.
+  syslog_server = config['xmpp_ip']
+  if app_name in RESERVED_APP_IDS:
+    syslog_server = None
   monit_app_configuration.create_config_file(str(watch),
                                              str(start_cmd),
                                              str(stop_cmd),
                                              [config['app_port']],
                                              env_vars,
                                              config['max_memory'],
-                                             config['xmpp_ip'])
+                                             syslog_server)
 
   if not monit_interface.start(watch):
     logging.error("Unable to start application server with monit")
