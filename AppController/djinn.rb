@@ -4645,7 +4645,7 @@ HOSTS
             pid = app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
               [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
-              Integer(@options['max_memory']))
+              Integer(@options['max_memory']), syslog_server=get_login.private_ip)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to AppManager to start #{app}")
             pid = -1
@@ -5155,7 +5155,8 @@ HOSTS
       begin
         result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
           app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
-          HelperFunctions.get_app_env_vars(app))
+          HelperFunctions.get_app_env_vars(app), Integer(@options['max_memory']),
+          syslog_server=get_login.private_ip)
       rescue FailedNodeException
         Djinn.log_warn("Failed to talk to #{my_node.private_ip} to start #{app}")
         result = -1
