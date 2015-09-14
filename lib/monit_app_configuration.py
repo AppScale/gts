@@ -14,7 +14,7 @@ TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
                     "/templates/monit_template.conf"
 
 def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
-  max_memory=500, syslog_server=None):
+  max_memory=500, syslog_server=""):
   """ Reads in a template file for monit and fills it with the 
       correct configuration. The caller is responsible for deleting 
       the created file.

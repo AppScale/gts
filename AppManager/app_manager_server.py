@@ -157,7 +157,7 @@ def start_app(config):
   logging.info("Environment variables: " +str(env_vars))
 
   # Set the syslog_server is specified.
-  syslog_server = None
+  syslog_server = ""
   if 'syslog_server' in config:
     syslog_server = config['syslog_server']
   monit_app_configuration.create_config_file(str(watch),
