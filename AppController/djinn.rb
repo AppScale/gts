@@ -4601,6 +4601,7 @@ HOSTS
       temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"
       HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
       HelperFunctions.shell("service rsyslog restart")
+      Djinn.log_info("Installed log configuration for app #{app}")
     else
       loop {
         if File.exists?(port_file)
@@ -4694,6 +4695,7 @@ HOSTS
         # wait for the app to actually be running before returning
         done_uploading(app, app_path, @@secret)
       end
+      Djinn.log_info("Done setting appserver for #{app}")
     end
 
     # We only need a new full proxy config file for new apps, on the machine
@@ -4731,6 +4733,7 @@ HOSTS
             "to add instance for application #{app}: retrying.")
         end
       }
+      Djinn.log_info("Done setting application #{app}")
     end
 
     APPS_LOCK.synchronize {
