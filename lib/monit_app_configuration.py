@@ -27,6 +27,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
     env_vars: The environment variables used when starting the process
     max_memory: An int that names the maximum amount of memory that this process
       is allowed to use (in megabytes) before monit should restart it.
+    syslog_server: The IP of the remote syslog server to use.
   Returns:
     The name of the created configuration file. 
   Raises: 
@@ -48,6 +49,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
   # 'WATCH' and 'port' are substituted here as the last two arguments 
   # because the template script itself uses {}. If we do not sub for them 
   # a key error is raised by template.format().
+  template = ""
   for port in ports:
     if syslog_server:
       template = file_io.read(TEMPLATE_LOCATION_SYSLOG)

@@ -4598,8 +4598,9 @@ HOSTS
 
       # Setup rsyslog to store application logs.
       template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
-      temp_file_name = "/etc/rsyslog.d/10-" + app + ".log"
+      temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"
       HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
+      HelperFunctions.shell("service rsyslog restart")
     else
       loop {
         if File.exists?(port_file)
@@ -4645,7 +4646,7 @@ HOSTS
             pid = app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
               [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
-              Integer(@options['max_memory']), syslog_server=get_login.private_ip)
+              Integer(@options['max_memory']), get_login.private_ip)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to AppManager to start #{app}")
             pid = -1
@@ -5153,10 +5154,11 @@ HOSTS
       xmpp_ip = get_login.public_ip
 
       begin
-        result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
-          app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
-          HelperFunctions.get_app_env_vars(app), Integer(@options['max_memory']),
-          syslog_server=get_login.private_ip)
+        result = app_manager.start_app(app, appengine_port,
+          get_load_balancer_ip(), app_language, xmpp_ip,
+          [Djinn.get_nearest_db_ip()],
+          HelperFunctions.get_app_env_vars(app),
+          Integer(@options['max_memory']), get_login.private_ip)
       rescue FailedNodeException
         Djinn.log_warn("Failed to talk to #{my_node.private_ip} to start #{app}")
         result = -1
