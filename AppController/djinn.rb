@@ -615,8 +615,8 @@ class Djinn
 
     # Only the login node runs relocate.
     if not my_node.is_login?
-      Djinn.log_warn("Only login nodes runs relocate")
-      return "Error: this is not the login node"
+      Djinn.log_warn("Only login nodes runs relocate.")
+      return "Error: this is not the login node."
     end
 
     Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
@@ -1362,7 +1362,7 @@ class Djinn
       return ZKInterface.get('/deployment_id')
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("(get_deployment_id) failed talking to zookeeper " +
-        "with #{e.message}")
+        "with #{e.message}.")
       return
     end
   end
@@ -1379,7 +1379,7 @@ class Djinn
       ZKInterface.set('/deployment_id', id, false)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("(set_deployment_id) failed talking to zookeeper " +
-        "with #{e.message}")
+        "with #{e.message}.")
     end
     return
   end
@@ -1431,7 +1431,7 @@ class Djinn
         begin
           if not uac.does_app_exist?(app_name)
             Djinn.log_info("(stop_app) #{app_name} does not exists")
-            return "Application #{app_name} does not exists."
+            return "Application #{app_name} does not exist."
           end
           result = uac.delete_app(app_name)
           Djinn.log_debug("(stop_app) Delete app: returned #{result} (#{result.class})")
@@ -1480,7 +1480,7 @@ class Djinn
             ZKInterface.remove_app_entry(app_name, my_node.public_ip)
           rescue FailedZooKeeperOperationException => e
             Djinn.log_warn("(stop_app) got exception talking to " +
-              "zookeeper: #{e.message}")
+              "zookeeper: #{e.message}.")
           end
         end
 
@@ -1596,7 +1596,7 @@ class Djinn
             ZKInterface.add_app_entry(appid, my_node.public_ip, location)
           rescue FailedZooKeeperOperationException => e
             Djinn.log_warn("(update) couldn't talk with zookeeper while " +
-              "working on app #{appid} with #{e.message}")
+              "working on app #{appid} with #{e.message}.")
           end
         }
 
@@ -1833,7 +1833,7 @@ class Djinn
         result = "success"
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
-          "with #{e.message}")
+          "with #{e.message}.")
         result = "Unknown status for #{appname}: please retry."
       end
     else
@@ -2150,7 +2150,7 @@ class Djinn
           "to virtual machine #{vms_to_use[i]}")
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(start_new_roles_on_nodes) couldn't talk to " +
-          "zookeeper while adding roles with #{e.message}")
+          "zookeeper while adding roles with #{e.message}.")
       end
     }
 
@@ -2694,7 +2694,7 @@ class Djinn
       ZKInterface.write_appcontroller_state(state)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " +
-        "appcontroller state with #{e.message}")
+        "appcontroller state with #{e.message}.")
     end
   end
 
@@ -2938,7 +2938,7 @@ class Djinn
       ZKInterface.write_appserver_state(my_node.public_ip, @app_info_map)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("Couldn't talk to zookeeper while backing " +
-        "the appserver state with #{e.message}")
+        "the appserver state with #{e.message}.")
     end
   end
 
@@ -3236,7 +3236,7 @@ class Djinn
       @last_updated = ZKInterface.remove_ip_from_ip_list(ip)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("(remove_node_from_local_and_zookeeper) issues " +
-        "talking to zookeeper with #{e.message}")
+        "talking to zookeeper with #{e.message}.")
     end
   end
 
@@ -4817,7 +4817,7 @@ HOSTS
   def find_lowest_free_port(starting_port, ending_port=0)
     possibly_free_port = starting_port
     loop {
-      # if we have ending_port, we need to check the upper limit too.
+      # If we have ending_port, we need to check the upper limit too.
       if ending_port > 0 and possibly_free_port > ending_port
         break
       end
@@ -5382,7 +5382,7 @@ HOSTS
         ZKInterface.clear_scaling_requests_for_app(appid)
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(scale_appservers_across_nodes) issues talking " +
-          "to zookeeper with #{e.message}")
+          "to zookeeper with #{e.message}.")
         next
       end
       scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
@@ -5594,8 +5594,7 @@ HOSTS
     return false
   end
 
-  # This function creates the xmpp account for the app for app named 'app',
-  # as app@login_ip.
+  # This function creates the xmpp account for 'app', as app@login_ip.
   def start_xmpp_for_app(app, port, app_language)
 
     # We don't need to check for FailedNodeException here since we catch
