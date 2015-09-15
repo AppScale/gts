@@ -3419,17 +3419,6 @@ class Djinn
     my_data = my_node
     jobs_to_run = my_data.jobs
 
-    # Start zookeeper as soon as possible.
-    if my_node.is_zookeeper?
-      configure_zookeeper(@nodes, @my_index)
-      begin
-        start_zookeeper(@options['clear_datastore'].downcase == "true")
-      rescue FailedZooKeeperOperationException
-        Djinn.fatal("Couldn't start zookeeper")
-        HelperFunctions.log_and_crash("Couldn't start zookeeper")
-      end
-    end
-
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
     if my_node.is_shadow?
       # TODO: Check to make sure the machines aren't already
