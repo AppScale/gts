@@ -3618,7 +3618,9 @@ class DatastoreDistributed():
         return True
 
     if not prop_found:
-      raise dbconstants.AppScaleDBError('Property name not found in entity.')
+      # Most likely, a repeated property was populated and then emptied.
+      logging.debug('Property name ({}) not found in entity.'.
+        format(prop_name))
 
     return False
 
