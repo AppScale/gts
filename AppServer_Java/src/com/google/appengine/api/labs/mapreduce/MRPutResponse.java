@@ -29,9 +29,10 @@ public class MRPutResponse extends ProtocolMessage<MRPutResponse> implements Ser
 
 	
 	@Override
-	public void clear() {
+	public MRPutResponse clear() {
 		System.out.println("stub in MRPutResponse: clear");
 		
+		return null;
 	}
 
 	@Override
