@@ -947,6 +947,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new()
     djinn.nodes = [node]
     djinn.my_index = 0
+    djinn.options = { 'controller_logs_to_dashboard' => 'false' }
 
     # test that the buffer is initially empty
     assert_equal([], Djinn.get_logs_buffer())
