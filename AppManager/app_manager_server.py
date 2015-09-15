@@ -101,6 +101,8 @@ def start_app(config):
         app.
        max_memory: An int that names the maximum amount of memory that this
         App Engine app is allowed to consume before being restarted.
+       syslog_server: The IP of the syslog server to send the application
+         logs to. Usually it's the login private IP.
   Returns:
     PID of process on success, -1 otherwise
   """
@@ -154,12 +156,17 @@ def start_app(config):
   logging.info("Stop command: " + str(stop_cmd))
   logging.info("Environment variables: " +str(env_vars))
 
+  # Set the syslog_server is specified.
+  syslog_server = ""
+  if 'syslog_server' in config:
+    syslog_server = config['syslog_server']
   monit_app_configuration.create_config_file(str(watch),
                                              str(start_cmd),
                                              str(stop_cmd),
                                              [config['app_port']],
                                              env_vars,
-                                             config['max_memory'])
+                                             config['max_memory'],
+                                             syslog_server)
 
   if not monit_interface.start(watch):
     logging.error("Unable to start application server with monit")
