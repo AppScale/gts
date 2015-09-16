@@ -118,14 +118,17 @@ module AppDashboard
   def self.stop()
     Djinn.log_info("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip()}")
     app_manager = AppManagerClient.new(HelperFunctions.local_ip())
-    if app_manager.stop_app(APP_NAME)
-      Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip()}")
-      return false
-    else
-      return true
-    end
-  end
 
+    app_stopped = false
+    begin
+      app_stopped = app_manager.stop_app(APP_NAME)
+    rescue FailedNodeException
+      app_stopped = false
+    end
+
+    unless app_stopped
+      Djinn.log_error("Failed to stop app #{APP_NAME} on #{HelperFunctions.local_ip()}")
+    end
 
     return app_stopped
   end
