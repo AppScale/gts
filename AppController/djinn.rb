@@ -3412,13 +3412,6 @@ class Djinn
       start_hermes()
     end
 
-    Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
-    maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
-
-    Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
-    CronHelper.update_cron(get_login.public_ip, AppDashboard::LISTEN_PORT,
-      AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
-
     if my_node.is_login?
       TaskQueue.start_flower(@options['flower_password'])
     end
@@ -4399,22 +4392,26 @@ HOSTS
     @state = "Starting AppDashboard"
     Djinn.log_info("Starting AppDashboard")
 
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-    AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
-    HAProxy.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    Nginx.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    HAProxy.start()
-    Nginx.reload()
-    @app_info_map[AppDashboard::APP_NAME] = {
-      'nginx' => 1080,
-      'nginx_https' => 1443,
-      'haproxy' => AppDashboard::PROXY_PORT,
-      'appengine' => ["#{my_private}:8000", "#{my_private}:8001",
-        "#{my_private}:8002"],
-      'language' => 'python27'
+    Thread.new{
+      my_public = my_node.public_ip
+      my_private = my_node.private_ip
+      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
+
+      @app_info_map[AppDashboard::APP_NAME] = {
+          'nginx' => 1080,
+          'nginx_https' => 1443,
+          'haproxy' => AppDashboard::PROXY_PORT,
+          'appengine' => ["#{my_private}:8000", "#{my_private}:8001",
+                          "#{my_private}:8002"],
+          'language' => 'python27'
+      }
+
+      Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
+      maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
+
+      Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
+      CronHelper.update_cron(login_ip, AppDashboard::LISTEN_PORT,
+        AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
     }
   end
 
