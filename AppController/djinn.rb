@@ -3430,6 +3430,18 @@ class Djinn
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
   def start_api_services()
+    @state = "Starting Load Balancer"
+    Djinn.log_info("Starting Load Balancer")
+
+    # TODO: Set up nginx and haproxy without needing the dashboard.
+    HAProxy.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    HAProxy.start()
+
+    Nginx.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    Nginx.reload()
+
     # ejabberd uses uaserver for authentication
     # so start it after we find out the uaserver's ip
     threads = []
@@ -4384,8 +4396,8 @@ HOSTS
   #  login_ip: A string wth the ip of the login node.
   #  uaserver_ip: A string with the ip of the UserAppServer.
   def start_app_dashboard(login_ip, uaserver_ip)
-    @state = "Starting up Load Balancer"
-    Djinn.log_info("Starting up Load Balancer")
+    @state = "Starting AppDashboard"
+    Djinn.log_info("Starting AppDashboard")
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
