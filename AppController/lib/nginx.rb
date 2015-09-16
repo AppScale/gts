@@ -264,9 +264,10 @@ CONFIG
 
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
+    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
+    language)
 
-    Djinn.log_debug("Writing full proxy app config for app #{app_name}")
+    Djinn.log_debug("Writing proxy for app #{app_name} with language #{language}")
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
     Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
@@ -296,6 +297,16 @@ CONFIG
     non_secure_static_locations = non_secure_static_handlers.map { |handler|
       HelperFunctions.generate_location_config(handler)
     }.join
+
+    # Java application needs a redirection for the blobstore.
+    java_blobstore_redirection = ""
+    if language == "java"
+      java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
+    location ~ /_ah/upload/.* {
+      proxy_pass http://gae_#{app_name}_blobstore;
+    }
+    end
+JAVA_BLOBSTORE_REDIRECTION
 
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
@@ -378,9 +389,7 @@ server {
     #{non_secure_static_locations}
     #{non_secure_default_location}
 
-    location ~ /_ah/upload/.* {
-      proxy_pass http://gae_#{app_name}_blobstore;
-    }
+    #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
@@ -449,9 +458,7 @@ server {
     #{secure_static_locations}
     #{secure_default_location}
 
-    location ~ /_ah/upload/.* {
-      proxy_pass http://gae_#{app_name}_blobstore;
-    }
+    #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
