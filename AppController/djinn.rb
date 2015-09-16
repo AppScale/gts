@@ -3426,6 +3426,8 @@ class Djinn
     @state = "Starting Load Balancer"
     Djinn.log_info("Starting Load Balancer")
 
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
     # TODO: Set up nginx and haproxy without needing the dashboard.
     HAProxy.create_app_load_balancer_config(my_public, my_private,
       AppDashboard::PROXY_PORT)
