@@ -127,14 +127,7 @@ module AppDashboard
   end
 
 
-  # Kills all AppServers hosting the AppDashboard, and then starts new
-  # AppServers to host it.
-  # Returns:
-  #   true if the AppDashboard started successfully, and false otherwise.
-  def self.restart
-    self.stop()
-    self.start()
+    return app_stopped
   end
-
 
 end
