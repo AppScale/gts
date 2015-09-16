@@ -35,9 +35,10 @@ public class MRPutRequest extends ProtocolMessage<MRPutRequest> implements Seria
 	}
 	
 	@Override
-	public void clear() {
+	public MRPutRequest clear() {
 		System.out.println("stub in MRPutRequest: clear");
 		
+		return null;
 	}
 
 	@Override

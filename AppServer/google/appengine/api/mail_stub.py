@@ -241,7 +241,10 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
           tos.extend("'%s'" % addr.strip().replace("'", r"'\''")
                      for addr in unicode(mime_message[to]).split(','))
 
-      command = '%s %s' % (sendmail_command, ' '.join(tos))
+      # AppScale changes: we are using a script to control the sending of
+      # email, to easily turn it on/off or change configuration without
+      # the need to restart the AppServer or changing the code.
+      command = '%s %s' % ('/root/appscale/scripts/sendmail', ' '.join(tos))
 
       try:
         child = popen(command,

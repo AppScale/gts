@@ -448,6 +448,7 @@ class Djinn
   # parameter is unspecified.
   PARAMETERS_AND_CLASS = {
     'alter_etc_resolv' => [ TrueClass, nil ],
+    'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
     'appengine' => [ Fixnum, '2' ],
     'autoscale' => [ TrueClass, nil ],
     'clear_datastore' => [ TrueClass, 'False' ],
@@ -478,12 +479,14 @@ class Djinn
     'scp' => [ String, nil ],
     'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
-    'test' => [ TrueClass, 'False' ],
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
     'zone' => [ String, nil ]
     }
+
+    # Template used for rsyslog configuration files.
+    RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
 
 
   # Creates a new Djinn, which holds all the information needed to configure
@@ -497,13 +500,8 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
-    # The log file to use. Make sure it is synchronous to ensure we get
-    # all message in case of a crash.
-    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
-    file.sync = true
-
-    @@log = Logger.new(file)
-    @@log.level = Logger::DEBUG
+    @@log = nil
+    set_log_level(Logger::INFO)
 
     @nodes = []
     @my_index = nil
@@ -535,6 +533,22 @@ class Djinn
     @app_upload_reservations = {}
   end
 
+  # This method is needed, since we are not able to change log level on
+  # the fly (or at least we are seeing issues). So we create a new Logger
+  # each time with the desired level.
+  def set_log_level(level)
+    if @@log
+      @@log.close()
+    end
+
+    # The log file to use. Make sure it is synchronous to ensure we get
+    # all message in case of a crash.
+    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
+    file.sync = true
+
+    @@log = Logger.new(file)
+    @@log.level = level
+  end
 
   # A SOAP-exposed method that callers can use to determine if this node
   # has received information from another node and is starting up.
@@ -974,9 +988,13 @@ class Djinn
       HelperFunctions.alter_etc_resolv()
     end
 
-    if @options['verbose'].downcase == "false"
-      @@log.level = Logger::INFO
+    if @options['verbose'].downcase == "true"
+      set_log_level(Logger::DEBUG)
+    else
+      set_log_level(Logger::INFO)
     end
+
+
 
     begin
       @options['zone'] = JSON.load(@options['zone'])
@@ -1167,13 +1185,16 @@ class Djinn
     Thread.new {
       @nodes.each { |node|
         ip = node.private_ip
-        acc = AppControllerClient.new(ip, @@secret)
-
-        begin
-          new_stats << acc.get_stats()
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
-            "not adding it to our cached info.")
+        if ip == my_node.private_ip
+          new_stats << get_stats(@@secret)
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            new_stats << acc.get_stats()
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
+              "not adding it to our cached info.")
+          end
         end
       }
       @all_stats = new_stats
@@ -1244,7 +1265,7 @@ class Djinn
     end
 
     Thread.new {
-      run_groomer_command = "python /root/appscale/AppDB/groomer.py"
+      run_groomer_command = "python #{APPSCALE_HOME}/AppDB/groomer.py"
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
@@ -1538,15 +1559,20 @@ class Djinn
     Thread.new {
       # Begin by starting any new App Engine apps.
       @nodes.each_index { |index|
+        result = ""
         ip = @nodes[index].private_ip
-        acc = AppControllerClient.new(ip, @@secret)
-        begin
-          result = acc.set_apps(apps)
-          Djinn.log_debug("Set apps at #{ip} returned #{result}.")
-        rescue FailedNodeException
-          Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
-            " - skipping for now.")
+        if my_node.private_ip == ip
+          result = set_apps(apps, @@secret)
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            result = acc.set_apps(apps)
+          rescue FailedNodeException
+            Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
+              " - skipping for now.")
+          end
         end
+        Djinn.log_debug("The call set_apps at #{ip} returned #{result}.")
       }
   
       # Next, restart any apps that have new code uploaded.
@@ -1560,15 +1586,20 @@ class Djinn
         }
   
         @nodes.each_index { |index|
+          result = ""
           ip = @nodes[index].private_ip
-          acc = AppControllerClient.new(ip, @@secret)
-          begin
-            result = acc.set_apps_to_restart(apps_to_restart)
-            Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
-          rescue FailedNodeException
-            Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
-              "apps - skipping for now.")
+          if my_node.private_ip == ip
+            result = set_apps_to_restart(apps_to_restart, @@secret)
+          else
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              result = acc.set_apps_to_restart(apps_to_restart)
+            rescue FailedNodeException
+              Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
+                "apps - skipping for now.")
+            end
           end
+          Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
         }
       end
 
@@ -2120,8 +2151,8 @@ class Djinn
     # it to prevent race conditions.
     @state_change_lock.synchronize {
       @nodes.concat(new_nodes)
-      Djinn.log_debug("Changed nodes to #{@nodes}")
     }
+    Djinn.log_debug("Changed nodes to #{@nodes}")
 
     update_firewall()
     initialize_nodes_in_parallel(new_nodes)
@@ -2947,17 +2978,22 @@ class Djinn
           'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
         })
 
-        begin
-          url = URI.parse("https://#{get_login.public_ip}:" +
-            "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-          http = Net::HTTP.new(url.host, url.port)
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          http.use_ssl = true
-          response = http.post(url.path, encoded_logs,
-            {'Content-Type'=>'application/json'})
-        rescue Exception
-          # Don't crash the AppController because we weren't able to send over
-          # the logs - just continue on.
+        # We send logs to dashboard only if controller_logs_to_dashboard
+        # is set to True. This will incur in higher traffic to the
+        # database, depending on the verbosity and the deployment.
+        if @options['controller_logs_to_dashboard'].downcase == "true"
+          begin
+            url = URI.parse("https://#{get_login.public_ip}:" +
+              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
+            http = Net::HTTP.new(url.host, url.port)
+            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+            http.use_ssl = true
+            response = http.post(url.path, encoded_logs,
+              {'Content-Type'=>'application/json'})
+          rescue Exception
+            # Don't crash the AppController because we weren't able to send over
+            # the logs - just continue on.
+          end
         end
       }
     }
@@ -4286,7 +4322,7 @@ HOSTS
     }
     start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
-    match = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
+    match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
@@ -4414,7 +4450,7 @@ HOSTS
 
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
-    Djinn.log_debug("Starting appengine")
+    Djinn.log_debug("Preparing to run AppEngine apps if needed")
 
     if @restored == false
       db_private_ip = nil
@@ -4567,6 +4603,13 @@ HOSTS
             node.ssh_key)
         end
       }
+
+      # Setup rsyslog to store application logs.
+      template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
+      temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"
+      HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
+      HelperFunctions.shell("service rsyslog restart")
+      Djinn.log_info("Installed log configuration for app #{app}")
     else
       loop {
         if File.exists?(port_file)
@@ -4612,7 +4655,7 @@ HOSTS
             pid = app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
               [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
-              Integer(@options['max_memory']))
+              Integer(@options['max_memory']), get_login.private_ip)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to AppManager to start #{app}")
             pid = -1
@@ -4660,6 +4703,7 @@ HOSTS
         # wait for the app to actually be running before returning
         done_uploading(app, app_path, @@secret)
       end
+      Djinn.log_info("Done setting appserver for #{app}")
     end
 
     # We only need a new full proxy config file for new apps, on the machine
@@ -4697,6 +4741,7 @@ HOSTS
             "to add instance for application #{app}: retrying.")
         end
       }
+      Djinn.log_info("Done setting application #{app}")
     end
 
     APPS_LOCK.synchronize {
@@ -5120,9 +5165,11 @@ HOSTS
       xmpp_ip = get_login.public_ip
 
       begin
-        result = app_manager.start_app(app, appengine_port, get_load_balancer_ip(),
-          app_language, xmpp_ip, [Djinn.get_nearest_db_ip()],
-          HelperFunctions.get_app_env_vars(app))
+        result = app_manager.start_app(app, appengine_port,
+          get_load_balancer_ip(), app_language, xmpp_ip,
+          [Djinn.get_nearest_db_ip()],
+          HelperFunctions.get_app_env_vars(app),
+          Integer(@options['max_memory']), get_login.private_ip)
       rescue FailedNodeException
         Djinn.log_warn("Failed to talk to #{my_node.private_ip} to start #{app}")
         result = -1
@@ -5509,7 +5556,7 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
-      stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " +
+      stop_cmd = "/usr/bin/python #{APPSCALE_HOME}/stop_service.py " +
         "xmpp_receiver.py #{app}"
       watch_name = "xmpp-#{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)

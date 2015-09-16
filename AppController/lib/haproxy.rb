@@ -246,8 +246,7 @@ global
 
   # log incoming requests - may need to tell syslog to accept these requests
   # http://kevin.vanzonneveld.net/techblog/article/haproxy_logging/
-  log             127.0.0.1       local0
-  log             127.0.0.1       local1 notice
+  log             127.0.0.1       local1 warning
 
   # Distribute the health checks with a bit of randomness
   spread-checks 5

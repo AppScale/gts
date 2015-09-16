@@ -1933,9 +1933,12 @@ class DatastoreDistributed():
       A list of valid entities.
     """
     references = index_dict.keys()
+    # Prevent duplicate entities across queries with a cursor.
+    references.sort()
     offset = 0
     results = []
     to_fetch = limit
+    added_padding = False
     while True:
       refs_to_fetch = references[offset:offset + to_fetch]
 
@@ -1945,7 +1948,11 @@ class DatastoreDistributed():
 
       entities = self.__fetch_entities_dict_from_row_list(refs_to_fetch, app_id)
 
-      for reference in entities:
+      # Prevent duplicate entities across queries with a cursor.
+      entity_keys = entities.keys()
+      entity_keys.sort()
+
+      for reference in entity_keys:
         use_result = False
         indexes_to_check = index_dict[reference]
         for index_info in indexes_to_check:
@@ -1965,9 +1972,13 @@ class DatastoreDistributed():
 
       offset = offset + to_fetch
 
+      to_fetch -= len(results)
+
       # Pad the number of references to fetch to increase the likelihood of
       # getting all the valid references that we need.
-      to_fetch = to_fetch - len(results) + zk.MAX_GROUPS_FOR_XG
+      if not added_padding:
+        to_fetch += zk.MAX_GROUPS_FOR_XG
+        added_padding = True
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
@@ -3607,7 +3618,9 @@ class DatastoreDistributed():
         return True
 
     if not prop_found:
-      raise dbconstants.AppScaleDBError('Property name not found in entity.')
+      # Most likely, a repeated property was populated and then emptied.
+      logging.debug('Property name ({}) not found in entity.'.
+        format(prop_name))
 
     return False
 
