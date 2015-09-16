@@ -378,6 +378,10 @@ server {
     #{non_secure_static_locations}
     #{non_secure_default_location}
 
+    location ~ /_ah/upload/.* {
+      proxy_pass http://gae_#{app_name}_blobstore;
+    }
+
     location /reserved-channel-appscale-path {
       proxy_buffering off;
       tcp_nodelay on;
@@ -444,6 +448,10 @@ server {
     #{never_secure_locations}
     #{secure_static_locations}
     #{secure_default_location}
+
+    location ~ /_ah/upload/.* {
+      proxy_pass http://gae_#{app_name}_blobstore;
+    }
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
