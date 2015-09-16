@@ -75,11 +75,14 @@ class InfrastructureManagerClient
           Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
           if retry_on_except
             Kernel.sleep(1)
-            Djinn.log_debug("[#{callr}] exception in make_call to"\
+            Djinn.log_debug("[#{callr}] exception in make_call to" +
               "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
             retry
           else
-            raise FailedNodeException.new('Exception encountered while '\
+            trace = e.backtrace.join("\n")
+            Djinn.log_warn("Exception encountered while talking to " +
+              "#{@ip}:#{SERVER_PORT}.\n#{trace}")
+            raise FailedNodeException.new("Exception encountered while " +
               "talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
