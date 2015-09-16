@@ -305,8 +305,8 @@ CONFIG
     location ~ /_ah/upload/.* {
       proxy_pass http://gae_#{app_name}_blobstore;
     }
-    end
 JAVA_BLOBSTORE_REDIRECTION
+    end
 
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
