@@ -12,7 +12,6 @@ module TerminateHelper
   # maybe glob it with Dir.glob? to alleviate this?
   def self.erase_appscale_state
     `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
-    `rm -f #{APPSCALE_HOME}/.appscale/status-*`
     `rm -f #{APPSCALE_HOME}/.appscale/database_info`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
