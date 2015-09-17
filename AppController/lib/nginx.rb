@@ -154,7 +154,7 @@ module Nginx
     }.join
 
     default_location = <<DEFAULT_CONFIG
-    location / {
+location / {
       proxy_set_header  X-Real-IP  $remote_addr;
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
@@ -306,7 +306,7 @@ CONFIG
     java_blobstore_redirection = ""
     if language == "java"
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
-    location ~ /_ah/upload/.* {
+location ~ /_ah/upload/.* {
       proxy_pass http://gae_#{app_name}_blobstore;
     }
 JAVA_BLOBSTORE_REDIRECTION
@@ -316,7 +316,7 @@ JAVA_BLOBSTORE_REDIRECTION
       secure_default_location = ''
     else
       secure_default_location = <<DEFAULT_CONFIG
-    location / {
+location / {
       proxy_set_header  X-Real-IP  $remote_addr;
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header  X-Forwarded-Proto $scheme;
