@@ -692,7 +692,8 @@ class Djinn
 
     static_handlers = HelperFunctions.parse_static_data(appid)
     Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-      my_private, proxy_port, static_handlers, login_ip)
+      my_private, proxy_port, static_handlers, login_ip,
+      @app_info_map[appid]['language'])
 
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
@@ -4244,7 +4245,8 @@ HOSTS
 
       static_handlers = HelperFunctions.parse_static_data(app)
       Nginx.write_fullproxy_app_config(app, http_port, https_port,
-        my_public, my_private, proxy_port, static_handlers, login_ip)
+        my_public, my_private, proxy_port, static_handlers, login_ip,
+        @app_info_map[app]['language'])
     }
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
@@ -4802,7 +4804,8 @@ HOSTS
       end
 
       Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip)
+        my_private, proxy_port, static_handlers, login_ip,
+        @app_info_map[app]['language'])
 
       loop {
         Kernel.sleep(5)
