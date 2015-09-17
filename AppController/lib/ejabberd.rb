@@ -28,7 +28,7 @@ module Ejabberd
   # We need some additional logic for the start command hence using 
   # a script.
   START_EJABBERD_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "/scripts/start_ejabberd.sh"
+                          "scripts/start_ejabberd.sh"
 
   def self.start
     start_cmd = "bash #{START_EJABBERD_SCRIPT}"

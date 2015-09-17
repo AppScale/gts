@@ -45,11 +45,17 @@ class AppManagerClient
         rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
           OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
           Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
-          trace = e.backtrace.join("\n")
-          Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
           if retry_on_except
             Kernel.sleep(1)
+            Djinn.log_debug("[#{callr}] exception in make_call to" +
+              "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
             retry
+          else
+            trace = e.backtrace.join("\n")
+            Djinn.log_warn("Exception encountered while talking to " +
+              "#{@ip}:#{SERVER_PORT}.\n#{trace}")
+            raise FailedNodeException.new("Exception encountered while " +
+              "talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
       }
@@ -74,6 +80,7 @@ class AppManagerClient
   #     application to start.
   #   max_memory: An Integer that names the maximum amount of memory (in
   #     megabytes) that should be used for this App Engine app.
+  #   syslog_server: The IP address of the remote syslog server to use.
   # Returns:
   #   The PID of the process started
   # Note:
@@ -88,7 +95,8 @@ class AppManagerClient
                 xmpp_ip,
                 db_locations,
                 env_vars,
-                max_memory=500)
+                max_memory=500,
+                syslog_server="")
     config = {'app_name' => app_name,
               'app_port' => app_port,
               'load_balancer_ip' => load_balancer_ip,
@@ -96,7 +104,8 @@ class AppManagerClient
               'xmpp_ip' => xmpp_ip,
               'dblocations' => db_locations,
               'env_vars' => env_vars,
-              'max_memory' => max_memory}
+              'max_memory' => max_memory,
+              'syslog_server' => syslog_server}
     json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false, "start_app") {
