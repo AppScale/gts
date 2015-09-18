@@ -266,7 +266,6 @@ installgems()
     gem install httparty ${GEMOPT}
     gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
-    gem install flexmock ${GEMOPT}
     gem install simplecov ${GEMOPT}
 }
 
