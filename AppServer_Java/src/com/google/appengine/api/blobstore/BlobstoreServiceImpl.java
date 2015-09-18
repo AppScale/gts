@@ -151,31 +151,22 @@ class BlobstoreServiceImpl implements BlobstoreService {
     }
 
     public Map<String, List<BlobKey>> getUploads(HttpServletRequest request) {
-        Map<String, List<BlobKey>> blobKeys = new HashMap<String, List<BlobKey>>();
-        MimeMultipart parts;
-        try {
-            parts = MultipartMimeUtils.parseMultipartRequest(request);
-            int count = parts.getCount();
-            for (int i = 0; i < count; i++) {
-                BodyPart p = parts.getBodyPart(i);
-                if (p.getFileName() != null) {
-                    String fileFieldName = MultipartMimeUtils.getFieldName(p);
-                    ContentType c = new ContentType(p.getContentType());
-                    String blobKey = c.getParameter("blob-key");
-                    List<BlobKey> blobKeyList = blobKeys.get(fileFieldName);
-                    if (blobKeyList == null){
-                        blobKeyList = new ArrayList<BlobKey>();
-                    }
-                    blobKeyList.add(new BlobKey(blobKey));
-                    blobKeys.put(fileFieldName, blobKeyList);
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (MessagingException e) {
-            e.printStackTrace();
+
+      Map attributes = (Map)request.getAttribute("com.google.appengine.api.blobstore.upload.blobinfos");
+
+      if (attributes == null) {
+        throw new IllegalStateException("Must be called from a blob upload callback request.");
+      }
+      Map<String, List<BlobKey>> blobKeys = new HashMap<String, List<BlobKey>>();
+      for (Map.Entry attr : (Set<Map.Entry>)attributes.entrySet()) {
+        List<BlobKey> keys = new ArrayList(((List)attr.getValue()).size());
+        for (Map info : (List<Map>)attr.getValue()) {
+          BlobKey key = new BlobKey((String)info.get("key"));
+          keys.add(key);
         }
-        return blobKeys;
+        blobKeys.put((String) attr.getKey(), keys);
+      }
+      return blobKeys;
     }
 
     public Map<String, List<BlobInfo>> getBlobInfos(HttpServletRequest request)
