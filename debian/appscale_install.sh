@@ -55,5 +55,6 @@ case "$1" in
         increaseconnections
         installVersion
         installrequests
+        postinstallrsyslog
         ;;
 esac

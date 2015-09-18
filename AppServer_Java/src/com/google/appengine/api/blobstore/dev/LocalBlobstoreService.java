@@ -50,7 +50,6 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
     private DatastoreService         datastoreService;
     Blob                             blockCache                = null;
     private String                   blockKeyCache;
-    private static final String      BLOB_PORT                 = "6106";
     public static final long         MAX_BLOB_FETCH_SIZE       = 1015808L;
 
     public String getPackage()
