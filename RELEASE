@@ -10,7 +10,7 @@ Highlights of features/bugs in this release:
 - Upgraded Java support to SDK 1.8.1
 - Fixed Datastore bug: fetching fewer references than the existing
 - Fixed Datastore bug for values containing a reserved delimiter
-- Better index validation when fetching entities
+- Fixed Datastore bug: failed transactions resulting in deleted index entries
 - Allow multiple equality filters for single property and zz merge join queries
 - FastStart for Google Compute Engine
 - Added Shibboleth login capability
