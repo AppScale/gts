@@ -2694,7 +2694,7 @@ class Djinn
       state[k] = v
     }
 
-    Djinn.log_info("backup_appcontroller_state:"+state.to_s)
+    Djinn.log_debug("backup_appcontroller_state:"+state.to_s)
 
     HelperFunctions.write_local_appcontroller_state(state)
     begin
