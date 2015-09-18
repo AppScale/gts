@@ -47,7 +47,7 @@ class AppManagerClient
           Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
           if retry_on_except
             Kernel.sleep(1)
-            Djinn.log_debug("[#{callr}] exception in make_call to" +
+            Djinn.log_debug("[#{callr}] exception in make_call to " +
               "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
             retry
           else
