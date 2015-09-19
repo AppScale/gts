@@ -18,65 +18,9 @@ if [ -z "$1" ]; then
 fi
 
 case "$1" in
-<<<<<<< HEAD
-    core)
-        # Scratch install of appscale including post script.
-        installappscaleprofile
-        . /etc/profile.d/appscale.sh
-        installgems
-        postinstallhaproxy
-        postinstallnginx
-        portinstallmonit
-        installPIL
-        installpythonmemcache
-        installlxml
-        installxmpppy
-        installpysphere
-        installappserverjava
-        installjavajdk
-        installphp54
-        installappserverjava
-        installthrift
-        installtornado
-        installpycrypto
-        postinstalltornado
-        installflexmock
-        installzookeeper
-        postinstallzookeeper
-        postinstallrabbitmq
-        installcelery
-        installservice
-        postinstallservice
-        setupntp
-        sethosts
-        setulimits
-        increaseconnections
-        installrequests
-        ;;
-    cassandra)
-        installcassandra
-        postinstallcassandra
-        ;;
-        # For test only. this should be included in core and all.
-    solr)
-        installsolr
-        ;;
-    zookeeper)
-        installzookeeper
-        postinstallzookeeper
-        ;;
-    rabbit-mq)
-        postinstallrabbitmq
-        ;;
-    celery)
-        installcelery
-        ;;
-    all)
-=======
     # At this time we cannot simply install pieces of AppScale, and the
     # space saving is minimal. So we install all the components.
     all|core|cassandra)
->>>>>>> AppScale/master
         # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
@@ -88,13 +32,12 @@ case "$1" in
         installpythonmemcache
         installlxml
         installxmpppy
-        installpysphere
         installjavajdk
         installphp54
         installappserverjava
         installthrift
         installtornado
-        installpycrypto
+        installpycrypto 
         installflexmock
         postinstalltornado
         installzookeeper

@@ -18,11 +18,7 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
-<<<<<<< HEAD
-pip_wrapper ()
-=======
 pipwrapper ()
->>>>>>> AppScale/master
 {
     # We have seen quite a few network/DNS issues lately, so much so that
     # it takes a couple of tries to install packages with pip. This
@@ -61,7 +57,7 @@ increaseconnections()
     echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
     echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
 
-    /sbin/sysctl -p /etc/sysctl.conf
+    /sbin/sysctl -p /etc/sysctl.conf 
 }
 
 sethosts()
@@ -102,8 +98,6 @@ setupntp()
     service ntp start
 }
 
-
-
 installPIL()
 {
     if [ "$DIST" = "precise" ]; then
@@ -117,10 +111,6 @@ installlxml()
     if [ "$DIST" = "precise" ]; then
         pipwrapper lxml
     fi
-}
-
-installpysphere{
-    pip_wrapper pysphere
 }
 
 installxmpppy()
@@ -195,10 +185,6 @@ EOF
     fi
 }
 
-installpysphere(){
-  pip_wrapper pysphere
-}
-
 installthrift()
 {
     if [ "$DIST" = "precise" ]; then
@@ -269,11 +255,7 @@ installgems()
 {
     GEMOPT="--no-rdoc --no-ri"
     # Rake 10.0 depecates rake/rdoctask - upgrade later.
-<<<<<<< HEAD
-    gem install -v=0.9.2.2 rake ${GEMOPT}
-=======
     gem install rake ${GEMOPT}
->>>>>>> AppScale/master
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
     gem install zookeeper
@@ -284,7 +266,6 @@ installgems()
     gem install httparty ${GEMOPT}
     gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
-    gem install flexmock ${GEMOPT}
     gem install simplecov ${GEMOPT}
 }
 
@@ -296,7 +277,7 @@ installphp54()
         apt-get update
         # We need to pull also php5-cgi to ensure apache2 won't be pulled
         # in.
-        apt-get install -y php5-cgi php5
+        apt-get install --force-yes -y php5-cgi php5
     fi
 }
 
@@ -332,7 +313,7 @@ installcassandra()
 {
     CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
-
+    
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
@@ -410,13 +391,6 @@ installpythonmemcache()
 
 installzookeeper()
 {
-<<<<<<< HEAD
-  ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-  wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
-  dpkg -i /tmp/${ZK_REPO_PKG}
-  apt-get update
-  apt-get install -y zookeeper-server
-=======
     if [ "$DIST" = "precise" ]; then
         ZK_REPO_PKG=cdh4-repository_1.0_all.deb
         wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
@@ -427,7 +401,6 @@ installzookeeper()
     else
         apt-get install -y zookeeper zookeeperd zookeeper-bin
     fi
->>>>>>> AppScale/master
 
 }
 
