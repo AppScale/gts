@@ -4642,8 +4642,7 @@ HOSTS
     if is_new_app
       nginx_app_port = find_lowest_free_port(Nginx::START_PORT, Nginx::END_PORT)
       haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
-      appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
-      if nginx_app_port < 0 or haproxy_app_port < 0 or appengine_port < 0
+      if nginx_app_port < 0 or haproxy_app_port < 0
         Djinn.log_error("Cannot find an available port for application #{app}")
         return
       end
@@ -4722,6 +4721,12 @@ HOSTS
       # deploys?
       if is_new_app
         @num_appengines.times { |index|
+          appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
+          if appengine_port < 0
+            Djinn.log_warn("Failed to get port application #{app} on " +
+              "#{HelperFunctions.local_ip()}")
+            next
+          end
           Djinn.log_info("Starting #{app_language} app #{app} on " +
             "#{HelperFunctions.local_ip()}:#{appengine_port}")
 
