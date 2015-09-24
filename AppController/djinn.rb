@@ -227,6 +227,11 @@ class Djinn
 
 
   # A Hash that maps the names of Google App Engine apps running in this AppScale
+  # deployment to the current number of requests that haproxy has queued.
+  attr_accessor :current_req_rate
+
+
+  # A Hash that maps the names of Google App Engine apps running in this AppScale
   # deployment to the last time we sampled the total number of requests that
   # haproxy has processed. When combined with total_req_rate, we can infer the
   # average number of requests per second that come in for each App Engine
