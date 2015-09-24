@@ -518,6 +518,7 @@ class Djinn
     @last_decision = {}
     @initialized_apps = {}
     @total_req_rate = {}
+    @current_req_rate = {}
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
@@ -1071,13 +1072,25 @@ class Djinn
         end
         stats_str << "        HTTP port           : "
         if !@app_info_map[app_name]['nginx'].nil?
-            stats_str << "#{@app_info_map[app_name]['nginx']}\n"
+          stats_str << "#{@app_info_map[app_name]['nginx']}\n"
         else
           stats_str << "Unknown\n"
         end
         stats_str << "        HTTPS port          : "
         if !@app_info_map[app_name]['nginx'].nil?
-            stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
+          stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
+        else
+          stats_str << "Unknown\n"
+        end
+        stats_str << "        Enqueued requests   : "
+        if !@current_req_rate[app_name].nil?
+          stats_str << "#{@current_req_rate[app_name]}\n"
+        else
+          stats_str << "Unknown\n"
+        end
+        stats_str << "        Total requests      : "
+        if !@total_req_rate[app_name].nil?
+          stats_str << "#{@total_req_rate[app_name]}\n"
         else
           stats_str << "Unknown\n"
         end
@@ -1234,6 +1247,7 @@ class Djinn
       'ip' => my_node.public_ip,
       'private_ip' => my_node.private_ip,
       'cpu' => usage['cpu'],
+      'load' => usage['load'],
       'memory' => mem,
       'disk' => usage['disk'],
       'roles' => jobs,
@@ -4927,6 +4941,7 @@ HOSTS
   def initialize_scaling_info_for_app(app_name, force=false)
     return if @initialized_apps[app_name] and !force
 
+    @current_req_rate[app_name] = 0
     @total_req_rate[app_name] = 0
     @last_sampling_time[app_name] = Time.now.to_i
 
@@ -4987,7 +5002,7 @@ HOSTS
     end
 
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
-      update_dashboard)
+      total_req_in_queue, update_dashboard)
 
     if total_req_in_queue.zero?
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
@@ -5020,12 +5035,17 @@ HOSTS
   #     occurs when we start the app or add/remove AppServers).
   #   time_requests_were_seen: An Integer that represents the epoch time when we
   #     got request info from haproxy.
+  #   total_req_in_queue: An Integer that represents the current number of
+  #     requests waiting to be served.
+  #   update_dashboard: a boolean to indicate if we send the information
+  #     to the dashboard.
   def update_request_info(app_name, total_requests_seen,
-    time_requests_were_seen, update_dashboard)
+    time_requests_were_seen, total_req_in_queue,  update_dashboard)
     Djinn.log_debug("Time now is #{time_requests_were_seen}, last " +
       "time was #{@last_sampling_time[app_name]}")
     Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
       "time was #{@total_req_rate[app_name]}")
+    Djinn.log_debug("Requests currently in the queue #{total_req_in_queue}")
     requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
     time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
     if time_since_last_sampling.zero?
@@ -5047,6 +5067,7 @@ HOSTS
 
     Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
       "for app #{app_name}, with last sampling time #{time_requests_were_seen}")
+    @current_req_rate[app_name] = total_req_in_queue
     @total_req_rate[app_name] = total_requests_seen
     @last_sampling_time[app_name] = time_requests_were_seen
   end

@@ -932,6 +932,7 @@ module HelperFunctions
 
     usage['cpu'] /= self.get_num_cpus()
     usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
+    usage['load'] = self.get_avg_load()
 
     return usage
   end
@@ -1366,6 +1367,10 @@ module HelperFunctions
     }
 
     Djinn.log_debug(env)
+  end
+
+  def self.get_avg_load()
+    return IO.read('/proc/loadavg').split[0].to_i
   end
 
   def self.get_num_cpus()
