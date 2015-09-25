@@ -1087,18 +1087,6 @@ class Djinn
         else
           stats_str << "Unknown\n"
         end
-        stats_str << "        Enqueued requests   : "
-        if !@current_req_rate[app_name].nil?
-          stats_str << "#{@current_req_rate[app_name]}\n"
-        else
-          stats_str << "Unknown\n"
-        end
-        stats_str << "        Total requests      : "
-        if !@total_req_rate[app_name].nil?
-          stats_str << "#{@total_req_rate[app_name]}\n"
-        else
-          stats_str << "Unknown\n"
-        end
       }
     end
 
@@ -4657,7 +4645,6 @@ HOSTS
     # This variable is used later on, but we want to check the availabity
     # of ports all at the same time so we can fail early on if we have
     # issue.
-    appengine_port = -1
     if is_new_app
       nginx_app_port = find_lowest_free_port(Nginx::START_PORT, Nginx::END_PORT)
       haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
@@ -5042,7 +5029,7 @@ HOSTS
   #     got request info from haproxy.
   #   total_req_in_queue: An Integer that represents the current number of
   #     requests waiting to be served.
-  #   update_dashboard: a boolean to indicate if we send the information
+  #   update_dashboard: A boolean to indicate if we send the information
   #     to the dashboard.
   def update_request_info(app_name, total_requests_seen,
     time_requests_were_seen, total_req_in_queue,  update_dashboard)
