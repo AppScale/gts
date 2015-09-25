@@ -131,6 +131,10 @@ module HelperFunctions
   RESOLV_CONF = "/etc/resolv.conf"
 
 
+  # The proc file to use to read the load of the system.
+  PROC_LOAD_FILE = "/proc/loadavg"
+
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -1370,7 +1374,7 @@ module HelperFunctions
   end
 
   def self.get_avg_load()
-    return IO.read('/proc/loadavg').split[0].to_i
+    return IO.read(PROC_LOAD_FILE).split[0].to_i
   end
 
   def self.get_num_cpus()

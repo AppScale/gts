@@ -4729,7 +4729,7 @@ HOSTS
         @num_appengines.times { |index|
           appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
           if appengine_port < 0
-            Djinn.log_warn("Failed to get port application #{app} on " +
+            Djinn.log_warn("Failed to get port for application #{app} on " +
               "#{HelperFunctions.local_ip()}")
             next
           end
