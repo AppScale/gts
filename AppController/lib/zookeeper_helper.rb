@@ -62,7 +62,7 @@ def start_zookeeper(clear_datastore)
 
   # Detect which version of zookeeper script we have.
   zk_server="zookeeper-server"
-  if system("service --status-all 2> /dev/null|grep zookeeper$")
+  if system("service --status-all|grep zookeeper$")
     zk_server="zookeeper"
   end
 
