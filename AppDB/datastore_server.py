@@ -49,6 +49,8 @@ from google.appengine.ext import db
 from google.appengine.ext.db.metadata import Namespace
 from google.appengine.ext.remote_api import remote_api_pb
 
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
+
 from M2Crypto import SSL
 
 # Buffer type used for key storage in the datastore
@@ -3653,8 +3655,28 @@ class DatastoreDistributed():
       if definition.ancestor() == 1:
         ancestor = tokens.pop(0)[:-1]
       distinct_str = ""
+      value_index = 0
       for def_prop in definition.property_list():
-        value = tokens.pop(0) 
+        # If the value contained the separator, try to recover the value.
+        if len(tokens[:-1]) != len(definition.property_list()):
+          end_slice = value_index + 1
+          while end_slice <= len(tokens[:-1]):
+            value = self._SEPARATOR.join(tokens[value_index:end_slice])
+            if def_prop.direction() == entity_pb.Index_Property.DESCENDING:
+              value = helper_functions.reverse_lex(value)
+            prop_value = entity_pb.PropertyValue()
+            try:
+              self.__decode_index_str(value, prop_value)
+              value_index = end_slice
+              break
+            except ProtocolBufferDecodeError:
+              end_slice += 1
+        else:
+          value = tokens[value_index]
+          if def_prop.direction() == entity_pb.Index_Property.DESCENDING:
+            value = helper_functions.reverse_lex(value)
+          value_index += 1
+
         if def_prop.name() not in prop_name_list:
           logging.debug("Skipping prop in projection: {0}".format(
             def_prop.name()))
@@ -3664,13 +3686,12 @@ class DatastoreDistributed():
         prop.set_name(def_prop.name())
         prop.set_meaning(entity_pb.Property.INDEX_VALUE)
         prop.set_multiple(False)
-        if def_prop.direction() == entity_pb.Index_Property.DESCENDING:
-          value = helper_functions.reverse_lex(value)
 
         distinct_str += value
         prop_value = prop.mutable_value()
         self.__decode_index_str(value, prop_value)
-      key_string = tokens.pop(0)
+
+      key_string = tokens[-1]
       elements = key_string.split(dbconstants.KIND_SEPARATOR)
 
       # Set the entity group.
