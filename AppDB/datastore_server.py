@@ -3656,7 +3656,7 @@ class DatastoreDistributed():
       for def_prop in definition.property_list():
         value = tokens.pop(0) 
         if def_prop.name() not in prop_name_list:
-          logging.warning("Skipping prop in projection: {0}".format(
+          logging.debug("Skipping prop in projection: {0}".format(
             def_prop.name()))
           continue
 
