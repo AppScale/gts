@@ -3658,7 +3658,7 @@ class DatastoreDistributed():
       value_index = 0
       for def_prop in definition.property_list():
         # If the value contained the separator, try to recover the value.
-        if len(tokens[:-1]) != len(definition.property_list()):
+        if len(tokens[:-1]) > len(definition.property_list()):
           end_slice = value_index + 1
           while end_slice <= len(tokens[:-1]):
             value = self._SEPARATOR.join(tokens[value_index:end_slice])
