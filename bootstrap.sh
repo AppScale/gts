@@ -173,10 +173,15 @@ if [ -d appscale/.appscale/certs ]; then
         # This is an upgrade, so let's make sure we use a tag that has
         # been passed, or the last one available. Let's fetch all the
         # available tags first.
-        (cd appscale; git fetch origin)
-        (cd appscale-tools; git fetch origin)
+        (cd appscale; git fetch --all)
+        (cd appscale-tools; git fetch --all)
         if [ "$GIT_TAG" = "last" ]; then
                 GIT_TAG="$(cd appscale; git tag|tail -n 1)"
+                # Make sure we have this tag in the official repo.
+                if ! git ls-remote --tags ${APPSCALE_REPO} |grep -F $GIT_TAG > /dev/null ; then
+                        echo "$GIT_TAG not recognized: use --git to specify tag to upgrade to."
+                        exit 1
+                fi
         fi
 
         # We can pull a tag only if we are on the master branch.
