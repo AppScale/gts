@@ -56,7 +56,6 @@ module TerminateHelper
     # script to be sure.
     `service zookeeper-server stop`
     `service zookeeper stop`
-    end
   end
 
 
