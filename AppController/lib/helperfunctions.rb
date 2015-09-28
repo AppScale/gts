@@ -54,7 +54,9 @@ module HelperFunctions
   MAX_VM_CREATION_TIME = 1800
 
 
-  SLEEP_TIME = 20
+  # Generic sleep time to take while waiting for remote operation to
+  # complete.
+  SLEEP_TIME = 10
 
 
   IP_REGEX = /\d+\.\d+\.\d+\.\d+/
@@ -116,7 +118,7 @@ module HelperFunctions
   # The location on the filesystem where the AppController writes information
   # about the exception that killed it, for the tools to retrieve and pass
   # along to the user.
-  APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
+  APPCONTROLLER_CRASHLOG_LOCATION = "/var/log/appscale/appcontroller_crashlog.txt"
 
 
   # The location on the filesystem where the AppController backs up its
@@ -251,31 +253,38 @@ module HelperFunctions
 
 
   def self.is_port_open?(ip, port, use_ssl=DONT_USE_SSL)
+    max = 2
+    refused_count = 0
+
     begin
       Timeout::timeout(1) do
-        begin
-          sock = TCPSocket.new(ip, port)
-          if use_ssl
-            ssl_context = OpenSSL::SSL::SSLContext.new() 
-            unless ssl_context.verify_mode 
-              ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE 
-            end 
-            sslsocket = OpenSSL::SSL::SSLSocket.new(sock, ssl_context) 
-            sslsocket.sync_close = true 
-            sslsocket.connect          
+        sock = TCPSocket.new(ip, port)
+        if use_ssl
+          ssl_context = OpenSSL::SSL::SSLContext.new()
+          unless ssl_context.verify_mode
+            ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
           end
-          sock.close
-          return true
-        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ECONNRESET
-          return false
+          sslsocket = OpenSSL::SSL::SSLSocket.new(sock, ssl_context)
+          sslsocket.sync_close = true
+          sslsocket.connect
         end
+        sock.close
+        return true
       end
-    rescue Timeout::Error
+    rescue OpenSSL::SSL::SSLError
+      Djinn.log_debug("Retry after SSL error talking to  #{ip}:#{port}")
+      refused_count += 1
+      if refused_count > max
+        Djinn.log_warn("[is_port_open]: saw SSL error talking to  #{ip}:#{port}")
+      else
+        Kernel.sleep(1)
+        retry
+      end
+    rescue
     end
   
     return false
   end
-
 
   def self.run_remote_command(ip, command, public_key_loc, want_output)
     Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
@@ -343,7 +352,7 @@ module HelperFunctions
 
     loop {
       break if File.exists?(retval_file)
-      Kernel.sleep(5)
+      Kernel.sleep(SLEEP_TIME)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -353,10 +362,10 @@ module HelperFunctions
       break if retval == "0"
       Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
-      if fails >= 5:
+      if fails >= 5
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
-      Kernel.sleep(2)
+      Kernel.sleep(SLEEP_TIME)
       self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
@@ -754,15 +763,12 @@ module HelperFunctions
         break
       end
       Djinn.log_debug("sleepy time")
-      sleep(5)
+      sleep(SLEEP_TIME)
     }
     
     instance_ids = []
     public_ips = []
     private_ips = []
-
-    sleep(10) # euca 2.0.3 can throw forbidden errors if we hit it too fast
-    # TODO: refactor me to use rightaws gem, check for forbidden, and retry accordingly
 
     end_time = Time.now + MAX_VM_CREATION_TIME
     while (now = Time.now) < end_time
@@ -914,18 +920,18 @@ module HelperFunctions
     usage['cpu'] = 0.0
     usage['mem'] = 0.0
 
-    top_results.each { |line|
+    top_results.each_line { |line|
       cpu_and_mem_usage = line.split()
       # Skip any lines that don't list the CPU and memory for a process.
       next if cpu_and_mem_usage.length != 12
       next if cpu_and_mem_usage[8] == "average:"
       next if cpu_and_mem_usage[8] == "%CPU"
-      usage['cpu'] += Float(cpu_and_mem_usage[8])
-      usage['mem'] += Float(cpu_and_mem_usage[9])
+      usage['cpu'] += cpu_and_mem_usage[8].to_f
+      usage['mem'] += cpu_and_mem_usage[9].to_i
     }
 
     usage['cpu'] /= self.get_num_cpus()
-    usage['disk'] = Integer(`df /`.scan(/(\d+)%/).flatten.to_s)
+    usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
 
     return usage
   end
@@ -1302,7 +1308,7 @@ module HelperFunctions
         return false
       end
     rescue Exception
-      Kernel.sleep(1)
+      Kernel.sleep(SLEEP_TIME)
       retry
     end
   end
@@ -1428,7 +1434,7 @@ module HelperFunctions
       return tree['env_variables'] || {}
     elsif File.exists?(appengine_web_xml_file)
       env_vars = {}
-      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
       match_data = xml.scan(/<env-var name="(.*)" value="(.*)" \/>/)
       match_data.each { |key_and_val|
         if key_and_val.length == 2
@@ -1464,7 +1470,7 @@ module HelperFunctions
       return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"
-      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
       match_data = xml.scan(/<threadsafe>(.*)<\/threadsafe>/)
       match_data.each { |key_and_val|
         if key_and_val.length == 1
@@ -1490,7 +1496,10 @@ module HelperFunctions
   # Raises:
   #   SystemExit: Always occurs, since this method crashes the AppController.
   def self.log_and_crash(message)
-    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
+    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ": " +
+      message)
+    # Try to also log to the normal log file.
+    Djinn.log_error("FATAL: #{message}")
     abort(message)
   end
 

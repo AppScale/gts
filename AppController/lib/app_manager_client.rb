@@ -27,92 +27,76 @@ class AppManagerClient
 
   # Initialization function for AppManagerClient
   def initialize(ip)
-    @conn = SOAP::RPC::Driver.new("http://#{ip}:#{SERVER_PORT}")
+    @ip = ip
+
+    @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{SERVER_PORT}")
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
     @conn.add_method("restart_app_instances_for_app", "app_name", "language")
   end
 
-  # Make a SOAP call out to the AppManager. 
-  # 
-  # Args: 
-  #   timeout: The maximum time to wait on a remote call
-  #   retry_on_except: Boolean if we should keep retrying the 
-  #     the call
-  # Returns:
-  #   The result of the remote call.
-  # TODO: 
-  #   This code was copy/pasted from app_controller_client 
-  #   and can be factored out to a library. Note this for 
-  #   the transition to the python port.
-  #
-  def make_call(timeout, retry_on_except, callr)
-    result = ""
-    Djinn.log_debug("Calling the AppManager - #{callr}")
+  # Check the comments in AppController/lib/app_controller_client.rb.
+  def make_call(time, retry_on_except, callr)
     begin
-      Timeout::timeout(timeout) do
+      Timeout::timeout(time) {
         begin
           yield if block_given?
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
+          OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+          Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+          if retry_on_except
+            Kernel.sleep(1)
+            Djinn.log_debug("[#{callr}] exception in make_call to " +
+              "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
+            retry
+          else
+            trace = e.backtrace.join("\n")
+            Djinn.log_warn("Exception encountered while talking to " +
+              "#{@ip}:#{SERVER_PORT}.\n#{trace}")
+            raise FailedNodeException.new("Exception encountered while " +
+              "talking to #{@ip}:#{SERVER_PORT}.")
+          end
         end
-      end
-    rescue OpenSSL::SSL::SSLError
-      Djinn.log_warn("Saw a SSLError when calling #{callr}" +
-        " - trying again momentarily.")
-      retry
-    rescue Errno::ECONNREFUSED => except
-      if retry_on_except
-        Djinn.log_warn("Saw a connection refused when calling #{callr}" +
-          " - trying again momentarily.")
-        sleep(1)
-        retry
-      else
-        trace = except.backtrace.join("\n")
-        HelperFunctions.log_and_crash("We saw an unexpected error of the " +
-          "type #{except.class} with the following message:\n#{except}, with" +
-          " trace: #{trace}")
-      end 
-   rescue Exception => except
-      if except.class == Interrupt
-        Djinn.log_fatal("Saw an Interrupt exception")
-        HelperFunctions.log_and_crash("Saw an Interrupt Exception")
-      end
-
-      Djinn.log_error("An exception of type #{except.class} was thrown: #{except}.")
-      retry if retry_on_except
+      }
+    rescue Timeout::Error
+      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
+      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
     end
   end
- 
-   # Wrapper for SOAP call to the AppManager to start an process instance of 
-   # an application server.
-   #
-   # Args:
-   #   app_name: Name of the application
-   #   app_port: The port to run the application server
-   #   load_balancer_ip: The public IP of the load balancer
-   #   load_balancer_port: The port of the load balancer
-   #   language: The language the application is written in
-   #   xmpp_ip: The IP for XMPP
-   #   db_locations: An Array of datastore server IPs
-   #   env_vars: A Hash of environemnt variables that should be passed to the
-   #     application to start.
-   #   max_memory: An Integer that names the maximum amount of memory (in
-   #     megabytes) that should be used for this App Engine app.
-   # Returns:
-   #   The PID of the process started
-   # Note:
-   #   We currently send hashes over in SOAP using json because 
-   #   of incompatibilities between SOAP mappings from ruby to python. 
-   #   As we convert over to python we should use native dictionaries.
-   #
-   def start_app(app_name, 
-                 app_port,
-                 load_balancer_ip,
-                 language, 
-                 xmpp_ip,
-                 db_locations,
-                 env_vars,
-                 max_memory=500)
+
+  # Wrapper for SOAP call to the AppManager to start an process instance of
+  # an application server.
+  #
+  # Args:
+  #   app_name: Name of the application
+  #   app_port: The port to run the application server
+  #   load_balancer_ip: The public IP of the load balancer
+  #   load_balancer_port: The port of the load balancer
+  #   language: The language the application is written in
+  #   xmpp_ip: The IP for XMPP
+  #   db_locations: An Array of datastore server IPs
+  #   env_vars: A Hash of environemnt variables that should be passed to the
+  #     application to start.
+  #   max_memory: An Integer that names the maximum amount of memory (in
+  #     megabytes) that should be used for this App Engine app.
+  #   syslog_server: The IP address of the remote syslog server to use.
+  # Returns:
+  #   The PID of the process started
+  # Note:
+  #   We currently send hashes over in SOAP using json because
+  #   of incompatibilities between SOAP mappings from ruby to python.
+  #   As we convert over to python we should use native dictionaries.
+  #
+  def start_app(app_name,
+                app_port,
+                load_balancer_ip,
+                language,
+                xmpp_ip,
+                db_locations,
+                env_vars,
+                max_memory=500,
+                syslog_server="")
     config = {'app_name' => app_name,
               'app_port' => app_port,
               'load_balancer_ip' => load_balancer_ip,
@@ -120,7 +104,8 @@ class AppManagerClient
               'xmpp_ip' => xmpp_ip,
               'dblocations' => db_locations,
               'env_vars' => env_vars,
-              'max_memory' => max_memory}
+              'max_memory' => max_memory,
+              'syslog_server' => syslog_server}
     json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false, "start_app") {

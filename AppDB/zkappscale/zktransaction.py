@@ -84,7 +84,7 @@ DS_RESTORE_LOCK_PATH = "/appscale_datastore_restore"
 XG_PREFIX = "xg"
 
 # Maximum number of groups allowed in cross group transactions.
-MAX_GROUPS_FOR_XG = 5
+MAX_GROUPS_FOR_XG = 25
 
 # The separator value for the lock list when using XG transactions.
 LOCK_LIST_SEPARATOR = "!XG_LIST!"
@@ -1078,7 +1078,8 @@ class ZKTransaction:
       lock_list = lockpath.split(LOCK_LIST_SEPARATOR)
     except kazoo.exceptions.NoNodeError:
       # There is no need to rollback because there is no lock.
-      pass
+      logging.debug("There is no lock for transaction {0}.".format(txid))
+      return True
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.exception(zoo_exception)
       return False

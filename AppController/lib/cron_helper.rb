@@ -1,5 +1,6 @@
 require 'rexml/document'
 require 'helperfunctions'
+require 'uri'
 include REXML
 
 
@@ -38,7 +39,7 @@ module CronHelper
 
       begin
         yaml_file = YAML.load_file(cron_file)
-        unless yaml_file:
+        unless yaml_file
           clear_app_crontab(app)
           return
         end
@@ -59,9 +60,16 @@ module CronHelper
       cron_routes.each { |item|
         next if item['url'].nil?
         description = item["description"]
-        # since url gets put at end of curl, need to ensure it
-        # is of the form /baz to prevent malicious urls
-        url = item["url"].scan(/\A(\/[\/\d\w]+)/).flatten.to_s
+
+        begin
+          # Parse URL to prevent malicious code from being appended.
+          url = URI.parse(item['url']).to_s()
+          Djinn.log_info("Parsed cron URL: #{url}")
+        rescue URI::InvalidURIError
+          Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
+          next
+        end
+
         schedule = item["schedule"]
         timezone = item["timezone"] # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -87,9 +95,17 @@ CRON
 
       cron_xml.each_element('//cron') { |item|
         description = get_from_xml(item, "description")
-        # since url gets put at end of curl, need to ensure it
-        # is of the form /baz to prevent malicious urls
-        url = get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/).flatten.to_s
+        raw_url = get_from_xml(item, "url")
+
+        begin
+          # Parse URL to prevent malicious code from being appended.
+          url = URI.parse(raw_url).to_s()
+          Djinn.log_info("Parsed cron URL: #{url}")
+        rescue URI::InvalidURIError
+          Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
+          next
+        end
+
         schedule = get_from_xml(item, "schedule")
         timezone = get_from_xml(item, "timezone") # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -256,7 +272,7 @@ CRON
 
     unless splitted.length == 3 or splitted.length == 5
       Djinn.log_error("bad format, length = #{splitted.length}")
-      return ""
+      return [""]
     end
 
     ord = splitted[0]

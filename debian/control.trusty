@@ -1,0 +1,105 @@
+Source: appscale
+Section: unknown
+Priority: optional
+Maintainer: AppScale Developer <appscale_developer@googlegroups.com>
+Build-Depends: ant,
+               bison,
+               build-essential,
+               byacc,
+               debhelper (>= 7),
+               dh-make,
+               dpkg-dev,
+               erlang,
+               fakeroot,
+               flex,
+               libbz2-dev,
+               libc6-dev,
+               libcppunit-dev,
+               libevent-dev,
+               libexpat1-dev,
+               libreadline-dev,
+               libssl-dev,
+               libxml2-dev,
+               python-dev,
+               zlib1g-dev
+Standards-Version: 3.8.0
+Homepage: https://github.com/AppScale/appscale
+
+Package: appscale-core
+Architecture: any
+Depends: appscale-tools,
+         bzip2,
+         cron,
+         curl,
+         dnsutils,
+         ejabberd,
+         haproxy,
+         iptables,
+         libpcre3,
+         libevent-2.0-5,
+         libjline-java,
+         libjpeg8-dev,
+         liblog4j1.2-java,
+         libpcre++-dev,
+         libprotobuf-java,
+         libssl-dev,
+         libxml2-dev,
+         libxslt-dev,
+         lsof,
+         make,
+         memcached,
+         monit,
+         msmtp,
+         nginx,
+         ntp,
+         ntpdate,
+         openjdk-7-jdk,
+         openssl,
+         php5,
+         php5-cgi,
+         python-celery,
+         python-django,
+         python-flexmock,
+         python-kazoo,
+         python-imaging,
+         python-lxml,
+         python-m2crypto,
+         python-memcache,
+         python-numpy,
+         python-nose,
+         python-pika,
+         python-pillow,
+         python-pip,
+         python-requests,
+         python-setuptools,
+         python-soappy,
+         python-software-properties,
+         python-thrift,
+         python-tornado,
+         python-yaml,
+         rabbitmq-server,
+         rsync,
+         ruby-flexmock,
+         socat,
+         ssh,
+         unzip,
+         wget,
+         zlib1g-dev
+Conflicts: apache2.2-bin,
+           apache2.2-common,
+           apache2-utils,
+           python-protobuf
+Description: An open-source framework for execution of GAE applications
+ An open-source research framework for execution of
+ Google AppEngine applications and investigation of
+ scalable cloud computing fabrics.
+
+
+Package: appscale-cassandra
+Architecture: any
+Depends: appscale-core,
+         python-sqlalchemy
+Description: An open-source framework for execution of GAE applications
+ An open-source research framework for execution of
+ Google AppEngine applications and investigation of
+ scalable cloud computing fabrics.

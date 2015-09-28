@@ -77,14 +77,17 @@ module AppDashboard
     Djinn.log_info("Starting #{APP_LANGUAGE} app #{APP_NAME}")
     SERVER_PORTS.each { |port|
       Djinn.log_debug("Starting #{APP_LANGUAGE} app #{APP_NAME} on #{HelperFunctions.local_ip()}:#{port}")
-      pid = app_manager.start_app(APP_NAME, port, uaserver_ip, APP_LANGUAGE,
-        login_ip, [uaserver_ip], {})
-      if pid == -1
-        Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip()}:#{port}")
-        return false
-      else
-        pid_file_name = "/etc/appscale/#{APP_NAME}-#{port}.pid"
-        HelperFunctions.write_file(pid_file_name, pid)
+      while true
+        begin
+          pid = app_manager.start_app(APP_NAME, port, uaserver_ip, APP_LANGUAGE,
+            login_ip, [uaserver_ip], {})
+          if pid != -1
+            break
+          end
+        rescue FailedNodeException
+          Djinn.log_info("Failed to start app #{APP_NAME} on " +
+            "#{HelperFunctions.local_ip()}:#{port}. Retrying...")
+        end
       end
     }
 
@@ -114,23 +117,19 @@ module AppDashboard
   def self.stop()
     Djinn.log_info("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip()}")
     app_manager = AppManagerClient.new(HelperFunctions.local_ip())
-    if app_manager.stop_app(APP_NAME)
-      Djinn.log_error("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip()}")
-      return false
-    else
-      return true
+
+    app_stopped = false
+    begin
+      app_stopped = app_manager.stop_app(APP_NAME)
+    rescue FailedNodeException
+      app_stopped = false
     end
+
+    unless app_stopped
+      Djinn.log_error("Failed to stop app #{APP_NAME} on #{HelperFunctions.local_ip()}")
+    end
+
+    return app_stopped
   end
-
-
-  # Kills all AppServers hosting the AppDashboard, and then starts new
-  # AppServers to host it.
-  # Returns:
-  #   true if the AppDashboard started successfully, and false otherwise.
-  def self.restart
-    self.stop()
-    self.start()
-  end
-
 
 end

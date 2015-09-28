@@ -1005,7 +1005,10 @@ class Context(object):
           raise
         except Exception:
           t, e, tb = sys.exc_info()
-          tconn.async_rollback(options)  # Fire and forget.
+          rollback_rpc = tconn.async_rollback(options)
+          # Make sure the rollback completes before continuing.
+          if rollback_rpc is not None:
+            rollback_rpc.get_result()
           if issubclass(t, datastore_errors.Rollback):
             # TODO: Raise value using tasklets.get_return_value(t)?
             return

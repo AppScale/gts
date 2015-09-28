@@ -28,7 +28,7 @@ module Ejabberd
   # We need some additional logic for the start command hence using 
   # a script.
   START_EJABBERD_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "/scripts/start_ejabberd.sh"
+                          "scripts/start_ejabberd.sh"
 
   def self.start
     start_cmd = "bash #{START_EJABBERD_SCRIPT}"
@@ -57,10 +57,17 @@ module Ejabberd
       end
     elsif runtime == "java"
       appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(app)
-      xml_contents = HelperFunctions.read_file(appengine_web_xml_file)
-      if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/m
-        return true
-      else
+      xml_contents = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
+
+      begin
+        if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/m
+          return true
+        else
+          return false
+        end
+      rescue Exception => exception
+        backtrace = exception.backtrace.join("\n")
+        Djinn.log_warn("Exception while parsing xml contents: #{exception.message}. Backtrace: \n#{backtrace}")
         return false
       end
     else

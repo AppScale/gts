@@ -160,6 +160,7 @@ if [ ! -e AppScalefile ]; then
         echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
         echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
     fi
+    echo "group : faststart-${PROVIDER}" >> AppScalefile
     echo "done."
 
     # Let's allow root login (appscale will need it to come up).
@@ -180,7 +181,7 @@ KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
-${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
+[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443

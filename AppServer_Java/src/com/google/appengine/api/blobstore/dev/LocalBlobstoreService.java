@@ -50,7 +50,6 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
     private DatastoreService         datastoreService;
     Blob                             blockCache                = null;
     private String                   blockKeyCache;
-    private static final String      BLOB_PORT                 = "6106";
     public static final long         MAX_BLOB_FETCH_SIZE       = 1015808L;
 
     public String getPackage()
@@ -99,7 +98,7 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
          * AppScale - changed upload URL to NGINX address and port
          */
         BlobstoreServicePb.CreateUploadURLResponse response = new BlobstoreServicePb.CreateUploadURLResponse();
-        String url = "http://" + System.getProperty("NGINX_ADDR") + ":" + BLOB_PORT + "/" + "_ah/upload/" + System.getProperty("APPLICATION_ID") + "/" + sessionId;
+        String url = "http://" + System.getProperty("NGINX_ADDR") + ":" + System.getProperty("NGINX_PORT") + "/" + "_ah/upload/" + System.getProperty("APPLICATION_ID") + "/" + sessionId;
         logger.fine("UploadURL set to [" + url + "]");
         response.setUrl(url);
 

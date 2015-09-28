@@ -711,8 +711,8 @@ class ZKInterface
       Kernel.sleep(1)
       retry
     rescue Exception => e
-      Djinn.log_warn("Saw a transient ZooKeeper error of class #{e.class}" +
-        " - trying again.")
+      backtrace = e.backtrace.join("\n")
+      Djinn.log_warn("Saw a transient ZooKeeper error: #{e}\n#{backtrace}")
       Kernel.sleep(1)
       retry
     end

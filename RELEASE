@@ -4,6 +4,30 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 2.4.0, released September, 2015
+Highlights of features/bugs in this release:
+- Upgraded to Ruby 1.9
+- Upgraded Java support to SDK 1.8.1
+- Fixed Datastore bug: fetching fewer references than the existing
+- Fixed Datastore bug for values containing a reserved delimiter
+- Fixed Datastore bug: failed transactions resulting in deleted index entries
+- Allow multiple equality filters for single property and zz merge join queries
+- FastStart for Google Compute Engine
+- Added Shibboleth login capability
+- Backbone of Hermes, AppScale's Messenger
+- Centralized application log on the head node
+- Reporting the ports used by an application
+- Better AppScalefile argument parsing
+- Better encoding handling for Java XML files
+- Fixed Java bug in connecting to the Memcache service
+- Fixed Java bug with cron entries not found
+- Added BlobInfos implementation in Java Blobstore API
+- Removed confirmation page after AppScale login
+- Changed bootstrap to build from latest release by default
+- Prevent Cassandra from filling up the disk with heap dumps
+- Be more aggressive with log rotation
+- Added email layer that enables debug mode
+
 AppScale version 2.3.1, released April, 2015
 Highlights of features/bugs in this release:
 - Remove old dashboard data and add timestamps
