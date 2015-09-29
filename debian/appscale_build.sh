@@ -46,9 +46,6 @@ if ! apt-get remove --purge -y --force-yes ${PACKAGES}; then
     exit 1
 fi
 
-# This is used to have a general count of building from sources.
-curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
-
 # Let's make sure we use ruby 1.9.
 if [ "${DIST}" = "precise" ]; then
         apt-get install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
