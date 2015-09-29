@@ -139,7 +139,7 @@ if [ ! -d appscale ]; then
         # Use tags if we specified it.
         if [ -n "$GIT_TAG" -a "${APPSCALE_BRANCH}" = "master" ]; then
                 if [ "$GIT_TAG" = "last" ]; then
-                        GIT_TAG="$(cd appscale; git tag|tail -n 1)"
+                        GIT_TAG="$(cd appscale; git tag | tail -n 1)"
                 fi
                 (cd appscale; git checkout "$GIT_TAG")
                 (cd appscale-tools; git checkout "$GIT_TAG")
@@ -176,16 +176,16 @@ if [ -d appscale/.appscale/certs ]; then
         (cd appscale; git fetch ${APPSCALE_REPO} -t)
         (cd appscale-tools; git fetch ${APPSCALE_TOOLS_REPO} -t)
         if [ "$GIT_TAG" = "last" ]; then
-                GIT_TAG="$(cd appscale; git tag|tail -n 1)"
+                GIT_TAG="$(cd appscale; git tag | tail -n 1)"
                 # Make sure we have this tag in the official repo.
-                if ! git ls-remote --tags ${APPSCALE_REPO} |grep -F $GIT_TAG > /dev/null ; then
+                if ! git ls-remote --tags ${APPSCALE_REPO} | grep -F $GIT_TAG > /dev/null ; then
                         echo "\"$GIT_TAG\" not recognized: use --tag to specify tag to upgrade to."
                         exit 1
                 fi
         fi
 
         # We can pull a tag only if we are on the master branch.
-        CURRENT_BRANCH="$(cd appscale; git branch --no-color|grep '^*'|cut -f 2 -d ' ')"
+        CURRENT_BRANCH="$(cd appscale; git branch --no-color | grep '^*' | cut -f 2 -d ' ')"
         if [ "${CURRENT_BRANCH}" != "master" ]; then
                 CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
                 if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
@@ -208,10 +208,10 @@ if [ -d appscale/.appscale/certs ]; then
 
         # Make sure AppScale is not running.
         MONIT=$(which monit)
-        if $MONIT summary |grep controller > /dev/null ; then
+        if $MONIT summary | grep controller > /dev/null ; then
                 echo "AppScale is still running: please stop it"
                 [ "$FORCE_UPGRADE" = "Y" ] || exit 1
-        elif echo $MONIT |grep local > /dev/null ; then
+        elif echo $MONIT | grep local > /dev/null ; then
                 # AppScale is not running but there is a monit
                 # leftover from the custom install.
                 $MONIT quit
