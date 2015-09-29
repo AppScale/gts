@@ -30,7 +30,7 @@
   </target>
 
   <target name="extract-sdk" unless="sdk.exists">
-    <get src="${gae_url}" dest="appengine-java-sdk.zip" verbose="true" />
+    <get src="${gae_url}" dest="appengine-java-sdk.zip" verbose="false" />
     <unzip src="appengine-java-sdk.zip" dest="." />
     <delete file="appengine-java-sdk.zip" />
   </target>

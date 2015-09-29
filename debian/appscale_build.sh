@@ -61,10 +61,6 @@ if [ "${DIST}" = "precise" ]; then
             --slave /usr/bin/irb irb /usr/bin/irb1.9.1 \
             --slave /usr/bin/rdoc rdoc /usr/bin/rdoc1.9.1
         update-alternatives --install /usr/bin/gem gem /usr/bin/gem1.9.1 400
-elif [ -n "$(apt-cache search ruby-switch)" ]; then
-        echo "Make sure ruby1.9 is used"
-        apt-get install -y ruby rubygems ruby-switch
-        ruby-switch --set ruby1.9
 fi
 
 # Since the last step in appscale_build.sh is to create the certs directory,
