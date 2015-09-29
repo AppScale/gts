@@ -3519,7 +3519,11 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
-        start_zookeeper(@options['clear_datastore'].downcase == "true")
+        begin
+          start_zookeeper(@options['clear_datastore'].downcase == "true")
+        rescue FailedZooKeeperOperationException
+          HelperFunctions.log_and_crash("Couldn't start zookeeper")
+        end
         start_backup_service()
       end
 
