@@ -13,16 +13,6 @@ import os
 import time
 import random
 
-try:
-  from appscale.appscale_logger import AppScaleLogger
-  from appscale.local_state import LocalState
-except ImportError:
-  # If the module is not installed, the lib directory might be on the path.
-  from appscale_logger import AppScaleLogger
-  from local_state import LocalState
-
-
-
 __author__ = 'Marco Maria Di Nicola'
 __email__ = 'marticus@hotmail.it'
 __email2__ = 'dinicola.1210022@studenti.uniroma1.it'
