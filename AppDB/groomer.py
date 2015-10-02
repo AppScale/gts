@@ -21,6 +21,7 @@ from zkappscale import zktransaction as zk
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.api.memcache import memcache_distributed
+from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext import db
 from google.appengine.ext.db import stats
@@ -99,12 +100,16 @@ class DatastoreGroomer(threading.Thread):
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
     self.db_access = None
+    self.ds_access = None
     self.datastore_path = ds_path
     self.stats = {}
     self.namespace_info = {}
     self.num_deletes = 0
     self.composite_index_cache = {}
     self.journal_entries_cleaned = 0
+    self.index_entries_checked = 0
+    self.index_entries_delete_failures = 0
+    self.index_entries_cleaned = 0
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -301,6 +306,176 @@ class DatastoreGroomer(threading.Thread):
       return True
 
     return False
+
+  def acquire_lock_for_key(self, app_id, key, retries, retry_time):
+    """ Acquires a lock for a given entity key.
+
+    Args:
+      app_id: The application ID.
+      key: A string containing an entity key.
+      retries: An integer specifying the number of times to retry.
+      retry_time: How many seconds to wait before each retry.
+    Returns:
+      A transaction ID.
+    Raises:
+      ZKTransactionException if unable to acquire a lock from ZooKeeper.
+    """
+    root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
+    root_key += dbconstants.KIND_SEPARATOR
+
+    try:
+      txn_id = self.zoo_keeper.get_transaction_id(app_id, is_xg=False)
+      self.zoo_keeper.acquire_lock(app_id, txn_id, root_key)
+    except zk.ZKTransactionException as zkte:
+      logging.warning('Concurrent transaction exception for app id {} with '
+        'info {}'.format(app_id, str(zkte)))
+      if retries > 0:
+        logging.info('Trying again to acquire lock info {} with retry #{}'
+          .format(str(zkte), retries))
+        time.sleep(retry_time)
+        return self.acquire_lock_for_key(
+          app_id=app_id,
+          key=key,
+          retries=retries - 1,
+          retry_time=retry_time
+        )
+      self.zoo_keeper.notify_failed_transaction(app_id, root_key)
+      raise zkte
+    return txn_id
+
+  def release_lock_for_key(self, app_id, key, txn_id):
+    """ Releases a lock for a given entity key.
+
+    Args:
+      app_id: The application ID.
+      key: A string containing an entity key.
+      txn_id: A transaction ID.
+    """
+    root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
+    root_key += dbconstants.KIND_SEPARATOR
+
+    self.zoo_keeper.release_lock(app_id, txn_id)
+
+  def fetch_entity_dict_for_references(self, references):
+    """ Fetches a dictionary of valid entities for a list of references.
+
+    Args:
+      references: A list of index references to entities.
+    Returns:
+      A dictionary of validated entities.
+    """
+    keys = list(set([item.values()[0]['reference'] for item in references]))
+    entities = self.db_access.batch_get_entity(dbconstants.APP_ENTITY_TABLE,
+      keys, dbconstants.APP_ENTITY_SCHEMA)
+
+    # The datastore needs to know the app ID. The indices could be scattered
+    # across apps.
+    entities_by_app = {}
+    for key in entities:
+      app = key.split(self.ds_access._SEPARATOR)[0]
+      if app not in entities_by_app:
+        entities_by_app[app] = {}
+      entities_by_app[app][key] = entities[key]
+
+    entities = {}
+    for app in entities_by_app:
+      app_entities = entities_by_app[app]
+      app_entities = self.ds_access.validated_result(app, app_entities)
+      app_entities = self.ds_access.remove_tombstoned_entities(app_entities)
+      for key in keys:
+        if key not in app_entities:
+          continue
+        if dbconstants.APP_ENTITY_SCHEMA[0] not in app_entities[key]:
+          continue
+        entities[key] = app_entities[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+    return entities
+
+  def lock_and_delete_index(self, reference, direction, prop_name):
+    """ For a given index entry, lock its entity and delete it.
+
+    Since another process can update an entity after we've determined that
+    an index entry is invalid, we need to re-check the index entry after
+    locking its entity key.
+
+    Args:
+      reference: A references to an entity.
+      direction: The direction of the index.
+      prop_name: A string containing the property name.
+    """
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = dbconstants.ASC_PROPERTY_TABLE
+    else:
+      table_name = dbconstants.DSC_PROPERTY_TABLE
+
+    index_entry = reference.keys()[0]
+    app = index_entry.split(self.ds_access._SEPARATOR)[0]
+    key = reference.values()[0]['reference']
+    try:
+      txn_id = self.acquire_lock_for_key(
+        app_id=app,
+        key=key,
+        retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
+        retry_time=self.ds_access.LOCK_RETRY_TIME
+      )
+    except zk.ZKTransactionException:
+      self.index_entries_delete_failures += 1
+      return
+
+    entities = self.fetch_entity_dict_for_references([reference])
+
+    if not self.ds_access._DatastoreDistributed__valid_index_entry(reference,
+      entities, direction, prop_name):
+      self.db_access.batch_delete(table_name, [index_entry],
+        column_names=dbconstants.PROPERTY_SCHEMA)
+      self.index_entries_cleaned += 1
+
+    self.release_lock_for_key(app, key, txn_id)
+
+  def clean_up_indexes(self, direction):
+    """ Deletes invalid single property index entries.
+
+    This is needed because we do not delete index entries when updating or
+    deleting entities. With time, this results in queries taking an increasing
+    amount of time.
+
+    Args:
+      direction: The direction of the index.
+    """
+    start_key = ''
+    end_key = dbconstants.TERMINATING_STRING
+    batch_size = 100
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = dbconstants.ASC_PROPERTY_TABLE
+    else:
+      table_name = dbconstants.DSC_PROPERTY_TABLE
+
+    while True:
+      references = self.db_access.range_query(
+        table_name=table_name,
+        column_names=dbconstants.PROPERTY_SCHEMA,
+        start_key=start_key,
+        end_key=end_key,
+        limit=batch_size,
+        start_inclusive=False,
+      )
+      self.index_entries_checked += len(references)
+      if len(references) == 0:
+        break
+
+      last_start_key = start_key
+      start_key = references[-1].keys()[0]
+      if start_key == last_start_key:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
+
+      entities = self.fetch_entity_dict_for_references(references)
+
+      for reference in references:
+        prop_name = reference.keys()[0].split(self.ds_access._SEPARATOR)[3]
+        if self.ds_access._DatastoreDistributed__valid_index_entry(
+          reference, entities, direction, prop_name):
+          continue
+        self.lock_and_delete_index(reference, direction, prop_name)
 
   def clean_up_composite_indexes(self):
     """ Deletes old composite indexes and bad references.
@@ -908,12 +1083,24 @@ class DatastoreGroomer(threading.Thread):
     """
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
+    self.ds_access = datastore_server.DatastoreDistributed(
+      datastore_batch=self.db_access, zookeeper=self.zoo_keeper)
 
     logging.info("Groomer started")
     start = time.time()
     last_key = ""
     self.reset_statistics()
     self.composite_index_cache = {}
+
+    try:
+      self.clean_up_indexes(datastore_pb.Query_Order.ASCENDING)
+    except datastore_errors.Error, error:
+      logging.error("Error while cleaning up ASC indexes: {0}".format(error))
+
+    try:
+      self.clean_up_indexes(datastore_pb.Query_Order.DESCENDING)
+    except datastore_errors.Error, error:
+      logging.error("Error while cleaning up DSC indexes: {0}".format(error))
 
     try:
       # We do this first to clean up soft deletes later.
@@ -963,6 +1150,13 @@ class DatastoreGroomer(threading.Thread):
     del self.db_access
 
     time_taken = time.time() - start
+    logging.info("Groomer checked {0} index entries".format(
+      self.index_entries_checked))
+    logging.info("Groomer cleaned {0} index entries".format(
+      self.index_entries_cleaned))
+    if self.index_entries_delete_failures > 0:
+      logging.info("Groomer failed to remove {0} index entries".format(
+        self.index_entries_delete_failures))
     logging.info("Groomer cleaned {0} journal entries".format(
       self.journal_entries_cleaned))
     logging.info("Groomer took {0} seconds".format(str(time_taken)))
