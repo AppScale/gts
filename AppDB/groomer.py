@@ -323,8 +323,8 @@ class DatastoreGroomer(threading.Thread):
     root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
     root_key += dbconstants.KIND_SEPARATOR
 
+    txn_id = self.zoo_keeper.get_transaction_id(app_id, is_xg=False)
     try:
-      txn_id = self.zoo_keeper.get_transaction_id(app_id, is_xg=False)
       self.zoo_keeper.acquire_lock(app_id, txn_id, root_key)
     except zk.ZKTransactionException as zkte:
       logging.warning('Concurrent transaction exception for app id {} with '
