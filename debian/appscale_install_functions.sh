@@ -102,7 +102,9 @@ installPIL()
 {
     if [ "$DIST" = "precise" ]; then
         pip uninstall -y PIL
-        pipwrapper pillow
+        # The behavior of the rotate function changed in pillow 3.0.0.
+        # The system package in trusty is version 2.3.0.
+        pipwrapper "pillow==2.3.0"
     fi
 }
 
