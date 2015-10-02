@@ -339,7 +339,7 @@ class DatastoreGroomer(threading.Thread):
           retries=retries - 1,
           retry_time=retry_time
         )
-      self.zoo_keeper.notify_failed_transaction(app_id, root_key)
+      self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
       raise zkte
     return txn_id
 
