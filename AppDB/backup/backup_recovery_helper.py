@@ -2,7 +2,9 @@
 
 import logging
 import os
+import re
 import shutil
+import SOAPpy
 import statvfs
 import sys
 import tarfile
@@ -18,6 +20,9 @@ from backup_recovery_constants import APP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
 from backup_recovery_constants import StorageTypes
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
+from soap_server import DEFAULT_SSL_PORT as UA_SERVER_PORT
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
@@ -337,12 +342,39 @@ def deploy_apps(app_paths):
   Returns:
     True on success, False otherwise.
   """
-  admin = 'a@a.com'
-  file_suffix = '.tar.gz'
+  uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(appscale_info.get_db_master_ip(),
+    UA_SERVER_PORT))
+
   keyname = appscale_info.get_keyname()
   acc = AppControllerClient(appscale_info.get_login_ip(), appscale_info.get_secret())
 
-  time.sleep(5)
+  # Wait for Cassandra to come up after a restore.
+  time.sleep(2)
+
   for app_path in app_paths:
-    acc.upload_app(app_path, file_suffix, admin)
+    # Extract app ID.
+    app_id = app_path[app_path.rfind('/')+1:app_path.find('.')]
+    if not app_id:
+      logging.error("Malformed source code archive. Cannot complete application recovery "
+        "for '{}'. Aborting...".format(app_path))
+      return False
+
+    # Retrieve app admin via uaserver.
+    app_data = uaserver.get_app_data(app_id, appscale_info.get_secret())
+
+    app_admin_re = re.search("\napp_owner:(.+)\n", app_data)
+    if app_admin_re:
+      app_admin = app_admin_re.group(1)
+    else:
+      logging.error("Missing application data. Cannot complete application recovery for "
+        "'{}'. Aborting...".format(app_id))
+      return False
+
+    file_suffix = re.search("\.(.*)\Z", app_path).group(1)
+
+    logging.warning("Restoring app '{}', from '{}', with owner '{}'.".format(app_id, 
+      app_path, app_admin))
+
+#    acc.upload_app(app_path, file_suffix, app_admin)
+
   return True

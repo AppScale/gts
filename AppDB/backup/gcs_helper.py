@@ -123,7 +123,7 @@ def download_from_bucket(full_object_name, local_path):
       format(called_process_error))
     return False
 
-  logging.info("Successfully downloaded '{0}' from GCS."
+  logging.info("Successfully downloaded '{0}' from GCS. "
     "Local file name is '{1}'.".format(full_object_name, local_path))
   return True
 
