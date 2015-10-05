@@ -9,7 +9,7 @@ import tornado.httpclient
 import urllib
 
 import hermes_constants
-from custom_exceptions import MissingRequestArgs
+from custom_hermes_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info

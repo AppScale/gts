@@ -38,6 +38,14 @@ def get_keyname():
   """ Returns the keyname for this deployment. """
   return get_db_info()[':keyname']
 
+def get_login_ip():
+  """ Get the public IP of the head node.
+
+  Returns:
+    String containing the public IP of the head node.
+  """
+  return file_io.read(constants.LOGIN_IP_LOC).rstrip()
+
 def get_private_ip():
   """ Get the private IP of the current machine.
   

@@ -6,6 +6,7 @@ import shutil
 import statvfs
 import sys
 import tarfile
+import time
 from os.path import getsize
 
 import backup_exceptions
@@ -22,14 +23,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
 from constants import APPSCALE_DATA_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__),
-  "/root/appscale-tools/lib"))
-from appscale_tools import AppScaleTools
-
-class Bunch(object):
-  """ Class that simulates a namespace. """
-  def __init__(self, adict):
-    self.__dict__.update(adict)
+from google.appengine.api.appcontroller_client import AppControllerClient
 
 def delete_local_backup_file(local_file):
   """ Removes the local backup file.
@@ -344,12 +338,11 @@ def deploy_apps(app_paths):
     True on success, False otherwise.
   """
   admin = 'a@a.com'
+  file_suffix = '.tar.gz'
   keyname = appscale_info.get_keyname()
+  acc = AppControllerClient(appscale_info.get_login_ip(), appscale_info.get_secret())
 
+  time.sleep(5)
   for app_path in app_paths:
-    AppScaleTools.upload_app(Bunch({
-      'email': admin,
-      'file': app_path,
-      'keyname': keyname,
-      'test': False, 'verbose': False, 'version': False}))
+    acc.upload_app(app_path, file_suffix, admin)
   return True
