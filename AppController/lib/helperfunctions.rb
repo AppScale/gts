@@ -131,6 +131,10 @@ module HelperFunctions
   RESOLV_CONF = "/etc/resolv.conf"
 
 
+  # The proc file to use to read the load of the system.
+  PROC_LOAD_FILE = "/proc/loadavg"
+
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -932,6 +936,7 @@ module HelperFunctions
 
     usage['cpu'] /= self.get_num_cpus()
     usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
+    usage['load'] = self.get_avg_load()
 
     return usage
   end
@@ -1366,6 +1371,10 @@ module HelperFunctions
     }
 
     Djinn.log_debug(env)
+  end
+
+  def self.get_avg_load()
+    return IO.read(PROC_LOAD_FILE).split[0].to_i
   end
 
   def self.get_num_cpus()

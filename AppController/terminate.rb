@@ -15,11 +15,10 @@ module TerminateHelper
     `rm -f #{APPSCALE_HOME}/.appscale/database_info`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
-    `rm -f /var/log/appscale/*.log.*`
-    `rm -f /var/log/appscale/*.log`
-    `rm -f /var/log/appscale/*.gz`
-    `rm -rf /var/log/appscale/celery_workers`
     `rm -f /var/appscale/*.pid`
+    `rm -rf /var/log/appscale/cassandra`
+    `rm -rf /var/log/appscale/celery_workers`
+    `rm -f /var/log/appscale/*`
     `rm -f /etc/nginx/sites-enabled/*.conf`
     `rm -f /etc/monit/conf.d/*.cfg`
     `rm -f /etc/appscale/port-*.txt`
@@ -52,8 +51,10 @@ module TerminateHelper
 
     `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
 
-    # Next, stop ZooKeeper politely.
+    # Next, stop ZooKeeper politely: we stop it with both new and old
+    # script to be sure.
     `service zookeeper-server stop`
+    `service zookeeper stop`
   end
 
 
@@ -124,10 +125,10 @@ end
 
 
 if __FILE__ == $0
-  TerminateHelper.erase_appscale_state
-
   TerminateHelper.disable_database_writes
+
   if ARGV.length == 1 and ARGV[0] == "clean"
+    TerminateHelper.erase_appscale_state
     TerminateHelper.erase_database_state
   end
 

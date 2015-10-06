@@ -102,7 +102,9 @@ installPIL()
 {
     if [ "$DIST" = "precise" ]; then
         pip uninstall -y PIL
-        pipwrapper pillow
+        # The behavior of the rotate function changed in pillow 3.0.0.
+        # The system package in trusty is version 2.3.0.
+        pipwrapper "pillow==2.3.0"
     fi
 }
 
@@ -411,10 +413,14 @@ installpycrypto()
 
 postinstallzookeeper()
 {
-    # Need conf/environment to stop service.
-    cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
-    service zookeeper-server stop || true
-    update-rc.d -f zookeeper-server remove || true
+    if [ "$DIST" = "precise" ]; then
+        # Need conf/environment to stop service.
+        cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
+        service zookeeper-server stop || true
+        update-rc.d -f zookeeper-server remove || true
+    else
+        update-rc.d -f zookeeper remove || true
+    fi
 }
 
 keygen()
