@@ -273,7 +273,7 @@ def app_restore(storage, bucket_name=None):
   if storage == StorageTypes.GCS:
     objects = gcs_helper.list_bucket(bucket_name)
     for app_path in objects:
-      if not app_path.startswith('apps/'):
+      if not app_path.startswith(gcs_helper.APPS_GCS_PREFIX):
         continue
 
       # Only keep the relative name of the app file.
@@ -302,7 +302,7 @@ def app_restore(storage, bucket_name=None):
         delete_app_tars(APP_DIR_LOCATION)
         return False
 
-  # Deploy apps. Retrieve the AppScale user that owns each app (AppController?).
+  # Deploy apps.
   if not deploy_apps(apps_to_deploy):
     logging.error("Failed to successfully deploy one or more of the "
       "following apps: {0}".format(apps_to_deploy))
@@ -349,7 +349,7 @@ def deploy_apps(app_paths):
   acc = AppControllerClient(appscale_info.get_login_ip(), appscale_info.get_secret())
 
   # Wait for Cassandra to come up after a restore.
-  time.sleep(2)
+  time.sleep(5)
 
   for app_path in app_paths:
     # Extract app ID.
@@ -375,6 +375,6 @@ def deploy_apps(app_paths):
     logging.warning("Restoring app '{}', from '{}', with owner '{}'.".format(app_id, 
       app_path, app_admin))
 
-#    acc.upload_app(app_path, file_suffix, app_admin)
+    acc.upload_app(app_path, file_suffix, app_admin)
 
   return True

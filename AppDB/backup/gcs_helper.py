@@ -10,6 +10,9 @@ import urllib
 import backup_recovery_helper
 from backup_recovery_constants import HTTP_OK
 
+# Google Cloud Storage prefix for apps/ directory.
+APPS_GCS_PREFIX = 'apps/'
+
 # The upload request timeout in seconds (12 hours).
 REQUEST_TIMEOUT = 12*60*60
 
