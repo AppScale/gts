@@ -1249,6 +1249,7 @@ class Djinn
       'ip' => my_node.public_ip,
       'private_ip' => my_node.private_ip,
       'cpu' => usage['cpu'],
+      'num_cpu' => usage['num_cpu'],
       'load' => usage['load'],
       'memory' => mem,
       'free_memory' => usage['free_mem'],
