@@ -278,7 +278,7 @@ def app_restore(storage, bucket_name=None):
 
       # Only keep the relative name of the app file.
       # E.g. myapp.tar.gz (app_file) out of apps/myapp.tar.gz (app_path)
-      app_file = app_path[5:]
+      app_file = app_path[len(gcs_helper.APPS_GCS_PREFIX):]
       source = 'gs://{0}/{1}'.format(bucket_name, app_path)
       destination = '{0}/{1}'.format(APP_BACKUP_DIR_LOCATION, app_file)
       if not gcs_helper.download_from_bucket(source, destination):
