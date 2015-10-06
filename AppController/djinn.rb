@@ -389,6 +389,15 @@ class Djinn
   MAX_CPU_FOR_APPSERVERS = 90.00
 
 
+  # We won't allow any AppEngine server to have 1 minute average load
+  # (normalized on the number of CPUs) to be bigger than this constant.
+  MAX_LOAD_AVG = 2.0
+
+
+  # We need to leave some extra RAM available for the system to operate
+  # safely.
+  SAFE_MEM = 500
+
   # A regular expression that can be used to match any character that is not
   # acceptable to use in a hostname:port string, used to filter out unacceptable
   # characters from user input.
@@ -1242,6 +1251,7 @@ class Djinn
       'cpu' => usage['cpu'],
       'load' => usage['load'],
       'memory' => mem,
+      'free_memory' => usage['free_mem'],
       'disk' => usage['disk'],
       'roles' => jobs,
       'db_location' => @userappserver_public_ip,
@@ -1702,11 +1712,12 @@ class Djinn
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
 
-    # We flush the logs on a separate thread.
+    # We update the dashboard on a separate thread.
     Thread.new {
       loop {
+        Kernel.sleep(20)
         flush_log_buffer()
-        Kernel.sleep(10)
+        send_instance_info_to_dashboard()
       }
     }
 
@@ -1749,7 +1760,6 @@ class Djinn
         if my_node.is_login?
           scale_appservers_within_nodes()
           scale_appservers_across_nodes()
-          send_instance_info_to_dashboard()
         end
       }
       Kernel.sleep(20)
@@ -1770,7 +1780,7 @@ class Djinn
       end
       Djinn.log_info("About to restart app #{app_name}")
       APPS_LOCK.synchronize {
-        setup_appengine_application(app_name, is_new_app=false)
+        setup_appengine_application(app_name, state="restart")
       }
     }
   end
@@ -4580,7 +4590,7 @@ HOSTS
     APPS_LOCK.synchronize {
       apps_to_load = @app_names - @apps_loaded - ["none"]
       apps_to_load.each { |app|
-        setup_appengine_application(app, is_new_app=true)
+        setup_appengine_application(app, state="new")
       }
     } # end of synchronize
   end
@@ -4591,10 +4601,33 @@ HOSTS
   #
   # Args:
   #   app: A String containing the appid for the app to start.
-  #   is_new_app: true if the application to start has never run on this node
-  #     before, and false if it has (e.g., we're loading new code for this app).
-  def setup_appengine_application(app, is_new_app)
-    initialize_scaling_info_for_app(app)
+  #   state: A String containing the application state, which will trigger
+  #     the appropriate actions. It can be:
+  #     new: if the application to start has never run on this node
+  #       before, and false if it has (e.g., we're loading new code for
+  #       this app);
+  #     restart: if the application needs to be restarted (ie relocated or
+  #       updated);
+  #     add_appserver: if the application needs a new AppServer.
+  def setup_appengine_application(app, state)
+    case state
+    when "new"
+      @state = "Setting up AppServers for #{app}"
+    when "restart"
+      @state = "Restarting AppServers for #{app}"
+    when "add_appserver"
+      @state = "Adding AppServers for #{app}"
+    else
+      Djinn.log_warn("Invalid state request (#{state}) for #{app}")
+      return
+    end
+
+    # Reset scaling info if we start/restart an application.
+    if state != "add_appserver"
+      initialize_scaling_info_for_app(app)
+    end
+
+    # Let's get the application data, and let's check if the application is enabled.
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
     app_language = ""
     loop {
@@ -4614,42 +4647,44 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-    if is_new_app and @app_info_map[app].nil?
+    if @app_info_map[app].nil?
       @app_info_map[app] = {}
       @app_info_map[app]['language'] = app_language
     end
 
-    shadow = get_shadow
-    shadow_ip = shadow.private_ip
-    ssh_key = shadow.ssh_key
+    # Delete old version of the app if it's a start or restart.
     app_dir = "/var/apps/#{app}/app"
     app_path = "/opt/appscale/apps/#{app}.tar.gz"
-    FileUtils.rm_rf(app_dir)
-    FileUtils.mkdir_p(app_dir)
-    Djinn.log_debug("App untar directory created from scratch")
+    if state == "new" or state == "restart"
+      FileUtils.rm_rf(app_dir)
+      FileUtils.mkdir_p(app_dir)
+      Djinn.log_debug("App untar directory created from scratch")
+    end
 
-    # First, make sure we can download the app, and if we can't, throw up a
-    # dummy app letting the user know there was a problem.
-    if !copy_app_to_local(app)
+    # Let's make sure we have a copy of the application locally.
+    if copy_app_to_local(app)
+      # Let's make sure their app has an app.yaml or appengine-web.xml in it,
+      # since the following code assumes it is present. If it is not there
+      # (which can happen if the scp fails on a large app), throw up a dummy
+      # app.
+      if !HelperFunctions.app_has_config_file?(app_path)
+        place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " +
+          app, app_language)
+      else
+        # Application is good: let's set it up.
+        HelperFunctions.setup_app(app)
+      end
+    else
+      # If we couldn't get a copy of the application, place a dummy error
+      # application to inform the user we had issues.
       place_error_app(app, "ERROR: Failed to copy app: #{app}", app_language)
       app_language = "python27"
     end
 
-    # Next, make sure their app has an app.yaml or appengine-web.xml in it,
-    # since the following code assumes it is present. If it is not there
-    # (which can happen if the scp fails on a large app), throw up a dummy
-    # app.
-    if !HelperFunctions.app_has_config_file?(app_path)
-      place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " +
-        app, app_language)
-    end
-
-    HelperFunctions.setup_app(app)
-
     # This variable is used later on, but we want to check the availabity
     # of ports all at the same time so we can fail early on if we have
     # issue.
-    if is_new_app
+    if state == "new"
       nginx_app_port = find_lowest_free_port(Nginx::START_PORT, Nginx::END_PORT)
       haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
       if nginx_app_port < 0 or haproxy_app_port < 0
@@ -4691,11 +4726,13 @@ HOSTS
       }
 
       # Setup rsyslog to store application logs.
-      template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
       temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"
-      HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
-      HelperFunctions.shell("service rsyslog restart")
-      Djinn.log_info("Installed log configuration for app #{app}")
+      if not File.exists?(temp_file_name)
+        template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
+        HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
+        HelperFunctions.shell("service rsyslog restart")
+        Djinn.log_info("Installed log configuration for app #{app}")
+      end
     else
       loop {
         if File.exists?(port_file)
@@ -4708,8 +4745,6 @@ HOSTS
       }
     end
 
-    # TODO: Make sure we don't add the same cron lines in twice for the same
-    # app, and only start xmpp if it isn't already started
     if my_node.is_shadow?
       CronHelper.update_cron(my_public, nginx_port, app_language, app)
       begin
@@ -4729,7 +4764,7 @@ HOSTS
       app_manager = AppManagerClient.new(my_node.private_ip)
       # TODO: What happens if the user updates their env vars between app
       # deploys?
-      if is_new_app
+      if state == "new" or state == "add_appserver"
         @num_appengines.times { |index|
           appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
           if appengine_port < 0
@@ -4749,12 +4784,6 @@ HOSTS
               Integer(@options['max_memory']), get_login.private_ip)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to AppManager to start #{app}")
-            pid = -1
-          end
-
-          if pid == -1
-            place_error_app(app, "ERROR: Unable to start application " + \
-                "#{app}. Please check the application logs.", app_language)
           end
 
           # Tell the AppController at the login node (which runs HAProxy) that a
@@ -4778,7 +4807,18 @@ HOSTS
               break
             end
           }
+
+          # At this point we are done adding a single appserver. The
+          # remainder of this function relates only to start or restart
+          # where some stichting on the front-end is needed, so we can
+          # return.
+          if state == "add_appserver"
+            return
+          end
         }
+        # now doing this at the real end so that the tools will
+        # wait for the app to actually be running before returning
+        done_uploading(app, app_path, @@secret)
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
         begin
@@ -4789,11 +4829,6 @@ HOSTS
         end
       end
 
-      if is_new_app
-        # now doing this at the real end so that the tools will
-        # wait for the app to actually be running before returning
-        done_uploading(app, app_path, @@secret)
-      end
       Djinn.log_info("Done setting appserver for #{app}")
     end
 
@@ -4839,18 +4874,16 @@ HOSTS
       Djinn.log_info("Done setting application #{app}")
     end
 
-    APPS_LOCK.synchronize {
-      if @app_names.include?("none")
-        @apps_loaded = @apps_loaded - ["none"]
-        @app_names = @app_names - ["none"]
-      end
+    if @app_names.include?("none")
+      @apps_loaded = @apps_loaded - ["none"]
+      @app_names = @app_names - ["none"]
+    end
 
-      if is_new_app
-        @apps_loaded << app
-      else
-        @apps_to_restart.delete(app)
-      end
-    }
+    if state == "new"
+      @apps_loaded << app
+    else
+      @apps_to_restart.delete(app)
+    end
   end
 
 
@@ -5077,64 +5110,38 @@ HOSTS
       return
     end
 
-    # See how many AppServers are running on each machine.
-    appservers_running = {}
-    @app_info_map[app_name]['appengine'].each { |location|
-      host, port = location.split(":")
-      if appservers_running[host].nil?
-        appservers_running[host] = []
-      end
-      appservers_running[host] << port
-    }
+    # All the available appengine servers.
+    appservers_running = get_all_appengine_nodes()
 
     # Add an AppServer on the machine with the lowest number of AppServers
-    # running, but only if it has enough CPU free to support another AppServer.
-    appserver_to_use = appservers_running.keys[0]
-    lowest_appserver_ports = appservers_running.values[0].length
-    lowest_cpu = nil
-    @all_stats.each { |node|
-      if node['private_ip'] == appserver_to_use
-        lowest_cpu = node['cpu']
-        break
-      end
-    }
-
-    Djinn.log_debug("Considering adding an AppServer to host " +
-      "#{appserver_to_use}, as it runs #{lowest_appserver_ports} AppServers " +
-      "and is using #{lowest_cpu} percent CPU.")
-    appservers_running.each { |host, ports|
-      cpu_on_this_node = nil
+    # running, but only if it has enough resources to support another
+    # AppServer.
+    appserver_to_use = nil
+    lowest_load = nil
+    appservers_running.each { |host|
       @all_stats.each { |node|
         if node['private_ip'] == host
-          cpu_on_this_node = node['cpu']
-          break
+          # The host needs to have normalized average load less than
+          # MAX_LOAD_AVG, current CPU usage less than 90% and enough
+          # memory to run an AppServer (and some safe extra).
+          if node['free_mem'] > Integer(@options['max_memory']) + SAFE_MEM and
+            node['cpu'] < MAX_CPU_FOR_APPSERVERS and
+            node['load'] / node['num_cpu'] < MAX_LOAD_AVG
+            # The host can run a new appserver. Let's check if it's a
+            # better candidate (we do use lowest cpu load for it).
+            if lowest_load == nil or
+              lowest_load > (node['load'] / node['num_cpu'])
+              appserver_to_use = host
+              lowest_load = node['load'] / node['num_cpu']
+            end
+          end
+          break         # We found the host's statistics.
         end
       }
-
-      if ports.length < lowest_appserver_ports and
-        ports.length < MAX_APPSERVERS_ON_THIS_NODE and
-        cpu_on_this_node < MAX_CPU_FOR_APPSERVERS
-
-        appserver_to_use = host
-        lowest_appserver_ports = ports.length
-        lowest_cpu = cpu_on_this_node
-        Djinn.log_debug("Instead considering adding an AppServer to host " +
-          "#{appserver_to_use}, as it runs #{lowest_appserver_ports} " +
-          "AppServers and is using #{lowest_cpu} percent CPU.")
-      end
     }
 
-    # Only add an AppServer there if there's room available.
-    Djinn.log_debug("The machine running the lowest number of AppServers is " +
-      "#{appserver_to_use}, running #{lowest_appserver_ports} AppServers, " +
-      "with #{lowest_cpu} percent CPU used.")
-    if lowest_appserver_ports >= MAX_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The maximum number of AppServers for this app " +
-        "are already running on all machines, so requesting a new machine.")
-    elsif lowest_cpu >= MAX_CPU_FOR_APPSERVERS
-      Djinn.log_info("No machine is available with enough CPU, so requesting " +
-        "a new machine.")
-    else
+    # If we found a host, let's use it.
+    if appserver_to_use != nil
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       acc = AppControllerClient.new(appserver_to_use, @@secret)
       begin
@@ -5144,13 +5151,12 @@ HOSTS
           " appserver for app #{app_name}")
       end
       @last_decision[app_name] = Time.now.to_i
-      return
+    else
+      Djinn.log_info("No AppServer available to scale #{app_name}")
+      # If we're this far, no room is available for AppServers, so try to add a
+      # new node instead.
+      ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
     end
-
-    # If we're this far, no room is available for AppServers, so try to add a
-    # new node instead.
-    ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
-    return
   end
 
 
@@ -5216,8 +5222,6 @@ HOSTS
 
 
   # Starts a new AppServer for the given application.
-  # TODO: This is mostly copy-pasta'd from start_appengine - consolidate
-  # this somehow
   #
   # Args:
   #   app_id: A String naming the application that an additional instance will
@@ -5228,81 +5232,10 @@ HOSTS
       return BAD_SECRET_MSG
     end
 
-    # Starting a appserver instance on request to scale the application
-    app = app_id
-    @state = "Adding an AppServer for #{app}"
-
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-    app_manager = AppManagerClient.new(my_node.private_ip)
-
-    warmup_url = "/"
-    app_language = ""
-
-    Thread.new {
-      loop {
-        begin
-          app_data = uac.get_app_data(app)
-          if app_data[0..4] != "Error"
-            app_language = (app_data.scan(/language:(\w+)/)*"").to_s
-            break
-          end
-        rescue FailedNodeException
-          # Failed to talk to UserAppServer: retry again.
-        end
-        Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
-        Kernel.sleep(5)
-      }
-
-      my_public = my_node.public_ip
-      my_private = my_node.private_ip
-
-      begin
-        app_is_enabled = uac.does_app_exist?(app)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to get info about #{app} from #{@userappserver_private_ip}")
-        return
-      end
-      Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
-      if app_is_enabled == "false"
-        return
-      end
-
-      appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
-      if appengine_port < 0
-        Djinn.log_error("Failed to get a port for #{app}")
-        return
-      end
-      Djinn.log_debug("Adding #{app_language} app #{app} on " +
-        "#{HelperFunctions.local_ip()}:#{appengine_port} ")
-
-      xmpp_ip = get_login.public_ip
-
-      begin
-        result = app_manager.start_app(app, appengine_port,
-          get_load_balancer_ip(), app_language, xmpp_ip,
-          [Djinn.get_nearest_db_ip()],
-          HelperFunctions.get_app_env_vars(app),
-          Integer(@options['max_memory']), get_login.private_ip)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to #{my_node.private_ip} to start #{app}")
-        result = -1
-      end
-
-      if result == -1
-        Djinn.log_error("ERROR: Unable to start application #{app} on port " +
-          "#{appengine_port}.")
-      end
-
-      # Tell the AppController at the login node (which runs HAProxy) that a new
-      # AppServer is running.
-      begin
-        acc = AppControllerClient.new(get_login.private_ip, @@secret)
-        acc.add_appserver_to_haproxy(app, my_node.private_ip, appengine_port)
-        rescue FailedNodeException
-        Djinn.log_warn("Failed to notify #{get_login.private_ip} about " +
-          "application #{app}")
-      end
+    APPS_LOCK.synchronize {
+      setup_appengine_application(app_name, state="add_appserver")
     }
+
   end
 
 

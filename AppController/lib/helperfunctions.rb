@@ -135,6 +135,10 @@ module HelperFunctions
   PROC_LOAD_FILE = "/proc/loadavg"
 
 
+  # The proc file to use to read memory installed.
+  PROC_MEM_FILE = "/proc/meminfo"
+
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -935,8 +939,10 @@ module HelperFunctions
     }
 
     usage['cpu'] /= self.get_num_cpus()
+    usage['num_cpu'] = self.get_num_cpus()
     usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
     usage['load'] = self.get_avg_load()
+    usage['free_mem'] = ((100 - usage['mem']) / 100) * self.get_total_mem()
 
     return usage
   end
@@ -1375,6 +1381,10 @@ module HelperFunctions
 
   def self.get_avg_load()
     return IO.read(PROC_LOAD_FILE).split[0].to_i
+  end
+
+  def self.get_total_mem()
+    return (IO.read(PROC_MEM_FILE).split[1].to_i / 1024)
   end
 
   def self.get_num_cpus()
