@@ -21,14 +21,14 @@ from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
 from backup_recovery_constants import StorageTypes
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-from soap_server import DEFAULT_SSL_PORT as UA_SERVER_PORT
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
 from constants import APPSCALE_DATA_DIR
 
 from google.appengine.api.appcontroller_client import AppControllerClient
+
+# The port that the SOAP server listens to.
+UA_SERVER_PORT = 4343
 
 def delete_local_backup_file(local_file):
   """ Removes the local backup file.
@@ -325,9 +325,6 @@ def delete_app_tars(location):
   Returns:
     True on success, False otherwise.
   """
-  # TODO: remove this.
-  return True
-
   for dir_path, _, filenames in os.walk(location):
     for filename in filenames:
       if not remove('{0}/{1}'.format(dir_path, filename)):
@@ -342,11 +339,11 @@ def deploy_apps(app_paths):
   Returns:
     True on success, False otherwise.
   """
-  uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(appscale_info.get_db_master_ip(),
-    UA_SERVER_PORT))
+  uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
+    appscale_info.get_db_master_ip(), UA_SERVER_PORT))
 
-  keyname = appscale_info.get_keyname()
-  acc = AppControllerClient(appscale_info.get_login_ip(), appscale_info.get_secret())
+  acc = AppControllerClient(appscale_info.get_login_ip(),
+    appscale_info.get_secret())
 
   # Wait for Cassandra to come up after a restore.
   time.sleep(5)
@@ -355,8 +352,8 @@ def deploy_apps(app_paths):
     # Extract app ID.
     app_id = app_path[app_path.rfind('/')+1:app_path.find('.')]
     if not app_id:
-      logging.error("Malformed source code archive. Cannot complete application recovery "
-        "for '{}'. Aborting...".format(app_path))
+      logging.error("Malformed source code archive. Cannot complete "
+        "application recovery for '{}'. Aborting...".format(app_path))
       return False
 
     # Retrieve app admin via uaserver.
@@ -366,14 +363,14 @@ def deploy_apps(app_paths):
     if app_admin_re:
       app_admin = app_admin_re.group(1)
     else:
-      logging.error("Missing application data. Cannot complete application recovery for "
-        "'{}'. Aborting...".format(app_id))
+      logging.error("Missing application data. Cannot complete application "
+        "recovery for '{}'. Aborting...".format(app_id))
       return False
 
     file_suffix = re.search("\.(.*)\Z", app_path).group(1)
 
-    logging.warning("Restoring app '{}', from '{}', with owner '{}'.".format(app_id, 
-      app_path, app_admin))
+    logging.warning("Restoring app '{}', from '{}', with owner '{}'.".
+      format(app_id, app_path, app_admin))
 
     acc.upload_app(app_path, file_suffix, app_admin)
 
