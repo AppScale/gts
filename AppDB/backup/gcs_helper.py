@@ -10,6 +10,9 @@ import urllib
 import backup_recovery_helper
 from backup_recovery_constants import HTTP_OK
 
+# Google Cloud Storage prefix for apps/ directory.
+APPS_GCS_PREFIX = 'apps/'
+
 # The upload request timeout in seconds (12 hours).
 REQUEST_TIMEOUT = 12*60*60
 
@@ -123,7 +126,7 @@ def download_from_bucket(full_object_name, local_path):
       format(called_process_error))
     return False
 
-  logging.info("Successfully downloaded '{0}' from GCS."
+  logging.info("Successfully downloaded '{0}' from GCS. "
     "Local file name is '{1}'.".format(full_object_name, local_path))
   return True
 
@@ -183,3 +186,36 @@ def gcs_put_request(url, local_path):
   return requests.request('PUT', url, data=open(local_path, 'rb'),
     headers={'content-type': 'application/x-gzip'},
     timeout=REQUEST_TIMEOUT, verify=False)
+
+def list_bucket(bucket_name):
+  """ Lists all the files that are in the designated GCS bucket.
+
+  Args:
+    bucket_name: A str, the name of the GCS bucket to look up.
+  Returns:
+    A list of str, the names of the files in the bucket.
+  """
+  url = "https://www.googleapis.com/storage/v1/b/{0}/o".\
+    format(bucket_name)
+  try:
+    response = gcs_get_request(url)
+    if response.status_code != HTTP_OK:
+      logging.error("Error on listing objects in GCS bucket: {0}. "
+        "Error: {1}".format(bucket_name, response.status_code))
+      return []
+
+    content = json.loads(response.content)
+  except requests.HTTPError as error:
+    logging.error("Error on listing objects in GCS bucket: {0}. Error: {1}".
+      format(bucket_name, error))
+    return []
+
+  if 'items' not in content.keys():
+    return []
+
+  objects = []
+  for item in content['items']:
+    objects.append(item['name'])
+
+  logging.debug("Bucket contents: {0}".format(objects))
+  return objects
