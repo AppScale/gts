@@ -323,6 +323,10 @@ class Djinn
   WGET_OPTIONS = "--tries=1000 --no-check-certificate -q -O /dev/null"
 
 
+  # This is the duty cycle for the main loop(s).
+  DUTY_CYCLE = 20
+
+
   # How often we should attempt to increase the number of AppServers on a
   # given node.
   SCALEUP_TIME_THRESHOLD = 12  # seconds
@@ -1645,8 +1649,8 @@ class Djinn
 
     Djinn.log_debug("Done updating apps!")
 
-    # now that another app is running we can take out 'none' from the list
-    # if it was there (e.g., run-instances with no app given)
+    # Since we have application running, we don't need to display anymore
+    # 'none' as the list of running applications.
     @app_names = @app_names - ["none"]
 
     return "OK"
@@ -1717,7 +1721,7 @@ class Djinn
     # We update the dashboard on a separate thread.
     Thread.new {
       loop {
-        Kernel.sleep(20)
+        Kernel.sleep(DUTY_CYCLE)
         flush_log_buffer()
         send_instance_info_to_dashboard()
       }
@@ -1764,7 +1768,7 @@ class Djinn
           scale_appservers_across_nodes()
         end
       }
-      Kernel.sleep(20)
+      Kernel.sleep(DUTY_CYCLE)
     end
   end
 
@@ -5649,7 +5653,7 @@ HOSTS
     end
   end
 
-  # Stop the xmpp receiver for an applicaiton.
+  # Stop the xmpp receiver for an application.
   #
   # Args:
   #   app: The application ID whose XMPPReceiver we should shut down.
