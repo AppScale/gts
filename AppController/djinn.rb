@@ -1856,7 +1856,7 @@ class Djinn
     if File.exists?(location)
       begin
         ZKInterface.add_app_entry(appname, my_node.public_ip, location)
-        result = "success"
+        result = "Found #{appname} in zookeeper."
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
           "with #{e.message}.")
@@ -2333,9 +2333,9 @@ class Djinn
   # anything that the user could inject input into. Returns the output of
   # the command that was executed.
   def self.log_run(command)
-    Djinn.log_debug(command)
+    Djinn.log_debug("Running #{command}")
     output = `#{command}`
-    Djinn.log_debug(output)
+    Djinn.log_debug("Output of #{command} was: #{output}")
     return output
   end
 
