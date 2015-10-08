@@ -343,11 +343,6 @@ class Djinn
   MIN_APPSERVERS_ON_THIS_NODE = 1
 
 
-  # The maximum number of AppServers (for all applications) that should be run
-  # on this node.
-  MAX_APPSERVERS_ON_THIS_NODE = 10
-
-
   # The position in the haproxy profiling information where the name of
   # the service (e.g., the frontend or backend) is specified.
   SERVICE_NAME_INDEX = 1
@@ -5105,10 +5100,15 @@ HOSTS
 
 
   def try_to_scale_up(app_name)
-    time_since_last_decision = Time.now.to_i - @last_decision[app_name]
     if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
       Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
         "hosting it anymore.")
+      return
+    end
+
+    # We scale only if the designed time is passed.
+    if Time.now.to_i - @last_decision[app_name] < SCALEUP_TIME_THRESHOLD
+      Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
       return
     end
 
@@ -5169,10 +5169,15 @@ HOSTS
 
 
   def try_to_scale_down(app_name)
-    time_since_last_decision = Time.now.to_i - @last_decision[app_name]
     if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
       Djinn.log_debug("Not scaling down app #{app_name}, since we aren't " +
         "hosting it anymore.")
+      return
+    end
+
+    # We scale only if the designed time is passed.
+    if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_TIME_THRESHOLD
+      Djinn.log_debug("Not enough time as passed to scale down app #{app_name}")
       return
     end
 
@@ -5186,7 +5191,7 @@ HOSTS
       appservers_running[host] << port
     }
 
-    # Add an AppServer on the machine with the highest number of AppServers
+    # Remove an AppServer on the machine with the highest number of AppServers
     # running.
     appserver_to_use = appservers_running.keys[0]
     highest_appserver_ports = appservers_running.values[0].length
@@ -5212,12 +5217,16 @@ HOSTS
       ports = appservers_running[appserver_to_use]
       port = ports[rand(ports.length)]
       Djinn.log_info("Removing a new AppServer from #{appserver_to_use} for #{app_name}")
-      acc = AppControllerClient.new(appserver_to_use, @@secret)
-      begin
-        acc.remove_appserver_process(app_name, port)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to #{appserver_to_use} to remove" +
-          " appserver for app #{app_name}")
+      if appserver_to_use == my_node.private_ip
+        remove_appserver_process(app_name, port, @@secret)
+      else
+        acc = AppControllerClient.new(appserver_to_use, @@secret)
+        begin
+          acc.remove_appserver_process(app_name, port)
+        rescue FailedNodeException
+          Djinn.log_warn("Failed to talk to #{appserver_to_use} to remove" +
+            " appserver for app #{app_name}")
+        end
       end
       @last_decision[app_name] = Time.now.to_i
       return
@@ -5267,9 +5276,6 @@ HOSTS
     app_manager = AppManagerClient.new(my_node.private_ip)
     warmup_url = "/"
 
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-
     Thread.new {
       begin
         app_data = uac.get_app_data(app)
@@ -5287,7 +5293,7 @@ HOSTS
         Djinn.log_warn("Failed to talk to #{@userappserver_private_ip} about " +
           "application #{app}")
         return
-    end
+      end
       Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
       if app_is_enabled == "false"
         return
@@ -5307,11 +5313,15 @@ HOSTS
 
       # Tell the AppController at the login node (which runs HAProxy) that this
       # AppServer isn't running anymore.
-      acc = AppControllerClient.new(get_login.private_ip, @@secret)
-      begin
-        acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to remove appserver from haproxy for app #{app}")
+      if my_node.is_login?
+        remove_appserver_from_haproxy(app, my_node.private_ip, port, @@secret)
+      else
+        acc = AppControllerClient.new(get_login.private_ip, @@secret)
+        begin
+          acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
+        rescue FailedNodeException
+          Djinn.log_warn("Failed to remove appserver from haproxy for app #{app}")
+        end
       end
 
       # And tell the AppDashboard that the AppServer has been killed.
