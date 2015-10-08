@@ -111,8 +111,8 @@ BOO
   end
 
   def self.is_running(watch, remote_ip=nil, remote_key=nil)
-    output = self.execute_remote_command("#{MONIT} summary | grep '#{watch} " +
-      "| grep Running'", remote_ip, remote_key)
+    output = self.execute_remote_command("#{MONIT} summary | grep #{watch} " +
+      "| grep Running", remote_ip, remote_key)
     return (not output == "")
   end
 
