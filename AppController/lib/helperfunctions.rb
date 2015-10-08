@@ -300,21 +300,15 @@ module HelperFunctions
     
     remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command} "
     
-    output_file = "/tmp/#{ip}.log"
     if want_output
-      remote_cmd << "2>&1 > #{output_file} &' &"
+      remote_cmd << "2>&1'"
     else
       remote_cmd << "> /dev/null &' &"
     end
 
     Djinn.log_debug("Running [#{remote_cmd}]")
 
-    if want_output
-      return self.shell("#{remote_cmd}")
-    else
-      Kernel.system(remote_cmd)
-      return remote_cmd
-    end
+    return self.shell("#{remote_cmd}")
   end
 
 

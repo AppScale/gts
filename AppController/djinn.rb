@@ -1693,6 +1693,7 @@ class Djinn
     end
 
     Djinn.log_info("==== Starting AppController ====")
+
     start_infrastructure_manager()
     data_restored, need_to_start_jobs = restore_appcontroller_state()
 
@@ -4813,6 +4814,7 @@ HOSTS
           # where some stichting on the front-end is needed, so we can
           # return.
           if state == "add_appserver"
+            Djinn.log_info("Done adding appserver for #{app}")
             return
           end
         }
@@ -5593,6 +5595,13 @@ HOSTS
 
   # This function creates the xmpp account for 'app', as app@login_ip.
   def start_xmpp_for_app(app, port, app_language)
+    watch_name = "xmpp-#{app}"
+
+    # If we have it already running, nothing to do
+    if MonitInterface.is_running(watch_name)
+      Djinn.log_debug("xmpp already running for application #{app}")
+      return
+    end
 
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
@@ -5615,7 +5624,6 @@ HOSTS
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "/usr/bin/python #{APPSCALE_HOME}/stop_service.py " +
         "xmpp_receiver.py #{app}"
-      watch_name = "xmpp-#{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
