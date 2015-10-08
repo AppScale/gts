@@ -325,13 +325,19 @@ class Djinn
 
   # How often we should attempt to increase the number of AppServers on a
   # given node.
-  SCALEUP_TIME_THRESHOLD = 60  # seconds
+  SCALEUP_TIME_THRESHOLD = 12  # seconds
 
 
   # How often we should attempt to decrease the number of AppServers on a
   # given node.
   SCALEDOWN_TIME_THRESHOLD = 300  # seconds
 
+
+  # When spinning new node up or down, we need to use a much longer time
+  # to dampen the scaling factor, to give time to the instance to fully
+  # boot, and to reap the benefit of an already running instance. This is
+  # a multiplication factor we use with the above thresholds.
+  SCALE_TIME_MULTIPLIER = 6
 
   # The size of the rotating buffers that we use to keep information on
   # the request rate and number of enqueued requests.
@@ -5411,7 +5417,8 @@ HOSTS
       return examine_scale_down_requests(all_scaling_requests)
     end
 
-    if Time.now.to_i - @last_scaling_time < SCALEUP_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < (SCALEUP_TIME_THRESHOLD *
+            SCALE_TIME_MULTIPLIER)
       Djinn.log_info("Not scaling up right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -5486,7 +5493,8 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now.to_i - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < (SCALEDOWN_TIME_THRESHOLD *
+            SCALE_TIME_MULTIPLIER)
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0
