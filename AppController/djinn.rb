@@ -1017,7 +1017,7 @@ class Djinn
     rescue JSON::ParserError
     end
 
-    Djinn.log_run("mkdir -p /opt/appscale/apps")
+    Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
     return "OK"
   end
@@ -1615,7 +1615,7 @@ class Djinn
     Djinn.log_debug("Apps to restart are #{apps_to_restart}")
     if !apps_to_restart.empty?
       apps_to_restart.each { |appid|
-        location = "/opt/appscale/apps/#{appid}.tar.gz"
+        location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
           ZKInterface.add_app_entry(appid, my_node.public_ip, location)
@@ -1778,7 +1778,7 @@ class Djinn
     apps.each { |app_name|
       if !my_node.is_login?  # this node has the new app - don't erase it here
         Djinn.log_info("Removing old version of app #{app_name}")
-        Djinn.log_run("rm -fv /opt/appscale/apps/#{app_name}.tar.gz")
+        Djinn.log_run("rm -fv #{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
       end
       Djinn.log_info("About to restart app #{app_name}")
       APPS_LOCK.synchronize {
@@ -4340,12 +4340,12 @@ HOSTS
         # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
         # Make sure there is data present there and that it points to our
         # persistent disk.
-        if File.exists?("/opt/appscale/rabbitmq")
+        if File.exists?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
           Djinn.log_run("rm -rf /var/lib/rabbitmq")
         else
-          Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
+          Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
         end
-        Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
+        Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
         return
       end
 
@@ -4357,8 +4357,8 @@ HOSTS
         "2>&1")
       Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
-      Djinn.log_run("mv /var/lib/rabbitmq /opt/appscale")
-      Djinn.log_run("ln -s /opt/appscale/rabbitmq /var/lib/rabbitmq")
+      Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
+      Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
     end
   end
 
@@ -4656,7 +4656,7 @@ HOSTS
 
     # Delete old version of the app if it's a start or restart.
     app_dir = "/var/apps/#{app}/app"
-    app_path = "/opt/appscale/apps/#{app}.tar.gz"
+    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
     if state == "new" or state == "restart"
       FileUtils.rm_rf(app_dir)
       FileUtils.mkdir_p(app_dir)
@@ -5560,7 +5560,7 @@ HOSTS
   # Returns true on success, false otherwise
   def copy_app_to_local(appname)
     app_dir = "/var/apps/#{appname}/app"
-    app_path = "/opt/appscale/apps/#{appname}.tar.gz"
+    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{appname}.tar.gz"
 
     if File.exists?(app_path)
       Djinn.log_debug("I already have a copy of app #{appname} - won't grab it remotely")
