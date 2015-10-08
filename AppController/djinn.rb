@@ -1252,7 +1252,7 @@ class Djinn
       'num_cpu' => usage['num_cpu'],
       'load' => usage['load'],
       'memory' => mem,
-      'free_memory' => usage['free_mem'],
+      'free_memory' => Integer(usage['free_mem']),
       'disk' => usage['disk'],
       'roles' => jobs,
       'db_location' => @userappserver_public_ip,
@@ -1591,64 +1591,62 @@ class Djinn
     apps.uniq!
     Djinn.log_debug("Will set apps to: [#{apps.join(', ')}]")
 
-    Thread.new {
-      # Begin by starting any new App Engine apps.
+    # Begin by starting any new App Engine apps.
+    @nodes.each_index { |index|
+      result = ""
+      ip = @nodes[index].private_ip
+      if my_node.private_ip == ip
+        result = set_apps(apps, @@secret)
+      else
+        acc = AppControllerClient.new(ip, @@secret)
+        begin
+          result = acc.set_apps(apps)
+        rescue FailedNodeException
+          Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
+            " - skipping for now.")
+        end
+      end
+      Djinn.log_debug("The call set_apps at #{ip} returned #{result}.")
+    }
+
+    # Next, restart any apps that have new code uploaded.
+    apps_to_restart = current_apps_uploaded & app_names
+    Djinn.log_debug("Apps to restart are #{apps_to_restart}")
+    if !apps_to_restart.empty?
+      apps_to_restart.each { |appid|
+        location = "/opt/appscale/apps/#{appid}.tar.gz"
+        begin
+          ZKInterface.clear_app_hosters(appid)
+          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+        rescue FailedZooKeeperOperationException => e
+          Djinn.log_warn("(update) couldn't talk with zookeeper while " +
+            "working on app #{appid} with #{e.message}.")
+        end
+      }
+
       @nodes.each_index { |index|
         result = ""
         ip = @nodes[index].private_ip
         if my_node.private_ip == ip
-          result = set_apps(apps, @@secret)
+          result = set_apps_to_restart(apps_to_restart, @@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
-            result = acc.set_apps(apps)
+            result = acc.set_apps_to_restart(apps_to_restart)
           rescue FailedNodeException
-            Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
-              " - skipping for now.")
+            Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
+              "apps - skipping for now.")
           end
         end
-        Djinn.log_debug("The call set_apps at #{ip} returned #{result}.")
+        Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
       }
+    end
 
-      # Next, restart any apps that have new code uploaded.
-      apps_to_restart = current_apps_uploaded & app_names
-      Djinn.log_debug("Apps to restart are #{apps_to_restart}")
-      if !apps_to_restart.empty?
-        apps_to_restart.each { |appid|
-          location = "/opt/appscale/apps/#{appid}.tar.gz"
-          begin
-            ZKInterface.clear_app_hosters(appid)
-            ZKInterface.add_app_entry(appid, my_node.public_ip, location)
-          rescue FailedZooKeeperOperationException => e
-            Djinn.log_warn("(update) couldn't talk with zookeeper while " +
-              "working on app #{appid} with #{e.message}.")
-          end
-        }
+    Djinn.log_debug("Done updating apps!")
 
-        @nodes.each_index { |index|
-          result = ""
-          ip = @nodes[index].private_ip
-          if my_node.private_ip == ip
-            result = set_apps_to_restart(apps_to_restart, @@secret)
-          else
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              result = acc.set_apps_to_restart(apps_to_restart)
-            rescue FailedNodeException
-              Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
-                "apps - skipping for now.")
-            end
-          end
-          Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
-        }
-      end
-
-      Djinn.log_debug("Done updating apps!")
-
-      # now that another app is running we can take out 'none' from the list
-      # if it was there (e.g., run-instances with no app given)
-      @app_names = @app_names - ["none"]
-    }
+    # now that another app is running we can take out 'none' from the list
+    # if it was there (e.g., run-instances with no app given)
+    @app_names = @app_names - ["none"]
 
     return "OK"
   end
@@ -1694,6 +1692,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    Djinn.log_info("==== Starting AppController ====")
     start_infrastructure_manager()
     data_restored, need_to_start_jobs = restore_appcontroller_state()
 
@@ -5125,7 +5124,7 @@ HOSTS
           # The host needs to have normalized average load less than
           # MAX_LOAD_AVG, current CPU usage less than 90% and enough
           # memory to run an AppServer (and some safe extra).
-          if node['free_mem'] > Integer(@options['max_memory']) + SAFE_MEM and
+          if node['free_memory'] > Integer(@options['max_memory']) + SAFE_MEM and
             node['cpu'] < MAX_CPU_FOR_APPSERVERS and
             node['load'] / node['num_cpu'] < MAX_LOAD_AVG
             # The host can run a new appserver. Let's check if it's a
@@ -5135,6 +5134,8 @@ HOSTS
               appserver_to_use = host
               lowest_load = node['load'] / node['num_cpu']
             end
+          else
+            Djinn.log_debug("#{host} is too busy: not using it to scale #{app_name}")
           end
           break         # We found the host's statistics.
         end
@@ -5144,12 +5145,16 @@ HOSTS
     # If we found a host, let's use it.
     if appserver_to_use != nil
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
-      acc = AppControllerClient.new(appserver_to_use, @@secret)
-      begin
-        acc.add_appserver_process(app_name)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to #{appserver_to_use} to add" +
-          " appserver for app #{app_name}")
+      if appserver_to_use == my_node.private_ip
+        setup_appengine_application(app_name, state="add_appserver")
+      else
+        acc = AppControllerClient.new(appserver_to_use, @@secret)
+        begin
+          acc.add_appserver_process(app_name)
+        rescue FailedNodeException
+          Djinn.log_warn("Failed to talk to #{appserver_to_use} to add" +
+            " appserver for app #{app_name}")
+        end
       end
       @last_decision[app_name] = Time.now.to_i
     else
