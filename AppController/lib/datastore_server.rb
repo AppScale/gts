@@ -113,7 +113,7 @@ module DatastoreServer
 
   
   def self.is_running(my_ip)
-    `curl http://#{my_ip}:#{PROXY_PORT}` 
+    return HelperFunctions.is_port_open?(my_ip, PROXY_PORT)
   end 
 
 
