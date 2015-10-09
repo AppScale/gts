@@ -936,7 +936,7 @@ module HelperFunctions
     usage['num_cpu'] = self.get_num_cpus()
     usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
     usage['load'] = self.get_avg_load()
-    usage['free_mem'] = ((100 - usage['mem']) / 100) * self.get_total_mem()
+    usage['free_mem'] = ((100 - Integer(Float(usage['mem']).truncate())) * self.get_total_mem()) / 100
 
     return usage
   end
