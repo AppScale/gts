@@ -112,11 +112,6 @@ module DatastoreServer
   end
 
   
-  def self.is_running(my_ip)
-    return HelperFunctions.is_port_open?(my_ip, PROXY_PORT)
-  end 
-
-
   # Return the name of the executable of the datastore server.
   def self.get_executable_name(table)
     return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
