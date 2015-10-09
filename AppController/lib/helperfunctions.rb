@@ -230,24 +230,34 @@ module HelperFunctions
       return if HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
+      if total_time_slept % 5 == 0
+        Djinn.log_debug("Waiting on #{ip}:#{port} to be open (currently closed).")
+      end
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
         raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
-      Djinn.log_debug("Waiting on #{ip}:#{port} to be open (currently closed).")
     }
   end
 
 
-  def self.sleep_until_port_is_closed(ip, port, use_ssl=DONT_USE_SSL)
+  def self.sleep_until_port_is_closed(ip, port, use_ssl=DONT_USE_SSL, timeout=nil)
+    total_time_slept = 0
     sleep_time = 1
 
     loop {
       return unless HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
-      Djinn.log_debug("Waiting on #{ip}:#{port} to be closed (currently open).")
+      if total_time_slept % 5 == 0
+        Djinn.log_debug("Waiting on #{ip}:#{port} to be closed (currently open).")
+      end
+      total_time_slept += sleep_time
+
+      if !timeout.nil? and total_time_slept > timeout
+        raise Exception.new("Waited too long for #{ip}#{port} to close!")
+      end
     }
   end
 
