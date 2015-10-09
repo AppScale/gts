@@ -5258,7 +5258,7 @@ HOSTS
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
-    Djinn.info("Received request to add an appserver for #{app_id}")
+    Djinn.log_info("Received request to add an appserver for #{app_id}")
     APPS_LOCK.synchronize {
       setup_appengine_application(app_id, state="add_appserver")
     }
