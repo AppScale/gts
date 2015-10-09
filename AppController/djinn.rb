@@ -5286,57 +5286,55 @@ HOSTS
     app_manager = AppManagerClient.new(my_node.private_ip)
     warmup_url = "/"
 
-    Thread.new {
+    begin
+      app_data = uac.get_app_data(app)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to #{@userappserver_private_ip} about " +
+        "getting data for application #{app}")
+      return
+    end
+
+    Djinn.log_debug("Get app data for #{app}")
+
+    begin
+      app_is_enabled = uac.does_app_exist?(app)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to #{@userappserver_private_ip} about " +
+        "application #{app}")
+      return
+    end
+    Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
+    if app_is_enabled == "false"
+      return
+    end
+
+    begin
+      result = app_manager.stop_app_instance(app, port)
+    rescue FailedNodeException
+      Djinn.log_error("Unable to talk to #{@userappserver_private_ip} " +
+        "stop instance on port #{port} for application #{app_name}.")
+      result = false
+    end
+    if !result
+      Djinn.log_error("Unable to stop instance on port #{port} " +
+        "application #{app_name}")
+    end
+
+    # Tell the AppController at the login node (which runs HAProxy) that this
+    # AppServer isn't running anymore.
+    if my_node.is_login?
+      remove_appserver_from_haproxy(app, my_node.private_ip, port, @@secret)
+    else
+      acc = AppControllerClient.new(get_login.private_ip, @@secret)
       begin
-        app_data = uac.get_app_data(app)
+        acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
       rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to #{@userappserver_private_ip} about " +
-          "getting data for application #{app}")
-        return
+        Djinn.log_warn("Failed to remove appserver from haproxy for app #{app}")
       end
+    end
 
-      Djinn.log_debug("Get app data for #{app}")
-
-      begin
-        app_is_enabled = uac.does_app_exist?(app)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to #{@userappserver_private_ip} about " +
-          "application #{app}")
-        return
-      end
-      Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
-      if app_is_enabled == "false"
-        return
-      end
-
-      begin
-        result = app_manager.stop_app_instance(app, port)
-      rescue FailedNodeException
-        Djinn.log_error("Unable to talk to #{@userappserver_private_ip} " +
-          "stop instance on port #{port} for application #{app_name}.")
-        result = false
-      end
-      if !result
-        Djinn.log_error("Unable to stop instance on port #{port} " +
-          "application #{app_name}")
-      end
-
-      # Tell the AppController at the login node (which runs HAProxy) that this
-      # AppServer isn't running anymore.
-      if my_node.is_login?
-        remove_appserver_from_haproxy(app, my_node.private_ip, port, @@secret)
-      else
-        acc = AppControllerClient.new(get_login.private_ip, @@secret)
-        begin
-          acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to remove appserver from haproxy for app #{app}")
-        end
-      end
-
-      # And tell the AppDashboard that the AppServer has been killed.
-      delete_instance_from_dashboard(app, "#{my_node.private_ip}:#{port}")
-    }
+    # And tell the AppDashboard that the AppServer has been killed.
+    delete_instance_from_dashboard(app, "#{my_node.private_ip}:#{port}")
   end
 
 
