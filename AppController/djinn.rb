@@ -3814,7 +3814,7 @@ class Djinn
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # Let's wait for the datastore to be active.
-    HelperFunctions.sleep_until_port_is_open(my_ip)
+    HelperFunctions.sleep_until_port_is_open(my_ip, DatastoreServer::PROXY_PORT)
   end
 
   # Stops the Backup/Recovery service.
