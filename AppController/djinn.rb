@@ -348,11 +348,6 @@ class Djinn
   NUM_DATA_POINTS = 10
 
 
-  # The minimum number of AppServers (for all applications) that should be run
-  # on this node.
-  MIN_APPSERVERS_ON_THIS_NODE = 1
-
-
   # The position in the haproxy profiling information where the name of
   # the service (e.g., the frontend or backend) is specified.
   SERVICE_NAME_INDEX = 1
@@ -3135,7 +3130,6 @@ class Djinn
       http.use_ssl = true
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request = Net::HTTP::Delete.new(url.path)
-      request.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request.body = JSON.dump(instance_info)
       response = http.request(request)
       Djinn.log_debug("Done sending instance info to AppDashboard!")
@@ -5191,60 +5185,49 @@ HOSTS
       return
     end
 
-    # See how many AppServers are running on each machine.
+    # See how many AppServers are running on each machine. We cannot scale
+    # if we already are at the requested minimum @num_appengines.
     appservers_running = {}
+    num_server_running = 0
     @app_info_map[app_name]['appengine'].each { |location|
       host, port = location.split(":")
       if appservers_running[host].nil?
         appservers_running[host] = []
       end
       appservers_running[host] << port
+      num_server_running += 1
     }
+    if num_server_running <= @num_appengines
+      Djinn.log_debug("We are already at the minimum number of appservers for " +
+        "#{app_name}: requesting to remove node.")
 
-    # Remove an AppServer on the machine with the highest number of AppServers
-    # running.
-    appserver_to_use = appservers_running.keys[0]
-    highest_appserver_ports = appservers_running.values[0].length
-    Djinn.log_debug("Considering removing an AppServer from host " +
-      "#{appserver_to_use}, as it runs #{highest_appserver_ports} AppServers.")
-    appservers_running.each { |host, ports|
-      if ports.length > highest_appserver_ports and ports.length > MIN_APPSERVERS_ON_THIS_NODE
-        appserver_to_use = host
-        highest_appserver_ports = ports.length
-        Djinn.log_debug("Instead considering removing an AppServer from host " +
-          "#{appserver_to_use}, as it runs #{highest_appserver_ports} " +
-          "AppServers.")
-      end
-    }
-
-    # Only remove an AppServer there if it's not the last AppServer.
-    Djinn.log_debug("The machine running the highest number of AppServers is " +
-      "#{appserver_to_use}, running #{highest_appserver_ports} AppServers.")
-    if highest_appserver_ports <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_debug("The minimum number of AppServers for this app " +
-        "are already running on all machines, so requesting less machines.")
-    else
-      ports = appservers_running[appserver_to_use]
-      port = ports[rand(ports.length)]
-      Djinn.log_info("Removing a new AppServer from #{appserver_to_use} for #{app_name}")
-      if appserver_to_use == my_node.private_ip
-        remove_appserver_process(app_name, port, @@secret)
-      else
-        acc = AppControllerClient.new(appserver_to_use, @@secret)
-        begin
-          acc.remove_appserver_process(app_name, port)
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to talk to #{appserver_to_use} to remove" +
-            " appserver for app #{app_name}")
-        end
-      end
-      @last_decision[app_name] = Time.now.to_i
+      # If we're this far, nobody can scale down, so try to remove a node instead.
+      ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
       return
     end
 
-    # If we're this far, nobody can scale down, so try to remove a node instead.
-    ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
-    return
+    # We pick the first appengine we find that run the application.
+    # Smarter algorithms could be implemented, but without clear
+    # directives (ie decide on cpu, or memory, or number of CPU available,
+    # or avg load etc...) any static strategy is flawed, so we go for
+    # simplicity.
+    appserver_to_use = appservers_running.keys[0]
+    ports = appservers_running[appserver_to_use]
+    port = ports[rand(ports.length)]
+    Djinn.log_info("Removing an appserver from #{appserver_to_use} for #{app_name}")
+
+    if appserver_to_use == my_node.private_ip
+      remove_appserver_process(app_name, port, @@secret)
+    else
+      acc = AppControllerClient.new(appserver_to_use, @@secret)
+      begin
+        acc.remove_appserver_process(app_name, port)
+        @last_decision[app_name] = Time.now.to_i
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to talk to #{appserver_to_use} to remove" +
+          " appserver for app #{app_name}")
+      end
+    end
   end
 
 
