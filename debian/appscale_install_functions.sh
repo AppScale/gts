@@ -18,6 +18,7 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
+
 pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that

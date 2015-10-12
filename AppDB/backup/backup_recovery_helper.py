@@ -149,6 +149,21 @@ def mkdir(path):
     return False
   return True
 
+def makedirs(path):
+  """ Creates a dir with the given path and all directories in between.
+
+  Args:
+    path: A str, the name of the dir to create.
+  Returns:
+    True on success, False otherwise.
+  """
+  try:
+    os.makedirs(path)
+  except OSError:
+    logging.error("OSError while creating dir '{0}'".format(path))
+    return False
+  return True
+
 def rename(source, destination):
   """ Renames source file into destination.
 
@@ -237,6 +252,11 @@ def app_backup(storage, full_bucket_name=None):
   Returns:
     True on success, False otherwise.
   """
+  # Create app backups dir if it doesn't exist.
+  if not makedirs(APP_BACKUP_DIR_LOCATION):
+    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+      format(APP_BACKUP_DIR_LOCATION))
+
   for dir_path, _, filenames in os.walk(APP_DIR_LOCATION):
     for filename in filenames:
       # Copy source code tars to backups location.
@@ -269,6 +289,11 @@ def app_restore(storage, bucket_name=None):
   Returns:
     True on success, False otherwise.
   """
+  # Create app backups dir if it doesn't exist.
+  if not makedirs(APP_BACKUP_DIR_LOCATION):
+    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+      format(APP_BACKUP_DIR_LOCATION))
+
   # Download from GCS to backups location.
   if storage == StorageTypes.GCS:
     objects = gcs_helper.list_bucket(bucket_name)
