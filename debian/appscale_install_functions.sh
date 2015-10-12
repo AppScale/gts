@@ -18,6 +18,7 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
+
 pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
@@ -479,4 +480,23 @@ postinstallrsyslog()
 
     # Restart the service
     service rsyslog restart || true
+}
+
+createbackupdirs ()
+{
+    # Create top directory for AppScale backups.
+    if [ -z "$APPSCALE_BACKUPS_DIR" ]; then
+        export APPSCALE_BACKUPS_DIR=/opt/appscale/backups
+    fi
+    if ! mkdir -p $APPSCALE_BACKUPS_DIR; then
+        echo "Warning: Unable to create $APPSCALE_BACKUPS_DIR dir."
+    fi
+
+    # Create directory for application source code backups.
+    if [ -z "$APPSCALE_APP_BACKUP_DIR" ]; then
+        export APPSCALE_APP_BACKUP_DIR=$APPSCALE_BACKUPS_DIR/apps
+    fi
+    if ! mkdir -p $APPSCALE_APP_BACKUP_DIR; then
+        echo "Warning: Unable to create $APPSCALE_APP_BACKUP_DIR dir."
+    fi
 }
