@@ -4031,16 +4031,17 @@ class Djinn
 
 
   def rsync_files(dest_node)
-    controller = "#{APPSCALE_HOME}/AppController"
-    server = "#{APPSCALE_HOME}/AppServer"
-    server_java = "#{APPSCALE_HOME}/AppServer_Java"
-    loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
     appdb = "#{APPSCALE_HOME}/AppDB"
     app_manager = "#{APPSCALE_HOME}/AppManager"
-    iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
-    xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
-    lib = "#{APPSCALE_HOME}/lib"
     app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
+    controller = "#{APPSCALE_HOME}/AppController"
+    iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
+    lib = "#{APPSCALE_HOME}/lib"
+    loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
+    scripts = "#{APPSCALE_HOME}/scripts"
+    server = "#{APPSCALE_HOME}/AppServer"
+    server_java = "#{APPSCALE_HOME}/AppServer_Java"
+    xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -4056,6 +4057,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
     HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
+    HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
   end
 
   def setup_config_files()
