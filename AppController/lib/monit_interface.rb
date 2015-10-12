@@ -110,15 +110,23 @@ BOO
     self.execute_remote_command("#{MONIT} quit", remote_ip, remote_key)
   end
 
+  def self.is_running(watch, remote_ip=nil, remote_key=nil)
+    output = self.execute_remote_command("#{MONIT} summary | grep #{watch} " +
+      "| grep Running", remote_ip, remote_key)
+    return (not output == "")
+  end
+
   private
   def self.execute_remote_command(cmd, ip, ssh_key)
     local = ip.nil?
     
     if local
-      Djinn.log_run(cmd)
+      output = Djinn.log_run(cmd)
     else
       output = HelperFunctions.run_remote_command(ip, cmd, ssh_key, WANT_OUTPUT)
       Djinn.log_debug("running command #{cmd} on ip #{ip} returned #{output}")
     end
+
+    return output
   end
 end
