@@ -22,7 +22,7 @@ for line in ps_output:
   if identifier in line and process in line:
     pgid = "-" + line.split()[0]
     print "Found a match: " + line
-    subprocess.call(["/bin/kill", "-SIGKILL", "pgid"])
+    subprocess.call(["/bin/kill", "-SIGKILL", pgid])
     sys.exit(0)
 
 print "Didn't find a match."
