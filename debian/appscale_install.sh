@@ -56,6 +56,5 @@ case "$1" in
         installVersion
         installrequests
         postinstallrsyslog
-        createbackupdirs
         ;;
 esac
