@@ -13,8 +13,7 @@ module HermesService
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
     start_cmd = "/usr/bin/python /root/appscale/Hermes/hermes.py"
-    # The stop command doesn't work and relies on terminate.rb.
-    stop_cmd = "/usr/bin/pkill -9 hermes_service"
+    stop_cmd = "/usr/bin/python /root/appscale/scripts/stop_service.py hermes.py python"
     MonitInterface.start(:hermes, start_cmd, stop_cmd, HERMES_PORT, {})
   end
 

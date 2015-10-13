@@ -536,6 +536,10 @@ class Djinn
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
+
+    # This variable is used to keep track of the list of zookeeper servers
+    # we have in this deployment.
+    @zookeeper_data = []
   end
 
   # This method is needed, since we are not able to change log level on
@@ -2997,7 +3001,13 @@ class Djinn
       end
     }
 
-    HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
+    # Let's see if it changed since last time we got the list.
+    zookeeper_data['locations'].sort!
+    if zookeeper_data['locations'] != @zookeeper_data
+      HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
+      @zookeeper_data = zookeeper_data['locations']
+      Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
+    end
   end
 
 
