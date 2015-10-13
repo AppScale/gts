@@ -540,6 +540,9 @@ class Djinn
     # This variable is used to keep track of the list of zookeeper servers
     # we have in this deployment.
     @zookeeper_data = []
+
+    # This variable is used to keep track of the list of memcache servers.
+    @memcache_contents = ""
   end
 
   # This method is needed, since we are not able to change log level on
@@ -4151,10 +4154,14 @@ class Djinn
     @nodes.each { |node|
       memcache_ips << node.private_ip if node.is_memcache?
     }
-    Djinn.log_debug("Memcache servers are at #{memcache_ips.join(', ')}")
-    memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
     memcache_contents = memcache_ips.join("\n")
-    HelperFunctions.write_file(memcache_file, memcache_contents)
+    # We write the file only if something changed.
+    if memcache_contents != @memcache_contents
+      memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
+      HelperFunctions.write_file(memcache_file, memcache_contents)
+      @memcache_contents = memcache_contents
+      Djinn.log_debug("Updated memcache servers to #{memcache_ips.join(', ')}")
+    end
   end
 
 
