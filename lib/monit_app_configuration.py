@@ -60,7 +60,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
       template = template.format(watch, start_cmd, stop_cmd, port, env,
         max_memory)
 
-    temp_file_name = "/etc/monit/conf.d/" + watch + '-' + \
+    temp_file_name = "/etc/monit/conf.d/appscale-" + watch + '-' + \
                      str(port) + ".cfg"
     file_io.write(temp_file_name, template) 
 
