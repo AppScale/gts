@@ -476,7 +476,7 @@ postinstallrsyslog()
 postinstallmonit()
 {
     # We need to have http connection enabled to talk to monit.
-    if grep -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
+    if grep ! -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
         cat <<EOF | tee -a /etc/monit/monitrc
 
 # Added by AppScale: this is needed to have a working monit command
