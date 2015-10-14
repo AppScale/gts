@@ -1139,6 +1139,14 @@ class Djinn
         File.rename(archived_file_old, archived_file)
       end
 
+      # Make sure the tools have access to the keyfile.
+      # TODO: Don't use the tools to deploy the application.
+      appscale_key_file = "/etc/appscale/keys/cloud1/#{keyname}.key"
+      tools_key_file = "/root/.appscale/#{keyname}.key"
+      unless File.exists?(key_file)
+        FileUtils.copy_file(appscale_key_file, tools_key_file)
+      end
+
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
       command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
