@@ -1,6 +1,7 @@
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
+require monit_interface
 module TerminateHelper
 
 
@@ -15,7 +16,9 @@ module TerminateHelper
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`
     `rm -f /etc/nginx/sites-enabled/*.conf`
+    MonitInterface.shutdown()
     `rm -f /etc/monit/conf.d/*.cfg`
+    MonitInterface.start()
     `rm -f /etc/appscale/port-*.txt`
     `rm -f /etc/appscale/search_ip`
 
@@ -76,9 +79,7 @@ module TerminateHelper
   # associated with AppScale.
   def self.force_kill_processes
     `iptables -F`  # turn off the firewall
-    `monit stop all`
-    `monit unmonitor all`
-    `monit quit`
+    MonitInterface.shutdown()
 
     ["memcached",
      "nginx", "haproxy", "hermes",

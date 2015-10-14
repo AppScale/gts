@@ -789,12 +789,12 @@ class Djinn
     @kill_sig_received = true
 
     if is_hybrid_cloud?
-      Thread.new {
+      threads << Thread.new {
         Kernel.sleep(5)
         HelperFunctions.terminate_hybrid_vms(options)
       }
     elsif is_cloud?
-      Thread.new {
+      threads << Thread.new {
         Kernel.sleep(5)
         infrastructure = options["infrastructure"]
         keyname = options["keyname"]
@@ -805,7 +805,21 @@ class Djinn
       # turned on since that was the state they started in
 
       if my_node.is_login?
+        # Let's stop all other nodes.
+        threads << Thread.new {
+          @nodes.each { |node|
+            if node.private_ip != my_node.private_ip
+              acc = AppControllerClient.new(ip, @@secret)
+              begin
+                acc.kill()
+                Djinn.log_info("kill: sent kill command to node at #{ip}")
+              rescue FailedNodeException
+                Djinn.log_warn("kill: failed to talk to node at #{ip} while")
+              end
+          }
+        }
         stop_ejabberd()
+        TaskQueue.stop_flower()
       end
 
       maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
@@ -837,20 +851,21 @@ class Djinn
 
       TaskQueue.stop() if my_node.is_taskqueue_master?
       TaskQueue.stop() if my_node.is_taskqueue_slave?
-      TaskQueue.stop_flower() if my_node.is_login?
-
       Search.stop() if my_node.is_search?
-
       stop_app_manager_server()
       stop_infrastructure_manager()
     end
 
-    MonitInterface.shutdown()
     TerminateHelper.erase_appscale_state
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
     end
+
+    # Wait for the threads to finish.
+    Djinn.log_info("kill: waiting for threads to finish.")
+    threads.each { |t| t.join() }
+    Djinn.log_info("kill: done waiting for threads.")
 
     return "OK"
   end
