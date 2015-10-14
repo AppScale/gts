@@ -41,6 +41,7 @@ require 'nginx'
 require 'search'
 require 'taskqueue'
 require 'taskqueue_client'
+require 'terminate'
 require 'user_app_client'
 require 'zkinterface'
 
@@ -845,7 +846,7 @@ class Djinn
     end
 
     MonitInterface.shutdown()
-    FileUtils.rm_rf(STATE_FILE)
+    TerminateHelper.erase_appscale_state
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()

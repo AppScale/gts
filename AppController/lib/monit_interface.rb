@@ -105,8 +105,6 @@ BOO
   end
 
   def self.shutdown(remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop all", remote_ip, remote_key)
-    self.execute_remote_command("#{MONIT} unmonitor all", remote_ip, remote_key)
     self.execute_remote_command("#{MONIT} quit", remote_ip, remote_key)
   end
 

@@ -27,7 +27,6 @@ case "$1" in
         installgems
         postinstallhaproxy
         postinstallnginx
-        portinstallmonit
         installPIL
         installpythonmemcache
         installlxml

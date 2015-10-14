@@ -291,15 +291,6 @@ postinstallnginx()
     chmod +x /root
 }
 
-portinstallmonit()
-{
-    # Let's use our configuration.
-    cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
-    chmod 0700 /etc/monit/monitrc
-    service monit stop
-    update-rc.d -f monit remove
-}
-
 installsolr()
 {
     SOLR_VER=4.10.2

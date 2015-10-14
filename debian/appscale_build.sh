@@ -125,7 +125,6 @@ if [ -d appscale/.appscale/certs ]; then
         fi
 
         # In version past 2.3.1 we are incompatible with ruby1.8.
-        # TODO: remove ruby1.8 if we have issues.
 fi
 
 if [ $1 ]; then
