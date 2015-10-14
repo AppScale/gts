@@ -112,14 +112,14 @@ module TerminateHelper
       # grep out appscale-tools here since the user could be running the tools
       # on this machine, and that would otherwise cause this command to kill
       # itself.
-      `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9`
+      `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
     end
   end
 
 
   # Kills all Ruby processes on this machine, except for this one.
   def self.kill_ruby
-    `ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
+    `ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
   end
 
 
