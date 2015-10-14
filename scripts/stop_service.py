@@ -2,6 +2,7 @@
 #
 # This script is used by AppScale with monit: it allows to stop services
 # controlled by monit.
+from os.path import basename
 import subprocess
 import sys
 import time
@@ -19,6 +20,8 @@ identifier = sys.argv[2]
 # related processes.
 ps_output = subprocess.check_output(["/bin/ps", "-eo", "pgid,args"]).split('\n')
 for line in ps_output:
+  if basename(sys.argv[0]) in line:
+     continue
   if identifier in line and process in line:
     pgid = "-" + line.split()[0]
     print "Found a match: " + line
