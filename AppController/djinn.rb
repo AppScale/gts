@@ -5052,6 +5052,7 @@ HOSTS
     # Let's make sure we have the minimum number of appserver running.
     if @app_info_map[app_name]['appengine'].length < @num_appengines
       return :scale_up
+    end
 
     if total_req_in_queue.zero?
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
