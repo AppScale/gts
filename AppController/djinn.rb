@@ -544,6 +544,9 @@ class Djinn
 
     # This variable is used to keep track of the list of memcache servers.
     @memcache_contents = ""
+
+    # Make sure monit is started.
+    MonitInterface.start_monit(nil, nil)
   end
 
   # This method is needed, since we are not able to change log level on
@@ -4451,7 +4454,6 @@ HOSTS
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     MonitInterface.start_monit(ip, ssh_key)
-    Kernel.sleep(1)
 
     begin
       MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
