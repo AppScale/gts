@@ -13,7 +13,8 @@ module GroomerService
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
     start_cmd = "/usr/bin/python /root/appscale/AppDB/groomer_service.py"
-    stop_cmd = "/usr/bin/python /root/appscale/scripts/stop_service.py groomer_service.py python"
+    # The stop command doesn't work and relies on terminate.rb.
+    stop_cmd = "/usr/bin/pkill -9 groomer_service"
     MonitInterface.start(:groomer_service, start_cmd, stop_cmd, "9999", {})
   end
 
