@@ -48,6 +48,7 @@ case "$1" in
         installsolr
         installservice
         postinstallservice
+        postinstallmonit
         setupntp
         sethosts
         setulimits

@@ -472,3 +472,17 @@ postinstallrsyslog()
     # Restart the service
     service rsyslog restart || true
 }
+
+postinstallmonit()
+{
+    # We need to have http connection enabled to talk to monit.
+    if grep -v '^#' /etc/monit/monitrc |grep httpd > /dev/null then
+        cat <<EOF | tee -a /etc/monit/monitrc
+
+# Added by AppScale: this is needed to have a working monit command
+set httpd port 2812 and
+   use address localhost  # only accept connection from localhost
+   allow localhost
+EOF
+    fi
+}
