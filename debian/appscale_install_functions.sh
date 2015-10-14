@@ -484,5 +484,8 @@ set httpd port 2812 and
    use address localhost  # only accept connection from localhost
    allow localhost
 EOF
+
+    # Make sure the changes takes place immediately
+    service monit restart
     fi
 }
