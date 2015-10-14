@@ -816,6 +816,7 @@ class Djinn
               rescue FailedNodeException
                 Djinn.log_warn("kill: failed to talk to node at #{ip} while")
               end
+            end
           }
         }
         stop_ejabberd()
