@@ -2592,11 +2592,9 @@ class Djinn
     end
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
-    get_scaling_info_for_app(app_id)
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
-    get_scaling_info_for_app(app_id, update_dashboard=false)
 
     return "OK"
   end
@@ -2633,11 +2631,9 @@ class Djinn
     end
 
     Djinn.log_debug("Removing AppServer for app #{app_id} at #{ip}:#{port}")
-    get_scaling_info_for_app(app_id)
     @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
-    get_scaling_info_for_app(app_id, update_dashboard=false)
 
     return "OK"
   end
@@ -5053,6 +5049,10 @@ HOSTS
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
       total_req_in_queue, update_dashboard)
 
+    # Let's make sure we have the minimum number of appserver running.
+    if @app_info_map[app_name]['appengine'].length < @num_appengines
+      return :scale_up
+
     if total_req_in_queue.zero?
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
         "advising that we scale down within this machine.")
@@ -5206,17 +5206,7 @@ HOSTS
 
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum @num_appengines.
-    appservers_running = {}
-    num_server_running = 0
-    @app_info_map[app_name]['appengine'].each { |location|
-      host, port = location.split(":")
-      if appservers_running[host].nil?
-        appservers_running[host] = []
-      end
-      appservers_running[host] << port
-      num_server_running += 1
-    }
-    if num_server_running <= @num_appengines
+    if @app_info_map[app_name]['appengine'].length <= @num_appengines
       Djinn.log_debug("We are already at the minimum number of appservers for " +
         "#{app_name}: requesting to remove node.")
 
@@ -5225,14 +5215,12 @@ HOSTS
       return
     end
 
-    # We pick the first appengine we find that run the application.
-    # Smarter algorithms could be implemented, but without clear
-    # directives (ie decide on cpu, or memory, or number of CPU available,
-    # or avg load etc...) any static strategy is flawed, so we go for
-    # simplicity.
-    appserver_to_use = appservers_running.keys[0]
-    ports = appservers_running[appserver_to_use]
-    port = ports[rand(ports.length)]
+    # We pick a randon appengine that run the application.  Smarter
+    # algorithms could be implemented, but without clear directives (ie
+    # decide on cpu, or memory, or number of CPU available, or avg load
+    # etc...) any static strategy is flawed, so we go for simplicity.
+    scapegoat = rand(@app_info_map[app_name]['appengine'].length)
+    appserver_to_use, port  = @app_info_map[app_name]['appengine'][scapegoat].split(":")
     Djinn.log_info("Removing an appserver from #{appserver_to_use} for #{app_name}")
 
     if appserver_to_use == my_node.private_ip
@@ -5248,7 +5236,6 @@ HOSTS
       end
     end
   end
-
 
   # Starts a new AppServer for the given application.
   #
