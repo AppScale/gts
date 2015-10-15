@@ -1138,6 +1138,7 @@ class Djinn
         Djinn.log_debug("Renaming #{archived_file_old} to #{archived_file}")
         File.rename(archived_file_old, archived_file)
       end
+      keyname = @options['keyname']
 
       # Make sure the tools have access to the keyfile.
       # TODO: Don't use the tools to deploy the application.
@@ -1148,7 +1149,6 @@ class Djinn
       end
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
-      keyname = @options['keyname']
       command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
         "'#{archived_file}' --email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
