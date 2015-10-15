@@ -5,24 +5,34 @@ module TerminateHelper
 
 
   # Erases all AppScale-related files (except database state) from the local
-  # filesystem.
+  # filesystem. This is used when appscale is shutdown.
   # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
-  # I remember it had some problems with *s, so look into that
-  # maybe glob it with Dir.glob? to alleviate this?
   def self.erase_appscale_state
     `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
     `rm -f #{APPSCALE_HOME}/.appscale/database_info`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`
+    `rm -f /etc/nginx/sites-enabled/*.conf`
+    `rm -f /etc/monit/conf.d/appscale*.cfg`
+    `service monit restart`
+    `rm -f /etc/monit/conf.d/controller-17443.cfg`
+    `rm -f /etc/appscale/port-*.txt`
+    `rm -f /etc/appscale/search_ip`
+
+    # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
+    `rm -rf /etc/appscale/zookeeper_locations.json`
+    `rm -f /opt/appscale/appcontroller-state.json`
+    `rm -f /opt/appscale/appserver-state.json`
+  end
+
+  # This functions does erase more of appscale state: used in combination
+  # with 'clean'.
+  def self.erase_appscale_full_state
     `rm -rf /var/log/appscale/cassandra`
     `rm -rf /var/log/appscale/celery_workers`
     `rm -f /var/log/appscale/*`
-    `rm -f /etc/nginx/sites-enabled/*.conf`
-    `rm -f /etc/monit/conf.d/*.cfg`
-    `rm -f /etc/appscale/port-*.txt`
-    `rm -f /etc/appscale/search_ip`
 
     # TODO: It may be wise to save the apps for when AppScale starts up
     # later.
@@ -30,11 +40,6 @@ module TerminateHelper
     `rm -rf #{APPSCALE_HOME}/.appscale/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
-
-    # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
-    `rm -rf /etc/appscale/zookeeper_locations.json`
-    `rm -f /opt/appscale/appcontroller-state.json`
-    `rm -f /opt/appscale/appserver-state.json`
   end
 
 
@@ -73,9 +78,6 @@ module TerminateHelper
   # associated with AppScale.
   def self.force_kill_processes
     `iptables -F`  # turn off the firewall
-    `monit stop all`
-    `monit unmonitor all`
-    `monit quit`
 
     ["memcached",
      "nginx", "haproxy", "hermes",
@@ -95,7 +97,7 @@ module TerminateHelper
      "ThriftServer",
 
      "rabbitmq",
-     "monit", "djinn", "xmpp_receiver",
+     "djinn", "xmpp_receiver",
      "InfrastructureManager", "Neptune",
 
      # RabbitMQ, ejabberd
@@ -110,14 +112,14 @@ module TerminateHelper
       # grep out appscale-tools here since the user could be running the tools
       # on this machine, and that would otherwise cause this command to kill
       # itself.
-      `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9`
+      `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
     end
   end
 
 
   # Kills all Ruby processes on this machine, except for this one.
   def self.kill_ruby
-    `ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
+    `ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
   end
 
 
@@ -125,11 +127,12 @@ end
 
 
 if __FILE__ == $0
+  TerminateHelper.erase_appscale_state
   TerminateHelper.disable_database_writes
 
   if ARGV.length == 1 and ARGV[0] == "clean"
-    TerminateHelper.erase_appscale_state
     TerminateHelper.erase_database_state
+    TerminateHelper.erase_appscale_full_state
   end
 
   TerminateHelper.force_kill_processes
