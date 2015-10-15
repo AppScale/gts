@@ -815,9 +815,9 @@ class Djinn
               acc = AppControllerClient.new(ip, @@secret)
               begin
                 acc.kill()
-                Djinn.log_info("kill: sent kill command to node at #{ip}")
+                Djinn.log_info("kill: sent kill command to node at #{ip}.")
               rescue FailedNodeException
-                Djinn.log_warn("kill: failed to talk to node at #{ip} while")
+                Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
               end
             end
           }
