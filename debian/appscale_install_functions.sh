@@ -486,6 +486,9 @@ set httpd port 2812 and
 EOF
     fi
 
-    # Make sure the changes takes place immediately
-    service monit restart
+    # Monit cannot start at boot time: in case of accidental reboot, it
+    # would start processes out of order. The controller will restart
+    # monit as soon as it starts.
+    service monit stop
+    update-rc.d monit disable
 }

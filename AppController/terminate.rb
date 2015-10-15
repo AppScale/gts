@@ -15,10 +15,9 @@ module TerminateHelper
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`
     `rm -f /etc/nginx/sites-enabled/*.conf`
-    `service monit stop`
     `rm -f /etc/monit/conf.d/appscale*.cfg`
+    `service monit restart`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
-    `service monit start`
     `rm -f /etc/appscale/port-*.txt`
     `rm -f /etc/appscale/search_ip`
 

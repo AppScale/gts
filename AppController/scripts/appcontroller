@@ -28,6 +28,7 @@ do_start()
 
    # If we start from boot, we need to clear the state.
    rm -rf /etc/appscale/zookeeper_locations.json
+   rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON
