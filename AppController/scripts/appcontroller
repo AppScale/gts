@@ -26,8 +26,10 @@ do_start()
      exit 0
    fi
 
+   # If we start from boot, we need to clear the state.
+   rm -rf /etc/appscale/zookeeper_locations.json
+
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   echo "start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON"
    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON
    log_end_msg $?
 }
