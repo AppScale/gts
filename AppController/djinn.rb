@@ -1143,7 +1143,7 @@ class Djinn
       # TODO: Don't use the tools to deploy the application.
       appscale_key_file = "/etc/appscale/keys/cloud1/#{keyname}.key"
       tools_key_file = "/root/.appscale/#{keyname}.key"
-      unless File.exists?(key_file)
+      unless File.exists?(tools_key_file)
         FileUtils.copy_file(appscale_key_file, tools_key_file)
       end
 
