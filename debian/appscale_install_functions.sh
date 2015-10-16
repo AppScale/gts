@@ -291,15 +291,6 @@ postinstallnginx()
     chmod +x /root
 }
 
-portinstallmonit()
-{
-    # Let's use our configuration.
-    cp ${APPSCALE_HOME}/monitrc /etc/monit/monitrc
-    chmod 0700 /etc/monit/monitrc
-    service monit stop
-    update-rc.d -f monit remove
-}
-
 installsolr()
 {
     SOLR_VER=4.10.2
@@ -480,4 +471,24 @@ postinstallrsyslog()
 
     # Restart the service
     service rsyslog restart || true
+}
+
+postinstallmonit()
+{
+    # We need to have http connection enabled to talk to monit.
+    if grep ! -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
+        cat <<EOF | tee -a /etc/monit/monitrc
+
+# Added by AppScale: this is needed to have a working monit command
+set httpd port 2812 and
+   use address localhost  # only accept connection from localhost
+   allow localhost
+EOF
+    fi
+
+    # Monit cannot start at boot time: in case of accidental reboot, it
+    # would start processes out of order. The controller will restart
+    # monit as soon as it starts.
+    service monit stop
+    update-rc.d monit disable
 }
