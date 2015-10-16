@@ -1826,8 +1826,10 @@ class Djinn
       return
     end
 
-    start_cmd = "/usr/bin/python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
-    stop_cmd = "/usr/bin/pkill -9 infrastructure_manager_service"
+    iaas_script = "#{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    start_cmd = "python2 #{iaas_script}"
+    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{iass_script} python2"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
@@ -3766,8 +3768,10 @@ class Djinn
   def start_app_manager_server()
     @state = "Starting up AppManager"
     env_vars = {}
-    start_cmd = "/usr/bin/python #{APPSCALE_HOME}/AppManager/app_manager_server.py"
-    stop_cmd = "/usr/bin/pkill -9 app_manager_server"
+    app_manager_script = "#{APPSCALE_HOME}/AppManager/app_manager_server.py"
+    start_cmd = "python2 #{app_manager_script}"
+    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{app_manager_script} python2"
     port = [AppManagerClient::SERVER_PORT]
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
@@ -3813,9 +3817,11 @@ class Djinn
       env_vars['SIMPLEDB_SECRET_KEY'] = @options['SIMPLEDB_SECRET_KEY']
     end
 
-    start_cmd = ["python #{APPSCALE_HOME}/AppDB/soap_server.py",
+    soap_script = "#{APPSCALE_HOME}/AppDB/soap_server.py"
+    start_cmd = ["python2 #{soap_script}",
             "-t #{table}"].join(' ')
-    stop_cmd = "/usr/bin/pkill -9 soap_server"
+    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{soap_script} python2"
     port = [4343]
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
@@ -4485,7 +4491,8 @@ HOSTS
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
     start_cmd = "/usr/bin/memcached -m 64 -p 11211 -u root"
-    stop_cmd = "/usr/bin/pkill memcached"
+    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "/usr/bin/memcached 11211"
     MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
 
@@ -5651,7 +5658,7 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
-      stop_cmd = "/usr/bin/python #{APPSCALE_HOME}/scripts/stop_service.py " +
+      stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")

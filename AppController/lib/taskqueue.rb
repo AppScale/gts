@@ -30,9 +30,6 @@ module TaskQueue
   # The port where the Flower server runs on, by default.
   FLOWER_SERVER_PORT = 5555
 
-  # The python executable path.
-  PYTHON_EXEC = "python"
-
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
 
@@ -47,9 +44,6 @@ module TaskQueue
 
   # How many times to retry starting rabbitmq on a slave.
   RABBIT_START_RETRY = 1000
-
-  # Stop command for taskqueue server.
-  TASKQUEUE_STOP_CMD = "/bin/kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
@@ -164,8 +158,9 @@ module TaskQueue
   def self.start_taskqueue_server()
     Djinn.log_debug("Starting taskqueue_server on this node")
     script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
-    start_cmd = "#{PYTHON_EXEC} #{script}"
-    stop_cmd = TASKQUEUE_STOP_CMD
+    start_cmd = "python2 #{script}"
+    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{script} python2"
     env_vars = {}
     MonitInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT,
       env_vars)
@@ -184,8 +179,9 @@ module TaskQueue
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
+    script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    Djinn.log_run(TASKQUEUE_STOP_CMD)
+    Djinn.log_run("python2 #{APPSCALE_HOME}/scripts/stop_service.py #{script} python2")
     MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
