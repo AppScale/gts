@@ -84,6 +84,12 @@ class DatastoreGroomer(threading.Thread):
   # process have an upper limit on each run.
   DASHBOARD_BATCH = 1000
 
+  # The path in ZooKeeper where the groomer state is stored.
+  GROOMER_STATE_PATH = '/appscale/groomer_state'
+
+  # The characters used to separate values when storing the groomer state.
+  GROOMER_STATE_DELIMITER = '||'
+
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor.
 
@@ -110,6 +116,7 @@ class DatastoreGroomer(threading.Thread):
     self.index_entries_checked = 0
     self.index_entries_delete_failures = 0
     self.index_entries_cleaned = 0
+    self.groomer_state = []
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -1122,6 +1129,23 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
+  def update_groomer_state(self, state):
+    """ Updates the groomer's internal state and persists the state to
+    ZooKeeper.
+
+    Args:
+      state: A list of strings representing the ID of the task to resume along
+        with any additional data about the task.
+    """
+    zk_data = self.GROOMER_STATE_DELIMITER.join(state)
+
+    # We don't want to crash the groomer if we can't update the state.
+    try:
+      self.zoo_keeper.update_node(self.GROOMER_STATE_PATH, zk_data)
+    except zk.ZKInternalException as zkie:
+      logging.exception(zkie)
+    self.groomer_state = state
+
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
@@ -1133,56 +1157,72 @@ class DatastoreGroomer(threading.Thread):
 
     logging.info("Groomer started")
     start = time.time()
-    last_key = ""
+
     self.reset_statistics()
     self.composite_index_cache = {}
 
-    try:
-      self.clean_up_indexes(datastore_pb.Query_Order.ASCENDING)
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up ASC indexes: {0}".format(error))
+    tasks = [
+      {
+        'id': 'entities',
+        'description': 'clean up entities',
+        'function': self.clean_up_entities,
+        'args': []
+      },
+      {
+        'id': 'asc-indices',
+        'description': 'clean up ascending indices',
+        'function': self.clean_up_indexes,
+        'args': [datastore_pb.Query_Order.ASCENDING]
+      },
+      {
+        'id': 'dsc-indices',
+        'description': 'clean up descending indices',
+        'function': self.clean_up_indexes,
+        'args': [datastore_pb.Query_Order.DESCENDING]
+      },
+      {
+        'id': 'logs',
+        'description': 'clean up old logs',
+        'function': self.remove_old_logs,
+        'args': [self.LOG_STORAGE_TIMEOUT]
+      },
+      {
+        'id': 'tasks',
+        'description': 'clean up old tasks',
+        'function': self.remove_old_tasks_entities,
+        'args': []
+      },
+      {
+        'id': 'dashboard',
+        'description': 'clean up old dashboard items',
+        'function': self.remove_old_dashboard_data,
+        'args': []
+      }
+    ]
 
-    try:
-      self.clean_up_indexes(datastore_pb.Query_Order.DESCENDING)
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up DSC indexes: {0}".format(error))
+    groomer_state = self.zoo_keeper.get_node(self.GROOMER_STATE_PATH)
+    logging.info('groomer_state: {}'.format(groomer_state))
+    if groomer_state:
+      self.update_groomer_state(
+        groomer_state[0].split(self.GROOMER_STATE_DELIMITER))
 
-    try:
-      # We do this first to clean up soft deletes later.
-      self.remove_old_logs(self.LOG_STORAGE_TIMEOUT)
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old tasks: {0}".format(error))
-
-    try:
-      # We do this first to clean up soft deletes later.
-      self.remove_old_tasks_entities()
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old tasks: {0}".format(error))
-
-    try:
-      # We do this first to clean up soft deletes later.
-      self.remove_old_dashboard_data()
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old dashboard items: {0}".format(
-        error))
-
-    while True:
+    for task_number in range(len(tasks)):
+      task = tasks[task_number]
+      if (len(self.groomer_state) > 0 and self.groomer_state[0] != '' and
+        self.groomer_state[0] != task['id']):
+        continue
+      logging.info('Starting to {}'.format(task['description']))
       try:
-        entities = self.get_entity_batch(last_key)
+        task['function'](*task['args'])
+        if task_number != len(tasks) - 1:
+          next_task = tasks[task_number + 1]
+          self.update_groomer_state([next_task['id']])
+      except Exception as exception:
+        logging.error('Exception encountered while trying to {}:'.
+          format(task['description']))
+        logging.exception(exception)
 
-        if not entities:
-          break
-
-        for entity in entities:
-          self.process_entity(entity)
-
-        last_key = entities[-1].keys()[0]
-      except datastore_errors.Error, error:
-        logging.error("Error getting a batch: {0}".format(error))
-        time.sleep(self.DB_ERROR_PERIOD)
-      except dbconstants.AppScaleDBConnectionError, connection_error:
-        logging.error("Error getting a batch: {0}".format(connection_error))
-        time.sleep(self.DB_ERROR_PERIOD)
+    self.update_groomer_state([])
 
     timestamp = datetime.datetime.utcnow()
 
