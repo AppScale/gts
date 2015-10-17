@@ -23,6 +23,7 @@ from google.appengine.api import datastore_distributed
 from google.appengine.api.memcache import memcache_distributed
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
+from google.appengine.datastore.datastore_query import Cursor
 from google.appengine.ext import db
 from google.appengine.ext.db import stats
 from google.appengine.ext.db import metadata
@@ -192,22 +193,42 @@ class DatastoreGroomer(threading.Thread):
 
   def remove_old_dashboard_data(self):
     """ Removes old statistics from the AppScale dashboard application. """
+    last_cursor = None
+    last_model = None
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'dashboard':
+      last_model = self.DASHBOARD_DATA_MODELS[int(self.groomer_state[1])]
+      if len(self.groomer_state) > 2:
+        last_cursor = Cursor(self.groomer_state[2])
+
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.DASHBOARD_DATA_TIMEOUT)
-    for model_type in self.DASHBOARD_DATA_MODELS:
-      query = model_type.query().filter(model_type.timestamp < timeout)
-      entities = query.fetch(self.DASHBOARD_BATCH)
+    for model_number in range(len(self.DASHBOARD_DATA_MODELS)):
+      model_type = self.DASHBOARD_DATA_MODELS[model_number]
+      if last_model and model_type != last_model:
+        continue
       counter = 0
-      kind = ""
-      for entity in entities:
-        kind = entity.key.kind()
-        entity.key.delete()
-        counter += 1
+      while True:
+        query = model_type.query().filter(model_type.timestamp < timeout)
+        entities, next_cursor, more = query.fetch_page(self.BATCH_SIZE,
+          start_cursor=last_cursor)
+        for entity in entities:
+          entity.key.delete()
+          counter += 1
+        if more:
+          last_cursor = next_cursor
+          self.update_groomer_state(
+            ['dashboard', str(model_number), last_cursor.urlsafe()])
+        else:
+          break
+      if model_number != len(self.DASHBOARD_DATA_MODELS) - 1:
+        self.update_groomer_state(['dashboard', str(model_number + 1)])
+        last_model = None
+        last_cursor = None
       if counter > 0:
         logging.info("Removed {0} {1} dashboard entities".format(counter,
-          kind))
-     
+          model_type))
+
       # Do a scan of all entities and remove any that
       # do not have timestamps for AppScale versions 2.3 and before. 
       # This may take some time on the initial run, but subsequent runs should
@@ -481,13 +502,17 @@ class DatastoreGroomer(threading.Thread):
     Args:
       direction: The direction of the index.
     """
-    start_key = ''
-    end_key = dbconstants.TERMINATING_STRING
-    batch_size = 100
     if direction == datastore_pb.Query_Order.ASCENDING:
       table_name = dbconstants.ASC_PROPERTY_TABLE
+      task_id = 'asc-indices'
     else:
       table_name = dbconstants.DSC_PROPERTY_TABLE
+      task_id = 'dsc-indices'
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == task_id:
+      start_key = self.groomer_state[1]
+    else:
+      start_key = ''
+    end_key = dbconstants.TERMINATING_STRING
 
     while True:
       references = self.db_access.range_query(
@@ -984,21 +1009,59 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success.
     """
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'tasks':
+      last_cursor = Cursor(self.groomer_state[1])
+    else:
+      last_cursor = None
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
-    query = TaskName.all()
-    query.filter("timestamp <", timeout)
-    entities = query.run()
+
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
     logging.debug("The timeout time is {0}".format(timeout))
-    for entity in entities:
-      logging.debug("Removing task name {0}".format(entity.timestamp))
-      entity.delete()
-      counter += 1
+    while True:
+      query = TaskName.all()
+      if last_cursor:
+        query.with_cursor(last_cursor)
+      query.filter("timestamp <", timeout)
+      entities = query.fetch(self.BATCH_SIZE)
+      if len(entities) == 0:
+        break
+      last_cursor = query.cursor()
+      for entity in entities:
+        logging.debug("Removing task name {0}".format(entity.timestamp))
+        entity.delete()
+        counter += 1
+      self.update_groomer_state(['tasks', last_cursor])
+
     logging.info("Removed {0} task name entities".format(counter))
     return True
+
+  def clean_up_entities(self):
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'entities':
+      last_key = self.groomer_state[1]
+    else:
+      last_key = ""
+    while True:
+      try:
+        logging.debug('Fetching {} entities'.format(self.BATCH_SIZE))
+        entities = self.get_entity_batch(last_key)
+
+        if not entities:
+          break
+
+        for entity in entities:
+          self.process_entity(entity)
+
+        last_key = entities[-1].keys()[0]
+        self.update_groomer_state(['entities', last_key])
+      except datastore_errors.Error, error:
+        logging.error("Error getting a batch: {0}".format(error))
+        time.sleep(self.DB_ERROR_PERIOD)
+      except dbconstants.AppScaleDBConnectionError, connection_error:
+        logging.error("Error getting a batch: {0}".format(connection_error))
+        time.sleep(self.DB_ERROR_PERIOD)
 
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
@@ -1028,20 +1091,34 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'logs':
+      last_cursor = Cursor(self.groomer_state[1])
+    else:
+      last_cursor = None
+
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     if log_timeout:
-      timeout = datetime.datetime.utcnow() - \
-        datetime.timedelta(seconds=log_timeout)
+      timeout = (datetime.datetime.utcnow() -
+        datetime.timedelta(seconds=log_timeout))
       query = RequestLogLine.query(RequestLogLine.timestamp < timeout)
       logging.debug("The timeout time is {0}".format(timeout))
     else:
       query = RequestLogLine.query()
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
-    for entity in query.iter():
-      logging.debug("Removing {0}".format(entity))
-      entity.key.delete()
-      counter += 1
+
+    while True:
+      entities, next_cursor, more = query.fetch_page(self.BATCH_SIZE,
+        start_cursor=last_cursor)
+      for entity in entities:
+        logging.debug("Removing {0}".format(entity))
+        entity.key.delete()
+        counter += 1
+      if more:
+        last_cursor = next_cursor
+        self.update_groomer_state(['logs', last_cursor.urlsafe()])
+      else:
+        break
     logging.info("Removed {0} log entries.".format(counter))
     return True
 
