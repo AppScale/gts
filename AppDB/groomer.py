@@ -48,7 +48,7 @@ class DatastoreGroomer(threading.Thread):
   # The amount of seconds between polling to get the groomer lock.
   # Each datastore server does this poll, so it happens the number
   # of datastore servers within this lock period.
-  LOCK_POLL_PERIOD = 7 * 24 * 60 * 60 # <- 7 days
+  LOCK_POLL_PERIOD = 4 * 60 * 60 # <- 4 hours
 
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
@@ -118,7 +118,7 @@ class DatastoreGroomer(threading.Thread):
   def run(self):
     """ Starts the main loop of the groomer thread. """
     while True:
-      time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
+
       logging.debug("Trying to get groomer lock.")
       if self.get_groomer_lock():
         logging.info("Got the groomer lock.")
@@ -133,6 +133,9 @@ class DatastoreGroomer(threading.Thread):
             format(str(zk_exception)))
       else:
         logging.info("Did not get the groomer lock.")
+      sleep_time = random.randint(1, self.LOCK_POLL_PERIOD)
+      logging.info('Sleeping for {} hours.'.format(sleep_time/60/60))
+      time.sleep(sleep_time)
 
   def get_groomer_lock(self):
     """ Tries to acquire the lock to the datastore groomer.
