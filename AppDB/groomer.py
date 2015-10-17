@@ -411,30 +411,29 @@ class DatastoreGroomer(threading.Thread):
         entities[key] = app_entities[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     return entities
 
-  def lock_and_delete_index(self, reference, direction, prop_name):
-    """ For a given index entry, lock its entity and delete it.
+  def lock_and_delete_indexes(self, references, direction, entity_key):
+    """ For a list of index entries that have the same entity, lock the entity
+    and delete the indexes.
 
     Since another process can update an entity after we've determined that
-    an index entry is invalid, we need to re-check the index entry after
-    locking its entity key.
+    an index entry is invalid, we need to re-check the index entries after
+    locking their entity key.
 
     Args:
-      reference: A references to an entity.
+      references: A list of references to an entity.
       direction: The direction of the index.
-      prop_name: A string containing the property name.
+      entity_key: A string containing the entity key.
     """
     if direction == datastore_pb.Query_Order.ASCENDING:
       table_name = dbconstants.ASC_PROPERTY_TABLE
     else:
       table_name = dbconstants.DSC_PROPERTY_TABLE
 
-    index_entry = reference.keys()[0]
-    app = index_entry.split(self.ds_access._SEPARATOR)[0]
-    key = reference.values()[0]['reference']
+    app = entity_key.split(self.ds_access._SEPARATOR)[0]
     try:
       txn_id = self.acquire_lock_for_key(
         app_id=app,
-        key=key,
+        key=entity_key,
         retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
         retry_time=self.ds_access.LOCK_RETRY_TIME
       )
@@ -442,15 +441,28 @@ class DatastoreGroomer(threading.Thread):
       self.index_entries_delete_failures += 1
       return
 
-    entities = self.fetch_entity_dict_for_references([reference])
+    entities = self.fetch_entity_dict_for_references(references)
 
-    if not self.ds_access._DatastoreDistributed__valid_index_entry(reference,
-      entities, direction, prop_name):
-      self.db_access.batch_delete(table_name, [index_entry],
-        column_names=dbconstants.PROPERTY_SCHEMA)
-      self.index_entries_cleaned += 1
+    refs_to_delete = []
+    for reference in references:
+      prop_name = reference.keys()[0].split(self.ds_access._SEPARATOR)[3]
+      if not self.ds_access._DatastoreDistributed__valid_index_entry(
+        reference, entities, direction, prop_name):
+        refs_to_delete.append(reference.keys()[0])
 
-    self.release_lock_for_key(app, key, txn_id)
+    logging.debug('Removing {} indexes starting with {}'.
+      format(len(refs_to_delete), [refs_to_delete[0]]))
+    self.db_access.batch_delete(table_name, refs_to_delete,
+      column_names=dbconstants.PROPERTY_SCHEMA)
+    self.index_entries_cleaned += len(refs_to_delete)
+
+    self.release_lock_for_key(
+      app_id=app,
+      key=entity_key,
+      txn_id=txn_id,
+      retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
+      retry_time=self.ds_access.LOCK_RETRY_TIME
+    )
 
   def clean_up_indexes(self, direction):
     """ Deletes invalid single property index entries.
@@ -476,12 +488,16 @@ class DatastoreGroomer(threading.Thread):
         column_names=dbconstants.PROPERTY_SCHEMA,
         start_key=start_key,
         end_key=end_key,
-        limit=batch_size,
+        limit=self.BATCH_SIZE,
         start_inclusive=False,
       )
-      self.index_entries_checked += len(references)
       if len(references) == 0:
         break
+
+      self.index_entries_checked += len(references)
+      first_ref = references[0].keys()[0]
+      logging.debug('Fetched {} total refs, starting with {}, direction: {}'
+        .format(self.index_entries_checked, [first_ref], direction))
 
       last_start_key = start_key
       start_key = references[-1].keys()[0]
@@ -491,12 +507,20 @@ class DatastoreGroomer(threading.Thread):
 
       entities = self.fetch_entity_dict_for_references(references)
 
+      # Group invalid references by entity key so we can minimize locks.
+      invalid_refs = {}
       for reference in references:
         prop_name = reference.keys()[0].split(self.ds_access._SEPARATOR)[3]
-        if self.ds_access._DatastoreDistributed__valid_index_entry(
+        if not self.ds_access._DatastoreDistributed__valid_index_entry(
           reference, entities, direction, prop_name):
-          continue
-        self.lock_and_delete_index(reference, direction, prop_name)
+          entity_key = reference.values()[0]['reference']
+          if entity_key not in invalid_refs:
+            invalid_refs[entity_key] = []
+          invalid_refs[entity_key].append(reference)
+
+      for entity_key in invalid_refs:
+        self.lock_and_delete_indexes(invalid_refs[entity_key], direction, entity_key)
+      self.update_groomer_state([task_id, start_key])
 
   def clean_up_composite_indexes(self):
     """ Deletes old composite indexes and bad references.
@@ -1169,8 +1193,11 @@ class DatastoreGroomer(threading.Thread):
       logging.error("There was an error updating the namespaces")
 
     del self.db_access
+    del self.ds_access
 
     time_taken = time.time() - start
+    logging.info("Groomer cleaned {0} journal entries".format(
+      self.journal_entries_cleaned))
     logging.info("Groomer checked {0} index entries".format(
       self.index_entries_checked))
     logging.info("Groomer cleaned {0} index entries".format(
@@ -1178,8 +1205,6 @@ class DatastoreGroomer(threading.Thread):
     if self.index_entries_delete_failures > 0:
       logging.info("Groomer failed to remove {0} index entries".format(
         self.index_entries_delete_failures))
-    logging.info("Groomer cleaned {0} journal entries".format(
-      self.journal_entries_cleaned))
     logging.info("Groomer took {0} seconds".format(str(time_taken)))
 
 def main():
