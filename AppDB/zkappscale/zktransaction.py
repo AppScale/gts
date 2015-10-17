@@ -239,6 +239,42 @@ class ZKTransaction:
         "Couldn't increment path {0} with value {1}" \
         .format(path, value))
 
+  def get_node(self, path, retries=5):
+    """ Fetch the ZooKeeper node at the given path.
+
+    Args:
+      path: A PATH_SEPARATOR-separated str that represents the node whose value
+        should be updated.
+      retries: The number of times to retry fetching the node.
+    Returns: The value of the node.
+    Raises:
+      ZKInternalException: If there was an error trying to fetch the node.
+
+    """
+    if self.needs_connection:
+      self.reestablish_connection()
+
+    try:
+      return self.run_with_retry(self.handle.get, path)
+    except kazoo.exceptions.NoNodeError:
+      return False
+    except kazoo.exceptions.ZookeeperError as zoo_exception:
+      logging.exception(zoo_exception)
+      if retries > 0:
+        logging.info('Trying again to fetch node {} with retry #{}'
+          .format(path, retries))
+        time.sleep(self.ZK_RETRY_TIME)
+        return self.get_node(path, retries=retries - 1)
+      raise ZKInternalException('Unable to fetch node {}'.format(path))
+    except kazoo.exceptions.KazooException as kazoo_exception:
+      logging.exception(kazoo_exception)
+      if retries > 0:
+        logging.info('Trying again to fetch node {} with retry #{}'
+          .format(path, retries))
+        time.sleep(self.ZK_RETRY_TIME)
+        return self.get_node(path, retries=retries - 1)
+      raise ZKInternalException('Unable to fetch node {}'.format(path))
+
   def update_node(self, path, value):
     """ Sets the ZooKeeper node at path to value, creating the node if it
       doesn't exist.
