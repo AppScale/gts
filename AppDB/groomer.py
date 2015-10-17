@@ -346,18 +346,36 @@ class DatastoreGroomer(threading.Thread):
       raise zkte
     return txn_id
 
-  def release_lock_for_key(self, app_id, key, txn_id):
+  def release_lock_for_key(self, app_id, key, txn_id, retries, retry_time):
     """ Releases a lock for a given entity key.
 
     Args:
       app_id: The application ID.
       key: A string containing an entity key.
       txn_id: A transaction ID.
+      retries: An integer specifying the number of times to retry.
+      retry_time: How many seconds to wait before each retry.
     """
     root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
     root_key += dbconstants.KIND_SEPARATOR
 
-    self.zoo_keeper.release_lock(app_id, txn_id)
+    try:
+      self.zoo_keeper.release_lock(app_id, txn_id)
+    except zk.ZKTransactionException as zkte:
+      logging.warning(str(zkte))
+      if retries > 0:
+        logging.info('Trying again to release lock {} with retry #{}'.
+          format(txn_id, retries))
+        time.sleep(retry_time)
+        self.release_lock_for_key(
+          app_id=app_id,
+          key=key,
+          txn_id=txn_id,
+          retries=retries - 1,
+          retry_time=retry_time
+        )
+      else:
+        self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
 
   def fetch_entity_dict_for_references(self, references):
     """ Fetches a dictionary of valid entities for a list of references.
@@ -1177,7 +1195,11 @@ def main():
   logging.debug("Trying to get groomer lock.")
   if ds_groomer.get_groomer_lock():
     logging.info("Got the groomer lock.")
-    ds_groomer.run_groomer()
+    try:
+      ds_groomer.run_groomer()
+    except Exception as e:
+      logging.exception('Encountered exception {} while running the groomer.'
+        .format(str(e)))
     try:
       ds_groomer.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
     except zk.ZKTransactionException, zk_exception:
