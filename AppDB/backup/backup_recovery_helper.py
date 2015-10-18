@@ -371,7 +371,7 @@ def deploy_apps(app_paths):
     appscale_info.get_secret())
 
   # Wait for Cassandra to come up after a restore.
-  time.sleep(5)
+  time.sleep(15)
 
   for app_path in app_paths:
     # Extract app ID.

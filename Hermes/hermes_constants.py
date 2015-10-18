@@ -47,6 +47,9 @@ REQUIRED_KEYS = ['task_id', 'type', 'bucket_name', 'storage']
 # The amount of time to wait for a node backup in seconds.
 REQUEST_TIMEOUT = 12*60*60
 
+# The list of supported tasks.
+SUPPORTED_TASKS = ['backup', 'restore']
+
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
   HTTP_OK = 200
