@@ -112,7 +112,7 @@ def download_from_bucket(full_object_name, local_path):
     return False
 
   # Compare to GCS file size.
-  if not content['size'] < available_space:
+  if int(content['size']) >= int(available_space):
     logging.error('Not enough space on the VM to download a backup.')
     return False
 
