@@ -1829,7 +1829,7 @@ class Djinn
     iaas_script = "#{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     start_cmd = "python2 #{iaas_script}"
     stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{iass_script} python2"
+          "#{iaas_script} python2"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
