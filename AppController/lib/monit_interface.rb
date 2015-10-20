@@ -102,7 +102,7 @@ BOO
     # process.
     begin
       max_mem = Integer(mem)
-      contents += "\n  if totalmem > #{max_mem} for 10 cycles then restart"
+      contents += "\n  if totalmem > #{max_mem} MB for 10 cycles then restart"
     rescue
       # It was not an integer, ignoring it.
     end
