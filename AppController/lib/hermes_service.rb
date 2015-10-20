@@ -26,7 +26,7 @@ module HermesService
   end
 
   def self.scriptname()
-    return "#{APPSCALE_HOME}/AppDB/Hermes/hermes.py"
+    return "#{APPSCALE_HOME}/Hermes/hermes.py"
   end
 
 end
