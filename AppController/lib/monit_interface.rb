@@ -38,7 +38,7 @@ module MonitInterface
     contents = <<BOO
 check file #{watch} path "#{path}"
   group #{watch}
-  if timestamp > 12 hours then "#{action}"
+  if timestamp > 12 hours then exec "#{action}"
 BOO
     monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
     if remote_ip
