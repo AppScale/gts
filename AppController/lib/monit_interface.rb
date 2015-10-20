@@ -9,11 +9,6 @@ require 'helperfunctions'
 WANT_OUTPUT = true
 
 
-# A constant that we use to indicate that we do not want the output
-# produced by remotely executed SSH commands.
-NO_OUTPUT = false
-
-
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
 # away interfacing with monit directly.
@@ -28,13 +23,45 @@ module MonitInterface
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
-    remote_ip=nil, remote_key=nil, match_cmd=start_cmd)
+    remote_ip=nil, remote_key=nil, match_cmd=start_cmd, mem=nil)
 
     ports = [ports] unless ports.class == Array
     ports.each { |port|
       self.write_monit_config(watch, start_cmd, stop_cmd, port,
-        env_vars, remote_ip, remote_key, match_cmd)
+        env_vars, remote_ip, remote_key, match_cmd, mem)
     }
+
+    self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
+  end
+
+  def self.start_file(watch, path, action, hours=12, remote_ip=nil, remote_key=nil)
+    contents = <<BOO
+check file #{watch} path "#{path}"
+  group #{watch}
+  if timestamp > 12 hours then "#{action}"
+BOO
+    monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
+    if remote_ip
+      tempfile = "/tmp/monit-#{watch}-#{port}.cfg"
+      HelperFunctions.write_file(tempfile, contents)
+      begin
+        HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
+      rescue AppScaleSCPException
+        Djinn.log_error("Failed to write monit file at #{remote_ip}")
+        Djinn.log_run("rm -rf #{tempfile}")
+        raise AppScaleSCPException.new("Failed to write monit file at #{remote_ip}")
+      end
+      Djinn.log_run("rm -rf #{tempfile}")
+    else
+      HelperFunctions.write_file(monit_file, contents)
+    end
+
+    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+
+    ip = remote_ip || HelperFunctions.local_ip
+    Djinn.log_info("Starting #{watch} on ip #{ip}, port #{port}" +
+      " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
+
 
     self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
@@ -44,7 +71,7 @@ module MonitInterface
   end
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
-    env_vars, remote_ip, remote_key, match_cmd)
+    env_vars, remote_ip, remote_key, match_cmd, mem)
 
     # Monit doesn't support environment variables in its DSL, so if the caller
     # wants environment variables passed to the app, we have to collect them and
@@ -71,6 +98,14 @@ check process #{watch}-#{port} matching "#{match_cmd}"
   start program = "#{full_start_command}"
   stop program = "#{stop_cmd}"
 BOO
+    # If we have a valid 'mem' option, set the max memory for this
+    # process.
+    begin
+      max_mem = Integer(mem)
+      contents += "\n  if totalmem > #{max_mem} for 10 cycles then restart"
+    rescue
+      # It was not an integer, ignoring it.
+    end
 
     monit_file = "/etc/monit/conf.d/appscale-#{watch}-#{port}.cfg"
     if remote_ip
