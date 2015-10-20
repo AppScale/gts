@@ -59,7 +59,7 @@ BOO
     self.execute_remote_command("service monit reload", remote_ip, remote_key)
 
     ip = remote_ip || HelperFunctions.local_ip
-    Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}, port #{port}" +
+    Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}" +
       " with exec action [#{action}]")
 
 
