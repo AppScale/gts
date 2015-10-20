@@ -19,11 +19,11 @@ module BlobServer
     blobserver = self.scriptname()
     ports = self.server_ports()
     ports.each { |blobserver_port|
-      start_cmd = ["python2 #{blobserver}",
+      start_cmd = ["/usr/bin/python2 #{blobserver}",
             "-d #{db_local_ip}:#{db_local_port}",
             "-p #{blobserver_port}"].join(' ')
-      stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-        "#{blobserver} python2"
+      stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+        "#{blobserver} /usr/bin/python2"
 
       MonitInterface.start(:blobstore, start_cmd, stop_cmd, blobserver_port)
     }

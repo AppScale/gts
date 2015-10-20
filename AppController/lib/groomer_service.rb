@@ -16,9 +16,9 @@ module GroomerService
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
     groomer = self.scriptname()
-    start_cmd = "python2 #{groomer}"
-    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-      "#{groomer} python2"
+    start_cmd = "/usr/bin/python2 #{groomer}"
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      "#{groomer} /usr/bin/python2"
     MonitInterface.start(:groomer_service, start_cmd, stop_cmd, "9999", {},
       nil, nil, start_cmd, MAX_MEM)
     MonitInterface.start_file(:groomer_file_check,

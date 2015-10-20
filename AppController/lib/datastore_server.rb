@@ -56,9 +56,9 @@ module DatastoreServer
     }
   
     ports.each { |port|
-      start_cmd = "python2 #{datastore_server} -p #{port} " +
+      start_cmd = "/usr/bin/python2 #{datastore_server} -p #{port} " +
           "--no_encryption --type #{table}"
-      stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
             "datastore_server #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
     }

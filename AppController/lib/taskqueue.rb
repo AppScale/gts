@@ -158,9 +158,9 @@ module TaskQueue
   def self.start_taskqueue_server()
     Djinn.log_debug("Starting taskqueue_server on this node")
     script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
-    start_cmd = "python2 #{script}"
-    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{script} python2"
+    start_cmd = "/usr/bin/python2 #{script}"
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{script} /usr/bin/python2"
     env_vars = {}
     MonitInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT,
       env_vars)
@@ -170,7 +170,7 @@ module TaskQueue
   # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
   def self.stop()
     Djinn.log_debug("Shutting down celery workers")
-    stop_cmd = "python -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
+    stop_cmd = "/usr/bin/python2 -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
     Djinn.log_run(stop_cmd)
     Djinn.log_debug("Shutting down RabbitMQ")
     MonitInterface.stop(:rabbitmq)
@@ -181,7 +181,7 @@ module TaskQueue
   def self.stop_taskqueue_server()
     script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    Djinn.log_run("python2 #{APPSCALE_HOME}/scripts/stop_service.py #{script} python2")
+    Djinn.log_run("/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py #{script} /usr/bin/python2")
     MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end

@@ -297,7 +297,7 @@ class Djinn
 
   # The location where we can find the Python 2.7 executable, included because
   # it is not the default version of Python installed on AppScale VMs.
-  PYTHON27 = "python"
+  PYTHON27 = "/usr/bin/python2"
 
 
   # The message that we display to the user if they call a SOAP-accessible
@@ -1310,7 +1310,7 @@ class Djinn
     end
 
     Thread.new {
-      run_groomer_command = "python #{APPSCALE_HOME}/AppDB/groomer.py"
+      run_groomer_command = "#{PYTHON27} #{APPSCALE_HOME}/AppDB/groomer.py"
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
@@ -1827,9 +1827,9 @@ class Djinn
     end
 
     iaas_script = "#{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
-    start_cmd = "python2 #{iaas_script}"
-    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{iaas_script} python2"
+    start_cmd = "#{PYTHON27} #{iaas_script}"
+    stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{iaas_script} #{PYTHON27}"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
@@ -3679,7 +3679,7 @@ class Djinn
     retries = 10
     loop {
       Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
-        "LOCAL_DB_IP='localhost' python #{prime_script} " +
+        "LOCAL_DB_IP='localhost' #{PYTHON27} #{prime_script} " +
         "#{@options['replication']}; echo $? > /tmp/retval")
       retval = `cat /tmp/retval`.to_i
       return if retval.zero?
@@ -3769,9 +3769,9 @@ class Djinn
     @state = "Starting up AppManager"
     env_vars = {}
     app_manager_script = "#{APPSCALE_HOME}/AppManager/app_manager_server.py"
-    start_cmd = "python2 #{app_manager_script}"
-    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{app_manager_script} python2"
+    start_cmd = "#{PYTHON27} #{app_manager_script}"
+    stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{app_manager_script} #{PYTHON27}"
     port = [AppManagerClient::SERVER_PORT]
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
   end
@@ -3818,10 +3818,10 @@ class Djinn
     end
 
     soap_script = "#{APPSCALE_HOME}/AppDB/soap_server.py"
-    start_cmd = ["python2 #{soap_script}",
+    start_cmd = ["#{PYTHON27} #{soap_script}",
             "-t #{table}"].join(' ')
-    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{soap_script} python2"
+    stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{soap_script} #{PYTHON27}"
     port = [4343]
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
@@ -4491,7 +4491,7 @@ HOSTS
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
     start_cmd = "/usr/bin/memcached -m 64 -p 11211 -u root"
-    stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+    stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "/usr/bin/memcached 11211"
     MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
@@ -5658,7 +5658,7 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
-      stop_cmd = "python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
