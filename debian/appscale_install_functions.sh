@@ -18,6 +18,7 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
+
 pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
@@ -479,4 +480,24 @@ postinstallrsyslog()
 
     # Restart the service
     service rsyslog restart || true
+}
+
+postinstallmonit()
+{
+    # We need to have http connection enabled to talk to monit.
+    if grep ! -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
+        cat <<EOF | tee -a /etc/monit/monitrc
+
+# Added by AppScale: this is needed to have a working monit command
+set httpd port 2812 and
+   use address localhost  # only accept connection from localhost
+   allow localhost
+EOF
+    fi
+
+    # Monit cannot start at boot time: in case of accidental reboot, it
+    # would start processes out of order. The controller will restart
+    # monit as soon as it starts.
+    service monit stop
+    update-rc.d monit disable
 }

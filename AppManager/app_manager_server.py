@@ -213,7 +213,11 @@ def stop_app_instance(app_name, port):
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
   monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
-  os.remove(monit_config_file)
+  try:
+    os.remove(monit_config_file)
+  except OSError as e:
+    logging.info("Error deleting {0}".format(monit_config_file))
+
   return True
 
 
@@ -560,8 +564,8 @@ def create_python27_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
-    "dev_appserver.py {0}".format(port)
+  stop_cmd = "/usr/bin/python {0}/scripts/stop_service.py " \
+    "dev_appserver.py {1}".format(constants.APPSCALE_HOME, port)
   return stop_cmd
 
 def create_java_stop_cmd(port):
@@ -575,8 +579,8 @@ def create_java_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
-    "java {0}".format(port)
+  stop_cmd = "/usr/bin/python {0}/scripts/stop_service.py " \
+    "java {1}".format(constants.APPSCALE_HOME, port)
   return stop_cmd
 
 def is_config_valid(config):

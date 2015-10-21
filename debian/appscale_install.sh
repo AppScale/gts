@@ -28,7 +28,6 @@ case "$1" in
         installgems
         postinstallhaproxy
         postinstallnginx
-        portinstallmonit
         installPIL
         installpythonmemcache
         installlxml
@@ -50,6 +49,7 @@ case "$1" in
         installsolr
         installservice
         postinstallservice
+        postinstallmonit
         setupntp
         sethosts
         setulimits

@@ -202,8 +202,8 @@ class DistributedTaskQueue():
       A string which, if run, will kill celery workers for a 
       given application id.
     """
-    stop_command = "/usr/bin/python /root/appscale/stop_service.py worker {0}" \
-      .format(app_id)
+    stop_command = "/usr/bin/python {0}/scripts/stop_service.py worker {1}" \
+      .format(constants.APPSCALE_HOME, app_id)
     return stop_command
 
   def reload_worker(self, json_request):

@@ -24,6 +24,7 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn = flexmock(Djinn)
     djinn.should_receive(:log_run).with("").and_return()
+    djinn.should_receive(:log_run).with("service monit start").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
     flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(
