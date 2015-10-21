@@ -3508,17 +3508,6 @@ class Djinn
 
     initialize_server()
 
-    # Let's make sure zookeeper is started as soon as possible.
-    if my_node.is_zookeeper?
-      configure_zookeeper(@nodes, @my_index)
-      begin
-        start_zookeeper(@options['clear_datastore'].downcase == "true")
-      rescue FailedZooKeeperOperationException
-        HelperFunctions.log_and_crash("Couldn't start zookeeper")
-      end
-      ZKInterface.init(my_node, @nodes)
-    end
-
     configure_db_nginx()
     write_memcache_locations()
     write_apploadbalancer_location()
@@ -3575,9 +3564,16 @@ class Djinn
     # start zookeeper
     threads << Thread.new {
       if my_node.is_zookeeper?
+        configure_zookeeper(@nodes, @my_index)
+        begin
+          start_zookeeper(@options['clear_datastore'].downcase == "true")
+        rescue FailedZooKeeperOperationException
+          HelperFunctions.log_and_crash("Couldn't start zookeeper")
+        end
         start_backup_service()
       end
 
+      ZKInterface.init(my_node, @nodes)
     }
 
     if my_node.is_memcache?
