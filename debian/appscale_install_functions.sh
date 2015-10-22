@@ -41,6 +41,21 @@ pipwrapper ()
     fi
 }
 
+# This function is to disable the specify service so that it won't start
+# at next boot. AppScale manages those services.
+disableservice() {
+    if [ -n "$1" ]; then
+      update-rc.d "${1}" disable || true
+      # The following to make sure we disable it for upstart.
+      if [ -d "/etc/init" ]; then
+          echo "manual" > /etc/init/"${1}".override
+      fi
+    else
+        echo "Need a service name to disable!"
+        exit 1
+    fi
+}
+
 increaseconnections()
 {
     echo "ip_conntrack" >> /etc/modules
@@ -251,7 +266,7 @@ postinstallhaproxy()
 
     # AppScale starts/stop the service.
     service haproxy stop || true
-    update-rc.d -f haproxy remove || true
+    disableservice haproxy
 }
 
 installgems()
@@ -297,7 +312,7 @@ installsolr()
     mkdir -p ${APPSCALE_HOME}/SearchService/solr
     cd ${APPSCALE_HOME}/SearchService/solr
     rm -rfv solr
-    wget $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
+    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
     tar zxvf solr-${SOLR_VER}.tgz
     mv -v solr-${SOLR_VER} solr
     rm -fv solr-${SOLR_VER}.tgz
@@ -311,7 +326,7 @@ installcassandra()
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
-    wget $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
@@ -329,7 +344,7 @@ installcassandra()
     pipwrapper  pycassa
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
-    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
@@ -356,14 +371,12 @@ installservice()
 
 postinstallservice()
 {
-    # First, stop all services that don't need to be running at boot.
+    # Stop services shouldn't run at boot, then disable them.
     service memcached stop || true
-
-    # Next, remove them from the boot list.
-    update-rc.d -f memcached remove || true
+    disableservice memcached
 
     ejabberdctl stop || true
-    update-rc.d -f ejabberd remove || true
+    disableservice ejabberd
 }
 
 installpythonmemcache()
@@ -373,7 +386,7 @@ installpythonmemcache()
 
         mkdir -pv ${APPSCALE_HOME}/downloads
         cd ${APPSCALE_HOME}/downloads
-        wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+        wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
         tar zxvf python-memcached-${VERSION}.tar.gz
         cd python-memcached-${VERSION}
         python setup.py install
@@ -387,7 +400,7 @@ installzookeeper()
 {
     if [ "$DIST" = "precise" ]; then
         ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-        wget -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+        wget ${WGET_OPTS} -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
         dpkg -i /tmp/${ZK_REPO_PKG}
         apt-get update
         apt-get install -y zookeeper-server
@@ -409,9 +422,10 @@ postinstallzookeeper()
         # Need conf/environment to stop service.
         cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
         service zookeeper-server stop || true
-        update-rc.d -f zookeeper-server remove || true
+        disableservice zookeeper-server
     else
-        update-rc.d -f zookeeper remove || true
+        service zookeeper stop || true
+        disableservice zookeeper
     fi
 }
 
@@ -435,7 +449,7 @@ postinstallrabbitmq()
 {
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
-    update-rc.d -f rabbitmq-server remove || true
+    disableservice rabbitmq-server
 }
 
 installVersion()
@@ -490,5 +504,5 @@ EOF
     # would start processes out of order. The controller will restart
     # monit as soon as it starts.
     service monit stop
-    update-rc.d monit disable
+    disableservice monit
 }
