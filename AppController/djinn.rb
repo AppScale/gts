@@ -3121,9 +3121,8 @@ class Djinn
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE
         response = http.post(url.path, JSON.dump(instance_info),
           {'Content-Type'=>'application/json'})
-        Djinn.log_debug("Done sending instance info to AppDashboard!")
-        Djinn.log_debug("Instance info is: #{instance_info.inspect}")
-        Djinn.log_debug("Response is #{response.body}")
+        Djinn.log_debug("Done sending instance info to AppDashboard: info is: " +
+          "#{instance_info.inspect} response is: #{response.body}")
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
         Errno::ECONNRESET => e
         backtrace = e.backtrace.join("\n")
@@ -3163,9 +3162,8 @@ class Djinn
       request = Net::HTTP::Delete.new(url.path)
       request.body = JSON.dump(instance_info)
       response = http.request(request)
-      Djinn.log_debug("Done sending instance info to AppDashboard!")
-      Djinn.log_debug("Instance info is: #{instance_info.inspect}")
-      Djinn.log_debug("Response is #{response.body}")
+      Djinn.log_debug("Sent delete_instance to AppDashboard: info is: " +
+        "#{instance_info.inspect} response is: #{response.body}")
     rescue Exception => exception
       # Don't crash the AppController because we weren't able to send over
       # the instance info - just continue on.
