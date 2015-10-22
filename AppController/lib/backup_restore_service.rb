@@ -14,8 +14,10 @@ module BackupRecoveryService
   # Starts the BR Service on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
-    start_cmd = "/usr/bin/python /root/appscale/AppDB/backup/backup_recovery_service.py"
-    stop_cmd = "/usr/bin/pkill -9 backup_recovery_service"
+    bk_service = self.scriptname()
+    start_cmd = "/usr/bin/python2 #{bk_service}"
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{bk_service} /usr/bin/python2"
     MonitInterface.start(:backup_recovery_service, start_cmd, stop_cmd, BR_PORT,
      {})
   end
@@ -26,5 +28,8 @@ module BackupRecoveryService
      MonitInterface.stop(:backup_recovery_service)
   end
 
+  def self.scriptname()
+    return "#{APPSCALE_HOME}/AppDB/backup/backup_recovery_service.py"
+  end
 end
 

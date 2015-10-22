@@ -396,7 +396,7 @@ def create_python27_start_cmd(app_name,
     A string of the start command.
   """
   db_location = DATASTORE_PATH
-  cmd = ["python",
+  cmd = ["/usr/bin/python2",
          constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
          "--port " + str(port),
          "--admin_port " + str(port + 10000),
@@ -564,7 +564,7 @@ def create_python27_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  stop_cmd = "/usr/bin/python {0}/scripts/stop_service.py " \
+  stop_cmd = "/usr/bin/python2 {0}/scripts/stop_service.py " \
     "dev_appserver.py {1}".format(constants.APPSCALE_HOME, port)
   return stop_cmd
 
@@ -579,7 +579,7 @@ def create_java_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  stop_cmd = "/usr/bin/python {0}/scripts/stop_service.py " \
+  stop_cmd = "/usr/bin/python2 {0}/scripts/stop_service.py " \
     "java {1}".format(constants.APPSCALE_HOME, port)
   return stop_cmd
 
