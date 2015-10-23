@@ -3481,6 +3481,35 @@ class Djinn
       # TODO: Check to make sure the machines aren't already
       # initialized before attempting to start up AppScale on them.
       spawn_and_setup_appengine
+
+      # If we are a DB node or a zookeeper node, we need to start the
+      # services.
+      threads = []
+      if my_node.is_db_master? or my_node.is_db_slave?
+        threads << Thread.new {
+          if my_node.is_db_master?
+            start_db_master(@options['clear_datastore'].downcase == "true")
+            prime_database
+          else
+            start_db_slave(@options['clear_datastore'].downcase == "true")
+          end
+          @state = "Starting up Datastore Server"
+          start_datastore_server()
+        }
+      end
+      # Start zookeeper.
+      threads << Thread.new {
+        if my_node.is_zookeeper?
+          configure_zookeeper(@nodes, @my_index)
+          begin
+            start_zookeeper(@options['clear_datastore'].downcase == "true")
+          rescue FailedZooKeeperOperationException
+            HelperFunctions.log_and_crash("Couldn't start zookeeper")
+          end
+        end
+        ZKInterface.init(my_node, @nodes)
+      }
+
       loop {
         @everyone_else_is_done = true
         @nodes.each_index { |index|
@@ -3504,6 +3533,13 @@ class Djinn
         Djinn.log_info("Waiting on other nodes to come online")
         Kernel.sleep(5)
       }
+
+      # Make sure our services are started too.
+      if threads.length > 0
+        Djinn.log_info("Waiting for DB/Zookeeper services to finish starting up")
+        threads.each { |t| t.join() }
+      end
+      Djinn.log_info("All nodes have been started")
     end
 
     initialize_server()
@@ -3561,40 +3597,16 @@ class Djinn
 
     @done_initializing = true
 
-    # Start zookeeper.
-    threads << Thread.new {
-      if my_node.is_zookeeper?
-        configure_zookeeper(@nodes, @my_index)
-        begin
-          start_zookeeper(@options['clear_datastore'].downcase == "true")
-        rescue FailedZooKeeperOperationException
-          HelperFunctions.log_and_crash("Couldn't start zookeeper")
-        end
-      end
-      ZKInterface.init(my_node, @nodes)
-    }
-
     if my_node.is_memcache?
       threads << Thread.new {
         start_memcache()
       }
     end
 
-    # Start database, datastore, groomer, and soap (UAserver) services.
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
-        if my_node.is_db_master?
-          start_db_master(@options['clear_datastore'].downcase == "true")
-          prime_database
-        else
-          start_db_slave(@options['clear_datastore'].downcase == "true")
-        end
-        @state = "Starting up Datastore Server"
-        start_datastore_server()
-
         # Always colocate the Datastore Server and UserAppServer (soap_server).
-        @state = "Starting up SOAP Server and Datastore Server"
-        start_datastore_server()
+        @state = "Starting up SOAP Server"
         start_soap_server()
         start_groomer_service()
         HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
