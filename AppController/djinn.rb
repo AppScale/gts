@@ -846,7 +846,7 @@ class Djinn
         end
       }
 
-      if has_soap_server?(my_node)
+      if my_node.is_db_master? or my_node.is_db_slave?
         stop_soap_server()
         stop_datastore_server()
         stop_groomer_service()
@@ -3561,7 +3561,7 @@ class Djinn
 
     @done_initializing = true
 
-    # start zookeeper
+    # Start zookeeper.
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
@@ -3570,9 +3570,7 @@ class Djinn
         rescue FailedZooKeeperOperationException
           HelperFunctions.log_and_crash("Couldn't start zookeeper")
         end
-        start_backup_service()
       end
-
       ZKInterface.init(my_node, @nodes)
     }
 
@@ -3582,68 +3580,64 @@ class Djinn
       }
     end
 
-    if my_node.is_db_master?
+    # Start database, datastore, groomer, and soap (UAserver) services.
+    if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
-        start_db_master(@options['clear_datastore'].downcase == "true")
-        # create initial tables
         if my_node.is_db_master?
+          start_db_master(@options['clear_datastore'].downcase == "true")
           prime_database
+        else
+          start_db_slave(@options['clear_datastore'].downcase == "true")
         end
+        @state = "Starting up Datastore Server"
+        start_datastore_server()
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
-        if has_soap_server?(my_node)
-          @state = "Starting up SOAP Server and Datastore Server"
-          start_datastore_server()
-          start_soap_server()
-          start_groomer_service()
-          start_backup_service()
-          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(), UserAppClient::SERVER_PORT)
-        end
+        @state = "Starting up SOAP Server and Datastore Server"
+        start_datastore_server()
+        start_soap_server()
+        start_groomer_service()
+        HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
+          UserAppClient::SERVER_PORT)
 
-        # If we're starting AppScale with data from a previous deployment, we
-        # may have to clear out all the registered app instances from the
-        # UserAppServer (since nobody is currently hosting any apps).
-        if @options['clear_datastore'].downcase == "true"
-          erase_app_instance_info
+        if my_node.is_db_master?
+          # If we're starting AppScale with data from a previous deployment, we
+          # may have to clear out all the registered app instances from the
+          # UserAppServer (since nobody is currently hosting any apps).
+          if @options['clear_datastore'].downcase == "true"
+            erase_app_instance_info
+          end
         end
       }
     end
 
-    if my_node.is_db_slave?
+    # Start backup service on appropriate nodes.
+    if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
-        start_db_slave(@options['clear_datastore'].downcase == "true")
-
-        # Currently we always run the Datastore Server and SOAP
-        # server on the same nodes.
-        if has_soap_server?(my_node)
-          @state = "Starting up SOAP Server and Datastore Server"
-          start_datastore_server()
-          start_soap_server()
-          start_groomer_service()
-          start_backup_service()
-          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
-            UserAppClient::SERVER_PORT)
-        end
+        start_backup_service()
       }
     end
 
-    # All nodes have application managers
+    # All nodes have application managers.
     threads << Thread.new {
       start_app_manager_server()
     }
 
+    # Only Appengine nodes have the blobstore service.
     if my_node.is_appengine?
       threads << Thread.new {
         start_blobstore_server()
       }
     end
 
+    # Start search service.
     if my_node.is_search?
       threads << Thread.new {
         start_search_role()
       }
     end
 
+    # Start tasqueue service if needed.
     if my_node.is_taskqueue_master?
       threads << Thread.new {
         start_taskqueue_master()
@@ -3659,7 +3653,6 @@ class Djinn
     Djinn.log_info("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
-
   end
 
 
