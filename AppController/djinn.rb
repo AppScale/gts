@@ -3486,6 +3486,7 @@ class Djinn
       # services.
       threads = []
       if my_node.is_db_master? or my_node.is_db_slave?
+        set_uaserver_ips()
         threads << Thread.new {
           if my_node.is_db_master?
             start_db_master(@options['clear_datastore'].downcase == "true")
