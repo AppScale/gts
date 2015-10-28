@@ -2505,6 +2505,9 @@ class Djinn
       if node.is_db_master? or node.is_db_slave?
         Djinn.log_info("Found a UserAppServer at (pub) #{node.public_ip}, " +
           "(pri) #{node.private_ip}")
+        # Let's make sure the uaserver is open before proceeding.
+        HelperFunctions.sleep_until_port_is_open(node.private_ip,
+          UserAppClient::SERVER_PORT)
         @userappserver_public_ip = node.public_ip
         @userappserver_private_ip = node.private_ip
         return
@@ -3517,6 +3520,7 @@ class Djinn
     write_taskqueue_nodes_file()
     write_search_node_file()
     setup_config_files()
+    start_db_services()
     set_uaserver_ips()
     start_api_services()
 
@@ -3534,51 +3538,20 @@ class Djinn
     # appengine is started elsewhere
   end
 
-
-  # Starts all of the services that this node has been assigned to run.
-  # Also starts all services that all nodes run in an AppScale deployment.
-  def start_api_services()
-    @state = "Starting Load Balancer"
-    Djinn.log_info("Starting Load Balancer")
-
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-    # TODO: Set up nginx and haproxy without needing the dashboard.
-    HAProxy.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    HAProxy.start()
-
-    Nginx.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    Nginx.reload()
-
-    # ejabberd uses uaserver for authentication
-    # so start it after we find out the uaserver's ip
+  # This function starts the DB and Zookeeper service on this node (if
+  # this node hosts them).
+  def start_db_services()
     threads = []
-    if my_node.is_login?
+
+    if my_node.is_zookeeper?
       threads << Thread.new {
-        start_ejabberd()
-      }
-    end
-
-    @done_initializing = true
-
-    # Start zookeeper.
-    threads << Thread.new {
-      if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
         rescue FailedZooKeeperOperationException
           HelperFunctions.log_and_crash("Couldn't start zookeeper")
         end
-      end
-      ZKInterface.init(my_node, @nodes)
-    }
-
-    if my_node.is_memcache?
-      threads << Thread.new {
-        start_memcache()
+        ZKInterface.init(my_node, @nodes)
       }
     end
 
@@ -3608,6 +3581,45 @@ class Djinn
             erase_app_instance_info
           end
         end
+      }
+    end
+
+    Djinn.log_info("Waiting for DB services to start up")
+    threads.each { |t| t.join() }
+    Djinn.log_info("DB services have started on this node")
+  end
+
+  # Starts all of the services that this node has been assigned to run.
+  # Also starts all services that all nodes run in an AppScale deployment.
+  def start_api_services()
+    @state = "Starting Load Balancer"
+    Djinn.log_info("Starting Load Balancer")
+
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    # TODO: Set up nginx and haproxy without needing the dashboard.
+    HAProxy.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    HAProxy.start()
+
+    Nginx.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    Nginx.reload()
+
+    # ejabberd uses uaserver for authentication
+    # so start it after we find out the uaserver's ip
+    threads = []
+    if my_node.is_login?
+      threads << Thread.new {
+        start_ejabberd()
+      }
+    end
+
+    @done_initializing = true
+
+    if my_node.is_memcache?
+      threads << Thread.new {
+        start_memcache()
       }
     end
 
@@ -3793,12 +3805,10 @@ class Djinn
     }
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
-    db_local_ip = @userappserver_private_ip
-
+    db_local_ip = my_node.private_ip
     table = @options['table']
 
     env_vars = {}
-
     env_vars['APPSCALE_HOME'] = APPSCALE_HOME
     env_vars['MASTER_IP'] = db_master_ip
     env_vars['LOCAL_DB_IP'] = db_local_ip
@@ -3823,6 +3833,7 @@ class Djinn
   def start_datastore_server
     db_master_ip = nil
     my_ip = my_node.public_ip
+    my_private = my_node.private_ip
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
@@ -3830,7 +3841,7 @@ class Djinn
 
     table = @options['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table)
+    DatastoreServer.start(db_master_ip, my_private, my_ip, table)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # Let's wait for the datastore to be active.
