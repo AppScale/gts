@@ -2503,7 +2503,7 @@ class Djinn
 
       # Let's make sure the UAserver is in business before proceeding.
       HelperFunctions.sleep_until_port_is_open(@userappserver_ip,
-        UserAppClient::SERVER_PORT)
+        UserAppClient::SERVER_PORT, HelperFunctions::USE_SSL)
     else
       Djinn.log_fatal("Couldn't find a UAServer.")
       HelperFunctions.log_and_crash("Couldn't find a UAServer.")
@@ -3816,7 +3816,7 @@ class Djinn
             "-t #{table}"].join(' ')
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{soap_script} #{PYTHON27}"
-    port = [4343]
+    port = [UserAppClient::SERVER_PORT]
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
 
@@ -4580,48 +4580,33 @@ HOSTS
     Djinn.log_debug("Preparing to run AppEngine apps if needed")
 
     if @restored == false
-      db_private_ip = nil
-      @nodes.each { |node|
-        if node.is_db_master? or node.is_db_slave?
-          if HelperFunctions.is_port_open?(node.private_ip, 4343,
-            HelperFunctions::USE_SSL)
-            Djinn.log_debug("UAServer port open on #{node.private_ip} - using it!")
-            db_private_ip = node.private_ip
-            break
-          else
-            Djinn.log_debug("UAServer port not open on #{node.private_ip} - skipping!")
-            next
-          end
-        end
-      }
-      if db_private_ip.nil?
-        Djinn.log_warn("Couldn't find a live db node - falling back to UAServer IP")
-        db_private_ip = @userappserver_ip
-      end
+      Djinn.log_info("Need to restore.")
 
-      uac = UserAppClient.new(db_private_ip, @@secret)
-      Djinn.log_info("Need to restore")
+      # Make sure we have a userappserver_ip setup.
+      set_uaserver_ips()
+
+      uac = UserAppClient.new(@userappserver_ip, @@secret)
       begin
         app_list = uac.get_all_apps()
       rescue FailedNodeException
-        Djinn.log_warn("Failed to get app listing from #{db_private_ip}")
+        Djinn.log_warn("Failed to get app listing from #{@userappserver_ip}.")
         app_list = []
       end
       app_list.each { |app|
         begin
           if uac.does_app_exist?(app)
-            Djinn.log_debug("App #{app} is enabled, so restoring it")
+            Djinn.log_debug("App #{app} is enabled, so restoring it.")
             @app_names = @app_names + [app]
           else
-            Djinn.log_debug("App #{app} is not enabled, moving on")
+            Djinn.log_debug("App #{app} is not enabled, moving on.")
           end
         rescue FailedNodeEsception
-          Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
+          Djinn.log_warn("Couldn't check app #{app} on #{@userappserver_ip}.")
         end
       }
 
       @app_names.uniq!
-      Djinn.log_debug("Decided to restore these apps: [#{@app_names.join(', ')}]")
+      Djinn.log_debug("Decided to restore these apps: [#{@app_names.join(', ')}].")
       @restored = true
     end
 
