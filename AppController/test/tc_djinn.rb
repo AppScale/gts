@@ -1249,18 +1249,14 @@ class TestDjinn < Test::Unit::TestCase
     state_only = JSON.dump({'state' => djinn.state})
     assert_equal(state_only, djinn.get_property('state', @secret))
 
-    # Finally, passing in the regex userappserver_*_ip should return both the
+    # Finally, passing in the regex userappserver_ip should return both the
     # public and private UserAppServer IPs.
-    djinn.userappserver_public_ip = "public-ip"
-    djinn.userappserver_private_ip = "private-ip"
+    djinn.userappserver_ip = "private-ip"
     userappserver_ips = JSON.dump({
-      'userappserver_public_ip' => 'public-ip',
-      'userappserver_private_ip' => 'private-ip'
+      'userappserver_ip' => 'public-ip',
     })
-    assert_equal(userappserver_ips['public-ip'], djinn.get_property('userappserver_.*_ip',
+    assert_equal(userappserver_ips['public-ip'], djinn.get_property('userappserver_ip',
       @secret)['public-ip'])
-    assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_.*_ip',
-      @secret)['private-ip'])
   end
 
 
