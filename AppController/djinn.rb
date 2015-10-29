@@ -2482,32 +2482,32 @@ class Djinn
   end
 
   def set_uaserver_ips()
-    Djinn.log_info("Setting uaserver public/private ips")
+    Djinn.log_info("Setting uaserver public/private ips on node #{my_node}.")
 
-    Djinn.log_debug("My node is #{my_node}")
-    # set it to this node if we run the uaserver
+    # Use this node if we run a uaserver. Otherwise just set it to an
+    # arbitrary db node's ips.
     if my_node.is_db_master? or my_node.is_db_slave?
-      Djinn.log_info("Running the UserAppServer locally - setting uaserver" +
-        " IPs to #{my_node.private_ip}")
       @userappserver_ip = my_node.public_ip
-      return
+    else
+      @nodes.each { |node|
+        Djinn.log_debug("Looking at node #{node} as a possible uaserver.")
+        if node.is_db_master? or node.is_db_slave?
+          @userappserver_ip = node.public_ip
+          break
+        end
+      }
     end
 
-    # otherwise just set it to an arbitrary db node's ips
-    @nodes.each { |node|
-      Djinn.log_debug("looking at node #{node} as a possible uaserver")
-      if node.is_db_master? or node.is_db_slave?
-        Djinn.log_info("Found a UserAppServer #{node.private_ip}")
-        # Let's make sure the uaserver is open before proceeding.
-        HelperFunctions.sleep_until_port_is_open(node.private_ip,
-          UserAppClient::SERVER_PORT)
-        @userappserver_ip = node.public_ip
-        return
-      end
-    }
+    if @userappserver_ip != 'not-up-yet'
+      Djinn.log_info("Using UserAppServer at #{@userappserver_ip}.")
 
-    Djinn.log_fatal("[get uaserver ip] Couldn't find a UAServer.")
-    HelperFunctions.log_and_crash("[get uaserver ip] Couldn't find a UAServer.")
+      # Let's make sure the UAserver is in business before proceeding.
+      HelperFunctions.sleep_until_port_is_open(@userappserver_ip,
+        UserAppClient::SERVER_PORT)
+    else
+      Djinn.log_fatal("Couldn't find a UAServer.")
+      HelperFunctions.log_and_crash("Couldn't find a UAServer.")
+    end
   end
 
   def get_public_ip(private_ip)
@@ -3303,7 +3303,6 @@ class Djinn
         Kernel.sleep(5)
       end
     }
-
   end
 
   def parse_options
@@ -3511,7 +3510,6 @@ class Djinn
     write_search_node_file()
     setup_config_files()
     start_db_services()
-    set_uaserver_ips()
     start_api_services()
 
     # Start the AppDashboard.
@@ -3560,17 +3558,6 @@ class Djinn
         @state = "Starting up SOAP Server"
         start_soap_server()
         start_groomer_service()
-        HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
-          UserAppClient::SERVER_PORT)
-
-        if my_node.is_db_master?
-          # If we're starting AppScale with data from a previous deployment, we
-          # may have to clear out all the registered app instances from the
-          # UserAppServer (since nobody is currently hosting any apps).
-          if @options['clear_datastore'].downcase == "true"
-            erase_app_instance_info
-          end
-        end
       }
     end
 
@@ -3580,6 +3567,18 @@ class Djinn
       Djinn.log_info("DB services have started on this node.")
     else
       Djinn.log_debug("DB services are not needed on this node.")
+    end
+
+    # Let's set which UAserver to use: all nodes should have one.
+    set_uaserver_ips()
+
+    # If we're starting AppScale with data from a previous deployment, we
+    # may have to clear out all the registered app instances from the
+    # UserAppServer (since nobody is currently hosting any apps).
+    if my_node.is_db_master?
+      if @options['clear_datastore'].downcase == "true"
+        erase_app_instance_info
+      end
     end
   end
 
