@@ -3468,6 +3468,18 @@ class Djinn
     my_data = my_node
     jobs_to_run = my_data.jobs
 
+
+    initialize_server()
+    configure_db_nginx()
+    configure_uaserver_nginx()
+    write_memcache_locations()
+    write_apploadbalancer_location()
+    find_nearest_taskqueue()
+    write_taskqueue_nodes_file()
+    write_search_node_file()
+    setup_config_files()
+    start_db_services()
+
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
     if my_node.is_shadow?
       # TODO: Check to make sure the machines aren't already
@@ -3500,26 +3512,13 @@ class Djinn
       Djinn.log_info("All nodes have been started")
     end
 
-    initialize_server()
-
-    configure_db_nginx()
-    write_memcache_locations()
-    write_apploadbalancer_location()
-    find_nearest_taskqueue()
-    write_taskqueue_nodes_file()
-    write_search_node_file()
-    setup_config_files()
-    start_db_services()
     start_api_services()
 
-    # Start the AppDashboard.
+    # Login node will start additional services.
     if my_node.is_login?
       update_node_info_cache()
       start_app_dashboard(get_login.public_ip, @userappserver_ip)
       start_hermes()
-    end
-
-    if my_node.is_login?
       TaskQueue.start_flower(@options['flower_password'])
     end
 
@@ -3819,8 +3818,6 @@ class Djinn
     port = [UserAppClient::SERVER_PORT]
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
-
-    configure_uaserver_nginx()
   end
 
   def start_datastore_server
@@ -4111,7 +4108,6 @@ class Djinn
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +
         " Please verify datastore type: #{e}\n#{backtrace}")
     end
-    FileUtils.mkdir_p("#{APPSCALE_HOME}/AppDB/logs")
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
@@ -4328,6 +4324,8 @@ HOSTS
   # Perform any necessary initialization steps before we begin starting up
   # services.
   def initialize_server()
+    Djinn.log_debug("Initialize server: my public ip is #{my_node.public_ip}.")
+
     my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@options['hostname'])
 
@@ -4335,6 +4333,7 @@ HOSTS
     Nginx.initialize_config()
 
     if my_node.disk
+      Djinn.log_debug("Initialize server: prepare disk.")
       imc = InfrastructureManagerClient.new(@@secret)
       begin
         device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
