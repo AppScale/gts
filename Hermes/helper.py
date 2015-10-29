@@ -9,13 +9,14 @@ import tornado.httpclient
 import urllib
 
 import hermes_constants
-from custom_exceptions import MissingRequestArgs
+from custom_hermes_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
-sys.path.append(os.path.join("/root/appscale-tools"))
-from lib.appcontroller_client import AppControllerClient
+sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDB/backup/"))
+from backup_recovery_constants import StorageTypes
+import backup_recovery_helper as BR
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -33,6 +34,7 @@ REPORT_TASKS = ['backup', 'restore']
 class JSONTags(object):
   """ A class containing all JSON tags used for Hermes functionality. """
   BUCKET_NAME = 'bucket_name'
+  BODY = 'body'
   DEPLOYMENT_ID = 'deployment_id'
   OBJECT_NAME = 'object_name'
   STATUS = 'status'
@@ -79,8 +81,8 @@ def urlfetch(request):
   http_client = tornado.httpclient.HTTPClient()
 
   try:
-    http_client.fetch(request)
-    result = {JSONTags.SUCCESS: True}
+    response = http_client.fetch(request)
+    result = {JSONTags.SUCCESS: True, JSONTags.BODY: response.body}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
@@ -132,15 +134,6 @@ def get_br_service_url(node):
   return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
     hermes_constants.BR_SERVICE_PATH)
 
-def read_file_contents(path):
-  """ Reads the contents of the given file.
-
-  Returns:
-    A str, the contents of the given file.
-  """
-  with open(path) as file_handle:
-    return file_handle.read()
-
 def get_deployment_id():
   """ Retrieves the deployment ID for this AppScale deployment.
 
@@ -148,13 +141,7 @@ def get_deployment_id():
     A str, the secret key used for registering this deployment with the
     AppScale Portal. None if the deployment is not registered.
   """
-  head_node_ip_file = '/etc/appscale/head_node_ip'
-  head_node = read_file_contents(head_node_ip_file).rstrip('\n')
-
-  secret_file = '/etc/appscale/secret.key'
-  secret = read_file_contents(secret_file)
-
-  acc = AppControllerClient(head_node, secret)
+  acc = appscale_info.get_appcontroller_client()
   if acc.deployment_id_exists():
     return acc.get_deployment_id()
   return None
@@ -287,3 +274,30 @@ def send_remote_request(request, result_queue):
   """
   logging.debug('Sending remote request: {0}'.format(request.body))
   result_queue.put(urlfetch(request))
+
+def backup_apps(storage, bucket):
+  """ Triggers a backup of the source code of deployed apps.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+    bucket: A str, the name of the remote bucket where the backups will be
+      stored.
+  Returns:
+    True on success, False otherwise.
+  """
+  full_bucket_name = ''
+  if storage == StorageTypes.GCS:
+    full_bucket_name = 'gs://{0}'.format(bucket)
+  return BR.app_backup(storage, full_bucket_name=full_bucket_name)
+
+def restore_apps(storage, bucket):
+  """ Triggers a restore of apps for the current deployment. Retrieves the
+  source code from the backup location on the filesystem.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+    bucket: A str, the name of the remote bucket where the backups are stored.
+  Returns:
+    True on success, False otherwise.
+  """
+  return BR.app_restore(storage, bucket_name=bucket)

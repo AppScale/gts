@@ -11,13 +11,21 @@ from flexmock import flexmock
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import helper
 import hermes_constants
-from custom_exceptions import MissingRequestArgs
+from custom_hermes_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import appscale_info
 
 sys.path.append(os.path.join("/root/appscale-tools"))
 from lib.appcontroller_client import AppControllerClient
+
+class FakeAppControllerClient():
+  def __init__(self, registered):
+    self.registered = registered
+  def deployment_id_exists(self):
+    return self.registered
+  def get_deployment_id(self):
+    return 'fake_id'
 
 class FakeAsyncClient():
   def fetch(self):
@@ -93,15 +101,11 @@ class TestHelper(unittest.TestCase):
       hermes_constants.BR_SERVICE_PATH)
     self.assertEquals(fake_url, helper.get_br_service_url('host'))
 
-  def test_read_file_contents(self):
-    pass
-
   def test_get_deployment_id(self):
     # Test with a registered AppScale deployment.
-    flexmock(helper).should_receive('read_file_contents').with_args(
-      '/etc/appscale/head_node_ip').and_return('foo')
-    flexmock(helper).should_receive('read_file_contents').with_args(
-      '/etc/appscale/secret.key').and_return('bar')
+    fake_acc = FakeAppControllerClient(True)
+    flexmock(appscale_info).should_receive('get_appcontroller_client').\
+      and_return(fake_acc)
     flexmock(AppControllerClient).should_receive('deployment_id_exists').\
       and_return(True)
     flexmock(AppControllerClient).should_receive('get_deployment_id').\
@@ -109,6 +113,9 @@ class TestHelper(unittest.TestCase):
     self.assertEquals('fake_id', helper.get_deployment_id())
 
     # Test with an AppScale deployment that's not registered.
+    fake_acc = FakeAppControllerClient(False)
+    flexmock(appscale_info).should_receive('get_appcontroller_client').\
+      and_return(fake_acc)
     flexmock(AppControllerClient).should_receive('deployment_id_exists').\
       and_return(False)
     self.assertIsNone(helper.get_deployment_id())

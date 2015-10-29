@@ -39,8 +39,13 @@ class TaskHandler(RequestHandler):
   def post(self):
     """ POST method that sends a request for action to the
     corresponding deployment components. """
-    logging.info("Task request received: {0}, {1}".format(str(self.request),
+    logging.debug("Task request received: {0}, {1}".format(str(self.request),
       str(self.request.body)))
+
+    if not self.request.body:
+      logging.info("Response from the AppScale Portal empty. No tasks to run.")
+      self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+      return
 
     try:
       data = json.loads(self.request.body)
@@ -51,7 +56,7 @@ class TaskHandler(RequestHandler):
       return
 
     # Verify all necessary fields are present in request.body.
-    logging.info("Verifying all necessary parameters are present.")
+    logging.debug("Verifying all necessary parameters are present.")
     if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)):
       logging.error("Missing args in request: " + self.request.body)
       self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
@@ -61,18 +66,13 @@ class TaskHandler(RequestHandler):
     # task at hand.
     nodes = helper.get_node_info()
 
-    # Ensure that we bring down affected nodes before any action while doing a
-    # restore.
-    if data[JSONTags.TYPE] == 'backup':
-      tasks = [data[JSONTags.TYPE]]
-    elif data[JSONTags.TYPE] == 'restore':
-      tasks = ['restore']
-    else:
+    if data[JSONTags.TYPE] not in hermes_constants.SUPPORTED_TASKS:
       logging.error("Unsupported task type: '{0}'".format(data[JSONTags.TYPE]))
       self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
-    logging.info("Tasks to execute: {0}".format(tasks))
 
+    tasks = [data[JSONTags.TYPE]]
+    logging.info("Tasks to execute: {0}".format(tasks))
     for task in tasks:
       # Initiate the task as pending.
       TASK_STATUS_LOCK.acquire(True)
@@ -107,7 +107,16 @@ class TaskHandler(RequestHandler):
         thread.join()
       # Harvest results.
       results = [result_queue.get() for _ in xrange(len(nodes))]
-      logging.warn("Task: {0}. Results: {1}.".format(task, results))
+      logging.debug("Task: {0}. Results: {1}.".format(task, results))
+
+      # Backup source code.
+      app_success = False
+      if task == 'backup':
+        app_success = helper.\
+          backup_apps(data[JSONTags.STORAGE], data[JSONTags.BUCKET_NAME])
+      elif task == 'restore':
+        app_success = helper.\
+          restore_apps(data[JSONTags.STORAGE], data[JSONTags.BUCKET_NAME])
 
       # Update TASK_STATUS.
       successful_nodes = 0
@@ -118,12 +127,13 @@ class TaskHandler(RequestHandler):
       TASK_STATUS_LOCK.acquire(True)
       all_nodes = TASK_STATUS[data[JSONTags.TASK_ID]]\
           [NodeInfoTags.NUM_NODES]
-      if successful_nodes < all_nodes:
+      if successful_nodes < all_nodes or not app_success:
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
           TaskStatus.FAILED
       else:
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
           TaskStatus.COMPLETE
+
       logging.info("Task: {0}. Status: {1}.".format(task,
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
       IOLoop.instance().add_callback(callback=lambda:

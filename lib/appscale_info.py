@@ -5,10 +5,46 @@ to AppScale and the current node/machine.
 import json
 import logging
 import multiprocessing
+import os
+import sys
 import yaml
 
 import constants
 import file_io
+
+sys.path.append(os.path.join("/root/appscale-tools"))
+from lib.appcontroller_client import AppControllerClient
+
+def read_file_contents(path):
+  """ Reads the contents of the given file.
+
+  Returns:
+    A str, the contents of the given file.
+  """
+  with open(path) as file_handle:
+    return file_handle.read()
+
+def get_appcontroller_client():
+  """ Returns an AppControllerClient instance for this deployment. """
+  head_node_ip_file = '/etc/appscale/head_node_ip'
+  head_node = read_file_contents(head_node_ip_file).rstrip('\n')
+
+  secret_file = '/etc/appscale/secret.key'
+  secret = read_file_contents(secret_file)
+
+  return AppControllerClient(head_node, secret)
+
+def get_keyname():
+  """ Returns the keyname for this deployment. """
+  return get_db_info()[':keyname']
+
+def get_login_ip():
+  """ Get the public IP of the head node.
+
+  Returns:
+    String containing the public IP of the head node.
+  """
+  return file_io.read(constants.LOGIN_IP_LOC).rstrip()
 
 def get_private_ip():
   """ Get the private IP of the current machine.
