@@ -920,7 +920,9 @@ class Djinn
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
-    @nodes = converted_nodes
+    @state_change_lock.synchronize {
+      @nodes = converted_nodes
+    }
     @options = sanitize_credentials()
 
     # Check that we got good parameters: we removed the unkown ones for
@@ -3187,7 +3189,9 @@ class Djinn
         }
 
         old_roles = my_node.jobs
-        @nodes = new_nodes
+        @state_change_lock.synchronize {
+          @nodes = new_nodes
+        }
         find_me_in_locations()
         new_roles = my_node.jobs
 
@@ -3898,7 +3902,9 @@ class Djinn
 
     keyname = @options["keyname"]
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
-    @nodes.concat(appengine_info)
+    @state_change_lock.synchronize {
+      @nodes.concat(appengine_info)
+    }
     find_me_in_locations()
     write_database_info()
     update_firewall()
