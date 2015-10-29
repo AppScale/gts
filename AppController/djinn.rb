@@ -2489,7 +2489,7 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave?
       Djinn.log_info("Running the UserAppServer locally - setting uaserver" +
         " IPs to #{my_node.private_ip}")
-      @userappserver_ip = my_node.private_ip
+      @userappserver_ip = my_node.public_ip
       return
     end
 
@@ -2501,7 +2501,7 @@ class Djinn
         # Let's make sure the uaserver is open before proceeding.
         HelperFunctions.sleep_until_port_is_open(node.private_ip,
           UserAppClient::SERVER_PORT)
-        @userappserver_ip = node.private_ip
+        @userappserver_ip = node.public_ip
         return
       end
     }
@@ -2915,8 +2915,8 @@ class Djinn
     old_public_ip = @my_public_ip
     old_private_ip = @my_private_ip
 
-    if @userappserver_ip == old_private_ip
-      @userappserver_ip = new_private_ip
+    if @userappserver_ip == old_public_ip
+      @userappserver_ip = new_public_ip
     end
 
     @nodes.each { |node|
