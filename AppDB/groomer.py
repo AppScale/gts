@@ -480,9 +480,13 @@ class DatastoreGroomer(threading.Thread):
 
     logging.debug('Removing {} indexes starting with {}'.
       format(len(refs_to_delete), [refs_to_delete[0]]))
-    self.db_access.batch_delete(table_name, refs_to_delete,
-      column_names=dbconstants.PROPERTY_SCHEMA)
-    self.index_entries_cleaned += len(refs_to_delete)
+    try:
+      self.db_access.batch_delete(table_name, refs_to_delete,
+        column_names=dbconstants.PROPERTY_SCHEMA)
+      self.index_entries_cleaned += len(refs_to_delete)
+    except Exception:
+      logging.exception('Unable to delete indexes')
+      self.index_entries_delete_failures += 1
 
     self.release_lock_for_key(
       app_id=app,
