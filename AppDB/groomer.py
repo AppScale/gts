@@ -367,7 +367,7 @@ class DatastoreGroomer(threading.Thread):
         return self.acquire_lock_for_key(
           app_id=app_id,
           key=key,
-          retries=retries - 1,
+          retries=retries-1,
           retry_time=retry_time
         )
       self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
@@ -399,7 +399,7 @@ class DatastoreGroomer(threading.Thread):
           app_id=app_id,
           key=key,
           txn_id=txn_id,
-          retries=retries - 1,
+          retries=retries-1,
           retry_time=retry_time
         )
       else:
