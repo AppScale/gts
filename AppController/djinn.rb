@@ -3584,9 +3584,13 @@ class Djinn
       }
     end
 
-    Djinn.log_info("Waiting for DB services to start up")
-    threads.each { |t| t.join() }
-    Djinn.log_info("DB services have started on this node")
+    if threads.length > 0
+      Djinn.log_debug("Waiting for DB services to start up.")
+      threads.each { |t| t.join() }
+      Djinn.log_info("DB services have started on this node.")
+    else
+      Djinn.log_debug("DB services are not needed on this node.")
+    end
   end
 
   # Starts all of the services that this node has been assigned to run.
