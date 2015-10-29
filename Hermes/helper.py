@@ -34,6 +34,7 @@ REPORT_TASKS = ['backup', 'restore']
 class JSONTags(object):
   """ A class containing all JSON tags used for Hermes functionality. """
   BUCKET_NAME = 'bucket_name'
+  BODY = 'body'
   DEPLOYMENT_ID = 'deployment_id'
   OBJECT_NAME = 'object_name'
   STATUS = 'status'
@@ -80,8 +81,8 @@ def urlfetch(request):
   http_client = tornado.httpclient.HTTPClient()
 
   try:
-    http_client.fetch(request)
-    result = {JSONTags.SUCCESS: True}
+    response = http_client.fetch(request)
+    result = {JSONTags.SUCCESS: True, JSONTags.BODY: response.body}
   except tornado.httpclient.HTTPError as http_error:
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))

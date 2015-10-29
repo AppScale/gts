@@ -8,6 +8,7 @@ import socket
 import tornado.escape
 import tornado.httpclient
 import tornado.web
+import urllib
 
 from tornado.ioloop import IOLoop
 from tornado.options import define
@@ -35,26 +36,25 @@ def poll():
   # Send request to AppScale Portal.
   url = "{0}{1}".format(hermes_constants.PORTAL_URL,
       hermes_constants.PORTAL_POLL_PATH)
-  data = json.dumps({ JSONTags.DEPLOYMENT_ID: deployment_id })
+  data = urllib.urlencode({JSONTags.DEPLOYMENT_ID: deployment_id})
   request = helper.create_request(url=url, method='POST', body=data)
   response = helper.urlfetch(request)
   try:
-    data = json.loads(response.body)
+    data = json.loads(response[JSONTags.BODY])
   except (TypeError, ValueError) as error:
     logging.error("Cannot parse response from url '{0}'. Error: {1}".
       format(url, str(error)))
     return
 
   # Verify all necessary fields are present in the request.
-  if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)) or \
-      None in data.values():
+  if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)):
     logging.error("Missing args in response: {0}".format(response))
     return
 
   logging.debug("Task to run: {0}".format(data))
   logging.info("Redirecting task request to TaskHandler.")
   url = "{0}{1}".format(hermes_constants.HERMES_URL, TaskHandler.PATH)
-  request = helper.create_request(url, method='POST', body=data)
+  request = helper.create_request(url, method='POST', body=json.dumps(data))
 
   # The poller can move forward without waiting for a response here.
   helper.urlfetch_async(request)
