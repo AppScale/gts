@@ -213,6 +213,9 @@ class DatastoreGroomer(threading.Thread):
     """ Removes old statistics from the AppScale dashboard application. """
     last_cursor = None
     last_model = None
+
+    # If we've have state information beyond what function to use,
+    # load the last seen model and cursor if available.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_DASHBOARD_TASK):
       last_model = self.DASHBOARD_DATA_MODELS[int(self.groomer_state[1])]
@@ -532,6 +535,9 @@ class DatastoreGroomer(threading.Thread):
     else:
       table_name = dbconstants.DSC_PROPERTY_TABLE
       task_id = self.CLEAN_DSC_INDICES_TASK
+
+    # If we've have state information beyond what function to use,
+    # load the last seen start key.
     if len(self.groomer_state) > 1 and self.groomer_state[0] == task_id:
       start_key = self.groomer_state[1]
     else:
@@ -1033,6 +1039,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success.
     """
+    # If we've have state information beyond what function to use,
+    # load the last seen cursor.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_TASKS_TASK):
       last_cursor = Cursor(self.groomer_state[1])
@@ -1064,6 +1072,8 @@ class DatastoreGroomer(threading.Thread):
     return True
 
   def clean_up_entities(self):
+    # If we've have state information beyond what function to use,
+    # load the last seen key.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_ENTITIES_TASK):
       last_key = self.groomer_state[1]
@@ -1117,6 +1127,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
+    # If we've have state information beyond what function to use,
+    # load the last seen cursor.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_LOGS_TASK):
       last_cursor = Cursor(self.groomer_state[1])
