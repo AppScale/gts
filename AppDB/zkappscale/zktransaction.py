@@ -246,10 +246,10 @@ class ZKTransaction:
       path: A PATH_SEPARATOR-separated str that represents the node whose value
         should be updated.
       retries: The number of times to retry fetching the node.
-    Returns: The value of the node.
+    Returns:
+      The value of the node.
     Raises:
       ZKInternalException: If there was an error trying to fetch the node.
-
     """
     if self.needs_connection:
       self.reestablish_connection()
