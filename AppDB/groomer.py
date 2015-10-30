@@ -91,6 +91,24 @@ class DatastoreGroomer(threading.Thread):
   # The characters used to separate values when storing the groomer state.
   GROOMER_STATE_DELIMITER = '||'
 
+  # The ID for the task to clean up entities.
+  CLEAN_ENTITIES_TASK = 'entities'
+
+  # The ID for the task to clean up ascending indices.
+  CLEAN_ASC_INDICES_TASK = 'asc-indices'
+
+  # The ID for the task to clean up descending indices.
+  CLEAN_DSC_INDICES_TASK = 'dsc-indices'
+
+  # The ID for the task to clean up old logs.
+  CLEAN_LOGS_TASK = 'logs'
+
+  # The ID for the task to clean up old tasks.
+  CLEAN_TASKS_TASK = 'tasks'
+
+  # The ID for the task to clean up old dashboard items.
+  CLEAN_DASHBOARD_TASK = 'dashboard'
+
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor.
 
@@ -195,7 +213,8 @@ class DatastoreGroomer(threading.Thread):
     """ Removes old statistics from the AppScale dashboard application. """
     last_cursor = None
     last_model = None
-    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'dashboard':
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_DASHBOARD_TASK):
       last_model = self.DASHBOARD_DATA_MODELS[int(self.groomer_state[1])]
       if len(self.groomer_state) > 2:
         last_cursor = Cursor(self.groomer_state[2])
@@ -217,12 +236,13 @@ class DatastoreGroomer(threading.Thread):
           counter += 1
         if more:
           last_cursor = next_cursor
-          self.update_groomer_state(
-            ['dashboard', str(model_number), last_cursor.urlsafe()])
+          self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
+            str(model_number), last_cursor.urlsafe()])
         else:
           break
       if model_number != len(self.DASHBOARD_DATA_MODELS) - 1:
-        self.update_groomer_state(['dashboard', str(model_number + 1)])
+        self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
+          str(model_number + 1)])
         last_model = None
         last_cursor = None
       if counter > 0:
@@ -508,10 +528,10 @@ class DatastoreGroomer(threading.Thread):
     """
     if direction == datastore_pb.Query_Order.ASCENDING:
       table_name = dbconstants.ASC_PROPERTY_TABLE
-      task_id = 'asc-indices'
+      task_id = self.CLEAN_ASC_INDICES_TASK
     else:
       table_name = dbconstants.DSC_PROPERTY_TABLE
-      task_id = 'dsc-indices'
+      task_id = self.CLEAN_DSC_INDICES_TASK
     if len(self.groomer_state) > 1 and self.groomer_state[0] == task_id:
       start_key = self.groomer_state[1]
     else:
@@ -1013,7 +1033,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success.
     """
-    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'tasks':
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_TASKS_TASK):
       last_cursor = Cursor(self.groomer_state[1])
     else:
       last_cursor = None
@@ -1037,13 +1058,14 @@ class DatastoreGroomer(threading.Thread):
         logging.debug("Removing task name {0}".format(entity.timestamp))
         entity.delete()
         counter += 1
-      self.update_groomer_state(['tasks', last_cursor])
+      self.update_groomer_state([self.CLEAN_TASKS_TASK, last_cursor])
 
     logging.info("Removed {0} task name entities".format(counter))
     return True
 
   def clean_up_entities(self):
-    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'entities':
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_ENTITIES_TASK):
       last_key = self.groomer_state[1]
     else:
       last_key = ""
@@ -1059,7 +1081,7 @@ class DatastoreGroomer(threading.Thread):
           self.process_entity(entity)
 
         last_key = entities[-1].keys()[0]
-        self.update_groomer_state(['entities', last_key])
+        self.update_groomer_state([self.CLEAN_ENTITIES_TASK, last_key])
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))
         time.sleep(self.DB_ERROR_PERIOD)
@@ -1095,7 +1117,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    if len(self.groomer_state) > 1 and self.groomer_state[0] == 'logs':
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_LOGS_TASK):
       last_cursor = Cursor(self.groomer_state[1])
     else:
       last_cursor = None
@@ -1120,7 +1143,8 @@ class DatastoreGroomer(threading.Thread):
         counter += 1
       if more:
         last_cursor = next_cursor
-        self.update_groomer_state(['logs', last_cursor.urlsafe()])
+        self.update_groomer_state([self.CLEAN_LOGS_TASK,
+          last_cursor.urlsafe()])
       else:
         break
     logging.info("Removed {0} log entries.".format(counter))
@@ -1244,37 +1268,37 @@ class DatastoreGroomer(threading.Thread):
 
     tasks = [
       {
-        'id': 'entities',
+        'id': self.CLEAN_ENTITIES_TASK,
         'description': 'clean up entities',
         'function': self.clean_up_entities,
         'args': []
       },
       {
-        'id': 'asc-indices',
+        'id': self.CLEAN_ASC_INDICES_TASK,
         'description': 'clean up ascending indices',
         'function': self.clean_up_indexes,
         'args': [datastore_pb.Query_Order.ASCENDING]
       },
       {
-        'id': 'dsc-indices',
+        'id': self.CLEAN_DSC_INDICES_TASK,
         'description': 'clean up descending indices',
         'function': self.clean_up_indexes,
         'args': [datastore_pb.Query_Order.DESCENDING]
       },
       {
-        'id': 'logs',
+        'id': self.CLEAN_LOGS_TASK,
         'description': 'clean up old logs',
         'function': self.remove_old_logs,
         'args': [self.LOG_STORAGE_TIMEOUT]
       },
       {
-        'id': 'tasks',
+        'id': self.CLEAN_TASKS_TASK,
         'description': 'clean up old tasks',
         'function': self.remove_old_tasks_entities,
         'args': []
       },
       {
-        'id': 'dashboard',
+        'id': self.CLEAN_DASHBOARD_TASK,
         'description': 'clean up old dashboard items',
         'function': self.remove_old_dashboard_data,
         'args': []
