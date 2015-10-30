@@ -1383,9 +1383,9 @@ def main():
     logging.info("Got the groomer lock.")
     try:
       ds_groomer.run_groomer()
-    except Exception as e:
+    except Exception as exception:
       logging.exception('Encountered exception {} while running the groomer.'
-        .format(str(e)))
+        .format(str(exception)))
     try:
       ds_groomer.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
     except zk.ZKTransactionException, zk_exception:
