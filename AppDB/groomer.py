@@ -214,7 +214,7 @@ class DatastoreGroomer(threading.Thread):
     last_cursor = None
     last_model = None
 
-    # If we've have state information beyond what function to use,
+    # If we have state information beyond what function to use,
     # load the last seen model and cursor if available.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_DASHBOARD_TASK):
@@ -536,7 +536,7 @@ class DatastoreGroomer(threading.Thread):
       table_name = dbconstants.DSC_PROPERTY_TABLE
       task_id = self.CLEAN_DSC_INDICES_TASK
 
-    # If we've have state information beyond what function to use,
+    # If we have state information beyond what function to use,
     # load the last seen start key.
     if len(self.groomer_state) > 1 and self.groomer_state[0] == task_id:
       start_key = self.groomer_state[1]
@@ -1039,7 +1039,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success.
     """
-    # If we've have state information beyond what function to use,
+    # If we have state information beyond what function to use,
     # load the last seen cursor.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_TASKS_TASK):
@@ -1072,7 +1072,7 @@ class DatastoreGroomer(threading.Thread):
     return True
 
   def clean_up_entities(self):
-    # If we've have state information beyond what function to use,
+    # If we have state information beyond what function to use,
     # load the last seen key.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_ENTITIES_TASK):
@@ -1127,7 +1127,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    # If we've have state information beyond what function to use,
+    # If we have state information beyond what function to use,
     # load the last seen cursor.
     if (len(self.groomer_state) > 1 and
       self.groomer_state[0] == self.CLEAN_LOGS_TASK):
