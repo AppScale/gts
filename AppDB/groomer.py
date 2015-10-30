@@ -436,7 +436,10 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A dictionary of validated entities.
     """
-    keys = list(set([item.values()[0]['reference'] for item in references]))
+    keys = []
+    for item in references:
+      keys.append(item.values()[0][self.ds_access.INDEX_REFERENCE_COLUMN])
+    keys = list(set(keys))
     entities = self.db_access.batch_get_entity(dbconstants.APP_ENTITY_TABLE,
       keys, dbconstants.APP_ENTITY_SCHEMA)
 
@@ -496,7 +499,8 @@ class DatastoreGroomer(threading.Thread):
 
     refs_to_delete = []
     for reference in references:
-      prop_name = reference.keys()[0].split(self.ds_access._SEPARATOR)[3]
+      index_elements = reference.keys()[0].split(self.ds_access._SEPARATOR)
+      prop_name = index_elements[self.ds_access.PROP_NAME_IN_SINGLE_PROP_INDEX]
       if not self.ds_access._DatastoreDistributed__valid_index_entry(
         reference, entities, direction, prop_name):
         refs_to_delete.append(reference.keys()[0])
@@ -575,7 +579,7 @@ class DatastoreGroomer(threading.Thread):
         prop_name = reference.keys()[0].split(self.ds_access._SEPARATOR)[3]
         if not self.ds_access._DatastoreDistributed__valid_index_entry(
           reference, entities, direction, prop_name):
-          entity_key = reference.values()[0]['reference']
+          entity_key = reference.values()[0][self.ds_access.INDEX_REFERENCE_COLUMN]
           if entity_key not in invalid_refs:
             invalid_refs[entity_key] = []
           invalid_refs[entity_key].append(reference)
