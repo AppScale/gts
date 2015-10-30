@@ -2404,16 +2404,6 @@ class Djinn
     HelperFunctions.log_and_crash("No login nodes found.")
   end
 
-  def get_shadow()
-    @nodes.each { |node|
-      return node if node.is_shadow?
-    }
-
-    Djinn.log_fatal("Couldn't find a shadow node in the following nodes: " +
-      "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No shadow nodes found.")
-  end
-
   def get_db_master()
     @nodes.each { |node|
       return node if node.is_db_master?
@@ -3468,16 +3458,7 @@ class Djinn
     my_data = my_node
     jobs_to_run = my_data.jobs
 
-
     initialize_server()
-    configure_db_nginx()
-    configure_uaserver_nginx()
-    write_memcache_locations()
-    write_apploadbalancer_location()
-    find_nearest_taskqueue()
-    write_taskqueue_nodes_file()
-    write_search_node_file()
-    setup_config_files()
     start_db_services()
 
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
@@ -3506,10 +3487,10 @@ class Djinn
           end
         }
         break if @everyone_else_is_done
-        Djinn.log_info("Waiting on other nodes to come online")
+        Djinn.log_info("Waiting on other nodes to come online.")
         Kernel.sleep(5)
       }
-      Djinn.log_info("All nodes have been started")
+      Djinn.log_info("All nodes have been started.")
     end
 
     start_api_services()
@@ -4395,6 +4376,15 @@ HOSTS
       Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
       Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
     end
+
+    configure_db_nginx()
+    configure_uaserver_nginx()
+    write_memcache_locations()
+    write_apploadbalancer_location()
+    find_nearest_taskqueue()
+    write_taskqueue_nodes_file()
+    write_search_node_file()
+    setup_config_files()
   end
 
   # Runs any commands provided by the user in their AppScalefile on the given
@@ -4501,7 +4491,7 @@ HOSTS
     my_public = my_node.public_ip
     Ejabberd.stop()
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_public, get_db_master.private_ip, @@secret)
+    Ejabberd.write_auth_script(my_public, get_db_master_ip, @@secret)
     Ejabberd.write_config_file(my_public)
     Ejabberd.start()
   end
