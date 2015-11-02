@@ -1464,7 +1464,7 @@ class Djinn
         begin
           uac = UserAppClient.new(@userappserver_private_ip, @@secret)
           if not uac.does_app_exist?(app_name)
-            Djinn.log_info("(stop_app) #{app_name} does not exists.")
+            Djinn.log_info("(stop_app) #{app_name} does not exist.")
           else
             result = uac.delete_app(app_name)
             Djinn.log_debug("(stop_app) delete_app returned: #{result}.")
