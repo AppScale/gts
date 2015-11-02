@@ -1457,14 +1457,27 @@ class Djinn
     # so run it in a new thread to avoid 'execution expired'
     # error messages and have the tools poll it
     Thread.new {
-      # Tell other nodes to shutdown this application
-      if @app_names.include?(app_name) and !my_node.is_appengine?
+      # The login node has extra stuff to do: remove the xmpp listener and
+      # inform the other nodes to stop the application, and remove the
+      # application from the metadata (soap_server).
+      if my_node.is_login?
+        begin
+          uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+          if not uac.does_app_exist?(app_name)
+            Djinn.log_info("(stop_app) #{app_name} does not exist.")
+          else
+            result = uac.delete_app(app_name)
+            Djinn.log_debug("(stop_app) delete_app returned: #{result}.")
+          end
+        rescue FailedNodeException
+          Djinn.log_warn("(stop_app) delete_app: failed to talk " +
+            "to #{@userappserver_private_ip}")
+        end
         @nodes.each { |node|
           next if node.private_ip == my_node.private_ip
-          if node.is_appengine? or node.is_login?
+          if node.is_appengine?
             ip = node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
-
             begin
               result = acc.stop_app(app_name)
               Djinn.log_debug("Removing application #{app_name} from #{ip} " +
@@ -1475,25 +1488,6 @@ class Djinn
             end
           end
         }
-      end
-
-      # Contact the soap server and remove the application
-      if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-        begin
-          if not uac.does_app_exist?(app_name)
-            Djinn.log_info("(stop_app) #{app_name} does not exists")
-            return "Application #{app_name} does not exist."
-          end
-          result = uac.delete_app(app_name)
-          Djinn.log_debug("(stop_app) Delete app: returned #{result} (#{result.class})")
-        rescue FailedNodeException
-          Djinn.log_warn("(stop_app) Delete app: failed to talk to #{@userappserver_private_ip}")
-        end
-      end
-
-      # may need to stop XMPP listener
-      if my_node.is_login?
         pid_files = HelperFunctions.shell("ls #{CONFIG_FILE_LOCATION}/xmpp-#{app_name}.pid").split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
@@ -1511,7 +1505,6 @@ class Djinn
       APPS_LOCK.synchronize {
         if my_node.is_login?
           Nginx.remove_app(app_name)
-          Nginx.reload()
           HAProxy.remove_app(app_name)
         end
 
