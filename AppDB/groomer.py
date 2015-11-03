@@ -109,6 +109,10 @@ class DatastoreGroomer(threading.Thread):
   # The ID for the task to clean up old dashboard items.
   CLEAN_DASHBOARD_TASK = 'dashboard'
 
+  # Log every time this number of items (index entries, entities, journal
+  # entries, etc.) are processed.
+  LOG_PROGRESS_FREQUENCY = 1000
+
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor.
 
@@ -131,10 +135,12 @@ class DatastoreGroomer(threading.Thread):
     self.namespace_info = {}
     self.num_deletes = 0
     self.composite_index_cache = {}
+    self.entities_checked = 0
     self.journal_entries_cleaned = 0
     self.index_entries_checked = 0
     self.index_entries_delete_failures = 0
     self.index_entries_cleaned = 0
+    self.last_logged_index = 0
     self.groomer_state = []
 
   def stop(self):
@@ -237,6 +243,9 @@ class DatastoreGroomer(threading.Thread):
         for entity in entities:
           entity.key.delete()
           counter += 1
+          if counter % self.LOG_PROGRESS_FREQUENCY == 0:
+            logging.info('Removed {} {} entities.'
+              .format(counter, model_type.__class__.__name__))
         if more:
           last_cursor = next_cursor
           self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
@@ -561,6 +570,10 @@ class DatastoreGroomer(threading.Thread):
         break
 
       self.index_entries_checked += len(references)
+      if (self.index_entries_checked >=
+        self.last_logged_index + self.LOG_PROGRESS_FREQUENCY):
+        logging.info('Checked {} index entries')
+        self.last_logged_index = self.index_entries_checked
       first_ref = references[0].keys()[0]
       logging.debug('Fetched {} total refs, starting with {}, direction: {}'
         .format(self.index_entries_checked, [first_ref], direction))
@@ -1070,6 +1083,8 @@ class DatastoreGroomer(threading.Thread):
         logging.debug("Removing task name {0}".format(entity.timestamp))
         entity.delete()
         counter += 1
+        if counter % self.LOG_PROGRESS_FREQUENCY == 0:
+          logging.info('Removed {} task entities.'.format(counter))
       self.update_groomer_state([self.CLEAN_TASKS_TASK, last_cursor])
 
     logging.info("Removed {0} task name entities".format(counter))
@@ -1095,6 +1110,9 @@ class DatastoreGroomer(threading.Thread):
           self.process_entity(entity)
 
         last_key = entities[-1].keys()[0]
+        self.entities_checked += len(entities)
+        if self.entities_checked % self.LOG_PROGRESS_FREQUENCY == 0:
+          logging.info('Checked {} entities'.format(self.entities_checked))
         self.update_groomer_state([self.CLEAN_ENTITIES_TASK, last_key])
       except datastore_errors.Error, error:
         logging.error("Error getting a batch: {0}".format(error))
@@ -1157,6 +1175,8 @@ class DatastoreGroomer(threading.Thread):
         logging.debug("Removing {0}".format(entity))
         entity.key.delete()
         counter += 1
+        if counter % self.LOG_PROGRESS_FREQUENCY == 0:
+          logging.info('Removed {} log entries.'.format(counter))
       if more:
         last_cursor = next_cursor
         self.update_groomer_state([self.CLEAN_LOGS_TASK,
