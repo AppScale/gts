@@ -152,16 +152,6 @@ class Djinn
   attr_accessor :done_loading
 
 
-  # The port that nginx will listen to for the next App Engine app that is
-  # uploaded into the system.
-  attr_accessor :nginx_port
-
-
-  # The port that haproxy will listen to for the next App Engine app that is
-  # uploaded into the system.
-  attr_accessor :haproxy_port
-
-
   # The public IP address (or FQDN) that the UserAppServer can be found at,
   # initally set to a dummy value to tell callers not to use it until a real
   # value is set.
@@ -4815,7 +4805,14 @@ HOSTS
               [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
               Integer(@options['max_memory']), get_login.private_ip)
           rescue FailedNodeException
-            Djinn.log_warn("Failed to talk to AppManager to start #{app}")
+            Djinn.log_warn("Failed to talk to AppManager to start #{app}.")
+            pid = -1
+          end
+          if pid == -1
+            # Something went wrong: inform the user and move on.
+            Djinn.log_warn("Something went wrong starting appserver for" +
+              " #{app}: check logs and running processes.")
+            next
           end
 
           # Tell the AppController at the login node (which runs HAProxy) that a
@@ -4826,7 +4823,7 @@ HOSTS
               result = acc.add_appserver_to_haproxy(app, my_node.private_ip,
                 appengine_port)
             rescue FailedNodeException
-              Djinn.log_warn("Need to retry adding appserver to haproxy for #{app}")
+              Djinn.log_warn("Need to retry adding appserver to haproxy for #{app}.")
               result = NOT_READY
             end
             if result == NOT_READY
@@ -5247,12 +5244,12 @@ HOSTS
       acc = AppControllerClient.new(appserver_to_use, @@secret)
       begin
         acc.remove_appserver_process(app_name, port)
-        @last_decision[app_name] = Time.now.to_i
       rescue FailedNodeException
         Djinn.log_warn("Failed to talk to #{appserver_to_use} to remove" +
           " appserver for app #{app_name}")
       end
     end
+    @last_decision[app_name] = Time.now.to_i
   end
 
   # Starts a new AppServer for the given application.
