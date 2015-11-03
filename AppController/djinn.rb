@@ -4420,27 +4420,14 @@ HOSTS
     ip = node.private_ip
     ssh_key = node.ssh_key
 
-    remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
-    env = {
-      'HOME' => '/root',
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'EC2_HOME' => ENV['EC2_HOME'],
-      'JAVA_HOME' => ENV['JAVA_HOME']
-    }
-    start = "/usr/sbin/service appscale-controller start"
-    stop = "/usr/sbin/service appscale-controller stop"
-    match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
-
-    # remove any possible appcontroller state that may not have been
-    # properly removed in non-cloud runs
-    remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
-    HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
-
-    MonitInterface.start_monit(ip, ssh_key)
-
+    remote_cmd = "/usr/sbin/service appscale-controller start"
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
-      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
+      result = HelperFunctions.run_remote_command(ip, remote_cmd, ssh_key, true)
+      Djinn.log_info("start_appcontroller for #{ip} returned #{result}.")
+
+      # We now wait for a while till the appcontroller is responsive.
+      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL,
+        APP_UPLOAD_TIMEOUT)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
       remote_start_msg = "[remote_start] Unforeseen exception when " + \
@@ -4457,10 +4444,10 @@ HOSTS
 
     begin
       result = acc.set_parameters(loc_array, credentials, @app_names)
-      Djinn.log_info("Setting parameters on node at #{ip} returned #{result}")
+      Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
     rescue FailedNodeException
       Djinn.log_error("Couldn't set parameters on node at #{ip}.")
-      HelperFunctions.log_and_crash("Couldn't set parameters on node at #{ip}")
+      HelperFunctions.log_and_crash("Couldn't set parameters on node at #{ip}.")
     end
   end
 
