@@ -338,8 +338,14 @@ def find_web_xml(app_name):
     raise BadConfigurationException(
       'Unable to find {} file for {}'.format(file_name, app_name))
   if len(matches) > 1:
-    raise BadConfigurationException('Found multiple {} files for {}: {}'.
-      format(file_name, app_name, matches))
+    # Use the shortest path. If there are any ties, use the first after
+    # sorting alphabetically.
+    matches.sort()
+    match_to_use = matches[0]
+    for match in matches:
+      if len(match) < match_to_use:
+        match_to_use = match
+    return match_to_use
   return matches[0]
 
 def extract_env_vars_from_xml(xml_file):
