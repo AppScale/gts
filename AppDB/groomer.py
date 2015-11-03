@@ -120,8 +120,9 @@ class DatastoreGroomer(threading.Thread):
       table_name: The database used (ie, cassandra)
       ds_path: The connection path to the datastore_server.
     """
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.INFO)
+    log_format = logging.Formatter('%(asctime)s %(levelname)s %(filename)s: '
+      '%(lineno)s %(message)s')
+    logging.getLogger().handlers[0].setFormatter(log_format)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
