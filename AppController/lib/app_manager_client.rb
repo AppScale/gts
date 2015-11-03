@@ -30,6 +30,9 @@ class AppManagerClient
     @ip = ip
 
     @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{SERVER_PORT}")
+    @conn.options["protocol.http.connect_timeout"] = MAX_TIME_OUT
+    @conn.options["protocol.http.send_timeout"] = MAX_TIME_OUT
+    @conn.options["protocol.http.receive_timeout"] = MAX_TIME_OUT
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
