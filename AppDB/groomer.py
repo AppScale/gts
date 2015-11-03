@@ -166,7 +166,7 @@ class DatastoreGroomer(threading.Thread):
       else:
         logging.info("Did not get the groomer lock.")
       sleep_time = random.randint(1, self.LOCK_POLL_PERIOD)
-      logging.info('Sleeping for {} hours.'.format(sleep_time/60/60))
+      logging.info('Sleeping for {:.1f} minutes.'.format(sleep_time/60.0))
       time.sleep(sleep_time)
 
   def get_groomer_lock(self):
