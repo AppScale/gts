@@ -167,6 +167,13 @@ class DatastoreDistributed():
   # register.
   _MAX_NUM_INDEXES = dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES
 
+  # The position of the prop name when splitting an index entry by the
+  # delimiter.
+  PROP_NAME_IN_SINGLE_PROP_INDEX = 3
+
+  # The cassandra index column that stores the reference to the entity.
+  INDEX_REFERENCE_COLUMN = 'reference'
+
   def __init__(self, datastore_batch, zookeeper=None):
     """
        Constructor.

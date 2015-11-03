@@ -21,7 +21,9 @@ from zkappscale import zktransaction as zk
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.api.memcache import memcache_distributed
+from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
+from google.appengine.datastore.datastore_query import Cursor
 from google.appengine.ext import db
 from google.appengine.ext.db import stats
 from google.appengine.ext.db import metadata
@@ -47,7 +49,7 @@ class DatastoreGroomer(threading.Thread):
   # The amount of seconds between polling to get the groomer lock.
   # Each datastore server does this poll, so it happens the number
   # of datastore servers within this lock period.
-  LOCK_POLL_PERIOD = 7 * 24 * 60 * 60 # <- 7 days
+  LOCK_POLL_PERIOD = 4 * 60 * 60 # <- 4 hours
 
   # Retry sleep on datastore error in seconds.
   DB_ERROR_PERIOD = 30
@@ -83,6 +85,33 @@ class DatastoreGroomer(threading.Thread):
   # process have an upper limit on each run.
   DASHBOARD_BATCH = 1000
 
+  # The path in ZooKeeper where the groomer state is stored.
+  GROOMER_STATE_PATH = '/appscale/groomer_state'
+
+  # The characters used to separate values when storing the groomer state.
+  GROOMER_STATE_DELIMITER = '||'
+
+  # The ID for the task to clean up entities.
+  CLEAN_ENTITIES_TASK = 'entities'
+
+  # The ID for the task to clean up ascending indices.
+  CLEAN_ASC_INDICES_TASK = 'asc-indices'
+
+  # The ID for the task to clean up descending indices.
+  CLEAN_DSC_INDICES_TASK = 'dsc-indices'
+
+  # The ID for the task to clean up old logs.
+  CLEAN_LOGS_TASK = 'logs'
+
+  # The ID for the task to clean up old tasks.
+  CLEAN_TASKS_TASK = 'tasks'
+
+  # The ID for the task to clean up old dashboard items.
+  CLEAN_DASHBOARD_TASK = 'dashboard'
+
+  # Log progress every time this many seconds have passed.
+  LOG_PROGRESS_FREQUENCY = 60 * 5
+
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor.
 
@@ -91,20 +120,28 @@ class DatastoreGroomer(threading.Thread):
       table_name: The database used (ie, cassandra)
       ds_path: The connection path to the datastore_server.
     """
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.INFO)
+    log_format = logging.Formatter('%(asctime)s %(levelname)s %(filename)s: '
+      '%(lineno)s %(message)s')
+    logging.getLogger().handlers[0].setFormatter(log_format)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
     self.db_access = None
+    self.ds_access = None
     self.datastore_path = ds_path
     self.stats = {}
     self.namespace_info = {}
     self.num_deletes = 0
     self.composite_index_cache = {}
+    self.entities_checked = 0
     self.journal_entries_cleaned = 0
+    self.index_entries_checked = 0
+    self.index_entries_delete_failures = 0
+    self.index_entries_cleaned = 0
+    self.last_logged = time.time()
+    self.groomer_state = []
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -113,7 +150,7 @@ class DatastoreGroomer(threading.Thread):
   def run(self):
     """ Starts the main loop of the groomer thread. """
     while True:
-      time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
+
       logging.debug("Trying to get groomer lock.")
       if self.get_groomer_lock():
         logging.info("Got the groomer lock.")
@@ -128,6 +165,9 @@ class DatastoreGroomer(threading.Thread):
             format(str(zk_exception)))
       else:
         logging.info("Did not get the groomer lock.")
+      sleep_time = random.randint(1, self.LOCK_POLL_PERIOD)
+      logging.info('Sleeping for {:.1f} minutes.'.format(sleep_time/60.0))
+      time.sleep(sleep_time)
 
   def get_groomer_lock(self):
     """ Tries to acquire the lock to the datastore groomer.
@@ -177,22 +217,51 @@ class DatastoreGroomer(threading.Thread):
 
   def remove_old_dashboard_data(self):
     """ Removes old statistics from the AppScale dashboard application. """
+    last_cursor = None
+    last_model = None
+
+    # If we have state information beyond what function to use,
+    # load the last seen model and cursor if available.
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_DASHBOARD_TASK):
+      last_model = self.DASHBOARD_DATA_MODELS[int(self.groomer_state[1])]
+      if len(self.groomer_state) > 2:
+        last_cursor = Cursor(self.groomer_state[2])
+
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.DASHBOARD_DATA_TIMEOUT)
-    for model_type in self.DASHBOARD_DATA_MODELS:
-      query = model_type.query().filter(model_type.timestamp < timeout)
-      entities = query.fetch(self.DASHBOARD_BATCH)
+    for model_number in range(len(self.DASHBOARD_DATA_MODELS)):
+      model_type = self.DASHBOARD_DATA_MODELS[model_number]
+      if last_model and model_type != last_model:
+        continue
       counter = 0
-      kind = ""
-      for entity in entities:
-        kind = entity.key.kind()
-        entity.key.delete()
-        counter += 1
+      while True:
+        query = model_type.query().filter(model_type.timestamp < timeout)
+        entities, next_cursor, more = query.fetch_page(self.BATCH_SIZE,
+          start_cursor=last_cursor)
+        for entity in entities:
+          entity.key.delete()
+          counter += 1
+        if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+          logging.info('Removed {} {} entities.'
+            .format(counter, model_type.__class__.__name__))
+          self.last_logged = time.time()
+        if more:
+          last_cursor = next_cursor
+          self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
+            str(model_number), last_cursor.urlsafe()])
+        else:
+          break
+      if model_number != len(self.DASHBOARD_DATA_MODELS) - 1:
+        self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
+          str(model_number + 1)])
+        last_model = None
+        last_cursor = None
       if counter > 0:
         logging.info("Removed {0} {1} dashboard entities".format(counter,
-          kind))
-     
+          model_type))
+
       # Do a scan of all entities and remove any that
       # do not have timestamps for AppScale versions 2.3 and before. 
       # This may take some time on the initial run, but subsequent runs should
@@ -301,6 +370,237 @@ class DatastoreGroomer(threading.Thread):
       return True
 
     return False
+
+  def acquire_lock_for_key(self, app_id, key, retries, retry_time):
+    """ Acquires a lock for a given entity key.
+
+    Args:
+      app_id: The application ID.
+      key: A string containing an entity key.
+      retries: An integer specifying the number of times to retry.
+      retry_time: How many seconds to wait before each retry.
+    Returns:
+      A transaction ID.
+    Raises:
+      ZKTransactionException if unable to acquire a lock from ZooKeeper.
+    """
+    root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
+    root_key += dbconstants.KIND_SEPARATOR
+
+    txn_id = self.zoo_keeper.get_transaction_id(app_id, is_xg=False)
+    try:
+      self.zoo_keeper.acquire_lock(app_id, txn_id, root_key)
+    except zk.ZKTransactionException as zkte:
+      logging.warning('Concurrent transaction exception for app id {} with '
+        'info {}'.format(app_id, str(zkte)))
+      if retries > 0:
+        logging.info('Trying again to acquire lock info {} with retry #{}'
+          .format(str(zkte), retries))
+        time.sleep(retry_time)
+        return self.acquire_lock_for_key(
+          app_id=app_id,
+          key=key,
+          retries=retries-1,
+          retry_time=retry_time
+        )
+      self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
+      raise zkte
+    return txn_id
+
+  def release_lock_for_key(self, app_id, key, txn_id, retries, retry_time):
+    """ Releases a lock for a given entity key.
+
+    Args:
+      app_id: The application ID.
+      key: A string containing an entity key.
+      txn_id: A transaction ID.
+      retries: An integer specifying the number of times to retry.
+      retry_time: How many seconds to wait before each retry.
+    """
+    root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
+    root_key += dbconstants.KIND_SEPARATOR
+
+    try:
+      self.zoo_keeper.release_lock(app_id, txn_id)
+    except zk.ZKTransactionException as zkte:
+      logging.warning(str(zkte))
+      if retries > 0:
+        logging.info('Trying again to release lock {} with retry #{}'.
+          format(txn_id, retries))
+        time.sleep(retry_time)
+        self.release_lock_for_key(
+          app_id=app_id,
+          key=key,
+          txn_id=txn_id,
+          retries=retries-1,
+          retry_time=retry_time
+        )
+      else:
+        self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
+
+  def fetch_entity_dict_for_references(self, references):
+    """ Fetches a dictionary of valid entities for a list of references.
+
+    Args:
+      references: A list of index references to entities.
+    Returns:
+      A dictionary of validated entities.
+    """
+    keys = []
+    for item in references:
+      keys.append(item.values()[0][self.ds_access.INDEX_REFERENCE_COLUMN])
+    keys = list(set(keys))
+    entities = self.db_access.batch_get_entity(dbconstants.APP_ENTITY_TABLE,
+      keys, dbconstants.APP_ENTITY_SCHEMA)
+
+    # The datastore needs to know the app ID. The indices could be scattered
+    # across apps.
+    entities_by_app = {}
+    for key in entities:
+      app = key.split(self.ds_access._SEPARATOR)[0]
+      if app not in entities_by_app:
+        entities_by_app[app] = {}
+      entities_by_app[app][key] = entities[key]
+
+    entities = {}
+    for app in entities_by_app:
+      app_entities = entities_by_app[app]
+      app_entities = self.ds_access.validated_result(app, app_entities)
+      app_entities = self.ds_access.remove_tombstoned_entities(app_entities)
+      for key in keys:
+        if key not in app_entities:
+          continue
+        if dbconstants.APP_ENTITY_SCHEMA[0] not in app_entities[key]:
+          continue
+        entities[key] = app_entities[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+    return entities
+
+  def lock_and_delete_indexes(self, references, direction, entity_key):
+    """ For a list of index entries that have the same entity, lock the entity
+    and delete the indexes.
+
+    Since another process can update an entity after we've determined that
+    an index entry is invalid, we need to re-check the index entries after
+    locking their entity key.
+
+    Args:
+      references: A list of references to an entity.
+      direction: The direction of the index.
+      entity_key: A string containing the entity key.
+    """
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = dbconstants.ASC_PROPERTY_TABLE
+    else:
+      table_name = dbconstants.DSC_PROPERTY_TABLE
+
+    app = entity_key.split(self.ds_access._SEPARATOR)[0]
+    try:
+      txn_id = self.acquire_lock_for_key(
+        app_id=app,
+        key=entity_key,
+        retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
+        retry_time=self.ds_access.LOCK_RETRY_TIME
+      )
+    except zk.ZKTransactionException:
+      self.index_entries_delete_failures += 1
+      return
+
+    entities = self.fetch_entity_dict_for_references(references)
+
+    refs_to_delete = []
+    for reference in references:
+      index_elements = reference.keys()[0].split(self.ds_access._SEPARATOR)
+      prop_name = index_elements[self.ds_access.PROP_NAME_IN_SINGLE_PROP_INDEX]
+      if not self.ds_access._DatastoreDistributed__valid_index_entry(
+        reference, entities, direction, prop_name):
+        refs_to_delete.append(reference.keys()[0])
+
+    logging.debug('Removing {} indexes starting with {}'.
+      format(len(refs_to_delete), [refs_to_delete[0]]))
+    try:
+      self.db_access.batch_delete(table_name, refs_to_delete,
+        column_names=dbconstants.PROPERTY_SCHEMA)
+      self.index_entries_cleaned += len(refs_to_delete)
+    except Exception:
+      logging.exception('Unable to delete indexes')
+      self.index_entries_delete_failures += 1
+
+    self.release_lock_for_key(
+      app_id=app,
+      key=entity_key,
+      txn_id=txn_id,
+      retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
+      retry_time=self.ds_access.LOCK_RETRY_TIME
+    )
+
+  def clean_up_indexes(self, direction):
+    """ Deletes invalid single property index entries.
+
+    This is needed because we do not delete index entries when updating or
+    deleting entities. With time, this results in queries taking an increasing
+    amount of time.
+
+    Args:
+      direction: The direction of the index.
+    """
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = dbconstants.ASC_PROPERTY_TABLE
+      task_id = self.CLEAN_ASC_INDICES_TASK
+    else:
+      table_name = dbconstants.DSC_PROPERTY_TABLE
+      task_id = self.CLEAN_DSC_INDICES_TASK
+
+    # If we have state information beyond what function to use,
+    # load the last seen start key.
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == task_id:
+      start_key = self.groomer_state[1]
+    else:
+      start_key = ''
+    end_key = dbconstants.TERMINATING_STRING
+
+    while True:
+      references = self.db_access.range_query(
+        table_name=table_name,
+        column_names=dbconstants.PROPERTY_SCHEMA,
+        start_key=start_key,
+        end_key=end_key,
+        limit=self.BATCH_SIZE,
+        start_inclusive=False,
+      )
+      if len(references) == 0:
+        break
+
+      self.index_entries_checked += len(references)
+      if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+        logging.info('Checked {} index entries'
+          .format(self.index_entries_checked))
+        self.last_logged = time.time()
+      first_ref = references[0].keys()[0]
+      logging.debug('Fetched {} total refs, starting with {}, direction: {}'
+        .format(self.index_entries_checked, [first_ref], direction))
+
+      last_start_key = start_key
+      start_key = references[-1].keys()[0]
+      if start_key == last_start_key:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
+
+      entities = self.fetch_entity_dict_for_references(references)
+
+      # Group invalid references by entity key so we can minimize locks.
+      invalid_refs = {}
+      for reference in references:
+        prop_name = reference.keys()[0].split(self.ds_access._SEPARATOR)[3]
+        if not self.ds_access._DatastoreDistributed__valid_index_entry(
+          reference, entities, direction, prop_name):
+          entity_key = reference.values()[0][self.ds_access.INDEX_REFERENCE_COLUMN]
+          if entity_key not in invalid_refs:
+            invalid_refs[entity_key] = []
+          invalid_refs[entity_key].append(reference)
+
+      for entity_key in invalid_refs:
+        self.lock_and_delete_indexes(invalid_refs[entity_key], direction, entity_key)
+      self.update_groomer_state([task_id, start_key])
 
   def clean_up_composite_indexes(self):
     """ Deletes old composite indexes and bad references.
@@ -757,21 +1057,72 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success.
     """
+    # If we have state information beyond what function to use,
+    # load the last seen cursor.
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_TASKS_TASK):
+      last_cursor = Cursor(self.groomer_state[1])
+    else:
+      last_cursor = None
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.utcnow() - \
       datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
-    query = TaskName.all()
-    query.filter("timestamp <", timeout)
-    entities = query.run()
+
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
     logging.debug("The timeout time is {0}".format(timeout))
-    for entity in entities:
-      logging.debug("Removing task name {0}".format(entity.timestamp))
-      entity.delete()
-      counter += 1
+    while True:
+      query = TaskName.all()
+      if last_cursor:
+        query.with_cursor(last_cursor)
+      query.filter("timestamp <", timeout)
+      entities = query.fetch(self.BATCH_SIZE)
+      if len(entities) == 0:
+        break
+      last_cursor = query.cursor()
+      for entity in entities:
+        logging.debug("Removing task name {0}".format(entity.timestamp))
+        entity.delete()
+        counter += 1
+      if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+        logging.info('Removed {} task entities.'.format(counter))
+        self.last_logged = self.LOG_PROGRESS_FREQUENCY
+      self.update_groomer_state([self.CLEAN_TASKS_TASK, last_cursor])
+
     logging.info("Removed {0} task name entities".format(counter))
     return True
+
+  def clean_up_entities(self):
+    # If we have state information beyond what function to use,
+    # load the last seen key.
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_ENTITIES_TASK):
+      last_key = self.groomer_state[1]
+    else:
+      last_key = ""
+    while True:
+      try:
+        logging.debug('Fetching {} entities'.format(self.BATCH_SIZE))
+        entities = self.get_entity_batch(last_key)
+
+        if not entities:
+          break
+
+        for entity in entities:
+          self.process_entity(entity)
+
+        last_key = entities[-1].keys()[0]
+        self.entities_checked += len(entities)
+        if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+          logging.info('Checked {} entities'.format(self.entities_checked))
+          self.last_logged = time.time()
+        self.update_groomer_state([self.CLEAN_ENTITIES_TASK, last_key])
+      except datastore_errors.Error, error:
+        logging.error("Error getting a batch: {0}".format(error))
+        time.sleep(self.DB_ERROR_PERIOD)
+      except dbconstants.AppScaleDBConnectionError, connection_error:
+        logging.error("Error getting a batch: {0}".format(connection_error))
+        time.sleep(self.DB_ERROR_PERIOD)
 
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
@@ -801,20 +1152,41 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
+    # If we have state information beyond what function to use,
+    # load the last seen cursor.
+    if (len(self.groomer_state) > 1 and
+      self.groomer_state[0] == self.CLEAN_LOGS_TASK):
+      last_cursor = Cursor(self.groomer_state[1])
+    else:
+      last_cursor = None
+
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     if log_timeout:
-      timeout = datetime.datetime.utcnow() - \
-        datetime.timedelta(seconds=log_timeout)
+      timeout = (datetime.datetime.utcnow() -
+        datetime.timedelta(seconds=log_timeout))
       query = RequestLogLine.query(RequestLogLine.timestamp < timeout)
       logging.debug("The timeout time is {0}".format(timeout))
     else:
       query = RequestLogLine.query()
     counter = 0
     logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
-    for entity in query.iter():
-      logging.debug("Removing {0}".format(entity))
-      entity.key.delete()
-      counter += 1
+
+    while True:
+      entities, next_cursor, more = query.fetch_page(self.BATCH_SIZE,
+        start_cursor=last_cursor)
+      for entity in entities:
+        logging.debug("Removing {0}".format(entity))
+        entity.key.delete()
+        counter += 1
+      if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+        logging.info('Removed {} log entries.'.format(counter))
+        self.last_logged = time.time()
+      if more:
+        last_cursor = next_cursor
+        self.update_groomer_state([self.CLEAN_LOGS_TASK,
+          last_cursor.urlsafe()])
+      else:
+        break
     logging.info("Removed {0} log entries.".format(counter))
     return True
 
@@ -902,55 +1274,100 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
+  def update_groomer_state(self, state):
+    """ Updates the groomer's internal state and persists the state to
+    ZooKeeper.
+
+    Args:
+      state: A list of strings representing the ID of the task to resume along
+        with any additional data about the task.
+    """
+    zk_data = self.GROOMER_STATE_DELIMITER.join(state)
+
+    # We don't want to crash the groomer if we can't update the state.
+    try:
+      self.zoo_keeper.update_node(self.GROOMER_STATE_PATH, zk_data)
+    except zk.ZKInternalException as zkie:
+      logging.exception(zkie)
+    self.groomer_state = state
+
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
     """
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
+    self.ds_access = datastore_server.DatastoreDistributed(
+      datastore_batch=self.db_access, zookeeper=self.zoo_keeper)
 
     logging.info("Groomer started")
     start = time.time()
-    last_key = ""
+
     self.reset_statistics()
     self.composite_index_cache = {}
 
-    try:
-      # We do this first to clean up soft deletes later.
-      self.remove_old_logs(self.LOG_STORAGE_TIMEOUT)
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old tasks: {0}".format(error))
+    tasks = [
+      {
+        'id': self.CLEAN_ENTITIES_TASK,
+        'description': 'clean up entities',
+        'function': self.clean_up_entities,
+        'args': []
+      },
+      {
+        'id': self.CLEAN_ASC_INDICES_TASK,
+        'description': 'clean up ascending indices',
+        'function': self.clean_up_indexes,
+        'args': [datastore_pb.Query_Order.ASCENDING]
+      },
+      {
+        'id': self.CLEAN_DSC_INDICES_TASK,
+        'description': 'clean up descending indices',
+        'function': self.clean_up_indexes,
+        'args': [datastore_pb.Query_Order.DESCENDING]
+      },
+      {
+        'id': self.CLEAN_LOGS_TASK,
+        'description': 'clean up old logs',
+        'function': self.remove_old_logs,
+        'args': [self.LOG_STORAGE_TIMEOUT]
+      },
+      {
+        'id': self.CLEAN_TASKS_TASK,
+        'description': 'clean up old tasks',
+        'function': self.remove_old_tasks_entities,
+        'args': []
+      },
+      {
+        'id': self.CLEAN_DASHBOARD_TASK,
+        'description': 'clean up old dashboard items',
+        'function': self.remove_old_dashboard_data,
+        'args': []
+      }
+    ]
 
-    try:
-      # We do this first to clean up soft deletes later.
-      self.remove_old_tasks_entities()
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old tasks: {0}".format(error))
+    groomer_state = self.zoo_keeper.get_node(self.GROOMER_STATE_PATH)
+    logging.info('groomer_state: {}'.format(groomer_state))
+    if groomer_state:
+      self.update_groomer_state(
+        groomer_state[0].split(self.GROOMER_STATE_DELIMITER))
 
-    try:
-      # We do this first to clean up soft deletes later.
-      self.remove_old_dashboard_data()
-    except datastore_errors.Error, error:
-      logging.error("Error while cleaning up old dashboard items: {0}".format(
-        error))
-
-    while True:
+    for task_number in range(len(tasks)):
+      task = tasks[task_number]
+      if (len(self.groomer_state) > 0 and self.groomer_state[0] != '' and
+        self.groomer_state[0] != task['id']):
+        continue
+      logging.info('Starting to {}'.format(task['description']))
       try:
-        entities = self.get_entity_batch(last_key)
+        task['function'](*task['args'])
+        if task_number != len(tasks) - 1:
+          next_task = tasks[task_number + 1]
+          self.update_groomer_state([next_task['id']])
+      except Exception as exception:
+        logging.error('Exception encountered while trying to {}:'.
+          format(task['description']))
+        logging.exception(exception)
 
-        if not entities:
-          break
-
-        for entity in entities:
-          self.process_entity(entity)
-
-        last_key = entities[-1].keys()[0]
-      except datastore_errors.Error, error:
-        logging.error("Error getting a batch: {0}".format(error))
-        time.sleep(self.DB_ERROR_PERIOD)
-      except dbconstants.AppScaleDBConnectionError, connection_error:
-        logging.error("Error getting a batch: {0}".format(connection_error))
-        time.sleep(self.DB_ERROR_PERIOD)
+    self.update_groomer_state([])
 
     timestamp = datetime.datetime.utcnow()
 
@@ -961,10 +1378,18 @@ class DatastoreGroomer(threading.Thread):
       logging.error("There was an error updating the namespaces")
 
     del self.db_access
+    del self.ds_access
 
     time_taken = time.time() - start
     logging.info("Groomer cleaned {0} journal entries".format(
       self.journal_entries_cleaned))
+    logging.info("Groomer checked {0} index entries".format(
+      self.index_entries_checked))
+    logging.info("Groomer cleaned {0} index entries".format(
+      self.index_entries_cleaned))
+    if self.index_entries_delete_failures > 0:
+      logging.info("Groomer failed to remove {0} index entries".format(
+        self.index_entries_delete_failures))
     logging.info("Groomer took {0} seconds".format(str(time_taken)))
 
 def main():
@@ -980,7 +1405,11 @@ def main():
   logging.debug("Trying to get groomer lock.")
   if ds_groomer.get_groomer_lock():
     logging.info("Got the groomer lock.")
-    ds_groomer.run_groomer()
+    try:
+      ds_groomer.run_groomer()
+    except Exception as exception:
+      logging.exception('Encountered exception {} while running the groomer.'
+        .format(str(exception)))
     try:
       ds_groomer.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
     except zk.ZKTransactionException, zk_exception:
