@@ -495,7 +495,7 @@ CONFIG
 
   def self.remove_app(app_name)
     config_name = "#{app_name}.#{CONFIG_EXTENSION}"
-    FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload()
   end
 
