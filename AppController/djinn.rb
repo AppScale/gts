@@ -1714,6 +1714,12 @@ class Djinn
       change_job()
     end
 
+    # At this point we are mainly configured, so let's check that some
+    # basics are in place.
+    if @userappserver_ip == 'not-up-yet'
+      HelperFunctions.log_and_crash("Couldn't find a UAServer.")
+    end
+
     @done_loading = true
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
@@ -2452,35 +2458,6 @@ class Djinn
       Djinn.log_error(failed_match_msg)
     end
     return secret == @@secret
-  end
-
-  def set_uaserver_ips()
-    Djinn.log_info("Setting uaserver public/private ips on node #{my_node}.")
-
-    # Use this node if we run a uaserver. Otherwise just set it to an
-    # arbitrary db node's ips.
-    if my_node.is_db_master? or my_node.is_db_slave?
-      @userappserver_ip = my_node.public_ip
-    else
-      @nodes.each { |node|
-        Djinn.log_debug("Looking at node #{node} as a possible uaserver.")
-        if node.is_db_master? or node.is_db_slave?
-          @userappserver_ip = node.public_ip
-          break
-        end
-      }
-    end
-
-    if @userappserver_ip != 'not-up-yet'
-      Djinn.log_info("Using UserAppServer at #{@userappserver_ip}.")
-
-      # Let's make sure the UAserver is in business before proceeding.
-      HelperFunctions.sleep_until_port_is_open(@userappserver_ip,
-        UserAppClient::SERVER_PORT, HelperFunctions::USE_SSL)
-    else
-      Djinn.log_fatal("Couldn't find a UAServer.")
-      HelperFunctions.log_and_crash("Couldn't find a UAServer.")
-    end
   end
 
   def get_public_ip(private_ip)
@@ -3438,18 +3415,13 @@ class Djinn
   end
 
   def change_job()
-    my_data = my_node
-    jobs_to_run = my_data.jobs
-
+    Djinn.log_debug("change_job-loop: initializing services.")
     initialize_server()
     start_db_services()
 
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
     if my_node.is_shadow?
-      # TODO: Check to make sure the machines aren't already
-      # initialized before attempting to start up AppScale on them.
       spawn_and_setup_appengine
-
       loop {
         @everyone_else_is_done = true
         @nodes.each_index { |index|
@@ -3532,9 +3504,16 @@ class Djinn
       Djinn.log_debug("DB services are not needed on this node.")
     end
 
-    # Let's set which UAserver to use: all nodes should have one.
-    set_uaserver_ips()
-
+    # Let's set the uaserver now, and make sure we can talk to it.
+    configure_uaserver_nginx()
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    begin
+      uac.get_all_apps()
+    rescue FailedNodeException
+      Djinn.log_info("Waiting for the UserAppServer...")
+      Kernel.sleep(1)
+      retry
+    end
     # If we're starting AppScale with data from a previous deployment, we
     # may have to clear out all the registered app instances from the
     # UserAppServer (since nobody is currently hosting any apps).
@@ -3543,6 +3522,11 @@ class Djinn
         erase_app_instance_info
       end
     end
+
+    # As of 2.5 @userappserver_ip is used by the tools to detect when the
+    # boot process progressed enough. So when we set it to a proper IP,
+    # the tools proceeds.
+    @userappserver_ip = my_node.private.ip
   end
 
   # Starts all of the services that this node has been assigned to run.
@@ -3877,6 +3861,8 @@ class Djinn
     Djinn.log_debug("nodes is #{nodes.join(', ')}")
     return [] if nodes.length.zero?
 
+    # TODO: we should check if the instances are already up (ie we crashed
+    # before saving the state), and avoid to restart more instances.
     appengine_info = []
     if is_cloud?
       @state = "Spawning up #{nodes.length} virtual machines"
@@ -4361,7 +4347,6 @@ HOSTS
     end
 
     configure_db_nginx()
-    configure_uaserver_nginx()
     write_memcache_locations()
     write_apploadbalancer_location()
     find_nearest_taskqueue()
@@ -4553,9 +4538,6 @@ HOSTS
 
     if @restored == false
       Djinn.log_info("Need to restore.")
-
-      # Make sure we have a userappserver_ip setup.
-      set_uaserver_ips()
 
       uac = UserAppClient.new(@userappserver_ip, @@secret)
       begin
