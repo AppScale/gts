@@ -4,6 +4,18 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 2.5.0, released November, 2015
+Highlights of features/bugs in this release:
+- Misc AppController fixes related to port collisions
+- Handle reserved delimiters in property values
+- Invalid index record grooming
+- Keep AppScale logs between restarts
+- Backup & Recovery of application source code
+- Fixed AppController self-lock issue
+- Fixed issue with AppScale not coming up after reboot
+- Default monit configuration changes (naming, cleanup, file checks, etc.)
+- Fixed bug in removing applications from AppScale
+
 AppScale version 2.4.0, released September, 2015
 Highlights of features/bugs in this release:
 - Upgraded to Ruby 1.9
