@@ -3514,6 +3514,13 @@ class Djinn
       Kernel.sleep(1)
       retry
     end
+
+    # As of 2.5 @userappserver_ip is used by the tools to detect when the
+    # boot process progressed enough. So when we set it to a proper IP,
+    # the tools proceeds.
+    @userappserver_ip = my_node.private_ip
+    Djinn.log_info("Using UserAppServer client at #{@userappserver_ip}.")
+
     # If we're starting AppScale with data from a previous deployment, we
     # may have to clear out all the registered app instances from the
     # UserAppServer (since nobody is currently hosting any apps).
@@ -3522,11 +3529,6 @@ class Djinn
         erase_app_instance_info
       end
     end
-
-    # As of 2.5 @userappserver_ip is used by the tools to detect when the
-    # boot process progressed enough. So when we set it to a proper IP,
-    # the tools proceeds.
-    @userappserver_ip = my_node.private.ip
   end
 
   # Starts all of the services that this node has been assigned to run.
