@@ -2403,23 +2403,13 @@ class Djinn
     HelperFunctions.log_and_crash("No db master nodes found.")
   end
 
-  def self.get_db_master_ip()
-    masters_file = File.expand_path("#{CONFIG_FILE_LOCATION}/masters")
-    master_ip = HelperFunctions.read_file(masters_file)
-    return master_ip
-  end
-
-  def self.get_db_slave_ips()
-    slaves_file = File.expand_path("#{CONFIG_FILE_LOCATION}/slaves")
-    slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
-    slave_ips = [] if slave_ips == [""]
-    return slave_ips
-  end
-
   def self.get_nearest_db_ip()
-    db_ips = self.get_db_slave_ips
-    db_ips << self.get_db_master_ip
-    db_ips.compact!
+    db_ips = []
+    @nodes.each { | node |
+      if node.is_db_master? or node.is_db_slave?
+        db_ips.push(node.private_ip)
+      end
+    }
 
     local_ip = HelperFunctions.local_ip()
     Djinn.log_debug("DB IPs are [#{db_ips.join(', ')}]")
@@ -3415,10 +3405,6 @@ class Djinn
   end
 
   def change_job()
-    Djinn.log_debug("change_job-loop: initializing services.")
-    initialize_server()
-    start_db_services()
-
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
     if my_node.is_shadow?
       spawn_and_setup_appengine
@@ -3448,6 +3434,8 @@ class Djinn
       Djinn.log_info("All nodes have been started.")
     end
 
+    initialize_server()
+    start_db_services()
     start_api_services()
 
     # Login node will start additional services.
@@ -3459,6 +3447,7 @@ class Djinn
     end
 
     # appengine is started elsewhere
+    Djinn.log_debug("change_job: done.")
   end
 
   # This function starts the DB and Zookeeper service on this node (if
@@ -3851,6 +3840,8 @@ class Djinn
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
     }
+    Djinn.log_debug("spawn_and_setup_appengine: nodes changed to #{nodes}.")
+
     find_me_in_locations()
     write_database_info()
     update_firewall()
@@ -3860,7 +3851,7 @@ class Djinn
   end
 
   def spawn_appengine(nodes)
-    Djinn.log_debug("nodes is #{nodes.join(', ')}")
+    Djinn.log_debug("spawn_appengine: nodes is #{nodes.join(', ')}.")
     return [] if nodes.length.zero?
 
     # TODO: we should check if the instances are already up (ie we crashed
@@ -4459,9 +4450,10 @@ HOSTS
   def start_ejabberd()
     @state = "Starting up XMPP server"
     my_public = my_node.public_ip
+    master_db = get_db_master()
     Ejabberd.stop()
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_public, get_db_master_ip, @@secret)
+    Ejabberd.write_auth_script(my_public, master_db.private_ip, @@secret)
     Ejabberd.write_config_file(my_public)
     Ejabberd.start()
   end
