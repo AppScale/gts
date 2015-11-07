@@ -1267,7 +1267,7 @@ class Djinn
       'free_memory' => Integer(usage['free_mem']),
       'disk' => usage['disk'],
       'roles' => jobs,
-      'db_location' => get_login_public_ip,
+      'db_location' => get_login.public_ip,
       'cloud' => my_node.cloud,
       'state' => @state
     }
