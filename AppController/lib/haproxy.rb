@@ -167,8 +167,7 @@ module HAProxy
   end
 
   # Updates the HAProxy config file for this App Engine application to
-  # point to all the ports currently the application. In contrast with
-  # write_app_config, these ports can be non-contiguous.
+  # point to all the ports currently the application.
   def self.update_app_config(private_ip, app_name, app_info)
     listen_port = app_info['haproxy']
 

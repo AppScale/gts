@@ -2222,6 +2222,7 @@ class Djinn
     # it to prevent race conditions.
     @state_change_lock.synchronize {
       @nodes.concat(new_nodes)
+      @nodes.uniq!
     }
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
@@ -3442,7 +3443,6 @@ class Djinn
     end
 
     initialize_server()
-    start_db_services()
     start_api_services()
 
     # Login node will start additional services.
@@ -3457,9 +3457,23 @@ class Djinn
     Djinn.log_debug("change_job: done.")
   end
 
-  # This function starts the DB and Zookeeper service on this node (if
-  # this node hosts them).
-  def start_db_services()
+  # Starts all of the services that this node has been assigned to run.
+  # Also starts all services that all nodes run in an AppScale deployment.
+  def start_api_services()
+    @state = "Starting Load Balancer"
+    Djinn.log_info("Starting Load Balancer")
+
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    # TODO: Set up nginx and haproxy without needing the dashboard.
+    HAProxy.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    HAProxy.start()
+
+    Nginx.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    Nginx.reload()
+
     threads = []
 
     if my_node.is_zookeeper?
@@ -3492,68 +3506,11 @@ class Djinn
       }
     end
 
-    if threads.length > 0
-      Djinn.log_debug("Waiting for DB services to start up.")
-      threads.each { |t| t.join() }
-      Djinn.log_info("DB services have started on this node.")
-    else
-      Djinn.log_debug("DB services are not needed on this node.")
-    end
-
-    # Let's set the uaserver now, and make sure we can talk to it.
-    configure_uaserver_nginx()
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    begin
-      uac.get_all_apps()
-    rescue FailedNodeException
-      Djinn.log_info("Waiting for the UserAppServer...")
-      Kernel.sleep(1)
-      retry
-    end
-
-    # As of 2.5 @userappserver_ip is used by the tools to detect when the
-    # boot process progressed enough. So when we set it to a proper IP,
-    # the tools proceeds.
-    @userappserver_ip = my_node.private_ip
-    Djinn.log_info("Using UserAppServer client at #{@userappserver_ip}.")
-
-    # If we're starting AppScale with data from a previous deployment, we
-    # may have to clear out all the registered app instances from the
-    # UserAppServer (since nobody is currently hosting any apps).
-    if my_node.is_db_master?
-      if @options['clear_datastore'].downcase == "true"
-        erase_app_instance_info
-      end
-    end
-  end
-
-  # Starts all of the services that this node has been assigned to run.
-  # Also starts all services that all nodes run in an AppScale deployment.
-  def start_api_services()
-    @state = "Starting Load Balancer"
-    Djinn.log_info("Starting Load Balancer")
-
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-    # TODO: Set up nginx and haproxy without needing the dashboard.
-    HAProxy.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    HAProxy.start()
-
-    Nginx.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    Nginx.reload()
-
-    # ejabberd uses uaserver for authentication
-    # so start it after we find out the uaserver's ip
-    threads = []
     if my_node.is_login?
       threads << Thread.new {
         start_ejabberd()
       }
     end
-
-    @done_initializing = true
 
     if my_node.is_memcache?
       threads << Thread.new {
@@ -3580,14 +3537,12 @@ class Djinn
       }
     end
 
-    # Start search service.
     if my_node.is_search?
       threads << Thread.new {
         start_search_role()
       }
     end
 
-    # Start tasqueue service if needed.
     if my_node.is_taskqueue_master?
       threads << Thread.new {
         start_taskqueue_master()
@@ -3597,6 +3552,33 @@ class Djinn
         start_taskqueue_slave()
       }
     end
+
+    # Let's set the uaserver now, and make sure we can talk to it.
+    configure_uaserver_nginx()
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    begin
+      uac.get_all_apps()
+    rescue FailedNodeException
+      Djinn.log_info("Waiting for the UserAppServer...")
+      Kernel.sleep(1)
+      retry
+    end
+    # As of 2.5 @userappserver_ip is used by the tools to detect when the
+    # boot process progressed enough. So when we set it to a proper IP,
+    # the tools proceeds.
+    @userappserver_ip = my_node.private_ip
+    Djinn.log_info("Using UserAppServer client at #{@userappserver_ip}.")
+
+    # If we're starting AppScale with data from a previous deployment, we
+    # may have to clear out all the registered app instances from the
+    # UserAppServer (since nobody is currently hosting any apps).
+    if my_node.is_db_master?
+      if @options['clear_datastore'].downcase == "true"
+        erase_app_instance_info
+      end
+    end
+
+    @done_initializing = true
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
@@ -3847,6 +3829,7 @@ class Djinn
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
+      @nodes.uniq!
     }
     Djinn.log_debug("spawn_and_setup_appengine: nodes changed to #{nodes}.")
 
