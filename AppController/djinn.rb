@@ -911,7 +911,7 @@ class Djinn
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
     @state_change_lock.synchronize {
-      @nodes = converted_nodes
+      @nodes = converted_nodes.uniq
     }
     @options = sanitize_credentials()
 
@@ -1267,10 +1267,17 @@ class Djinn
       'free_memory' => Integer(usage['free_mem']),
       'disk' => usage['disk'],
       'roles' => jobs,
-      'db_location' => @userappserver_ip,
+      'db_location' => get_login_public_ip,
       'cloud' => my_node.cloud,
       'state' => @state
     }
+    # TODO: the tools uses this value to detect first when the AC is up,
+    # second to find out which UAserver to talk to. We set it to the login
+    # node now, but only after we are setup. The name (db_location) is
+    # a misnomer and should be changed.
+    if @userappserver_ip == 'not-up-yet'
+      stats['db_location'] = @userappserver_ip
+    end
 
     stats['apps'] = {}
     @app_names.each { |name|
@@ -2855,8 +2862,8 @@ class Djinn
     old_public_ip = @my_public_ip
     old_private_ip = @my_private_ip
 
-    if @userappserver_ip == old_public_ip
-      @userappserver_ip = new_public_ip
+    if @userappserver_ip == old_private_ip
+      @userappserver_ip = new_private_ip
     end
 
     @nodes.each { |node|
@@ -3130,7 +3137,7 @@ class Djinn
 
         old_roles = my_node.jobs
         @state_change_lock.synchronize {
-          @nodes = new_nodes
+          @nodes = new_nodes.uniq
         }
         find_me_in_locations()
         new_roles = my_node.jobs
@@ -3669,9 +3676,10 @@ class Djinn
   end
 
   def start_blobstore_server()
-    db_local_ip = @userappserver_ip
-    BlobServer.start(db_local_ip, DatastoreServer::LISTEN_PORT_NO_SSL)
-    BlobServer.is_running(db_local_ip)
+    # As 2.6.0, every host has an nginx/haproxy configuration to find the
+    # DB. So we use it.
+    BlobServer.start(my_node.private_ip, DatastoreServer::LISTEN_PORT_NO_SSL)
+    BlobServer.is_running(my_node.private_ip)
 
     return true
   end
