@@ -3476,17 +3476,17 @@ class Djinn
 
     threads = []
 
-    if my_node.is_zookeeper?
-      threads << Thread.new {
+    threads << Thread.new {
+      if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
         rescue FailedZooKeeperOperationException
           HelperFunctions.log_and_crash("Couldn't start zookeeper")
         end
-        ZKInterface.init(my_node, @nodes)
-      }
-    end
+      end
+      ZKInterface.init(my_node, @nodes)
+    }
 
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
@@ -3553,30 +3553,32 @@ class Djinn
       }
     end
 
-    # Let's set the uaserver now, and make sure we can talk to it.
-    configure_uaserver_nginx()
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    begin
-      uac.get_all_apps()
-    rescue FailedNodeException
-      Djinn.log_info("Waiting for the UserAppServer...")
-      Kernel.sleep(1)
-      retry
-    end
-    # As of 2.5 @userappserver_ip is used by the tools to detect when the
-    # boot process progressed enough. So when we set it to a proper IP,
-    # the tools proceeds.
-    @userappserver_ip = my_node.private_ip
-    Djinn.log_info("Using UserAppServer client at #{@userappserver_ip}.")
-
-    # If we're starting AppScale with data from a previous deployment, we
-    # may have to clear out all the registered app instances from the
-    # UserAppServer (since nobody is currently hosting any apps).
-    if my_node.is_db_master?
-      if @options['clear_datastore'].downcase == "true"
-        erase_app_instance_info
+    threads << Thread.new {
+      # Let's set the uaserver now, and make sure we can talk to it.
+      configure_uaserver_nginx()
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      begin
+        uac.get_all_apps()
+      rescue FailedNodeException
+        Djinn.log_info("Waiting for the UserAppServer...")
+        Kernel.sleep(1)
+        retry
       end
-    end
+      # As of 2.5 @userappserver_ip is used by the tools to detect when the
+      # boot process progressed enough. So when we set it to a proper IP,
+      # the tools proceeds.
+      @userappserver_ip = my_node.private_ip
+      Djinn.log_info("Using UserAppServer client at #{@userappserver_ip}.")
+
+      # If we're starting AppScale with data from a previous deployment, we
+      # may have to clear out all the registered app instances from the
+      # UserAppServer (since nobody is currently hosting any apps).
+      if my_node.is_db_master?
+        if @options['clear_datastore'].downcase == "true"
+          erase_app_instance_info
+        end
+      end
+    }
 
     @done_initializing = true
 
@@ -3713,8 +3715,6 @@ class Djinn
   def start_groomer_service()
     @state = "Starting Groomer Service"
     Djinn.log_info("Starting groomer service.")
-    # Groomer requires locations of ZK.
-    write_zookeeper_locations()
     GroomerService.start()
     Djinn.log_info("Done starting groomer service.")
   end
@@ -4331,6 +4331,7 @@ HOSTS
     end
 
     configure_db_nginx()
+    write_zookeeper_locations()
     write_memcache_locations()
     write_apploadbalancer_location()
     find_nearest_taskqueue()
