@@ -3565,12 +3565,12 @@ class Djinn
       end
     }
 
+    @done_initializing = true
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
-
-    @done_initializing = true
     Djinn.log_info("API services have started on this node")
   end
 
