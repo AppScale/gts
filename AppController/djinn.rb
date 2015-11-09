@@ -3434,32 +3434,34 @@ class Djinn
 
     threads = []
 
-    threads << Thread.new {
-      loop {
-        @everyone_else_is_done = true
-        @nodes.each_index { |index|
-          unless index == @my_index
-            ip = @nodes[index].private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              if !acc.is_done_initializing?
-                Djinn.log_info("Node at #{ip} is not done initializing yet - " +
-                  "will check back later.")
+    if my_node.is_shadow?
+      threads << Thread.new {
+        loop {
+          @everyone_else_is_done = true
+          @nodes.each_index { |index|
+            unless index == @my_index
+              ip = @nodes[index].private_ip
+              acc = AppControllerClient.new(ip, @@secret)
+              begin
+                if !acc.is_done_initializing?
+                  Djinn.log_info("Node at #{ip} is not done initializing yet - " +
+                    "will check back later.")
+                  @everyone_else_is_done = false
+                end
+              rescue FailedNodeException
+                Djinn.log_warn("Node at #{ip} is not responding to initializing" +
+                  " queries - will check back later.")
                 @everyone_else_is_done = false
               end
-            rescue FailedNodeException
-              Djinn.log_warn("Node at #{ip} is not responding to initializing" +
-                " queries - will check back later.")
-              @everyone_else_is_done = false
             end
-          end
+          }
+          break if @everyone_else_is_done
+          Djinn.log_info("Waiting on other nodes to come online.")
+          Kernel.sleep(SMALL_WAIT)
         }
-        break if @everyone_else_is_done
-        Djinn.log_info("Waiting on other nodes to come online.")
-        Kernel.sleep(SMALL_WAIT)
+        Djinn.log_info("All nodes have been initialized.")
       }
-      Djinn.log_info("All nodes have been initialized.")
-    }
+    end
 
     threads << Thread.new {
       if my_node.is_zookeeper?
