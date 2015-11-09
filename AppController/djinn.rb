@@ -2411,25 +2411,6 @@ class Djinn
     HelperFunctions.log_and_crash("No db master nodes found.")
   end
 
-  def self.get_nearest_db_ip()
-    db_ips = []
-    @nodes.each { | node |
-      if node.is_db_master? or node.is_db_slave?
-        db_ips.push(node.private_ip)
-      end
-    }
-
-    local_ip = HelperFunctions.local_ip()
-    Djinn.log_debug("DB IPs are [#{db_ips.join(', ')}]")
-    if db_ips.include?(local_ip)
-      # If there is a local database then use it
-      local_ip
-    else
-      # Otherwise just select one randomly
-      db_ips.sort_by { rand }[0]
-    end
-  end
-
   def get_all_appengine_nodes()
     ae_nodes = []
     @nodes.each { |node|
