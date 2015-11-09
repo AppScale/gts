@@ -4376,6 +4376,8 @@ HOSTS
     stop = "/usr/sbin/service appscale-controller stop"
     match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
 
+    # Let's make sure we don't have 2 jobs monitoring the controller.
+    FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
     MonitInterface.start_monit(ip, ssh_key)
 
     begin
