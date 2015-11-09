@@ -4740,14 +4740,14 @@ HOSTS
 
           xmpp_ip = get_login.public_ip
 
+          pid = -1
           begin
             pid = app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
-              [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
+              HelperFunctions.get_app_env_vars(app),
               Integer(@options['max_memory']), get_login.private_ip)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to AppManager to start #{app}.")
-            pid = -1
           end
           if pid == -1
             # Something went wrong: inform the user and move on.
