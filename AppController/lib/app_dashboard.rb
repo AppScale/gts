@@ -80,7 +80,7 @@ module AppDashboard
       while true
         begin
           pid = app_manager.start_app(APP_NAME, port, uaserver_ip, APP_LANGUAGE,
-            login_ip, [uaserver_ip], {})
+            login_ip, {})
           if pid != -1
             break
           end
