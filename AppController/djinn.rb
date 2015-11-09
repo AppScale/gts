@@ -260,11 +260,6 @@ class Djinn
   CONFIG_FILE_LOCATION = "/etc/appscale"
 
 
-  # The location on the local filesystem where the AppController periodically
-  # writes its state to, and recovers its state from if it crashes.
-  STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
-
-
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
   TASKQUEUE_FILE = "#{CONFIG_FILE_LOCATION}/taskqueue_nodes"
@@ -1716,6 +1711,9 @@ class Djinn
       wait_for_data()
       parse_options()
     end
+
+    # Let's make sure the appcontroller is under monit configuration.
+    set_appcontroller_monit(my_node)
 
     if need_to_start_jobs
       change_job()
@@ -4362,10 +4360,11 @@ HOSTS
     }
   end
 
-  def start_appcontroller(node)
+  def set_appcontroller_monit(node)
     ip = node.private_ip
     ssh_key = node.ssh_key
 
+    Djinn.log_debug("Configuring AppController monit on #{ip}")
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
     env = {
       'HOME' => '/root',
@@ -4376,11 +4375,6 @@ HOSTS
     start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
     match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
-
-    # remove any possible appcontroller state that may not have been
-    # properly removed in non-cloud runs
-    remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
-    HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     MonitInterface.start_monit(ip, ssh_key)
 
@@ -4394,13 +4388,18 @@ HOSTS
       Djinn.log_warn(remote_start_msg)
       retry
     end
+  end
+
+  def start_appcontroller(node)
+    set_appcontroller_monit(node)
+    ip = node.private_ip
+    ssh_key = node.ssh_key
 
     Djinn.log_debug("Sending data to #{ip}")
-    acc = AppControllerClient.new(ip, @@secret)
-
     loc_array = Djinn.convert_location_class_to_array(@nodes)
     credentials = @options.to_a.flatten
 
+    acc = AppControllerClient.new(ip, @@secret)
     begin
       result = acc.set_parameters(loc_array, credentials, @app_names)
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}")
