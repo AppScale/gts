@@ -128,13 +128,32 @@ class UnprocessedQueryResult(datastore_pb.QueryResult):
   it is not safe to use as a general purpose QueryResult replacement.
   """
   def __init__(self, contents=None):
+    """ Initializes an UnprocessedQueryResult object.
+
+    Args:
+      contents: An optional string to initialize a QueryResult object.
+    """
     datastore_pb.QueryResult.__init__(self, contents=contents)
     self.binary_results_ = []
 
   def result_list(self):
+    """ Returns a reference to the stored list of results.
+
+    Unlike the original function, this returns the binary results instead of
+    the decoded results.
+    """
     return self.binary_results_
 
   def OutputUnchecked(self, out):
+    """ Encodes QueryResult object and outputs it to a buffer object.
+
+    This is called during the Encode process. The only difference from the
+    original function is outputting the binary results instead of encoding
+    result objects.
+
+    Args:
+      out: A buffer object to store the output.
+    """
     if (self.has_cursor_):
       out.putVarInt32(10)
       out.putVarInt32(self.cursor_.ByteSize())
@@ -177,6 +196,13 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
   This is only meant to accompany the UnprocessedQueryResult class.
   """
   def __init__(self, query, binary_results):
+    """ Initializes an UnprocessedQueryCursor object.
+
+    Args:
+      query: A query protocol buffer object.
+      binary_results: A list of strings that contain encoded protocol buffer
+        results.
+    """
     self.__binary_results = binary_results
     self.__query = query
     if len(binary_results) > 0:
@@ -190,6 +216,14 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
       last_binary_result)
 
   def PopulateQueryResult(self, count, offset, result):
+    """ Populates a QueryResult object with results the QueryCursor has been
+    storing.
+
+    Args:
+      count: The number of results requested in the query.
+      offset: The number of results to skip.
+      result: A QueryResult object to populate.
+    """
     result.set_skipped_results(min(count, offset))
     result_list = result.result_list()
     if self.__binary_results:
