@@ -312,6 +312,10 @@ class Djinn
   DUTY_CYCLE = 20
 
 
+  # This is a 'small' sleep that we generally use when waiting for
+  # services to be up.
+  SMALL_WAIT = 5
+
   # How often we should attempt to increase the number of AppServers on a
   # given node.
   SCALEUP_TIME_THRESHOLD = 12  # seconds
@@ -327,10 +331,6 @@ class Djinn
   # boot, and to reap the benefit of an already running instance. This is
   # a multiplication factor we use with the above thresholds.
   SCALE_TIME_MULTIPLIER = 6
-
-  # The size of the rotating buffers that we use to keep information on
-  # the request rate and number of enqueued requests.
-  NUM_DATA_POINTS = 10
 
 
   # The position in the haproxy profiling information where the name of
@@ -776,12 +776,12 @@ class Djinn
 
     if is_hybrid_cloud?
       threads << Thread.new {
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
         HelperFunctions.terminate_hybrid_vms(options)
       }
     elsif is_cloud?
       threads << Thread.new {
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
         infrastructure = options["infrastructure"]
         keyname = options["keyname"]
         HelperFunctions.terminate_all_vms(infrastructure, keyname)
@@ -2255,7 +2255,7 @@ class Djinn
       else
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
-        Kernel.sleep(30)
+        Kernel.sleep(DUTY_CYCLE)
         redo
       end
     }
@@ -3248,7 +3248,7 @@ class Djinn
         HelperFunctions.log_and_crash("Received kill signal, aborting startup")
       else
         Djinn.log_info("Waiting for data from the load balancer or cmdline tools")
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
       end
     }
   end
@@ -3437,7 +3437,7 @@ class Djinn
         }
         break if @everyone_else_is_done
         Djinn.log_info("Waiting on other nodes to come online.")
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
       }
       Djinn.log_info("All nodes have been started.")
     end
@@ -3561,7 +3561,7 @@ class Djinn
         uac.get_all_apps()
       rescue FailedNodeException
         Djinn.log_info("Waiting for the UserAppServer...")
-        Kernel.sleep(1)
+        Kernel.sleep(SMALL_WAIT)
         retry
       end
       # As of 2.5 @userappserver_ip is used by the tools to detect when the
@@ -3609,7 +3609,7 @@ class Djinn
       retval = `cat /tmp/retval`.to_i
       return if retval.zero?
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
-      Kernel.sleep(5)
+      Kernel.sleep(SMALL_WAIT)
       retries -= 1
       break if retries.zero?
     }
@@ -3926,7 +3926,7 @@ class Djinn
     end
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
-    Kernel.sleep(3)
+    Kernel.sleep(SMALL_WAIT)
 
     # Commands used in the cloud environment to set the root access.
     if need_to_ssh
@@ -4275,7 +4275,7 @@ HOSTS
         Djinn.log_warn("Failed to talk to InfrastructureManager while attaching disk")
         # TODO: this logic (and the following) to retry forever is not
         # healhy.
-        Kernel.sleep(1)
+        Kernel.sleep(SMALL_WAIT)
         retry
       end
       loop {
@@ -4285,7 +4285,7 @@ HOSTS
         else
           Djinn.log_info("Device #{device_name} does not exist - waiting for " +
             "it to exist.")
-          Kernel.sleep(1)
+          Kernel.sleep(SMALL_WAIT)
         end
       }
 
@@ -4604,7 +4604,7 @@ HOSTS
         # Failed to talk to the UserAppServer: let's try again.
       end
       Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
-      Kernel.sleep(5)
+      Kernel.sleep(SMALL_WAIT)
     }
 
     my_public = my_node.public_ip
@@ -4703,7 +4703,7 @@ HOSTS
           break
         else
           Djinn.log_debug("Waiting for port file for app #{app}")
-          Kernel.sleep(5)
+          Kernel.sleep(SMALL_WAIT)
         end
       }
     end
@@ -4770,7 +4770,7 @@ HOSTS
             if result == NOT_READY
               Djinn.log_info("Login node is not yet ready for AppServers to " +
                 "be added - trying again momentarily.")
-              Kernel.sleep(5)
+              Kernel.sleep(SMALL_WAIT)
             else
               Djinn.log_info("Successfully informed login node about new " +
                 "AppServer for #{app} on port #{appengine_port}.")
@@ -4824,7 +4824,7 @@ HOSTS
         @app_info_map[app]['language'])
 
       loop {
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
         begin
           success = uac.add_instance(app, my_public, nginx_port)
           Djinn.log_debug("Add instance returned #{success}")
@@ -5523,7 +5523,7 @@ HOSTS
       break if !nodes_with_app.empty?
       Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
         "have a copy of app #{appname}")
-      Kernel.sleep(5)
+      Kernel.sleep(SMALL_WAIT)
       retries_left -=1
       if retries_left.zero?
         Djinn.log_warn("Nobody appears to be hosting app #{appname}")
@@ -5543,13 +5543,12 @@ HOSTS
           Djinn.log_debug("Got a copy of #{appname} from #{ip}")
           return true
         end
-        Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
         if tries > 0
-          Djinn.log_debug("Trying again in 5 seconds")
+          Djinn.log_debug("Couldn't get the application from #{ip}:#{app_path} this time. Retrying.")
           tries = tries - 1
-          Kernel.sleep(5)
+          Kernel.sleep(SMALL_WAIT)
         else
-          Djinn.log_warn("Giving up on node #{ip} for the application")
+          Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}.")
           break
         end
       }

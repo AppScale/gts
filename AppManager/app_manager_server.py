@@ -38,7 +38,6 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'language',
                           'load_balancer_ip',
                           'xmpp_ip',
-                          'dblocations',
                           'env_vars',
                           'max_memory']
 
@@ -104,7 +103,6 @@ def start_app(config):
        language: What language the app is written in
        load_balancer_ip: Public ip of load balancer
        xmpp_ip: IP of XMPP service
-       dblocations: List of database locations
        env_vars: A dict of environment variables that should be passed to the
         app.
        max_memory: An int that names the maximum amount of memory that this
