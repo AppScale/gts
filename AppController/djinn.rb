@@ -3397,30 +3397,7 @@ class Djinn
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
     if my_node.is_shadow?
       spawn_and_setup_appengine
-      loop {
-        @everyone_else_is_done = true
-        @nodes.each_index { |index|
-          unless index == @my_index
-            ip = @nodes[index].private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              if !acc.is_done_initializing?
-                Djinn.log_info("Node at #{ip} is not done initializing yet - " +
-                  "will check back later.")
-                @everyone_else_is_done = false
-              end
-            rescue FailedNodeException
-              Djinn.log_warn("Node at #{ip} is not responding to initializing" +
-                " queries - will check back later.")
-              @everyone_else_is_done = false
-            end
-          end
-        }
-        break if @everyone_else_is_done
-        Djinn.log_info("Waiting on other nodes to come online.")
-        Kernel.sleep(SMALL_WAIT)
-      }
-      Djinn.log_info("All nodes have been started.")
+      Djinn.log_info("All nodes have been spawned/started.")
     end
 
     initialize_server()
@@ -3456,6 +3433,33 @@ class Djinn
     Nginx.reload()
 
     threads = []
+
+    threads << Thread.new {
+      loop {
+        @everyone_else_is_done = true
+        @nodes.each_index { |index|
+          unless index == @my_index
+            ip = @nodes[index].private_ip
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              if !acc.is_done_initializing?
+                Djinn.log_info("Node at #{ip} is not done initializing yet - " +
+                  "will check back later.")
+                @everyone_else_is_done = false
+              end
+            rescue FailedNodeException
+              Djinn.log_warn("Node at #{ip} is not responding to initializing" +
+                " queries - will check back later.")
+              @everyone_else_is_done = false
+            end
+          end
+        }
+        break if @everyone_else_is_done
+        Djinn.log_info("Waiting on other nodes to come online.")
+        Kernel.sleep(SMALL_WAIT)
+      }
+      Djinn.log_info("All nodes have been initialized.")
+    }
 
     threads << Thread.new {
       if my_node.is_zookeeper?
@@ -4536,7 +4540,7 @@ HOSTS
       apps_to_load.each { |app|
         setup_appengine_application(app, state="new")
       }
-    } # end of synchronize
+    }
   end
 
 
