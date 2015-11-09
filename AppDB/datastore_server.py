@@ -228,8 +228,8 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
     result_list = result.result_list()
     if self.__binary_results:
       if self.__query.keys_only():
-        for result in self.__binary_results:
-          entity = entity_pb.EntityProto(result)
+        for binary_result in self.__binary_results:
+          entity = entity_pb.EntityProto(binary_result)
           entity.clear_property()
           entity.clear_raw_property()
           result_list.append(entity.Encode())
