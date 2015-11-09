@@ -3563,9 +3563,10 @@ class Djinn
           erase_app_instance_info
         end
       end
-    }
 
-    @done_initializing = true
+      # After we have the UAserver running, we are in business.
+      @done_initializing = true
+    }
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
