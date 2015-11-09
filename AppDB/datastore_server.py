@@ -195,25 +195,26 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
 
   This is only meant to accompany the UnprocessedQueryResult class.
   """
-  def __init__(self, query, binary_results):
+  def __init__(self, query, binary_results, last_entity):
     """ Initializes an UnprocessedQueryCursor object.
 
     Args:
       query: A query protocol buffer object.
       binary_results: A list of strings that contain encoded protocol buffer
         results.
+      last_entity: A string that contains the last entity. It is used to
+        generate the cursor, and it can be defined even if there are no
+        results.
     """
     self.__binary_results = binary_results
     self.__query = query
+    self.__last_ent = last_entity
     if len(binary_results) > 0:
-      last_binary_result = binary_results[-1]
       # _EncodeCompiledCursor just uses the last entity.
       results = [entity_pb.EntityProto(binary_results[-1])]
     else:
-      last_binary_result = None
       results = []
-    super(UnprocessedQueryCursor, self).__init__(query, results,
-      last_binary_result)
+    super(UnprocessedQueryCursor, self).__init__(query, results, last_entity)
 
   def PopulateQueryResult(self, count, offset, result):
     """ Populates a QueryResult object with results the QueryCursor has been
@@ -239,7 +240,7 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
       result_list = []
     result.set_keys_only(self.__query.keys_only())
     result.set_more_results(offset < count)
-    if self.__binary_results:
+    if self.__binary_results or self.__last_ent:
       self._EncodeCompiledCursor(result.mutable_compiled_cursor())
 
 
@@ -3998,16 +3999,20 @@ class DatastoreDistributed():
       query_result: The response given to the application server.
     """
     result = self.__get_query_results(query)
+    last_entity = None
     count = 0
     offset = query.offset()
     if result:
       query_result.set_skipped_results(len(result) - offset)
+      # Last entity is used for the cursor. It needs to be set before
+      # applying the offset.
+      last_entity = result[-1]
       count = len(result)
       result = result[offset:]
       if query.has_limit():
         result = result[:query.limit()]
 
-    cur = UnprocessedQueryCursor(query, result)
+    cur = UnprocessedQueryCursor(query, result, last_entity)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
     # If we have less than the amount of entities we request there are no
