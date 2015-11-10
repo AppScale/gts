@@ -858,6 +858,7 @@ class TestDjinn < Test::Unit::TestCase
       with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/monit/).and_return('')
     flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf \/tmp\/monit/).
       and_return()
+    flexmock(Djinn).should_receive(:log_run).with("service monit reload")
 
     # and assume that the appcontrollers start up fine
     flexmock(HelperFunctions).should_receive(:is_port_open?).

@@ -68,8 +68,8 @@ module Nginx
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    start_cmd = "service nginx start"
-    stop_cmd = "service nginx stop"
+    start_cmd = "/usr/sbin/service nginx start"
+    stop_cmd = "/usr/sbin/service nginx stop"
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
@@ -83,13 +83,13 @@ module Nginx
   #
   def self.cleanup_failed_nginx()
     Djinn.log_error("****Killing nginx because there was a FATAL error****")
-    `service nginx stop`
+    `/usr/sbin/service nginx stop`
   end
 
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload()
-    if system("service nginx status")
-      if not system("service nginx reload")
+    if system("/usr/sbin/service nginx status")
+      if not system("/usr/sbin/service nginx reload")
         cleanup_failed_nginx()
         Nginx.start()
       end
@@ -118,7 +118,7 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config()
-    return system("service nginx configtest")
+    return system("/usr/sbin/service nginx configtest")
   end
 
   # Creates a Nginx config file for the provided app name

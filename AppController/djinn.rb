@@ -1722,6 +1722,7 @@ class Djinn
     end
 
     @done_loading = true
+
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
 
@@ -3819,7 +3820,7 @@ class Djinn
       @nodes.concat(appengine_info)
       @nodes.uniq!
     }
-    Djinn.log_debug("spawn_and_setup_appengine: nodes changed to #{nodes}.")
+    Djinn.log_debug("spawn_and_setup_appengine: nodes changed to #{@nodes}.")
 
     find_me_in_locations()
     write_database_info()
