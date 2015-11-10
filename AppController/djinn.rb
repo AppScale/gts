@@ -695,10 +695,14 @@ class Djinn
     backup_appserver_state()
 
     static_handlers = HelperFunctions.parse_static_data(appid)
-    while not Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip,
-        @app_info_map[appid]['language'])
-      Djinn.log_warn("Failed to create nginx site during relocate for #{appid}. Retrying")
+    3.times do
+      if Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
+          my_private, proxy_port, static_handlers, login_ip,
+          @app_info_map[appid]['language'])
+        break
+      else
+        Djinn.log_warn("Failed to create nginx site during relocate for #{appid}. Retrying")
+      end
     end
 
     Djinn.log_debug("Done writing new nginx config files!")
@@ -2572,8 +2576,12 @@ class Djinn
         all_db_private_ips.push(node.private_ip)
       end
     }
-    while not Nginx.create_uaserver_config(all_db_private_ips)
-      Djinn.log_warn("Failed to create UAserver nginx site: retrying.")
+    3.times do
+      if Nginx.create_uaserver_config(all_db_private_ips)
+        break
+      else
+        Djinn.log_warn("Failed to create UAserver nginx site: retrying.")
+      end
     end
   end
 
@@ -2584,9 +2592,13 @@ class Djinn
         all_db_private_ips.push(node.private_ip)
       end
     }
-    while not Nginx.create_datastore_server_config(all_db_private_ips,
-        DatastoreServer::PROXY_PORT)
-      Djinn.log_warn("Failed to create Datastore nginx site: retrying.")
+    3.times do
+      if Nginx.create_datastore_server_config(all_db_private_ips,
+          DatastoreServer::PROXY_PORT)
+        break
+      else
+        Djinn.log_warn("Failed to create Datastore nginx site: retrying.")
+      end
     end
 
   end
@@ -3412,9 +3424,13 @@ class Djinn
       AppDashboard::PROXY_PORT)
     HAProxy.start()
 
-    while not Nginx.create_app_load_balancer_config(my_public, my_private,
-        AppDashboard::PROXY_PORT)
-      Djinn.log_warn("Failed to create nginx config for the dashboard: retrying.")
+    3.times do
+      if Nginx.create_app_load_balancer_config(my_public, my_private,
+          AppDashboard::PROXY_PORT)
+        break
+      else
+        Djinn.log_warn("Failed to create nginx config for the dashboard: retrying.")
+      end
     end
 
     threads = []
@@ -4200,10 +4216,14 @@ HOSTS
         "#{proxy_port}.")
 
       static_handlers = HelperFunctions.parse_static_data(app)
-      while not Nginx.write_fullproxy_app_config(app, http_port, https_port,
-          my_public, my_private, proxy_port, static_handlers, login_ip,
-          @app_info_map[app]['language'])
-        Djinn.log_warn("Failed to re-create nginx config for #{app}: retrying.")
+      3.times do
+        if Nginx.write_fullproxy_app_config(app, http_port, https_port,
+            my_public, my_private, proxy_port, static_handlers, login_ip,
+            @app_info_map[app]['language'])
+          break
+        else
+          Djinn.log_warn("Failed to re-create nginx config for #{app}: retrying.")
+        end
       end
     }
     Djinn.log_debug("Done writing new nginx config files!")
@@ -4797,10 +4817,14 @@ HOSTS
         static_handlers = []
       end
 
-      while not Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-          my_private, proxy_port, static_handlers, login_ip,
-          @app_info_map[app]['language'])
-        Djinn.log_warn("Failed to create nginx site for #{app}: retrying.")
+      3.times do
+        if Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
+            my_private, proxy_port, static_handlers, login_ip,
+            @app_info_map[app]['language'])
+          break
+        else
+          Djinn.log_warn("Failed to create nginx site for #{app}: retrying.")
+        end
       end
 
       loop {
