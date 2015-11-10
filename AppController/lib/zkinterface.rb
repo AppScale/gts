@@ -127,6 +127,7 @@ class ZKInterface
     @@lock.synchronize {
       @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
     }
+    Djinn.log_info("ZKInterface: using zookeeper at #{ip}")
   end
 
 

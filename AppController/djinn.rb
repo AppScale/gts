@@ -3430,6 +3430,16 @@ class Djinn
       AppDashboard::PROXY_PORT)
     Nginx.reload()
 
+    if my_node.is_zookeeper?
+      configure_zookeeper(@nodes, @my_index)
+      begin
+        start_zookeeper(@options['clear_datastore'].downcase == "true")
+      rescue FailedZooKeeperOperationException
+        HelperFunctions.log_and_crash("Couldn't start zookeeper")
+      end
+    end
+    ZKInterface.init(my_node, @nodes)
+
     threads = []
 
     if my_node.is_shadow?
@@ -3460,18 +3470,6 @@ class Djinn
         Djinn.log_info("All nodes have been initialized.")
       }
     end
-
-    threads << Thread.new {
-      if my_node.is_zookeeper?
-        configure_zookeeper(@nodes, @my_index)
-        begin
-          start_zookeeper(@options['clear_datastore'].downcase == "true")
-        rescue FailedZooKeeperOperationException
-          HelperFunctions.log_and_crash("Couldn't start zookeeper")
-        end
-      end
-      ZKInterface.init(my_node, @nodes)
-    }
 
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
