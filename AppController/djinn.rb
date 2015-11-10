@@ -3436,16 +3436,17 @@ class Djinn
 
     threads = []
 
-    if my_node.is_zookeeper?
-      threads << Thread.new {
+    threads << Thread.new {
+      if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
         rescue FailedZooKeeperOperationException
           HelperFunctions.log_and_crash("Couldn't start zookeeper")
         end
-      }
-    end
+      end
+      ZKInterface.init(my_node, @nodes)
+    }
 
     if my_node.is_shadow?
       threads << Thread.new {
@@ -4323,8 +4324,6 @@ HOSTS
       Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
       Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
     end
-
-    ZKInterface.init(my_node, @nodes)
 
     configure_db_nginx()
     write_zookeeper_locations()
