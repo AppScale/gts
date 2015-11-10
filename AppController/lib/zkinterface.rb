@@ -114,9 +114,6 @@ class ZKInterface
   # Initializes a new ZooKeeper connection to the IP address specified.
   # Callers should use this when they know exactly which node hosts ZooKeeper.
   def self.init_to_ip(client_ip, ip)
-    Djinn.log_debug("Waiting for #{ip}:#{SERVER_PORT} to open")
-    HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT)
-
     @@client_ip = client_ip
     @@ip = ip
 
@@ -820,24 +817,33 @@ class ZKInterface
 
 
   def self.get_zk_location(my_node, all_nodes)
+    # Get the list of zookeeper nodes, first localhost if it's a
+    # zookeeper node.
+    zk_nodes = []
     if my_node.is_zookeeper?
-      return my_node.private_ip
+      zk_nodes << my_node.private_ip
     end
-
-    zk_node = nil
     all_nodes.each { |node|
+      next if my_node.private_ip == node.private_ip
       if node.is_zookeeper?
-        zk_node = node
+        zk_nodes << node.private_ip
         break
       end
     }
 
-    if zk_node.nil?
-      HelperFunctions.log_and_crash("No ZooKeeper nodes were found. All " +
-        "nodes are #{nodes}, while my node is #{my_node}.")
-    end
+    # Let's make sure we can at least talk to at least one Zookeeper.
+    zk_nodes.each { |ip|
+      Djinn.log_debug("Cheking zookeeper at #{ip}:#{SERVER_PORT}.")
+      begin
+        HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, 30)
+        return ip
+      rescue
+        Djinn.log_info("Zookeeper at #{ip} not responsive: trying another.")
+      end
+    }
 
-    return zk_node.private_ip
+    HelperFunctions.log_and_crash("No responsive ZooKeeper nodes were found. All " +
+        "nodes are #{nodes}, while my node is #{my_node}.")
   end
 
 
