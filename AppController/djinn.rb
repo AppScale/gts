@@ -695,21 +695,19 @@ class Djinn
     backup_appserver_state()
 
     static_handlers = HelperFunctions.parse_static_data(appid)
-    Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-      my_private, proxy_port, static_handlers, login_ip,
-      @app_info_map[appid]['language'])
+    while not Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
+        my_private, proxy_port, static_handlers, login_ip,
+        @app_info_map[appid]['language'])
+      Djinn.log_warn("Failed to create nginx site during relocate for #{appid}. Retrying")
+    end
 
     Djinn.log_debug("Done writing new nginx config files!")
-    Nginx.reload()
 
     # Same for any cron jobs the user has set up.
     # TODO: We do this on the login node, but the cron jobs are initially
     # set up on the shadow node. In all supported cases, these are the same
     # node, but there may be an issue if they are on different nodes in
     # the future.
-    # TODO: This doesn't remove the old cron jobs that were accessing the
-    # previously used port. This isn't a problem if nothing else runs on that
-    # port, or if anything else there.
     CronHelper.update_cron(my_public, http_port,
       @app_info_map[appid]['language'], appid)
 
@@ -1831,16 +1829,6 @@ class Djinn
   end
 
 
-  def write_cloud_info()
-    cloud_info = {
-      'is_cloud?' => is_cloud?(),
-      'is_hybrid_cloud?' => is_hybrid_cloud?()
-    }
-
-    HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
-  end
-
-
   def get_online_users_list(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -2584,8 +2572,9 @@ class Djinn
         all_db_private_ips.push(node.private_ip)
       end
     }
-    Nginx.create_uaserver_config(all_db_private_ips)
-    Nginx.reload()
+    while not Nginx.create_uaserver_config(all_db_private_ips)
+      Djinn.log_warn("Failed to create UAserver nginx site: retrying.")
+    end
   end
 
   def configure_db_nginx()
@@ -2595,8 +2584,11 @@ class Djinn
         all_db_private_ips.push(node.private_ip)
       end
     }
-    Nginx.create_datastore_server_config(all_db_private_ips, DatastoreServer::PROXY_PORT)
-    Nginx.reload()
+    while not Nginx.create_datastore_server_config(all_db_private_ips,
+        DatastoreServer::PROXY_PORT)
+      Djinn.log_warn("Failed to create Datastore nginx site: retrying.")
+    end
+
   end
 
 
@@ -3420,9 +3412,10 @@ class Djinn
       AppDashboard::PROXY_PORT)
     HAProxy.start()
 
-    Nginx.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    Nginx.reload()
+    while not Nginx.create_app_load_balancer_config(my_public, my_private,
+        AppDashboard::PROXY_PORT)
+      Djinn.log_warn("Failed to create nginx config for the dashboard: retrying.")
+    end
 
     threads = []
 
@@ -4207,12 +4200,13 @@ HOSTS
         "#{proxy_port}.")
 
       static_handlers = HelperFunctions.parse_static_data(app)
-      Nginx.write_fullproxy_app_config(app, http_port, https_port,
-        my_public, my_private, proxy_port, static_handlers, login_ip,
-        @app_info_map[app]['language'])
+      while not Nginx.write_fullproxy_app_config(app, http_port, https_port,
+          my_public, my_private, proxy_port, static_handlers, login_ip,
+          @app_info_map[app]['language'])
+        Djinn.log_warn("Failed to re-create nginx config for #{app}: retrying.")
+      end
     }
     Djinn.log_debug("Done writing new nginx config files!")
-    Nginx.reload()
   end
 
 
@@ -4803,9 +4797,11 @@ HOSTS
         static_handlers = []
       end
 
-      Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip,
-        @app_info_map[app]['language'])
+      while not Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
+          my_private, proxy_port, static_handlers, login_ip,
+          @app_info_map[app]['language'])
+        Djinn.log_warn("Failed to create nginx site for #{app}: retrying.")
+      end
 
       loop {
         Kernel.sleep(SMALL_WAIT)
@@ -5479,7 +5475,6 @@ HOSTS
     Djinn.log_info("Shutting down AppEngine")
 
     erase_app_instance_info()
-    Nginx.reload()
 
     APPS_LOCK.synchronize {
       @app_names = []
