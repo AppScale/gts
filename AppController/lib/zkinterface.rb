@@ -833,9 +833,9 @@ class ZKInterface
 
     # Let's make sure we can at least talk to at least one Zookeeper.
     zk_nodes.each { |ip|
-      Djinn.log_debug("Cheking zookeeper at #{ip}:#{SERVER_PORT}.")
+      Djinn.log_debug("Checking zookeeper at #{ip}:#{SERVER_PORT}.")
       begin
-        HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, 30)
+        HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, false, 30)
         return ip
       rescue
         Djinn.log_info("Zookeeper at #{ip} not responsive: trying another.")
