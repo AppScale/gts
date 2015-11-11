@@ -3415,7 +3415,7 @@ class Djinn
             ip = @nodes[index].private_ip
             acc = AppControllerClient.new(ip, @@secret)
             begin
-              while if !acc.is_done_initializing?
+              while not acc.is_done_initializing?
                 Djinn.log_info("Node at #{ip} is not done yet. Waiting.")
                 Kernel.sleep(SMALL_WAIT)
               end

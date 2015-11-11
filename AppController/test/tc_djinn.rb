@@ -407,7 +407,7 @@ class TestDjinn < Test::Unit::TestCase
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("public_ip", ["public_ip"])
     assert_equal(nil, djinn.write_our_node_info)
   end
 
@@ -484,11 +484,15 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(MonitInterface).should_receive(:start).and_return()
 
+    # This is to mock the re-initialization of zookeeper connection upong
+    # successful updates of roles.
+    flexmock(ZKInterface).should_receive(:init).and_return()
+
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("public_ip", ["public_ip"])
 
     # make sure the appcontroller does an update
     assert_equal(true, djinn.update_local_nodes())
@@ -547,7 +551,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(mocked_zk)
 
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("public_ip", ["public_ip"])
     ZKInterface.lock_and_run {
       boo = 2
     }

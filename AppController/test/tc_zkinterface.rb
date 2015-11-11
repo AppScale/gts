@@ -60,7 +60,7 @@ class TestZKInterface < Test::Unit::TestCase
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
       and_return(zk)
 
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("public_ip", ["public_ip"])
     ZKInterface.add_app_instance("app1", "ip1", "port1")
     ZKInterface.add_app_instance("app2", "ip2", "port2")
     assert_equal([instance1], ZKInterface.get_app_instances_for_ip("ip1"))
@@ -147,7 +147,7 @@ class TestZKInterface < Test::Unit::TestCase
       ZKInterface::TIMEOUT).and_return(zk)
 
     # first, make a connection to zookeeper 
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("public_ip", ["public_ip"])
 
     # next, add two app entries
     ZKInterface.add_app_entry("app", "ip1", "/boo/baz1")
@@ -211,7 +211,7 @@ class TestZKInterface < Test::Unit::TestCase
       and_return(zk)
 
     # first, make a connection to zookeeper
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("public_ip", ["public_ip"])
 
     # make sure the shadow gets back no information if nobody has requested
     # scaling yet

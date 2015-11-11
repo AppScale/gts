@@ -833,6 +833,6 @@ class ZKInterface
       end
     }
 
-    HelperFunctions.log_and_crash("No responsive ZooKeeper nodes in #{ips}!")
+    HelperFunctions.log_and_crash("No responsive ZooKeeper nodes in #{zk_ips}!")
   end
 end
