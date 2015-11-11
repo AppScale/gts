@@ -2464,7 +2464,7 @@ class Djinn
 
     Thread.new {
       # Begin by copying logs on all machines to this machine.
-      local_log_dir = "/tmp/#{uuid}"
+      local_log_dir = "#{Dir.tmpdir}/#{uuid}"
       remote_log_dir = "/var/log/appscale"
       FileUtils.mkdir_p(local_log_dir)
       @nodes.each { |node|
@@ -3595,8 +3595,8 @@ class Djinn
     loop {
       Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
         "LOCAL_DB_IP='localhost' #{PYTHON27} #{prime_script} " +
-        "#{@options['replication']}; echo $? > /tmp/retval")
-      retval = `cat /tmp/retval`.to_i
+        "#{@options['replication']}; echo $? > #{Dir.tmpdir}/retval")
+      retval = `cat #{Dir.tmpdir}/retval`.to_i
       return if retval.zero?
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
       Kernel.sleep(SMALL_WAIT)
@@ -4489,14 +4489,6 @@ HOSTS
   def stop_app_dashboard()
     Djinn.log_info("Shutting down AppDashboard")
     AppDashboard.stop()
-  end
-
-  def start_shadow()
-    Djinn.log_info("Starting Shadow role")
-  end
-
-  def stop_shadow()
-    Djinn.log_info("Stopping Shadow role")
   end
 
   #
@@ -5607,13 +5599,4 @@ HOSTS
     MonitInterface.remove("xmpp-#{app}")
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
-
-  def start_open()
-    return
-  end
-
-  def stop_open()
-    return
-  end
-
 end

@@ -8,6 +8,7 @@ require 'fileutils'
 require 'openssl'
 require 'socket'
 require 'timeout'
+require 'tmpdir'
 
 
 # Imports for RubyGems
@@ -350,7 +351,7 @@ module HelperFunctions
     private_key_loc = File.expand_path(private_key_loc)
     FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
+    retval_file = "#{Dir.tmpdir}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
     scp_result = self.shell(cmd)
 
@@ -367,6 +368,7 @@ module HelperFunctions
       Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       if fails >= 5
+        self.shell("rm -fv #{retval_file}")
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
       Kernel.sleep(SLEEP_TIME)
@@ -378,7 +380,7 @@ module HelperFunctions
   end
 
   def self.get_remote_appscale_home(ip, key)
-    cat = "cat /etc/appscale/home"
+    cat = "cat #{APPSCALE_CONFIG_DIR}/home"
     remote_cmd = "ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} '#{cat}'"
     possible_home = self.shell("#{remote_cmd}").chomp
     if possible_home.nil? or possible_home.empty?
@@ -412,7 +414,7 @@ module HelperFunctions
     })
   end
   
-  def self.get_secret(filename="/etc/appscale/secret.key")
+  def self.get_secret(filename="#{APPSCALE_CONFIG_DIR}/secret.key")
     return self.read_file(File.expand_path(filename), chomp=true)
   end
 
@@ -1321,7 +1323,7 @@ module HelperFunctions
   end
 
   def self.ensure_image_is_appscale(ip, key)
-    if self.does_image_have_location?(ip, "/etc/appscale", key)
+    if self.does_image_have_location?(ip, APPSCALE_CONFIG_DIR, key)
       Djinn.log_debug("Image at #{ip} is an AppScale image.")
     else
       fail_msg = "The image at #{ip} is not an AppScale image." +
@@ -1344,7 +1346,7 @@ module HelperFunctions
   #     tools.
   def self.ensure_version_is_supported(ip, key)
     version = self.get_appscale_version()
-    return if self.does_image_have_location?(ip, "/etc/appscale/#{version}", key)
+    return if self.does_image_have_location?(ip, "#{APPSCALE_CONFIG_DIR}/#{version}", key)
     raise AppScaleException.new("The image at #{ip} does not support " +
       "this version of AppScale (#{version}). Please install AppScale" +
       " #{version} on it and try again.")
@@ -1353,7 +1355,7 @@ module HelperFunctions
 
   def self.ensure_db_is_supported(ip, db, key)
     version = self.get_appscale_version()
-    if self.does_image_have_location?(ip, "/etc/appscale/#{version}/#{db}", key)
+    if self.does_image_have_location?(ip, "#{APPSCALE_CONFIG_DIR}/#{version}/#{db}", key)
       Djinn.log_debug("Image at #{ip} supports #{db}.")
     else 
       fail_msg = "The image at #{ip} does not have support for #{db}." +
