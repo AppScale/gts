@@ -24,8 +24,9 @@ module TaskQueue
   # The port that the RabbitMQ server runs on, by default.
   SERVER_PORT = 5672 
  
-  # The port where the TaskQueue server runs on, by default. 
+  # The port where the TaskQueue, and RabbitMQ run on, by default.
   TASKQUEUE_SERVER_PORT = 64839
+  RABBITMQ_PORT = 5672
 
   # The port where the Flower server runs on, by default.
   FLOWER_SERVER_PORT = 5555
@@ -70,7 +71,7 @@ module TaskQueue
     start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_taskqueue_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
-    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
+    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=RABBITMQ_PORT,
       env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
 
     # Next, start up the TaskQueue Server.
@@ -122,7 +123,7 @@ module TaskQueue
 
     tries_left = RABBIT_START_RETRY
     loop {
-      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, ports=9999,
+      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, ports=RABBITMQ_PORT,
         env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin

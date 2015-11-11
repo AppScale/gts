@@ -718,7 +718,7 @@ class Djinn
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
     # the new port. Do this in a separate thread to avoid blocking the caller.
-    port_file = "/etc/appscale/port-#{appid}.txt"
+    port_file = "#{CONFIG_FILE_LOCATION}/port-#{appid}.txt"
     HelperFunctions.write_file(port_file, http_port)
 
     Thread.new {
@@ -3449,9 +3449,9 @@ class Djinn
     }
 
     if my_node.is_shadow?
+      @everyone_else_is_done = true
       threads << Thread.new {
         loop {
-          @everyone_else_is_done = true
           @nodes.each_index { |index|
             unless index == @my_index
               ip = @nodes[index].private_ip
@@ -3553,6 +3553,13 @@ class Djinn
         Kernel.sleep(SMALL_WAIT)
         retry
       end
+
+      # We wait for all nodes to finish, before telling the tools to move
+      # ahead.
+      while not @everyone_else_is_done == true
+        Kernel.sleep(SMALL_WAIT)
+      end
+
       # As of 2.5 @userappserver_ip is used by the tools to detect when the
       # boot process progressed enough. So when we set it to a proper IP,
       # the tools proceeds.
@@ -3953,8 +3960,8 @@ class Djinn
     # nodes need to attach persistent disks.
     return if @options["infrastructure"] != "gce"
 
-    client_secrets = '/etc/appscale/client_secrets.json'
-    gce_oauth = '/etc/appscale/oauth2.dat'
+    client_secrets = "#{CONFIG_FILE_LOCATION}/client_secrets.json"
+    gce_oauth = "#{CONFIG_FILE_LOCATION}/oauth2.dat"
 
     if File.exists?(client_secrets)
       HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
@@ -4401,8 +4408,9 @@ HOSTS
     ssh_key = node.ssh_key
     command = "/usr/sbin/service appscale-controller start"
 
-    # Starting remote AppController, and wait till is ready to accept
-    # commands.
+    Djinn.log_info("Starting AppController on #{ip}.")
+
+    # Starting remote AppController, and wait till is ready.
     HelperFunctions.run_remote_command(ip, command, ssh_key, false)
     HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
 
@@ -4673,7 +4681,7 @@ HOSTS
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
 
-    port_file = "/etc/appscale/port-#{app}.txt"
+    port_file = "#{CONFIG_FILE_LOCATION}/port-#{app}.txt"
     if my_node.is_login?
       HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
       Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
