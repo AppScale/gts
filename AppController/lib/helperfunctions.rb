@@ -331,11 +331,7 @@ module HelperFunctions
   # Returns:
   #   The output of executing the command on the specified host.
   def self.run_remote_command_without_output(ip, command, public_key_loc)
-    Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}]")
-    public_key_loc = File.expand_path(public_key_loc)
-    remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command}'"
-    Djinn.log_debug("Running [#{remote_cmd}]")
-    return self.shell("#{remote_cmd}")
+    return self.run_remote_command(ip, command, public_key_loc, false)
   end
 
 

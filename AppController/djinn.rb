@@ -1715,7 +1715,7 @@ class Djinn
     end
 
     # Let's make sure the appcontroller is under monit configuration.
-    set_appcontroller_monit(my_node)
+    set_appcontroller_monit()
 
     if need_to_start_jobs
       change_job()
@@ -4369,12 +4369,11 @@ HOSTS
     }
   end
 
-  def set_appcontroller_monit(node)
-    ip = node.private_ip
-    ssh_key = node.ssh_key
+  def set_appcontroller_monit()
+    ip = my_node.private_ip
+    ssh_key = my_node.ssh_key
 
-    Djinn.log_debug("Configuring AppController monit on #{ip}")
-    remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
+    Djinn.log_debug("Configuring AppController monit.")
     env = {
       'HOME' => '/root',
       'APPSCALE_HOME' => APPSCALE_HOME,
@@ -4391,20 +4390,21 @@ HOSTS
 
     begin
       MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
-      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
-    rescue Exception => except
-      backtrace = except.backtrace.join("\n")
-      remote_start_msg = "[remote_start] Unforeseen exception when " + \
-        "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-      Djinn.log_warn(remote_start_msg)
+    rescue Exception => e
+      Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
     end
   end
 
   def start_appcontroller(node)
-    set_appcontroller_monit(node)
     ip = node.private_ip
     ssh_key = node.ssh_key
+    command = "/usr/sbin/service appscale-controller start"
+
+    # Starting remote AppController, and wait till is ready to accept
+    # commands.
+    HelperFunctions.run_remote_command(ip, command, ssh_key, false)
+    HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
 
     Djinn.log_debug("Sending data to #{ip}")
     loc_array = Djinn.convert_location_class_to_array(@nodes)
