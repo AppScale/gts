@@ -318,6 +318,11 @@ class Djinn
   DUTY_CYCLE = 20
 
 
+  # This is a 'small' sleep that we generally use when waiting for
+  # services to be up.
+  SMALL_WAIT = 5
+
+
   # How often we should attempt to increase the number of AppServers on a
   # given node.
   SCALEUP_TIME_THRESHOLD = 12  # seconds
@@ -728,7 +733,7 @@ class Djinn
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
     # the new port. Do this in a separate thread to avoid blocking the caller.
-    port_file = "/etc/appscale/port-#{appid}.txt"
+    port_file = "#{CONFIG_FILE_LOCATION}/port-#{appid}.txt"
     HelperFunctions.write_file(port_file, http_port)
 
     Thread.new {
@@ -783,12 +788,12 @@ class Djinn
 
     if is_hybrid_cloud?
       threads << Thread.new {
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
         HelperFunctions.terminate_hybrid_vms(options)
       }
     elsif is_cloud?
       threads << Thread.new {
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
         infrastructure = options["infrastructure"]
         keyname = options["keyname"]
         HelperFunctions.terminate_all_vms(infrastructure, keyname)
@@ -1719,6 +1724,10 @@ class Djinn
       change_job()
     end
 
+    # Now that we are done loading, we can set the monit job to check the
+    # AppController.
+    set_appcontroller_monit()
+
     @done_loading = true
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
@@ -2246,7 +2255,7 @@ class Djinn
       else
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
-        Kernel.sleep(30)
+        Kernel.sleep(DUTY_CYCLE)
         redo
       end
     }
@@ -3290,7 +3299,7 @@ class Djinn
         HelperFunctions.log_and_crash("Received kill signal, aborting startup")
       else
         Djinn.log_info("Waiting for data from the load balancer or cmdline tools")
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
       end
     }
 
@@ -3485,7 +3494,7 @@ class Djinn
         }
         break if @everyone_else_is_done
         Djinn.log_info("Waiting on other nodes to come online")
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
       }
     end
 
@@ -3665,7 +3674,7 @@ class Djinn
       retval = `cat /tmp/retval`.to_i
       return if retval.zero?
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
-      Kernel.sleep(5)
+      Kernel.sleep(SMALL_WAIT)
       retries -= 1
       break if retries.zero?
     }
@@ -3979,7 +3988,7 @@ class Djinn
     end
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
-    Kernel.sleep(3)
+    Kernel.sleep(SMALL_WAIT)
 
     # Commands used in the cloud environment to set the root access.
     if need_to_ssh
@@ -4016,8 +4025,8 @@ class Djinn
     # nodes need to attach persistent disks.
     return if @options["infrastructure"] != "gce"
 
-    client_secrets = '/etc/appscale/client_secrets.json'
-    gce_oauth = '/etc/appscale/oauth2.dat'
+    client_secrets = "#{CONFIG_FILE_LOCATION}/client_secrets.json"
+    gce_oauth = "#{CONFIG_FILE_LOCATION}/oauth2.dat"
 
     if File.exists?(client_secrets)
       HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
@@ -4326,7 +4335,7 @@ HOSTS
         Djinn.log_warn("Failed to talk to InfrastructureManager while attaching disk")
         # TODO: this logic (and the following) to retry forever is not
         # healhy.
-        Kernel.sleep(1)
+        Kernel.sleep(SMALL_WAIT)
         retry
       end
       loop {
@@ -4336,7 +4345,7 @@ HOSTS
         else
           Djinn.log_info("Device #{device_name} does not exist - waiting for " +
             "it to exist.")
-          Kernel.sleep(1)
+          Kernel.sleep(SMALL_WAIT)
         end
       }
 
@@ -4414,6 +4423,33 @@ HOSTS
     commands.each { |command|
       HelperFunctions.run_remote_command_without_output(ip, command, ssh_key)
     }
+  end
+
+  def set_appcontroller_monit()
+    ip = my_node.private_ip
+    ssh_key = my_node.ssh_key
+
+    Djinn.log_debug("Configuring AppController monit.")
+    env = {
+      'HOME' => '/root',
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
+    start = "/usr/sbin/service appscale-controller start"
+    stop = "/usr/sbin/service appscale-controller stop"
+    match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
+
+    # Let's make sure we don't have 2 jobs monitoring the controller.
+    FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
+    MonitInterface.start_monit(ip, ssh_key)
+
+    begin
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
+    rescue Exception => e
+      Djinn.log_warn("Failed to set local AppController monit: retrying.")
+      retry
+    end
   end
 
   def start_appcontroller(node)
@@ -4650,7 +4686,7 @@ HOSTS
         # Failed to talk to the UserAppServer: let's try again.
       end
       Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
-      Kernel.sleep(5)
+      Kernel.sleep(SMALL_WAIT)
     }
 
     my_public = my_node.public_ip
@@ -4721,7 +4757,7 @@ HOSTS
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
 
-    port_file = "/etc/appscale/port-#{app}.txt"
+    port_file = "#{CONFIG_FILE_LOCATION}/port-#{app}.txt"
     if my_node.is_login?
       HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
       Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
@@ -4749,7 +4785,7 @@ HOSTS
           break
         else
           Djinn.log_debug("Waiting for port file for app #{app}")
-          Kernel.sleep(5)
+          Kernel.sleep(SMALL_WAIT)
         end
       }
     end
@@ -4816,7 +4852,7 @@ HOSTS
             if result == NOT_READY
               Djinn.log_info("Login node is not yet ready for AppServers to " +
                 "be added - trying again momentarily.")
-              Kernel.sleep(5)
+              Kernel.sleep(SMALL_WAIT)
             else
               Djinn.log_info("Successfully informed login node about new " +
                 "AppServer for #{app} on port #{appengine_port}.")
@@ -4870,7 +4906,7 @@ HOSTS
         @app_info_map[app]['language'])
 
       loop {
-        Kernel.sleep(5)
+        Kernel.sleep(SMALL_WAIT)
         begin
           success = uac.add_instance(app, my_public, nginx_port)
           Djinn.log_debug("Add instance returned #{success}")
@@ -5569,7 +5605,7 @@ HOSTS
       break if !nodes_with_app.empty?
       Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
         "have a copy of app #{appname}")
-      Kernel.sleep(5)
+      Kernel.sleep(SMALL_WAIT)
       retries_left -=1
       if retries_left.zero?
         Djinn.log_warn("Nobody appears to be hosting app #{appname}")
@@ -5593,7 +5629,7 @@ HOSTS
         if tries > 0
           Djinn.log_debug("Trying again in 5 seconds")
           tries = tries - 1
-          Kernel.sleep(5)
+          Kernel.sleep(SMALL_WAIT)
         else
           Djinn.log_warn("Giving up on node #{ip} for the application")
           break
