@@ -113,9 +113,9 @@ class ZKInterface
 
   # Initializes a new ZooKeeper connection to the IP address specified.
   # Callers should use this when they know exactly which node hosts ZooKeeper.
-  def self.init_to_ip(client_ip, ip)
+  def self.init_to_ip(client_ip, ips)
     @@client_ip = client_ip
-    @@ip = ip
+    ip = get_zk_location(ips)
 
     if !defined?(@@lock)
       @@lock = Monitor.new
@@ -134,8 +134,14 @@ class ZKInterface
   # this method when they don't want to determine on their own which
   # ZooKeeper box to connect to.
   def self.init(my_node, all_nodes)
-    self.init_to_ip(my_node.private_ip, self.get_zk_location(my_node,
-      all_nodes))
+    # TODO: we should be able to dynamically discover the ZK nodes.
+    @@zk_ips = []
+    all_nodes.each { |node|
+      if node.is_zookeeper?
+        @@zk_ips << node.private_ip
+      end
+    }
+    self.init_to_ip(my_node.private_ip, @@zk_ips)
   end
 
 
@@ -144,7 +150,7 @@ class ZKInterface
   # need it. Also recreates any ephemeral links that were lost when the
   # connection was disconnected.
   def self.reinitialize()
-    self.init_to_ip(@@client_ip, @@ip)
+    self.init_to_ip(@@client_ip, @@zk_ips)
     self.set_live_node_ephemeral_link(@@client_ip)
   end
 
@@ -816,23 +822,9 @@ class ZKInterface
   end
 
 
-  def self.get_zk_location(my_node, all_nodes)
-    # Get the list of zookeeper nodes, first localhost if it's a
-    # zookeeper node.
-    zk_nodes = []
-    if my_node.is_zookeeper?
-      zk_nodes << my_node.private_ip
-    end
-    all_nodes.each { |node|
-      next if my_node.private_ip == node.private_ip
-      if node.is_zookeeper?
-        zk_nodes << node.private_ip
-        break
-      end
-    }
-
+  def self.get_zk_location(zk_ips)
     # Let's make sure we can at least talk to at least one Zookeeper.
-    zk_nodes.each { |ip|
+    zk_ips.each { |ip|
       Djinn.log_debug("Checking zookeeper at #{ip}:#{SERVER_PORT}.")
       begin
         HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, false, 30)
@@ -842,9 +834,6 @@ class ZKInterface
       end
     }
 
-    HelperFunctions.log_and_crash("No responsive ZooKeeper nodes were found. All " +
-        "nodes are #{nodes}, while my node is #{my_node}.")
+    HelperFunctions.log_and_crash("No responsive ZooKeeper nodes in #{ips}!")
   end
-
-
 end

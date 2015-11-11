@@ -2765,25 +2765,17 @@ class Djinn
 
 
   def restore_from_zookeeper()
-    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
+    zk_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
     json_state = {}
-    zookeeper_data['locations'].each { |ip|
-      begin
-        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-        Timeout.timeout(10) do
-          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
-          json_state = ZKInterface.get_appcontroller_state()
-      end
-      rescue Exception => e
-        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
-          "trying next ZooKeeper node")
-        next
-      end
+    begin
+      ZKInterface.init_to_ip(HelperFunctions.local_ip(), zk_data['locations'])
+      json_state = ZKInterface.get_appcontroller_state()
+    rescue Exception => e
+      Djinn.log_warn("Saw exception of class #{e.class} setting zookeeper: retrying.")
+      retry
+    end
 
-      Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
-      return json_state
-    }
-
+    Djinn.log_debug("Got data #{json_state.inspect} from Zookeeper.")
     return json_state
   end
 
@@ -2807,6 +2799,7 @@ class Djinn
     # running, so we need to start them all back up again.
     json_state['@apps_loaded'] = []
 
+    Djinn.log_debug("Got data #{json_state.inspect} from local filesystem.")
     return json_state
   end
 
@@ -3448,33 +3441,32 @@ class Djinn
       ZKInterface.init(my_node, @nodes)
     }
 
+    @everyone_else_is_done = false
     if my_node.is_shadow?
-      @everyone_else_is_done = true
       threads << Thread.new {
-        loop {
+        while not @everyone_else_is_done
           @nodes.each_index { |index|
-            unless index == @my_index
-              ip = @nodes[index].private_ip
-              acc = AppControllerClient.new(ip, @@secret)
-              begin
-                if !acc.is_done_initializing?
-                  Djinn.log_info("Node at #{ip} is not done initializing yet - " +
-                    "will check back later.")
-                  @everyone_else_is_done = false
-                end
-              rescue FailedNodeException
-                Djinn.log_warn("Node at #{ip} is not responding to initializing" +
-                  " queries - will check back later.")
-                @everyone_else_is_done = false
+            next if index == @my_index
+
+            ip = @nodes[index].private_ip
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              while if !acc.is_done_initializing?
+                Djinn.log_info("Node at #{ip} is not done yet. Waiting.")
+                Kernel.sleep(SMALL_WAIT)
               end
+            rescue FailedNodeException
+              Djinn.log_warn("Node at #{ip} is not ready yet.  Retrying.")
+              Kernel.sleep(SMALL_WAIT)
+              retry
             end
           }
-          break if @everyone_else_is_done
-          Djinn.log_info("Waiting on other nodes to come online.")
-          Kernel.sleep(SMALL_WAIT)
-        }
+          @everyone_else_is_done = true
+        end
         Djinn.log_info("All nodes have been initialized.")
       }
+    else
+      @everyone_else_is_done = true
     end
 
     if my_node.is_db_master? or my_node.is_db_slave?
@@ -3554,12 +3546,6 @@ class Djinn
         retry
       end
 
-      # We wait for all nodes to finish, before telling the tools to move
-      # ahead.
-      while not @everyone_else_is_done == true
-        Kernel.sleep(SMALL_WAIT)
-      end
-
       # As of 2.5 @userappserver_ip is used by the tools to detect when the
       # boot process progressed enough. So when we set it to a proper IP,
       # the tools proceeds.
@@ -3575,8 +3561,13 @@ class Djinn
         end
       end
 
-      # After we have the UAserver running, we are in business.
+      # After we have the UAserver running, we are in business. The shadow
+      # though will have to wait for all nodes to come up.
+      while not @everyone_else_is_done
+        Kernel.sleep(SMALL_WAIT)
+      end
       @done_initializing = true
+      Djinn.log_debug("Done setting UAserver up.")
     }
 
     # App Engine apps rely on the above services to be started, so
