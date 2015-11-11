@@ -4491,6 +4491,14 @@ HOSTS
     AppDashboard.stop()
   end
 
+  def start_shadow()
+    Djinn.log_info("Starting Shadow role")
+  end
+
+  def stop_shadow()
+    Djinn.log_info("Stopping Shadow role")
+  end
+
   #
   # Swaps out an application with one that relays an error message to the
   # developer. It will take the application that currently exists in the
