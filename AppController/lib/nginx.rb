@@ -62,12 +62,14 @@ module Nginx
   # User/apps soap server bind port. 
   UASERVER_NON_SSL_PORT = 4342
 
+  UASERVER_SITE = "as_uaserver"
+
   def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    start_cmd = "#{NGINX_BIN} -c #{MAIN_CONFIG_FILE}"
-    stop_cmd = "#{NGINX_BIN} -s stop"
+    start_cmd = "/usr/sbin/service nginx start"
+    stop_cmd = "/usr/sbin/service nginx stop"
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
@@ -81,14 +83,13 @@ module Nginx
   #
   def self.cleanup_failed_nginx()
     Djinn.log_error("****Killing nginx because there was a FATAL error****")
-    `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
+    `/usr/sbin/service nginx stop`
   end
 
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload()
-    if Nginx.is_running?
-      HelperFunctions.shell("#{NGINX_BIN} -s reload")
-      if $?.to_i != 0
+    if system("/usr/sbin/service nginx status")
+      if not system("/usr/sbin/service nginx reload")
         cleanup_failed_nginx()
         Nginx.start()
       end
@@ -117,8 +118,7 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config()
-    HelperFunctions.shell("#{NGINX_BIN} -t -c #{MAIN_CONFIG_FILE}")
-    return ($?.to_i == 0)
+    return system("/usr/sbin/service nginx configtest")
   end
 
   # Creates a Nginx config file for the provided app name
@@ -262,8 +262,7 @@ CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    return reload_nginx(config_path, app_name)
+    return reload_nginx(app_name)
   end
 
   # Creates a Nginx config file for the provided app name on the load balancer
@@ -482,16 +481,16 @@ CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    return reload_nginx(config_path, app_name)
+    return reload_nginx(app_name)
   end
 
-  def self.reload_nginx(config_path, app_name)
+  def self.reload_nginx(site_name)
     if Nginx.check_config()
       Nginx.reload()
       return true
     else
-      Djinn.log_error("Unable to load Nginx config for #{app_name}")
+      Djinn.log_error("Unable to load Nginx config #{site_name}")
+      config_path = File.join(SITES_ENABLED_PATH, "#{site_name}.#{CONFIG_EXTENSION}")
       FileUtils.rm(config_path)
       return false
     end
@@ -607,9 +606,7 @@ server {
 CONFIG
     config_path = File.join(SITES_ENABLED_PATH, "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config
-
+    return reload_nginx("#{DatastoreServer::NAME}")
   end
 
   # Creates an Nginx configuration file for the Users/Apps soap server.
@@ -666,8 +663,9 @@ server {
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, "UASERVER_SITE.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+    return reload_nginx(UASERVER_SITE)
   end
 
   # A generic function for creating nginx config files used by appscale services
@@ -762,8 +760,7 @@ CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config
+    return reload_nginx(name)
   end
 
 

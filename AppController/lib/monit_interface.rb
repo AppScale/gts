@@ -19,7 +19,7 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit(remote_ip, remote_key)
-    self.execute_remote_command("service monit start", remote_ip, remote_key)
+    self.execute_remote_command("/usr/sbin/service monit start", remote_ip, remote_key)
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
@@ -42,7 +42,7 @@ check file #{watch} path "#{path}"
 BOO
     monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
     if remote_ip
-      tempfile = "/tmp/monit-#{watch}-#{port}.cfg"
+      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
       HelperFunctions.write_file(tempfile, contents)
       begin
         HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
@@ -56,7 +56,7 @@ BOO
       HelperFunctions.write_file(monit_file, contents)
     end
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+    self.execute_remote_command("/usr/sbin/service monit reload", remote_ip, remote_key)
 
     ip = remote_ip || HelperFunctions.local_ip
     Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}" +
@@ -109,7 +109,7 @@ BOO
 
     monit_file = "/etc/monit/conf.d/appscale-#{watch}-#{port}.cfg"
     if remote_ip
-      tempfile = "/tmp/monit-#{watch}-#{port}.cfg"
+      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
       HelperFunctions.write_file(tempfile, contents)
       begin
         HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
@@ -123,7 +123,7 @@ BOO
       HelperFunctions.write_file(monit_file, contents)
     end
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+    self.execute_remote_command("/usr/sbin/service monit reload", remote_ip, remote_key)
 
     ip = remote_ip || HelperFunctions.local_ip
     Djinn.log_info("Starting #{watch} on ip #{ip}, port #{port}" +

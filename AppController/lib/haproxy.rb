@@ -70,7 +70,7 @@ module HAProxy
   end
 
   def self.reload()
-    Djinn.log_run("service haproxy reload")
+    Djinn.log_run("/usr/sbin/service haproxy reload")
   end
 
   def self.is_running?
@@ -166,34 +166,8 @@ module HAProxy
     end
   end
 
-  def self.write_app_config(app_name, app_number, num_of_servers, ip)
-    # Add a prefix to the app name to avoid possible conflicts
-    full_app_name = "gae_#{app_name}"
-
-    servers = []
-    num_of_servers.times do |index|
-      port = HelperFunctions.application_port(app_number, index, num_of_servers)
-      server = HAProxy.server_config(full_app_name, index, "#{ip}:#{port}")
-      servers << server
-    end
-
-    listen_port = HAProxy.app_listen_port(app_number)
-    config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
-    config << servers.join("\n")
-
-    config_path = File.join(SITES_ENABLED_PATH, 
-      "#{full_app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config()
-  end
-
-
   # Updates the HAProxy config file for this App Engine application to
-  # point to all the ports currently the application. In contrast with
-  # write_app_config, these ports can be non-contiguous.
-  # TODO: Lots of copy/paste here with write_app_config - eliminate it.
+  # point to all the ports currently the application.
   def self.update_app_config(private_ip, app_name, app_info)
     listen_port = app_info['haproxy']
 

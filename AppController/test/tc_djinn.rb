@@ -24,7 +24,7 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn = flexmock(Djinn)
     djinn.should_receive(:log_run).with("").and_return()
-    djinn.should_receive(:log_run).with("service monit start").and_return()
+    djinn.should_receive(:log_run).with("/usr/sbin/service monit start").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
     flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(
@@ -407,7 +407,7 @@ class TestDjinn < Test::Unit::TestCase
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init("public_ip", ["public_ip"])
     assert_equal(nil, djinn.write_our_node_info)
   end
 
@@ -484,11 +484,15 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(MonitInterface).should_receive(:start).and_return()
 
+    # This is to mock the re-initialization of zookeeper connection upong
+    # successful updates of roles.
+    flexmock(ZKInterface).should_receive(:init).and_return()
+
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init("public_ip", ["public_ip"])
 
     # make sure the appcontroller does an update
     assert_equal(true, djinn.update_local_nodes())
@@ -547,7 +551,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(mocked_zk)
 
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init("public_ip", ["public_ip"])
     ZKInterface.lock_and_run {
       boo = 2
     }
@@ -747,6 +751,9 @@ class TestDjinn < Test::Unit::TestCase
         'nginx' => Nginx::START_PORT + 1
       }
     }
+
+    flexmock(Djinn).should_receive(:log_run).with("/usr/sbin/service monit reload").and_return()
+    flexmock(Djinn).should_receive(:log_run).with("/usr/bin/monit start -g nginx").and_return()
     flexmock(djinn).should_receive(:add_nodes).and_return()
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
     assert_equal(node1_info['public_ip'], actual[0]['public_ip'])
@@ -858,6 +865,7 @@ class TestDjinn < Test::Unit::TestCase
       with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/monit/).and_return('')
     flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf \/tmp\/monit/).
       and_return()
+    flexmock(Djinn).should_receive(:log_run).with("/usr/sbin/service monit reload")
 
     # and assume that the appcontrollers start up fine
     flexmock(HelperFunctions).should_receive(:is_port_open?).
@@ -1249,17 +1257,13 @@ class TestDjinn < Test::Unit::TestCase
     state_only = JSON.dump({'state' => djinn.state})
     assert_equal(state_only, djinn.get_property('state', @secret))
 
-    # Finally, passing in the regex userappserver_*_ip should return both the
+    # Finally, passing in the regex userappserver_ip should return both the
     # public and private UserAppServer IPs.
-    djinn.userappserver_public_ip = "public-ip"
-    djinn.userappserver_private_ip = "private-ip"
+    djinn.userappserver_ip = "private-ip"
     userappserver_ips = JSON.dump({
-      'userappserver_public_ip' => 'public-ip',
-      'userappserver_private_ip' => 'private-ip'
+      'userappserver_ip' => 'private-ip'
     })
-    assert_equal(userappserver_ips['public-ip'], djinn.get_property('userappserver_.*_ip',
-      @secret)['public-ip'])
-    assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_.*_ip',
+    assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_ip',
       @secret)['private-ip'])
   end
 

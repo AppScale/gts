@@ -17,7 +17,7 @@ module TerminateHelper
     `rm -f /etc/nginx/sites-enabled/*.conf`
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
-    `service monit restart`
+    `/usr/sbin/service monit restart`
     `rm -f /etc/appscale/port-*.txt`
     `rm -f /etc/appscale/search_ip`
 
@@ -58,8 +58,8 @@ module TerminateHelper
 
     # Next, stop ZooKeeper politely: we stop it with both new and old
     # script to be sure.
-    `service zookeeper-server stop`
-    `service zookeeper stop`
+    `/usr/sbin/service zookeeper-server stop`
+    `/usr/sbin/service zookeeper stop`
   end
 
 
