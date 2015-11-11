@@ -70,7 +70,7 @@ module HAProxy
   end
 
   def self.reload()
-    Djinn.log_run("service haproxy reload")
+    Djinn.log_run("/usr/sbin/service haproxy reload")
   end
 
   def self.is_running?

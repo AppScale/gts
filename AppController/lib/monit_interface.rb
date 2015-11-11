@@ -19,7 +19,7 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit(remote_ip, remote_key)
-    self.execute_remote_command("service monit start", remote_ip, remote_key)
+    self.execute_remote_command("/usr/sbin/service monit start", remote_ip, remote_key)
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
@@ -56,7 +56,7 @@ BOO
       HelperFunctions.write_file(monit_file, contents)
     end
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+    self.execute_remote_command("/usr/sbin/service monit reload", remote_ip, remote_key)
 
     ip = remote_ip || HelperFunctions.local_ip
     Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}" +
@@ -123,7 +123,7 @@ BOO
       HelperFunctions.write_file(monit_file, contents)
     end
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+    self.execute_remote_command("/usr/sbin/service monit reload", remote_ip, remote_key)
 
     ip = remote_ip || HelperFunctions.local_ip
     Djinn.log_info("Starting #{watch} on ip #{ip}, port #{port}" +
