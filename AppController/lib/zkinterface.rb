@@ -134,7 +134,6 @@ class ZKInterface
   # this method when they don't want to determine on their own which
   # ZooKeeper box to connect to.
   def self.init(my_node, all_nodes)
-    # TODO: we should be able to dynamically discover the ZK nodes.
     @@zk_ips = []
     all_nodes.each { |node|
       if node.is_zookeeper?

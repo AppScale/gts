@@ -1273,7 +1273,7 @@ class Djinn
     # node now, but only after we are setup. The name (db_location) is
     # a misnomer and should be changed.
     if @userappserver_ip == 'not-up-yet'
-      stats['db_location'] = @userappserver_ip
+      stats['db_location'] = 'not-up-yet'
     end
 
     stats['apps'] = {}
@@ -1714,11 +1714,8 @@ class Djinn
       parse_options()
     end
 
-    # Let's make sure the appcontroller is under monit configuration.
-    set_appcontroller_monit()
-
     if need_to_start_jobs
-      change_job()
+      initialize_server()
     end
 
     @done_loading = true
@@ -1734,6 +1731,9 @@ class Djinn
         send_instance_info_to_dashboard()
       }
     }
+
+    # Let's make sure the appcontroller is under monit configuration.
+    set_appcontroller_monit()
 
     while !@kill_sig_received do
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -3149,6 +3149,10 @@ class Djinn
           }
         end
 
+        # Roles are started and changed, so we update our list of
+        # Zookeeper nodes now.
+        ZKInterface.init(my_node, @nodes)
+
         # And now that we're done loading/unloading roles, set done_loading for
         # our node back to true.
         ZKInterface.set_done_loading(my_node.public_ip, true)
@@ -3383,50 +3387,9 @@ class Djinn
     return newoptions
   end
 
-  def change_job()
-    Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
-    if my_node.is_shadow?
-      spawn_and_setup_appengine
-      Djinn.log_info("All nodes have been spawned/started.")
-    end
-
-    initialize_server()
-    start_api_services()
-
-    # Login node will start additional services.
-    if my_node.is_login?
-      update_node_info_cache()
-      start_app_dashboard(get_login.public_ip, @userappserver_ip)
-      start_hermes()
-      TaskQueue.start_flower(@options['flower_password'])
-    end
-
-    # appengine is started elsewhere
-    Djinn.log_debug("change_job: done.")
-  end
-
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
   def start_api_services()
-    @state = "Starting Load Balancer"
-    Djinn.log_info("Starting Load Balancer")
-
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-    # TODO: Set up nginx and haproxy without needing the dashboard.
-    HAProxy.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    HAProxy.start()
-
-    3.times do
-      if Nginx.create_app_load_balancer_config(my_public, my_private,
-          AppDashboard::PROXY_PORT)
-        break
-      else
-        Djinn.log_warn("Failed to create nginx config for the dashboard: retrying.")
-      end
-    end
-
     threads = []
 
     threads << Thread.new {
@@ -3439,6 +3402,7 @@ class Djinn
         end
       end
       ZKInterface.init(my_node, @nodes)
+      Djinn.log_info("Done setting up Zookeeper.")
     }
 
     @everyone_else_is_done = false
@@ -3484,21 +3448,21 @@ class Djinn
         @state = "Starting up SOAP Server"
         start_soap_server()
         start_groomer_service()
-        Djinn.log_info("Done starting DB services.")
+        Djinn.log_debug("Done starting DB services.")
       }
     end
 
     if my_node.is_login?
       threads << Thread.new {
         start_ejabberd()
-        Djinn.log_info("Done starting Ejabber service.")
+        Djinn.log_debug("Done starting Ejabber service.")
       }
     end
 
     if my_node.is_memcache?
       threads << Thread.new {
         start_memcache()
-        Djinn.log_info("Done starting memcache service.")
+        Djinn.log_debug("Done starting memcache service.")
       }
     end
 
@@ -3506,40 +3470,40 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
         start_backup_service()
-        Djinn.log_info("Done starting backup service.")
+        Djinn.log_debug("Done starting backup service.")
       }
     end
 
     # All nodes have application managers.
     threads << Thread.new {
       start_app_manager_server()
-      Djinn.log_info("Done starting AppManager service.")
+      Djinn.log_debug("Done starting AppManager service.")
     }
 
     # Only Appengine nodes have the blobstore service.
     if my_node.is_appengine?
       threads << Thread.new {
         start_blobstore_server()
-        Djinn.log_info("Done starting Blobstore service.")
+        Djinn.log_debug("Done starting Blobstore service.")
       }
     end
 
     if my_node.is_search?
       threads << Thread.new {
         start_search_role()
-        Djinn.log_info("Done starting Search service.")
+        Djinn.log_debug("Done starting Search service.")
       }
     end
 
     if my_node.is_taskqueue_master?
       threads << Thread.new {
         start_taskqueue_master()
-        Djinn.log_info("Done starting Taskqueue master service.")
+        Djinn.log_debug("Done starting Taskqueue master service.")
       }
     elsif my_node.is_taskqueue_slave?
       threads << Thread.new {
         start_taskqueue_slave()
-        Djinn.log_info("Done starting Taskqueue slave service.")
+        Djinn.log_debug("Done starting Taskqueue slave service.")
       }
     end
 
@@ -3582,6 +3546,14 @@ class Djinn
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     threads.each { |t| t.join() }
+
+    # Login node will start additional services.
+    if my_node.is_login?
+      update_node_info_cache()
+      start_app_dashboard(get_login.public_ip, @userappserver_ip)
+      start_hermes()
+      TaskQueue.start_flower(@options['flower_password'])
+    end
     Djinn.log_info("API services have started on this node")
   end
 
@@ -4259,13 +4231,16 @@ HOSTS
   # Perform any necessary initialization steps before we begin starting up
   # services.
   def initialize_server()
-    Djinn.log_debug("Initialize server: my public ip is #{my_node.public_ip}.")
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
 
-    my_public_ip = my_node.public_ip
-    head_node_ip = get_public_ip(@options['hostname'])
+    Djinn.log_debug("Initialize server: public ip is #{my_public}, nodes are: #{@nodes.join('\n')}.")
 
-    HAProxy.initialize_config()
-    Nginx.initialize_config()
+    # Let's start the other nodes if have to.
+    if my_node.is_shadow?
+      spawn_and_setup_appengine
+      Djinn.log_info("All nodes have been spawned/started.")
+    end
 
     if my_node.disk
       Djinn.log_debug("Initialize server: prepare disk.")
@@ -4331,6 +4306,9 @@ HOSTS
       Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
     end
 
+    HAProxy.initialize_config()
+    Nginx.initialize_config()
+
     configure_db_nginx()
     write_zookeeper_locations()
     write_memcache_locations()
@@ -4339,6 +4317,27 @@ HOSTS
     write_taskqueue_nodes_file()
     write_search_node_file()
     setup_config_files()
+
+    # Now we can initialize the Load Balancer.
+    @state = "Starting Load Balancer"
+    Djinn.log_info("Starting Load Balancer")
+
+    # TODO: Set up nginx and haproxy without needing the dashboard.
+    HAProxy.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    HAProxy.start()
+
+    3.times do
+      if Nginx.create_app_load_balancer_config(my_public, my_private,
+          AppDashboard::PROXY_PORT)
+        break
+      else
+        Djinn.log_warn("Failed to create nginx config for the dashboard: retrying.")
+      end
+    end
+
+    # Finally start all the API services needed on this node.
+    start_api_services()
   end
 
   # Runs any commands provided by the user in their AppScalefile on the given
