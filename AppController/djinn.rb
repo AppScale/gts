@@ -3484,18 +3484,21 @@ class Djinn
         @state = "Starting up SOAP Server"
         start_soap_server()
         start_groomer_service()
+        Djinn.log_info("Done starting DB services.")
       }
     end
 
     if my_node.is_login?
       threads << Thread.new {
         start_ejabberd()
+        Djinn.log_info("Done starting Ejabber service.")
       }
     end
 
     if my_node.is_memcache?
       threads << Thread.new {
         start_memcache()
+        Djinn.log_info("Done starting memcache service.")
       }
     end
 
@@ -3503,34 +3506,40 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
         start_backup_service()
+        Djinn.log_info("Done starting backup service.")
       }
     end
 
     # All nodes have application managers.
     threads << Thread.new {
       start_app_manager_server()
+      Djinn.log_info("Done starting AppManager service.")
     }
 
     # Only Appengine nodes have the blobstore service.
     if my_node.is_appengine?
       threads << Thread.new {
         start_blobstore_server()
+        Djinn.log_info("Done starting Blobstore service.")
       }
     end
 
     if my_node.is_search?
       threads << Thread.new {
         start_search_role()
+        Djinn.log_info("Done starting Search service.")
       }
     end
 
     if my_node.is_taskqueue_master?
       threads << Thread.new {
         start_taskqueue_master()
+        Djinn.log_info("Done starting Taskqueue master service.")
       }
     elsif my_node.is_taskqueue_slave?
       threads << Thread.new {
         start_taskqueue_slave()
+        Djinn.log_info("Done starting Taskqueue slave service.")
       }
     end
 
@@ -3572,7 +3581,6 @@ class Djinn
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
-    Djinn.log_info("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
   end
