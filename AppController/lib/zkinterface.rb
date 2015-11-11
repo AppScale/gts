@@ -111,36 +111,20 @@ class ZKInterface
   public
 
 
-  # Initializes a new ZooKeeper connection to the IP address specified.
-  # Callers should use this when they know exactly which node hosts ZooKeeper.
-  def self.init_to_ip(client_ip, ips)
+  # Initializes a new ZooKeeper connection to be choosen amongst the list
+  # of Zookeepers nodes given.
+  def self.init(client_ip, ips)
     @@client_ip = client_ip
-    ip = get_zk_location(ips)
-
+    @@zk_ips = ips
     if !defined?(@@lock)
       @@lock = Monitor.new
     end
 
+    ip = get_zk_location(@@zk_ips)
     @@lock.synchronize {
       @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
     }
     Djinn.log_info("ZKInterface: using zookeeper at #{ip}")
-  end
-
-
-  # Initializes a new ZooKeeper connection to the "closest" node in the
-  # system. "Closeness" is defined as either "this node" (if it runs
-  # ZooKeeper), or an arbitrary node that runs ZooKeeper. Callers should use
-  # this method when they don't want to determine on their own which
-  # ZooKeeper box to connect to.
-  def self.init(my_node, all_nodes)
-    @@zk_ips = []
-    all_nodes.each { |node|
-      if node.is_zookeeper?
-        @@zk_ips << node.private_ip
-      end
-    }
-    self.init_to_ip(my_node.private_ip, @@zk_ips)
   end
 
 
@@ -149,7 +133,11 @@ class ZKInterface
   # need it. Also recreates any ephemeral links that were lost when the
   # connection was disconnected.
   def self.reinitialize()
-    self.init_to_ip(@@client_ip, @@zk_ips)
+    ip = get_zk_location(@@zk_ips)
+    @@lock.synchronize {
+      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
+    }
+    Djinn.log_info("ZKInterface: new connection using zookeeper at #{ip}")
     self.set_live_node_ephemeral_link(@@client_ip)
   end
 

@@ -2767,7 +2767,7 @@ class Djinn
     zk_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
     json_state = {}
     begin
-      ZKInterface.init_to_ip(HelperFunctions.local_ip(), zk_data['locations'])
+      ZKInterface.init(HelperFunctions.local_ip(), zk_data['locations'])
       json_state = ZKInterface.get_appcontroller_state()
     rescue Exception => e
       Djinn.log_warn("Saw exception of class #{e.class} setting zookeeper: retrying.")
@@ -3150,7 +3150,13 @@ class Djinn
 
         # Roles are started and changed, so we update our list of
         # Zookeeper nodes now.
-        ZKInterface.init(my_node, @nodes)
+        zk_ips = []
+        @nodes.each { |node|
+          if node.is_zookeeper?
+            zk_ips << node.private_ip
+          end
+        }
+        ZKInterface.init(my_node.private_ip, zk_ips)
 
         # And now that we're done loading/unloading roles, set done_loading for
         # our node back to true.
@@ -3400,7 +3406,15 @@ class Djinn
           HelperFunctions.log_and_crash("Couldn't start zookeeper")
         end
       end
-      ZKInterface.init(my_node, @nodes)
+
+      # All nods now setup the zookeeper connection.
+      zk_ips = []
+      @nodes.each { |node|
+        if node.is_zookeeper?
+          zk_ips << node.private_ip
+        end
+      }
+      ZKInterface.init(my_node.private_ip, zk_ips)
       Djinn.log_info("Done setting up Zookeeper.")
     }
 
