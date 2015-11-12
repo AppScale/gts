@@ -2435,22 +2435,6 @@ class Djinn
     return slave_ips
   end
 
-  def self.get_nearest_db_ip()
-    db_ips = self.get_db_slave_ips
-    db_ips << self.get_db_master_ip
-    db_ips.compact!
-
-    local_ip = HelperFunctions.local_ip()
-    Djinn.log_debug("DB IPs are [#{db_ips.join(', ')}]")
-    if db_ips.include?(local_ip)
-      # If there is a local database then use it
-      local_ip
-    else
-      # Otherwise just select one randomly
-      db_ips.sort_by { rand }[0]
-    end
-  end
-
   def get_all_appengine_nodes()
     ae_nodes = []
     @nodes.each { |node|
@@ -4826,7 +4810,7 @@ HOSTS
           begin
             pid = app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
-              [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app),
+              HelperFunctions.get_app_env_vars(app),
               Integer(@options['max_memory']), get_login.private_ip)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to AppManager to start #{app}.")
