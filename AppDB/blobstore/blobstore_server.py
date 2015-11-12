@@ -23,8 +23,7 @@ import urllib2
 
 from StringIO import StringIO
 
-from appscalehttpserver import AppScaleHTTPServer
-
+import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
@@ -357,7 +356,9 @@ def main(port):
   """
   setup_env()
 
-  http_server = AppScaleHTTPServer(Application())
+  max_buffer_size = 2 * 1024 * 1024 * 1024  # 2GB
+  http_server = tornado.httpserver.HTTPServer(Application(),
+    max_buffer_size=max_buffer_size)
   http_server.listen(int(port))
   tornado.ioloop.IOLoop.instance().start()
   
