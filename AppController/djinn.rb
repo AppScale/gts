@@ -10,6 +10,7 @@ require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
 require 'timeout'
+require 'tmpdir'
 require 'yaml'
 
 
@@ -2234,7 +2235,7 @@ class Djinn
   # Cleans out temporary files that may have been written by a previous
   # AppScale deployment.
   def erase_old_data()
-    Djinn.log_run("rm -rf /tmp/h*")
+    Djinn.log_run("rm -rf #{Dir.tmpdir}/h*")
     Djinn.log_run("rm -f ~/.appscale_cookies")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
@@ -2547,7 +2548,7 @@ class Djinn
 
     Thread.new {
       # Begin by copying logs on all machines to this machine.
-      local_log_dir = "/tmp/#{uuid}"
+      local_log_dir = "#{Dir.tmpdir}/#{uuid}"
       remote_log_dir = "/var/log/appscale"
       FileUtils.mkdir_p(local_log_dir)
       @nodes.each { |node|
@@ -3670,8 +3671,8 @@ class Djinn
     loop {
       Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
         "LOCAL_DB_IP='localhost' #{PYTHON27} #{prime_script} " +
-        "#{@options['replication']}; echo $? > /tmp/retval")
-      retval = `cat /tmp/retval`.to_i
+        "#{@options['replication']}; echo $? > #{Dir.tmpdir}/retval")
+      retval = `cat #{Dir.tmpdir}/retval`.to_i
       return if retval.zero?
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
       Kernel.sleep(SMALL_WAIT)
