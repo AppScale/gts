@@ -57,6 +57,9 @@ STRIPPED_HEADERS = frozenset(('content-length',
 
 UPLOAD_ERROR = """There was an error with your upload. Redirect path not found. The path given must be a redirect code in the 300's. Please contact the app owner if this persist."""
 
+# The maximum size of an incoming request.
+MAX_REQUEST_BUFF_SIZE = 2 * 1024 * 1024 * 1024  # 2GBs
+
 # Global used for setting the datastore path when registering the DB
 datastore_path = ""
 
@@ -355,7 +358,8 @@ def main(port):
   """
   setup_env()
 
-  http_server = tornado.httpserver.HTTPServer(Application())
+  http_server = tornado.httpserver.HTTPServer(Application(),
+    max_buffer_size=MAX_REQUEST_BUFF_SIZE)
   http_server.listen(int(port))
   tornado.ioloop.IOLoop.instance().start()
   
