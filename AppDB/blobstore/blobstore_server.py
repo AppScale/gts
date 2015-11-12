@@ -23,7 +23,8 @@ import urllib2
 
 from StringIO import StringIO
 
-import tornado.httpserver
+from appscalehttpserver import AppScaleHTTPServer
+
 import tornado.ioloop
 import tornado.web
 
@@ -36,6 +37,7 @@ from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
 
 from google.appengine.tools import dev_appserver_upload
+
 
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'
@@ -355,7 +357,7 @@ def main(port):
   """
   setup_env()
 
-  http_server = tornado.httpserver.HTTPServer(Application())
+  http_server = AppScaleHTTPServer(Application())
   http_server.listen(int(port))
   tornado.ioloop.IOLoop.instance().start()
   
