@@ -308,6 +308,10 @@ CONFIG
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
       proxy_pass http://gae_#{app_name}_blobstore;
+      client_max_body_size 2G;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
     }
 JAVA_BLOBSTORE_REDIRECTION
     end
@@ -495,7 +499,7 @@ CONFIG
 
   def self.remove_app(app_name)
     config_name = "#{app_name}.#{CONFIG_EXTENSION}"
-    FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload()
   end
 
