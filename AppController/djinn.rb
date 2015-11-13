@@ -2397,8 +2397,6 @@ class Djinn
       return node if node.is_login?
     }
 
-    Djinn.log_fatal("Couldn't find a login node in the following nodes: " +
-      "#{@nodes.join(', ')}")
     @state = "No login nodes found."
     HelperFunctions.log_and_crash(@state, 30)
   end
@@ -2408,8 +2406,6 @@ class Djinn
       return node if node.is_shadow?
     }
 
-    Djinn.log_fatal("Couldn't find a shadow node in the following nodes: " +
-      "#{@nodes.join(', ')}")
     @state = "No shadow nodes found."
     HelperFunctions.log_and_crash(@state, 30)
   end
@@ -2419,8 +2415,6 @@ class Djinn
       return node if node.is_db_master?
     }
 
-    Djinn.log_fatal("Couldn't find a db master node in the following nodes: " +
-      "#{@nodes.join(', ')}")
     @state = "No DB master nodes found."
     HelperFunctions.log_and_crash(@state, 30)
   end
@@ -2491,7 +2485,6 @@ class Djinn
       end
     }
 
-    Djinn.log_fatal("[get uaserver ip] Couldn't find a UAServer.")
     @state = "Couldn't find a working UserAppServer."
     HelperFunctions.log_and_crash(@state, 30)
   end
@@ -3669,7 +3662,6 @@ class Djinn
       break if retries.zero?
     }
 
-    Djinn.log_fatal("Failed to prime #{table}. Cannot continue.")
     @state = "Failed to prime #{table}."
     HelperFunctions.log_and_crash(@state, 30)
   end
@@ -4473,7 +4465,6 @@ HOSTS
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
     rescue FailedNodeException
       @state = "Couldn't set parameters on node at #{ip}."
-      Djinn.log_error(@state)
       HelperFunctions.log_and_crash(@state, 30)
     end
   end
