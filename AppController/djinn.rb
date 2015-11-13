@@ -842,7 +842,7 @@ class Djinn
         end
       }
 
-      if my_node.is_db_master? or my_node.is_db_slave?
+      if has_soap_server?(my_node)
         stop_soap_server()
         stop_datastore_server()
         stop_groomer_service()
@@ -2381,8 +2381,8 @@ class Djinn
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
   def self.convert_location_class_to_array(djinn_locations)
     if djinn_locations.class != Array
-      HelperFunctions.log_and_crash("Locations should be an Array, not a " +
-        "#{djinn_locations.class}")
+      @state = "Locations is not an Array, not a #{djinn_locations.class}."
+      HelperFunctions.log_and_crash(@state, 30)
     end
 
     djinn_loc_array = []
@@ -2399,7 +2399,8 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a login node in the following nodes: " +
       "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No login nodes found.")
+    @state = "No login nodes found."
+    HelperFunctions.log_and_crash(@state, 30)
   end
 
   def get_shadow()
@@ -2409,7 +2410,8 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a shadow node in the following nodes: " +
       "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No shadow nodes found.")
+    @state = "No shadow nodes found."
+    HelperFunctions.log_and_crash(@state, 30)
   end
 
   def get_db_master()
@@ -2419,7 +2421,8 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a db master node in the following nodes: " +
       "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No db master nodes found.")
+    @state = "No DB master nodes found."
+    HelperFunctions.log_and_crash(@state, 30)
   end
 
   def self.get_db_master_ip()
@@ -2489,7 +2492,8 @@ class Djinn
     }
 
     Djinn.log_fatal("[get uaserver ip] Couldn't find a UAServer.")
-    HelperFunctions.log_and_crash("[get uaserver ip] Couldn't find a UAServer.")
+    @state = "Couldn't find a working UserAppServer."
+    HelperFunctions.log_and_crash(@state, 30)
   end
 
   def get_public_ip(private_ip)
@@ -3545,7 +3549,8 @@ class Djinn
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
         rescue FailedZooKeeperOperationException
-          HelperFunctions.log_and_crash("Couldn't start zookeeper")
+          @state = "Couldn't start Zookeeper."
+          HelperFunctions.log_and_crash(@state, 30)
         end
         start_backup_service()
       end
@@ -3568,7 +3573,7 @@ class Djinn
         end
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
-        if my_node.is_db_master? or my_node.is_db_slave?
+        if has_soap_server?(my_node)
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
@@ -3592,7 +3597,7 @@ class Djinn
 
         # Currently we always run the Datastore Server and SOAP
         # server on the same nodes.
-        if my_node.is_db_master? or my_node.is_db_slave?
+        if has_soap_server?(my_node)
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
@@ -3665,7 +3670,8 @@ class Djinn
     }
 
     Djinn.log_fatal("Failed to prime #{table}. Cannot continue.")
-    HelperFunctions.log_and_crash("Failed to prime #{table}.")
+    @state = "Failed to prime #{table}."
+    HelperFunctions.log_and_crash(@state, 30)
   end
 
 
@@ -3906,9 +3912,9 @@ class Djinn
       begin
         appengine_info = imc.spawn_vms(nodes.length, @options, roles, disks)
       rescue FailedNodeException, AppScaleException => exception
-        @state = "Couldn't spawn the requires resources: stopping."
-        HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs " +
-          "with roles #{roles} because: #{exception.message}", 30)
+        @state = "Couldn't spawn #{nodes.length} VMs " +
+          "with roles #{roles} because: #{exception.message}"
+        HelperFunctions.log_and_crash(@state, 30)
       end
     else
       nodes.each { |node|
@@ -4466,8 +4472,9 @@ HOSTS
       result = acc.set_parameters(loc_array, credentials, @app_names)
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
     rescue FailedNodeException
-      Djinn.log_error("Couldn't set parameters on node at #{ip}.")
-      HelperFunctions.log_and_crash("Couldn't set parameters on node at #{ip}.")
+      @state = "Couldn't set parameters on node at #{ip}."
+      Djinn.log_error(@state)
+      HelperFunctions.log_and_crash(@state, 30)
     end
   end
 
