@@ -26,8 +26,11 @@ do_start()
      exit 0
    fi
 
+   # If we start from boot, we need to clear the state.
+   rm -rf /etc/appscale/zookeeper_locations.json
+   rm -rf /etc/monit/conf.d/appscale*cfg
+
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   echo "start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON"
    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON
    log_end_msg $?
 }
@@ -42,6 +45,10 @@ do_stop()
 case "$1" in
  
     start|stop)
+        if status_of_proc "$DAEMON_NAME" "$DAEMON" > /dev/null; then
+                echo "$DAEMON_NAME already running."
+                exit 0
+        fi
         do_${1}
         ;;
  
@@ -51,7 +58,7 @@ case "$1" in
         ;;
  
     status)
-        status_of_proc "$DAEMON_NAME" "$DAEMON" && exit 0 || exit $?
+        status_of_proc "$DAEMON" "$DAEMON_NAME" && exit 0 || exit $?
         ;;
     *)
         echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"

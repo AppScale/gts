@@ -36,7 +36,11 @@ module Nginx
   MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
 
 
+  # These ports are the one visible from outside, ie the ones that we
+  # attach to running applications. Default is to have a maximum of 21
+  # applications (8080-8100).
   START_PORT = 8080
+  END_PORT = 8100
 
 
   # This is the start port of SSL connections to applications. Where an
@@ -150,7 +154,7 @@ module Nginx
     }.join
 
     default_location = <<DEFAULT_CONFIG
-    location / {
+location / {
       proxy_set_header  X-Real-IP  $remote_addr;
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
@@ -264,9 +268,10 @@ CONFIG
 
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
+    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
+    language)
 
-    Djinn.log_debug("Writing full proxy app config for app #{app_name}")
+    Djinn.log_debug("Writing proxy for app #{app_name} with language #{language}")
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
     Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
@@ -297,11 +302,25 @@ CONFIG
       HelperFunctions.generate_location_config(handler)
     }.join
 
+    # Java application needs a redirection for the blobstore.
+    java_blobstore_redirection = ""
+    if language == "java"
+      java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
+location ~ /_ah/upload/.* {
+      proxy_pass http://gae_#{app_name}_blobstore;
+      client_max_body_size 2G;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
+    }
+JAVA_BLOBSTORE_REDIRECTION
+    end
+
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
     else
       secure_default_location = <<DEFAULT_CONFIG
-    location / {
+location / {
       proxy_set_header  X-Real-IP  $remote_addr;
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header  X-Forwarded-Proto $scheme;
@@ -321,7 +340,7 @@ DEFAULT_CONFIG
       non_secure_default_location = ''
     else
       non_secure_default_location = <<DEFAULT_CONFIG
-    location / {
+location / {
       proxy_set_header  X-Real-IP  $remote_addr;
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header  X-Forwarded-Proto $scheme;
@@ -377,6 +396,8 @@ server {
     #{always_secure_locations}
     #{non_secure_static_locations}
     #{non_secure_default_location}
+
+    #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
@@ -445,6 +466,8 @@ server {
     #{secure_static_locations}
     #{secure_default_location}
 
+    #{java_blobstore_redirection}
+
     location /reserved-channel-appscale-path {
       proxy_buffering off;
       tcp_nodelay on;
@@ -476,7 +499,7 @@ CONFIG
 
   def self.remove_app(app_name)
     config_name = "#{app_name}.#{CONFIG_EXTENSION}"
-    FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload()
   end
 

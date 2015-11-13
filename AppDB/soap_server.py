@@ -957,6 +957,9 @@ if __name__ == "__main__":
 
   ip = "0.0.0.0"
   server = SOAPpy.SOAPServer((ip, bindport))
+  # To debug this service, uncomment the 2 lines below.
+  #server.config.dumpSOAPOut = 1
+  #server.config.dumpSOAPIn = 1
 
   # Register soap functions.
   server.registerFunction(add_class)

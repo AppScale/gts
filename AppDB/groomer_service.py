@@ -20,7 +20,6 @@ if __name__ == "__main__":
   gc_zookeeper = zk.ZKTransaction(host=zookeeper_locations)
   logger.info("Using ZK locations {0}".format(zookeeper_locations))
   ds_groomer = groomer.DatastoreGroomer(gc_zookeeper, "cassandra", LOCAL_DATASTORE)
-  logger.info("Starting service.")
   try:
     ds_groomer.start()
   except Exception, exception:

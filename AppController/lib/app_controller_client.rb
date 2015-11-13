@@ -72,6 +72,7 @@ class AppControllerClient
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
+    @conn.add_method("upload_app", "app", "secret")
     @conn.add_method("update", "app_names", "secret")
     @conn.add_method("stop_app", "app_name", "secret")    
     @conn.add_method("get_all_public_ips", "secret")
@@ -122,11 +123,17 @@ class AppControllerClient
         rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
           OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
           Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
-          trace = e.backtrace.join("\n")
-          Djinn.log_warn("[#{callr}] exception in make_call to #{@ip}: #{e.class}\n#{trace}")
           if retry_on_except
             Kernel.sleep(1)
+            Djinn.log_debug("[#{callr}] exception in make_call to " +
+              "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
             retry
+          else
+            trace = e.backtrace.join("\n")
+            Djinn.log_warn("Exception encountered while talking to " +
+              "#{@ip}:#{SERVER_PORT}.\n#{trace}")
+            raise FailedNodeException.new("Exception encountered while " +
+              "talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
       }
@@ -174,6 +181,10 @@ class AppControllerClient
 
   def get_stats()
     make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
+  end
+
+  def upload_app(app)
+    make_call(30, RETRY_ON_FAIL, "upload_app") { @conn.upload_app(app, @secret) }
   end
 
   def stop_app(app_name)

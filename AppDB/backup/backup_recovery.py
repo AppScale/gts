@@ -5,8 +5,10 @@ import json
 import threading
 
 import backup_exceptions
+import backup_recovery_helper
 import cassandra_backup
 import zookeeper_backup
+
 from backup_recovery_constants import StorageTypes
 
 class BackupService():
@@ -82,6 +84,38 @@ class BackupService():
       return self.do_zookeeper_backup(storage, path)
     elif request_type == "zookeeper_restore":
       return self.do_zookeeper_restore(storage, path)
+    elif request_type == "app_backup":
+      return self.do_app_backup(storage, path)
+    elif request_type == "app_restore":
+      return self.do_app_restore(storage, path)
+
+  def do_app_backup(self, storage, path):
+    """ Top level function for doing source code backups.
+
+    Args:
+      storage: A str, one of the StorageTypes class members.
+      path: A str, the name of the backup file to be created.
+    Returns:
+      A JSON string to return to the client.
+    """
+    if not backup_recovery_helper.app_backup(storage, path):
+      return self.bad_request("Source code backup failed!")
+    logging.info("Successful source code backup!")
+    return json.dumps({'success': True, 'reason': ''})
+
+  def do_app_restore(self, storage, path):
+    """ Top level function for restoring source code.
+
+    Args:
+      storage: A str, one of the StorageTypes class members.
+      path: A str, the name of the backup file to be created.
+    Returns:
+      A JSON string to return to the client.
+    """
+    if not backup_recovery_helper.app_restore(storage, path):
+      return self.bad_request("Source code restore failed!")
+    logging.info("Successful source code restore!")
+    return json.dumps({'success': True, 'reason': ''})
 
   def do_cassandra_backup(self, storage, path):
     """ Top level function for doing Cassandra backups.

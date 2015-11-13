@@ -56,9 +56,10 @@ module DatastoreServer
     }
   
     ports.each { |port|
-      start_cmd = "/usr/bin/python #{datastore_server} -p #{port} " +
+      start_cmd = "/usr/bin/python2 #{datastore_server} -p #{port} " +
           "--no_encryption --type #{table}"
-      stop_cmd = "/bin/ps aux | /bin/grep datastore_server | /bin/grep #{port} | /usr/bin/awk {'print $2'} | /usr/bin/xargs kill -9"
+      stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+            "datastore_server #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
     }
   end
@@ -112,11 +113,6 @@ module DatastoreServer
   end
 
   
-  def self.is_running(my_ip)
-    `curl http://#{my_ip}:#{PROXY_PORT}` 
-  end 
-
-
   # Return the name of the executable of the datastore server.
   def self.get_executable_name(table)
     return "#{APPSCALE_HOME}/AppDB/datastore_server.py"

@@ -46,9 +46,6 @@ if ! apt-get remove --purge -y --force-yes ${PACKAGES}; then
     exit 1
 fi
 
-# This is used to have a general count of building from sources.
-curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
-
 # Let's make sure we use ruby 1.9.
 if [ "${DIST}" = "precise" ]; then
         apt-get install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
@@ -61,10 +58,6 @@ if [ "${DIST}" = "precise" ]; then
             --slave /usr/bin/irb irb /usr/bin/irb1.9.1 \
             --slave /usr/bin/rdoc rdoc /usr/bin/rdoc1.9.1
         update-alternatives --install /usr/bin/gem gem /usr/bin/gem1.9.1 400
-elif [ -n "$(apt-cache search ruby-switch)" ]; then
-        echo "Make sure ruby1.9 is used"
-        apt-get install -y ruby rubygems ruby-switch
-        ruby-switch --set ruby1.9
 fi
 
 # Since the last step in appscale_build.sh is to create the certs directory,
@@ -125,7 +118,6 @@ if [ -d appscale/.appscale/certs ]; then
         fi
 
         # In version past 2.3.1 we are incompatible with ruby1.8.
-        # TODO: remove ruby1.8 if we have issues.
 fi
 
 if [ $1 ]; then

@@ -8,6 +8,7 @@ require 'fileutils'
 require 'openssl'
 require 'socket'
 require 'timeout'
+require 'tmpdir'
 
 
 # Imports for RubyGems
@@ -131,6 +132,14 @@ module HelperFunctions
   RESOLV_CONF = "/etc/resolv.conf"
 
 
+  # The proc file to use to read the load of the system.
+  PROC_LOAD_FILE = "/proc/loadavg"
+
+
+  # The proc file to use to read memory installed.
+  PROC_MEM_FILE = "/proc/meminfo"
+
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -222,32 +231,34 @@ module HelperFunctions
       return if HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
-      total_time_slept += sleep_time
-      if sleep_time < 30
-        sleep_time *= 2
+      if total_time_slept % 5 == 0
+        Djinn.log_debug("Waiting on #{ip}:#{port} to be open (currently closed).")
       end
+      total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
         raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
-
-      Djinn.log_debug("Waiting on #{ip}:#{port} to be open (currently closed).")
     }
   end
 
 
-  def self.sleep_until_port_is_closed(ip, port, use_ssl=DONT_USE_SSL)
+  def self.sleep_until_port_is_closed(ip, port, use_ssl=DONT_USE_SSL, timeout=nil)
+    total_time_slept = 0
     sleep_time = 1
 
     loop {
       return unless HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
-      if sleep_time < 30
-        sleep_time *= 2
+      if total_time_slept % 5 == 0
+        Djinn.log_debug("Waiting on #{ip}:#{port} to be closed (currently open).")
       end
+      total_time_slept += sleep_time
 
-      Djinn.log_debug("Waiting on #{ip}:#{port} to be closed (currently open).")
+      if !timeout.nil? and total_time_slept > timeout
+        raise Exception.new("Waited too long for #{ip}#{port} to close!")
+      end
     }
   end
 
@@ -292,21 +303,15 @@ module HelperFunctions
     
     remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command} "
     
-    output_file = "/tmp/#{ip}.log"
     if want_output
-      remote_cmd << "2>&1 > #{output_file} &' &"
+      remote_cmd << "2>&1'"
     else
       remote_cmd << "> /dev/null &' &"
     end
 
     Djinn.log_debug("Running [#{remote_cmd}]")
 
-    if want_output
-      return self.shell("#{remote_cmd}")
-    else
-      Kernel.system(remote_cmd)
-      return remote_cmd
-    end
+    return self.shell("#{remote_cmd}")
   end
 
 
@@ -346,7 +351,7 @@ module HelperFunctions
     private_key_loc = File.expand_path(private_key_loc)
     FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
+    retval_file = "#{Dir.tmpdir}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
     scp_result = self.shell(cmd)
 
@@ -931,7 +936,10 @@ module HelperFunctions
     }
 
     usage['cpu'] /= self.get_num_cpus()
+    usage['num_cpu'] = self.get_num_cpus()
     usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
+    usage['load'] = self.get_avg_load()
+    usage['free_mem'] = ((100 - Integer(Float(usage['mem']).truncate())) * self.get_total_mem()) / 100
 
     return usage
   end
@@ -1368,6 +1376,14 @@ module HelperFunctions
     Djinn.log_debug(env)
   end
 
+  def self.get_avg_load()
+    return IO.read(PROC_LOAD_FILE).split[0].to_i
+  end
+
+  def self.get_total_mem()
+    return (IO.read(PROC_MEM_FILE).split[1].to_i / 1024)
+  end
+
   def self.get_num_cpus()
     return Integer(`cat /proc/cpuinfo | grep 'processor' | wc -l`.chomp)
   end
@@ -1496,7 +1512,8 @@ module HelperFunctions
   # Raises:
   #   SystemExit: Always occurs, since this method crashes the AppController.
   def self.log_and_crash(message)
-    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
+    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ": " +
+      message)
     # Try to also log to the normal log file.
     Djinn.log_error("FATAL: #{message}")
     abort(message)

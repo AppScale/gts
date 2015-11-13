@@ -2,18 +2,33 @@
 
 import logging
 import os
+import re
+import shutil
+import SOAPpy
 import statvfs
 import sys
 import tarfile
+import time
 from os.path import getsize
 
-import backup_recovery_constants
 import backup_exceptions
+import backup_recovery_constants
+import gcs_helper
+
+from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
+from backup_recovery_constants import APP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
+from backup_recovery_constants import StorageTypes
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+import appscale_info
 from constants import APPSCALE_DATA_DIR
+
+from google.appengine.api.appcontroller_client import AppControllerClient
+
+# The port that the SOAP server listens to.
+UA_SERVER_PORT = 4343
 
 def delete_local_backup_file(local_file):
   """ Removes the local backup file.
@@ -134,6 +149,21 @@ def mkdir(path):
     return False
   return True
 
+def makedirs(path):
+  """ Creates a dir with the given path and all directories in between.
+
+  Args:
+    path: A str, the name of the dir to create.
+  Returns:
+    True on success, False otherwise.
+  """
+  try:
+    os.makedirs(path)
+  except OSError:
+    logging.error("OSError while creating dir '{0}'".format(path))
+    return False
+  return True
+
 def rename(source, destination):
   """ Renames source file into destination.
 
@@ -211,3 +241,162 @@ def untar_backup_files(source):
     raise backup_exceptions.BRException(
       "Exception while untarring backup file '{0}'.".format(source))
   logging.info("Done untarring '{0}'.".format(source))
+
+def app_backup(storage, full_bucket_name=None):
+  """ Saves the app source code at the backups location on the filesystem.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+    full_bucket_name: A str, the name of the backup file to upload to remote
+      storage.
+  Returns:
+    True on success, False otherwise.
+  """
+  # Create app backups dir if it doesn't exist.
+  if not makedirs(APP_BACKUP_DIR_LOCATION):
+    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+      format(APP_BACKUP_DIR_LOCATION))
+
+  for dir_path, _, filenames in os.walk(APP_DIR_LOCATION):
+    for filename in filenames:
+      # Copy source code tars to backups location.
+      source = '{0}/{1}'.format(dir_path, filename)
+      destination = '{0}/{1}'.format(APP_BACKUP_DIR_LOCATION, filename)
+      try:
+        shutil.copy(source, destination)
+      except:
+        logging.error("Error while backing up '{0}'. ".format(source))
+        delete_app_tars(APP_BACKUP_DIR_LOCATION)
+        return False
+
+      # Upload to GCS.
+      if storage == StorageTypes.GCS:
+        source = '{0}/{1}'.format(APP_DIR_LOCATION, filename)
+        destination = '{0}/apps/{1}'.format(full_bucket_name, filename)
+        logging.debug("Destination: {0}".format(destination))
+        if not gcs_helper.upload_to_bucket(destination, source):
+          logging.error("Error while uploading '{0}' to GCS. ".format(source))
+          delete_app_tars(APP_BACKUP_DIR_LOCATION)
+          return False
+  return True
+
+def app_restore(storage, bucket_name=None):
+  """ Restores the app source code from the backups location on the filesystem.
+
+  Args:
+    storage: A str, one of the StorageTypes class members.
+    bucket_name: A str, the name of the bucket to restore apps from.
+  Returns:
+    True on success, False otherwise.
+  """
+  # Create app backups dir if it doesn't exist.
+  if not makedirs(APP_BACKUP_DIR_LOCATION):
+    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+      format(APP_BACKUP_DIR_LOCATION))
+
+  # Download from GCS to backups location.
+  if storage == StorageTypes.GCS:
+    objects = gcs_helper.list_bucket(bucket_name)
+    for app_path in objects:
+      if not app_path.startswith(gcs_helper.APPS_GCS_PREFIX):
+        continue
+
+      # Only keep the relative name of the app file.
+      # E.g. myapp.tar.gz (app_file) out of apps/myapp.tar.gz (app_path)
+      app_file = app_path[len(gcs_helper.APPS_GCS_PREFIX):]
+      source = 'gs://{0}/{1}'.format(bucket_name, app_path)
+      destination = '{0}/{1}'.format(APP_BACKUP_DIR_LOCATION, app_file)
+      if not gcs_helper.download_from_bucket(source, destination):
+        logging.error("Error while downloading '{0}' from GCS.".format(source))
+        delete_app_tars(APP_BACKUP_DIR_LOCATION)
+        return False
+
+  # Copy source code tars from backups location to /opt/appscale/apps.
+  apps_to_deploy = []
+  for dir_path, _, filenames in os.walk(APP_BACKUP_DIR_LOCATION):
+    for filename in filenames:
+      source = '{0}/{1}'.format(dir_path, filename)
+      destination = '{0}/{1}'.format(APP_DIR_LOCATION, filename)
+      try:
+        shutil.copy(source, destination)
+        apps_to_deploy.append(destination)
+      except:
+        logging.error("Error while restoring '{0}'.".format(source))
+        if storage == StorageTypes.GCS:
+          delete_app_tars(APP_BACKUP_DIR_LOCATION)
+        delete_app_tars(APP_DIR_LOCATION)
+        return False
+
+  # Deploy apps.
+  if not deploy_apps(apps_to_deploy):
+    logging.error("Failed to successfully deploy one or more of the "
+      "following apps: {0}".format(apps_to_deploy))
+    if storage == StorageTypes.GCS:
+      delete_app_tars(APP_BACKUP_DIR_LOCATION)
+    delete_app_tars(APP_DIR_LOCATION)
+    return False
+
+  # Cleanup.
+  if storage == StorageTypes.GCS:
+    delete_app_tars(APP_BACKUP_DIR_LOCATION)
+
+  return True
+
+def delete_app_tars(location):
+  """ Deletes applications tars from the designated location.
+
+  Args:
+    location: A str, the path to the application tar(s) to be deleted.
+  Returns:
+    True on success, False otherwise.
+  """
+  for dir_path, _, filenames in os.walk(location):
+    for filename in filenames:
+      if not remove('{0}/{1}'.format(dir_path, filename)):
+        return False
+  return True
+
+def deploy_apps(app_paths):
+  """ Deploys all apps that reside in /opt/appscale/apps.
+
+  Args:
+    app_paths: A list of the full paths of the apps to be deployed.
+  Returns:
+    True on success, False otherwise.
+  """
+  uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
+    appscale_info.get_db_master_ip(), UA_SERVER_PORT))
+
+  acc = AppControllerClient(appscale_info.get_login_ip(),
+    appscale_info.get_secret())
+
+  # Wait for Cassandra to come up after a restore.
+  time.sleep(15)
+
+  for app_path in app_paths:
+    # Extract app ID.
+    app_id = app_path[app_path.rfind('/')+1:app_path.find('.')]
+    if not app_id:
+      logging.error("Malformed source code archive. Cannot complete "
+        "application recovery for '{}'. Aborting...".format(app_path))
+      return False
+
+    # Retrieve app admin via uaserver.
+    app_data = uaserver.get_app_data(app_id, appscale_info.get_secret())
+
+    app_admin_re = re.search("\napp_owner:(.+)\n", app_data)
+    if app_admin_re:
+      app_admin = app_admin_re.group(1)
+    else:
+      logging.error("Missing application data. Cannot complete application "
+        "recovery for '{}'. Aborting...".format(app_id))
+      return False
+
+    file_suffix = re.search("\.(.*)\Z", app_path).group(1)
+
+    logging.warning("Restoring app '{}', from '{}', with owner '{}'.".
+      format(app_id, app_path, app_admin))
+
+    acc.upload_app(app_path, file_suffix, app_admin)
+
+  return True

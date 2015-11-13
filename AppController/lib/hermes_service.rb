@@ -12,9 +12,10 @@ module HermesService
   # Starts the Hermes service on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
-    start_cmd = "/usr/bin/python /root/appscale/Hermes/hermes.py"
-    # The stop command doesn't work and relies on terminate.rb.
-    stop_cmd = "/usr/bin/pkill -9 hermes_service"
+    hermes = self.scriptname()
+    start_cmd = "/usr/bin/python2 #{hermes}"
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{hermes} /usr/bin/python2"
     MonitInterface.start(:hermes, start_cmd, stop_cmd, HERMES_PORT, {})
   end
 
@@ -22,6 +23,10 @@ module HermesService
   # managed by monit, just tell monit to shut it down.
   def self.stop()
     MonitInterface.stop(:hermes)
+  end
+
+  def self.scriptname()
+    return "#{APPSCALE_HOME}/Hermes/hermes.py"
   end
 
 end

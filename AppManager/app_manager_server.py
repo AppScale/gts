@@ -6,14 +6,13 @@ import json
 import logging
 import os
 import SOAPpy
-import socket
 import subprocess
 import sys
 import time
 import urllib
+from xml.etree import ElementTree
 
 from M2Crypto import SSL
-
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -39,7 +38,6 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'language',
                           'load_balancer_ip',
                           'xmpp_ip',
-                          'dblocations',
                           'env_vars',
                           'max_memory']
 
@@ -58,6 +56,15 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"
+
+class BadConfigurationException(Exception):
+  """ An application is configured incorrectly. """
+  def __init__(self, value):
+    Exception.__init__(self, value)
+    self.value = value
+
+  def __str__(self):
+    return repr(self.value)
 
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
@@ -96,7 +103,6 @@ def start_app(config):
        language: What language the app is written in
        load_balancer_ip: Public ip of load balancer
        xmpp_ip: IP of XMPP service
-       dblocations: List of database locations
        env_vars: A dict of environment variables that should be passed to the
         app.
        max_memory: An int that names the maximum amount of memory that this
@@ -146,7 +152,7 @@ def start_app(config):
                             config['app_port'],
                             config['load_balancer_ip'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
-    env_vars.update(create_java_app_env())
+    env_vars.update(create_java_app_env(config['app_name']))
   else:
     logging.error("Unknown application language %s for appname %s"\
                   %(config['language'], config['app_name']))
@@ -205,7 +211,11 @@ def stop_app_instance(app_name, port):
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
   monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
-  os.remove(monit_config_file)
+  try:
+    os.remove(monit_config_file)
+  except OSError as e:
+    logging.info("Error deleting {0}".format(monit_config_file))
+
   return True
 
 
@@ -303,14 +313,68 @@ def create_python_app_env(public_ip, app_name):
   env_vars['PYTHON_LIB'] = "{0}/AppServer/".format(constants.APPSCALE_HOME)
   return env_vars
 
-def create_java_app_env():
-  """ Returns the environment variables java application servers uses.
+def find_web_xml(app_name):
+  """ Returns the location of a Java application's appengine-web.xml file.
 
+  Args:
+    app_name: A string containing the application ID.
+  Returns:
+    A string containing the location of the file.
+  Raises:
+    BadConfigurationException if the file is not found or multiple candidates
+    are found.
+
+  """
+  app_dir = '/var/apps/{}/app'.format(app_name)
+  file_name = 'appengine-web.xml'
+  matches = []
+  for root, dirs, files in os.walk(app_dir):
+    if file_name in files and root.endswith('/WEB-INF'):
+      matches.append(os.path.join(root, file_name))
+
+  if len(matches) < 1:
+    raise BadConfigurationException(
+      'Unable to find {} file for {}'.format(file_name, app_name))
+  if len(matches) > 1:
+    raise BadConfigurationException('Found multiple {} files for {}: {}'.
+      format(file_name, app_name, matches))
+  return matches[0]
+
+def extract_env_vars_from_xml(xml_file):
+  """ Returns any custom environment variables defined in appengine-web.xml.
+
+  Args:
+    xml_file: A string containing the location of the xml file.
+  Returns:
+    A dictionary containing the custom environment variables.
+  """
+  custom_vars = {}
+  tree = ElementTree.parse(xml_file)
+  root = tree.getroot()
+  for child in root:
+    if not child.tag.endswith('env-variables'):
+      continue
+
+    for env_var in child:
+      var_dict = env_var.attrib
+      custom_vars[var_dict['name']] = var_dict['value']
+
+  return custom_vars
+
+def create_java_app_env(app_name):
+  """ Returns the environment variables Java application servers uses.
+
+  Args:
+    app_name: A string containing the application ID.
   Returns:
     A dictionary containing the environment variables
   """
-  env_vars = {}
-  env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
+  env_vars = {'APPSCALE_HOME': constants.APPSCALE_HOME}
+
+  config_file = find_web_xml(app_name)
+  custom_env_vars = extract_env_vars_from_xml(config_file)
+  env_vars.update(custom_env_vars)
+
   return env_vars
 
 def create_python27_start_cmd(app_name,
@@ -330,7 +394,7 @@ def create_python27_start_cmd(app_name,
     A string of the start command.
   """
   db_location = DATASTORE_PATH
-  cmd = ["python",
+  cmd = ["/usr/bin/python2",
          constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
          "--port " + str(port),
          "--admin_port " + str(port + 10000),
@@ -498,8 +562,8 @@ def create_python27_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
-    "dev_appserver.py {0}".format(port)
+  stop_cmd = "/usr/bin/python2 {0}/scripts/stop_service.py " \
+    "dev_appserver.py {1}".format(constants.APPSCALE_HOME, port)
   return stop_cmd
 
 def create_java_stop_cmd(port):
@@ -513,8 +577,8 @@ def create_java_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-  stop_cmd = "/usr/bin/python /root/appscale/stop_service.py " \
-    "java {0}".format(port)
+  stop_cmd = "/usr/bin/python2 {0}/scripts/stop_service.py " \
+    "java {1}".format(constants.APPSCALE_HOME, port)
   return stop_cmd
 
 def is_config_valid(config):

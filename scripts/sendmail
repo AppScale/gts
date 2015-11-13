@@ -22,7 +22,7 @@ if [ -z "${APPNAME}" ]; then
 fi
 
 if [ "${DEBUG}" != "Y" ]; then
-        ${SENDMAIL} -a "${APPNAME}" $@
+        ${SENDMAIL} -a "${APPNAME}" -t
 else
         # Create an 'mbox' to check the email that would have been sent.
         # We don't have an easy way to catch the From, so we create a fake
