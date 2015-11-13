@@ -3906,7 +3906,7 @@ class Djinn
       begin
         appengine_info = imc.spawn_vms(nodes.length, @options, roles, disks)
       rescue FailedNodeException, AppScaleException => exception
-        @state = "Couldn't spawn the requires resources: stopping.")
+        @state = "Couldn't spawn the requires resources: stopping."
         HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs " +
           "with roles #{roles} because: #{exception.message}", 30)
       end
