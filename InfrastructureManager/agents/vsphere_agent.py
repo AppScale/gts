@@ -1,9 +1,5 @@
 """
-Agent class for vSphere.
-
-You need setup your vCenter:
-	You need create a AppScale template with VMWare tools installed and to be powered on.
-  	You need create a head node in vSphere
+Agent class for vCenter
 """
 
 from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
@@ -20,8 +16,8 @@ __email2__ = 'dinicola.1210022@studenti.uniroma1.it'
 PARAM_USERNAME = 'vusername'
 PARAM_PASSWORD = 'vpassword'
 PARAM_HOST = 'vhost'
-PARAM_IMAGE_ID = 'vimage_id'                 #name of AppScale Template create in vSphere some like appscale-template
-PARAM_INSTANCE_IDS = 'instance_ids'         #name of vm (ex: appscale1)
+PARAM_IMAGE_ID = 'vimage_id'
+PARAM_INSTANCE_IDS = 'instance_ids'        
 PARAM_KEYNAME = 'keyname'
 
 class vSphereAgent(BaseAgent):
