@@ -25,34 +25,6 @@ CASSANDRA_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
-# Determines where the closest UserAppServer runs in this AppScale deployment.
-# For Cassandra, multiple UserAppServers can be running, so we defer this
-# calculation elsewhere.
-#
-# Returns:
-#   A String that names the private FQDN or IP address where a UserAppServer
-#   runs in this AppScale deployment.
-def get_uaserver_ip()
-  Djinn.get_nearest_db_ip
-end
-
-
-# Determines if a UserAppServer should run on this machine.
-#
-# Args:
-#   job: A DjinnJobData that indicates if the node runs a Database role.
-#
-# Returns:
-#   true if the given node runs a Database role, and false otherwise.
-def has_soap_server?(job)
-  if job.is_db_master? or job.is_db_slave?
-    return true
-  else
-    return false
-  end
-end
-
-
 # Calculates the token that should be set on this machine, which dictates how
 # data should be partitioned between machines.
 #

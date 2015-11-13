@@ -842,7 +842,7 @@ class Djinn
         end
       }
 
-      if has_soap_server?(my_node)
+      if my_node.is_db_master? or my_node.is_db_slave?
         stop_soap_server()
         stop_datastore_server()
         stop_groomer_service()
@@ -3568,7 +3568,7 @@ class Djinn
         end
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
-        if has_soap_server?(my_node)
+        if my_node.is_db_master? or my_node.is_db_slave?
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
@@ -3592,7 +3592,7 @@ class Djinn
 
         # Currently we always run the Datastore Server and SOAP
         # server on the same nodes.
-        if has_soap_server?(my_node)
+        if my_node.is_db_master? or my_node.is_db_slave?
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
