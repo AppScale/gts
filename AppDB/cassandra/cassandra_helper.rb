@@ -25,6 +25,22 @@ CASSANDRA_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
+# Determines if a UserAppServer should run on this machine.
+#
+# Args:
+#   job: A DjinnJobData that indicates if the node runs a Database role.
+#
+# Returns:
+#   true if the given node runs a Database role, and false otherwise.
+def has_soap_server?(job)
+  if job.is_db_master? or job.is_db_slave?
+    return true
+  else
+    return false
+  end
+end
+
+
 # Calculates the token that should be set on this machine, which dictates how
 # data should be partitioned between machines.
 #
