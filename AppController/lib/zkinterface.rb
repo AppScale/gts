@@ -76,17 +76,6 @@ class ZKInterface
   SCALING_DECISION_PATH = "#{APPCONTROLLER_PATH}/scale"
 
 
-  # The location in ZooKeeper that the Babel Master and Slaves will read and
-  # write data to that should be globally accessible or fault-tolerant.
-  BABEL_PATH = "/babel"
-
-
-  # The location in ZooKeeper that the Babel Master's threads read and write
-  # to, to determine the maximum number of machines that should be used to
-  # run Babel tasks.
-  BABEL_MAX_MACHINES_PATH = "#{BABEL_PATH}/max_slaves_machines"
-
-
   # The name of the file that nodes use to store the list of Google App Engine
   # instances that the given node runs.
   APP_INSTANCE = "app_instance"
@@ -513,29 +502,6 @@ class ZKInterface
     return self.exists?("#{APPCONTROLLER_NODE_PATH}/#{ip}/live")
   end
 
-
-  # Writes the integer corresponding to the maximum number of nodes that
-  # should be acquired (whether they be already running open nodes or newly
-  # spawned virtual machines) to become Babel slaves (workers).
-  def self.set_max_machines_for_babel_slaves(maximum)
-    if !self.exists?(BABEL_PATH)
-      self.set(BABEL_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    end
-
-    self.set(BABEL_MAX_MACHINES_PATH, JSON.dump(maximum), NOT_EPHEMERAL)
-  end
-
-  
-  # Returns the maximum number of nodes that should be used to run Babel
-  # jobs (not including the Babel Master).
-  def self.get_max_machines_for_babel_slaves()
-    if !self.exists?(BABEL_MAX_MACHINES_PATH)
-      return 0
-    end
-
-    return JSON.load(self.get(BABEL_MAX_MACHINES_PATH))
-  end
-  
 
   # Returns an Array of Hashes that correspond to the App Engine applications
   # hosted on the given ip address. Each hash contains the application's name,

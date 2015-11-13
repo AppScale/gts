@@ -3906,8 +3906,9 @@ class Djinn
       begin
         appengine_info = imc.spawn_vms(nodes.length, @options, roles, disks)
       rescue FailedNodeException, AppScaleException => exception
+        @state = "Couldn't spawn the requires resources: stopping.")
         HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs " +
-          "with roles #{roles} because: #{exception.message}")
+          "with roles #{roles} because: #{exception.message}", 30)
       end
     else
       nodes.each { |node|
@@ -4089,7 +4090,6 @@ class Djinn
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +
         " Please verify datastore type: #{e}\n#{backtrace}")
     end
-    FileUtils.mkdir_p("#{APPSCALE_HOME}/AppDB/logs")
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
@@ -4115,8 +4115,7 @@ class Djinn
     login_private_ip = get_login.private_ip
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_private_ip", "#{login_private_ip}\n")
 
-    masters_file = "#{CONFIG_FILE_LOCATION}/masters"
-    HelperFunctions.write_file(masters_file, "#{master_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/masters", "#{master_ip}\n")
 
     if @nodes.length  == 1
       Djinn.log_info("Only saw one machine, therefore my node is " +
@@ -4969,11 +4968,6 @@ HOSTS
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
-  #
-  # TODO: Accessing global state should use a lock. Failure to do so causes
-  #   race conditions where arrays are accessed using indexes that are no
-  #   longer valid.
-  #
   def perform_scaling_for_appservers()
     APPS_LOCK.synchronize {
       @apps_loaded.each { |app_name|
