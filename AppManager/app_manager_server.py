@@ -75,7 +75,7 @@ class NoRedirection(urllib2.HTTPErrorProcessor):
 
     Args:
       request: An HTTP request object.
-      response. An HTTP response object.
+      response: An HTTP response object.
     Returns:
       The HTTP response object.
     """
