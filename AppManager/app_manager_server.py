@@ -57,6 +57,8 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"
 
+HTTP_OK = 200
+
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
   def __init__(self, value):
@@ -298,8 +300,8 @@ def wait_on_app(port):
     try:
       opener = urllib2.build_opener(NoRedirection)
       response = opener.open(url)
-      if response.code != 200:
-        logging.info('{} returned {}. Headers: {}'.
+      if response.code != HTTP_OK:
+        logging.warning('{} returned {}. Headers: {}'.
           format(url, response.code, response.headers.headers))
       return True
     except IOError:
