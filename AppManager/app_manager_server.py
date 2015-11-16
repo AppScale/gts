@@ -9,7 +9,7 @@ import SOAPpy
 import subprocess
 import sys
 import time
-import urllib
+import urllib2
 from xml.etree import ElementTree
 
 from M2Crypto import SSL
@@ -57,6 +57,8 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"
 
+HTTP_OK = 200
+
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
   def __init__(self, value):
@@ -65,6 +67,20 @@ class BadConfigurationException(Exception):
 
   def __str__(self):
     return repr(self.value)
+
+class NoRedirection(urllib2.HTTPErrorProcessor):
+  """ A url opener that does not automatically redirect. """
+  def http_response(self, request, response):
+    """ Processes HTTP responses.
+
+    Args:
+      request: An HTTP request object.
+      response: An HTTP response object.
+    Returns:
+      The HTTP response object.
+    """
+    return response
+  https_response = http_response
 
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
@@ -282,7 +298,11 @@ def wait_on_app(port):
   url = "http://" + private_ip + ":" + str(port) + FETCH_PATH
   while retries > 0:
     try:
-      urllib.urlopen(url)
+      opener = urllib2.build_opener(NoRedirection)
+      response = opener.open(url)
+      if response.code != HTTP_OK:
+        logging.warning('{} returned {}. Headers: {}'.
+          format(url, response.code, response.headers.headers))
       return True
     except IOError:
       retries -= 1
