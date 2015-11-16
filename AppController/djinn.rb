@@ -2042,7 +2042,7 @@ class Djinn
 
     begin
       new_nodes_info = imc.spawn_vms(num_of_vms, @options, roles, disks)
-    rescue Exception => exception
+    rescue FailedNodeException, AppScaleException => exception
       Djinn.log_error("Couldn't spawn #{num_of_vms} VMs with roles #{roles} " +
         "because: #{exception.message}")
       return []
@@ -2171,7 +2171,7 @@ class Djinn
         imc = InfrastructureManagerClient.new(@@secret)
         begin
           new_nodes_info = imc.spawn_vms(vms_to_spawn, @options, "open", disks)
-        rescue Exception => exception
+        rescue FailedNodeException, AppScaleException => exception
           Djinn.log_error("Couldn't spawn #{vms_to_spawn} VMs with roles " +
             "open because: #{exception.message}")
           return exception.message
@@ -3908,7 +3908,7 @@ class Djinn
       imc = InfrastructureManagerClient.new(@@secret)
       begin
         appengine_info = imc.spawn_vms(nodes.length, @options, roles, disks)
-      rescue Exception => exception
+      rescue FailedNodeException, AppScaleException => exception
         @state = "Couldn't spawn #{nodes.length} VMs " +
           "with roles #{roles} because: #{exception.message}"
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
