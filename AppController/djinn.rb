@@ -319,6 +319,11 @@ class Djinn
   DUTY_CYCLE = 20
 
 
+  # This is the time to wait before aborting after a crash. We use this
+  # time to give a chance to the tools to collect the crashlog.
+  WAIT_TO_CRASH = 30
+
+
   # This is a 'small' sleep that we generally use when waiting for
   # services to be up.
   SMALL_WAIT = 5
@@ -2381,8 +2386,8 @@ class Djinn
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
   def self.convert_location_class_to_array(djinn_locations)
     if djinn_locations.class != Array
-      HelperFunctions.log_and_crash("Locations should be an Array, not a " +
-        "#{djinn_locations.class}")
+      @state = "Locations is not an Array, not a #{djinn_locations.class}."
+      HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
 
     djinn_loc_array = []
@@ -2397,9 +2402,8 @@ class Djinn
       return node if node.is_login?
     }
 
-    Djinn.log_fatal("Couldn't find a login node in the following nodes: " +
-      "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No login nodes found.")
+    @state = "No login nodes found."
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def get_shadow()
@@ -2407,9 +2411,8 @@ class Djinn
       return node if node.is_shadow?
     }
 
-    Djinn.log_fatal("Couldn't find a shadow node in the following nodes: " +
-      "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No shadow nodes found.")
+    @state = "No shadow nodes found."
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def get_db_master()
@@ -2417,9 +2420,8 @@ class Djinn
       return node if node.is_db_master?
     }
 
-    Djinn.log_fatal("Couldn't find a db master node in the following nodes: " +
-      "#{@nodes.join(', ')}")
-    HelperFunctions.log_and_crash("No db master nodes found.")
+    @state = "No DB master nodes found."
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def self.get_db_master_ip()
@@ -2488,8 +2490,8 @@ class Djinn
       end
     }
 
-    Djinn.log_fatal("[get uaserver ip] Couldn't find a UAServer.")
-    HelperFunctions.log_and_crash("[get uaserver ip] Couldn't find a UAServer.")
+    @state = "Couldn't find a working UserAppServer."
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def get_public_ip(private_ip)
@@ -3545,7 +3547,8 @@ class Djinn
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
         rescue FailedZooKeeperOperationException
-          HelperFunctions.log_and_crash("Couldn't start zookeeper")
+          @state = "Couldn't start Zookeeper."
+          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
         start_backup_service()
       end
@@ -3664,8 +3667,8 @@ class Djinn
       break if retries.zero?
     }
 
-    Djinn.log_fatal("Failed to prime #{table}. Cannot continue.")
-    HelperFunctions.log_and_crash("Failed to prime #{table}.")
+    @state = "Failed to prime #{table}."
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
 
@@ -3906,8 +3909,9 @@ class Djinn
       begin
         appengine_info = imc.spawn_vms(nodes.length, @options, roles, disks)
       rescue FailedNodeException, AppScaleException => exception
-        HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs " +
-          "with roles #{roles} because: #{exception.message}")
+        @state = "Couldn't spawn #{nodes.length} VMs " +
+          "with roles #{roles} because: #{exception.message}"
+        HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
     else
       nodes.each { |node|
@@ -4089,7 +4093,6 @@ class Djinn
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +
         " Please verify datastore type: #{e}\n#{backtrace}")
     end
-    FileUtils.mkdir_p("#{APPSCALE_HOME}/AppDB/logs")
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
@@ -4115,8 +4118,7 @@ class Djinn
     login_private_ip = get_login.private_ip
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_private_ip", "#{login_private_ip}\n")
 
-    masters_file = "#{CONFIG_FILE_LOCATION}/masters"
-    HelperFunctions.write_file(masters_file, "#{master_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/masters", "#{master_ip}\n")
 
     if @nodes.length  == 1
       Djinn.log_info("Only saw one machine, therefore my node is " +
@@ -4467,8 +4469,8 @@ HOSTS
       result = acc.set_parameters(loc_array, credentials, @app_names)
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
     rescue FailedNodeException
-      Djinn.log_error("Couldn't set parameters on node at #{ip}.")
-      HelperFunctions.log_and_crash("Couldn't set parameters on node at #{ip}.")
+      @state = "Couldn't set parameters on node at #{ip}."
+      HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
   end
 
@@ -4969,11 +4971,6 @@ HOSTS
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
-  #
-  # TODO: Accessing global state should use a lock. Failure to do so causes
-  #   race conditions where arrays are accessed using indexes that are no
-  #   longer valid.
-  #
   def perform_scaling_for_appservers()
     APPS_LOCK.synchronize {
       @apps_loaded.each { |app_name|

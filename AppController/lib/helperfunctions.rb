@@ -1511,11 +1511,17 @@ module HelperFunctions
   #   message: A String that indicates why the AppController is crashing.
   # Raises:
   #   SystemExit: Always occurs, since this method crashes the AppController.
-  def self.log_and_crash(message)
+  def self.log_and_crash(message, sleep=nil)
     self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ": " +
       message)
     # Try to also log to the normal log file.
     Djinn.log_error("FATAL: #{message}")
+
+    # If asked for, wait for a while before crashing. This will help the
+    # tools to collect the status report or crashlog.
+    if !sleep.nil?
+      Kernel.sleep(sleep)
+    end
     abort(message)
   end
 
