@@ -319,6 +319,11 @@ class Djinn
   DUTY_CYCLE = 20
 
 
+  # This is the time to wait before aborting after a crash. We use this
+  # time to give a chance to the tools to collect the crashlog.
+  WAIT_TO_CRASH = 30
+
+
   # This is a 'small' sleep that we generally use when waiting for
   # services to be up.
   SMALL_WAIT = 5
@@ -2382,7 +2387,7 @@ class Djinn
   def self.convert_location_class_to_array(djinn_locations)
     if djinn_locations.class != Array
       @state = "Locations is not an Array, not a #{djinn_locations.class}."
-      HelperFunctions.log_and_crash(@state, 30)
+      HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
 
     djinn_loc_array = []
@@ -2398,7 +2403,7 @@ class Djinn
     }
 
     @state = "No login nodes found."
-    HelperFunctions.log_and_crash(@state, 30)
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def get_shadow()
@@ -2407,7 +2412,7 @@ class Djinn
     }
 
     @state = "No shadow nodes found."
-    HelperFunctions.log_and_crash(@state, 30)
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def get_db_master()
@@ -2416,7 +2421,7 @@ class Djinn
     }
 
     @state = "No DB master nodes found."
-    HelperFunctions.log_and_crash(@state, 30)
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def self.get_db_master_ip()
@@ -2486,7 +2491,7 @@ class Djinn
     }
 
     @state = "Couldn't find a working UserAppServer."
-    HelperFunctions.log_and_crash(@state, 30)
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def get_public_ip(private_ip)
@@ -3543,7 +3548,7 @@ class Djinn
           start_zookeeper(@options['clear_datastore'].downcase == "true")
         rescue FailedZooKeeperOperationException
           @state = "Couldn't start Zookeeper."
-          HelperFunctions.log_and_crash(@state, 30)
+          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
         start_backup_service()
       end
@@ -3663,7 +3668,7 @@ class Djinn
     }
 
     @state = "Failed to prime #{table}."
-    HelperFunctions.log_and_crash(@state, 30)
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
 
@@ -3906,7 +3911,7 @@ class Djinn
       rescue Exception => exception
         @state = "Couldn't spawn #{nodes.length} VMs " +
           "with roles #{roles} because: #{exception.message}"
-        HelperFunctions.log_and_crash(@state, 30)
+        HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
     else
       nodes.each { |node|
@@ -4465,7 +4470,7 @@ HOSTS
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
     rescue FailedNodeException
       @state = "Couldn't set parameters on node at #{ip}."
-      HelperFunctions.log_and_crash(@state, 30)
+      HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
   end
 
