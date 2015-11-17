@@ -1255,7 +1255,6 @@ class TestDjinn < Test::Unit::TestCase
     userappserver_ips = JSON.dump({
       'userappserver_private_ip' => 'private-ip'
     })
-      @secret)['public-ip'])
     assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_.*_ip',
       @secret)['private-ip'])
   end
