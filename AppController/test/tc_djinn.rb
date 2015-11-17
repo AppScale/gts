@@ -1251,13 +1251,10 @@ class TestDjinn < Test::Unit::TestCase
 
     # Finally, passing in the regex userappserver_*_ip should return both the
     # public and private UserAppServer IPs.
-    djinn.userappserver_public_ip = "public-ip"
     djinn.userappserver_private_ip = "private-ip"
     userappserver_ips = JSON.dump({
-      'userappserver_public_ip' => 'public-ip',
       'userappserver_private_ip' => 'private-ip'
     })
-    assert_equal(userappserver_ips['public-ip'], djinn.get_property('userappserver_.*_ip',
       @secret)['public-ip'])
     assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_.*_ip',
       @secret)['private-ip'])
