@@ -4392,25 +4392,29 @@ HOSTS
 
   def start_appcontroller(node)
     ip = node.private_ip
-    ssh_key = node.ssh_key
 
+    # Start the AppController on the remote machine.
     remote_cmd = "/usr/sbin/service appscale-controller start"
+    tries = RETRIES
     begin
-      result = HelperFunctions.run_remote_command(ip, remote_cmd, ssh_key, true)
-      Djinn.log_info("start_appcontroller for #{ip} returned #{result}.")
-
-      # We now wait for a while till the appcontroller is responsive.
-      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL,
-        APP_UPLOAD_TIMEOUT)
+      result = HelperFunctions.run_remote_command(ip, remote_cmd, node.ssh_key, true)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
       remote_start_msg = "[remote_start] Unforeseen exception when " + \
         "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-      Djinn.log_warn(remote_start_msg)
-      retry
+      tries -= 1
+      if tries > 0
+        Djinn.log_warn(remote_start_msg)
+        retry
+      else
+        @state = msg
+        HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+      end
     end
+    Djinn.log_info("start_appcontroller for #{ip} returned #{result}.")
 
-    # Let's see if the node was already initialized.
+    # If the node is already initialized, it may belong to another
+    # deployment: stop the initialization process.
     acc = AppControllerClient.new(ip, @@secret)
     tries = RETRIES
     begin
@@ -4428,19 +4432,17 @@ HOSTS
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
     end
-
-    Djinn.log_debug("Sending data to #{ip}")
+    Djinn.log_debug("Sending data to #{ip}.")
 
     loc_array = Djinn.convert_location_class_to_array(@nodes)
     credentials = @options.to_a.flatten
-
     begin
       result = acc.set_parameters(loc_array, credentials, @app_names)
-      Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
     rescue FailedNodeException => e
       @state = "Couldn't set parameters on node at #{ip} for #{e.message}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
+    Djinn.log_info("Parameters set on node at #{ip} returned #{result}.")
   end
 
   def is_running?(name)
