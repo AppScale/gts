@@ -149,7 +149,9 @@ class AppControllerClient
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 
       result = conn.set_parameters(locations, options, apps_to_start, @secret)
     }  
-    HelperFunctions.log_and_crash(result) if result =~ /Error:/
+    if result =~ /Error:/
+      raise FailedNodeException.new("set_parameters returned #{result}.")
+    end
   end
 
   def set_apps(app_names)
@@ -157,7 +159,9 @@ class AppControllerClient
     make_call(10, ABORT_ON_FAIL, "set_apps") { 
       result = conn.set_apps(app_names, @secret)
     }  
-    HelperFunctions.log_and_crash(result) if result =~ /Error:/
+    if result =~ /Error:/
+      raise FailedNodeException.new("set_apps returned #{result}.")
+    end
   end
 
   def status(print_output=true)
@@ -173,7 +177,7 @@ class AppControllerClient
 
   def get_status()
     if !HelperFunctions.is_port_open?(@ip, 17443)
-      HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
+      raise FailedNodeException.new("Cannot talk to AppController at #{@ip}.")
     end
 
     make_call(10, RETRY_ON_FAIL, "get_status") { @conn.status(@secret) }

@@ -339,9 +339,8 @@ class Djinn
   # a multiplication factor we use with the above thresholds.
   SCALE_TIME_MULTIPLIER = 6
 
-  # The size of the rotating buffers that we use to keep information on
-  # the request rate and number of enqueued requests.
-  NUM_DATA_POINTS = 10
+  # This is the generic retries to do.
+  RETRIES = 5
 
 
   # The position in the haproxy profiling information where the name of
@@ -1030,11 +1029,10 @@ class Djinn
       set_log_level(Logger::INFO)
     end
 
-
-
     begin
       @options['zone'] = JSON.load(@options['zone'])
     rescue JSON::ParserError
+      Djinn.log_info("Fail to parse 'zone': ignoring it.")
     end
 
     Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
@@ -1818,14 +1816,6 @@ class Djinn
   # a SOAP interface by which we can dynamically add and remove nodes in this
   # AppScale deployment.
   def start_infrastructure_manager()
-    if HelperFunctions.is_port_open?("localhost",
-      InfrastructureManagerClient::SERVER_PORT, HelperFunctions::USE_SSL)
-
-      Djinn.log_debug("InfrastructureManager is already running locally - " +
-        "don't start it again.")
-      return
-    end
-
     iaas_script = "#{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     start_cmd = "#{PYTHON27} #{iaas_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
@@ -3327,7 +3317,6 @@ class Djinn
       begin
         @options["hostname"] = HelperFunctions.convert_fqdn_to_ip(@options["hostname"])
       rescue Exception => e
-        Djinn.log_fatal("Failed to convert main hostname #{@options['hostname']}")
         HelperFunctions.log_and_crash("Failed to convert main hostname #{@options['hostname']}")
       end
     end
@@ -3372,8 +3361,6 @@ class Djinn
         end
       }
     }
-    Djinn.log_fatal("Can't find my node in @nodes: #{@nodes}. " +
-      "My local IPs are: #{all_local_ips.join(', ')}")
     HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " +
       "My local IPs are: #{all_local_ips.join(', ')}")
   end
@@ -4055,8 +4042,6 @@ class Djinn
       require "#{APPSCALE_HOME}/AppDB/#{table}/#{table}_helper"
     rescue Exception => e
       backtrace = e.backtrace.join("\n")
-      Djinn.log_fatal("Unable to find #{table} helper." +
-        " Please verify datastore type: #{e}\n#{backtrace}")
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +
         " Please verify datastore type: #{e}\n#{backtrace}")
     end
@@ -4264,7 +4249,6 @@ HOSTS
       if @nodes.nil?
         Djinn.log_debug("My nodes is nil also, timing error? race condition?")
       else
-        Djinn.log_fatal("Couldn't find our position in #{@nodes}")
         HelperFunctions.log_and_crash("Couldn't find our position in #{@nodes}")
       end
     end
@@ -4426,8 +4410,26 @@ HOSTS
       retry
     end
 
-    Djinn.log_debug("Sending data to #{ip}")
+    # Let's see if the node was already initialized.
     acc = AppControllerClient.new(ip, @@secret)
+    tries = RETRIES
+    begin
+      if acc.is_done_initializing?
+        Djinn.log_warn("The node at #{ip} was already initialized!")
+        return
+      end
+    rescue FailedNodeException => e
+      tries -= 1
+      if tries > 0
+        Djinn.log_debug("AppController at #{ip} not responding yet: retyring.")
+        retry
+      else
+        @state = "Couldn't talk to AppController at #{ip}."
+        HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+      end
+    end
+
+    Djinn.log_debug("Sending data to #{ip}")
 
     loc_array = Djinn.convert_location_class_to_array(@nodes)
     credentials = @options.to_a.flatten
@@ -4435,8 +4437,8 @@ HOSTS
     begin
       result = acc.set_parameters(loc_array, credentials, @app_names)
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}.")
-    rescue FailedNodeException
-      @state = "Couldn't set parameters on node at #{ip}."
+    rescue FailedNodeException => e
+      @state = "Couldn't set parameters on node at #{ip} for #{e.message}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
   end
