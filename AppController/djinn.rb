@@ -3444,7 +3444,6 @@ class Djinn
     initialize_server()
 
     configure_db_nginx()
-    configure_uaserver_nginx()
     write_memcache_locations()
     write_apploadbalancer_location()
     find_nearest_taskqueue()
@@ -3533,9 +3532,10 @@ class Djinn
 
         # Start the UserAppServer and wait till it's ready.
         start_soap_server()
-        HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
-          UserAppClient::SERVER_PORT)
-        uac = UserAppClient.new(HelperFunctions.local_ip(), @@secret)
+        configure_uaserver_nginx()
+        HelperFunctions.sleep_until_port_is_open(@my_private_ip,
+          UserAppClient::SERVER_PORT, USE_SSL)
+        uac = UserAppClient.new(@my_private_ip, @@secret)
         begin
           app_list = uac.get_all_apps()
         rescue FailedNodeException
@@ -3545,8 +3545,6 @@ class Djinn
 
         start_groomer_service()
         start_backup_service()
-        HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip(),
-          UserAppClient::SERVER_PORT)
 
         if my_node.is_db_master?
           # If we're starting AppScale with data from a previous deployment, we
@@ -3591,8 +3589,19 @@ class Djinn
     Djinn.log_info("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
 
-    # We are done now to setup the services: signal the tools to move
-    # ahead.
+    # Non DB nodes will need to check that the UAserver is up and running.
+    if !my_node.is_db_master? and !my_node.is_db_slave?
+      configure_uaserver_nginx()
+      HelperFunctions.sleep_until_port_is_open(@my_private_ip,
+        UserAppClient::SERVER_PORT, USE_SSL)
+      uac = UserAppClient.new(@my_private_ip, @@secret)
+      begin
+        app_list = uac.get_all_apps()
+      rescue FailedNodeException
+        Djinn.log_debug("UserAppServer not ready yet: retrying.")
+        retry
+      end
+    end
     @userappserver_private_ip = my_node.private_ip
     Djinn.log_info("API services have started on this node")
   end
@@ -4754,11 +4763,11 @@ HOSTS
           appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
           if appengine_port < 0
             Djinn.log_warn("Failed to get port for application #{app} on " +
-              "#{HelperFunctions.local_ip()}")
+              "#{@my_private_ip}")
             next
           end
           Djinn.log_info("Starting #{app_language} app #{app} on " +
-            "#{HelperFunctions.local_ip()}:#{appengine_port}")
+            "#{@my_private_ip}:#{appengine_port}")
 
           xmpp_ip = get_login.public_ip
 
