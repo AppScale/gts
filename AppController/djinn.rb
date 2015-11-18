@@ -513,7 +513,7 @@ class Djinn
     @kill_sig_received = false
     @done_initializing = false
     @done_loading = false
-    @userappserver_private_ip = "not-up-yet"
+    @userappserver_ip = "not-up-yet"
     @state = "AppController just started"
     @num_appengines = 1
     @restored = false
@@ -1282,7 +1282,7 @@ class Djinn
     # As of 2.5.0, db_locations is used by the tools to understand when
     # the AppController is setup and ready to go: we make sure here to
     # follow that rule.
-    if @userappserver_private_ip == "not-up-yet"
+    if @userappserver_ip == "not-up-yet"
       stats['db_location'] = "not-up-yet"
     else
       stats['db_location'] = db_master.public_ip
@@ -2862,8 +2862,8 @@ class Djinn
     old_public_ip = @my_public_ip
     old_private_ip = @my_private_ip
 
-    if @userappserver_private_ip == old_private_ip
-      @userappserver_private_ip = new_private_ip
+    if @userappserver_ip == old_private_ip
+      @userappserver_ip = new_private_ip
     end
 
     @nodes.each { |node|
@@ -3602,7 +3602,7 @@ class Djinn
         retry
       end
     end
-    @userappserver_private_ip = my_node.private_ip
+    @userappserver_ip = my_node.private_ip
     Djinn.log_info("API services have started on this node")
   end
 
