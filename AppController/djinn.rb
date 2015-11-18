@@ -156,7 +156,7 @@ class Djinn
   # The public IP address (or FQDN) that the UserAppServer can be found at,
   # initally set to a dummy value to tell callers not to use it until a real
   # value is set.
-  attr_accessor :userappserver_private_ip
+  attr_accessor :userappserver_ip
 
 
   # The human-readable state that this AppController is in.
