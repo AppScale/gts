@@ -1264,7 +1264,6 @@ class Djinn
 
     jobs = my_node.jobs or ["none"]
     # don't use an actual % below, or it will cause a string format exception
-    db_master = get_db_master()
     stats = {
       'ip' => my_node.public_ip,
       'private_ip' => my_node.private_ip,
@@ -1285,7 +1284,7 @@ class Djinn
     if @userappserver_ip == "not-up-yet"
       stats['db_location'] = "not-up-yet"
     else
-      stats['db_location'] = db_master.public_ip
+      stats['db_location'] = get_db_master.public_ip
     end
 
     stats['apps'] = {}
@@ -3484,18 +3483,9 @@ class Djinn
       AppDashboard::PROXY_PORT)
     Nginx.reload()
 
-    # ejabberd uses uaserver for authentication
-    # so start it after we find out the uaserver's ip
+    # Start now the essential services: those are needed by other
+    # services. In particular the DB are needed for the UserAppServer.
     threads = []
-    if my_node.is_login?
-      threads << Thread.new {
-        start_ejabberd()
-      }
-    end
-
-    @done_initializing = true
-
-    # start zookeeper
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
@@ -3505,17 +3495,9 @@ class Djinn
           @state = "Couldn't start Zookeeper."
           HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
-        start_backup_service()
       end
-
       ZKInterface.init(my_node, @nodes)
     }
-
-    if my_node.is_memcache?
-      threads << Thread.new {
-        start_memcache()
-      }
-    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
@@ -3532,20 +3514,33 @@ class Djinn
 
         # Start the UserAppServer and wait till it's ready.
         start_soap_server()
-        configure_uaserver_nginx()
-        HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-          UserAppClient::SERVER_PORT, USE_SSL)
-        uac = UserAppClient.new(@my_private_ip, @@secret)
-        begin
-          app_list = uac.get_all_apps()
-        rescue FailedNodeException
-          Djinn.log_debug("UserAppServer not ready yet: retrying.")
-          retry
-        end
+      }
+    end
 
-        start_groomer_service()
-        start_backup_service()
+    @done_initializing = true
 
+    # We now wait for the essential services to go up.
+    Djinn.log_info("Waiting for DB services ... ")
+    threads.each { |t| t.join() }
+
+    # All nodes waits for the UserAppServer now.
+    configure_uaserver_nginx()
+    HelperFunctions.sleep_until_port_is_open(@my_private_ip,
+      UserAppClient::SERVER_PORT, USE_SSL)
+    uac = UserAppClient.new(@my_private_ip, @@secret)
+    begin
+      app_list = uac.get_all_apps()
+    rescue FailedNodeException
+      Djinn.log_debug("UserAppServer not ready yet: retrying.")
+      retry
+    end
+    @userappserver_ip = my_node.private_ip
+
+    # We can not start all the other services that may depends on the
+    # UserAppServer and the database.
+    threads = []
+    if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
+      threads << Thread.new {
         if my_node.is_db_master?
           # If we're starting AppScale with data from a previous deployment, we
           # may have to clear out all the registered app instances from the
@@ -3554,6 +3549,25 @@ class Djinn
             erase_app_instance_info
           end
         end
+
+        if my_node.is_db_master? or my_node.is_db_slave?
+          start_groomer_service()
+          start_backup_service()
+        end
+
+        start_backup_service()
+      }
+    end
+
+    if my_node.is_memcache?
+      threads << Thread.new {
+        start_memcache()
+      }
+    end
+
+    if my_node.is_login?
+      threads << Thread.new {
+        start_ejabberd()
       }
     end
 
@@ -3588,21 +3602,6 @@ class Djinn
     # join all our threads here
     Djinn.log_info("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
-
-    # Non DB nodes will need to check that the UAserver is up and running.
-    if !my_node.is_db_master? and !my_node.is_db_slave?
-      configure_uaserver_nginx()
-      HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-        UserAppClient::SERVER_PORT, USE_SSL)
-      uac = UserAppClient.new(@my_private_ip, @@secret)
-      begin
-        app_list = uac.get_all_apps()
-      rescue FailedNodeException
-        Djinn.log_debug("UserAppServer not ready yet: retrying.")
-        retry
-      end
-    end
-    @userappserver_ip = my_node.private_ip
     Djinn.log_info("API services have started on this node")
   end
 
