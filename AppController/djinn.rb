@@ -3407,9 +3407,6 @@ class Djinn
   end
 
   def change_job()
-    my_data = my_node
-    jobs_to_run = my_data.jobs
-
     initialize_server()
 
     configure_db_nginx()
@@ -4396,11 +4393,11 @@ HOSTS
         Djinn.log_warn(remote_start_msg)
         retry
       else
-        @state = msg
+        @state = remote_start_msg
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
     end
-    Djinn.log_info("start_appcontroller for #{ip} returned #{result}.")
+    Djinn.log_info("Starting AppController for #{ip} returned #{result}.")
 
     # If the node is already initialized, it may belong to another
     # deployment: stop the initialization process.
@@ -4411,13 +4408,13 @@ HOSTS
         Djinn.log_warn("The node at #{ip} was already initialized!")
         return
       end
-    rescue FailedNodeException => e
+    rescue FailedNodeException => except
       tries -= 1
       if tries > 0
         Djinn.log_debug("AppController at #{ip} not responding yet: retyring.")
         retry
       else
-        @state = "Couldn't talk to AppController at #{ip}."
+        @state = "Couldn't talk to AppController at #{ip} for #{except.message}."
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
     end
