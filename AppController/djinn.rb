@@ -3507,6 +3507,9 @@ class Djinn
         else
           start_db_slave(@options['clear_datastore'].downcase == "true")
         end
+        # Let's make sure cassandra is up.
+        HelperFunctions.sleep_until_port_is_open(@my_private_ip,
+          THRIFT_PORT)
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
         @state = "Starting up SOAP Server and Datastore Server"
@@ -3517,11 +3520,10 @@ class Djinn
       }
     end
 
-    @done_initializing = true
-
     # We now wait for the essential services to go up.
     Djinn.log_info("Waiting for DB services ... ")
     threads.each { |t| t.join() }
+    @done_initializing = true
 
     # All nodes waits for the UserAppServer now.
     configure_uaserver_nginx()
