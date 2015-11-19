@@ -3410,36 +3410,6 @@ class Djinn
     my_data = my_node
     jobs_to_run = my_data.jobs
 
-    Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
-    if my_node.is_shadow?
-      # TODO: Check to make sure the machines aren't already
-      # initialized before attempting to start up AppScale on them.
-      spawn_and_setup_appengine
-      loop {
-        @everyone_else_is_done = true
-        @nodes.each_index { |index|
-          unless index == @my_index
-            ip = @nodes[index].private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              if !acc.is_done_initializing?
-                Djinn.log_info("Node at #{ip} is not done initializing yet - " +
-                  "will check back later.")
-                @everyone_else_is_done = false
-              end
-            rescue FailedNodeException
-              Djinn.log_warn("Node at #{ip} is not responding to initializing" +
-                " queries - will check back later.")
-              @everyone_else_is_done = false
-            end
-          end
-        }
-        break if @everyone_else_is_done
-        Djinn.log_info("Waiting on other nodes to come online")
-        Kernel.sleep(SMALL_WAIT)
-      }
-    end
-
     initialize_server()
 
     configure_db_nginx()
@@ -3451,18 +3421,13 @@ class Djinn
     setup_config_files()
     start_api_services()
 
-    # Start the AppDashboard.
+    # Login nodes starts additional services.
     if my_node.is_login?
       update_node_info_cache()
       start_app_dashboard(get_login.public_ip, my_node.private_ip)
       start_hermes()
-    end
-
-    if my_node.is_login?
       TaskQueue.start_flower(@options['flower_password'])
     end
-
-    # appengine is started elsewhere
   end
 
 
@@ -3483,11 +3448,21 @@ class Djinn
       AppDashboard::PROXY_PORT)
     Nginx.reload()
 
-    # Start now the essential services: those are needed by other
+    # Start now the essential services in parallel with starting other
+    # nodes (if we are in charge of them): those are needed by other
     # services. In particular the DB are needed for the UserAppServer.
     threads = []
+    if my_node.is_shadow?
+      threads << Thread.new {
+        Djinn.log_info("Spawning/setting up others nodes.")
+        spawn_and_setup_appengine
+        Djinn.log_info("Done spawning/setting up others nodes.")
+      }
+    end
+
     threads << Thread.new {
       if my_node.is_zookeeper?
+        Djinn.log_info("Starting zookeeper.")
         configure_zookeeper(@nodes, @my_index)
         begin
           start_zookeeper(@options['clear_datastore'].downcase == "true")
@@ -3497,10 +3472,12 @@ class Djinn
         end
       end
       ZKInterface.init(my_node, @nodes)
+      Djinn.log_info("Done configuring zookeeper.")
     }
 
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
+        Djinn.log_info("Starting database services.")
         if my_node.is_db_master?
           start_db_master(@options['clear_datastore'].downcase == "true")
           prime_database
@@ -3517,6 +3494,7 @@ class Djinn
 
         # Start the UserAppServer and wait till it's ready.
         start_soap_server()
+        Djinn.log_info("Done starting database services.")
       }
     end
 
@@ -3537,6 +3515,7 @@ class Djinn
       retry
     end
     @userappserver_ip = my_node.private_ip
+    Djinn.log_info("UserAppServer is ready.")
 
     # We can not start all the other services that may depends on the
     # UserAppServer and the database.
