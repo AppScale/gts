@@ -2620,16 +2620,14 @@ class Djinn
   end
 
   # Creates an Nginx configuration file for the Users/Apps soap server.
-  def configure_uaserver_lb()
+  def configure_uaserver_nginx()
     all_db_private_ips = []
     @nodes.each { | node |
       if node.is_db_master? or node.is_db_slave?
         all_db_private_ips.push(node.private_ip)
       end
     }
-    HAProxy.create_uaserver_config(my_node.private_ip, all_db_private_ips)
-    HAProxy.start()
-    Nginx.create_uaserver_config(my_node.private_ip)
+    Nginx.create_uaserver_config(all_db_private_ips)
     Nginx.reload()
   end
 
@@ -3432,6 +3430,17 @@ class Djinn
     @state = "Starting Load Balancer"
     Djinn.log_info("Starting Load Balancer")
 
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    # TODO: Set up nginx and haproxy without needing the dashboard.
+    HAProxy.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    HAProxy.start()
+
+    Nginx.create_app_load_balancer_config(my_public, my_private,
+      AppDashboard::PROXY_PORT)
+    Nginx.reload()
+
     threads = []
     threads << Thread.new {
       if my_node.is_zookeeper?
@@ -3477,7 +3486,7 @@ class Djinn
     @done_initializing = true
 
     # All nodes waits for the UserAppServer now.
-    configure_uaserver_lb()
+    configure_uaserver_nginx()
     HelperFunctions.sleep_until_port_is_open(@my_private_ip,
       UserAppClient::SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
@@ -4479,13 +4488,6 @@ HOSTS
                           "#{my_private}:8002"],
           'language' => 'python27'
       }
-
-      HAProxy.create_app_load_balancer_config(my_private,
-        AppDashboard::PROXY_PORT)
-
-      Nginx.create_app_load_balancer_config(my_public, my_private,
-        AppDashboard::PROXY_PORT)
-      Nginx.reload()
 
       Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
       maybe_start_taskqueue_worker(AppDashboard::APP_NAME)

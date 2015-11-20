@@ -88,47 +88,20 @@ module HAProxy
   end
 
   # Create the configuration file for the AppDashboard application
-  def self.create_app_load_balancer_config(my_private_ip,
+  def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     listen_port)
-    self.create_app_config(my_private_ip, listen_port,
+    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
       AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
   end
 
   # Create the config file for Datastore Server applications
   def self.create_datastore_server_config(my_ip, listen_port, table)
-    self.create_app_config(my_ip, my_ip, listen_port,
+    self.create_app_config(my_ip, my_ip, listen_port, 
       DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
   end
 
-  # Generate the configuration for the UserAppServer. It's different than
-  # usual, since it will contact UAServers on different nodes.
-  #
-  # Args:
-  #  my_private_ip: This is the IP address haproxy will listen to,
-  #                 typically the private address of the calling host;
-  #  server_ips:    This is an arrays of IPs where the UAServer are
-  #                 located.
-  def self.create_uaserver_config(my_private_ip, server_ips)
-    name = "as_uaserver"
-    servers = []
-    server_ips.each_with_index do |ip, index|
-      servers << HAProxy.server_config(name, index,
-        "#{ip}:#{Nginx::UASERVER_NON_SSL_PORT}")
-    end
-
-    config = "# Create a load balancer for the #{name}.\n"
-    config << "listen #{name} #{my_private_ip}:#{Nginx::UASERVER_LB} \n"
-    config << servers.join("\n")
-
-    config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config
-  end
-
-  # A generic function for creating haproxy config files used by appscale
-  # services.
-  def self.create_app_config(my_private_ip, listen_port,
+  # A generic function for creating haproxy config files used by appscale services
+  def self.create_app_config(my_public_ip, my_private_ip, listen_port, 
     server_ports, name)
     servers = []
     server_ports.each_with_index do |port, index|

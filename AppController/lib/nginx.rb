@@ -62,9 +62,6 @@ module Nginx
   # User/apps soap server bind port. 
   UASERVER_NON_SSL_PORT = 4342
 
-  # User/apps soap server bind port.
-  UASERVER_LB = 4341
-
   def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
@@ -618,12 +615,17 @@ CONFIG
   # Creates an Nginx configuration file for the Users/Apps soap server.
   # 
   # Args:
-  #   my_private_ip: The IP where the haproxy has been configured
-  #                  (tipically the calling host).
-  def self.create_uaserver_config(my_private_ip)
+  #   all_private_ips: A list of strings, the IPs on which the datastore is running. 
+  def self.create_uaserver_config(all_private_ips)
     config = <<CONFIG
 upstream uaserver {
-    server #{my_private_ip}:#{UASERVER_LB};
+CONFIG
+    all_private_ips.each { |ip|
+      config += <<CONFIG
+    server #{ip}:#{UASERVER_NON_SSL_PORT};
+CONFIG
+    }
+    config += <<CONFIG
 }
  
 server {
