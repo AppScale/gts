@@ -1,6 +1,9 @@
 #!/usr/bin/ruby -w
 
+# Imports within Ruby's standard libraries.
+require 'tmpdir'
 
+# Imports AppScale's libraries.
 require 'helperfunctions'
 
 
@@ -42,7 +45,7 @@ check file #{watch} path "#{path}"
 BOO
     monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
     if remote_ip
-      tempfile = "/tmp/monit-#{watch}-#{port}.cfg"
+      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
       HelperFunctions.write_file(tempfile, contents)
       begin
         HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
@@ -109,7 +112,7 @@ BOO
 
     monit_file = "/etc/monit/conf.d/appscale-#{watch}-#{port}.cfg"
     if remote_ip
-      tempfile = "/tmp/monit-#{watch}-#{port}.cfg"
+      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
       HelperFunctions.write_file(tempfile, contents)
       begin
         HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)

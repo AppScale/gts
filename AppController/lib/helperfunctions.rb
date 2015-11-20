@@ -8,6 +8,7 @@ require 'fileutils'
 require 'openssl'
 require 'socket'
 require 'timeout'
+require 'tmpdir'
 
 
 # Imports for RubyGems
@@ -350,7 +351,7 @@ module HelperFunctions
     private_key_loc = File.expand_path(private_key_loc)
     FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
+    retval_file = "#{Dir.tmpdir}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
     scp_result = self.shell(cmd)
 
@@ -1517,11 +1518,17 @@ module HelperFunctions
   #   message: A String that indicates why the AppController is crashing.
   # Raises:
   #   SystemExit: Always occurs, since this method crashes the AppController.
-  def self.log_and_crash(message)
+  def self.log_and_crash(message, sleep=nil)
     self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ": " +
       message)
     # Try to also log to the normal log file.
     Djinn.log_error("FATAL: #{message}")
+
+    # If asked for, wait for a while before crashing. This will help the
+    # tools to collect the status report or crashlog.
+    if !sleep.nil?
+      Kernel.sleep(sleep)
+    end
     abort(message)
   end
 

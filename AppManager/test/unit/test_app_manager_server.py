@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 import unittest
-import urllib
+import urllib2
 from xml.etree import ElementTree
 
 from flexmock import flexmock
@@ -255,13 +255,15 @@ class TestAppManager(unittest.TestCase):
     port = 20000
     ip = '127.0.0.1'
     testing.disable_logging()
-    flexmock(urllib).should_receive('urlopen').and_return()
+    fake_opener = flexmock(
+      open=lambda opener: flexmock(code=200, headers=flexmock(headers=[])))
+    flexmock(urllib2).should_receive('build_opener').and_return(fake_opener)
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return(ip)
     self.assertEqual(True, app_manager_server.wait_on_app(port))
 
     flexmock(time).should_receive('sleep').and_return()
-    flexmock(urllib).should_receive('urlopen').and_raise(IOError)
+    fake_opener.should_receive('open').and_raise(IOError)
     self.assertEqual(False, app_manager_server.wait_on_app(port))
 
   def test_copy_modified_jars_success(self):

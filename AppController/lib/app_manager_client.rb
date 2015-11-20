@@ -30,6 +30,9 @@ class AppManagerClient
     @ip = ip
 
     @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{SERVER_PORT}")
+    @conn.options["protocol.http.connect_timeout"] = MAX_TIME_OUT
+    @conn.options["protocol.http.send_timeout"] = MAX_TIME_OUT
+    @conn.options["protocol.http.receive_timeout"] = MAX_TIME_OUT
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
@@ -75,7 +78,6 @@ class AppManagerClient
   #   load_balancer_port: The port of the load balancer
   #   language: The language the application is written in
   #   xmpp_ip: The IP for XMPP
-  #   db_locations: An Array of datastore server IPs
   #   env_vars: A Hash of environemnt variables that should be passed to the
   #     application to start.
   #   max_memory: An Integer that names the maximum amount of memory (in
@@ -93,7 +95,6 @@ class AppManagerClient
                 load_balancer_ip,
                 language,
                 xmpp_ip,
-                db_locations,
                 env_vars,
                 max_memory=500,
                 syslog_server="")
@@ -102,7 +103,6 @@ class AppManagerClient
               'load_balancer_ip' => load_balancer_ip,
               'language' => language,
               'xmpp_ip' => xmpp_ip,
-              'dblocations' => db_locations,
               'env_vars' => env_vars,
               'max_memory' => max_memory,
               'syslog_server' => syslog_server}

@@ -176,7 +176,8 @@ class InfrastructureManagerClient
     vm_info = {}
     loop {
       describe_result = describe_instances("reservation_id" => reservation_id)
-      Djinn.log_debug("[IM] Describe instances info says [#{describe_result}]")
+      Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']} " +
+        "and vm_info is #{describe_result['vm_info']}.")
 
       if describe_result["state"] == "running"
         vm_info = describe_result["vm_info"]
