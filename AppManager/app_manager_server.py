@@ -343,7 +343,7 @@ def find_web_xml(app_name):
     matches.sort()
     match_to_use = matches[0]
     for match in matches:
-      if len(match) < match_to_use:
+      if len(match) < len(match_to_use):
         match_to_use = match
     return match_to_use
   return matches[0]
