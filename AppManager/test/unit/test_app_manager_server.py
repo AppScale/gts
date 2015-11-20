@@ -156,22 +156,25 @@ class TestAppManager(unittest.TestCase):
     assert 0 < int(env_vars['GOMAXPROCS'])
 
   def test_find_web_xml(self):
-    files = [('/var/apps/foo/app/WEB-INF', '', 'appengine-web.xml')]
+    app_id = 'foo'
+    files = [('/var/apps/{}/app/WEB-INF'.format(app_id), '',
+      'appengine-web.xml')]
     flexmock(os).should_receive('walk').and_return(files)
-    app_manager_server.find_web_xml('foo')
+    app_manager_server.find_web_xml(app_id)
 
     files = [('', '', '')]
     flexmock(os).should_receive('walk').and_return(files)
     self.assertRaises(app_manager_server.BadConfigurationException,
-      app_manager_server.find_web_xml, files)
+      app_manager_server.find_web_xml, app_id)
 
     files = [
-      ('/var/apps/foo/app/WEB-INF', '', 'appengine-web.xml'),
-      ('/var/apps/foo/app/war/WEB-INF', '', 'appengine-web.xml'),
+      ('/var/apps/{}/app/WEB-INF'.format(app_id), '', 'appengine-web.xml'),
+      ('/var/apps/{}/app/war/WEB-INF'.format(app_id), '', 'appengine-web.xml')
     ]
     flexmock(os).should_receive('walk').and_return(files)
-    self.assertRaises(app_manager_server.BadConfigurationException,
-      app_manager_server.find_web_xml, files)
+    shortest_path = files[0]
+    web_xml = app_manager_server.find_web_xml(app_id)
+    self.assertEqual(web_xml, os.path.join(shortest_path[0], shortest_path[-1]))
 
   def test_extract_env_vars_from_xml(self):
     xml_template = '<appengine-web-app xmlns="http://appengine.google.com/ns/1.0">\
