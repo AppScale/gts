@@ -433,6 +433,10 @@ class Djinn
   ID_NOT_FOUND = "Reservation ID not found."
 
 
+  # This String is used to inform the tools that the AppController is not
+  # quite ready to receive requests.
+  NOT_UP_YET = "not-up-yet"
+
   # A String that is returned to callers of set_property that provide an invalid
   # instance variable name to set.
   KEY_NOT_FOUND = "No property exists with the given name."
@@ -513,7 +517,7 @@ class Djinn
     @kill_sig_received = false
     @done_initializing = false
     @done_loading = false
-    @userappserver_ip = "not-up-yet"
+    @userappserver_ip = NOT_UP_YET
     @state = "AppController just started"
     @num_appengines = 1
     @restored = false
@@ -923,6 +927,8 @@ class Djinn
     @nodes = converted_nodes
     @options = sanitize_credentials()
 
+    Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
+
     # Check that we got good parameters: we removed the unkown ones for
     # backward compatibilty.
     options_to_delete = []
@@ -1036,6 +1042,8 @@ class Djinn
     end
 
     Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+    Djinn.log_debug("set_parameters: set @options to #{@options}.")
 
     return "OK"
   end
@@ -1281,8 +1289,8 @@ class Djinn
     # As of 2.5.0, db_locations is used by the tools to understand when
     # the AppController is setup and ready to go: we make sure here to
     # follow that rule.
-    if @userappserver_ip == "not-up-yet"
-      stats['db_location'] = "not-up-yet"
+    if @userappserver_ip == NOT_UP_YET
+      stats['db_location'] = NOT_UP_YET
     else
       stats['db_location'] = get_db_master.public_ip
     end
@@ -4411,7 +4419,7 @@ HOSTS
     rescue FailedNodeException => except
       tries -= 1
       if tries > 0
-        Djinn.log_debug("AppController at #{ip} not responding yet: retyring.")
+        Djinn.log_debug("AppController at #{ip} not responding yet: retrying.")
         retry
       else
         @state = "Couldn't talk to AppController at #{ip} for #{except.message}."
@@ -4537,7 +4545,7 @@ HOSTS
       begin
         app_list = uac.get_all_apps()
       rescue FailedNodeException
-        Djinn.log_warn("Failed to get app listing: retyring.")
+        Djinn.log_warn("Failed to get app listing: retrying.")
         retry
       end
       app_list.each { |app|
