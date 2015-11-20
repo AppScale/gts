@@ -927,8 +927,6 @@ class Djinn
     @nodes = converted_nodes
     @options = sanitize_credentials()
 
-    Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
-
     # Check that we got good parameters: we removed the unkown ones for
     # backward compatibilty.
     options_to_delete = []
@@ -1044,6 +1042,7 @@ class Djinn
     Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
     Djinn.log_debug("set_parameters: set @options to #{@options}.")
+    Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
 
     return "OK"
   end
@@ -1734,7 +1733,18 @@ class Djinn
     end
 
     if need_to_start_jobs
-      change_job()
+      # We need to start/configure the other nodes before configuring the
+      # system: we need to know where essential services may be.
+      if my_node.is_shadow?
+        Djinn.log_info("Spawning/setting up others nodes.")
+        spawn_and_setup_appengine
+      end
+
+      # Initialize the current server (mount volumes and static files).
+      initialize_server()
+
+      # Starts all the API and esserntial services.
+      start_api_services()
     end
 
     # Now that we are done loading, we can set the monit job to check the
@@ -3414,28 +3424,6 @@ class Djinn
     return newoptions
   end
 
-  def change_job()
-    initialize_server()
-
-    configure_db_nginx()
-    write_memcache_locations()
-    write_apploadbalancer_location()
-    find_nearest_taskqueue()
-    write_taskqueue_nodes_file()
-    write_search_node_file()
-    setup_config_files()
-    start_api_services()
-
-    # Login nodes starts additional services.
-    if my_node.is_login?
-      update_node_info_cache()
-      start_app_dashboard(get_login.public_ip, my_node.private_ip)
-      start_hermes()
-      TaskQueue.start_flower(@options['flower_password'])
-    end
-  end
-
-
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
   def start_api_services()
@@ -3453,18 +3441,7 @@ class Djinn
       AppDashboard::PROXY_PORT)
     Nginx.reload()
 
-    # Start now the essential services in parallel with starting other
-    # nodes (if we are in charge of them): those are needed by other
-    # services. In particular the DB are needed for the UserAppServer.
     threads = []
-    if my_node.is_shadow?
-      threads << Thread.new {
-        Djinn.log_info("Spawning/setting up others nodes.")
-        spawn_and_setup_appengine
-        Djinn.log_info("Done spawning/setting up others nodes.")
-      }
-    end
-
     threads << Thread.new {
       if my_node.is_zookeeper?
         Djinn.log_info("Starting zookeeper.")
@@ -3589,6 +3566,14 @@ class Djinn
     Djinn.log_info("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
+
+    # Login nodes starts additional services.
+    if my_node.is_login?
+      update_node_info_cache()
+      start_app_dashboard(get_login.public_ip, my_node.private_ip)
+      start_hermes()
+      TaskQueue.start_flower(@options['flower_password'])
+    end
   end
 
 
@@ -3886,6 +3871,7 @@ class Djinn
     }
 
     threads.each { |t| t.join }
+    Djinn.log_info("Done initializing nodes.")
   end
 
   def initialize_node(node)
@@ -4321,6 +4307,15 @@ HOSTS
       Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
       Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
     end
+
+    # Volume is mounted, let's finish the configuration of static files.
+    configure_db_nginx()
+    write_memcache_locations()
+    write_apploadbalancer_location()
+    find_nearest_taskqueue()
+    write_taskqueue_nodes_file()
+    write_search_node_file()
+    setup_config_files()
   end
 
   # Runs any commands provided by the user in their AppScalefile on the given
