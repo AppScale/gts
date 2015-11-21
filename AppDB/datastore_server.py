@@ -3395,7 +3395,7 @@ class DatastoreDistributed():
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = equality_value
         end_value = index_value + self._TERM_STRING
-    elif oper  == datastore_pb.Query_Filter.EQUAL:
+    elif oper == datastore_pb.Query_Filter.EQUAL:
       if value == "":
         start_value = index_value
         end_value = index_value + self.MIN_INDEX_VALUE + self._TERM_STRING
