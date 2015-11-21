@@ -3453,6 +3453,7 @@ class Djinn
           HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
       end
+      write_zookeeper_locations()
       ZKInterface.init(my_node, @nodes)
       Djinn.log_info("Done configuring zookeeper.")
     }
@@ -3702,8 +3703,6 @@ class Djinn
   def start_groomer_service()
     @state = "Starting Groomer Service"
     Djinn.log_info("Starting groomer service.")
-    # Groomer requires locations of ZK.
-    write_zookeeper_locations()
     GroomerService.start()
     Djinn.log_info("Done starting groomer service.")
   end
