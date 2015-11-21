@@ -3326,6 +3326,7 @@ class DatastoreDistributed():
       # before if they are equality or exists.
       all_filter_ops = [ii[0] for ii in filter_info.get(prop.name(), [])]
       if not all_filter_ops:
+        oper = None
         continue
 
       if datastore_pb.Query_Filter.EQUAL in all_filter_ops:
@@ -3402,6 +3403,9 @@ class DatastoreDistributed():
       else:
         start_value = index_value 
         end_value = index_value + self._TERM_STRING
+    elif oper == None:
+      start_value = index_value
+      end_value = index_value + self._TERM_STRING
     else:
       raise ValueError("Unsuported operator {0} for composite query".\
         format(oper))
