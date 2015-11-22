@@ -726,9 +726,6 @@ class Djinn
     # set up on the shadow node. In all supported cases, these are the same
     # node, but there may be an issue if they are on different nodes in
     # the future.
-    # TODO: This doesn't remove the old cron jobs that were accessing the
-    # previously used port. This isn't a problem if nothing else runs on that
-    # port, or if anything else there.
     CronHelper.update_cron(my_public, http_port,
       @app_info_map[appid]['language'], appid)
 
@@ -924,7 +921,9 @@ class Djinn
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
-    @nodes = converted_nodes
+    @state_change_lock.synchronizea {
+      @nodes = converted_nodes
+    }
     @options = sanitize_credentials()
 
     # Check that we got good parameters: we removed the unkown ones for
@@ -1855,16 +1854,6 @@ class Djinn
   end
 
 
-  def write_cloud_info()
-    cloud_info = {
-      'is_cloud?' => is_cloud?(),
-      'is_hybrid_cloud?' => is_hybrid_cloud?()
-    }
-
-    HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
-  end
-
-
   def get_online_users_list(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -2238,6 +2227,7 @@ class Djinn
     # it to prevent race conditions.
     @state_change_lock.synchronize {
       @nodes.concat(new_nodes)
+      @nodes.uniq!
     }
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
@@ -3153,7 +3143,10 @@ class Djinn
         }
 
         old_roles = my_node.jobs
-        @nodes = new_nodes
+        @state_change_lock.synchronize {
+          @nodes = new_nodes.uniq
+        }
+
         find_me_in_locations()
         new_roles = my_node.jobs
 
