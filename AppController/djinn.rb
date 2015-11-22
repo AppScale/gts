@@ -921,7 +921,7 @@ class Djinn
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
-    @state_change_lock.synchronizea {
+    @state_change_lock.synchronize {
       @nodes = converted_nodes
     }
     @options = sanitize_credentials()
