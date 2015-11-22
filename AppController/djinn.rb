@@ -3234,7 +3234,9 @@ class Djinn
         break
       end
     }
-    @nodes.delete(@nodes[index_to_remove])
+    @state_change_lock.synchronize {
+      @nodes.delete(@nodes[index_to_remove])
+    }
 
     # Then remove the remote copy
     begin
@@ -3809,7 +3811,9 @@ class Djinn
 
     keyname = @options["keyname"]
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
-    @nodes.concat(appengine_info)
+    @state_change_lock.synchronize {
+      @nodes.concat(appengine_info)
+    }
     find_me_in_locations()
     write_database_info()
     update_firewall()
