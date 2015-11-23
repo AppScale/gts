@@ -3326,6 +3326,8 @@ class DatastoreDistributed():
       # before if they are equality or exists.
       all_filter_ops = [ii[0] for ii in filter_info.get(prop.name(), [])]
       if not all_filter_ops:
+        # If the last property in the query definition is an order operation,
+        # we do not want to limit the results.
         oper = None
         continue
 
@@ -3403,7 +3405,7 @@ class DatastoreDistributed():
       else:
         start_value = index_value 
         end_value = index_value + self._TERM_STRING
-    elif oper == None:
+    elif oper is None:
       start_value = index_value
       end_value = index_value + self._TERM_STRING
     else:
