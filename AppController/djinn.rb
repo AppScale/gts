@@ -1735,14 +1735,14 @@ class Djinn
       # We need to start/configure the other nodes before configuring the
       # system: we need to know where essential services may be.
       if my_node.is_shadow?
-        Djinn.log_info("Spawning/setting up others nodes.")
+        Djinn.log_info("Spawning/setting up other nodes.")
         spawn_and_setup_appengine
       end
 
       # Initialize the current server (mount volumes and static files).
       initialize_server()
 
-      # Starts all the API and esserntial services.
+      # Starts all the API and essential services.
       start_api_services()
     end
 
@@ -3481,7 +3481,7 @@ class Djinn
     threads.each { |t| t.join() }
     @done_initializing = true
 
-    # All nodes waits for the UserAppServer now.
+    # All nodes wait for the UserAppServer now.
     configure_uaserver_nginx()
     HelperFunctions.sleep_until_port_is_open(@my_private_ip,
       UserAppClient::SERVER_PORT, USE_SSL)
@@ -3563,7 +3563,7 @@ class Djinn
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
 
-    # Login nodes starts additional services.
+    # Login node starts additional services.
     if my_node.is_login?
       update_node_info_cache()
       start_app_dashboard(get_login.public_ip, my_node.private_ip)
