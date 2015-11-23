@@ -3495,8 +3495,8 @@ class Djinn
     @userappserver_ip = my_node.private_ip
     Djinn.log_info("UserAppServer is ready.")
 
-    # We can not start all the other services that may depends on the
-    # UserAppServer and the database.
+    # The services below depends directly or indirectly on the UAServer to
+    # be operational. So we start them after we test the UAServer.
     threads = []
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
