@@ -3143,7 +3143,9 @@ class Djinn
         }
 
         old_roles = my_node.jobs
-        @nodes = new_nodes.uniq
+        @state_change_lock.synchronize {
+          @nodes = new_nodes.uniq
+        }
 
         find_me_in_locations()
         new_roles = my_node.jobs
@@ -3232,7 +3234,9 @@ class Djinn
         break
       end
     }
-    @nodes.delete(@nodes[index_to_remove])
+    @state_change_lock.synchronize {
+      @nodes.delete(@nodes[index_to_remove])
+    }
 
     # Then remove the remote copy
     begin
