@@ -4690,8 +4690,13 @@ HOSTS
 
       @nodes.each { |node|
         if node.private_ip != my_node.private_ip
-          HelperFunctions.scp_file(port_file, port_file, node.private_ip,
-            node.ssh_key)
+          begin
+            HelperFunctions.scp_file(port_file, port_file, node.private_ip,
+              node.ssh_key)
+          rescue AppScaleSCPException => exception
+            Djinn.log_warn("Failed to give nginx port for app #{app} to " +
+              "#{node.private_ip}: #{exception.message}")
+          end
         end
       }
 
