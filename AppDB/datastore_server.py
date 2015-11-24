@@ -3316,9 +3316,11 @@ class DatastoreDistributed():
     value = ''
     index_value = ""
     equality_value = ""
-    oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
     direction = datastore_pb.Query_Order.ASCENDING
     for prop in definition.property_list():
+      # Choose the least restrictive operation by default.
+      oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
+
       # The last property dictates the direction.
       if prop.has_direction():
         direction = prop.direction()
@@ -3326,9 +3328,6 @@ class DatastoreDistributed():
       # before if they are equality or exists.
       all_filter_ops = [ii[0] for ii in filter_info.get(prop.name(), [])]
       if not all_filter_ops:
-        # If the last property in the query definition is an order operation,
-        # we do not want to limit the results.
-        oper = None
         continue
 
       if datastore_pb.Query_Filter.EQUAL in all_filter_ops:
@@ -3405,9 +3404,6 @@ class DatastoreDistributed():
       else:
         start_value = index_value 
         end_value = index_value + self._TERM_STRING
-    elif oper is None:
-      start_value = index_value
-      end_value = index_value + self._TERM_STRING
     else:
       raise ValueError("Unsuported operator {0} for composite query".\
         format(oper))
