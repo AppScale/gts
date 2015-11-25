@@ -82,8 +82,8 @@ class InfrastructureManagerClient
             trace = e.backtrace.join("\n")
             Djinn.log_warn("Exception encountered while talking to " +
               "#{@ip}:#{SERVER_PORT}.\n#{trace}")
-            raise FailedNodeException.new("Exception encountered while " +
-              "talking to #{@ip}:#{SERVER_PORT}.")
+            raise FailedNodeException.new("Exception #{e.class}:#{e.message} encountered " +
+              "while talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
       }
