@@ -2760,12 +2760,14 @@ class Djinn
       end
       # my_private_ip and my_public_ip instance variables are from the head
       # node. This node may or may not be the head node, so set those 
-      # from local files.
+      # from local files. state_change_lock is a Monitor: no need to
+      # restore it.
       if k == "@my_private_ip"
         @my_private_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_private_ip").chomp
       elsif k == "@my_public_ip"
         @my_public_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_public_ip").chomp
-      else 
+        @state_change_lock = Monitor.new()
+      elsif k != "@state_change_lock"
         instance_variable_set(k, v)
       end
     }
@@ -3266,6 +3268,13 @@ class Djinn
   def parse_options
     if @options['appengine']
       @num_appengines = Integer(@options['appengine'])
+    end
+
+    # Set the proper log level.
+    if @options['verbose'].downcase == "true"
+      set_log_level(Logger::DEBUG)
+    else
+      set_log_level(Logger::INFO)
     end
 
     keypath = @options['keyname'] + ".key"
@@ -4688,17 +4697,24 @@ HOSTS
       Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
         "https port #{https_port}, and haproxy port #{proxy_port}")
 
+      # There can be quite a few nodes, let's do this in parallel. We also
+      # don't care about the results, since the appengine node will work
+      # on its own upon reception of the file.
       @nodes.each { |node|
-        if node.private_ip != my_node.private_ip
+        next if node.private_ip != my_node.private_ip
+        Thread.new {
           begin
+            # Nodes are supposed to be up: we do not retry if the command
+            # fails.
             HelperFunctions.scp_file(port_file, port_file, node.private_ip,
-              node.ssh_key)
+              node.ssh_key, 0)
           rescue AppScaleSCPException => exception
             Djinn.log_warn("Failed to give nginx port for app #{app} to " +
               "#{node.private_ip}: #{exception.message}")
           end
-        end
+        }
       }
+      Djinn.log_debug("Copied port-file to all nodes.")
 
       # Setup rsyslog to store application logs.
       temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"
