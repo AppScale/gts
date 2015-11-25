@@ -93,27 +93,6 @@ ff02::3 ip6-allhosts
 EOF
 }
 
-setupntp()
-{
-    # Let's make sure time is tightly synchronized (64s poll).
-    echo -e "\nmaxpoll 6" >> /etc/ntp.conf
-
-    # This ensure that we synced first, to allow ntpd to stay
-    # synchronized. We have seen temporary failures in reaching out to the
-    # ntp pool, so we'll make sure we try few times.
-    service ntp stop
-    for x in {1..5} ; do
-        if ntpdate pool.ntp.org ; then
-            break
-        fi
-        sleep $x
-    done
-    if [ $x -gt 5 ]; then
-        echo "Cannot sync clock: you may have issues!"
-    fi
-    service ntp start
-}
-
 installPIL()
 {
     if [ "$DIST" = "precise" ]; then
