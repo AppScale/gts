@@ -4701,20 +4701,17 @@ HOSTS
       # don't care about the results, since the appengine node will work
       # on its own upon reception of the file.
       @nodes.each { |node|
-        next if node.private_ip != my_node.private_ip
+        next if node.private_ip == my_node.private_ip
         Thread.new {
           begin
-            # Nodes are supposed to be up: we do not retry if the command
-            # fails.
             HelperFunctions.scp_file(port_file, port_file, node.private_ip,
-              node.ssh_key, 0)
+              node.ssh_key)
           rescue AppScaleSCPException => exception
             Djinn.log_warn("Failed to give nginx port for app #{app} to " +
               "#{node.private_ip}: #{exception.message}")
           end
         }
       }
-      Djinn.log_debug("Copied port-file to all nodes.")
 
       # Setup rsyslog to store application logs.
       temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"

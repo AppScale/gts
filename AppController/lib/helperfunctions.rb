@@ -345,12 +345,9 @@ module HelperFunctions
   #   remote_file_loc: The remote location to copy to.
   #   target_ip: The remote target IP.
   #   private_key_loc: The private key to use.
-  #   retries: time to retry the command in case of failure.
   # Raises:
   #   AppScaleSCPException: When a scp fails.
-  def self.scp_file(local_file_loc, remote_file_loc, target_ip,
-      private_key_loc, retries=5)
-
+  def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
     FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
@@ -370,7 +367,7 @@ module HelperFunctions
       break if retval == "0"
       Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
-      if fails >= retries
+      if fails >= 5
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
       Kernel.sleep(SLEEP_TIME)
