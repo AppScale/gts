@@ -479,6 +479,9 @@ set httpd port 2812 and
 EOF
     fi
 
+    # Check services every 5 seconds
+    sed -i 's/set daemon.*/set daemon 5/' /etc/monit/monitrc
+
     # Monit cannot start at boot time: in case of accidental reboot, it
     # would start processes out of order. The controller will restart
     # monit as soon as it starts.
