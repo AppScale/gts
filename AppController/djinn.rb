@@ -2766,7 +2766,6 @@ class Djinn
         @my_private_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_private_ip").chomp
       elsif k == "@my_public_ip"
         @my_public_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_public_ip").chomp
-        @state_change_lock = Monitor.new()
       elsif k != "@state_change_lock"
         instance_variable_set(k, v)
       end
