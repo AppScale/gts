@@ -317,7 +317,6 @@ installcassandra()
     chmod 777 /var/lib/cassandra
 
     if [ "$DIST" = "precise" ]; then
-        pipwrapper  setuptools
         pipwrapper  thrift
     fi
     pipwrapper  pycassa
