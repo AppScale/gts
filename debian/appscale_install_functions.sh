@@ -58,30 +58,33 @@ disableservice() {
 
 increaseconnections()
 {
-    echo "ip_conntrack" >> /etc/modules
+    if [ "${IN_DOCKER}" != "yes" ]; then
+        echo "ip_conntrack" >> /etc/modules
 
-    # Google Compute Engine doesn't allow users to use modprobe, so it's ok if
-    # the modprobe command fails.
-    modprobe ip_conntrack || true
+        # Google Compute Engine doesn't allow users to use modprobe, so it's ok if
+        # the modprobe command fails.
+        modprobe ip_conntrack || true
 
-    echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
-    echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
-    echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
+        echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
+        echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
+        echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
+        echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
+        echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
+        echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
+        echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
+        echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
 
-    /sbin/sysctl -p /etc/sysctl.conf 
+        /sbin/sysctl -p /etc/sysctl.conf
+    fi
 }
 
 sethosts()
 {
-    cp -v /etc/hosts /etc/hosts.orig
-    HOSTNAME=`hostname`
-    echo "Generating /etc/hosts"
-    cat <<EOF | tee /etc/hosts
+    if [ "${IN_DOCKER}" != "yes" ]; then
+        cp -v /etc/hosts /etc/hosts.orig
+        HOSTNAME=`hostname`
+        echo "Generating /etc/hosts"
+        cat <<EOF | tee /etc/hosts
 127.0.0.1       localhost localhost.localdomain
 127.0.1.1 $HOSTNAME
 ::1     ip6-localhost ip6-loopback
@@ -91,6 +94,7 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 ff02::3 ip6-allhosts
 EOF
+    fi
 }
 
 installPIL()
@@ -317,7 +321,6 @@ installcassandra()
     chmod 777 /var/lib/cassandra
 
     if [ "$DIST" = "precise" ]; then
-        pipwrapper  setuptools
         pipwrapper  thrift
     fi
     pipwrapper  pycassa
@@ -469,7 +472,7 @@ postinstallrsyslog()
 postinstallmonit()
 {
     # We need to have http connection enabled to talk to monit.
-    if grep ! -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
+    if ! grep -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
         cat <<EOF | tee -a /etc/monit/monitrc
 
 # Added by AppScale: this is needed to have a working monit command
