@@ -289,8 +289,6 @@ class DistributedTaskQueue():
 
     app_id = self.__cleanse(request['app_id'])
 
-    hostname = appscale_info.get_private_ip()
-
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info.
@@ -313,7 +311,7 @@ class DistributedTaskQueue():
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
                #"--autoscale=" + self.MIN_MAX_CONCURRENCY,
-               "--hostname=" + hostname + "." + app_id,
+               "--hostname=%h." + app_id,
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
