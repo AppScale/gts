@@ -1,6 +1,8 @@
 #!/bin/bash
-
-set -e
+#
+# This script install appscale on the local machine. It pulls in all the
+# needed dependencies and configure them properly for AppScale.
+#
 
 # Some basic check: we need a way to install packages.
 PKG_CMD="$(which apt-get)"
@@ -9,6 +11,8 @@ if [ -z "${PKG_CMD}" ]; then
     exit 1
 fi
 
+set -e
+
 # Update the pakcages list and cache.
 echo -n "Updating package list and cache ..."
 ${PKG_CMD} update > /dev/null
@@ -16,8 +20,7 @@ echo "done."
 
 # We need to make sure we have lsb-release, before we use it. On
 # streamlined images (like docker) it may not be present.
-LSB_RELEASE="$(which lsb_release)"
-if [ -z "${LSB_RELEASE}" ]; then
+if ! which lsb_release > /dev/null ; then 
     echo -n "Installing lsb-release..."
     (${PKG_CMD} install -y lsb-release) > /dev/null
     echo "done."
