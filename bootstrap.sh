@@ -127,7 +127,7 @@ echo
 
 sleep 5
 apt-get update
-apt-get install -y git lsb-release
+apt-get install -y git
 if [ ! -d appscale ]; then
         # We split the commands, to ensure it fails if branch doesn't
         # exists (Precise git will not fail otherwise).
