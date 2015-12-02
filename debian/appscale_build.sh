@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# This script install appscale on the local machine. It pulls in all the
-# needed dependencies and configure them properly for AppScale.
+# This script installs AppScale on the local machine. It pulls in all the
+# needed dependencies and configures them properly for AppScale.
 #
 
 # Some basic check: we need a way to install packages.
@@ -13,7 +13,7 @@ fi
 
 set -e
 
-# Update the pakcages list and cache.
+# Update the packages list and cache.
 echo -n "Updating package list and cache ..."
 ${PKG_CMD} update > /dev/null
 echo "done."
@@ -22,7 +22,7 @@ echo "done."
 # streamlined images (like docker) it may not be present.
 if ! which lsb_release > /dev/null ; then 
     echo -n "Installing lsb-release..."
-    (${PKG_CMD} install -y lsb-release) > /dev/null
+    ${PKG_CMD} install -y lsb-release > /dev/null
     echo "done."
 fi
 
