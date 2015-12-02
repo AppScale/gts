@@ -52,6 +52,9 @@ export IN_DOCKER="no"
 if grep docker /proc/1/cgroup > /dev/null ; then
     echo "Detected docker container."
     IN_DOCKER="yes"
+    # We generate basic US locale to make sure we eliminate Warnings later
+    # on.
+    locale-gen en_US en_US.UTF-8
 fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
