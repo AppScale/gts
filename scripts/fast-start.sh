@@ -105,8 +105,15 @@ elif ${CURL} metadata.google.internal -i |grep 'Metadata-Flavor: Google' ; then
     # As per https://cloud.google.com/compute/docs/metadata.
     PROVIDER="GCE"
 else
-    # Let's assume virtualized cluster.
-    PROVIDER="CLUSTER"
+    # Let's check if this is Docker.
+    if grep docker /proc/1/cgroup > /dev/null ; then
+        # We need to start sshd by hand.
+        /usr/sbin/sshd || true
+        PROVIDER="Docker"
+    else
+        # Let's assume virtualized cluster.
+        PROVIDER="CLUSTER"
+    fi
 fi
 
 # Let's make sure we got the IPs to use in the configuration.
@@ -181,6 +188,9 @@ KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
+if [ -z "${ADMIN_EMAIL}" ]; then
+    ADMIN_EMAIL="a@a.com"
+fi
 [ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
