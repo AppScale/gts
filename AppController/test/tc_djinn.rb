@@ -1137,10 +1137,7 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:80").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380").and_return("")
-
-    expected = "Error: requested port is already in use."
+    expected = "Error: requested http port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 80, 4380, @secret))
   end
 
@@ -1170,10 +1167,7 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:443").and_return("")
-
-    expected = "Error: requested port is already in use."
+    expected = "Error: requested https port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 443, @secret))
   end
 
@@ -1203,10 +1197,7 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380").and_return("")
-
-    expected = "Error: requested port is already in use."
+    expected = "Error: requested https port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
   end
 
@@ -1236,10 +1227,7 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380").and_return("")
-
-    expected = "Error: requested port is already in use."
+    expected = "Error: requested http port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
   end
 

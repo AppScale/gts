@@ -666,8 +666,11 @@ class Djinn
     end
 
     if find_lowest_free_port(http_port, http_port, appid) == -1 or
-        find_lowest_free_port(https_port, https_port, appid) == -1 or
-      return "Error: requested port is already in use."
+      return "Error: requested http port is already in use."
+    end
+
+    if find_lowest_free_port(https_port, https_port, appid) == -1 or
+      return "Error: requested https port is already in use."
     end
 
     if RESERVED_APPS.include?(appid)
@@ -4891,9 +4894,9 @@ HOSTS
         end
 
         # These ports are allocated on the frontend.
-        if possibly_free_port == info['nginx'] or
-            possibly_free_port == info['nginx_https'] or
-            possibly_free_port == info['haproxy']
+        if possibly_free_port == Integer(info['nginx']) or
+            possibly_free_port == Integer(info['nginx_https']) or
+            possibly_free_port == Integer(info['haproxy'])
           in_use = true
         end
 
@@ -4901,7 +4904,7 @@ HOSTS
         if info['appengine']
           info['appengine'].each { |location|
             host, port = location.split(":")
-            if possibly_free_port == port
+            if possibly_free_port == Integer(port)
               in_use = true
             end
           }
