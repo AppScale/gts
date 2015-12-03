@@ -288,4 +288,10 @@ fi
 echo "*****************************************"
 echo "AppScale and AppScale tools are installed"
 echo "*****************************************"
+
+# In case we want to use AppScale right away, we need to source the new
+# path.
+export TOOLS_PATH=/usr/local/appscale-tools
+export PATH=${PATH}:${TOOLS_PATH}/bin
+
 exit 0
