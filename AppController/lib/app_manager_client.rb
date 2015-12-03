@@ -57,8 +57,8 @@ class AppManagerClient
             trace = e.backtrace.join("\n")
             Djinn.log_warn("Exception encountered while talking to " +
               "#{@ip}:#{SERVER_PORT}.\n#{trace}")
-            raise FailedNodeException.new("Exception encountered while " +
-              "talking to #{@ip}:#{SERVER_PORT}.")
+            raise FailedNodeException.new("Exception #{e.class}:#{e.message} encountered " +
+              "while talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
       }
@@ -78,7 +78,6 @@ class AppManagerClient
   #   load_balancer_port: The port of the load balancer
   #   language: The language the application is written in
   #   xmpp_ip: The IP for XMPP
-  #   db_locations: An Array of datastore server IPs
   #   env_vars: A Hash of environemnt variables that should be passed to the
   #     application to start.
   #   max_memory: An Integer that names the maximum amount of memory (in
@@ -96,7 +95,6 @@ class AppManagerClient
                 load_balancer_ip,
                 language,
                 xmpp_ip,
-                db_locations,
                 env_vars,
                 max_memory=500,
                 syslog_server="")
@@ -105,7 +103,6 @@ class AppManagerClient
               'load_balancer_ip' => load_balancer_ip,
               'language' => language,
               'xmpp_ip' => xmpp_ip,
-              'dblocations' => db_locations,
               'env_vars' => env_vars,
               'max_memory' => max_memory,
               'syslog_server' => syslog_server}

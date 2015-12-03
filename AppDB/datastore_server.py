@@ -120,6 +120,130 @@ def reference_property_to_reference(refprop):
   return ref
 
 
+class UnprocessedQueryResult(datastore_pb.QueryResult):
+  """ A QueryResult that avoids decoding and re-encoding results.
+
+  This is only meant as a faster container for returning results from
+  datastore queries. Since it does not process or check results in any way,
+  it is not safe to use as a general purpose QueryResult replacement.
+  """
+  def __init__(self, contents=None):
+    """ Initializes an UnprocessedQueryResult object.
+
+    Args:
+      contents: An optional string to initialize a QueryResult object.
+    """
+    datastore_pb.QueryResult.__init__(self, contents=contents)
+    self.binary_results_ = []
+
+  def result_list(self):
+    """ Returns a reference to the stored list of results.
+
+    Unlike the original function, this returns the binary results instead of
+    the decoded results.
+    """
+    return self.binary_results_
+
+  def OutputUnchecked(self, out):
+    """ Encodes QueryResult object and outputs it to a buffer object.
+
+    This is called during the Encode process. The only difference from the
+    original function is outputting the binary results instead of encoding
+    result objects.
+
+    Args:
+      out: A buffer object to store the output.
+    """
+    if (self.has_cursor_):
+      out.putVarInt32(10)
+      out.putVarInt32(self.cursor_.ByteSize())
+      self.cursor_.OutputUnchecked(out)
+    for i in xrange(len(self.binary_results_)):
+      out.putVarInt32(18)
+      out.putVarInt32(len(self.binary_results_[i]))
+      out.buf.fromstring(self.binary_results_[i])
+    out.putVarInt32(24)
+    out.putBoolean(self.more_results_)
+    if (self.has_keys_only_):
+      out.putVarInt32(32)
+      out.putBoolean(self.keys_only_)
+    if (self.has_compiled_query_):
+      out.putVarInt32(42)
+      out.putVarInt32(self.compiled_query_.ByteSize())
+      self.compiled_query_.OutputUnchecked(out)
+    if (self.has_compiled_cursor_):
+      out.putVarInt32(50)
+      out.putVarInt32(self.compiled_cursor_.ByteSize())
+      self.compiled_cursor_.OutputUnchecked(out)
+    if (self.has_skipped_results_):
+      out.putVarInt32(56)
+      out.putVarInt32(self.skipped_results_)
+    for i in xrange(len(self.index_)):
+      out.putVarInt32(66)
+      out.putVarInt32(self.index_[i].ByteSize())
+      self.index_[i].OutputUnchecked(out)
+    if (self.has_index_only_):
+      out.putVarInt32(72)
+      out.putBoolean(self.index_only_)
+    if (self.has_small_ops_):
+      out.putVarInt32(80)
+      out.putBoolean(self.small_ops_)
+
+
+class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
+  """ A QueryCursor that takes encoded entities.
+
+  This is only meant to accompany the UnprocessedQueryResult class.
+  """
+  def __init__(self, query, binary_results, last_entity):
+    """ Initializes an UnprocessedQueryCursor object.
+
+    Args:
+      query: A query protocol buffer object.
+      binary_results: A list of strings that contain encoded protocol buffer
+        results.
+      last_entity: A string that contains the last entity. It is used to
+        generate the cursor, and it can be defined even if there are no
+        results.
+    """
+    self.__binary_results = binary_results
+    self.__query = query
+    self.__last_ent = last_entity
+    if len(binary_results) > 0:
+      # _EncodeCompiledCursor just uses the last entity.
+      results = [entity_pb.EntityProto(binary_results[-1])]
+    else:
+      results = []
+    super(UnprocessedQueryCursor, self).__init__(query, results, last_entity)
+
+  def PopulateQueryResult(self, count, offset, result):
+    """ Populates a QueryResult object with results the QueryCursor has been
+    storing.
+
+    Args:
+      count: The number of results requested in the query.
+      offset: The number of results to skip.
+      result: A QueryResult object to populate.
+    """
+    result.set_skipped_results(min(count, offset))
+    result_list = result.result_list()
+    if self.__binary_results:
+      if self.__query.keys_only():
+        for binary_result in self.__binary_results:
+          entity = entity_pb.EntityProto(binary_result)
+          entity.clear_property()
+          entity.clear_raw_property()
+          result_list.append(entity.Encode())
+      else:
+        result_list.extend(self.__binary_results)
+    else:
+      result_list = []
+    result.set_keys_only(self.__query.keys_only())
+    result.set_more_results(offset < count)
+    if self.__binary_results or self.__last_ent:
+      self._EncodeCompiledCursor(result.mutable_compiled_cursor())
+
+
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
       replacement for the AppServers to persist their data into 
@@ -3192,9 +3316,11 @@ class DatastoreDistributed():
     value = ''
     index_value = ""
     equality_value = ""
-    oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
     direction = datastore_pb.Query_Order.ASCENDING
     for prop in definition.property_list():
+      # Choose the least restrictive operation by default.
+      oper = datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL
+
       # The last property dictates the direction.
       if prop.has_direction():
         direction = prop.direction()
@@ -3271,7 +3397,7 @@ class DatastoreDistributed():
       if direction == datastore_pb.Query_Order.DESCENDING:
         start_value = equality_value
         end_value = index_value + self._TERM_STRING
-    elif oper  == datastore_pb.Query_Filter.EQUAL:
+    elif oper == datastore_pb.Query_Filter.EQUAL:
       if value == "":
         start_value = index_value
         end_value = index_value + self.MIN_INDEX_VALUE + self._TERM_STRING
@@ -3875,21 +4001,20 @@ class DatastoreDistributed():
       query_result: The response given to the application server.
     """
     result = self.__get_query_results(query)
-    last_ent = None
+    last_entity = None
     count = 0
     offset = query.offset()
     if result:
       query_result.set_skipped_results(len(result) - offset)
-      # Last ent is used for determining the cursor.
-      last_ent = result[-1]
+      # Last entity is used for the cursor. It needs to be set before
+      # applying the offset.
+      last_entity = result[-1]
       count = len(result)
       result = result[offset:]
       if query.has_limit():
         result = result[:query.limit()]
-      for index, ii in enumerate(result):
-        result[index] = entity_pb.EntityProto(ii) 
-    
-    cur = appscale_stub_util.QueryCursor(query, result, last_ent)
+
+    cur = UnprocessedQueryCursor(query, result, last_entity)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
     # If we have less than the amount of entities we request there are no
@@ -4214,7 +4339,7 @@ class MainHandler(tornado.web.RequestHandler):
     """
     global datastore_access
     query = datastore_pb.Query(http_request_data)
-    clone_qr_pb = datastore_pb.QueryResult()
+    clone_qr_pb = UnprocessedQueryResult()
     try:
       datastore_access._dynamic_run_query(query, clone_qr_pb)
     except ZKBadRequest, zkie:

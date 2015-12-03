@@ -9,7 +9,7 @@ import SOAPpy
 import subprocess
 import sys
 import time
-import urllib
+import urllib2
 from xml.etree import ElementTree
 
 from M2Crypto import SSL
@@ -59,6 +59,8 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"
 
+HTTP_OK = 200
+
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
   def __init__(self, value):
@@ -67,6 +69,20 @@ class BadConfigurationException(Exception):
 
   def __str__(self):
     return repr(self.value)
+
+class NoRedirection(urllib2.HTTPErrorProcessor):
+  """ A url opener that does not automatically redirect. """
+  def http_response(self, request, response):
+    """ Processes HTTP responses.
+
+    Args:
+      request: An HTTP request object.
+      response: An HTTP response object.
+    Returns:
+      The HTTP response object.
+    """
+    return response
+  https_response = http_response
 
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
@@ -105,7 +121,6 @@ def start_app(config):
        language: What language the app is written in
        load_balancer_ip: Public ip of load balancer
        xmpp_ip: IP of XMPP service
-       dblocations: List of database locations
        env_vars: A dict of environment variables that should be passed to the
         app.
        max_memory: An int that names the maximum amount of memory that this
@@ -288,7 +303,11 @@ def wait_on_app(port):
   url = "http://" + private_ip + ":" + str(port) + FETCH_PATH
   while retries > 0:
     try:
-      urllib.urlopen(url)
+      opener = urllib2.build_opener(NoRedirection)
+      response = opener.open(url)
+      if response.code != HTTP_OK:
+        logging.warning('{} returned {}. Headers: {}'.
+          format(url, response.code, response.headers.headers))
       return True
     except IOError:
       retries -= 1
@@ -342,8 +361,14 @@ def find_web_xml(app_name):
     raise BadConfigurationException(
       'Unable to find {} file for {}'.format(file_name, app_name))
   if len(matches) > 1:
-    raise BadConfigurationException('Found multiple {} files for {}: {}'.
-      format(file_name, app_name, matches))
+    # Use the shortest path. If there are any ties, use the first after
+    # sorting alphabetically.
+    matches.sort()
+    match_to_use = matches[0]
+    for match in matches:
+      if len(match) < len(match_to_use):
+        match_to_use = match
+    return match_to_use
   return matches[0]
 
 def extract_env_vars_from_xml(xml_file):
