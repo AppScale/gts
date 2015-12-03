@@ -57,6 +57,9 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     IN_DOCKER="yes"
     # Make sure we have default locale.
     locale-gen en_US en_US.UTF-8
+    # Docker images miss the following.
+    mkdir /var/run/sshd
+    chmod 755 /var/run/sshd
 fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
