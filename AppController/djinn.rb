@@ -665,35 +665,10 @@ class Djinn
          "#{Nginx::END_PORT - Nginx::SSL_PORT_OFFSET}."
     end
 
-    # Next, make sure that no other app is using either of these ports for
-    # nginx, haproxy, or the AppServer itself.
-    @app_info_map.each { |app, info|
-      # Of course, it's fine if it's our app on a given port, since we're
-      # relocating that app.
-      next if app == appid
-
-      if [http_port, https_port].include?(info['nginx'])
-        return "Error: Port in use by nginx for app #{app}"
-      end
-
-      if [http_port, https_port].include?(info['nginx_https'])
-        return "Error: Port in use by nginx for app #{app}"
-      end
-
-      if [http_port, https_port].include?(info['haproxy'])
-        return "Error: Port in use by haproxy for app #{app}"
-      end
-
-      # On multinode deployments, the login node doesn't serve App Engine apps,
-      # so this may be nil.
-      if info['appengine']
-        info['appengine'].each { |appserver_port|
-          if [http_port, https_port].include?(appserver_port)
-            return "Error: Port in use by AppServer for app #{app}"
-          end
-        }
-      end
-    }
+    if find_lowest_free_port(http_port, http_port, appid) == -1 or
+        find_lowest_free_port(https_port, https_port, appid) == -1 or
+      return "Error: Port already in use."
+    end
 
     if RESERVED_APPS.include?(appid)
       return "Error: Can't relocate the #{appid} app."
@@ -4888,16 +4863,55 @@ HOSTS
   # @app_info_map, preferably within the use of the APPS_LOCK (so that a
   # different caller doesn't get the same value).
   #
+  # Args:
+  #   starting_port: we look for ports starting from this port.
+  #   ending_port:   we look up to this port, if 0, we keep going.
+  #   appid:         if ports are used by this app, we ignore them, if
+  #                  nil we check all the applications ports.
+  #
   # Returns:
   #   A Fixnum corresponding to the port number that a new process can be bound
   #   to.
-  def find_lowest_free_port(starting_port, ending_port=0)
+  def find_lowest_free_port(starting_port, ending_port=0, appid=nil)
     possibly_free_port = starting_port
     loop {
       # If we have ending_port, we need to check the upper limit too.
       if ending_port > 0 and possibly_free_port > ending_port
         break
       end
+
+      # Make sure the port is not already allocated to any application.
+      # This is important when applications starts at the same time since
+      # there can be a race condition allocating ports.
+      in_use = false
+      @app_info_map.each { |app, info|
+        # If appid is defined, let's ignore its ports.
+        if !appid.nil? and app == appid
+          next
+        end
+
+        # These ports are allocated on the frontend.
+        if possibly_free_port == info['nginx'] or
+            possibly_free_port == info['nginx'] or
+            possibly_free_port == info['haproxy']
+          in_use = true
+        end
+
+        # These ports are allocated on the AppServers nodes.
+        if info['appengine']
+          info['appengine'].each { |location|
+            host, port = location.split(":")
+            if possibly_free_port == port
+              in_use = true
+            end
+          }
+        end
+
+        break if in_use
+      }
+
+      # If any application uses this port, let's skip it.
+      next if in_use
 
       # Check if the port is really available.
       actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
