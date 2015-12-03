@@ -80,17 +80,10 @@ Depends: appscale-tools,
          python-yaml,
          rabbitmq-server,
          rsync,
-<<<<<<< HEAD
-<<<<<<< HEAD
-         ruby-flexmock,
-=======
-=======
          rsyslog,
->>>>>>> AppScale/master
          ruby,
          ruby-flexmock,
          ruby-dev,
->>>>>>> AppScale/master
          socat,
          ssh,
          unzip,
