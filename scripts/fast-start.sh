@@ -110,7 +110,6 @@ else
         # We need to start ssh by hand
         /usr/sbin/sshd || true
         PROVIDER="Docker"
-        ADMIN_EMAIL=""
     else
         # Let's assume virtualized cluster.
         PROVIDER="CLUSTER"
