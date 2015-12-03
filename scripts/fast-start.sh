@@ -105,8 +105,16 @@ elif ${CURL} metadata.google.internal -i |grep 'Metadata-Flavor: Google' ; then
     # As per https://cloud.google.com/compute/docs/metadata.
     PROVIDER="GCE"
 else
-    # Let's assume virtualized cluster.
-    PROVIDER="CLUSTER"
+    # Let's check if this is Docker.
+    if grep docker /proc/1/cgroup > /dev/null ; then
+        # We need to start ssh by hand
+        /usr/sbin/sshd || true
+        PROVIDER="Docker"
+        ADMIN_EMAIL=""
+    else
+        # Let's assume virtualized cluster.
+        PROVIDER="CLUSTER"
+    fi
 fi
 
 # Let's make sure we got the IPs to use in the configuration.
