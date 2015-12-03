@@ -115,7 +115,7 @@ module TaskQueue
     master_db_host = `cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`.chomp
     if master_db_host.empty?
       begin
-        master_db_host = Resolve.getname(master_ip)
+        master_db_host = Resolv.getname(master_ip)
       rescue Resolv::ResolvError
         # We couldn't get the name: let's try to use the IP address.
         master_db_host = master_ip
