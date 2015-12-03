@@ -1,6 +1,30 @@
 #!/bin/bash
+#
+# This script installs AppScale on the local machine. It pulls in all the
+# needed dependencies and configures them properly for AppScale.
+#
+
+# Some basic check: we need a way to install packages.
+PKG_CMD="$(which apt-get)"
+if [ -z "${PKG_CMD}" ]; then
+    echo "Cannot find the package manager command!"
+    exit 1
+fi
 
 set -e
+
+# Update the packages list and cache.
+echo -n "Updating package list and cache ..."
+${PKG_CMD} update > /dev/null
+echo "done."
+
+# We need to make sure we have lsb-release, before we use it. On
+# streamlined images (like docker) it may not be present.
+if ! which lsb_release > /dev/null ; then 
+    echo -n "Installing lsb-release..."
+    ${PKG_CMD} install -y lsb-release > /dev/null
+    echo "done."
+fi
 
 # Get the release version and vendor.
 export DIST="$(lsb_release -c -s)"
@@ -26,29 +50,37 @@ echo "Press Ctrl-C if this is not correct"
 # Let's wait few seconds to allow a Ctrl-C if building is not desirable.
 sleep 5
 
-# Let's update the package list.
-apt-get update
+# Let's check if we run in a docker container.
+export IN_DOCKER="no"
+if grep docker /proc/1/cgroup > /dev/null ; then
+    echo "Detected docker container."
+    IN_DOCKER="yes"
+    # Make sure we have default locale.
+    locale-gen en_US en_US.UTF-8
+    # sshd doesn't run by default on docker.
+    apt-get install -y  openssh-server
+fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +)"
-if ! apt-get install -y --force-yes ${PACKAGES}; then
+if ! ${PKG_CMD} install -y --force-yes ${PACKAGES}; then
     echo "Fail to install depending packages for runtime."
     exit 1
 fi
 
 # This will remove all the conflicts packages.
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/remove-list.awk {} +)"
-if ! apt-get remove --purge -y --force-yes ${PACKAGES}; then
+if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
     echo "Fail to remove conflicting packages"
     exit 1
 fi
 
 # Let's make sure we use ruby 1.9.
 if [ "${DIST}" = "precise" ]; then
-        apt-get install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
+        ${PKG_CMD} install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
             ri1.9.1 rdoc1.9.1 build-essential libopenssl-ruby1.9.1 libssl-dev \
             zlib1g-dev
         update-alternatives --install /usr/bin/ruby ruby /usr/bin/ruby1.9.1 400 \
@@ -110,10 +142,10 @@ if [ -d appscale/.appscale/certs ]; then
         if [ $APPSCALE_MAJOR -le 1 -a $APPSCALE_MINOR -le 14 ]; then
                 rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
                 if dpkg-query -l haproxy > /dev/null 2> /dev/null ; then
-                        apt-get -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
+                        ${PKG_CMD} -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
                 fi
                 if dpkg-query -l monit > /dev/null 2> /dev/null ; then
-                        apt-get -o DPkg::Options::="--force-confmiss" --reinstall install monit
+                        ${PKG_CMD} -o DPkg::Options::="--force-confmiss" --reinstall install monit
                 fi
         fi
 

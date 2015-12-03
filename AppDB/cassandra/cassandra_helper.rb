@@ -25,18 +25,6 @@ CASSANDRA_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
-# Determines where the closest UserAppServer runs in this AppScale deployment.
-# For Cassandra, multiple UserAppServers can be running, so we defer this
-# calculation elsewhere.
-#
-# Returns:
-#   A String that names the private FQDN or IP address where a UserAppServer
-#   runs in this AppScale deployment.
-def get_uaserver_ip()
-  Djinn.get_nearest_db_ip
-end
-
-
 # Determines if a UserAppServer should run on this machine.
 #
 # Args:

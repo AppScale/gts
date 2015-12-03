@@ -91,7 +91,7 @@ def start_zookeeper(clear_datastore)
   start_cmd = "/usr/sbin/service #{zk_server} start"
   stop_cmd = "/usr/sbin/service #{zk_server} stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=9999, env_vars=nil,
+  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=ZOOKEEPER_PORT, env_vars=nil,
     remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
   Djinn.log_info("Started ZooKeeper")
 end

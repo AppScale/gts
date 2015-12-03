@@ -50,7 +50,6 @@ case "$1" in
         installservice
         postinstallservice
         postinstallmonit
-        setupntp
         sethosts
         setulimits
         increaseconnections
