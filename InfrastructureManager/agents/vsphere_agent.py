@@ -32,7 +32,7 @@ class vSphereAgent(BaseAgent):
 		Prepare AppScale head node in vCenter and AppScale template for cloning
 		a new virtual machines
 		"""
-		keyname = "appscalea7e5ddc7220d404fbda4c4ced509f589"
+		keyname = parameters[PARAM_KEYNAME]
 		private_key = LocalState.LOCAL_APPSCALE_PATH + keyname
 		public_key = private_key + ".pub"
 
