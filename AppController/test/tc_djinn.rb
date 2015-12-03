@@ -730,6 +730,7 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/etc/nginx/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+    flexmock(Nginx).should_receive(:start).and_return()
     flexmock(Nginx).should_receive(:is_running?).and_return(true)
 
     # mock out updating the firewall config

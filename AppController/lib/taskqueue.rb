@@ -112,13 +112,13 @@ module TaskQueue
     # - the old one is to look into /etc/hosts for it
     # - another one is to just try to resolve it
     # - finally we give up and use the IP address
-    master_db_host = `cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`.chomp
-    if master_db_host.empty?
+    master_tq_host = `cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`.chomp
+    if master_tq_host.empty?
       begin
-        master_db_host = Resolv.getname(master_ip)
+        master_tq_host = Resolv.getname(master_ip)
       rescue Resolv::ResolvError
         # We couldn't get the name: let's try to use the IP address.
-        master_db_host = master_ip
+        master_tq_host = master_ip
       end
     end
 
@@ -127,7 +127,7 @@ module TaskQueue
       "service rabbitmq-server restart",
       "/usr/sbin/rabbitmqctl stop_app",
       # Read master hostname given the master IP.
-      "/usr/sbin/rabbitmqctl cluster rabbit@#{master_db_host}",
+      "/usr/sbin/rabbitmqctl cluster rabbit@#{master_tq_host}",
       "/usr/sbin/rabbitmqctl start_app"
     ]
     full_cmd = "#{start_cmds.join('; ')}"
