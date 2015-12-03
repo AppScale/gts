@@ -107,7 +107,7 @@ elif ${CURL} metadata.google.internal -i |grep 'Metadata-Flavor: Google' ; then
 else
     # Let's check if this is Docker.
     if grep docker /proc/1/cgroup > /dev/null ; then
-        # We need to start ssh by hand
+        # We need to start sshd by hand.
         /usr/sbin/sshd || true
         PROVIDER="Docker"
     else

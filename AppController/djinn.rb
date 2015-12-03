@@ -4167,7 +4167,7 @@ class Djinn
   # Updates files on this machine with information about our hostname
   # and a mapping of where other machines are located.
   def update_hosts_info()
-    # If we are running in Docker, don't try to set the hostnames.
+    # If we are running in Docker, don't try to set the hostname.
     if system("grep docker /proc/1/cgroup > /dev/null")
       return
     end
