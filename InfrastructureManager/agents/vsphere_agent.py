@@ -17,7 +17,7 @@ PARAM_USERNAME = 'vusername'
 PARAM_PASSWORD = 'vpassword'
 PARAM_HOST = 'vhost'
 PARAM_IMAGE_ID = 'vimage_id'
-PARAM_INSTANCE_IDS = 'instance_ids'        
+PARAM_INSTANCE_IDS = 'instance_ids'
 PARAM_KEYNAME = 'keyname'
 
 class vSphereAgent(BaseAgent):
@@ -32,7 +32,7 @@ class vSphereAgent(BaseAgent):
 		Prepare AppScale head node in vCenter and AppScale template for cloning
 		a new virtual machines
 		"""
-		keyname = parameters[PARAM_KEYNAME]
+		keyname = "appscalea7e5ddc7220d404fbda4c4ced509f589"
 		private_key = LocalState.LOCAL_APPSCALE_PATH + keyname
 		public_key = private_key + ".pub"
 
@@ -53,7 +53,7 @@ class vSphereAgent(BaseAgent):
 
 		try:
 			server = VIServer()
-			server.connect(parameters[PARAM_HOST], parameters[PARAM_USERNAME], parameters[PARAM_PASSWORD])
+			server.connect("192.168.1.201", "administrator@vsphere.local", "1nf1n1tY!")
 		except StandardError, e:
 			print ('Connection problem with the host {0}'.format(parameters[PARAM_HOST]))
 			print e
@@ -94,7 +94,7 @@ class vSphereAgent(BaseAgent):
 		"""
 		conn = self.open_connection(parameters)
 		if conn is not None:
-			template = conn.get_vm_by_name(parameters[PARAM_IMAGE_ID])
+			template = conn.get_vm_by_name("appscaleImage")
 			nvm = len(conn.get_registered_vms())
 			nvm += random.randint(0, 10000)
 			public_ips = []
@@ -104,7 +104,7 @@ class vSphereAgent(BaseAgent):
 				name = "appscale{0}".format(nvm)
 				newVM = template.clone(name)
 				AppScaleLogger.log("Machine created wait start up")
-				time.sleep(180)
+				time.sleep(80)
 				vm = conn.get_vm_by_name(name)
 				ip = vm.get_property('ip_address')
 				print ip
