@@ -4167,6 +4167,12 @@ class Djinn
   # Updates files on this machine with information about our hostname
   # and a mapping of where other machines are located.
   def update_hosts_info()
+    # If we are running in Docker, don't try to set the hostnames.
+    if system("grep docker /proc/1/cgroup > /dev/null")
+      return
+    end
+
+
     all_nodes = ""
     @nodes.each_with_index { |node, index|
       all_nodes << "#{HelperFunctions.convert_fqdn_to_ip(node.private_ip)} appscale-image#{index}\n"
