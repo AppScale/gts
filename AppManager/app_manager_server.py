@@ -39,7 +39,6 @@ REQUIRED_CONFIG_FIELDS = [
   'language',
   'load_balancer_ip',
   'xmpp_ip',
-  'dblocations',
   'env_vars',
   'max_memory']
 
