@@ -4892,7 +4892,7 @@ HOSTS
 
         # These ports are allocated on the frontend.
         if possibly_free_port == info['nginx'] or
-            possibly_free_port == info['nginx'] or
+            possibly_free_port == info['nginx_https'] or
             possibly_free_port == info['haproxy']
           in_use = true
         end
@@ -4910,18 +4910,18 @@ HOSTS
         break if in_use
       }
 
-      # If any application uses this port, let's skip it.
-      next if in_use
-
       # Check if the port is really available.
-      actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
-      if actually_available.empty?
-        Djinn.log_debug("Port #{possibly_free_port} is available for use.")
-        return possibly_free_port
-      else
-        Djinn.log_debug("Port #{possibly_free_port} is in use, so skipping it.")
-        possibly_free_port += 1
+      if !in_use
+        actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
+        if actually_available.empty?
+          Djinn.log_debug("Port #{possibly_free_port} is available for use.")
+          return possibly_free_port
+        end
       end
+
+      # Let's try the next available port.
+      Djinn.log_debug("Port #{possibly_free_port} is in use, so skipping it.")
+      possibly_free_port += 1
     }
     return -1
   end
