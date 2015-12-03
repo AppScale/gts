@@ -665,11 +665,11 @@ class Djinn
          "#{Nginx::END_PORT - Nginx::SSL_PORT_OFFSET}."
     end
 
-    if find_lowest_free_port(http_port, http_port, appid) == -1 or
+    if find_lowest_free_port(http_port, http_port, appid) == -1
       return "Error: requested http port is already in use."
     end
 
-    if find_lowest_free_port(https_port, https_port, appid) == -1 or
+    if find_lowest_free_port(https_port, https_port, appid) == -1
       return "Error: requested https port is already in use."
     end
 
