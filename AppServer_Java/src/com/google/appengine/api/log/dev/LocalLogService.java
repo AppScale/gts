@@ -6,7 +6,7 @@ import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService.Status;
 import com.google.appengine.tools.development.ServiceProvider;
 import com.google.apphosting.api.logservice.LogServicePb;
-import com.google.apphosting.api.logservice.LogServicePb.LogServerVersion;
+import com.google.apphosting.api.logservice.LogServicePb.LogModuleVersion;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
@@ -99,11 +99,11 @@ public class LocalLogService extends AbstractLocalRpcService
             {
               if ((request.versionIds().size() <= 0) || (request.versionIds().contains(thisLog.getVersionId())) || (!thisLog.hasVersionId()))
               {
-                if ((request.serverVersions().size() > 0) && ((thisLog.hasServerId()) || (thisLog.hasVersionId())))
+                if ((request.moduleVersions().size() > 0) && ((thisLog.hasModuleId()) || (thisLog.hasVersionId())))
                 {
                   boolean serverVersionMatch = false;
-                  for (LogServicePb.LogServerVersion serverVersion : request.serverVersions()) {
-                    if ((thisLog.getServerId().equals(serverVersion.getServerId())) && (thisLog.getVersionId().equals(serverVersion.getVersionId())))
+                  for (LogServicePb.LogModuleVersion moduleVersion : request.moduleVersions()) {
+                    if ((thisLog.getModuleId().equals(moduleVersion.getModuleId())) && (thisLog.getVersionId().equals(moduleVersion.getVersionId())))
                     {
                       serverVersionMatch = true;
                     }
@@ -178,14 +178,14 @@ public class LocalLogService extends AbstractLocalRpcService
     addRequestInfo(appId, "default", versionId, requestId, ip, nickname, startTimeUsec, endTimeUsec, method, resource, httpVersion, userAgent, complete, status, referrer);
   }
 
-  public synchronized void addRequestInfo(String appId, String serverId, String versionId, String requestId, String ip, String nickname, long startTimeUsec, long endTimeUsec, String method, String resource, String httpVersion, String userAgent, boolean complete, Integer status, String referrer)
+  public synchronized void addRequestInfo(String appId, String moduleId, String versionId, String requestId, String ip, String nickname, long startTimeUsec, long endTimeUsec, String method, String resource, String httpVersion, String userAgent, boolean complete, Integer status, String referrer)
   {
     LogServicePb.RequestLog log = findLogInLogMapOrAddNewLog(requestId);
     log.setAppId(appId);
 
     String majorVersionId = versionId.split("\\.")[0];
-    if (serverId.equals("default")) {
-      log.setServerId(serverId);
+    if (moduleId.equals("default")) {
+      log.setModuleId(moduleId);
     }
     log.setVersionId(majorVersionId);
     log.setStartTime(startTimeUsec);
