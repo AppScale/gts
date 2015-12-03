@@ -189,6 +189,9 @@ KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
+if [ -z "${ADMIN_EMAIL}" ]; then
+    ADMIN_EMAIL="a@a.com"
+fi
 [ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
