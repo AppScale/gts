@@ -2,6 +2,7 @@
 
 
 # First-party Ruby libraries
+require 'resolv'
 require 'timeout'
 
 
@@ -106,14 +107,27 @@ module TaskQueue
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
-    # start the server, reset it to join the head node
-    hostname = `hostname`.chomp()
+    # Start the server, reset it to join the head node. To do this we need
+    # the hostname of the master node. We go through few options:
+    # - the old one is to look into /etc/hosts for it
+    # - another one is to just try to resolve it
+    # - finally we give up and use the IP address
+    master_db_host = `cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`.chomp
+    if master_db_host.empty?
+      begin
+        master_db_host = Resolve.getname(master_ip)
+      rescue Resolv::ResolvError
+        # We couldn't get the name: let's try to use the IP address.
+        master_db_host = master_ip
+      end
+    end
+
     start_cmds = [
       # Restarting the RabbitMQ server ensures that we read the correct cookie.
       "service rabbitmq-server restart",
       "/usr/sbin/rabbitmqctl stop_app",
       # Read master hostname given the master IP.
-      "/usr/sbin/rabbitmqctl cluster rabbit@`cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`",
+      "/usr/sbin/rabbitmqctl cluster rabbit@#{master_db_host}",
       "/usr/sbin/rabbitmqctl start_app"
     ]
     full_cmd = "#{start_cmds.join('; ')}"
