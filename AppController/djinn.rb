@@ -667,7 +667,7 @@ class Djinn
 
     if find_lowest_free_port(http_port, http_port, appid) == -1 or
         find_lowest_free_port(https_port, https_port, appid) == -1 or
-      return "Error: Port already in use."
+      return "Error: requested port is already in use."
     end
 
     if RESERVED_APPS.include?(appid)
