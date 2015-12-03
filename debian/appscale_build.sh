@@ -57,8 +57,6 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     IN_DOCKER="yes"
     # Make sure we have default locale.
     locale-gen en_US en_US.UTF-8
-    # sshd doesn't run by default on docker.
-    apt-get install -y  openssh-server
 fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
