@@ -33,13 +33,14 @@ INITIAL_BACKOFF_TIME = 1
 BAD_PID = -1
 
 # Required configuration fields for starting an application
-REQUIRED_CONFIG_FIELDS = ['app_name',
-                          'app_port',
-                          'language',
-                          'load_balancer_ip',
-                          'xmpp_ip',
-                          'env_vars',
-                          'max_memory']
+REQUIRED_CONFIG_FIELDS = [
+  'app_name',
+  'app_port',
+  'language',
+  'load_balancer_ip',
+  'xmpp_ip',
+  'env_vars',
+  'max_memory']
 
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
@@ -95,12 +96,12 @@ def convert_config_from_json(config):
   try:
     config = json.loads(config)
   except ValueError, error:
-    logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (error.__class__, str(error)))
+    logging.error("%s Exception--Unable to parse configuration: %s" % \
+      (error.__class__, str(error)))
     return None
   except TypeError, error:
-    logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (error.__class__, str(error)))
+    logging.error("%s Exception--Unable to parse configuration: %s" % \
+      (error.__class__, str(error)))
     return None
 
   if is_config_valid(config):
@@ -134,11 +135,10 @@ def start_app(config):
     return BAD_PID
 
   if not misc.is_app_name_valid(config['app_name']):
-    logging.error("Invalid app name for application: " +\
-                  config['app_name'])
+    logging.error("Invalid app name for application: " + config['app_name'])
     return BAD_PID
-  logging.info("Starting %s application %s"%(config['language'],
-                                             config['app_name']))
+  logging.info("Starting %s application %s" % (
+    config['language'], config['app_name']))
 
   start_cmd = ""
   stop_cmd = ""
@@ -148,55 +148,59 @@ def start_app(config):
   watch = "app___" + config['app_name']
 
   if config['language'] == constants.PYTHON27 or \
-       config['language'] == constants.GO or \
-       config['language'] == constants.PHP:
-    start_cmd = create_python27_start_cmd(config['app_name'],
-                            config['load_balancer_ip'],
-                            config['app_port'],
-                            config['load_balancer_ip'],
-                            config['xmpp_ip'])
+      config['language'] == constants.GO or \
+      config['language'] == constants.PHP:
+    start_cmd = create_python27_start_cmd(
+      config['app_name'],
+      config['load_balancer_ip'],
+      config['app_port'],
+      config['load_balancer_ip'],
+      config['xmpp_ip'])
     logging.info(start_cmd)
     stop_cmd = create_python27_stop_cmd(config['app_port'])
-    env_vars.update(create_python_app_env(config['load_balancer_ip'],
-                            config['app_name']))
+    env_vars.update(create_python_app_env(
+      config['load_balancer_ip'],
+      config['app_name']))
   elif config['language'] == constants.JAVA:
     remove_conflicting_jars(config['app_name'])
     copy_successful = copy_modified_jars(config['app_name'])
     if not copy_successful:
       return BAD_PID
-    start_cmd = create_java_start_cmd(config['app_name'],
-                            config['app_port'],
-                            config['load_balancer_ip'])
+    start_cmd = create_java_start_cmd(
+      config['app_name'],
+      config['app_port'],
+      config['load_balancer_ip'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env(config['app_name']))
   else:
-    logging.error("Unknown application language %s for appname %s"\
-                  %(config['language'], config['app_name']))
+    logging.error("Unknown application language %s for appname %s" \
+      % (config['language'], config['app_name']))
     return BAD_PID
 
   logging.info("Start command: " + str(start_cmd))
   logging.info("Stop command: " + str(stop_cmd))
-  logging.info("Environment variables: " +str(env_vars))
+  logging.info("Environment variables: " + str(env_vars))
 
   # Set the syslog_server is specified.
   syslog_server = ""
   if 'syslog_server' in config:
     syslog_server = config['syslog_server']
-  monit_app_configuration.create_config_file(str(watch),
-                                             str(start_cmd),
-                                             str(stop_cmd),
-                                             [config['app_port']],
-                                             env_vars,
-                                             config['max_memory'],
-                                             syslog_server)
+  monit_app_configuration.create_config_file(
+    str(watch),
+    str(start_cmd),
+    str(stop_cmd),
+    [config['app_port']],
+    env_vars,
+    config['max_memory'],
+    syslog_server)
 
   if not monit_interface.start(watch):
     logging.error("Unable to start application server with monit")
     return BAD_PID
 
   if not wait_on_app(int(config['app_port'])):
-    logging.error("Application server did not come up in time, " + \
-                   "removing monit watch")
+    logging.error("Application server did not come up in time, "
+      "removing monit watch")
     monit_interface.stop(watch)
     return BAD_PID
 
@@ -213,11 +217,11 @@ def stop_app_instance(app_name, port):
     True on success, False otherwise
   """
   if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on port %d because of " +\
-                  "invalid name for application"%(app_name, int(port)))
+    logging.error("Unable to kill app process %s on port %d because of " \
+      "invalid name for application" % (app_name, int(port)))
     return False
 
-  logging.info("Stopping application %s"%app_name)
+  logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name + "-" + str(port)
   if not monit_interface.stop(watch, is_group=False):
     logging.error("Unable to stop application server for app {0} on " \
@@ -229,8 +233,8 @@ def stop_app_instance(app_name, port):
   monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
   try:
     os.remove(monit_config_file)
-  except OSError as e:
-    logging.info("Error deleting {0}".format(monit_config_file))
+  except OSError as os_error:
+    logging.error("Error deleting {0}".format(monit_config_file))
 
   return True
 
@@ -245,13 +249,13 @@ def restart_app_instances_for_app(app_name, language):
     True if successful, and False otherwise.
   """
   if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on because of " +\
-                  "invalid name for application"%(app_name))
+    logging.error("Unable to kill app process %s on because of " \
+      "invalid name for application" % (app_name))
     return False
   if language == "java":
     remove_conflicting_jars(app_name)
     copy_modified_jars(app_name)
-  logging.info("Restarting application %s"%app_name)
+  logging.info("Restarting application %s" % app_name)
   watch = "app___" + app_name
   return monit_interface.restart(watch)
 
@@ -265,16 +269,16 @@ def stop_app(app_name):
     True on success, False otherwise
   """
   if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on because of " +\
-                  "invalid name for application"%(app_name))
+    logging.error("Unable to kill app process %s on because of " \
+      "invalid name for application" % (app_name))
     return False
 
-  logging.info("Stopping application %s"%app_name)
+  logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name
   monit_result = monit_interface.stop(watch)
 
   if not monit_result:
-    logging.error("Unable to shut down monit interface for watch %s"%watch)
+    logging.error("Unable to shut down monit interface for watch %s" % watch)
     return False
 
   return True
@@ -308,12 +312,12 @@ def wait_on_app(port):
       retries -= 1
 
     logging.warning("Application was not up at %s, retrying in %d seconds"%\
-                   (url, backoff))
+      (url, backoff))
     time.sleep(backoff)
     backoff *= 2
 
   logging.error("Application did not come up on %s after %d attemps"%\
-                (url, MAX_FETCH_ATTEMPTS))
+    (url, MAX_FETCH_ATTEMPTS))
   return False
 
 def create_python_app_env(public_ip, app_name):
@@ -404,10 +408,7 @@ def create_java_app_env(app_name):
   return env_vars
 
 def create_python27_start_cmd(app_name,
-                              login_ip,
-                              port,
-                              load_balancer_host,
-                              xmpp_ip):
+  login_ip, port, load_balancer_host, xmpp_ip):
   """ Creates the start command to run the python application server.
 
   Args:
@@ -420,23 +421,24 @@ def create_python27_start_cmd(app_name,
     A string of the start command.
   """
   db_location = DATASTORE_PATH
-  cmd = ["/usr/bin/python2",
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
-         "--port " + str(port),
-         "--admin_port " + str(port + 10000),
-         "--login_server " + login_ip,
-         "--skip_sdk_update_check",
-         "--nginx_host " + str(load_balancer_host),
-         "--require_indexes",
-         "--enable_sendmail",
-         "--xmpp_path " + xmpp_ip,
-         "--php_executable_path=" + str(PHP_CGI_LOCATION),
-         "--uaserver_path " + db_location + ":"\
-               + str(constants.UA_SERVER_PORT),
-         "--datastore_path " + db_location + ":"\
-               + str(constants.DB_SERVER_PORT),
-         "/var/apps/" + app_name + "/app",
-         "--host " + appscale_info.get_private_ip()]
+  cmd = [
+    "/usr/bin/python2",
+    constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+    "--port " + str(port),
+    "--admin_port " + str(port + 10000),
+    "--login_server " + login_ip,
+    "--skip_sdk_update_check",
+    "--nginx_host " + str(load_balancer_host),
+    "--require_indexes",
+    "--enable_sendmail",
+    "--xmpp_path " + xmpp_ip,
+    "--php_executable_path=" + str(PHP_CGI_LOCATION),
+    "--uaserver_path " + db_location + ":"\
+      + str(constants.UA_SERVER_PORT),
+    "--datastore_path " + db_location + ":"\
+      + str(constants.DB_SERVER_PORT),
+    "/var/apps/" + app_name + "/app",
+    "--host " + appscale_info.get_private_ip()]
 
   if app_name in TRUSTED_APPS:
     cmd.extend([TRUSTED_FLAG])
@@ -524,16 +526,14 @@ def copy_modified_jars(app_name):
       return False
 
   cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
-                              "appengine-java-sdk-repacked/lib/user/*.jar " +\
-                              lib_dir, shell=True)
+    "appengine-java-sdk-repacked/lib/user/*.jar " + lib_dir, shell=True)
   if cp_result != 0:
     logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
-                  "to lib directory of " + app_name)
+      "to lib directory of " + app_name)
     return False
 
   cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
-                              "appengine-java-sdk-repacked/lib/impl/" +\
-                              "appscale-*.jar " + lib_dir, shell=True)
+    "appengine-java-sdk-repacked/lib/impl/appscale-*.jar " + lib_dir, shell=True)
 
   if cp_result != 0:
     logging.error("Failed to copy email jars to lib directory of " + app_name)
@@ -541,9 +541,7 @@ def copy_modified_jars(app_name):
 
   return True
 
-def create_java_start_cmd(app_name,
-                          port,
-                          load_balancer_host):
+def create_java_start_cmd(app_name, port, load_balancer_host):
   """ Creates the start command to run the java application server.
 
   Args:
@@ -557,23 +555,23 @@ def create_java_start_cmd(app_name,
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
-  cmd = ["cd " + constants.JAVA_APPSERVER + " &&",
-             "./genKeystore.sh &&",
-             "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
-             "--port=" + str(port),
-             #this jvm flag allows javax.email to connect to the smtp server
-             "--jvm_flag=-Dsocket.permit_connect=true",
-             "--disable_update_check",
-             "--address=" + appscale_info.get_private_ip(),
-             "--datastore_path=" + db_location,
-             "--login_server=" + load_balancer_host,
-             "--appscale_version=1",
-             "--APP_NAME=" + app_name,
-             "--NGINX_ADDRESS=" + load_balancer_host,
-             "--NGINX_PORT=anything",
-             os.path.dirname(locate_dir("/var/apps/" + app_name +"/app/", \
-               "WEB-INF"))
-             ]
+  cmd = [
+    "cd " + constants.JAVA_APPSERVER + " &&",
+    "./genKeystore.sh &&",
+    "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
+    "--port=" + str(port),
+    #this jvm flag allows javax.email to connect to the smtp server
+    "--jvm_flag=-Dsocket.permit_connect=true",
+    "--disable_update_check",
+    "--address=" + appscale_info.get_private_ip(),
+    "--datastore_path=" + db_location,
+    "--login_server=" + load_balancer_host,
+    "--appscale_version=1",
+    "--APP_NAME=" + app_name,
+    "--NGINX_ADDRESS=" + load_balancer_host,
+    "--NGINX_PORT=anything",
+    os.path.dirname(locate_dir("/var/apps/" + app_name +"/app/", "WEB-INF"))
+  ]
 
   return ' '.join(cmd)
 
