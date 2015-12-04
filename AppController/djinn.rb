@@ -4890,7 +4890,7 @@ HOSTS
       end
 
       # Make sure the port is not already allocated to any application.
-      # This is important when applications starts at the same time since
+      # This is important when applications start at the same time since
       # there can be a race condition allocating ports.
       in_use = false
       @app_info_map.each { |app, info|
