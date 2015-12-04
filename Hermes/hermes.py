@@ -102,6 +102,9 @@ def main():
   logging.info("Hermes is up and listening on port: {0}.".
     format(options.port))
 
+  # Periodically check with the portal for new tasks.
+  # Note: Currently, any active handlers from the tornado app will block
+  # polling until they complete.
   tornado.ioloop.PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).\
     start()
 
