@@ -1,6 +1,6 @@
 package com.google.appengine.tools.development;
 
-import com.google.appengine.api.labs.servers.dev.LocalServersService;
+import com.google.appengine.api.labs.modules.dev.LocalModulesService;
 import com.google.appengine.repackaged.com.google.common.base.Joiner;
 import com.google.appengine.repackaged.com.google.common.collect.ImmutableMap;
 import com.google.appengine.repackaged.com.google.common.collect.ImmutableSet;
@@ -39,12 +39,13 @@ class DevAppServerImpl
   implements DevAppServer
 {
   private final String APPLICATION_ID_PROPERTY = "APPLICATION_ID";
-  public static final String SERVERS_FILTER_HELPER_PROPERTY = "com.google.appengine.tools.development.servers_filter_helper";
+  public static final String MODULES_FILTER_HELPER_PROPERTY = "com.google.appengine.tools.development.modules_filter_helper";
   private static final Logger logger = Logger.getLogger(DevAppServerImpl.class.getName());
   private final ApplicationConfigurationManager applicationConfigurationManager;
-  private final Servers servers;
+  private final Modules modules;
   private Map<String, String> serviceProperties = new HashMap();
   private final Map<String, Object> containerConfigProperties;
+  private final int requestedPort;
   private ServerState serverState = ServerState.INITIALIZING;
   private final BackendServers backendContainer;
   private ApiProxyLocal apiProxyLocal;
@@ -62,11 +63,14 @@ class DevAppServerImpl
     DevSocketImplFactory.install();
 
     this.backendContainer = BackendServers.getInstance();
+    this.requestedPort = port;
     ApplicationConfigurationManager tempManager = null;
     File schemaFile = new File(SdkInfo.getSdkRoot(), "docs/appengine-application.xsd");
     try {
       if (EarHelper.isEar(appDir.getAbsolutePath())) {
         tempManager = ApplicationConfigurationManager.newEarConfigurationManager(appDir, SdkInfo.getLocalVersion().getRelease(), schemaFile);
+        String contextRootWarning = "Ignoring application.xml context-root element, for details see https://developers.google.com/appengine/docs/java/modules/#config";
+        logger.info(contextRootWarning);
       }
       else {
         tempManager = ApplicationConfigurationManager.newWarConfigurationManager(appDir, appEngineWebXmlLocation, webXmlLocation, externalResourceDir, SdkInfo.getLocalVersion().getRelease());
@@ -74,20 +78,20 @@ class DevAppServerImpl
     }
     catch (AppEngineConfigException configurationException)
     {
-      this.servers = null;
+      this.modules = null;
       this.applicationConfigurationManager = null;
       this.containerConfigProperties = null;
       this.configurationException = configurationException;
       return;
     }
     this.applicationConfigurationManager = tempManager;
-    this.servers = Servers.createServers(this.applicationConfigurationManager, serverInfo, externalResourceDir, address, port, this);
+    this.modules = Modules.createModules(applicationConfigurationManager, serverInfo, externalResourceDir, address, this);
 
-    DelegatingServersFilterHelper serversFilterHelper = new DelegatingServersFilterHelper(this.backendContainer, this.servers);
+    DelegatingModulesFilterHelper modulesFilterHelper = new DelegatingModulesFilterHelper(backendContainer, modules);
 
-    this.containerConfigProperties = (ImmutableMap<String, Object>)(Map<?,?>)(ImmutableMap.builder().putAll(containerConfigProperties).put("com.google.appengine.tools.development.servers_filter_helper", serversFilterHelper).put("devappserver.portMappingProvider", this.backendContainer).build());
+    this.containerConfigProperties = (ImmutableMap<String, Object>)(Map<?,?>)(ImmutableMap.builder().putAll(containerConfigProperties).put(MODULES_FILTER_HELPER_PROPERTY, modulesFilterHelper).put("devappserver.portMappingProvider", this.backendContainer).build());
 
-    this.backendContainer.init(address, this.applicationConfigurationManager.getPrimaryServerConfigurationHandle(), externalResourceDir, this.containerConfigProperties, this);
+    this.backendContainer.init(address, this.applicationConfigurationManager.getPrimaryModuleConfigurationHandle(), externalResourceDir, this.containerConfigProperties, this);
 
     this.configurationException = null;
   }
@@ -102,6 +106,10 @@ class DevAppServerImpl
     if (this.configurationException == null)
     {
       this.serviceProperties = new ConcurrentHashMap(properties);
+      if (requestedPort != 0) {
+    	DevAppServerPortPropertyHelper.setPort(modules.getMainModule().getModuleName(),
+    	requestedPort, serviceProperties);
+      }
       this.backendContainer.setServiceProperties(properties);
     }
   }
@@ -120,9 +128,9 @@ class DevAppServerImpl
     reportDeferredConfigurationException();
 
     initializeLogging();
-    this.servers.configure(this.containerConfigProperties);
+    this.modules.configure(this.containerConfigProperties);
     try {
-      this.servers.createConnections();
+      this.modules.createConnections();
     } catch (BindException ex) {
       System.err.println();
       System.err.println("************************************************");
@@ -132,19 +140,19 @@ class DevAppServerImpl
     }
 
     ApiProxyLocalFactory factory = new ApiProxyLocalFactory();
-    this.apiProxyLocal = factory.create(this.servers.getLocalServerEnvironment());
+    this.apiProxyLocal = factory.create(this.modules.getLocalServerEnvironment());
     setInboundServicesProperty();
     this.apiProxyLocal.setProperties(this.serviceProperties);
     ApiProxy.setDelegate(this.apiProxyLocal);
-    LocalServersService localServersService = (LocalServersService)this.apiProxyLocal.getService("servers");
+    LocalModulesService localModulesService = (LocalModulesService) apiProxyLocal.getService(LocalModulesService.PACKAGE);
 
-    localServersService.setServersControler(this.servers);
+    localModulesService.setModulesController(this.modules);
     TimeZone currentTimeZone = null;
     try {
       currentTimeZone = setServerTimeZone();
       this.backendContainer.configureAll(this.apiProxyLocal);
-      this.servers.startup();
-      Server mainServer = this.servers.getMainServer();
+      modules.startup();
+      Module mainServer = modules.getMainModule();
 
       Map portMapping = this.backendContainer.getPortMapping();
       AbstractContainerService.installLocalInitializationEnvironment(mainServer.getMainContainer().getAppEngineWebXmlConfig(), -1, getPort(), null, -1, portMapping);
@@ -158,8 +166,8 @@ class DevAppServerImpl
     this.serverState = ServerState.RUNNING;
 
     // add for AppScale
-    Server mainServer = this.servers.getMainServer();
-    AppEngineWebXml config = mainServer.getMainContainer().getAppEngineWebXmlConfig();
+    Module mainModule = this.modules.getMainModule();
+    AppEngineWebXml config = mainModule.getMainContainer().getAppEngineWebXmlConfig();
     if (config == null)
     {
         throw new RuntimeException("applciation context config is null");
@@ -175,8 +183,8 @@ class DevAppServerImpl
   public void setInboundServicesProperty() {
     ImmutableSet.Builder setBuilder = ImmutableSet.builder();
 
-    for (ApplicationConfigurationManager.ServerConfigurationHandle serverConfigurationHandle : this.applicationConfigurationManager.getServerConfigurationHandles()) {
-      setBuilder.addAll(serverConfigurationHandle.getModule().getAppEngineWebXml().getInboundServices());
+    for (ApplicationConfigurationManager.ModuleConfigurationHandle moduleConfigurationHandle : applicationConfigurationManager.getModuleConfigurationHandles()) {
+      setBuilder.addAll(moduleConfigurationHandle.getModule().getAppEngineWebXml().getInboundServices());
     }
 
     this.serviceProperties.put("appengine.dev.inbound-services", Joiner.on(",").useForNull("null").join(setBuilder.build()));
@@ -251,12 +259,12 @@ class DevAppServerImpl
     if (this.serverState != ServerState.RUNNING) {
       throw new IllegalStateException("Cannot restart a server that is not currently running.");
     }
-    this.servers.shutdown();
+    this.modules.shutdown();
     this.backendContainer.shutdownAll();
     this.shutdownLatch.countDown();
-    this.servers.createConnections();
+    this.modules.createConnections();
     this.backendContainer.configureAll(this.apiProxyLocal);
-    this.servers.startup();
+    this.modules.startup();
     this.backendContainer.startupAll(this.apiProxyLocal);
     this.shutdownLatch = new CountDownLatch(1);
     return this.shutdownLatch;
@@ -267,7 +275,7 @@ class DevAppServerImpl
     if (this.serverState != ServerState.RUNNING) {
       throw new IllegalStateException("Cannot shutdown a server that is not currently running.");
     }
-    this.servers.shutdown();
+    this.modules.shutdown();
     this.backendContainer.shutdownAll();
     ApiProxy.setDelegate(null);
     this.apiProxyLocal = null;
@@ -296,7 +304,7 @@ class DevAppServerImpl
   public int getPort()
   {
     reportDeferredConfigurationException();
-    return this.servers.getMainServer().getMainContainer().getPort();
+    return this.modules.getMainModule().getMainContainer().getPort();
   }
 
   protected void reportDeferredConfigurationException() {
@@ -307,7 +315,7 @@ class DevAppServerImpl
   public AppContext getAppContext()
   {
     reportDeferredConfigurationException();
-    return this.servers.getMainServer().getMainContainer().getAppContext();
+    return this.modules.getMainModule().getMainContainer().getAppContext();
   }
 
   public AppContext getCurrentAppContext()
@@ -316,8 +324,8 @@ class DevAppServerImpl
     ApiProxy.Environment env = ApiProxy.getCurrentEnvironment();
 
     if ((env != null) && (env.getVersionId() != null)) {
-      String serverName = LocalEnvironment.getServerName(env.getVersionId());
-      result = this.servers.getServer(serverName).getMainContainer().getAppContext();
+    	String moduleName = LocalEnvironment.getModuleName(env.getVersionId());
+    	result = modules.getModule(moduleName).getMainContainer().getAppContext();
     }
     return result;
   }

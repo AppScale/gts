@@ -37,7 +37,7 @@ public class DevAppServerFactory {
       USER_CODE_CLASSPATH_MANAGER_PROP + ".requiresWebInf";
 
   /**
-   * Creates a new {@link DevAppServer} ready to start serving
+   * Creates a new {@link DevAppServer} ready to start serving.
    *
    * @param appDir The top-level directory of the web application to be run
    * @param address Address to bind to
@@ -50,7 +50,7 @@ public class DevAppServerFactory {
   }
 
   /**
-   * Creates a new {@link DevAppServer} ready to start serving
+   * Creates a new {@link DevAppServer} ready to start serving.
    *
    * @param appDir The top-level directory of the web application to be run
    * @param externalResourceDir If not {@code null}, a resource directory external to the appDir.
@@ -63,12 +63,30 @@ public class DevAppServerFactory {
   public DevAppServer createDevAppServer(File appDir, File externalResourceDir, String address,
       int port) {
     return createDevAppServer(appDir, externalResourceDir, null, null, address, port, true,
-        true, new HashMap<String, Object>());
+        true, new HashMap<String, Object>(), false);
+  }
+  
+  /**
+   * Creates a new {@link DevAppServer} ready to start serving.
+   *
+   * @param appDir The top-level directory of the web application to be run
+   * @param externalResourceDir If not {@code null}, a resource directory external to the appDir.
+   *        This will be searched before appDir when looking for resources.
+   * @param address Address to bind to
+   * @param port Port to bind to
+   * @param noJavaAgent whether to disable detection of the Java agent or not
+   *
+   * @return a {@code DevAppServer}
+   */
+  public DevAppServer createDevAppServer(File appDir, File externalResourceDir, String address,
+     int port, boolean noJavaAgent) {
+    return createDevAppServer(appDir, externalResourceDir, null, null, address, port, true,
+		  true, new HashMap<String, Object>(), noJavaAgent);
   }
 
   /**
    * Creates a new {@link DevAppServer} with a custom classpath for the web
-   * app..
+   * app.
    *
    * @param appDir The top-level directory of the web application to be run
    * @param webXmlLocation The location of a file whose format complies with
@@ -87,7 +105,7 @@ public class DevAppServerFactory {
    * there is something in your test environment that prevents you from
    * installing a security manager.
    * @param classpath The classpath of the test and all its dependencies
-   * (possibly the entire app)..
+   * (possibly the entire app).
    *
    * @return a {@code DevAppServer}
    */
@@ -96,7 +114,43 @@ public class DevAppServerFactory {
       boolean useCustomStreamHandler, boolean installSecurityManager, Collection<URL> classpath) {
     Map<String, Object> containerConfigProps = newContainerConfigPropertiesForTest(classpath);
     return createDevAppServer(appDir, null, webXmlLocation, appEngineWebXmlLocation,
-        address, port, useCustomStreamHandler, installSecurityManager, containerConfigProps);
+        address, port, useCustomStreamHandler, installSecurityManager, containerConfigProps, false);
+  }
+  
+  /**
+   * Creates a new {@link DevAppServer} with a custom classpath for the web
+   * app.
+   *
+   * @param appDir The top-level directory of the web application to be run
+   * @param webXmlLocation The location of a file whose format complies with
+   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  If {@code null},
+   * defaults to <appDir>/WEB-INF/web.xml
+   * @param appEngineWebXmlLocation The name of the app engine config file.  If
+   * {@code null}, defaults to <appDir>/WEB-INF/appengine-web.xml.
+   * @param address Address to bind to
+   * @param port Port to bind to
+   * @param useCustomStreamHandler If {@code true}, install
+   * {@link StreamHandlerFactory}.  This is "normal" behavior for the dev
+   * app server but tests may want to disable this since there are some
+   * compatibility issues with our custom handler and Selenium.
+   * @param installSecurityManager Whether or not to install the dev appserver
+   * security manager.  It is strongly recommended you pass {@code true} unless
+   * there is something in your test environment that prevents you from
+   * installing a security manager.
+   * @param classpath The classpath of the test and all its dependencies
+   * (possibly the entire app).
+   * @param noJavaAgent whether to disable detection of the Java agent or not
+   *
+   * @return a {@code DevAppServer}
+   */
+  public DevAppServer createDevAppServer(File appDir, File webXmlLocation,
+		   File appEngineWebXmlLocation, String address, int port,
+		   boolean useCustomStreamHandler, boolean installSecurityManager, Collection<URL> classpath,
+		   boolean noJavaAgent) {
+	   Map<String, Object> containerConfigProps = newContainerConfigPropertiesForTest(classpath);
+	   return createDevAppServer(appDir, null, webXmlLocation, appEngineWebXmlLocation,
+			   address, port, useCustomStreamHandler, installSecurityManager, containerConfigProps,
+			   noJavaAgent);
   }
 
   /**
@@ -123,7 +177,7 @@ public class DevAppServerFactory {
   private DevAppServer createDevAppServer(File appDir,File webXmlLocation,
       File appEngineWebXmlLocation, String address, int port, boolean useCustomStreamHandler) {
     return createDevAppServer(appDir, null, webXmlLocation, appEngineWebXmlLocation,
-        address, port, useCustomStreamHandler, true, new HashMap<String, Object>());
+        address, port, useCustomStreamHandler, true, new HashMap<String, Object>(), false);
   }
 
   @SuppressWarnings("unused")
@@ -131,13 +185,21 @@ public class DevAppServerFactory {
       File appEngineWebXmlLocation, String address, int port, boolean useCustomStreamHandler,
       boolean installSecurityManager, Map<String, Object> containerConfigProperties) {
     return createDevAppServer(appDir, null, webXmlLocation, appEngineWebXmlLocation, address, port,
-        useCustomStreamHandler,installSecurityManager, containerConfigProperties);
+        useCustomStreamHandler,installSecurityManager, containerConfigProperties, false);
   }
 
+  @SuppressWarnings("unused")
   private DevAppServer createDevAppServer(File appDir, File externalResourceDir,
       File webXmlLocation, File appEngineWebXmlLocation, String address, int port,
       boolean useCustomStreamHandler, boolean installSecurityManager,
       Map<String, Object> containerConfigProperties) {
+    return createDevAppServer(appDir, externalResourceDir, webXmlLocation, appEngineWebXmlLocation, address, port, useCustomStreamHandler, installSecurityManager, containerConfigProperties, false);
+  }
+  
+  private DevAppServer createDevAppServer(File appDir, File externalResourceDir,
+	      File webXmlLocation, File appEngineWebXmlLocation, String address, int port,
+	      boolean useCustomStreamHandler, boolean installSecurityManager,
+	      Map<String, Object> containerConfigProperties, boolean noJavaAgent) {
     if (installSecurityManager) {
       SecurityManagerInstaller.install();
     }
@@ -145,7 +207,9 @@ public class DevAppServerFactory {
     DevAppServerClassLoader loader = DevAppServerClassLoader.newClassLoader(
         DevAppServerFactory.class.getClassLoader());
 
-    testAgentIsInstalled();
+    if (!noJavaAgent) {
+    	testAgentIsInstalled();
+    }
 
     DevAppServer devAppServer;
     try {
