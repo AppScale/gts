@@ -4881,7 +4881,7 @@ HOSTS
   # Returns:
   #   A Fixnum corresponding to the port number that a new process can be bound
   #   to.
-  def find_lowest_free_port(starting_port, ending_port=0, appid=nil)
+  def find_lowest_free_port(starting_port, ending_port=0, appid="")
     possibly_free_port = starting_port
     loop {
       # If we have ending_port, we need to check the upper limit too.
@@ -4895,7 +4895,13 @@ HOSTS
       in_use = false
       @app_info_map.each { |app, info|
         # If appid is defined, let's ignore its ports.
-        if !appid.nil? and app == appid
+        if app == appid
+          next
+        end
+
+        # Make sure we have the variables to look into: if we catch an app
+        # early on, it may not have them.
+        if not (info['nginx'] and info['nginx_https'] and info['haproxy'])
           next
         end
 
