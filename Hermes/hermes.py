@@ -11,6 +11,7 @@ import tornado.web
 import urllib
 
 from tornado.ioloop import IOLoop
+from tornado.ioloop import PeriodicCallback
 from tornado.options import define
 from tornado.options import options
 from tornado.options import parse_command_line
@@ -44,6 +45,9 @@ def poll():
   except (TypeError, ValueError) as error:
     logging.error("Cannot parse response from url '{0}'. Error: {1}".
       format(url, str(error)))
+    return
+
+  if data == {}:  # If there's no task to perform.
     return
 
   # Verify all necessary fields are present in the request.
@@ -97,6 +101,11 @@ def main():
 
   logging.info("Hermes is up and listening on port: {0}.".
     format(options.port))
+
+  # Periodically check with the portal for new tasks.
+  # Note: Currently, any active handlers from the tornado app will block
+  # polling until they complete.
+  PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).start()
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()
