@@ -10,8 +10,8 @@ import tornado.httpclient
 import tornado.web
 import urllib
 
-import tornado.ioloop
 from tornado.ioloop import IOLoop
+from tornado.ioloop import PeriodicCallback
 from tornado.options import define
 from tornado.options import options
 from tornado.options import parse_command_line
@@ -105,8 +105,7 @@ def main():
   # Periodically check with the portal for new tasks.
   # Note: Currently, any active handlers from the tornado app will block
   # polling until they complete.
-  tornado.ioloop.PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).\
-    start()
+  PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).start()
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()
