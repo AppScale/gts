@@ -111,6 +111,7 @@ class DevAppServerImpl
     	requestedPort, serviceProperties);
       }
       this.backendContainer.setServiceProperties(properties);
+      DevAppServerDatastorePropertyHelper.setDefaultProperties(this.serviceProperties);
     }
   }
 
@@ -155,7 +156,7 @@ class DevAppServerImpl
       Module mainServer = modules.getMainModule();
 
       Map portMapping = this.backendContainer.getPortMapping();
-      AbstractContainerService.installLocalInitializationEnvironment(mainServer.getMainContainer().getAppEngineWebXmlConfig(), -1, getPort(), null, -1, portMapping);
+      AbstractContainerService.installLocalInitializationEnvironment(mainServer.getMainContainer().getAppEngineWebXmlConfig(), -1, getPort(), getPort(), null, -1, portMapping);
 
       this.backendContainer.startupAll(this.apiProxyLocal);
     } finally {

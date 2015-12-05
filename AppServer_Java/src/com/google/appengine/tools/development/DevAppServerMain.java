@@ -50,6 +50,7 @@ public class DevAppServerMain
     private String              externalResourceDir                   = null;
     private List<String>        propertyOptions                       = null;
     private String              generatedDirectory                    = null;
+    private String 				defaultGcsBucketName 				  = null;
 
     // add for AppScale
     private String              db_location;
@@ -144,7 +145,17 @@ public class DevAppServerMain
             {
                 return ImmutableList.of(" --generated_dir=DIR        Set the directory where generated files are created.");
             }
-        }, new DevAppServerOption(main, null, "disable_restricted_check", true)
+        }, new DevAppServerOption(main, null, "default_gcs_bucket", false) {
+            @Override
+            public void apply() {
+                this.main.defaultGcsBucketName = getValue();
+                }
+            @Override
+            public List<String> getHelpLines() {
+                return ImmutableList.of(
+                        " --default_gcs_bucket=NAME  Set the default Google Cloud Storage bucket name.");
+                }
+        },new DevAppServerOption(main, null, "disable_restricted_check", true)
         {
             public void apply()
             {
@@ -425,6 +436,7 @@ public class DevAppServerMain
                 Map stringProperties = properties;
                 setTimeZone(stringProperties);
                 setGeneratedDirectory(stringProperties);
+                setDefaultGcsBucketName(stringProperties);
                 setSecret();
                 if (DevAppServerMain.this.disableRestrictedCheck)
                 {
@@ -517,6 +529,12 @@ public class DevAppServerMain
                 }
                 stringProperties.put("appengine.generated.dir", DevAppServerMain.this.generatedDirectory);
             }
+        }
+        
+        private void setDefaultGcsBucketName(Map<String, String> stringProperties) {
+          if (defaultGcsBucketName != null) {
+              stringProperties.put("appengine.default.gcs.bucket.name", defaultGcsBucketName);
+          }
         }
 
         private void setRdbmsPropertiesFile( Map<String, String> stringProperties, File appDir, File externalResourceDir )

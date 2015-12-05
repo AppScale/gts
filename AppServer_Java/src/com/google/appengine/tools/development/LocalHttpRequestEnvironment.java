@@ -34,9 +34,9 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
     private String                                    DEVEL_FAKE_IS_ADMIN_RAW_HEADER = "X-AppEngine-Fake-Is-Admin";
     private String                                    DEVEL_PAYLOAD_RAW_HEADER = "HTTP_X_APPENGINE_DEVELOPMENT_PAYLOAD";
 
-     public LocalHttpRequestEnvironment(String appId, String serverName, String majorVersionId, int instance, HttpServletRequest request, Long deadlineMillis, ModulesFilterHelper modulesFilterHelper)
+     public LocalHttpRequestEnvironment(String appId, String serverName, String majorVersionId, int instance, Integer port, HttpServletRequest request, Long deadlineMillis, ModulesFilterHelper modulesFilterHelper)
      {
-        super(appId, majorVersionId, deadlineMillis);
+    	super(appId, serverName, majorVersionId, instance, port, deadlineMillis);
 
         this.loginCookieData = LoginCookieUtils.getCookieData(request);
         this.FORCE_ADMIN = checkForceAdmin(request);
