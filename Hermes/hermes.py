@@ -27,12 +27,12 @@ define("port", default=hermes_constants.HERMES_PORT, type=int)
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
-  logging.info("Polling for new task.")
-
   deployment_id = helper.get_deployment_id()
   # If the deployment is not registered, skip.
   if not deployment_id:
     return
+
+  logging.info("Polling for new task.")
 
   # Send request to AppScale Portal.
   url = "{0}{1}".format(hermes_constants.PORTAL_URL,
