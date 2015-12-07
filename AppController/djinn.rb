@@ -2542,6 +2542,27 @@ class Djinn
       return NOT_READY
     end
 
+    if !Nginx.is_app_already_configured(app_id)
+      begin
+        static_handlers = HelperFunctions.parse_static_data(app_id)
+        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app_id)}")
+      rescue Exception => e
+        # This specific exception may be a json parse error
+        error_msg = "ERROR: Unable to parse app.yaml file for #{app_id}. "\
+          "Exception of #{e.class} with message #{e.message}"
+        place_error_app(app_id, error_msg, @app_info_map[app_id]['language'])
+        static_handlers = []
+      end
+
+      Nginx.write_fullproxy_app_config(app_id,
+        @app_info_map[app_id]['nginx'],
+        @app_info_map[app_id]['nginx_https'], my_node.public_ip,
+        my_node.private_ip, @app_info_map[app_id]['haproxy'],
+        static_handlers, get_login.private_ip,
+        @app_info_map[app_id]['language'])
+      Djinn.log_info("Done setting fullproxy for application #{app}.")
+    end
+
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
     HAProxy.update_app_config(my_node.private_ip, app_id,
@@ -4818,21 +4839,6 @@ HOSTS
     # do a full proxy config).
     login_ip = get_login.private_ip
     if my_node.is_login?
-      begin
-        static_handlers = HelperFunctions.parse_static_data(app)
-        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
-      rescue Exception => e
-        # This specific exception may be a json parse error
-        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-          "Exception of #{e.class} with message #{e.message}"
-        place_error_app(app, error_msg, app_language)
-        static_handlers = []
-      end
-
-      Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip,
-        @app_info_map[app]['language'])
-
       loop {
         Kernel.sleep(SMALL_WAIT)
         begin
