@@ -3770,7 +3770,7 @@ class Djinn
 
   # Stops the datastore server.
   def stop_datastore_server
-    DatastoreServer.stop(@options['table'])
+    DatastoreServer.stop()
   end
 
   def is_hybrid_cloud?
