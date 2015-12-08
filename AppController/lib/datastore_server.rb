@@ -71,14 +71,6 @@ module DatastoreServer
   def self.stop()
      MonitInterface.stop(:datastore_server)
   end
-  # The following are needed to comply to the djinn calling in
-  # stop_db_master and stop_db_slave.
-  def self.stop_db_master(table)
-     MonitInterface.stop(:datastore_server)
-  end
-  def self.stop_db_slave(table)
-     MonitInterface.stop(:datastore_server)
-  end
 
   # Number of servers is based on the number of CPUs.
   def self.number_of_servers()
