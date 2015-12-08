@@ -298,7 +298,7 @@ class DatastoreDistributed():
   # The cassandra index column that stores the reference to the entity.
   INDEX_REFERENCE_COLUMN = 'reference'
 
-  def __init__(self, datastore_batch, zookeeper=None):
+  def __init__(self, datastore_batch, zookeeper=None, debug=False):
     """
        Constructor.
      
@@ -308,6 +308,8 @@ class DatastoreDistributed():
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
       '%(lineno)s %(message)s ', level=logging.ERROR)
+    if debug:
+      logging.getLogger().setLevel(logging.DEBUG)
     logging.debug("Started logging")
 
     # datastore accessor used by this class to do datastore operations.
@@ -4645,24 +4647,25 @@ def main(argv):
   db_type = db_info[':table']
   port = DEFAULT_SSL_PORT
   is_encrypted = True
+  verbose = False
 
   try:
-    opts, args = getopt.getopt(argv, "t:p:n:",
-      ["type=",
-      "port",
-      "no_encryption"])
+    opts, args = getopt.getopt(argv, "t:p:n:v:",
+      ["type=", "port", "no_encryption", "verbose"])
   except getopt.GetoptError:
     usage()
     sys.exit(1)
   
   for opt, arg in opts:
-    if  opt in ("-t", "--type"):
+    if opt in ("-t", "--type"):
       db_type = arg
       print "Datastore type: ", db_type
     elif opt in ("-p", "--port"):
       port = int(arg)
     elif opt in ("-n", "--no_encryption"):
       is_encrypted = False
+    elif opt in ("-v", "--verbose"):
+      verbose = True
 
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
@@ -4673,8 +4676,8 @@ def main(argv):
                                              getDatastore(db_type)
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
 
-  datastore_access = DatastoreDistributed(datastore_batch, 
-                                          zookeeper=zookeeper)
+  datastore_access = DatastoreDistributed(datastore_batch,
+    zookeeper=zookeeper, debug=verbose)
   if port == DEFAULT_SSL_PORT and not is_encrypted:
     port = DEFAULT_PORT
 
