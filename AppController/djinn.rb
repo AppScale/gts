@@ -3725,6 +3725,7 @@ class Djinn
   def start_datastore_server
     db_master_ip = nil
     my_ip = my_node.public_ip
+    verbose = @options['verbose'].downcase == 'true'
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
@@ -3732,7 +3733,8 @@ class Djinn
 
     table = @options['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    DatastoreServer.start(db_master_ip, my_node.private_ip, my_ip, table)
+    DatastoreServer.start(db_master_ip, my_node.private_ip, table,
+      verbose=verbose)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # Let's wait for the datastore to be active.

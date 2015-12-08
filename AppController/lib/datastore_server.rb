@@ -45,7 +45,7 @@ module DatastoreServer
 
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
-  def self.start(master_ip, db_local_ip, my_ip, table)
+  def self.start(master_ip, db_local_ip, table, verbose=false)
     datastore_server = self.get_executable_name(table)
     ports = self.get_server_ports(table)
 
@@ -58,6 +58,7 @@ module DatastoreServer
     ports.each { |port|
       start_cmd = "/usr/bin/python2 #{datastore_server} -p #{port} " +
           "--no_encryption --type #{table}"
+      start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
             "datastore_server #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
