@@ -68,7 +68,7 @@ module DatastoreServer
 
   # Stops the Datastore Buffer Server running on this machine. Since it's
   # managed by monit, just tell monit to shut it down.
-  def self.stop(table)
+  def self.stop()
      MonitInterface.stop(:datastore_server)
   end
   # The following are needed to comply to the djinn calling in
@@ -79,16 +79,6 @@ module DatastoreServer
   def self.stop_db_slave(table)
      MonitInterface.stop(:datastore_server)
   end
-
-
-
-  # Restarts the Datastore Buffer Server on this machine by doing a hard
-  # stop (killing it) and starting it.
-  def self.restart(master_ip, my_ip, table)
-    self.stop()
-    self.start(master_ip, my_ip, table)
-  end
-
 
   # Number of servers is based on the number of CPUs.
   def self.number_of_servers()
