@@ -62,13 +62,12 @@ public class AppScaleTaskQueueClient
         connManager.setMaxForRoute(new HttpRoute(localhost), MAX_CONNECTIONS_PER_ROUTE_LOCALHOST);
         
         client = new DefaultHttpClient(connManager);
-        appId = getAppId();
     }
 
     public TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest)
     {
         //update some of the AddRequest params
-        addRequest.setAppId(appId);
+        addRequest.setAppId(getAppId());
         String taskPath = addRequest.getUrl();
         String appScaleTaskPath = "http://" + getNginxHost() + ":" + getNginxPort() + taskPath;
         addRequest.setUrl(appScaleTaskPath);
@@ -87,7 +86,7 @@ public class AppScaleTaskQueueClient
     {
         HttpPost post = new HttpPost(url);
         post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);
-        String tag = appId;
+        String tag = getAppId();
         post.addHeader(APPDATA_HEADER, tag);
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
         try
@@ -135,8 +134,11 @@ public class AppScaleTaskQueueClient
 
     private String getAppId()
     {
-        String appId = System.getProperty("APPLICATION_ID");
-        return appId;
+    	if(this.appId == null)
+    	{
+    		this.appId = System.getProperty("APPLICATION_ID");
+    	}
+        return this.appId;
     }
 
     private String getTaskQueueIp()
