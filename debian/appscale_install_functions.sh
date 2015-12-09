@@ -401,13 +401,24 @@ installpycrypto()
 postinstallzookeeper()
 {
     if [ "$DIST" = "precise" ]; then
-        # Need conf/environment to stop service.
-        cp -v /etc/zookeeper/conf_example/* /etc/zookeeper/conf || true
         service zookeeper-server stop || true
         disableservice zookeeper-server
     else
         service zookeeper stop || true
         disableservice zookeeper
+    fi
+    if [ ! -d /etc/zookeeper/conf ]; then
+        echo "Cannot find zookeeper configuration!"
+        exit 1
+    fi
+
+    # Make sure we do logrotate the zookeeper logs.
+    if grep -v "^#" /etc/zookeeper/conf/log4j.properties|grep -i MaxBackupIndex > /dev/null ; then
+        # Let's make sure we don't keep more than 3 backups.
+        sed -i 's/\(.*[mM]ax[bB]ackup[iI]ndex\)=.*/\1=3/' /etc/zookeeper/conf/log4j.properties
+    else
+        # Let's add a rotation directive.
+        echo "log4j.appender.ROLLINGFILE.MaxBackupIndex=3" >> /etc/zookeeper/conf/log4j.properties
     fi
 }
 
