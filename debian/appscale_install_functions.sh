@@ -415,7 +415,7 @@ postinstallzookeeper()
     # Make sure we do logrotate the zookeeper logs.
     if grep -v "^#" /etc/zookeeper/conf/log4j.properties|grep -i MaxBackupIndex > /dev/null ; then
         # Let's make sure we don't keep more than 3 backups.
-        sed -i 's/\(.*[mM]ax[bB]ackup[iI]ndex=\).*/\1=3/' /etc/zookeeper/conf/log4j.properties
+        sed -i 's/\(.*[mM]ax[bB]ackup[iI]ndex\)=.*/\1=3/' /etc/zookeeper/conf/log4j.properties
     else
         # Let's add a rotation directive.
         echo "log4j.appender.ROLLINGFILE.MaxBackupIndex=3" >> /etc/zookeeper/conf/log4j.properties
