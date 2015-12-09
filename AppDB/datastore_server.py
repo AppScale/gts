@@ -4418,6 +4418,12 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     request = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.VoidProto()
+
+    if READ_ONLY:
+      logging.error('Write attempted while in read-only mode.')
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError, dbce:
