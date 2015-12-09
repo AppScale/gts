@@ -4389,6 +4389,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.Integer64Proto()
 
     if READ_ONLY:
+      logging.error('Write attempted while in read-only mode.')
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
@@ -4519,6 +4520,7 @@ class MainHandler(tornado.web.RequestHandler):
     putresp_pb = datastore_pb.PutResponse()
 
     if READ_ONLY:
+      logging.error('Write attempted while in read-only mode.')
       return (putresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
@@ -4607,6 +4609,7 @@ class MainHandler(tornado.web.RequestHandler):
     delresp_pb = api_base_pb.VoidProto() 
 
     if READ_ONLY:
+      logging.error('Write attempted while in read-only mode.')
       return (delresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
