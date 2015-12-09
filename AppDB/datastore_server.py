@@ -89,6 +89,9 @@ LOCAL_DATASTORE = "localhost:8888"
 # Global stats.
 STATS = {}
 
+# Determines whether or not to allow datastore writes.
+READ_ONLY = False
+
 def clean_app_id(app_id):
   """ Google App Engine uses a special prepended string to signal that it
   is an HRD application. AppScale does not use this string so we remove it.
@@ -4384,6 +4387,11 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     request = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.Integer64Proto()
+
+    if READ_ONLY:
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
@@ -4510,6 +4518,10 @@ class MainHandler(tornado.web.RequestHandler):
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse()
 
+    if READ_ONLY:
+      return (putresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
@@ -4593,6 +4605,10 @@ class MainHandler(tornado.web.RequestHandler):
 
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
+
+    if READ_ONLY:
+      return (delresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
 
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
