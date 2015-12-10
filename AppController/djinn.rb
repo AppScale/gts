@@ -668,10 +668,10 @@ class Djinn
     # We need to check if http_port and https_port are already in use by
     # another application, so we do that with find_lowest_free_port and we
     # fix the range to the single port.
-    if find_lowest_free_port(http_port, http_port, appid) == -1
+    if find_lowest_free_port(http_port, http_port, appid) < 0
       return "Error: requested http port is already in use."
     end
-    if find_lowest_free_port(https_port, https_port, appid) == -1
+    if find_lowest_free_port(https_port, https_port, appid) < 0
       return "Error: requested https port is already in use."
     end
 
@@ -4772,15 +4772,15 @@ HOSTS
           xmpp_ip = get_login.public_ip
 
           begin
-            pid = app_manager.start_app(app, appengine_port,
+            pid = Integer(app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
               HelperFunctions.get_app_env_vars(app),
-              Integer(@options['max_memory']), get_login.private_ip)
-          rescue FailedNodeException
+              Integer(@options['max_memory']), get_login.private_ip))
+          rescue FailedNodeException, ArgumentError
             Djinn.log_warn("Failed to talk to AppManager to start #{app}.")
             pid = -1
           end
-          if pid == -1
+          if pid < 0
             # Something went wrong: inform the user and move on.
             Djinn.log_warn("Something went wrong starting appserver for" +
               " #{app}: check logs and running processes.")
