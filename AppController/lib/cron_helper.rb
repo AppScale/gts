@@ -95,7 +95,9 @@ CRON
         cron_xml = Document.new(File.new(cron_file)).root
       rescue REXML::ParseException => parse_exception
         Djinn.log_warn(parse_exception.message)
-        Djinn.log_app_error(app, 'Unable to parse cron.xml.')
+        Djinn.log_app_error(app,
+          'The AppController was unable to parse cron.xml. ' +
+          'This application\'s cron jobs will not run.')
         return
       end
 
