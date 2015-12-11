@@ -90,7 +90,17 @@ CRON
       web_inf_dir = HelperFunctions.get_web_inf_dir(HelperFunctions.get_untar_dir(app))
       cron_file = "#{web_inf_dir}/cron.xml"
       return unless File.exists?(cron_file)
-      cron_xml = Document.new(File.new(cron_file)).root
+
+      begin
+        cron_xml = Document.new(File.new(cron_file)).root
+      rescue REXML::ParseException => parse_exception
+        Djinn.log_warn(parse_exception.message)
+        Djinn.log_app_error(app,
+          'The AppController was unable to parse cron.xml. ' +
+          'This application\'s cron jobs will not run.')
+        return
+      end
+
       return if cron_xml.nil?
 
       cron_xml.each_element('//cron') { |item|
@@ -103,6 +113,8 @@ CRON
           Djinn.log_info("Parsed cron URL: #{url}")
         rescue URI::InvalidURIError
           Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
+          Djinn.log_app_error(app,
+            "Invalid cron URL: #{raw_url}. Skipping entry.")
           next
         end
 
