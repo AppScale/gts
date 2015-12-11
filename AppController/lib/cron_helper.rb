@@ -367,8 +367,10 @@ CRON
       if valid_crontab_line(line)
         valid_cron_lines << line
       else
-        Djinn.log_error("Invalid cron line [#{line}] produced for schedule " +
-          "[#{schedule}]")
+        error = "Invalid cron line [#{line}] produced for schedule " +
+          "[#{schedule}]. Skipping..."
+        Djinn.log_error(error)
+        Djinn.log_app_error(app, error)
       end
     }
 
