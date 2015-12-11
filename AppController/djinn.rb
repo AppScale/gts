@@ -2547,7 +2547,7 @@ class Djinn
         static_handlers = HelperFunctions.parse_static_data(app_id)
         Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app_id)}")
       rescue Exception => e
-        # This specific exception may be a json parse error
+        # This specific exception may be a json parse error.
         error_msg = "ERROR: Unable to parse app.yaml file for #{app_id}. "\
           "Exception of #{e.class} with message #{e.message}"
         place_error_app(app_id, error_msg, @app_info_map[app_id]['language'])
@@ -2560,7 +2560,7 @@ class Djinn
         my_node.private_ip, @app_info_map[app_id]['haproxy'],
         static_handlers, get_login.private_ip,
         @app_info_map[app_id]['language'])
-      Djinn.log_info("Done setting fullproxy for application #{app}.")
+      Djinn.log_info("Done setting full proxy for application #{app}.")
     end
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")

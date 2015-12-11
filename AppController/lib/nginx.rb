@@ -490,7 +490,7 @@ CONFIG
   # application.
   #
   # Args:
-  #  app_name: the application to check for.
+  #  app_name: The application to check for.
   #
   # Returns:
   #  bool: true/false depending if the application is already configured.
