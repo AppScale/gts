@@ -195,7 +195,8 @@ CRON
   #   app: A String that names the appid of this application.
   def self.write_app_crontab(crontab, app)
     Djinn.log_info("Writing crontab for [#{app}]:\n#{crontab}")
-    `echo "#{crontab}" > /etc/cron.d/appscale-#{app}`
+    app_cron_file = "/etc/cron.d/appscale-#{app}"
+    File.open(app_cron_file, 'w') { | file| file.write(crontab) }
   end
 
 
@@ -357,7 +358,7 @@ CRON
     cron_lines.each { |cron|
       cron << " root curl -H \"X-Appengine-Cron:true\" "\
               "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
-              "-L http://#{ip}:#{port}#{url} "\
+              "-L \"http://#{ip}:#{port}#{url}\" "\
               "2>&1 >> /var/apps/#{app}/log/cron.log"
     }
 
@@ -366,8 +367,10 @@ CRON
       if valid_crontab_line(line)
         valid_cron_lines << line
       else
-        Djinn.log_error("Invalid cron line [#{line}] produced for schedule " +
-          "[#{schedule}]")
+        error = "Invalid cron line [#{line}] produced for schedule " +
+          "[#{schedule}]. Skipping..."
+        Djinn.log_error(error)
+        Djinn.log_app_error(app, error)
       end
     }
 
