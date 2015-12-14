@@ -454,7 +454,8 @@ module HelperFunctions
     self.shell("touch #{meta_dir}/log/server.log")
 
     if untar
-      self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx")
+      self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
+        "-C #{tar_dir} -zx")
     end
   end
 
