@@ -2307,6 +2307,14 @@ class Djinn
     self.log_to_buffer(Logger::FATAL, message)
   end
 
+  # Use syslogd to log a message to the combined application log.
+  #
+  # Args:
+  #   app_id: A String containing the app ID.
+  #   message: A String containing the message to log.
+  def self.log_app_error(app_id, message)
+    Syslog.open("app___#{app_id}") { |s| s.err message }
+  end
 
   # Appends this log message to a buffer, which will be periodically sent to
   # the AppDashbord.
@@ -3746,6 +3754,7 @@ class Djinn
   def start_datastore_server
     db_master_ip = nil
     my_ip = my_node.public_ip
+    verbose = @options['verbose'].downcase == 'true'
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
@@ -3753,7 +3762,8 @@ class Djinn
 
     table = @options['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    DatastoreServer.start(db_master_ip, my_node.private_ip, my_ip, table)
+    DatastoreServer.start(db_master_ip, my_node.private_ip, table,
+      verbose=verbose)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # Let's wait for the datastore to be active.
@@ -3789,7 +3799,7 @@ class Djinn
 
   # Stops the datastore server.
   def stop_datastore_server
-    DatastoreServer.stop(@options['table'])
+    DatastoreServer.stop()
   end
 
   def is_hybrid_cloud?
