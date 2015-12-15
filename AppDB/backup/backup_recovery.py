@@ -34,6 +34,9 @@ class BackupService():
 
   def __init__(self):
     """ Constructor function for the backup service. """
+    log_format = logging.Formatter('%(asctime)s %(levelname)s %(filename)s: '
+      '%(lineno)s %(message)s')
+    logging.getLogger().handlers[0].setFormatter(log_format)
     self.__cassandra_backup_lock = threading.Lock()
     self.__zookeeper_backup_lock = threading.Lock()
 
