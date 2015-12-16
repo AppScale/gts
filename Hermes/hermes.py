@@ -32,6 +32,23 @@ def poll():
   if not deployment_id:
     return
 
+  # If we can't reach the backup and recovery services, skip.
+  nodes = helper.get_node_info()
+  http_client = tornado.httpclient.HTTPClient()
+  for node in nodes:
+    br_host = node[helper.NodeInfoTags.HOST]
+    request = tornado.httpclient.HTTPRequest(br_host)
+    try:
+      response = http_client.fetch(request)
+      if json.loads(response.body)['status'] != 'up':
+        logging.warn('Backup and Recovery service at {} is not up.'
+          .format(br_host))
+        return
+    except (socket.error, ValueError):
+      logging.exception('Backup and Recovery service at {} is not up.'
+        .format(br_host))
+      return
+
   logging.info("Polling for new task.")
 
   # Send request to AppScale Portal.
