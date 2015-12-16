@@ -22,6 +22,7 @@ class MainHandler(tornado.web.RequestHandler):
     self.backup_recovery_service = backup_recovery_service
 
   def get(self):
+    """ A GET handler for requests to this server. """
     self.write(json.dumps({'status': 'up'}))
 
   @tornado.web.asynchronous
