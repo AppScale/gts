@@ -7,7 +7,7 @@
 # on the supported platform look at https://github.com/AppScale/appscale/wiki.
 # Once you have the IP of the instance you can do something like:
 #
-# ssh -i <key> ubuntu@<public IP> 'wget -O - fast-start.appscale.com|sudo -i sh'
+# ssh -i <key> ubuntu@<public IP> 'curl -Lo - fast-start.appscale.com|sudo -i sh'
 #
 
 ADMIN_EMAIL=""
@@ -104,7 +104,7 @@ fi
 # Let's try to detect the environment we are using.
 if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
     PROVIDER="AWS"
-elif ${CURL} metadata.google.internal -i |grep 'Metadata-Flavor: Google' ; then
+elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
     # As per https://cloud.google.com/compute/docs/metadata.
     PROVIDER="GCE"
 elif grep docker /proc/1/cgroup > /dev/null ; then
@@ -125,10 +125,10 @@ case "$PROVIDER" in
     ;;
 "GCE" )
     # We assume a single interface here.
-    PUBLIC_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
-    PRIVATE_IP="$(wget -O - --header 'Metadata-Flavor: Google' -q ${GOOGLE_METADATA}/network-interfaces/0/ip)"
+    PUBLIC_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
+    PRIVATE_IP="$($CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/ip)"
     # Let's use a sane hostname.
-    wget -O /tmp/hostname --header "Metadata-Flavor: Google" -q ${GOOGLE_METADATA}/hostname
+    ${CURL} -O /tmp/hostname -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/hostname
     cut -f 1 -d '.' /tmp/hostname > /etc/hostname
     hostname -b -F /etc/hostname
     ADMIN_PASSWD="$(cat /etc/hostname)"
@@ -176,7 +176,7 @@ if [ ! -e AppScalefile ]; then
 
     # Download sample app.
     echo -n "Downloading sample app..."
-    wget -q -O ${GUESTBOOK_APP} ${GUESTBOOK_URL}
+    ${CURL} -so ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
 fi
 
