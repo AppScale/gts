@@ -20,7 +20,7 @@ APPSCALE_UPLOAD="/root/appscale-tools/bin/appscale-upload-app"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
 GUESTBOOK_APP="/root/guestbook.tar.gz"
-USE_DEMO="Y"
+NO_DEMO_APP="Y"
 
 # Print help screen.
 usage() {
@@ -77,7 +77,7 @@ while [ $# -gt 0 ]; do
     fi
     if [ "$1" = "--no-demo-app" ]; then
         shift
-        USE_DEMO="N"
+        NO_DEMO_APP="N"
         continue
     fi
     usage
@@ -184,7 +184,7 @@ fi
 ${APPSCALE_CMD} up
 
 # If we don't need to deploy the demo app, we are done.
-if [ "${USE_DEMO}" != "Y" ]; then
+if [ "${NO_DEMO_APP}" != "Y" ]; then
     exit 0
 fi
 
