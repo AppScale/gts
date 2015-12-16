@@ -116,11 +116,11 @@ def download_from_bucket(full_object_name, local_path):
     logging.error('Not enough space to download a backup.')
     return False
 
-  # Invoke 'wget' to retrieve the resource and store to local_path.
+  # Invoke 'curl' to retrieve the resource and store to local_path.
   try:
-    logging.debug("Downloading GCS object: wget -O {0} {1}".format(
+    logging.debug("Downloading GCS object: curl -o {0} {1}".format(
       local_path, content['mediaLink']))
-    subprocess.check_output(['wget', '-O', local_path, content['mediaLink']])
+    subprocess.check_output(['curl', '-o', local_path, content['mediaLink']])
   except subprocess.CalledProcessError as called_process_error:
     logging.error("Error while downloading file from GCS. Error: {0}".
       format(called_process_error))

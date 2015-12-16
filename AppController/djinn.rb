@@ -304,11 +304,6 @@ class Djinn
     'message' => 'not enough open nodes'})
 
 
-  # The options that should be used when invoking wget, so that the
-  # AppController can automatically probe a site to see if it's up.
-  WGET_OPTIONS = "--tries=1000 --no-check-certificate -q -O /dev/null"
-
-
   # This is the duty cycle for the main loop(s).
   DUTY_CYCLE = 20
 
@@ -3507,7 +3502,6 @@ class Djinn
 
         if my_node.is_db_master? or my_node.is_db_slave?
           start_groomer_service()
-          start_backup_service()
         end
 
         start_backup_service()
