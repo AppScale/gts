@@ -1,5 +1,6 @@
 """ Top level server for backup and recovery. """
 
+import json
 import logging
 
 import tornado.httpserver
@@ -19,6 +20,9 @@ class MainHandler(tornado.web.RequestHandler):
   def initialize(self, backup_recovery_service):
     """ Class for initializing backup/recovery web handler. """
     self.backup_recovery_service = backup_recovery_service
+
+  def get(self):
+    self.write(json.dumps({'status': 'up'}))
 
   @tornado.web.asynchronous
   def post(self):
