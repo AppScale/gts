@@ -175,7 +175,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
+JAVA_HOME: /usr/lib/jvm/java-7-openjdk-armhf
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
@@ -196,7 +196,7 @@ installthrift()
 installjavajdk()
 {
     # This makes jdk-7 the default JVM.
-    update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+    update-alternatives --set java /usr/lib/jvm/java-7-openjdk-armhf/jre/bin/java
 }
 
 installappserverjava()
@@ -259,7 +259,7 @@ installgems()
     gem install rake ${GEMOPT}
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
-    gem install zookeeper
+    #gem install zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
