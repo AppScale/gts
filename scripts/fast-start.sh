@@ -9,7 +9,6 @@
 #
 # ssh -i <key> ubuntu@<public IP> 'wget -O - fast-start.appscale.com|sudo -i sh'
 #
-# author: graziano
 
 ADMIN_EMAIL=""
 ADMIN_PASSWD=""
@@ -21,14 +20,16 @@ APPSCALE_UPLOAD="/root/appscale-tools/bin/appscale-upload-app"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
 GUESTBOOK_APP="/root/guestbook.tar.gz"
+USE_DEMO="Y"
 
 # Print help screen.
 usage() {
-        echo "Usage: $0 [--user <email> --passwd <password>]"
+        echo "Usage: $0 [--user <email> --passwd <password>][--no-demo-app]"
         echo
         echo "Options:"
         echo "  --user <email>          administrator's email"
         echo "  --passwd <password>     administrator's password"
+        echo "  --no-demo-app           don't start the demo application"
         echo
 }
 
@@ -74,15 +75,17 @@ while [ $# -gt 0 ]; do
         shift
         continue
     fi
+    if [ "$1" = "--no-demo-app" ]; then
+        shift
+        USE_DEMO="N"
+        continue
+    fi
     usage
     exit 1
 done
 
 # Sanity check on the given options.
 if [ -n "$ADMIN_EMAIL" ]; then
-    # Not supported right now.
-    echo "--email is not supported yet"
-    exit 1
     [ -n "${ADMIN_PASSWD}" ] || { echo "error: you need to specify password with admin email"; exit 1; }
 else
     [ -z "${ADMIN_PASSWD}" ] || { echo "error: you need to specify admin email with password"; exit 1; }
@@ -108,7 +111,7 @@ else
     # Let's check if this is Docker.
     if grep docker /proc/1/cgroup > /dev/null ; then
         # We need to start sshd by hand.
-        /usr/sbin/sshd || true
+        /usr/sbin/sshd
         PROVIDER="Docker"
     else
         # Let's assume virtualized cluster.
@@ -140,7 +143,7 @@ case "$PROVIDER" in
     [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
     # Let's find the IP address to use.
     PUBLIC_IP="$($IP addr show dev $DEFAULT_DEV scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
-    # There is no Private/Public IPs in this configuratio.
+    # There is no private/public IPs in this configuration.
     PRIVATE_IP="$PUBLIC_IP"
     ;;
 esac
@@ -152,7 +155,7 @@ if [ ! -e AppScalefile ]; then
     [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
     # Tell the user what we detected.
-    echo "Detectd enviroment: ${PROVIDER}"
+    echo "Detected enviroment: ${PROVIDER}"
     echo "Private IP found: ${PRIVATE_IP}"
     echo "Public IP found:  ${PUBLIC_IP}"
 
@@ -183,14 +186,17 @@ fi
 # Start AppScale.
 ${APPSCALE_CMD} up
 
+# If we don't need to deploy the demo app, we are done.
+if [ "${USE_DEMO}" != "Y" ]; then
+    exit 0
+fi
+
 # Get the keyname.
 KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
-if [ -z "${ADMIN_EMAIL}" ]; then
-    ADMIN_EMAIL="a@a.com"
-fi
+[ -z "${ADMIN_EMAIL}" ] && ADMIN_EMAIL="a@a.com"
 [ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
