@@ -129,12 +129,10 @@ sleep 5
 apt-get update
 apt-get install -y git
 if [ ! -d appscale ]; then
-        # We split the commands, to ensure it fails if branch doesn't
-        # exists (Precise git will not fail otherwise).
+        # We split the commands to ensure it fails if branch doesn't
+        # exist. (Precise git will not fail otherwise).
         git clone ${APPSCALE_REPO} appscale
         (cd appscale; git checkout ${APPSCALE_BRANCH})
-        git clone ${APPSCALE_TOOLS_REPO} appscale-tools
-        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
 
         # Use tags if we specified it.
         if [ -n "$GIT_TAG" -a "${APPSCALE_BRANCH}" = "master" ]; then
@@ -142,6 +140,18 @@ if [ ! -d appscale ]; then
                         GIT_TAG="$(cd appscale; git tag | tail -n 1)"
                 fi
                 (cd appscale; git checkout "$GIT_TAG")
+        fi
+fi
+
+if [ ! -d appscale-tools ]; then
+        git clone ${APPSCALE_TOOLS_REPO} appscale-tools
+        (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
+
+        # Use tags if we specified it.
+        if [ -n "$GIT_TAG" -a "${APPSCALE_TOOLS_BRANCH}" = "master" ]; then
+                if [ "$GIT_TAG" = "last" ]; then
+                        GIT_TAG="$(cd appscale-tools; git tag | tail -n 1)"
+                fi
                 (cd appscale-tools; git checkout "$GIT_TAG")
         fi
 fi
