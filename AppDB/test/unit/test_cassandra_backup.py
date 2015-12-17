@@ -30,11 +30,6 @@ class TestCassandraBackup(unittest.TestCase):
       'snapshot']).and_return().times(1)
     cassandra_backup.create_snapshot()
 
-  def test_refresh_data(self):
-    flexmock(subprocess).should_receive("check_call").and_return().\
-      at_least.times(1)
-    cassandra_backup.refresh_data()
-
   def test_remove_old_data(self):
     pass
 
@@ -168,7 +163,6 @@ class TestCassandraBackup(unittest.TestCase):
       and_return()
     flexmock(cassandra_backup).should_receive('restore_snapshots').and_return()
     flexmock(start_cassandra).should_receive('run').and_return()
-    flexmock(cassandra_backup).should_receive('refresh_data').and_return()
     flexmock(cassandra_backup).should_receive('clear_old_snapshots').\
       and_return()
     flexmock(backup_recovery_helper).\
@@ -197,7 +191,6 @@ class TestCassandraBackup(unittest.TestCase):
       and_return()
     flexmock(cassandra_backup).should_receive('restore_snapshots').and_return()
     flexmock(start_cassandra).should_receive('run').and_return()
-    flexmock(cassandra_backup).should_receive('refresh_data').and_return()
     flexmock(cassandra_backup).should_receive('clear_old_snapshots').\
       and_return()
     self.assertEquals(True, cassandra_backup.restore_data('', ''))
