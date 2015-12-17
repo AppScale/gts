@@ -130,7 +130,7 @@ apt-get update
 apt-get install -y git
 if [ ! -d appscale ]; then
         # We split the commands to ensure it fails if branch doesn't
-        # exist. (Precise git will not fail otherwise).
+        # exist. Otherwise, git will not fail on Precise.
         git clone ${APPSCALE_REPO} appscale
         (cd appscale; git checkout ${APPSCALE_BRANCH})
 
