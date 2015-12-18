@@ -28,7 +28,7 @@ def dump_zk(filename):
   """
   handle = kazoo.client.KazooClient(hosts=ZK_DEFAULT_HOST)
   handle.start()
-  with open(filename, "wb") as f:
+  with open(filename, "w") as f:
     recursive_dump(handle, ZK_TOP_LEVEL, f)
   handle.stop()
 
@@ -52,8 +52,8 @@ def recursive_dump(handle, path, file_handler):
           new_path = PATH_SEPARATOR.join([path, child])
         recursive_dump(handle, new_path, file_handler)
       if path != ZK_TOP_LEVEL:
-        value = handle.get(path)[0]
-        file_handler.write('{0}\n'.format(json.dumps({path: value})))
+        value = handle.get(path)[0].encode('base64')
+        file_handler.write("{}\n".format(json.dumps({path: value})))
   except kazoo.exceptions.NoNodeError:
     logging.debug('Reached the end of the zookeeper path.')
 
@@ -98,11 +98,11 @@ def restore_zk(filename):
   """
   handle = kazoo.client.KazooClient(hosts=ZK_DEFAULT_HOST)
   handle.start()
-  with open(filename, 'rb') as f:
+  with open(filename, 'r') as f:
     for line in f.readlines():
       pair = json.loads(line)
       path = pair.keys()[0]
-      value = pair.values()[0]
+      value = pair.values()[0].decode('base64')
       try:
         handle.create(path, bytes(value), makepath=True)
         logging.debug("Created '{0}'".format(path))
