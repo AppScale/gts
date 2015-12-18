@@ -2,12 +2,13 @@
 
 import json
 import logging
-import re
+import os
 import requests
 import subprocess
 import urllib
 
 import backup_recovery_helper
+from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import HTTP_OK
 
 # Google Cloud Storage prefix for apps/ directory.
@@ -103,16 +104,11 @@ def download_from_bucket(full_object_name, local_path):
     return False
 
   # Check if there is enough disk space available.
-  try:
-    available_space = re.sub('\s\s+', ' ', subprocess.check_output(['df',
-      '/opt/appscale/backups']).split('\n')[1]).split(' ')[3]
-  except subprocess.CalledProcessError as called_process_error:
-    logging.error("Error while determining available disk space. Error: {0}".
-      format(called_process_error))
-    return False
+  disk_stats = os.statvfs(BACKUP_DIR_LOCATION)
+  bytes_available = disk_stats.f_bavail * disk_stats.f_frsize
 
   # Compare to GCS file size.
-  if int(content['size']) >= int(available_space):
+  if int(content['size']) >= bytes_available:
     logging.error('Not enough space to download a backup.')
     return False
 
