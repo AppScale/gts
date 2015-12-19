@@ -1380,7 +1380,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    return ZKInterface.exists?('/deployment_id')
+    return ZKInterface.exists?(DEPLOYMENT_ID_PATH)
   end
 
   # Retrieves the deployment ID from ZooKeeper.
@@ -1392,7 +1392,7 @@ class Djinn
     end
 
     begin
-      return ZKInterface.get('/deployment_id')
+      return ZKInterface.get(DEPLOYMENT_ID_PATH)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("(get_deployment_id) failed talking to zookeeper " +
         "with #{e.message}.")
@@ -1409,7 +1409,7 @@ class Djinn
     end
 
     begin
-      ZKInterface.set('/deployment_id', id, false)
+      ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("(set_deployment_id) failed talking to zookeeper " +
         "with #{e.message}.")

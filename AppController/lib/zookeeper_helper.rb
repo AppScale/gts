@@ -4,9 +4,10 @@ require 'djinn'
 # The location on the local filesystem where we should store ZooKeeper data.
 DATA_LOCATION = "/opt/appscale/zookeeper"
 
-
 ZOOKEEPER_PORT="2181"
 
+# The path in ZooKeeper where the deployment ID is stored.
+DEPLOYMENT_ID_PATH = '/appscale/deployment_id'
 
 def configure_zookeeper(nodes, my_index)
   # TODO: create multi node configuration
