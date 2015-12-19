@@ -6,6 +6,9 @@ BACKUP_DIR_LOCATION = "/opt/appscale/backups"
 # Location where we place the source code tars.
 APP_BACKUP_DIR_LOCATION = "{0}/apps".format(BACKUP_DIR_LOCATION)
 
+# Directory to temporarily place applications before deploying them.
+APP_TEMP_DIR_LOCATION = '/opt/appscale/tmp'
+
 # Location where deployed app source code resides in an AppScale deployment.
 APP_DIR_LOCATION = "/opt/appscale/apps"
 

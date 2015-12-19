@@ -17,6 +17,7 @@ import gcs_helper
 
 from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
 from backup_recovery_constants import APP_DIR_LOCATION
+from backup_recovery_constants import APP_TEMP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
 from backup_recovery_constants import StorageTypes
@@ -311,9 +312,18 @@ def app_restore(storage, bucket_name=None):
         delete_app_tars(APP_BACKUP_DIR_LOCATION)
         return False
 
+  # Copy applications to a temporary directory because the AppController
+  # deletes them after deploying them.
+  shutil.rmtree(APP_TEMP_DIR_LOCATION, ignore_errors=True)
+  try:
+    shutil.copytree(APP_BACKUP_DIR_LOCATION, APP_TEMP_DIR_LOCATION)
+  except OSError:
+    logging.exception('Error while creating {}'.format(APP_TEMP_DIR_LOCATION))
+    return False
+
   # Deploy apps.
-  apps_to_deploy = [os.path.join(APP_BACKUP_DIR_LOCATION, app) for app in
-    os.listdir(APP_BACKUP_DIR_LOCATION)]
+  apps_to_deploy = [os.path.join(APP_TEMP_DIR_LOCATION, app) for app in
+    os.listdir(APP_TEMP_DIR_LOCATION)]
   if not deploy_apps(apps_to_deploy):
     logging.error("Failed to successfully deploy one or more of the "
       "following apps: {0}".format(apps_to_deploy))
