@@ -26,7 +26,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
 from constants import APPSCALE_DATA_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppDB/AppDashboard/lib"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppDashboard/lib"))
 from app_dashboard_helper import AppUploadStatuses
 
 from google.appengine.api.appcontroller_client import AppControllerClient
