@@ -9,9 +9,6 @@ APP_BACKUP_DIR_LOCATION = "{0}/apps".format(BACKUP_DIR_LOCATION)
 # Location where deployed app source code resides in an AppScale deployment.
 APP_DIR_LOCATION = "/opt/appscale/apps"
 
-# The time in seconds to wait before re-checking the app upload status.
-APP_UPLOAD_CHECK_INTERVAL = 1
-
 # A suffix appended to an existing backup tar (for rollback purposes).
 BACKUP_ROLLBACK_SUFFIX = "_last_successful"
 

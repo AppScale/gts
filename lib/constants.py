@@ -3,6 +3,15 @@ This file contains constants used throughout AppScale.
 """
 import os
 
+
+class AppUploadStatuses(object):
+    """ A class containing the possible values that the AppController can return
+    when checking the status of an upload.
+    """
+    ID_NOT_FOUND = 'Reservation ID not found.'
+    STARTING = 'starting'
+    COMPLETE = 'true'
+
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
@@ -81,3 +90,5 @@ RESERVED_APP_IDS = [DASHBOARD_APP_ID]
 # Location of where the search service is running.
 SEARCH_FILE_LOC = "/etc/appscale/search_ip"
 
+# The amount of time in seconds to wait before polling again.
+STANDARD_POLLING_INTERVAL = 1

@@ -17,7 +17,6 @@ import gcs_helper
 
 from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
 from backup_recovery_constants import APP_DIR_LOCATION
-from backup_recovery_constants import APP_UPLOAD_CHECK_INTERVAL
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
 from backup_recovery_constants import StorageTypes
@@ -25,9 +24,8 @@ from backup_recovery_constants import StorageTypes
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
 from constants import APPSCALE_DATA_DIR
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppDashboard/lib"))
-from app_dashboard_helper import AppUploadStatuses
+from constants import AppUploadStatuses
+from constants import STANDARD_POLLING_INTERVAL
 
 from google.appengine.api.appcontroller_client import AppControllerClient
 
@@ -389,7 +387,7 @@ def deploy_apps(app_paths):
     upload_info = acc.upload_app(app_path, file_suffix, app_admin)
     status = upload_info['status']
     while status == AppUploadStatuses.STARTING:
-      time.sleep(APP_UPLOAD_CHECK_INTERVAL)
+      time.sleep(STANDARD_POLLING_INTERVAL)
       status = acc.get_app_upload_status(upload_info['reservation_id'])
       if status == AppUploadStatuses.ID_NOT_FOUND:
         logging.error('The AppController could not find the reservation ID '
