@@ -4,6 +4,7 @@
 import datetime
 import hashlib
 import logging
+import os
 import re
 import tempfile
 import time
@@ -363,21 +364,27 @@ class AppDashboardHelper(object):
       self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
       acc = self.get_appcontroller_client()
-      with tempfile.NamedTemporaryFile(suffix=file_suffix) as tgz_file:
-        tgz_file.write(upload_file.read())
-        upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
-        status = upload_info['status']
-        while status == AppUploadStatuses.STARTING:
-          time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
-          status = acc.get_app_upload_status(upload_info['reservation_id'])
-          if status == AppUploadStatuses.ID_NOT_FOUND:
-            raise AppHelperException('We could not find the reservation ID '
-              'for your app. Please try uploading it again.')
-          if status == AppUploadStatuses.COMPLETE:
-            return 'Application uploaded successfully. Please wait for the '\
-              'application to start running.'
-        raise AppHelperException('Saw status {} when trying to upload app.'
-          .format(status))
+      tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
+      tgz_file.write(upload_file.read())
+      tgz_file.close()
+      upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
+      status = upload_info['status']
+
+      while status == AppUploadStatuses.STARTING:
+        time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
+        status = acc.get_app_upload_status(upload_info['reservation_id'])
+        if status == AppUploadStatuses.ID_NOT_FOUND:
+          os.remove(tgz_file.name)
+          raise AppHelperException('We could not find the reservation ID '
+            'for your app. Please try uploading it again.')
+        if status == AppUploadStatuses.COMPLETE:
+          os.remove(tgz_file.name)
+          return 'Application uploaded successfully. Please wait for the '\
+            'application to start running.'
+      os.remove(tgz_file.name)
+      raise AppHelperException('Saw status {} when trying to upload app.'
+        .format(status))
+
     except Exception as err:
       logging.exception(err)
 
