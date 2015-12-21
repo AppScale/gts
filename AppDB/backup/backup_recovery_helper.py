@@ -322,7 +322,7 @@ def app_restore(storage, bucket_name=None):
     logging.error("Failed to successfully deploy one or more of the "
       "following apps: {0}".format(apps_to_deploy))
     if storage == StorageTypes.GCS:
-     delete_app_tars(APP_BACKUP_DIR_LOCATION)
+      delete_app_tars(APP_BACKUP_DIR_LOCATION)
     return False
 
   # Clean up downloaded backups for consistency.
