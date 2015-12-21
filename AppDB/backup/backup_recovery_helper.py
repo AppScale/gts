@@ -17,6 +17,7 @@ import gcs_helper
 
 from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
 from backup_recovery_constants import APP_DIR_LOCATION
+from backup_recovery_constants import APP_UPLOAD_CHECK_INTERVAL
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
 from backup_recovery_constants import StorageTypes
@@ -24,6 +25,9 @@ from backup_recovery_constants import StorageTypes
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
 from constants import APPSCALE_DATA_DIR
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppDB/AppDashboard/lib"))
+from app_dashboard_helper import AppUploadStatuses
 
 from google.appengine.api.appcontroller_client import AppControllerClient
 
@@ -376,6 +380,17 @@ def deploy_apps(app_paths):
     logging.warning("Restoring app '{}', from '{}', with owner '{}'.".
       format(app_id, app_path, app_admin))
 
-    acc.upload_app(app_path, file_suffix, app_admin)
+    upload_info = acc.upload_app(app_path, file_suffix, app_admin)
+    status = upload_info['status']
+    while status == AppUploadStatuses.STARTING:
+      time.sleep(APP_UPLOAD_CHECK_INTERVAL)
+      status = acc.get_app_upload_status(upload_info['reservation_id'])
+      if status == AppUploadStatuses.ID_NOT_FOUND:
+        logging.error('The AppController could not find the reservation ID '
+          'for {}.'.format(app_id))
+        return False
+    if status != AppUploadStatuses.COMPLETE:
+      logging.error('Saw status {} when trying to upload {}.'
+        .format(status, app_id))
 
   return True
