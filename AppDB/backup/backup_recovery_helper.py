@@ -398,5 +398,6 @@ def deploy_apps(app_paths):
     if status != AppUploadStatuses.COMPLETE:
       logging.error('Saw status {} when trying to upload {}.'
         .format(status, app_id))
+      return False
 
   return True
