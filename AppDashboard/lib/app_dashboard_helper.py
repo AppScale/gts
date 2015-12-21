@@ -4,9 +4,7 @@
 import datetime
 import hashlib
 import logging
-import os
 import re
-import sys
 import tempfile
 import time
 import urllib
@@ -22,15 +20,20 @@ from secret_key import GLOBAL_SECRET_KEY
 from local_host import MY_PUBLIC_IP
 from uaserver_host import UA_SERVER_IP
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
-from constants import AppUploadStatuses
-from constants import STANDARD_POLLING_INTERVAL
-
 
 class AppHelperException(Exception):
   """ A special Exception class that should be thrown if a SOAP call to the
   AppController or UserAppServer failed, or returned malformed data. """
   pass
+
+
+class AppUploadStatuses(object):
+  """ A class containing the possible values that the AppController can return
+  when checking the status of an upload.
+  """
+  ID_NOT_FOUND = 'Reservation ID not found.'
+  STARTING = 'starting'
+  COMPLETE = 'true'
 
 
 class AppDashboardHelper(object):
@@ -147,6 +150,9 @@ class AppDashboardHelper(object):
   # the user to close their browser in order to clear the cookie set by the
   # shibboleth IdP.
   SHIBBOLETH_LOGOUT_URL = SHIBBOLETH_CONNECTOR + '/Shibboleth.sso/Logout'
+
+  # The time in seconds to wait before re-checking the app upload status.
+  APP_UPLOAD_CHECK_INTERVAL = 1
 
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
@@ -362,7 +368,7 @@ class AppDashboardHelper(object):
         upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
         status = upload_info['status']
         while status == AppUploadStatuses.STARTING:
-          time.sleep(STANDARD_POLLING_INTERVAL)
+          time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
           status = acc.get_app_upload_status(upload_info['reservation_id'])
           if status == AppUploadStatuses.ID_NOT_FOUND:
             raise AppHelperException('We could not find the reservation ID '
