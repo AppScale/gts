@@ -5,12 +5,12 @@ import os
 
 
 class AppUploadStatuses(object):
-    """ A class containing the possible values that the AppController can return
-    when checking the status of an upload.
-    """
-    ID_NOT_FOUND = 'Reservation ID not found.'
-    STARTING = 'starting'
-    COMPLETE = 'true'
+  """ A class containing the possible values that the AppController can return
+  when checking the status of an upload.
+  """
+  ID_NOT_FOUND = 'Reservation ID not found.'
+  STARTING = 'starting'
+  COMPLETE = 'true'
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
