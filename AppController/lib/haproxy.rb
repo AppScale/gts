@@ -159,10 +159,16 @@ module HAProxy
   def self.server_config(app_name, index, location)
     if HelperFunctions.get_app_thread_safe(app_name)
       Djinn.log_debug("[#{app_name}] Writing Threadsafe HAProxy config")
-      return "  server #{app_name}-#{index} #{location} #{THREADED_SERVER_OPTIONS}"
+      if name == AppDashboard::APP_NAME
+        return "  server #{app_name}-#{index} #{location} #{THREADED_SERVER_OPTIONS}"
+      end
+      return "  server #{app_name}-#{index} #{location} cookie S#{index} #{THREADED_SERVER_OPTIONS}"
     else
       Djinn.log_debug("[#{app_name}] Writing Non-Threadsafe HAProxy config")
-      return "  server #{app_name}-#{index} #{location} #{SERVER_OPTIONS}"
+      if name == AppDashboard::APP_NAME
+        return "  server #{app_name}-#{index} #{location} #{SERVER_OPTIONS}"
+      end
+      return "  server #{app_name}-#{index} #{location} cookie S#{index} #{SERVER_OPTIONS}"
     end
   end
 
@@ -180,6 +186,7 @@ module HAProxy
     listen_port = HAProxy.app_listen_port(app_number)
     config = "# Create a load balancer for the app #{app_name} \n"
     config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
+    config << "  cookie SRVNAME insert\n"
     config << servers.join("\n")
 
     config_path = File.join(SITES_ENABLED_PATH, 
@@ -207,6 +214,7 @@ module HAProxy
 
     config = "# Create a load balancer for the app #{app_name} \n"
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
+    config << "  cookie SRVNAME insert\n"
     config << servers.join("\n")
 
     config_path = File.join(SITES_ENABLED_PATH, 
