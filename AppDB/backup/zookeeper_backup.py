@@ -88,7 +88,7 @@ def recursive_flush(handle, path):
         logging.warning('BadArgumentsError while deleting path: {0}.'.format(
           path))
       except kazoo.exceptions.NotEmptyError:
-        logging.warning('NotEmptyError  while deleting path: {0}. Skipping..'.
+        logging.warning('NotEmptyError while deleting path: {0}. Skipping..'.
           format(path))
   except kazoo.exceptions.NoNodeError:
     logging.debug('Reached the end of the zookeeper path.')
