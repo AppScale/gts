@@ -374,14 +374,14 @@ class AppDashboardHelper(object):
         time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
         status = acc.get_app_upload_status(upload_info['reservation_id'])
         if status == AppUploadStatuses.ID_NOT_FOUND:
-          os.remove('{}.tar.gz'.format(tgz_file.name))
+          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
           raise AppHelperException('We could not find the reservation ID '
             'for your app. Please try uploading it again.')
         if status == AppUploadStatuses.COMPLETE:
-          os.remove('{}.tar.gz'.format(tgz_file.name))
+          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
           return 'Application uploaded successfully. Please wait for the '\
             'application to start running.'
-      os.remove('{}.tar.gz'.format(tgz_file.name))
+      os.remove('{}.{}'.format(tgz_file.name, file_suffix))
       raise AppHelperException('Saw status {} when trying to upload app.'
         .format(status))
 
