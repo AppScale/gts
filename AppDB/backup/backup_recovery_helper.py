@@ -24,8 +24,6 @@ from backup_recovery_constants import StorageTypes
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
 from constants import APPSCALE_DATA_DIR
-from constants import AppUploadStatuses
-from constants import STANDARD_POLLING_INTERVAL
 
 from google.appengine.api.appcontroller_client import AppControllerClient
 
@@ -319,13 +317,7 @@ def app_restore(storage, bucket_name=None):
   if not deploy_apps(apps_to_deploy):
     logging.error("Failed to successfully deploy one or more of the "
       "following apps: {0}".format(apps_to_deploy))
-    if storage == StorageTypes.GCS:
-      delete_app_tars(APP_BACKUP_DIR_LOCATION)
     return False
-
-  # Clean up downloaded backups for consistency.
-  if storage == StorageTypes.GCS:
-    delete_app_tars(APP_BACKUP_DIR_LOCATION)
 
   return True
 
@@ -384,18 +376,6 @@ def deploy_apps(app_paths):
     logging.warning("Restoring app '{}', from '{}', with owner '{}'.".
       format(app_id, app_path, app_admin))
 
-    upload_info = acc.upload_app(app_path, file_suffix, app_admin)
-    status = upload_info['status']
-    while status == AppUploadStatuses.STARTING:
-      time.sleep(STANDARD_POLLING_INTERVAL)
-      status = acc.get_app_upload_status(upload_info['reservation_id'])
-      if status == AppUploadStatuses.ID_NOT_FOUND:
-        logging.error('The AppController could not find the reservation ID '
-          'for {}.'.format(app_id))
-        return False
-    if status != AppUploadStatuses.COMPLETE:
-      logging.error('Saw status {} when trying to upload {}.'
-        .format(status, app_id))
-      return False
+    acc.upload_app(app_path, file_suffix, app_admin)
 
   return True
