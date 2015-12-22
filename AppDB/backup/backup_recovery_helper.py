@@ -311,34 +311,13 @@ def app_restore(storage, bucket_name=None):
         delete_app_tars(APP_BACKUP_DIR_LOCATION)
         return False
 
-  # Copy source code tars from backups location to /opt/appscale/apps.
-  apps_to_deploy = []
-  for dir_path, _, filenames in os.walk(APP_BACKUP_DIR_LOCATION):
-    for filename in filenames:
-      source = '{0}/{1}'.format(dir_path, filename)
-      destination = '{0}/{1}'.format(APP_DIR_LOCATION, filename)
-      try:
-        shutil.copy(source, destination)
-        apps_to_deploy.append(destination)
-      except:
-        logging.error("Error while restoring '{0}'.".format(source))
-        if storage == StorageTypes.GCS:
-          delete_app_tars(APP_BACKUP_DIR_LOCATION)
-        delete_app_tars(APP_DIR_LOCATION)
-        return False
-
   # Deploy apps.
+  apps_to_deploy = [os.path.join(APP_BACKUP_DIR_LOCATION, app) for app in
+    os.listdir(APP_BACKUP_DIR_LOCATION)]
   if not deploy_apps(apps_to_deploy):
     logging.error("Failed to successfully deploy one or more of the "
       "following apps: {0}".format(apps_to_deploy))
-    if storage == StorageTypes.GCS:
-      delete_app_tars(APP_BACKUP_DIR_LOCATION)
-    delete_app_tars(APP_DIR_LOCATION)
     return False
-
-  # Cleanup.
-  if storage == StorageTypes.GCS:
-    delete_app_tars(APP_BACKUP_DIR_LOCATION)
 
   return True
 

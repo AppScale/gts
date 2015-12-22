@@ -1137,7 +1137,6 @@ class Djinn
       command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
         "'#{archived_file}' --email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
-      File.delete(archived_file)
       if output.include?("Your app can be reached at the following URL")
         result = "true"
       else
