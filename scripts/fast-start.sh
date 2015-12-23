@@ -148,20 +148,20 @@ case "$PROVIDER" in
     # Let's find the IP address to use.
     for device in $($IP route list scope link | awk '{print $3}') ; do
         if [ ${device} != ${DEFAULT_DEV} ]; then
-            PUBLIC_IP="${device}"
+            PUBLIC_IP="$($IP addr show dev ${device} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
             break
         fi
     done
-    PRIVATE_IP="${DEFAULT_DEV}"
+    PRIVATE_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     ;;
 * )
     # Let's discover the device used for external communication.
     DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
     [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
     # Let's find the IP address to use.
-    PUBLIC_IP="$($IP addr show dev $DEFAULT_DEV scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
+    PUBLIC_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     # There is no private/public IPs in this configuration.
-    PRIVATE_IP="$PUBLIC_IP"
+    PRIVATE_IP="${PUBLIC_IP}"
     ;;
 esac
 
