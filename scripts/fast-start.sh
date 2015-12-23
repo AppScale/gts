@@ -126,7 +126,7 @@ case "$PROVIDER" in
 "GCE" )
     # We assume a single interface here.
     PUBLIC_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
-    PRIVATE_IP="$($CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/ip)"
+    PRIVATE_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/ip)"
     # Let's use a sane hostname.
     ${CURL} -O /tmp/hostname -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/hostname
     cut -f 1 -d '.' /tmp/hostname > /etc/hostname
