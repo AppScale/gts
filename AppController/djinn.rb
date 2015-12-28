@@ -1789,7 +1789,7 @@ class Djinn
         stats = get_stats(secret)
 
         Djinn.log_info("--- Node at #{stats['ip']} is using" +
-          " #{stats['disk']}% disk, has #{stats['free_mem']}M memory" +
+          " #{stats['disk']}% disk, has #{stats['free_memory']}M memory" +
           " available and knows about these apps #{stats['apps']}.")
         last_hour = Time.new.hour
       end
