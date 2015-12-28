@@ -308,6 +308,10 @@ class Djinn
   DUTY_CYCLE = 20
 
 
+  # How many minutes to print the stats in the logs.
+  PRINT_STATS_MINUTES = 60
+
+
   # This is the time to wait before aborting after a crash. We use this
   # time to give a chance to the tools to collect the crashlog.
   WAIT_TO_CRASH = 30
@@ -1739,7 +1743,7 @@ class Djinn
 
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
-    last_hour = Time.new.hour
+    last_print = Time.now.to_i
 
     while !@kill_sig_received do
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -1785,13 +1789,13 @@ class Djinn
 
       # We want to print some statistic in the logs every hour or so, to
       # ensure that the thread is working correctly.
-      if last_hour < Time.new.hour
+      if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
         stats = get_stats(secret)
 
         Djinn.log_info("--- Node at #{stats['ip']} is using" +
           " #{stats['disk']}% disk, has #{stats['free_memory']}M memory" +
           " available and knows about these apps #{stats['apps']}.")
-        last_hour = Time.new.hour
+        last_print = Time.now.to_i
       end
 
       Kernel.sleep(DUTY_CYCLE)
