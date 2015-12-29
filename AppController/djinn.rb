@@ -1787,8 +1787,7 @@ class Djinn
         end
       }
 
-      # We want to print some statistic in the logs every hour or so, to
-      # ensure that the thread is working correctly.
+      # Print stats in the log recurrently; works as a heartbeat # mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
         stats = get_stats(secret)
 
