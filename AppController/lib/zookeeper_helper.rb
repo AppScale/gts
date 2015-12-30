@@ -10,7 +10,6 @@ ZOOKEEPER_PORT="2181"
 DEPLOYMENT_ID_PATH = '/appscale/deployment_id'
 
 def configure_zookeeper(nodes, my_index)
-  # TODO: create multi node configuration
   zoocfg = <<EOF
 # The number of milliseconds of each tick.
 tickTime=2000
@@ -70,10 +69,6 @@ end
 
 def start_zookeeper(clear_datastore)
   Djinn.log_info("Starting ZooKeeper")
-  if clear_datastore
-    Djinn.log_run("rm -rfv /var/lib/zookeeper")
-    Djinn.log_run("rm -rfv #{DATA_LOCATION}")
-  end
 
   # Detect which version of zookeeper script we have.
   zk_server="zookeeper-server"
@@ -81,10 +76,16 @@ def start_zookeeper(clear_datastore)
     zk_server="zookeeper"
   end
 
+  # Let's stop zookeeper in case it is still running.
+  system("/usr/sbin/service #{zk_server} stop")
+
+  if clear_datastore
+    Djinn.log_run("rm -rfv /var/lib/zookeeper")
+    Djinn.log_run("rm -rfv #{DATA_LOCATION}")
+  end
+
   if !File.directory?("#{DATA_LOCATION}")
     Djinn.log_info("Initializing ZooKeeper")
-    # Let's stop zookeeper in case it is still running.
-    system("/usr/sbin/service #{zk_server} stop")
 
     # Let's create the new location for zookeeper.
     Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
