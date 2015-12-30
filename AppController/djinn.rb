@@ -4951,7 +4951,7 @@ HOSTS
 
       # Check if the port is really available.
       if !in_use
-        actually_available = Djinn.log_run("lsof -i:#{possibly_free_port}")
+        actually_available = Djinn.log_run("lsof -i:#{possibly_free_port} -sTCP:LISTEN")
         if actually_available.empty?
           Djinn.log_debug("Port #{possibly_free_port} is available for use.")
           return possibly_free_port
