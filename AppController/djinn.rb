@@ -308,6 +308,10 @@ class Djinn
   DUTY_CYCLE = 20
 
 
+  # How many minutes to print the stats in the logs.
+  PRINT_STATS_MINUTES = 60
+
+
   # This is the time to wait before aborting after a crash. We use this
   # time to give a chance to the tools to collect the crashlog.
   WAIT_TO_CRASH = 30
@@ -1737,6 +1741,10 @@ class Djinn
       }
     }
 
+    # This variable is used to keep track of the last time we printed some
+    # statistics to the log.
+    last_print = Time.now.to_i
+
     while !@kill_sig_received do
       @state = "Done starting up AppScale, now in heartbeat mode"
       write_database_info()
@@ -1769,7 +1777,7 @@ class Djinn
         update_node_info_cache()
       end
 
-      # TODO: consider only calling this if new apps are found
+      # These operations can take some time, so we spawn a thread for it.
       Thread.new {
         start_appengine()
         restart_appengine_apps()
@@ -1778,6 +1786,17 @@ class Djinn
           scale_appservers_across_nodes()
         end
       }
+
+      # Print stats in the log recurrently; works as a heartbeat # mechanism.
+      if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
+        stats = get_stats(secret)
+
+        Djinn.log_info("--- Node at #{stats['ip']} is using" +
+          " #{stats['disk']}% disk, has #{stats['free_memory']}M memory" +
+          " available and knows about these apps #{stats['apps']}.")
+        last_print = Time.now.to_i
+      end
+
       Kernel.sleep(DUTY_CYCLE)
     end
   end
@@ -5468,7 +5487,7 @@ HOSTS
     @apps_loaded.each { |appid|
       scale_ups = all_scaling_votes[appid].select { |vote| vote == "scale_up" }
       if scale_ups.length > 0
-        Djinn.log_info("Not scaling down VMs, because app #{appid} wants to scale" +
+        Djinn.log_debug("Not scaling down VMs, because app #{appid} wants to scale" +
           " up.")
         return 0
       end
@@ -5487,7 +5506,7 @@ HOSTS
     }
 
     if !scale_down_threshold_reached
-      Djinn.log_info("Not scaling down VMs right now, as not enough nodes have " +
+      Djinn.log_debug("Not scaling down VMs right now, as not enough nodes have " +
         "requested it.")
       return 0
     end
