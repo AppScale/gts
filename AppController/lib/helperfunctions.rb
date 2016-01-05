@@ -175,7 +175,7 @@ module HelperFunctions
 
   # Extracts the version from the VERSION file.
   def self.get_appscale_version
-    version_contents = self.read_file(APPSCALE_HOME + '/VERSION')
+    version_contents = self.read_file(APPSCALE_CONFIG_DIR + '/VERSION')
     version_line = version_contents[/AppScale version (.*)/]
     version_line.sub! 'AppScale version', ''
     return version_line.strip()
@@ -646,7 +646,7 @@ module HelperFunctions
 
     return [] if num_of_vms_to_spawn < 1
 
-    ssh_key = File.expand_path("#{APPSCALE_HOME}/.appscale/keys/#{cloud}/#{keyname}.key")
+    ssh_key = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/#{cloud}/#{keyname}.key")
     Djinn.log_debug("About to spawn VMs, expecting to find a key at #{ssh_key}")
 
     self.log_obscured_env
