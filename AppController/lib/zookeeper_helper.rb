@@ -34,10 +34,9 @@ forceSync=no
 # Skips ACL checks. This results in a boost in throughput, but opens up
 # full access to the data tree to everyone.
 skipACL=yes
-# The number of snapshots to retain in dataDir
+# The number of snapshots to retain in dataDir.
 autopurge.snapRetainCount=3
-# Purge task interval in hours
-# Set to "0" to disable auto purge feature
+# Purge task interval in hours. Set to "0" to disable auto purge feature.
 autopurge.purgeInterval=1
 EOF
   myid = ""
