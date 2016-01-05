@@ -53,9 +53,9 @@ def main(app_id, db_type):
   pb_indices = datastore_access.get_indices(app_id)
   indices = [datastore_pb.CompositeIndex(index) for index in pb_indices]
   if len(indices) == 0:
-      print('No composite indices found for app {}'.format(app_id))
-      zookeeper.close()
-      sys.exit(1)
+    print('No composite indices found for app {}'.format(app_id))
+    zookeeper.close()
+    sys.exit(1)
 
   selection = -1
   selection_range = range(1, len(indices) + 1)
