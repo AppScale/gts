@@ -10,7 +10,6 @@ module TerminateHelper
   # method.
   def self.erase_appscale_state
     `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
-    `rm -f #{APPSCALE_HOME}/.appscale/database_info`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`

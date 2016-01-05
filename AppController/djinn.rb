@@ -2234,7 +2234,6 @@ class Djinn
   def erase_old_data()
     Djinn.log_run("rm -rf #{Dir.tmpdir}/h*")
     Djinn.log_run("rm -f ~/.appscale_cookies")
-    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
