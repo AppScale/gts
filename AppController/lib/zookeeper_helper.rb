@@ -29,8 +29,8 @@ maxClientCnxns=0
 # Leader accepts client connections. Default value is "yes".
 leaderServes=yes
 # Requires updates to be synced to media of the transaction log before
-# finishing processing the update.
-forceSync=no
+# finishing processing the update. Default value is "yes".
+#forceSync=no
 # Skips ACL checks. This results in a boost in throughput, but opens up
 # full access to the data tree to everyone.
 skipACL=yes

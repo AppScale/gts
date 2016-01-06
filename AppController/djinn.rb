@@ -93,11 +93,6 @@ NOT_READY = "false: not ready yet"
 TAR_GZ_REGEX = /\.tar\.gz$/
 
 
-# The maximum number of seconds that we should wait when deploying Google App
-# Engine applications via the AppController.
-APP_UPLOAD_TIMEOUT = 180
-
-
 # The location on the local file system where we store information about
 # where ZooKeeper clients are located, used to backup and restore
 # AppController information.
@@ -2795,25 +2790,25 @@ class Djinn
 
 
   def restore_from_zookeeper()
-    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
     json_state = {}
-    zookeeper_data['locations'].each { |ip|
-      begin
-        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-        Timeout.timeout(10) do
-          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
-          json_state = ZKInterface.get_appcontroller_state()
-      end
-      rescue Exception => e
-        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
-          "trying next ZooKeeper node")
-        next
-      end
+    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
+    zk_nodes = zookeeper_data['locations']
 
-      Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
-      return json_state
+    Djinn.log_info("Restoring AppController state from ZKs at #{zk_nodes}.")
+    RETRIES.downto(1) {
+      begin
+        if ZKInterface.init(HelperFunctions.local_ip(), zk_nodes)
+          json_state = ZKInterface.get_appcontroller_state()
+          Djinn.log_info("Got data #{json_state.inspect} successfully.")
+          return json_state
+        end
+      rescue Exception => e
+        Djinn.log_warn("Saw exception #{e.class} while talking to Zookeeper node.")
+      end
+      Djinn.log_debug("Couldn't contact Zookeeper host: retrying.")
     }
 
+    Djinn.log_warn("Couldn't contact any Zookeeper host.")
     return json_state
   end
 
