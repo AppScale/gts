@@ -258,17 +258,17 @@ class Djinn
 
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
-  CONFIG_FILE_LOCATION = "/etc/appscale"
+  APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 
   # The location on the local filesystem where the AppController periodically
   # writes its state to, and recovers its state from if it crashes.
-  STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
+  STATE_FILE = "#{APPSCALE_CONFIG_DIR}/appcontroller-state.json"
 
 
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
-  TASKQUEUE_FILE = "#{CONFIG_FILE_LOCATION}/taskqueue_nodes"
+  TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes"
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -711,7 +711,7 @@ class Djinn
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
     # the new port. Do this in a separate thread to avoid blocking the caller.
-    port_file = "#{CONFIG_FILE_LOCATION}/port-#{appid}.txt"
+    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{appid}.txt"
     HelperFunctions.write_file(port_file, http_port)
 
     Thread.new {
@@ -1472,7 +1472,7 @@ class Djinn
             end
           end
         }
-        pid_files = HelperFunctions.shell("ls #{CONFIG_FILE_LOCATION}/xmpp-#{app_name}.pid").split
+        pid_files = HelperFunctions.shell("ls #{APPSCALE_CONFIG_DIR}/xmpp-#{app_name}.pid").split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
             pid = HelperFunctions.read_file(pid_file)
@@ -2424,13 +2424,13 @@ class Djinn
   end
 
   def self.get_db_master_ip()
-    masters_file = File.expand_path("#{CONFIG_FILE_LOCATION}/masters")
+    masters_file = File.expand_path("#{APPSCALE_CONFIG_DIR}/masters")
     master_ip = HelperFunctions.read_file(masters_file)
     return master_ip
   end
 
   def self.get_db_slave_ips()
-    slaves_file = File.expand_path("#{CONFIG_FILE_LOCATION}/slaves")
+    slaves_file = File.expand_path("#{APPSCALE_CONFIG_DIR}/slaves")
     slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
     slave_ips = [] if slave_ips == [""]
     return slave_ips
@@ -2639,11 +2639,11 @@ class Djinn
     keyname = @options["keyname"]
 
     tree = { :table => table, :replication => replication, :keyname => keyname }
-    db_info_path = "#{CONFIG_FILE_LOCATION}/database_info.yaml"
+    db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
 
     num_of_nodes = @nodes.length
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/num_of_nodes", "#{num_of_nodes}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
   end
 
 
@@ -2655,7 +2655,7 @@ class Djinn
       end
     }
     all_ips << "\n"
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips.join("\n"))
     Djinn.log_debug("Letting the following IPs through the firewall: " +
       all_ips.join(', '))
 
@@ -2763,9 +2763,9 @@ class Djinn
       # from local files. state_change_lock is a Monitor: no need to
       # restore it.
       if k == "@my_private_ip"
-        @my_private_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_private_ip").chomp
+        @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
       elsif k == "@my_public_ip"
-        @my_public_ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/my_public_ip").chomp
+        @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
       elsif k != "@state_change_lock"
         instance_variable_set(k, v)
       end
@@ -3278,11 +3278,11 @@ class Djinn
 
     keypath = @options['keyname'] + ".key"
     Djinn.log_debug("Keypath is #{keypath}, keyname is #{@options['keyname']}")
-    my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
+    my_key_dir = "#{APPSCALE_CONFIG_DIR}/keys/#{my_node.cloud}"
     my_key_loc = "#{my_key_dir}/#{keypath}"
     Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
     FileUtils.mkdir_p(my_key_dir)
-    Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
+    Djinn.log_run("cp #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
 
     if is_cloud?
       # for euca
@@ -3291,7 +3291,7 @@ class Djinn
       ENV['EC2_URL'] = @options["ec2_url"]
 
       # for ec2
-      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
       ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
       ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
     end
@@ -3928,9 +3928,9 @@ class Djinn
         "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
     end
 
-    secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
-    cert_loc = "#{CONFIG_FILE_LOCATION}/certs/mycert.pem"
-    key_loc = "#{CONFIG_FILE_LOCATION}/certs/mykey.pem"
+    secret_key_loc = "#{APPSCALE_CONFIG_DIR}/secret.key"
+    cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
+    key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
     pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
@@ -3938,7 +3938,7 @@ class Djinn
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
     scp_ssh_key_to_ip(ip, ssh_key, pub_key)
 
-    cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
+    cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
     make_dir = "mkdir -p #{cloud_keys_dir}"
 
     cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
@@ -3953,8 +3953,8 @@ class Djinn
     # nodes need to attach persistent disks.
     return if @options["infrastructure"] != "gce"
 
-    client_secrets = "#{CONFIG_FILE_LOCATION}/client_secrets.json"
-    gce_oauth = "#{CONFIG_FILE_LOCATION}/oauth2.dat"
+    client_secrets = "#{APPSCALE_CONFIG_DIR}/client_secrets.json"
+    gce_oauth = "#{APPSCALE_CONFIG_DIR}/oauth2.dat"
 
     if File.exists?(client_secrets)
       HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
@@ -4041,21 +4041,21 @@ class Djinn
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
 
     my_public = my_node.public_ip
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_public_ip", "#{my_public}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}\n")
 
     my_private = my_node.private_ip
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_private_ip", "#{my_private}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}\n")
 
     head_node_ip = get_public_ip(@options['hostname'])
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/head_node_ip", "#{head_node_ip}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = get_login.public_ip
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_ip", "#{login_ip}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_ip", "#{login_ip}\n")
 
     login_private_ip = get_login.private_ip
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_private_ip", "#{login_private_ip}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_private_ip", "#{login_private_ip}\n")
 
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/masters", "#{master_ip}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_ip}\n")
 
     if @nodes.length  == 1
       Djinn.log_info("Only saw one machine, therefore my node is " +
@@ -4064,7 +4064,7 @@ class Djinn
     end
 
     slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, Integer(@options["replication"]))
@@ -4093,7 +4093,7 @@ class Djinn
     memcache_contents = memcache_ips.join("\n")
     # We write the file only if something changed.
     if memcache_contents != @memcache_contents
-      memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
+      memcache_file = "#{APPSCALE_CONFIG_DIR}/memcache_ips"
       HelperFunctions.write_file(memcache_file, memcache_contents)
       @memcache_contents = memcache_contents
       Djinn.log_debug("Updated memcache servers to #{memcache_ips.join(', ')}")
@@ -4107,7 +4107,7 @@ class Djinn
   # to access this IP address, we use the public IP here instead of the
   # private IP.
   def write_apploadbalancer_location()
-    login_file = "#{CONFIG_FILE_LOCATION}/appdashboard_public_ip"
+    login_file = "#{APPSCALE_CONFIG_DIR}/appdashboard_public_ip"
     login_ip = get_login.public_ip()
     HelperFunctions.write_file(login_file, login_ip)
   end
@@ -4138,7 +4138,7 @@ class Djinn
 
     Djinn.log_debug("AppServers on this node will connect to TaskQueue " +
       "at #{rabbitmq_ip}")
-    rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
+    rabbitmq_file = "#{APPSCALE_CONFIG_DIR}/rabbitmq_ip"
     rabbitmq_contents = rabbitmq_ip
     HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
   end
@@ -4697,7 +4697,7 @@ HOSTS
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
 
-    port_file = "#{CONFIG_FILE_LOCATION}/port-#{app}.txt"
+    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
     if my_node.is_login?
       HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
       Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
