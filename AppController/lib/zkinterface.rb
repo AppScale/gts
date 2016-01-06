@@ -114,10 +114,6 @@ class ZKInterface
       @@lock = Monitor.new
     end
 
-    if @@zk.connected?
-      Djinn.log_warn("Init called on an already established zookeeper session.")
-    end
-
     # Now let's go find a good zookeeper host.
     @@lock.synchronize {
       Djinn::RETRIES.downto(1) {
@@ -126,7 +122,12 @@ class ZKInterface
 
           # This is to make sure we remove all the pending activities with
           # the previus session or attempt.
-          @@zk.close!  if defined?(@@zk)
+          if defined?(@@zk)
+            if @@zk.connected?
+              Djinn.log_warn("Init called on an already established zookeeper session.")
+            end
+            @@zk.close!
+          end
 
           @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
           if not @@zk.connected?
