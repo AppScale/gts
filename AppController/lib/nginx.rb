@@ -97,6 +97,11 @@ module Nginx
     end
   end
 
+  # Restarts nginx in situations where a reload is insufficient.
+  def self.restart()
+    HelperFunctions.shell('service nginx restart')
+  end
+
   def self.is_running?
     processes = `ps ax | grep nginx | grep worker | grep -v grep | wc -l`.chomp
     if processes == "0"
@@ -820,5 +825,10 @@ CONFIG
     end
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
+
+    # The pid file location was changed in the default nginx config for
+    # trusty. Because of this, the first reload after writing the new config
+    # will fail on precise.
+    Nginx.restart()
   end
 end
