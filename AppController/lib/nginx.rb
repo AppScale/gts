@@ -769,22 +769,12 @@ CONFIG
 
   # Set up the folder structure and creates the configuration files necessary for nginx
   def self.initialize_config
-    nginx_pid_file = '/var/run/nginx.pid'
-    begin
-      os_version = `lsb_release -c`
-      if os_version.split.last == 'trusty'
-        nginx_pid_file = '/run/nginx.pid'
-      end
-    rescue Errno::ENOENT => exception
-      Djinn.log_debug(exception)
-    end
-
     config = <<CONFIG
 user www-data;
 worker_processes  1;
 
 error_log  /var/log/nginx/error.log;
-pid        #{nginx_pid_file};
+pid        /run/nginx.pid;
 
 events {
     worker_connections  30000;
