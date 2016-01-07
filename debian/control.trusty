@@ -93,6 +93,7 @@ Depends: appscale-tools,
 Conflicts: apache2.2-bin,
            apache2.2-common,
            apache2-utils,
+           python-librabbitmq,
            python-protobuf
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
