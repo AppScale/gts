@@ -734,7 +734,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Nginx).should_receive(:is_running?).and_return(true)
 
     # mock out updating the firewall config
-    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    ip_list = "#{Djinn::APPSCALE_CONFIG_DIR}/all_ips"
     flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
     flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
 
@@ -920,7 +920,7 @@ class TestDjinn < Test::Unit::TestCase
       and_return()
 
     # mock out updating the firewall config
-    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    ip_list = "#{Djinn::APPSCALE_CONFIG_DIR}/all_ips"
     flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
     flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
 
