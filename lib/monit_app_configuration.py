@@ -14,7 +14,7 @@ TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
                     "/templates/monit_template.conf"
 
 def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
-  max_memory=500, syslog_server=""):
+  max_memory=500, syslog_server="", host=None):
   """ Reads in a template file for monit and fills it with the 
       correct configuration. The caller is responsible for deleting 
       the created file.
@@ -28,6 +28,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
     max_memory: An int that names the maximum amount of memory that this process
       is allowed to use (in megabytes) before monit should restart it.
     syslog_server: The IP of the remote syslog server to use.
+    host: The IP of the server where this file will reside.
   Returns:
     The name of the created configuration file. 
   Raises: 
@@ -59,6 +60,10 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
       template = file_io.read(TEMPLATE_LOCATION)
       template = template.format(watch, start_cmd, stop_cmd, port, env,
         max_memory)
+
+    if host:
+      template += "  if failed host {} port {} then restart\n".\
+        format(host, port)
 
     temp_file_name = "/etc/monit/conf.d/appscale-" + watch + '-' + \
                      str(port) + ".cfg"
