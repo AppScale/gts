@@ -1,6 +1,4 @@
-""" This service starts and stops application servers of a given application.
-"""
-# Programmer: Navraj Chohan <nlake44@gmail.com>
+""" This service starts and stops application servers of a given application. """
 
 import json
 import logging
@@ -192,7 +190,8 @@ def start_app(config):
     [config['app_port']],
     env_vars,
     config['max_memory'],
-    syslog_server)
+    syslog_server,
+    appscale_info.get_private_ip())
 
   if not monit_interface.start(watch):
     logging.error("Unable to start application server with monit")
