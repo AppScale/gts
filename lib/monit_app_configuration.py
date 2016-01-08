@@ -28,7 +28,8 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
     max_memory: An int that names the maximum amount of memory that this process
       is allowed to use (in megabytes) before monit should restart it.
     syslog_server: The IP of the remote syslog server to use.
-    host: The IP of the server where this file will reside.
+    host: The private IP of a server that runs the appengine role; used for 
+      reliably detecting a running app server process.
   Returns:
     The name of the created configuration file. 
   Raises: 
