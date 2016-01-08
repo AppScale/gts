@@ -237,7 +237,7 @@ module HelperFunctions
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
-        raise Exception.new("Waited too long for #{ip}#{port} to open!")
+        raise Exception.new("Waited too long for #{ip}:#{port} to open!")
       end
     }
   end
@@ -257,7 +257,7 @@ module HelperFunctions
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
-        raise Exception.new("Waited too long for #{ip}#{port} to close!")
+        raise Exception.new("Waited too long for #{ip}:#{port} to close!")
       end
     }
   end

@@ -66,8 +66,8 @@ module Nginx
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    start_cmd = "#{NGINX_BIN} -c #{MAIN_CONFIG_FILE}"
-    stop_cmd = "#{NGINX_BIN} -s stop"
+    start_cmd = 'service nginx start'
+    stop_cmd = 'service nginx stop'
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
@@ -87,7 +87,7 @@ module Nginx
   # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload()
     if Nginx.is_running?
-      HelperFunctions.shell("#{NGINX_BIN} -s reload")
+      HelperFunctions.shell('service nginx reload')
       if $?.to_i != 0
         cleanup_failed_nginx()
         Nginx.start()
@@ -95,6 +95,11 @@ module Nginx
     else
       Nginx.start()
     end
+  end
+
+  # Restarts nginx in situations where a reload is insufficient.
+  def self.restart()
+    HelperFunctions.shell('service nginx restart')
   end
 
   def self.is_running?
@@ -774,7 +779,7 @@ user www-data;
 worker_processes  1;
 
 error_log  /var/log/nginx/error.log;
-pid        /var/run/nginx.pid;
+pid        /run/nginx.pid;
 
 events {
     worker_connections  30000;
@@ -820,5 +825,10 @@ CONFIG
     end
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
+
+    # The pid file location was changed in the default nginx config for
+    # trusty. Because of this, the first reload after writing the new config
+    # will fail on precise.
+    Nginx.restart()
   end
 end
