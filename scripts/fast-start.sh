@@ -191,12 +191,14 @@ if [ ! -e AppScalefile ]; then
     echo "done."
 
     # Let's allow root login (appscale will need it to come up).
-    cat .ssh/id_rsa.pub >> .ssh/authorized_keys
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
     ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
 
     # Download sample app.
     echo -n "Downloading sample app..."
-    ${CURL} -so ${GUESTBOOK_APP} ${GUESTBOOK_URL}
+    ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
 fi
 
