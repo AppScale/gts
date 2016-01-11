@@ -193,8 +193,14 @@ if [ ! -e AppScalefile ]; then
     # Let's allow root login (appscale will need it to come up).
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
+
+    # Create ssh key if it does not exist.
+    test -e /root/.ssh/id_rsa.pub || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
+
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
     ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
+    chmod 600 /root/.ssh/known_hosts
 
     # Download sample app.
     echo -n "Downloading sample app..."
