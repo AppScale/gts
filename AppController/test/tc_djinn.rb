@@ -952,8 +952,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.my_index = 0
     djinn.options = { 'controller_logs_to_dashboard' => 'false' }
 
-    # test that the buffer is initially empty
-    assert_equal([], Djinn.get_logs_buffer())
+    # Test that the buffer initially contains the start message.
+    buffer = Djinn.get_logs_buffer()
+    assert_equal(buffer.length, 1)
+    assert_equal(buffer[0]['message'], '==== Starting AppController ====')
 
     # do a couple log statements to populate the buffer
     Djinn.log_fatal("one")
@@ -961,7 +963,7 @@ class TestDjinn < Test::Unit::TestCase
     Djinn.log_fatal("three")
 
     # and make sure they're in there
-    assert_equal(3, Djinn.get_logs_buffer().length)
+    assert_equal(4, Djinn.get_logs_buffer().length)
 
     # mock out sending the logs
     flexmock(Net::HTTP).new_instances { |instance|
