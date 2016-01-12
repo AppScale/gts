@@ -494,16 +494,18 @@ class Djinn
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
-    # The password, or secret phrase, that is required for callers to access
-    # methods exposed via SOAP.
-    @@secret = HelperFunctions.get_secret()
-
     # An Array of Hashes, where each Hash contains a log message and the time
     # it was logged.
     @@logs_buffer = []
 
     @@log = nil
     set_log_level(Logger::INFO)
+
+    Djinn.log_info("==== Starting AppController ====")
+
+    # The password, or secret phrase, that is required for callers to access
+    # methods exposed via SOAP.
+    @@secret = HelperFunctions.get_secret()
 
     @nodes = []
     @my_index = nil
@@ -1692,8 +1694,6 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
-
-    Djinn.log_info("==== Starting AppController ====")
 
     start_infrastructure_manager()
     data_restored, need_to_start_jobs = restore_appcontroller_state()
