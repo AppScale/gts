@@ -21,8 +21,8 @@ module MonitInterface
   # The location on the local filesystem of the monit executable.
   MONIT = "/usr/bin/monit"
 
-  def self.start_monit(remote_ip, remote_key)
-    self.execute_remote_command("service monit start", remote_ip, remote_key)
+  def self.start_monit()
+    Djinn.log_run("service monit start")
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
