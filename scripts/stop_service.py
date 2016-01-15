@@ -5,7 +5,6 @@
 from os.path import basename
 import subprocess
 import sys
-import time
 
 # Make sure we have the right number of arguments
 if len(sys.argv) != 3:
