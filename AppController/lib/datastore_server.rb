@@ -60,7 +60,7 @@ module DatastoreServer
           "--no_encryption --type #{table}"
       start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-            "datastore_server #{port}"
+            "datastore_server.py #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
     }
   end
