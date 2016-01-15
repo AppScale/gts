@@ -4720,12 +4720,18 @@ HOSTS
       }
 
       # Setup rsyslog to store application logs.
-      temp_file_name = "/etc/rsyslog.d/10-" + app + ".conf"
-      if not File.exists?(temp_file_name)
-        template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
-        HelperFunctions.write_file(temp_file_name, template.gsub("{0}", app))
+      app_log_config_file = "/etc/rsyslog.d/10-#{app}.conf"
+      begin
+        existing_app_log_config = File.open(app_log_config_file, 'r').read()
+      rescue Errno::ENOENT
+        existing_app_log_config = ''
+      end
+      app_log_template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
+      app_log_config = app_log_template.gsub("{0}", app)
+      unless existing_app_log_config == app_log_config
+        Djinn.log_info("Installing log configuration for #{app}.")
+        HelperFunctions.write_file(app_log_config_file, app_log_config)
         HelperFunctions.shell("service rsyslog restart")
-        Djinn.log_info("Installed log configuration for app #{app}")
       end
     else
       loop {
