@@ -4255,6 +4255,8 @@ HOSTS
 
     HAProxy.initialize_config()
     Nginx.initialize_config()
+    # Make sure the nginx process is being monitored.
+    Nginx.start()
 
     if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
