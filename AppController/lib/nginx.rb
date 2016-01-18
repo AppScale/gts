@@ -66,8 +66,8 @@ module Nginx
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    start_cmd = 'service nginx start'
-    stop_cmd = 'service nginx stop'
+    start_cmd = '/usr/bin/service nginx start'
+    stop_cmd = '/usr/bin/service nginx stop'
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
@@ -95,11 +95,6 @@ module Nginx
     else
       Nginx.start()
     end
-  end
-
-  # Restarts nginx in situations where a reload is insufficient.
-  def self.restart()
-    HelperFunctions.shell('service nginx restart')
   end
 
   def self.is_running?
@@ -827,8 +822,8 @@ CONFIG
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
 
     # The pid file location was changed in the default nginx config for
-    # trusty. Because of this, the first reload after writing the new config
-    # will fail on precise.
-    Nginx.restart()
+    # Trusty. Because of this, the first reload after writing the new config
+    # will fail on Precise.
+    HelperFunctions.shell('service nginx restart')
   end
 end
