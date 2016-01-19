@@ -194,7 +194,7 @@ if [ ! -e AppScalefile ]; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
 
-    # Create ssh key if it does not exist.
+    # Create an SSH key if it does not exist.
     test -e /root/.ssh/id_rsa.pub || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
 
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
