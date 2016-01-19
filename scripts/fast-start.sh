@@ -135,7 +135,7 @@ case "$PROVIDER" in
     PUBLIC_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
     PRIVATE_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/ip)"
     # Let's use a sane hostname.
-    ${CURL} -O /tmp/hostname -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/hostname
+    ${CURL} -Lo /tmp/hostname -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/hostname
     cut -f 1 -d '.' /tmp/hostname > /etc/hostname
     hostname -b -F /etc/hostname
     ADMIN_PASSWD="$(cat /etc/hostname)"
@@ -191,12 +191,19 @@ if [ ! -e AppScalefile ]; then
     echo "done."
 
     # Let's allow root login (appscale will need it to come up).
-    cat .ssh/id_rsa.pub >> .ssh/authorized_keys
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+
+    # Create an SSH key if it does not exist.
+    test -e /root/.ssh/id_rsa.pub || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
+
+    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
     ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
 
     # Download sample app.
     echo -n "Downloading sample app..."
-    ${CURL} -so ${GUESTBOOK_APP} ${GUESTBOOK_URL}
+    ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
 fi
 
