@@ -17,6 +17,8 @@
 
 """Stub version of the urlfetch API, based on httplib."""
 
+
+
 import gzip
 import httplib
 import logging
@@ -72,23 +74,14 @@ _MAX_URL_LENGTH = 2048
 APPSCALE_DISABLED = [8443, 9090, 8020, 50010, 50020, 50100, 8021, 9001, 8012, 8888, 7000, 9160, 60000, 60020, 3306, 38030, 38040, 38050, 38060]
 
 def _IsAllowedPort(port):
-  """ Checks to see if outbound port is authorized to do a remote fetch. 
-      Some ports are blocked off to internal AppScale services. 
-  Args:
-    port: Int, the port to check
-  """
-   
   if port is None:
     return True
-
   try:
     port = int(port)
   except ValueError, e:
     return False
-
   if port in APPSCALE_DISABLED:
     return False
-
   if ((port >= 80 and port <= 90) or
       (port >= 440 and port <= 450) or
       port >= 1024):
@@ -121,11 +114,10 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
     """Trivial implementation of URLFetchService::Fetch().
 
     Args:
-      request: The fetch to perform, a URLFetchRequest
-      response: The fetch response, a URLFetchResponse
+      request: the fetch to perform, a URLFetchRequest
+      response: the fetch response, a URLFetchResponse
     """
-    (protocol, host, path, parameters, query, fragment) = \
-              urlparse.urlparse(request.url())
+    (protocol, host, path, parameters, query, fragment) = urlparse.urlparse(request.url())
 
     payload = None
     if request.method() == urlfetch_service_pb.URLFetchRequest.GET:
@@ -218,7 +210,6 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           'Host': host,
           'Accept-Encoding': 'gzip',
       }
-
       if not follow_redirects:
         adjusted_headers['X-Appengine-Inbound-Appid'] = app_identity.get_application_id()
 
@@ -314,9 +305,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
     """Cleans "unsafe" headers from the HTTP request/response.
 
     Args:
-      untrusted_headers: Set of untrusted headers names.
-      headers: List of string pairs, first is header name and the 
-               second is header's value.
+      untrusted_headers: set of untrusted headers names
+      headers: list of string pairs, first is header name and the second is header's value
     """
     prohibited_headers = [h.key() for h in headers
                           if h.key().lower() in untrusted_headers]
