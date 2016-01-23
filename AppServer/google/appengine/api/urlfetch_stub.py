@@ -15,11 +15,26 @@
 # limitations under the License.
 #
 
+
+
+
+
+
 """Stub version of the urlfetch API, based on httplib."""
 
 
 
-import fancy_urllib
+_successfully_imported_fancy_urllib = False
+_fancy_urllib_InvalidCertException = None
+_fancy_urllib_SSLError = None
+try:
+  import fancy_urllib
+  _successfully_imported_fancy_urllib = True
+  _fancy_urllib_InvalidCertException = fancy_urllib.InvalidCertificateException
+  _fancy_urllib_SSLError = fancy_urllib.SSLError
+except ImportError:
+  pass
+
 import gzip
 import httplib
 import logging
@@ -50,7 +65,14 @@ REDIRECT_STATUSES = frozenset([
   httplib.TEMPORARY_REDIRECT,
 ])
 
+
+
+
+
 _API_CALL_DEADLINE = 5.0
+
+
+
 
 _API_CALL_VALIDATE_CERTIFICATE_DEFAULT = True
 
@@ -66,6 +88,10 @@ _UNTRUSTED_REQUEST_HEADERS = frozenset([
 
 _MAX_URL_LENGTH = 2048
 
+def _CanValidateCerts():
+  return (_successfully_imported_fancy_urllib and
+          fancy_urllib.can_validate_certs())
+
 
 def _SetupSSL(path):
   global CERT_PATH
@@ -76,7 +102,7 @@ def _SetupSSL(path):
     logging.warning('%s missing; without this urlfetch will not be able to '
                     'validate SSL certificates.', path)
 
-  if not fancy_urllib.can_validate_certs():
+  if not _CanValidateCerts():
     logging.warning('No ssl package found. urlfetch will not be able to '
                     'validate SSL certificates.')
 
@@ -94,15 +120,21 @@ _SetupSSL(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..',
 """
 APPSCALE_DISABLED = [8443, 9090, 8020, 50010, 50020, 50100, 8021, 9001, 8012, 8888, 7000, 9160, 60000, 60020, 3306, 38030, 38040, 38050, 38060]
 
+
 def _IsAllowedPort(port):
+
   if port is None:
     return True
   try:
     port = int(port)
   except ValueError, e:
     return False
+
+
+
   if port in APPSCALE_DISABLED:
     return False
+
   if ((port >= 80 and port <= 90) or
       (port >= 440 and port <= 450) or
       port >= 1024):
@@ -165,6 +197,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
 
     if not host:
       logging.error('Missing host.')
+
+
       raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR)
 
@@ -217,6 +251,12 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       parsed = urlparse.urlparse(url)
       protocol, host, path, parameters, query, fragment = parsed
 
+
+
+
+
+
+
       port = urllib.splitport(urllib.splituser(host)[1])[1]
 
       if not _IsAllowedPort(port):
@@ -225,13 +265,22 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           (url, port))
 
       if protocol and not host:
+
         logging.error('Missing host on redirect; target url is %s' % url)
         raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR)
 
+
+
+
       if not host and not protocol:
         host = last_host
         protocol = last_protocol
+
+
+
+
+
 
       adjusted_headers = {
           'User-Agent':
@@ -255,25 +304,33 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         else:
           adjusted_headers[header.key().title()] = header.value()
 
+      if payload is not None:
+        escaped_payload = payload.encode('string_escape')
+      else:
+        escaped_payload = payload
       logging.debug('Making HTTP request: host = %s, '
                     'url = %s, payload = %s, headers = %s',
-                    host, url, payload, adjusted_headers)
+                    host, url, escaped_payload, adjusted_headers)
       try:
         if protocol == 'http':
           connection = httplib.HTTPConnection(host)
         elif protocol == 'https':
-          if (validate_certificate and fancy_urllib.can_validate_certs() and
+          if (validate_certificate and _CanValidateCerts() and
               CERT_PATH):
+
             connection_class = fancy_urllib.create_fancy_connection(
                 ca_certs=CERT_PATH)
             connection = connection_class(host)
           else:
             connection = httplib.HTTPSConnection(host)
         else:
+
           error_msg = 'Redirect specified invalid protocol: "%s"' % protocol
           logging.error(error_msg)
           raise apiproxy_errors.ApplicationError(
               urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
+
+
 
         last_protocol = protocol
         last_host = host
@@ -295,8 +352,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         finally:
           socket.setdefaulttimeout(orig_timeout)
           connection.close()
-      except (fancy_urllib.InvalidCertificateException,
-              fancy_urllib.SSLError), e:
+      except (_fancy_urllib_InvalidCertException,
+              _fancy_urllib_SSLError), e:
         raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.SSL_CERTIFICATE_ERROR,
           str(e))
@@ -304,7 +361,11 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, str(e))
 
+
+
+
       if http_response.status in REDIRECT_STATUSES and follow_redirects:
+
         url = http_response.getheader('Location', None)
         if url is None:
           error_msg = 'Redirecting response was missing "Location" header'
@@ -331,8 +392,11 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         if len(http_response_data) > MAX_RESPONSE_SIZE:
           response.set_contentwastruncated(True)
 
+
+
         if request.url() != url:
           response.set_finalurl(url)
+
 
         break
     else:
