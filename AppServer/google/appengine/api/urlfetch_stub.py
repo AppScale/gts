@@ -19,9 +19,11 @@
 
 
 
+import fancy_urllib
 import gzip
 import httplib
 import logging
+import os
 import socket
 import StringIO
 import sys
@@ -37,7 +39,7 @@ from google.appengine.runtime import apiproxy_errors
 
 MAX_REQUEST_SIZE = 10 << 20
 
-MAX_RESPONSE_SIZE = 2 ** 24
+MAX_RESPONSE_SIZE = 2 ** 25
 
 MAX_REDIRECTS = urlfetch.MAX_REDIRECTS
 
@@ -63,6 +65,25 @@ _UNTRUSTED_REQUEST_HEADERS = frozenset([
 ])
 
 _MAX_URL_LENGTH = 2048
+
+
+def _SetupSSL(path):
+  global CERT_PATH
+  if os.path.exists(path):
+    CERT_PATH = path
+  else:
+    CERT_PATH = None
+    logging.warning('%s missing; without this urlfetch will not be able to '
+                    'validate SSL certificates.', path)
+
+  if not fancy_urllib.can_validate_certs():
+    logging.warning('No ssl package found. urlfetch will not be able to '
+                    'validate SSL certificates.')
+
+
+_SetupSSL(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..',
+                                        '..', 'lib', 'cacerts',
+                                        'urlfetch_cacerts.txt')))
 
 """
  Ports from
@@ -154,14 +175,19 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
     deadline = _API_CALL_DEADLINE
     if request.has_deadline():
       deadline = request.deadline()
+    validate_certificate = _API_CALL_VALIDATE_CERTIFICATE_DEFAULT
+    if request.has_mustvalidateservercertificate():
+      validate_certificate = request.mustvalidateservercertificate()
 
     self._RetrieveURL(request.url(), payload, method,
                       request.header_list(), request, response,
                       follow_redirects=request.followredirects(),
-                      deadline=deadline)
+                      deadline=deadline,
+                      validate_certificate=validate_certificate)
 
   def _RetrieveURL(self, url, payload, method, headers, request, response,
-                   follow_redirects=True, deadline=_API_CALL_DEADLINE):
+                   follow_redirects=True, deadline=_API_CALL_DEADLINE,
+                   validate_certificate=_API_CALL_VALIDATE_CERTIFICATE_DEFAULT):
     """Retrieves a URL.
 
     Args:
@@ -174,6 +200,9 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       follow_redirects: optional setting (defaulting to True) for whether or not
         we should transparently follow redirects (up to MAX_REDIRECTS)
       deadline: Number of seconds to wait for the urlfetch to finish.
+      validate_certificate: If true, do not send request to server unless the
+        certificate is valid, signed by a trusted CA and the hostname matches
+        the certificate.
 
     Raises:
       Raises an apiproxy_errors.ApplicationError exception with FETCH_ERROR
@@ -233,7 +262,13 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         if protocol == 'http':
           connection = httplib.HTTPConnection(host)
         elif protocol == 'https':
-          connection = httplib.HTTPSConnection(host)
+          if (validate_certificate and fancy_urllib.can_validate_certs() and
+              CERT_PATH):
+            connection_class = fancy_urllib.create_fancy_connection(
+                ca_certs=CERT_PATH)
+            connection = connection_class(host)
+          else:
+            connection = httplib.HTTPSConnection(host)
         else:
           error_msg = 'Redirect specified invalid protocol: "%s"' % protocol
           logging.error(error_msg)
@@ -260,6 +295,11 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         finally:
           socket.setdefaulttimeout(orig_timeout)
           connection.close()
+      except (fancy_urllib.InvalidCertificateException,
+              fancy_urllib.SSLError), e:
+        raise apiproxy_errors.ApplicationError(
+          urlfetch_service_pb.URLFetchServiceError.SSL_CERTIFICATE_ERROR,
+          str(e))
       except (httplib.error, socket.error, IOError), e:
         raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, str(e))
