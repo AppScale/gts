@@ -200,6 +200,9 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       payload = request.payload()
     elif request.method() == urlfetch_service_pb.URLFetchRequest.DELETE:
       method = 'DELETE'
+    elif request.method() == urlfetch_service_pb.URLFetchRequest.PATCH:
+      method = 'PATCH'
+      payload = request.payload()
     else:
       logging.error('Invalid method: %s', request.method())
       raise apiproxy_errors.ApplicationError(
@@ -319,6 +322,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
 
 
         adjusted_headers['Content-Length'] = str(len(payload))
+
+
       if method == 'POST' and payload:
         adjusted_headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
