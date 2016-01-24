@@ -427,16 +427,19 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           gzip_file = gzip.GzipFile(fileobj=gzip_stream)
           http_response_data = gzip_file.read()
         response.set_content(http_response_data[:MAX_RESPONSE_SIZE])
-        for header_key, header_value in http_response.getheaders():
-          if (header_key.lower() == 'content-encoding' and
-              header_value == 'gzip' and
-              not passthrough_content_encoding):
-            continue
-          if header_key.lower() == 'content-length' and method != 'HEAD':
-            header_value = str(len(response.content()))
-          header_proto = response.add_header()
-          header_proto.set_key(header_key)
-          header_proto.set_value(header_value)
+
+
+        for header_key in http_response.msg.keys():
+          for header_value in http_response.msg.getheaders(header_key):
+            if (header_key.lower() == 'content-encoding' and
+                header_value == 'gzip' and
+                not passthrough_content_encoding):
+              continue
+            if header_key.lower() == 'content-length' and method != 'HEAD':
+              header_value = str(len(response.content()))
+            header_proto = response.add_header()
+            header_proto.set_key(header_key)
+            header_proto.set_value(header_value)
 
         if len(http_response_data) > MAX_RESPONSE_SIZE:
           response.set_contentwastruncated(True)
