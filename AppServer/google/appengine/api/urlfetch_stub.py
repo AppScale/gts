@@ -318,12 +318,15 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       if method == 'POST' and payload:
         adjusted_headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
+      passthrough_content_encoding = False
       for header in headers:
         if header.key().title().lower() == 'user-agent':
           adjusted_headers['User-Agent'] = (
               '%s %s' %
               (header.value(), adjusted_headers['User-Agent']))
         else:
+          if header.key().lower() == 'accept-encoding':
+            passthrough_content_encoding = True
           adjusted_headers[header.key().title()] = header.value()
 
       if payload is not None:
@@ -399,16 +402,18 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
               urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
       else:
         response.set_statuscode(http_response.status)
-        if http_response.getheader('content-encoding') == 'gzip':
+        if (http_response.getheader('content-encoding') == 'gzip' and
+            not passthrough_content_encoding):
           gzip_stream = StringIO.StringIO(http_response_data)
           gzip_file = gzip.GzipFile(fileobj=gzip_stream)
           http_response_data = gzip_file.read()
         response.set_content(http_response_data[:MAX_RESPONSE_SIZE])
         for header_key, header_value in http_response.getheaders():
           if (header_key.lower() == 'content-encoding' and
-              header_value == 'gzip'):
+              header_value == 'gzip' and
+              not passthrough_content_encoding):
             continue
-          if header_key.lower() == 'content-length':
+          if header_key.lower() == 'content-length' and method != 'HEAD':
             header_value = str(len(response.content()))
           header_proto = response.add_header()
           header_proto.set_key(header_key)
