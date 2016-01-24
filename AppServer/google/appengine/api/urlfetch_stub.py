@@ -203,7 +203,7 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
     else:
       logging.error('Invalid method: %s', request.method())
       raise apiproxy_errors.ApplicationError(
-        urlfetch_service_pb.URLFetchServiceError.UNSPECIFIED_ERROR)
+        urlfetch_service_pb.URLFetchServiceError.INVALID_URL)
 
     if not (protocol == 'http' or protocol == 'https'):
       logging.error('Invalid protocol: %s', protocol)
@@ -212,10 +212,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
 
     if not host:
       logging.error('Missing host.')
-
-
       raise apiproxy_errors.ApplicationError(
-          urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR)
+          urlfetch_service_pb.URLFetchServiceError.INVALID_URL)
 
     self._SanitizeHttpHeaders(_UNTRUSTED_REQUEST_HEADERS,
                               request.header_list())
@@ -253,11 +251,12 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         the certificate.
 
     Raises:
-      Raises an apiproxy_errors.ApplicationError exception with FETCH_ERROR
-      in cases where:
-        - MAX_REDIRECTS is exceeded
+      Raises an apiproxy_errors.ApplicationError exception with
+      INVALID_URL_ERROR in cases where:
         - The protocol of the redirected URL is bad or missing.
         - The port is not in the allowable range of ports.
+      Raises an apiproxy_errors.ApplicationError exception with
+      TOO_MANY_REDIRECTS in cases when MAX_REDIRECTS is exceeded
     """
     last_protocol = ''
     last_host = ''
@@ -286,13 +285,13 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
 
 
         raise apiproxy_errors.ApplicationError(
-          urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR)
+          urlfetch_service_pb.URLFetchServiceError.INVALID_URL)
 
       if protocol and not host:
 
         logging.error('Missing host on redirect; target url is %s' % url)
         raise apiproxy_errors.ApplicationError(
-          urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR)
+          urlfetch_service_pb.URLFetchServiceError.INVALID_URL)
 
 
 
@@ -357,7 +356,7 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           error_msg = 'Redirect specified invalid protocol: "%s"' % protocol
           logging.error(error_msg)
           raise apiproxy_errors.ApplicationError(
-              urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
+              urlfetch_service_pb.URLFetchServiceError.INVALID_URL, error_msg)
 
 
 
@@ -418,7 +417,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           error_msg = 'Redirecting response was missing "Location" header'
           logging.error(error_msg)
           raise apiproxy_errors.ApplicationError(
-              urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
+              urlfetch_service_pb.URLFetchServiceError.MALFORMED_REPLY,
+              error_msg)
       else:
         response.set_statuscode(http_response.status)
         if (http_response.getheader('content-encoding') == 'gzip' and
@@ -455,7 +455,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       error_msg = 'Too many repeated redirects'
       logging.error(error_msg)
       raise apiproxy_errors.ApplicationError(
-          urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
+          urlfetch_service_pb.URLFetchServiceError.TOO_MANY_REDIRECTS,
+          error_msg)
 
   def _SanitizeHttpHeaders(self, untrusted_headers, headers):
     """Cleans "unsafe" headers from the HTTP request, in place.
