@@ -76,7 +76,14 @@ _API_CALL_DEADLINE = 5.0
 
 _API_CALL_VALIDATE_CERTIFICATE_DEFAULT = True
 
+
 _CONNECTION_SUPPORTS_TIMEOUT = sys.version_info >= (2, 6)
+
+
+
+
+
+
 
 _UNTRUSTED_REQUEST_HEADERS = frozenset([
   'content-length',
@@ -338,22 +345,31 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
                     host, url, escaped_payload, adjusted_headers)
       try:
         if protocol == 'http':
-          connection = httplib.HTTPConnection(host)
+          connection_class = httplib.HTTPConnection
         elif protocol == 'https':
           if (validate_certificate and _CanValidateCerts() and
               CERT_PATH):
 
             connection_class = fancy_urllib.create_fancy_connection(
                 ca_certs=CERT_PATH)
-            connection = connection_class(host)
           else:
-            connection = httplib.HTTPSConnection(host)
+            connection_class = httplib.HTTPSConnection
         else:
 
           error_msg = 'Redirect specified invalid protocol: "%s"' % protocol
           logging.error(error_msg)
           raise apiproxy_errors.ApplicationError(
               urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
+
+
+
+
+
+
+        if _CONNECTION_SUPPORTS_TIMEOUT:
+          connection = connection_class(host, timeout=deadline)
+        else:
+          connection = connection_class(host)
 
 
 
@@ -365,9 +381,13 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         else:
           full_path = path
 
-        orig_timeout = socket.getdefaulttimeout()
+        if not _CONNECTION_SUPPORTS_TIMEOUT:
+          orig_timeout = socket.getdefaulttimeout()
         try:
-          socket.setdefaulttimeout(deadline)
+          if not _CONNECTION_SUPPORTS_TIMEOUT:
+
+
+            socket.setdefaulttimeout(deadline)
           connection.request(method, full_path, payload, adjusted_headers)
           http_response = connection.getresponse()
           if method == 'HEAD':
@@ -375,7 +395,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           else:
             http_response_data = http_response.read()
         finally:
-          socket.setdefaulttimeout(orig_timeout)
+          if not _CONNECTION_SUPPORTS_TIMEOUT:
+            socket.setdefaulttimeout(orig_timeout)
           connection.close()
       except (_fancy_urllib_InvalidCertException,
               _fancy_urllib_SSLError), e:
