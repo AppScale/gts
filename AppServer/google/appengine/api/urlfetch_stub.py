@@ -217,10 +217,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR)
 
-    sanitized_headers = self._SanitizeHttpHeaders(_UNTRUSTED_REQUEST_HEADERS,
-                                                  request.header_list())
-    request.clear_header()
-    request.header_list().extend(sanitized_headers)
+    self._SanitizeHttpHeaders(_UNTRUSTED_REQUEST_HEADERS,
+                              request.header_list())
     deadline = _API_CALL_DEADLINE
     if request.has_deadline():
       deadline = request.deadline()
@@ -340,8 +338,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
         escaped_payload = payload.encode('string_escape')
       else:
         escaped_payload = ''
-      logging.debug('Making HTTP request: host = %s, '
-                    'url = %s, payload = %s, headers = %s',
+      logging.debug('Making HTTP request: host = %r, '
+                    'url = %r, payload = %.1000r, headers = %r',
                     host, url, escaped_payload, adjusted_headers)
       try:
         if protocol == 'http':
@@ -457,15 +455,18 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR, error_msg)
 
   def _SanitizeHttpHeaders(self, untrusted_headers, headers):
-    """Cleans "unsafe" headers from the HTTP request/response.
+    """Cleans "unsafe" headers from the HTTP request, in place.
 
     Args:
-      untrusted_headers: set of untrusted headers names
-      headers: list of string pairs, first is header name and the second is header's value
+      untrusted_headers: Set of untrusted headers names (all lowercase).
+      headers: List of Header objects. The list is modified in place.
     """
     prohibited_headers = [h.key() for h in headers
                           if h.key().lower() in untrusted_headers]
     if prohibited_headers:
       logging.debug('Stripped prohibited headers from URLFetch request: %s',
                    prohibited_headers)
-    return (h for h in headers if h.key().lower() not in untrusted_headers)
+
+      for index in reversed(xrange(len(headers))):
+        if headers[index].key().lower() in untrusted_headers:
+          del headers[index]
