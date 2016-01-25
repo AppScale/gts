@@ -97,19 +97,13 @@ def start_zookeeper(clear_datastore)
   Djinn.log_info("Started ZooKeeper")
 end
 
+def is_zookeeper_running?
+  output = MonitInterface.is_running(:zookeeper)
+  Djinn.log_debug("Checking if zookeeper is already monitored: #{output}")
+  return output
+end
+
 def stop_zookeeper
   Djinn.log_info("Stopping ZooKeeper")
   MonitInterface.stop(:zookeeper)
 end
-
-# This method returns ZooKeeper connection string like:
-# server1:2181,server2:2181
-
-def get_zk_connection_string(nodes)
-  zlist = []
-  nodes.each { |node|
-    zlist.push("#{node.private_ip}:#{ZOOKEEPER_PORT}") if node.is_zookeeper?
-  }
-  return zlist.join(",")
-end
-

@@ -90,20 +90,17 @@ module Nginx
       HelperFunctions.shell('service nginx reload')
       if $?.to_i != 0
         cleanup_failed_nginx()
-        Nginx.start()
       end
     else
+      # Let's make sure we monitor nginx.
       Nginx.start()
     end
   end
 
   def self.is_running?
-    processes = `ps ax | grep nginx | grep worker | grep -v grep | wc -l`.chomp
-    if processes == "0"
-      return false
-    else
-      return true
-    end
+    output = MonitInterface.is_running(:nginx)
+    Djinn.log_debug("Checking if nginx is already monitored: #{output}")
+    return output
   end
 
   # The port that nginx will be listen on for the given app number

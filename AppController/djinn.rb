@@ -3435,30 +3435,43 @@ class Djinn
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    # TODO: Set up nginx and haproxy without needing the dashboard.
-    HAProxy.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    HAProxy.start()
 
-    Nginx.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    Nginx.reload()
+    # TODO: Set up nginx and haproxy without needing the dashboard.
+    if not HAProxy.is_running?
+      HAProxy.create_app_load_balancer_config(my_public, my_private,
+        AppDashboard::PROXY_PORT)
+      HAProxy.start()
+    else
+      Djinn.log_info("HAProxy already running.")
+    end
+
+    if not Ngnix.is_running?
+      Nginx.create_app_load_balancer_config(my_public, my_private,
+        AppDashboard::PROXY_PORT)
+      Nginx.reload()
+    else
+      Djinn.log_info("Nginx already running.")
+    end
 
     threads = []
     threads << Thread.new {
-      if my_node.is_zookeeper?
-        Djinn.log_info("Starting zookeeper.")
-        configure_zookeeper(@nodes, @my_index)
-        begin
-          start_zookeeper(@options['clear_datastore'].downcase == "true")
-        rescue FailedZooKeeperOperationException
-          @state = "Couldn't start Zookeeper."
-          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+      if not is_zookeeper_running?
+        if my_node.is_zookeeper?
+          Djinn.log_info("Starting zookeeper.")
+          configure_zookeeper(@nodes, @my_index)
+          begin
+            start_zookeeper(@options['clear_datastore'].downcase == "true")
+          rescue FailedZooKeeperOperationException
+            @state = "Couldn't start Zookeeper."
+            HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+          end
         end
+        Djinn.log_info("Done configuring zookeeper.")
+      else
+        Djinn.log_info("Zookeeper already running.")
       end
       write_zookeeper_locations()
       ZKInterface.init(my_node, @nodes)
-      Djinn.log_info("Done configuring zookeeper.")
     }
 
     if my_node.is_db_master? or my_node.is_db_slave?
@@ -3509,9 +3522,6 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
         if my_node.is_db_master?
-          # If we're starting AppScale with data from a previous deployment, we
-          # may have to clear out all the registered app instances from the
-          # UserAppServer (since nobody is currently hosting any apps).
           if @options['clear_datastore'].downcase == "true"
             erase_app_instance_info
           end
@@ -3751,7 +3761,6 @@ class Djinn
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     table = @options['table']
-    zoo_connection = get_zk_connection_string(@nodes)
     DatastoreServer.start(db_master_ip, my_node.private_ip, table,
       verbose=verbose)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)

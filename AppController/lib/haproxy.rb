@@ -74,12 +74,9 @@ module HAProxy
   end
 
   def self.is_running?
-    processes = `ps ax | grep haproxy | grep -v grep | wc -l`.chomp
-    if processes == "0"
-      return false
-    else
-      return true
-    end
+   output = MonitInterface.is_running(:haproxy)
+   Djinn.log_debug("Checking if haproxy is already monitored: #{output}")
+   return output
   end
 
   # The port that the load balancer will be listening on for the given app number
