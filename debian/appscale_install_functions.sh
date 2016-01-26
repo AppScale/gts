@@ -184,6 +184,14 @@ EOF
     if [ -d /etc/logrotate.d/ ]; then
         cp ${APPSCALE_HOME}/lib/templates/appscale-logrotate.conf /etc/logrotate.d/appscale
     fi
+
+    # Logrotate AppScale logs hourly.
+    LOGROTATE_HOURLY=/etc/cron.hourly/logrotate-hourly
+    cat <<EOF | tee $LOGROTATE_HOURLY
+#!/bin/sh
+/usr/sbin/logrotate /etc/logrotate.d/appscale
+EOF
+    chmod +x $LOGROTATE_HOURLY
 }
 
 installthrift()
