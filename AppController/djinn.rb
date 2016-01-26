@@ -3445,7 +3445,7 @@ class Djinn
       Djinn.log_info("HAProxy already running.")
     end
 
-    if not Ngnix.is_running?
+    if not Nginx.is_running?
       Nginx.create_app_load_balancer_config(my_public, my_private,
         AppDashboard::PROXY_PORT)
       Nginx.reload()

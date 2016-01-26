@@ -97,7 +97,7 @@ module Nginx
     end
   end
 
-  def self.is_running?
+  def self.is_running?()
     output = MonitInterface.is_running(:nginx)
     Djinn.log_debug("Checking if nginx is already monitored: #{output}")
     return output
