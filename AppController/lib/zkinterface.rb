@@ -100,33 +100,46 @@ class ZKInterface
   public
 
 
-  # Initializes a new ZooKeeper connection to the IP address specified.
-  # Callers should use this when they know exactly which node hosts ZooKeeper.
-  def self.init_to_ip(client_ip, ip)
-    Djinn.log_debug("Waiting for #{ip}:#{SERVER_PORT} to open")
-    HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT)
-
-    @@client_ip = client_ip
-    @@ip = ip
+  # Save the client IP and the list of Zookeeper hosts IPs, then it
+  # proceed to establish a connection to any of the Zookeeper hosts. It
+  # will retry until a connection is established.
+  # Arguments:
+  #   my_private_ip: the private ip of the client.
+  #   zk_ips:        an array of private IPs for the the zookeepers nodes.
+  def self.init(my_node_ip, zk_ips)
+    @@client_ip = my_node_ip
+    @@ips = zk_ips
 
     if !defined?(@@lock)
       @@lock = Monitor.new
     end
 
+    # Now let's go find a good zookeeper host.
     @@lock.synchronize {
-      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
+      Djinn::RETRIES.downto(1) {
+        @@ips.each { |ip|
+          Djinn.log_debug("Trying to connect to zookeeper at #{ip}:#{SERVER_PORT}.")
+
+          # This is to make sure we remove all the pending activities with
+          # the previus session or attempt.
+          if defined?(@@zk)
+            if @@zk.connected?
+              Djinn.log_warn("Init called on an already established zookeeper session.")
+            end
+            @@zk.close!
+          end
+
+          @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
+          if not @@zk.connected?
+            Djinn.log_info("Couldn't connect with zookeeper host at #{ip}.")
+          else
+            Djinn.log_info("Using zookeeper host at #{ip}.")
+            return true
+          end
+        }
+      }
     }
-  end
-
-
-  # Initializes a new ZooKeeper connection to the "closest" node in the
-  # system. "Closeness" is defined as either "this node" (if it runs
-  # ZooKeeper), or an arbitrary node that runs ZooKeeper. Callers should use
-  # this method when they don't want to determine on their own which
-  # ZooKeeper box to connect to.
-  def self.init(my_node, all_nodes)
-    self.init_to_ip(my_node.private_ip, self.get_zk_location(my_node,
-      all_nodes))
+    return false
   end
 
 
@@ -135,8 +148,13 @@ class ZKInterface
   # need it. Also recreates any ephemeral links that were lost when the
   # connection was disconnected.
   def self.reinitialize()
-    self.init_to_ip(@@client_ip, @@ip)
-    self.set_live_node_ephemeral_link(@@client_ip)
+    Djinn::RETRIES.downto(1) {
+      if self.init(@@client_ip, @@ips)
+        self.set_live_node_ephemeral_link(@@client_ip)
+        return
+      end
+    }
+    Djinn.log_warn("Couldn't talk to any Zookeeper while reinitializing.")
   end
 
 
@@ -781,28 +799,6 @@ class ZKInterface
       raise FailedZooKeeperOperationException.new("Failed to delete " +
         " path #{key}, saw info #{info.inspect}")
     end
-  end
-
-
-  def self.get_zk_location(my_node, all_nodes)
-    if my_node.is_zookeeper?
-      return my_node.private_ip
-    end
-
-    zk_node = nil
-    all_nodes.each { |node|
-      if node.is_zookeeper?
-        zk_node = node
-        break
-      end
-    }
-
-    if zk_node.nil?
-      HelperFunctions.log_and_crash("No ZooKeeper nodes were found. All " +
-        "nodes are #{nodes}, while my node is #{my_node}.")
-    end
-
-    return zk_node.private_ip
   end
 
 

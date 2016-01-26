@@ -10,19 +10,34 @@ ZOOKEEPER_PORT="2181"
 DEPLOYMENT_ID_PATH = '/appscale/deployment_id'
 
 def configure_zookeeper(nodes, my_index)
-  # TODO: create multi node configuration
   zoocfg = <<EOF
+# The number of milliseconds of each tick.
 tickTime=2000
+# The number of ticks that the initial synchronization phase can take.
 initLimit=10
+# The number of ticks that can pass between sending a request and getting
+# an acknowledgement.
 syncLimit=5
+# The directory where the snapshot is stored.
 dataDir=#{DATA_LOCATION}
+# The port at which the clients will connect.
 clientPort=2181
+# Number of concurrent connections (at the socket level) that a single
+# client, can have. Setting this to 0 or omitting it entirely removes the
+# limit on concurrent connections.
+maxClientCnxns=0
+# Leader accepts client connections. Default value is "yes".
 leaderServes=yes
-maxClientsCnxns=0
-forceSync=no
+# Requires updates to be synced to media of the transaction log before
+# finishing processing the update. Default value is "yes".
+#forceSync=no
+# Skips ACL checks. This results in a boost in throughput, but opens up
+# full access to the data tree to everyone.
 skipACL=yes
-autopurge.snapRetainCount=5
-autopurge.purgeInterval=12
+# The number of snapshots to retain in dataDir.
+autopurge.snapRetainCount=3
+# Purge task interval in hours. Set to "0" to disable auto purge feature.
+autopurge.purgeInterval=1
 EOF
   myid = ""
 
@@ -49,17 +64,10 @@ EOF
 
   Djinn.log_debug("zookeeper myid=#{myid}")
   File.open("/etc/zookeeper/conf/myid", "w+") { |file| file.write(myid) }
-
-  # set max heap memory
-  Djinn.log_run("sed -i s/^JAVA_OPTS=.*/JAVA_OPTS=\"-Xmx1024m\"/ /etc/zookeeper/conf/environment")
 end
 
 def start_zookeeper(clear_datastore)
   Djinn.log_info("Starting ZooKeeper")
-  if clear_datastore
-    Djinn.log_run("rm -rfv /var/lib/zookeeper")
-    Djinn.log_run("rm -rfv #{DATA_LOCATION}")
-  end
 
   # Detect which version of zookeeper script we have.
   zk_server="zookeeper-server"
@@ -67,10 +75,16 @@ def start_zookeeper(clear_datastore)
     zk_server="zookeeper"
   end
 
+  # Let's stop zookeeper in case it is still running.
+  system("/usr/sbin/service #{zk_server} stop")
+
+  if clear_datastore
+    Djinn.log_run("rm -rfv /var/lib/zookeeper")
+    Djinn.log_run("rm -rfv #{DATA_LOCATION}")
+  end
+
   if !File.directory?("#{DATA_LOCATION}")
     Djinn.log_info("Initializing ZooKeeper")
-    # Let's stop zookeeper in case it is still running.
-    system("/usr/sbin/service #{zk_server} stop")
 
     # Let's create the new location for zookeeper.
     Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
