@@ -1709,20 +1709,16 @@ class Djinn
       parse_options()
     end
 
-    if need_to_start_jobs
-      # We need to start/configure the other nodes before configuring the
-      # system: we need to know where essential services may be.
-      if my_node.is_shadow?
-        Djinn.log_info("Spawning/setting up other nodes.")
-        spawn_and_setup_appengine
-      end
-
-      # Initialize the current server (mount volumes and static files).
-      initialize_server()
-
-      # Starts all the API and essential services.
-      start_api_services()
+    if need_to_start_jobs and my_node.is_shadow?
+      Djinn.log_info("Spawning/setting up other nodes.")
+      spawn_and_setup_appengine
     end
+
+    # Initialize the current server and starts all the API and essential
+    # services. The functions are idempotent ie won't restart already
+    # running services and can be ran multiple time with no side effect.
+    initialize_server()
+    start_api_services()
 
     # Now that we are done loading, we can set the monit job to check the
     # AppController.
@@ -4260,10 +4256,14 @@ HOSTS
     my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@options['hostname'])
 
-    HAProxy.initialize_config()
-    Nginx.initialize_config()
-    # Make sure the nginx process is being monitored.
-    Nginx.start()
+    if not HAProxy.is_running?
+      HAProxy.initialize_config()
+    end
+    if not Nginx.is_running?
+      Nginx.initialize_config()
+      # Make sure the nginx process is being monitored.
+      Nginx.start()
+    end
 
     if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
