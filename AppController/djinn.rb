@@ -3663,8 +3663,6 @@ class Djinn
     # Each node has an nginx configuration to reach the datastore. Use it
     # to make sure we are fault-tolerant.
     BlobServer.start(my_node.private_ip, DatastoreServer::LISTEN_PORT_NO_SSL)
-    BlobServer.is_running(my_node.private_ip)
-
     return true
   end
 
@@ -4454,10 +4452,6 @@ HOSTS
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
     Djinn.log_info("Parameters set on node at #{ip} returned #{result}.")
-  end
-
-  def is_running?(name)
-    !`ps ax | grep #{name} | grep -v grep`.empty?
   end
 
   def start_memcache()
@@ -5651,7 +5645,7 @@ HOSTS
     watch_name = "xmpp-#{app}"
 
     # If we have it already running, nothing to do
-    if MonitInterface.is_running(watch_name)
+    if MonitInterface.is_running?(watch_name)
       Djinn.log_debug("xmpp already running for application #{app}")
       return
     end

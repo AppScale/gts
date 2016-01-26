@@ -98,7 +98,7 @@ def start_zookeeper(clear_datastore)
 end
 
 def is_zookeeper_running?
-  output = MonitInterface.is_running(:zookeeper)
+  output = MonitInterface.is_running?(:zookeeper)
   Djinn.log_debug("Checking if zookeeper is already monitored: #{output}")
   return output
 end

@@ -74,7 +74,7 @@ module HAProxy
   end
 
   def self.is_running?
-   output = MonitInterface.is_running(:haproxy)
+   output = MonitInterface.is_running?(:haproxy)
    Djinn.log_debug("Checking if haproxy is already monitored: #{output}")
    return output
   end
