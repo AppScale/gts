@@ -84,13 +84,11 @@ module Nginx
     `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
   end
 
-  # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload()
-    if Nginx.is_running?
-      HelperFunctions.shell('service nginx reload')
-      if $?.to_i != 0
-        cleanup_failed_nginx()
-      end
+    Djinn.log_info("Reloading nginx service.")
+    HelperFunctions.shell('service nginx reload')
+    if $?.to_i != 0
+      cleanup_failed_nginx()
     end
   end
 
@@ -602,7 +600,6 @@ CONFIG
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
-
   end
 
   # Creates an Nginx configuration file for the Users/Apps soap server.
@@ -661,6 +658,8 @@ server {
 CONFIG
     config_path = File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+
+    HAProxy.regenerate_config
   end
 
   # A generic function for creating nginx config files used by appscale services
