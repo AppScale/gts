@@ -3429,9 +3429,6 @@ class Djinn
     @state = "Starting API Services."
     Djinn.log_info("#{@state}")
 
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-
     threads = []
     threads << Thread.new {
       if not is_zookeeper_running?
@@ -4236,13 +4233,12 @@ HOSTS
   # Perform any necessary initialization steps before we begin starting up
   # services.
   def initialize_server()
-    my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@options['hostname'])
 
     if not HAProxy.is_running?
       HAProxy.initialize_config()
-      HAProxy.create_app_load_balancer_config(my_public, my_private,
-        AppDashboard::PROXY_PORT)
+      HAProxy.create_app_load_balancer_config(my_node.my_public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
       HAProxy.start()
       Djinn.log_info("HAProxy configured and started.")
     else
@@ -4251,8 +4247,8 @@ HOSTS
 
     if not Nginx.is_running?
       Nginx.initialize_config()
-      Nginx.create_app_load_balancer_config(my_public, my_private,
-        AppDashboard::PROXY_PORT)
+      Nginx.create_app_load_balancer_config(my_node.my_public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
       Nginx.start()
       Djinn.log_info("Nginx configured and started.")
     else
