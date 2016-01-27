@@ -55,7 +55,6 @@ EOF
 end
 
 def start_zookeeper(clear_datastore)
-  Djinn.log_info("Starting ZooKeeper")
   if clear_datastore
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
@@ -68,7 +67,7 @@ def start_zookeeper(clear_datastore)
   end
 
   if !File.directory?("#{DATA_LOCATION}")
-    Djinn.log_info("Initializing ZooKeeper")
+    Djinn.log_info("Initializing ZooKeeper.")
     # Let's stop zookeeper in case it is still running.
     system("/usr/sbin/service #{zk_server} stop")
 
@@ -94,7 +93,6 @@ def start_zookeeper(clear_datastore)
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
   MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=ZOOKEEPER_PORT, env_vars=nil,
     remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
-  Djinn.log_info("Started ZooKeeper")
 end
 
 def is_zookeeper_running?

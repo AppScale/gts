@@ -91,9 +91,6 @@ module Nginx
       if $?.to_i != 0
         cleanup_failed_nginx()
       end
-    else
-      # Let's make sure we monitor nginx.
-      Nginx.start()
     end
   end
 
@@ -502,13 +499,12 @@ CONFIG
 
   # Removes all the enabled sites
   def self.clear_sites_enabled()
-    if File.exists?(SITES_ENABLED_PATH)
+    if File.directory?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
       # Remove any files that are not configs
       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
       FileUtils.rm_f full_path_sites
-
       Nginx.reload()
     end
   end
