@@ -3426,28 +3426,11 @@ class Djinn
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
   def start_api_services()
-    @state = "Starting Load Balancer"
-    Djinn.log_info("Starting Load Balancer")
+    @state = "Starting API Services."
+    Djinn.log_info("#{@state}")
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-
-    # TODO: Set up nginx and haproxy without needing the dashboard.
-    if not HAProxy.is_running?
-      HAProxy.create_app_load_balancer_config(my_public, my_private,
-        AppDashboard::PROXY_PORT)
-      HAProxy.start()
-    else
-      Djinn.log_info("HAProxy already running.")
-    end
-
-    if not Nginx.is_running?
-      Nginx.create_app_load_balancer_config(my_public, my_private,
-        AppDashboard::PROXY_PORT)
-      Nginx.reload()
-    else
-      Djinn.log_info("Nginx already running.")
-    end
 
     threads = []
     threads << Thread.new {
@@ -4258,11 +4241,22 @@ HOSTS
 
     if not HAProxy.is_running?
       HAProxy.initialize_config()
+      HAProxy.create_app_load_balancer_config(my_public, my_private,
+        AppDashboard::PROXY_PORT)
+      HAProxy.start()
+      Djinn.log_info("HAProxy configured and started.")
+    else
+      Djinn.log_info("HAProxy already configured.")
     end
+
     if not Nginx.is_running?
       Nginx.initialize_config()
-      # Make sure the nginx process is being monitored.
+      Nginx.create_app_load_balancer_config(my_public, my_private,
+        AppDashboard::PROXY_PORT)
       Nginx.start()
+      Djinn.log_info("Nginx configured and started.")
+    else
+      Djinn.log_info("Nginx already configured and running.")
     end
 
     if my_node.disk
