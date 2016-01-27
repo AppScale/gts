@@ -494,16 +494,18 @@ class Djinn
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
-    # The password, or secret phrase, that is required for callers to access
-    # methods exposed via SOAP.
-    @@secret = HelperFunctions.get_secret()
-
     # An Array of Hashes, where each Hash contains a log message and the time
     # it was logged.
     @@logs_buffer = []
 
     @@log = nil
     set_log_level(Logger::INFO)
+
+    Djinn.log_info("==== Starting AppController ====")
+
+    # The password, or secret phrase, that is required for callers to access
+    # methods exposed via SOAP.
+    @@secret = HelperFunctions.get_secret()
 
     @nodes = []
     @my_index = nil
@@ -540,9 +542,6 @@ class Djinn
 
     # This variable is used to keep track of the list of memcache servers.
     @memcache_contents = ""
-
-    # Make sure monit is started.
-    MonitInterface.start_monit(nil, nil)
   end
 
   # This method is needed, since we are not able to change log level on
@@ -1695,8 +1694,6 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
-
-    Djinn.log_info("==== Starting AppController ====")
 
     start_infrastructure_manager()
     data_restored, need_to_start_jobs = restore_appcontroller_state()
@@ -4382,7 +4379,7 @@ HOSTS
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
-    MonitInterface.start_monit(ip, ssh_key)
+    MonitInterface.start_monit()
 
     begin
       MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
