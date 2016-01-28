@@ -4363,9 +4363,6 @@ HOSTS
   end
 
   def set_appcontroller_monit()
-    ip = my_node.private_ip
-    ssh_key = my_node.ssh_key
-
     Djinn.log_debug("Configuring AppController monit.")
     env = {
       'HOME' => '/root',
@@ -4375,14 +4372,12 @@ HOSTS
     }
     start = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
     stop = "/usr/sbin/service appscale-controller stop"
-    match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
-    MonitInterface.start_monit(ip, ssh_key)
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env)
     rescue Exception => e
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
