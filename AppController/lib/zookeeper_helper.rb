@@ -22,7 +22,9 @@ maxClientsCnxns=0
 forceSync=no
 skipACL=yes
 autopurge.snapRetainCount=5
-autopurge.purgeInterval=12
+# Increased zookeeper activity can produce a vast amount of logs/snapshots.
+# With this we ensure that logs/snapshots are cleaned up hourly.
+autopurge.purgeInterval=1
 EOF
   myid = ""
 
