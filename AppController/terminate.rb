@@ -14,9 +14,13 @@ module TerminateHelper
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`
     `rm -f /etc/nginx/sites-enabled/*.conf`
+    `service nginx reload`
+    # Stop and then remove the service we configured with monit.
+    `monit stop all`
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
     `service monit restart`
+    `monit start all`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
     `rm -f #{APPSCALE_CONFIG_DIR}/search_ip`
 
@@ -71,69 +75,15 @@ module TerminateHelper
     `rm -rf /opt/appscale/celery`
     `rm -rf /opt/appscale/solr`
   end
-
-
-  # Restores AppScale back to a pristine state by killing any service that is
-  # associated with AppScale.
-  def self.force_kill_processes
-    `iptables -F`  # turn off the firewall
-
-    ["memcached",
-     "nginx", "haproxy", "hermes",
-     "soap_server", "appscale_server", "app_manager_server", "datastore_server",
-     "taskqueue_server", "AppDashboard",
-
-     # AppServer
-     "dev_appserver", "DevAppServerMain",
-
-     # Blobstore
-     "blobstore_server",
-
-     # Cassandra
-     "CassandraDaemon",
-
-     # ZooKeeper
-     "ThriftServer",
-
-     "rabbitmq",
-     "djinn", "xmpp_receiver",
-     "InfrastructureManager", "Neptune",
-
-     # RabbitMQ, ejabberd
-     "epmd", "beam", "ejabberd_auth.py", "celery",
-
-     # Search API
-     "solr",
-
-     # Last resort
-     "python", "java", "/usr/bin/python"
-    ].each do |program|
-      # grep out appscale-tools here since the user could be running the tools
-      # on this machine, and that would otherwise cause this command to kill
-      # itself.
-      `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
-    end
-  end
-
-
-  # Kills all Ruby processes on this machine, except for this one.
-  def self.kill_ruby
-    `ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
-  end
-
-
 end
 
 
 if __FILE__ == $0
-  TerminateHelper.erase_appscale_state
   TerminateHelper.disable_database_writes
+  TerminateHelper.erase_appscale_state
 
   if ARGV.length == 1 and ARGV[0] == "clean"
     TerminateHelper.erase_database_state
     TerminateHelper.erase_appscale_full_state
   end
-
-  TerminateHelper.force_kill_processes
-  TerminateHelper.kill_ruby
 end
