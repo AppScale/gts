@@ -108,7 +108,6 @@ ZK_LOCATIONS_FILE = "/etc/appscale/zookeeper_locations.json"
 # ports this machine is using for nginx, haproxy, and AppServers.
 APPSERVER_STATE_FILE = "/opt/appscale/appserver-state.json"
 
-
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -3815,6 +3814,7 @@ class Djinn
 
     nodes = JSON.load(@options["ips"])
     appengine_info = spawn_appengine(nodes)
+    Djinn.log_info("Nodes info: #{appengine_info.join(', ')}")
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
@@ -3827,32 +3827,39 @@ class Djinn
     write_database_info()
     update_firewall()
 
-    options = @options.to_a.flatten
     initialize_nodes_in_parallel(appengine_info)
   end
 
-  def spawn_appengine(nodes)
-    Djinn.log_debug("nodes is #{nodes.join(', ')}")
-    return [] if nodes.length.zero?
-
+  def spawn_appengine(machines)
+    Djinn.log_debug("nodes is #{machines.join(', ')}")
     appengine_info = []
-    if is_cloud?
-      @state = "Spawning up #{nodes.length} virtual machines"
-      roles = nodes.map { |node| node['jobs'] }
-      disks = nodes.map { |node| node['disk'] }
 
-      # since there's only one cloud, call it cloud1 to tell us
-      # to use the first ssh key (the only key)
-      imc = InfrastructureManagerClient.new(@@secret)
-      begin
-        appengine_info = imc.spawn_vms(nodes.length, @options, roles, disks)
-      rescue FailedNodeException, AppScaleException => exception
-        @state = "Couldn't spawn #{nodes.length} VMs " +
-          "with roles #{roles} because: #{exception.message}"
-        HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+    if is_cloud?
+      # In cloud mode we need to spawn the instances, but we should check
+      # if the instances have been already spawned: we can do that
+      # comparing what we are requested and what we have in @nodes.
+      if @nodes.length != (machines.length + 1)
+        @state = "Spawning up #{machines.length} virtual machines"
+        roles = machines.map { |node| node['jobs'] }
+        disks = machines.map { |node| node['disk'] }
+
+        Djinn.log_info("Starting #{machines.length} machines.")
+        # since there's only one cloud, call it cloud1 to tell us
+        # to use the first ssh key (the only key)
+        imc = InfrastructureManagerClient.new(@@secret)
+        begin
+          appengine_info = imc.spawn_vms(machines.length, @options, roles, disks)
+        rescue FailedNodeException, AppScaleException => exception
+          @state = "Couldn't spawn #{machines.length} VMs " +
+            "with roles #{roles} because: #{exception.message}"
+          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+        end
+      else
+        Djinn.info("Not spawning new instances since we have the requested" +
+          " number already.")
       end
     else
-      nodes.each { |node|
+      machines.each { |node|
         appengine_info << {
           'public_ip' => node['ip'],
           'private_ip' => node['ip'],
@@ -4437,9 +4444,9 @@ HOSTS
     Djinn.log_debug("Sending data to #{ip}.")
 
     loc_array = Djinn.convert_location_class_to_array(@nodes)
-    credentials = @options.to_a.flatten
+    options = @options.to_a.flatten
     begin
-      result = acc.set_parameters(loc_array, credentials, @app_names)
+      result = acc.set_parameters(loc_array, options, @app_names)
     rescue FailedNodeException => e
       @state = "Couldn't set parameters on node at #{ip} for #{e.message}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
