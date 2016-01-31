@@ -3814,7 +3814,7 @@ class Djinn
 
     nodes = JSON.load(@options["ips"])
     appengine_info = spawn_appengine(nodes)
-    Djinn.log_info("Nodes info: #{appengine_info.join(', ')}")
+    Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}")
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
@@ -3854,8 +3854,9 @@ class Djinn
             "with roles #{roles} because: #{exception.message}"
           HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
+        Djinn.log_info("Spawned #{machines.length} virtual machines.")
       else
-        Djinn.info("Not spawning new instances since we have the requested" +
+        Djinn.log_info("Not spawning new instances since we have the requested" +
           " number already.")
       end
     else
@@ -3864,7 +3865,7 @@ class Djinn
           'public_ip' => node['ip'],
           'private_ip' => node['ip'],
           'jobs' => node['jobs'],
-          'instance_id' => 'i-SGOOBARZ',
+          'instance_id' => 'i-APPSCALE',
           'disk' => nil
         }
       }
