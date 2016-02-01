@@ -1709,20 +1709,16 @@ class Djinn
       parse_options()
     end
 
-    if need_to_start_jobs
-      # We need to start/configure the other nodes before configuring the
-      # system: we need to know where essential services may be.
-      if my_node.is_shadow?
-        Djinn.log_info("Spawning/setting up other nodes.")
-        spawn_and_setup_appengine
-      end
-
-      # Initialize the current server (mount volumes and static files).
-      initialize_server()
-
-      # Starts all the API and essential services.
-      start_api_services()
+    if need_to_start_jobs and my_node.is_shadow?
+      Djinn.log_info("Spawning/setting up other nodes.")
+      spawn_and_setup_appengine
     end
+
+    # Initialize the current server and starts all the API and essential
+    # services. The functions are idempotent ie won't restart already
+    # running services and can be ran multiple time with no side effect.
+    initialize_server()
+    start_api_services()
 
     # Now that we are done loading, we can set the monit job to check the
     # AppController.
@@ -3430,35 +3426,28 @@ class Djinn
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
   def start_api_services()
-    @state = "Starting Load Balancer"
-    Djinn.log_info("Starting Load Balancer")
-
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-    # TODO: Set up nginx and haproxy without needing the dashboard.
-    HAProxy.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    HAProxy.start()
-
-    Nginx.create_app_load_balancer_config(my_public, my_private,
-      AppDashboard::PROXY_PORT)
-    Nginx.reload()
+    @state = "Starting API Services."
+    Djinn.log_info("#{@state}")
 
     threads = []
     threads << Thread.new {
-      if my_node.is_zookeeper?
-        Djinn.log_info("Starting zookeeper.")
-        configure_zookeeper(@nodes, @my_index)
-        begin
-          start_zookeeper(@options['clear_datastore'].downcase == "true")
-        rescue FailedZooKeeperOperationException
-          @state = "Couldn't start Zookeeper."
-          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+      if not is_zookeeper_running?
+        if my_node.is_zookeeper?
+          Djinn.log_info("Starting zookeeper.")
+          configure_zookeeper(@nodes, @my_index)
+          begin
+            start_zookeeper(@options['clear_datastore'].downcase == "true")
+          rescue FailedZooKeeperOperationException
+            @state = "Couldn't start Zookeeper."
+            HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+          end
         end
+        Djinn.log_info("Done configuring zookeeper.")
+      else
+        Djinn.log_info("Zookeeper already running.")
       end
       write_zookeeper_locations()
       ZKInterface.init(my_node, @nodes)
-      Djinn.log_info("Done configuring zookeeper.")
     }
 
     if my_node.is_db_master? or my_node.is_db_slave?
@@ -3509,9 +3498,6 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
         if my_node.is_db_master?
-          # If we're starting AppScale with data from a previous deployment, we
-          # may have to clear out all the registered app instances from the
-          # UserAppServer (since nobody is currently hosting any apps).
           if @options['clear_datastore'].downcase == "true"
             erase_app_instance_info
           end
@@ -3653,8 +3639,6 @@ class Djinn
     # Each node has an nginx configuration to reach the datastore. Use it
     # to make sure we are fault-tolerant.
     BlobServer.start(my_node.private_ip, DatastoreServer::LISTEN_PORT_NO_SSL)
-    BlobServer.is_running(my_node.private_ip)
-
     return true
   end
 
@@ -3751,7 +3735,6 @@ class Djinn
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     table = @options['table']
-    zoo_connection = get_zk_connection_string(@nodes)
     DatastoreServer.start(db_master_ip, my_node.private_ip, table,
       verbose=verbose)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
@@ -4250,13 +4233,27 @@ HOSTS
   # Perform any necessary initialization steps before we begin starting up
   # services.
   def initialize_server()
-    my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@options['hostname'])
 
-    HAProxy.initialize_config()
-    Nginx.initialize_config()
-    # Make sure the nginx process is being monitored.
-    Nginx.start()
+    if not HAProxy.is_running?
+      HAProxy.initialize_config()
+      HAProxy.create_app_load_balancer_config(my_node.public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
+      HAProxy.start()
+      Djinn.log_info("HAProxy configured and started.")
+    else
+      Djinn.log_info("HAProxy already configured.")
+    end
+
+    if not Nginx.is_running?
+      Nginx.initialize_config()
+      Nginx.create_app_load_balancer_config(my_node.public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
+      Nginx.start()
+      Djinn.log_info("Nginx configured and started.")
+    else
+      Djinn.log_info("Nginx already configured and running.")
+    end
 
     if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
@@ -4366,9 +4363,6 @@ HOSTS
   end
 
   def set_appcontroller_monit()
-    ip = my_node.private_ip
-    ssh_key = my_node.ssh_key
-
     Djinn.log_debug("Configuring AppController monit.")
     env = {
       'HOME' => '/root',
@@ -4378,14 +4372,12 @@ HOSTS
     }
     start = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
     stop = "/usr/sbin/service appscale-controller stop"
-    match = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
-    MonitInterface.start_monit(ip, ssh_key)
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key, match)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env)
     rescue Exception => e
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
@@ -4445,10 +4437,6 @@ HOSTS
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
     Djinn.log_info("Parameters set on node at #{ip} returned #{result}.")
-  end
-
-  def is_running?(name)
-    !`ps ax | grep #{name} | grep -v grep`.empty?
   end
 
   def start_memcache()
@@ -5642,7 +5630,7 @@ HOSTS
     watch_name = "xmpp-#{app}"
 
     # If we have it already running, nothing to do
-    if MonitInterface.is_running(watch_name)
+    if MonitInterface.is_running?(watch_name)
       Djinn.log_debug("xmpp already running for application #{app}")
       return
     end
