@@ -3831,7 +3831,7 @@ class Djinn
   end
 
   def spawn_appengine(machines)
-    Djinn.log_debug("nodes is #{machines.join(', ')}")
+    Djinn.log_debug("Machines requested or available: #{machines.join(', ')}")
     appengine_info = []
 
     if is_cloud?
