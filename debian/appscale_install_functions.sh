@@ -180,7 +180,7 @@ EOF
     mkdir -pv /var/log/appscale
     # Allow rsyslog to write to appscale log directory.
     chgrp adm /var/log/appscale
-    chmod g+w /var/log/appscale
+    chmod g+rwx /var/log/appscale
 
     mkdir -pv /var/appscale/
 
