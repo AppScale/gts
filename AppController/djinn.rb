@@ -2522,11 +2522,11 @@ class Djinn
   end
 
 
-  # Instructs HAProxy to begin routing traffic for the named application to
-  # a new AppServer, at the given location.
+  # Instructs Nginx and HAProxy to begin routing traffic for the named
+  # application to a new AppServer.
   #
   # This method should be called at the AppController running the login role,
-  # as it is the only node that runs haproxy.
+  # as it is the node that receives application traffic from the outside.
   #
   # Args:
   #   app_id: A String that identifies the application that runs the new
@@ -2545,7 +2545,7 @@ class Djinn
   #     add AppServers to HAProxy config files).
   #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
   #     it and nginx yet. Callers should retry at a later time.
-  def add_appserver_to_haproxy(app_id, ip, port, secret)
+  def add_routing_for_appserver(app_id, ip, port, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
@@ -4804,12 +4804,12 @@ HOSTS
             next
           end
 
-          # Tell the AppController at the login node (which runs HAProxy) that a
-          # new AppServer is running.
+          # Tell the AppController at the login node that a new AppServer is
+          # running.
           acc = AppControllerClient.new(get_login.private_ip, @@secret)
           loop {
             begin
-              result = acc.add_appserver_to_haproxy(app, my_node.private_ip,
+              result = acc.add_routing_for_appserver(app, my_node.private_ip,
                 appengine_port)
             rescue FailedNodeException
               Djinn.log_warn("Need to retry adding appserver to haproxy for #{app}.")
