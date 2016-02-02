@@ -3805,6 +3805,7 @@ class Djinn
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
+      @nodes.uniq!
     }
     find_me_in_locations()
     write_database_info()
