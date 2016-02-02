@@ -1699,9 +1699,8 @@ class Djinn
     Djinn.log_info("==== Starting AppController ====")
 
     start_infrastructure_manager()
-    data_restored, need_to_start_jobs = restore_appcontroller_state()
 
-    if data_restored
+    if restore_appcontroller_state()
       parse_options()
     else
       erase_old_data()
@@ -1709,7 +1708,7 @@ class Djinn
       parse_options()
     end
 
-    if need_to_start_jobs and my_node.is_shadow?
+    if my_node.is_shadow?
       Djinn.log_info("Spawning/setting up other nodes.")
       spawn_and_setup_appengine
     end
@@ -2693,54 +2692,36 @@ class Djinn
     end
   end
 
-  # In multinode deployments, it could be the case that we restored data
-  # from ZooKeeper on a different machine. In that case, we still need to
-  # start all the services on this machine.
-  # 
-  # Returns:
-  #   true, if we do, false otherwise.
-  def are_we_restoring_from_local()
-    if HelperFunctions.is_process_running?("zookeeper")
-      return false
-    else
-      return true
-    end
-  end
-
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
-  #   Two booleans, that indicate if (1) data was restored to this AppController
-  #   from either ZooKeeper or locally, and (2) if we need to start the roles
-  #   on this machine or not.
+  #   a boolean to indicate if we were able to restore the state from
+  #   either zookeeper of the local disk.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state")
-    restoring_from_local = true
+    json_state=""
+
     if File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("Trying to restore data from ZooKeeper.")
       json_state = restore_from_zookeeper()
-      if json_state.empty?
-        Djinn.log_info("Failed to restore data from ZooKeeper, trying locally.")
-        json_state = restore_from_local_data()
-        if json_state == nil
-          Djinn.log_warn("Unable to restore from ZK or local state, not restoring!")
-          restoring_from_local = are_we_restoring_from_local()
-          return false, restoring_from_local
-        end
-      else
+      if not json_state.empty?
         Djinn.log_info("Restored data from ZooKeeper.")
-        restoring_from_local = are_we_restoring_from_local()
       end
-    else
-      if File.exists?(HelperFunctions::APPCONTROLLER_STATE_LOCATION)
-        Djinn.log_info("Restoring from local data")
-        json_state = restore_from_local_data()
-      else
-        Djinn.log_info("No recovery data found - skipping recovery process")
-        return false, restoring_from_local
+    end
+
+    if json_state.empty? and File.exists?(HelperFunctions::APPCONTROLLER_STATE_LOCATION)
+      Djinn.log_info("Trying to restore data from local data.")
+      json_state = restore_from_local_data()
+      if not json_state.empty?
+        Djinn.log_info("Restored data from local data.")
       end
+    end
+
+    if json_state.empty?
+      Djinn.log_warn("Unable to restore from ZK or local state, not restoring!")
+      return false
     end
 
     Djinn.log_info("Reload State : #{json_state}")
@@ -2771,7 +2752,9 @@ class Djinn
     # of our internal state to use the new public and private IP anywhere the
     # old ones were present.
     if !HelperFunctions.get_all_local_ips().include?(@my_private_ip)
+      Djinn.log_info("IP changed old private:#{@my_private_ip} public:#{@my_public_ip}.")
       update_state_with_new_local_ip()
+      Djinn.log_info("IP changed new private:#{@my_private_ip} public:#{@my_public_ip}.")
     end
 
     # Now that we've restored our state, update the pointer that indicates
@@ -2785,7 +2768,7 @@ class Djinn
       restore_appserver_state()
     end
 
-    return true, restoring_from_local
+    return true
   end
 
 
