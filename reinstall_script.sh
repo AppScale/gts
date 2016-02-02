@@ -4,6 +4,8 @@ git clone https://github.com/lmandres/zookeeper-raspberry-pi.git
 git clone https://github.com/lmandres/appscale-raspberry-pi.git
 git clone https://github.com/lmandres/appscale-tools-raspberry-pi.git
 
+rm -Rf appscale
+rm -Rf appscale-tools
 mv appscale-raspberry-pi appscale
 mv appscale-tools-raspberry-pi appscale-tools
 
