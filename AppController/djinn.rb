@@ -2558,7 +2558,13 @@ class Djinn
       return NOT_READY
     end
 
-    if !Nginx.is_app_already_configured(app_id)
+    Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
+    @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+    HAProxy.update_app_config(my_node.private_ip, app_id,
+      @app_info_map[app_id])
+
+    unless Nginx.is_app_already_configured(app_id)
+      # Get static handlers and make sure cache path is readable.
       begin
         static_handlers = HelperFunctions.parse_static_data(app_id)
         Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app_id)}")
@@ -2578,11 +2584,6 @@ class Djinn
         @app_info_map[app_id]['language'])
       Djinn.log_info("Done setting full proxy for application #{app}.")
     end
-
-    Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
-    @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
-    HAProxy.update_app_config(my_node.private_ip, app_id,
-      @app_info_map[app_id])
 
     return "OK"
   end
