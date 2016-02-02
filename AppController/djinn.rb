@@ -4800,8 +4800,9 @@ HOSTS
               get_load_balancer_ip(), app_language, xmpp_ip,
               HelperFunctions.get_app_env_vars(app),
               Integer(@options['max_memory']), get_login.private_ip))
-          rescue FailedNodeException, ArgumentError
-            Djinn.log_warn("Failed to talk to AppManager to start #{app}.")
+          rescue FailedNodeException, ArgumentError => error
+            Djinn.log_warn("#{error.class} encountered while starting #{app} "\
+              "with AppManager: #{error.message}")
             pid = -1
           end
           if pid < 0
@@ -4818,8 +4819,9 @@ HOSTS
             begin
               result = acc.add_routing_for_appserver(app, my_node.private_ip,
                 appengine_port)
-            rescue FailedNodeException
-              Djinn.log_warn("Need to retry adding appserver to haproxy for #{app}.")
+            rescue FailedNodeException => error
+              Djinn.log_warn("Failed to add routing for #{app}: "\
+                "#{error.message}.")
               result = NOT_READY
             end
             if result == NOT_READY
