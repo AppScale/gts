@@ -20,6 +20,7 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
     `service monit restart`
+    `killall -9 -g -r djinnServer`
     `monit start all`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
     `rm -f #{APPSCALE_CONFIG_DIR}/search_ip`
