@@ -1700,6 +1700,10 @@ class Djinn
 
     start_infrastructure_manager()
 
+    # We need to wait for the 'state', that is the deployment layouts and
+    # the options for this deployment. It's either a save state from a
+    # previous start, or it comes from the tools. If the tools communicate
+    # the deployment's data, then we are the headnode.
     if restore_appcontroller_state()
       parse_options()
     else
@@ -1708,6 +1712,14 @@ class Djinn
       parse_options()
     end
 
+    # From here on we have the basic local state that allows to operate.
+    # In particular we know our roles, and the deployment layout. Let's
+    # start attaching any permanent disk we may have associated with us.
+    mount_persistent_storage
+
+    # If we are the headnode, we may need to start/setup all other nodes.
+    # Better do it early on, since it may take some time for the other
+    # nodes to start up.
     if my_node.is_shadow?
       Djinn.log_info("Spawning/setting up other nodes.")
       spawn_and_setup_appengine
@@ -4213,31 +4225,9 @@ HOSTS
     return @nodes[@my_index]
   end
 
-  # Perform any necessary initialization steps before we begin starting up
-  # services.
-  def initialize_server()
-    head_node_ip = get_public_ip(@options['hostname'])
-
-    if not HAProxy.is_running?
-      HAProxy.initialize_config()
-      HAProxy.create_app_load_balancer_config(my_node.public_ip,
-        my_node.private_ip, AppDashboard::PROXY_PORT)
-      HAProxy.start()
-      Djinn.log_info("HAProxy configured and started.")
-    else
-      Djinn.log_info("HAProxy already configured.")
-    end
-
-    if not Nginx.is_running?
-      Nginx.initialize_config()
-      Nginx.create_app_load_balancer_config(my_node.public_ip,
-        my_node.private_ip, AppDashboard::PROXY_PORT)
-      Nginx.start()
-      Djinn.log_info("Nginx configured and started.")
-    else
-      Djinn.log_info("Nginx already configured and running.")
-    end
-
+  # If we are in cloud mode, we should mount any volume containing our
+  # local state.
+  def mount_persistent_storage()
     if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
       begin
@@ -4299,6 +4289,31 @@ HOSTS
 
       Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
       Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
+    end
+  end
+
+  # This function performs basic setup ahead of starting the API services.
+  def initialize_server()
+    head_node_ip = get_public_ip(@options['hostname'])
+
+    if not HAProxy.is_running?
+      HAProxy.initialize_config()
+      HAProxy.create_app_load_balancer_config(my_node.public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
+      HAProxy.start()
+      Djinn.log_info("HAProxy configured and started.")
+    else
+      Djinn.log_info("HAProxy already configured.")
+    end
+
+    if not Nginx.is_running?
+      Nginx.initialize_config()
+      Nginx.create_app_load_balancer_config(my_node.public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
+      Nginx.start()
+      Djinn.log_info("Nginx configured and started.")
+    else
+      Djinn.log_info("Nginx already configured and running.")
     end
 
     # Volume is mounted, let's finish the configuration of static files.
