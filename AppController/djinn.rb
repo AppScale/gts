@@ -4860,10 +4860,6 @@ HOSTS
       Djinn.log_info("Done setting appserver for #{app}")
     end
 
-    # We only need a new full proxy config file for new apps, on the machine
-    # that runs the login service (but not in a one node deploy, where we don't
-    # do a full proxy config).
-    login_ip = get_login.private_ip
     if my_node.is_login?
       loop {
         Kernel.sleep(SMALL_WAIT)
