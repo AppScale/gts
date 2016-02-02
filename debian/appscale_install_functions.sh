@@ -178,6 +178,10 @@ EC2_HOME: /usr/local/ec2-api-tools
 JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
+    # Allow rsyslog to write to appscale log directory.
+    chgrp adm /var/log/appscale
+    chmod g+rwx /var/log/appscale
+
     mkdir -pv /var/appscale/
 
     # This puts in place the logrotate rules.

@@ -57,7 +57,6 @@ EOF
 end
 
 def start_zookeeper(clear_datastore)
-  Djinn.log_info("Starting ZooKeeper")
   if clear_datastore
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
@@ -70,7 +69,7 @@ def start_zookeeper(clear_datastore)
   end
 
   if !File.directory?("#{DATA_LOCATION}")
-    Djinn.log_info("Initializing ZooKeeper")
+    Djinn.log_info("Initializing ZooKeeper.")
     # Let's stop zookeeper in case it is still running.
     system("/usr/sbin/service #{zk_server} stop")
 
@@ -96,22 +95,15 @@ def start_zookeeper(clear_datastore)
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
   MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=ZOOKEEPER_PORT, env_vars=nil,
     remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
-  Djinn.log_info("Started ZooKeeper")
+end
+
+def is_zookeeper_running?
+  output = MonitInterface.is_running?(:zookeeper)
+  Djinn.log_debug("Checking if zookeeper is already monitored: #{output}")
+  return output
 end
 
 def stop_zookeeper
   Djinn.log_info("Stopping ZooKeeper")
   MonitInterface.stop(:zookeeper)
 end
-
-# This method returns ZooKeeper connection string like:
-# server1:2181,server2:2181
-
-def get_zk_connection_string(nodes)
-  zlist = []
-  nodes.each { |node|
-    zlist.push("#{node.private_ip}:#{ZOOKEEPER_PORT}") if node.is_zookeeper?
-  }
-  return zlist.join(",")
-end
-

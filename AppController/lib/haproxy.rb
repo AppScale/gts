@@ -74,12 +74,9 @@ module HAProxy
   end
 
   def self.is_running?
-    processes = `ps ax | grep haproxy | grep -v grep | wc -l`.chomp
-    if processes == "0"
-      return false
-    else
-      return true
-    end
+   output = MonitInterface.is_running?(:haproxy)
+   Djinn.log_debug("Checking if haproxy is already monitored: #{output}")
+   return output
   end
 
   # The port that the load balancer will be listening on for the given app number
@@ -226,13 +223,12 @@ module HAProxy
 
   # Removes all the enabled sites
   def self.clear_sites_enabled()
-    if File.exists?(SITES_ENABLED_PATH)
+    if File.directory?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
       # Remove any files that are not configs
       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
       FileUtils.rm_f full_path_sites
-
       HAProxy.regenerate_config
     end
   end
