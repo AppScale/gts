@@ -2576,12 +2576,18 @@ class Djinn
         static_handlers = []
       end
 
-      Nginx.write_fullproxy_app_config(app_id,
+      # Make sure the Nginx port is opened after HAProxy is configured.
+      Nginx.write_fullproxy_app_config(
+        app_id,
         @app_info_map[app_id]['nginx'],
-        @app_info_map[app_id]['nginx_https'], my_node.public_ip,
-        my_node.private_ip, @app_info_map[app_id]['haproxy'],
-        static_handlers, get_login.private_ip,
-        @app_info_map[app_id]['language'])
+        @app_info_map[app_id]['nginx_https'],
+        my_node.public_ip,
+        my_node.private_ip,
+        @app_info_map[app_id]['haproxy'],
+        static_handlers,
+        get_login.private_ip,
+        @app_info_map[app_id]['language']
+      )
       Djinn.log_info("Done setting full proxy for application #{app}.")
     end
 
