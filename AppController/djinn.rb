@@ -4835,17 +4835,17 @@ HOSTS
             end
           }
 
-          # At this point we are done adding a single appserver. The
+          # At this point we are done adding a single AppServer. The
           # remainder of this function relates only to start or restart
-          # where some stichting on the front-end is needed, so we can
+          # where some stitching on the front-end is needed, so we can
           # return.
           if state == "add_appserver"
-            Djinn.log_info("Done adding appserver for #{app}")
+            Djinn.log_info("Done adding AppServer for #{app}.")
             return
           end
         }
-        # now doing this at the real end so that the tools will
-        # wait for the app to actually be running before returning
+
+        # Add an application entry to ZooKeeper.
         done_uploading(app, app_path, @@secret)
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
