@@ -9,6 +9,7 @@ cd zookeeper-raspberry-pi
 gem build zookeeper.gemspec
 gem install --local zookeeper-1.4.11.gem
 cd ..
+cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
 sh appscale-tools-raspberry-pi/debian/appscale_build.sh
 
 echo Done!
