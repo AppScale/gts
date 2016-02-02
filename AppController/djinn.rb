@@ -3829,8 +3829,7 @@ class Djinn
         disks = machines.map { |node| node['disk'] }
 
         Djinn.log_info("Starting #{machines.length} machines.")
-        # since there's only one cloud, call it cloud1 to tell us
-        # to use the first ssh key (the only key)
+
         imc = InfrastructureManagerClient.new(@@secret)
         begin
           appengine_info = imc.spawn_vms(machines.length, @options, roles, disks)
@@ -3845,6 +3844,8 @@ class Djinn
           " number already.")
       end
     else
+      # For cluster mode, we return a nodes structure with the correct
+      # values, since we already have the jobs and ips for the layout.
       machines.each { |node|
         appengine_info << {
           'public_ip' => node['ip'],
