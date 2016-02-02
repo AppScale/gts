@@ -3821,7 +3821,8 @@ class Djinn
       # In cloud mode we need to spawn the instances, but we should check
       # if the instances have been already spawned: we can do that
       # comparing what we are requested and what we have in @nodes.
-      if @nodes.length >= (machines.length + 1) and machines.length > 0
+      # Note: the tools doesn't include the headnode in machines.
+      if @nodes.length < machines.length
         @state = "Spawning up #{machines.length} virtual machines"
         roles = machines.map { |node| node['jobs'] }
         disks = machines.map { |node| node['disk'] }
