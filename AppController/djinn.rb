@@ -3797,7 +3797,7 @@ class Djinn
 
     machines = JSON.load(@options["ips"])
     appengine_info = spawn_appengine(machines)
-    Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}")
+    Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}.")
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
