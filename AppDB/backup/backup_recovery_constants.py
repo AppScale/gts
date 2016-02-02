@@ -37,7 +37,7 @@ TMP_ZOOKEEPER_BACKUP = "{0}/zookeeper_backup".format(
   BACKUP_DIR_LOCATION)
 
 # Zookeeper paths that are not considered while taking a backup.
-ZK_IGNORE_PATHS = ['/appcontroller', '/deployment_id', '/zookeeper']
+ZK_IGNORE_PATHS = ['/appcontroller', '/appscale/deployment_id', '/zookeeper']
 
 # Zookeeper top level path.
 ZK_TOP_LEVEL = "/"

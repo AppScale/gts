@@ -66,8 +66,8 @@ module Nginx
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    start_cmd = "#{NGINX_BIN} -c #{MAIN_CONFIG_FILE}"
-    stop_cmd = "#{NGINX_BIN} -s stop"
+    start_cmd = '/usr/bin/service nginx start'
+    stop_cmd = '/usr/bin/service nginx stop'
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
@@ -84,26 +84,18 @@ module Nginx
     `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
   end
 
-  # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload()
-    if Nginx.is_running?
-      HelperFunctions.shell("#{NGINX_BIN} -s reload")
-      if $?.to_i != 0
-        cleanup_failed_nginx()
-        Nginx.start()
-      end
-    else
-      Nginx.start()
+    Djinn.log_info("Reloading nginx service.")
+    HelperFunctions.shell('service nginx reload')
+    if $?.to_i != 0
+      cleanup_failed_nginx()
     end
   end
 
-  def self.is_running?
-    processes = `ps ax | grep nginx | grep worker | grep -v grep | wc -l`.chomp
-    if processes == "0"
-      return false
-    else
-      return true
-    end
+  def self.is_running?()
+    output = MonitInterface.is_running?(:nginx)
+    Djinn.log_debug("Checking if nginx is already monitored: #{output}")
+    return output
   end
 
   # The port that nginx will be listen on for the given app number
@@ -521,13 +513,12 @@ CONFIG
 
   # Removes all the enabled sites
   def self.clear_sites_enabled()
-    if File.exists?(SITES_ENABLED_PATH)
+    if File.directory?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
       # Remove any files that are not configs
       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
       FileUtils.rm_f full_path_sites
-
       Nginx.reload()
     end
   end
@@ -625,7 +616,6 @@ CONFIG
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
-
   end
 
   # Creates an Nginx configuration file for the Users/Apps soap server.
@@ -684,6 +674,8 @@ server {
 CONFIG
     config_path = File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+
+    HAProxy.regenerate_config
   end
 
   # A generic function for creating nginx config files used by appscale services
@@ -790,7 +782,7 @@ user www-data;
 worker_processes  1;
 
 error_log  /var/log/nginx/error.log;
-pid        /var/run/nginx.pid;
+pid        /run/nginx.pid;
 
 events {
     worker_connections  30000;
@@ -836,5 +828,10 @@ CONFIG
     end
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
+
+    # The pid file location was changed in the default nginx config for
+    # Trusty. Because of this, the first reload after writing the new config
+    # will fail on Precise.
+    HelperFunctions.shell('service nginx restart')
   end
 end

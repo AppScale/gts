@@ -178,12 +178,24 @@ EC2_HOME: /usr/local/ec2-api-tools
 JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
 EOF
     mkdir -pv /var/log/appscale
+    # Allow rsyslog to write to appscale log directory.
+    chgrp adm /var/log/appscale
+    chmod g+rwx /var/log/appscale
+
     mkdir -pv /var/appscale/
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
         cp ${APPSCALE_HOME}/lib/templates/appscale-logrotate.conf /etc/logrotate.d/appscale
     fi
+
+    # Logrotate AppScale logs hourly.
+    LOGROTATE_HOURLY=/etc/cron.hourly/logrotate-hourly
+    cat <<EOF | tee $LOGROTATE_HOURLY
+#!/bin/sh
+/usr/sbin/logrotate /etc/logrotate.d/appscale
+EOF
+    chmod +x $LOGROTATE_HOURLY
 }
 
 installthrift()
@@ -295,7 +307,7 @@ installsolr()
     mkdir -p ${APPSCALE_HOME}/SearchService/solr
     cd ${APPSCALE_HOME}/SearchService/solr
     rm -rfv solr
-    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
+    curl ${CURL_OPTS} -o solr-${SOLR_VER}.tgz $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
     tar zxvf solr-${SOLR_VER}.tgz
     mv -v solr-${SOLR_VER} solr
     rm -fv solr-${SOLR_VER}.tgz
@@ -309,7 +321,7 @@ installcassandra()
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
-    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    curl ${CURL_OPTS} -o apache-cassandra-${CASSANDRA_VER}-bin.tar.gz $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
@@ -326,7 +338,7 @@ installcassandra()
     pipwrapper  pycassa
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
-    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    curl ${CURL_OPTS} -o jamm-0.2.2.jar $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
@@ -368,7 +380,7 @@ installpythonmemcache()
 
         mkdir -pv ${APPSCALE_HOME}/downloads
         cd ${APPSCALE_HOME}/downloads
-        wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+        curl ${CURL_OPTS} -o python-memcached-${VERSION}.tar.gz $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
         tar zxvf python-memcached-${VERSION}.tar.gz
         cd python-memcached-${VERSION}
         python setup.py install
@@ -382,7 +394,7 @@ installzookeeper()
 {
     if [ "$DIST" = "precise" ]; then
         ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-        wget ${WGET_OPTS} -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+        curl ${CURL_OPTS} -o /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
         dpkg -i /tmp/${ZK_REPO_PKG}
         apt-get update
         apt-get install -y zookeeper-server

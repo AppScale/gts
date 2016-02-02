@@ -3,13 +3,7 @@
 
 import imp
 import os
-import socket
-import string
 import sys
-import threading
-import types
-
-import dbconstants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import constants
@@ -31,12 +25,19 @@ class DatastoreFactory:
     datastore = None
     mod_path = DATASTORE_DIR + "/" + d_type + "/" + d_type + "_interface.py"
 
-    if os.path.exists(mod_path):
-      sys.path.append(DATASTORE_DIR + "/" + d_type)
-      d_mod = imp.load_source(d_type+"_interface.py", mod_path)
+    if not os.path.exists(mod_path):
+      raise Exception('{} does not exist'.format(mod_path))
+
+    sys.path.append(DATASTORE_DIR + "/" + d_type)
+    module_name = '{}_interface'.format(d_type)
+    handle, path, description = imp.find_module(module_name)
+
+    try:
+      d_mod = imp.load_module(module_name, handle, path, description)
       datastore = d_mod.DatastoreProxy()
-    else:
-      raise Exception("Fail to use datastore: %s" % d_type)
+    finally:
+      if handle:
+        handle.close()
 
     return datastore
 

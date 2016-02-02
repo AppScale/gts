@@ -1,5 +1,5 @@
 $:.unshift File.join(File.dirname(__FILE__), "lib")
-APPSCALE_HOME = ENV['APPSCALE_HOME']
+APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 module TerminateHelper
 
@@ -9,8 +9,7 @@ module TerminateHelper
   # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
   def self.erase_appscale_state
-    `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
-    `rm -f #{APPSCALE_HOME}/.appscale/database_info`
+    `rm -f #{APPSCALE_CONFIG_DIR}/secret.key`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`
@@ -18,11 +17,11 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
     `service monit restart`
-    `rm -f /etc/appscale/port-*.txt`
-    `rm -f /etc/appscale/search_ip`
+    `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
+    `rm -f #{APPSCALE_CONFIG_DIR}/search_ip`
 
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
-    `rm -rf /etc/appscale/zookeeper_locations.json`
+    `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
     `rm -f /opt/appscale/appcontroller-state.json`
     `rm -f /opt/appscale/appserver-state.json`
   end
@@ -37,7 +36,7 @@ module TerminateHelper
     # TODO: It may be wise to save the apps for when AppScale starts up
     # later.
     `rm -rf /var/apps/`
-    `rm -rf #{APPSCALE_HOME}/.appscale/*.pid`
+    `rm -rf #{APPSCALE_CONFIG_DIR}/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
   end

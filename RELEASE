@@ -1,9 +1,26 @@
     ___                _____            __    
-   /   |  ____  ____  / ___/_________ _/ /___ 
+   /   |  ____  ____  / ___/_________  / /___ 
   / /| | / __ \/ __ \ \__ \/ ___/ __ `/ // _ \
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 2.6.0, released December, 2015
+Highlights of features/bugs in this release:
+- Fixed bug that was preventing large blob uploads for Java apps
+- Avoid unnecessary data decoding when reading from the Datastore
+- Configure Monit on the server side
+- Better handling of crash logs on the Tools side
+- Better handling of health checks when overriden by the app
+- AppScale build in Docker container
+- Fixed race condition when allocating application ports
+- Faststart ability on all supported infrastructures
+- Java SDK upgrade to 1.8.4
+- Fixed bug with quotes for Java cron jobs
+- Limited the number of Zookeeper logs
+- Fixed permissions when untarring app code
+- Fixed bug in Groomer Monit configuration
+- Various Recovery improvements
+
 AppScale version 2.5.0, released November, 2015
 Highlights of features/bugs in this release:
 - Misc AppController fixes related to port collisions

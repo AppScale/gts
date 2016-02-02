@@ -1107,6 +1107,8 @@ class ZKTransaction:
     """ Marks the given transaction as failed, invalidating its use by future
     callers.
 
+    This function also cleans up successful transactions that have expired.
+
     Args:
       app_id: The application ID whose transaction we wish to invalidate.
       txid: An int representing the transaction ID we wish to invalidate.
@@ -1130,7 +1132,7 @@ class ZKTransaction:
     except kazoo.exceptions.NoNodeError:
       # There is no need to rollback because there is no lock.
       logging.debug("There is no lock for transaction {0}.".format(txid))
-      return True
+      pass
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.exception(zoo_exception)
       return False
@@ -1198,7 +1200,7 @@ class ZKTransaction:
         except kazoo.exceptions.NoNodeError:
           logging.error("No node error when trying to remove {0}".format(txid))
 
-      logging.error("Notify failed transaction removing lock: {0}".\
+      logging.debug("Notify failed transaction removing lock: {0}".\
         format(txpath))
       self.run_with_retry(self.handle.delete, txpath)
 

@@ -4,6 +4,7 @@
 import datetime
 import hashlib
 import logging
+import os
 import re
 import tempfile
 import time
@@ -25,6 +26,15 @@ class AppHelperException(Exception):
   """ A special Exception class that should be thrown if a SOAP call to the
   AppController or UserAppServer failed, or returned malformed data. """
   pass
+
+
+class AppUploadStatuses(object):
+  """ A class containing the possible values that the AppController can return
+  when checking the status of an upload.
+  """
+  ID_NOT_FOUND = 'Reservation ID not found.'
+  STARTING = 'starting'
+  COMPLETE = 'true'
 
 
 class AppDashboardHelper(object):
@@ -121,11 +131,6 @@ class AppDashboardHelper(object):
   # whether or not we still need these tokens, and remove them if we don't.
   TOKEN_EXPIRATION = "20121231120000"
 
-
-  # A str that the AppController returns if we check the status of an uploaded
-  # app that the AppController has no information about.
-  ID_NOT_FOUND = "Reservation ID not found."
-
   # Indicates whether or not to use Shibboleth for authentication.
   # Note: If you decide to use Shibboleth, make sure to modify firewall.conf
   # to only allow connections to the dashboard from the Shibboleth connector.
@@ -146,6 +151,9 @@ class AppDashboardHelper(object):
   # the user to close their browser in order to clear the cookie set by the
   # shibboleth IdP.
   SHIBBOLETH_LOGOUT_URL = SHIBBOLETH_CONNECTOR + '/Shibboleth.sso/Logout'
+
+  # The time in seconds to wait before re-checking the app upload status.
+  APP_UPLOAD_CHECK_INTERVAL = 1
 
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
@@ -355,28 +363,28 @@ class AppDashboardHelper(object):
     try:
       self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
+      acc = self.get_appcontroller_client()
       tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
       tgz_file.close()
-      name = tgz_file.name
-      acc = self.get_appcontroller_client()
-      upload_info = acc.upload_app(name, file_suffix, user.email())
-      if upload_info['status'] == "starting":
-        while True:
-          status = acc.get_app_upload_status(upload_info['reservation_id'])
-          if status == "starting":
-            time.sleep(1)
-          elif status == self.ID_NOT_FOUND:
-            raise AppHelperException("We could not find the reservation ID for "
-              "your app. Please try uploading it again.")
-          else:
-            if status == "true":
-              return "Application uploaded successfully. Please wait for the " \
-                "application to start running."
-            else:
-              raise AppHelperException(status)
-      else:
-        raise AppHelperException(upload_info['status'])
+      upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
+      status = upload_info['status']
+
+      while status == AppUploadStatuses.STARTING:
+        time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
+        status = acc.get_app_upload_status(upload_info['reservation_id'])
+        if status == AppUploadStatuses.ID_NOT_FOUND:
+          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
+          raise AppHelperException('We could not find the reservation ID '
+            'for your app. Please try uploading it again.')
+        if status == AppUploadStatuses.COMPLETE:
+          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
+          return 'Application uploaded successfully. Please wait for the '\
+            'application to start running.'
+      os.remove('{}.{}'.format(tgz_file.name, file_suffix))
+      raise AppHelperException('Saw status {} when trying to upload app.'
+        .format(status))
+
     except Exception as err:
       logging.exception(err)
 
