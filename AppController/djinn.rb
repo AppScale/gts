@@ -2560,6 +2560,9 @@ class Djinn
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+    # If this function is called twice, ensure there are no duplicate values.
+    @app_info_map[app_id]['appengine'].uniq!()
+
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
 
