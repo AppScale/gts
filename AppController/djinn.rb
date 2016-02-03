@@ -718,7 +718,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       begin
         uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
-        uac.add_instance(appid, my_public, http_port)
+        uac.add_instance(appid, my_public, "#{http_port}-#{https_port}")
       rescue FailedNodeException
         Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
           "not have been relocated.")
@@ -4559,6 +4559,25 @@ HOSTS
         begin
           if uac.does_app_exist?(app)
             Djinn.log_debug("App #{app} is enabled, so restoring it")
+
+            # We query the UserAppServer looking for application data, in
+            # particular ports and language.
+            app_data = uac.get_app_data(app)
+            app_language = (app_data.scan(/language:(\w+)/).*"").to_s
+            app_ports = ((app_data.scan(/ports:[ ](\w+-\w+)/).*"").to_s).split('-')
+            Djinn.log_info("Restoring app #{app} with ports #{app_ports}.")
+            if @app_info_map[app].nil?
+              @app_info_map[app] = {}
+            end
+            if not app_language.nil?
+              @app_info_map[app]['language'] = app_language
+            end
+            if not app_ports[0].nil?
+              @app_info_map[app]['nginx'] = app_ports[0]
+            end
+            if not app_ports[1].nil?
+              @app_info_map[app]['nginx_https'] = app_ports[1]
+            end
             @app_names = @app_names + [app]
           else
             Djinn.log_debug("App #{app} is not enabled, moving on")
@@ -4626,7 +4645,7 @@ HOSTS
       rescue FailedNodeException
         # Failed to talk to the UserAppServer: let's try again.
       end
-      Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+      Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
       Kernel.sleep(SMALL_WAIT)
     }
 
@@ -4635,8 +4654,8 @@ HOSTS
 
     if @app_info_map[app].nil?
       @app_info_map[app] = {}
-      @app_info_map[app]['language'] = app_language
     end
+    @app_info_map[app]['language'] = app_language
 
     # Delete old version of the app if it's a start or restart.
     app_dir = "/var/apps/#{app}/app"
@@ -4672,6 +4691,8 @@ HOSTS
     # issue.
     if state == "new"
       nginx_app_port = find_lowest_free_port(Nginx::START_PORT, Nginx::END_PORT)
+      nginx_app_https = find_lowest_free_port(Nginx.get_ssl_port_for_app(Nginx::START_PORT),
+        Nginx.get_ssl_port_for_app(Nginx::END_PORT))
       haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
       if nginx_app_port < 0 or haproxy_app_port < 0
         Djinn.log_error("Cannot find an available port for application #{app}")
@@ -4682,9 +4703,12 @@ HOSTS
 
       if @app_info_map[app]['nginx'].nil?
         @app_info_map[app]['nginx'] = nginx_app_port
+      end
+      if @app_info_map[app]['nginx_https'].nil?
+        @app_info_map[app]['nginx_https'] = nginx_app_https
+      end
+      if @app_info_map[app]['haproxy'].nil?
         @app_info_map[app]['haproxy'] = haproxy_app_port
-        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(
-          @app_info_map[app]['nginx'])
       end
 
       @app_info_map[app]['appengine'] = []
@@ -4864,7 +4888,7 @@ HOSTS
       loop {
         Kernel.sleep(SMALL_WAIT)
         begin
-          success = uac.add_instance(app, my_public, nginx_port)
+          success = uac.add_instance(app, my_public, "#{nginx_port}-#{https_port}")
           Djinn.log_debug("Add instance returned #{success}")
           if success
             # tell ZK that we are hosting the app in case we die, so that
@@ -5317,7 +5341,7 @@ HOSTS
       return
     end
 
-    Djinn.log_debug("Get app data for #{app}")
+    Djinn.log_debug("Got app data for #{app}: #{app_data}")
 
     begin
       app_is_enabled = uac.does_app_exist?(app)

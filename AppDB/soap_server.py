@@ -654,7 +654,7 @@ def delete_instance(appname, host, port, secret):
     return "Error: bad number of hosts to ports"
 
   for kk in range(0, len(hosts)):
-    if str(hosts[kk]) == str(host) and str(ports[kk]) == str(port):
+    if str(hosts[kk]) == str(host):
       del hosts[kk]
       del ports[kk]
 
