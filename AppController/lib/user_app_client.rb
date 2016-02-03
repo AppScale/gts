@@ -28,14 +28,16 @@ class UserAppClient
   def initialize(ip, secret)
     @ip = ip
     @secret = secret
-    
+
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
     @conn.add_method("commit_new_app", "user", "appname", "language", "secret")
     @conn.add_method("commit_tar", "app_name", "tar", "secret")
-    @conn.add_method("delete_app", "appname", "secret")    
+    @conn.add_method("delete_app", "appname", "secret")
+    @conn.add_method("does_app_exist", "appname", "secret")
+    @conn.add_method("enable_app", "appname", "secret")
     @conn.add_method("is_app_enabled", "appname", "secret")
     @conn.add_method("is_user_cloud_admin", "username", "secret")
     @conn.add_method("does_user_exist", "username", "secret")
@@ -95,12 +97,12 @@ class UserAppClient
     end
     return result
   end
-  
+
   def commit_new_app(user, app_name, language, file_location)
     commit_new_app_name(user, app_name, language)
     commit_tar(app_name, file_location)
   end
-  
+
   def commit_new_app_name(user, app_name, language, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "commit_new_app_name") {
@@ -119,16 +121,16 @@ class UserAppClient
       puts "[unexpected] Commit new app says: [#{result}]"
     end
   end
-  
+
   def commit_tar(app_name, file_location, retry_on_except=true)
     file = File.open(file_location, "rb")
     tar_contents = Base64.encode64(file.read)
-    
+
     result = ""
     make_call(DS_MIN_TIMEOUT * 25, retry_on_except, "commit_tar") {
       result = @conn.commit_tar(app_name, tar_contents, @secret)
     }
- 
+
     if result == "true"
       puts "#{app_name} was uploaded successfully."
     elsif result == "Error: app does not exist"
@@ -139,13 +141,13 @@ class UserAppClient
       puts "[unexpected] Commit new tar says: [#{result}]"
     end
   end
-  
+
   def change_password(user, new_password, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "change_password") {
       result = @conn.change_password(user, new_password, @secret)
     }
-        
+
     if result == "true"
       puts "We successfully changed the password for the given user."
     elsif result == "Error: user not found"
@@ -160,34 +162,60 @@ class UserAppClient
     make_call(DS_MIN_TIMEOUT, retry_on_except, "delete_app") {
       result = @conn.delete_app(app, @secret)
     }
-    
+
     if result == "true"
       return true
     else
       return result
-    end  
+    end
   end
 
   def does_app_exist?(app, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "does_app_exist") {
-      result = @conn.is_app_enabled(app, @secret)
+      result = @conn.does_app_exist(app, @secret)
     }
-    
+
     if result == "true"
       return true
     else
       return false
     end
   end
-  
+
+  def is_app_enabled?(app, retry_on_except=true)
+    result = ""
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "is_app_enabled") {
+      result = @conn.is_app_enabled(app, @secret)
+    }
+
+    if result == "true"
+      return true
+    else
+      return false
+    end
+  end
+
   def does_user_exist?(user, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "does_user_exist") {
       result = @conn.does_user_exist(user, @secret)
     }
-    
+
     return result
+  end
+
+  def enable_app(app, retry_on_except=true)
+    result = ""
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "delete_app") {
+      result = @conn.delete_app(app, @secret)
+    }
+
+    if result == "true"
+      return true
+    else
+      return result
+    end
   end
 
   def get_user_data(username, retry_on_except=true)
@@ -273,14 +301,14 @@ class UserAppClient
     make_call(DS_MIN_TIMEOUT, retry_on_except, "is_user_cloud_admin") {
       result = @conn.is_user_cloud_admin(user, @secret)
     }
-   
+
     if result == "true"
       return true
     else
       return false
     end
   end
- 
+
   # This method returns an array of strings, each corresponding to a
   # ip:port that the given app is hosted at.
   def get_hosts_for_app(appname)
