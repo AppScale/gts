@@ -81,7 +81,7 @@ class AppControllerClient
     @conn.add_method("add_role", "new_role", "secret")
     @conn.add_method("remove_role", "old_role", "secret")
     @conn.add_method("get_queues_in_use", "secret")
-    @conn.add_method("add_appserver_to_haproxy", "app_id", "ip", "port",
+    @conn.add_method("add_routing_for_appserver", "app_id", "ip", "port",
       "secret")
     @conn.add_method("remove_appserver_from_haproxy", "app_id", "ip", "port",
       "secret")
@@ -240,7 +240,7 @@ class AppControllerClient
     }
   end
 
-  # Tells an AppController to route HAProxy traffic to the given location.
+  # Tells the head node to route traffic to an AppServer.
   #
   # Args:
   #   app_id: A String that identifies the application that runs the new
@@ -250,9 +250,9 @@ class AppControllerClient
   #   port: A Fixnum that identifies the port where the new AppServer runs at
   #     ip.
   #   secret: A String that is used to authenticate the caller.
-  def add_appserver_to_haproxy(app_id, ip, port)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_to_haproxy") {
-      @conn.add_appserver_to_haproxy(app_id, ip, port, @secret)
+  def add_routing_for_appserver(app_id, ip, port)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_routing_for_appserver") {
+      @conn.add_routing_for_appserver(app_id, ip, port, @secret)
     }
   end
 

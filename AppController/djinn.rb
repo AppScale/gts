@@ -666,10 +666,10 @@ class Djinn
     # We need to check if http_port and https_port are already in use by
     # another application, so we do that with find_lowest_free_port and we
     # fix the range to the single port.
-    if find_lowest_free_port(http_port, http_port, appid) == -1
+    if find_lowest_free_port(http_port, http_port, appid) < 0
       return "Error: requested http port is already in use."
     end
-    if find_lowest_free_port(https_port, https_port, appid) == -1
+    if find_lowest_free_port(https_port, https_port, appid) < 0
       return "Error: requested https port is already in use."
     end
 
@@ -2521,11 +2521,11 @@ class Djinn
   end
 
 
-  # Instructs HAProxy to begin routing traffic for the named application to
-  # a new AppServer, at the given location.
+  # Instructs Nginx and HAProxy to begin routing traffic for the named
+  # application to a new AppServer.
   #
   # This method should be called at the AppController running the login role,
-  # as it is the only node that runs haproxy.
+  # as it is the node that receives application traffic from the outside.
   #
   # Args:
   #   app_id: A String that identifies the application that runs the new
@@ -2544,7 +2544,7 @@ class Djinn
   #     add AppServers to HAProxy config files).
   #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
   #     it and nginx yet. Callers should retry at a later time.
-  def add_appserver_to_haproxy(app_id, ip, port, secret)
+  def add_routing_for_appserver(app_id, ip, port, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
@@ -2559,8 +2559,39 @@ class Djinn
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+    # If this function is called twice, ensure there are no duplicate values.
+    @app_info_map[app_id]['appengine'].uniq!()
+
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
+
+    unless Nginx.is_app_already_configured(app_id)
+      # Get static handlers and make sure cache path is readable.
+      begin
+        static_handlers = HelperFunctions.parse_static_data(app_id)
+        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app_id)}")
+      rescue => e
+        # This specific exception may be a JSON parse error.
+        error_msg = "ERROR: Unable to parse app.yaml file for #{app_id}. "\
+          "Exception of #{e.class} with message #{e.message}"
+        place_error_app(app_id, error_msg, @app_info_map[app_id]['language'])
+        static_handlers = []
+      end
+
+      # Make sure the Nginx port is opened after HAProxy is configured.
+      Nginx.write_fullproxy_app_config(
+        app_id,
+        @app_info_map[app_id]['nginx'],
+        @app_info_map[app_id]['nginx_https'],
+        my_node.public_ip,
+        my_node.private_ip,
+        @app_info_map[app_id]['haproxy'],
+        static_handlers,
+        get_login.private_ip,
+        @app_info_map[app_id]['language']
+      )
+      Djinn.log_info("Done setting full proxy for #{app_id}.")
+    end
 
     return "OK"
   end
@@ -4783,30 +4814,32 @@ HOSTS
           xmpp_ip = get_login.public_ip
 
           begin
-            pid = app_manager.start_app(app, appengine_port,
+            pid = Integer(app_manager.start_app(app, appengine_port,
               get_load_balancer_ip(), app_language, xmpp_ip,
               HelperFunctions.get_app_env_vars(app),
-              Integer(@options['max_memory']), get_login.private_ip)
-          rescue FailedNodeException
-            Djinn.log_warn("Failed to talk to AppManager to start #{app}.")
+              Integer(@options['max_memory']), get_login.private_ip))
+          rescue FailedNodeException, ArgumentError => error
+            Djinn.log_warn("#{error.class} encountered while starting #{app} "\
+              "with AppManager: #{error.message}")
             pid = -1
           end
-          if pid == -1
+          if pid < 0
             # Something went wrong: inform the user and move on.
             Djinn.log_warn("Something went wrong starting appserver for" +
               " #{app}: check logs and running processes.")
             next
           end
 
-          # Tell the AppController at the login node (which runs HAProxy) that a
-          # new AppServer is running.
+          # Tell the AppController at the login node that a new AppServer is
+          # running.
           acc = AppControllerClient.new(get_login.private_ip, @@secret)
           loop {
             begin
-              result = acc.add_appserver_to_haproxy(app, my_node.private_ip,
+              result = acc.add_routing_for_appserver(app, my_node.private_ip,
                 appengine_port)
-            rescue FailedNodeException
-              Djinn.log_warn("Need to retry adding appserver to haproxy for #{app}.")
+            rescue FailedNodeException => error
+              Djinn.log_warn("Failed to add routing for #{app}: "\
+                "#{error.message}.")
               result = NOT_READY
             end
             if result == NOT_READY
@@ -4820,17 +4853,17 @@ HOSTS
             end
           }
 
-          # At this point we are done adding a single appserver. The
+          # At this point we are done adding a single AppServer. The
           # remainder of this function relates only to start or restart
-          # where some stichting on the front-end is needed, so we can
+          # where some stitching on the front-end is needed, so we can
           # return.
           if state == "add_appserver"
-            Djinn.log_info("Done adding appserver for #{app}")
+            Djinn.log_info("Done adding AppServer for #{app}.")
             return
           end
         }
-        # now doing this at the real end so that the tools will
-        # wait for the app to actually be running before returning
+
+        # Add an application entry to ZooKeeper.
         done_uploading(app, app_path, @@secret)
       else
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
@@ -4845,26 +4878,7 @@ HOSTS
       Djinn.log_info("Done setting appserver for #{app}")
     end
 
-    # We only need a new full proxy config file for new apps, on the machine
-    # that runs the login service (but not in a one node deploy, where we don't
-    # do a full proxy config).
-    login_ip = get_login.private_ip
     if my_node.is_login?
-      begin
-        static_handlers = HelperFunctions.parse_static_data(app)
-        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
-      rescue Exception => e
-        # This specific exception may be a json parse error
-        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-          "Exception of #{e.class} with message #{e.message}"
-        place_error_app(app, error_msg, app_language)
-        static_handlers = []
-      end
-
-      Nginx.write_fullproxy_app_config(app, nginx_port, https_port, my_public,
-        my_private, proxy_port, static_handlers, login_ip,
-        @app_info_map[app]['language'])
-
       loop {
         Kernel.sleep(SMALL_WAIT)
         begin
@@ -5257,8 +5271,8 @@ HOSTS
     # algorithms could be implemented, but without clear directives (ie
     # decide on cpu, or memory, or number of CPU available, or avg load
     # etc...) any static strategy is flawed, so we go for simplicity.
-    scapegoat = rand(@app_info_map[app_name]['appengine'].length)
-    appserver_to_use, port  = @app_info_map[app_name]['appengine'][scapegoat].split(":")
+    scapegoat = @app_info_map[app_name]['appengine'].sample()
+    appserver_to_use, port = scapegoat.split(":")
     Djinn.log_info("Removing an appserver from #{appserver_to_use} for #{app_name}")
 
     if appserver_to_use == my_node.private_ip
