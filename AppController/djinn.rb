@@ -5256,8 +5256,8 @@ HOSTS
     # algorithms could be implemented, but without clear directives (ie
     # decide on cpu, or memory, or number of CPU available, or avg load
     # etc...) any static strategy is flawed, so we go for simplicity.
-    scapegoat = rand(@app_info_map[app_name]['appengine'].length)
-    appserver_to_use, port  = @app_info_map[app_name]['appengine'][scapegoat].split(":")
+    scapegoat = @app_info_map[app_name]['appengine'].sample()
+    appserver_to_use, port = scapegoat.split(":")
     Djinn.log_info("Removing an appserver from #{appserver_to_use} for #{app_name}")
 
     if appserver_to_use == my_node.private_ip
