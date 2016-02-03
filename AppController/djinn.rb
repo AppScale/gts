@@ -2588,7 +2588,7 @@ class Djinn
         get_login.private_ip,
         @app_info_map[app_id]['language']
       )
-      Djinn.log_info("Done setting full proxy for application #{app}.")
+      Djinn.log_info("Done setting full proxy for #{app_id}.")
     end
 
     return "OK"
