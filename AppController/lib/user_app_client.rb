@@ -207,8 +207,8 @@ class UserAppClient
 
   def enable_app(app, retry_on_except=true)
     result = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "delete_app") {
-      result = @conn.delete_app(app, @secret)
+    make_call(DS_MIN_TIMEOUT, retry_on_except, "enable_app") {
+      result = @conn.enable_app(app, @secret)
     }
 
     if result == "true"
