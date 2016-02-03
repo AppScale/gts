@@ -2708,7 +2708,7 @@ class Djinn
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
-  #   a boolean to indicate if we were able to restore the state from
+  #   A boolean to indicate if we were able to restore the state from
   #   either zookeeper of the local disk.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state")
