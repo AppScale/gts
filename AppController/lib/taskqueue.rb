@@ -228,7 +228,8 @@ module TaskQueue
   #   flower_password: A String that is used as the password to log into flower.
   def self.start_flower(flower_password)
     start_cmd = "/usr/local/bin/flower --basic_auth=appscale:#{flower_password}"
-    stop_cmd = "/bin/ps ax | /bin/grep flower | /bin/grep -v grep | /usr/bin/awk '{print $1}' | xargs kill -9"
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "flower #{flower_password}"
     MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
   end
 
