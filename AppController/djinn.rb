@@ -3477,7 +3477,8 @@ class Djinn
     threads.each { |t| t.join() }
     @done_initializing = true
 
-    # All nodes wait for the UserAppServer now.
+    # All nodes wait for the UserAppServer now. The call here is just to
+    # ensure the UserAppServer is talking to the persistent state.
     configure_uaserver_nginx()
     HelperFunctions.sleep_until_port_is_open(@my_private_ip,
       UserAppClient::SERVER_PORT, USE_SSL)
@@ -3610,7 +3611,7 @@ class Djinn
     Djinn.log_info("All apps are [#{app_list.join(', ')}]")
     app_list.each { |app|
       begin
-        if uac.does_app_exist?(app)
+        if uac.is_app_enabled?(app)
           Djinn.log_debug("App #{app} is enabled, so stopping it.")
           hosts = uac.get_hosts_for_app(app)
           Djinn.log_debug("[Stop appengine] hosts for #{app} is [#{hosts.join(', ')}]")
@@ -4557,7 +4558,7 @@ HOSTS
       end
       app_list.each { |app|
         begin
-          if uac.does_app_exist?(app)
+          if uac.is_app_enabled?(app)
             Djinn.log_debug("App #{app} is enabled, so restoring it")
             @app_names = @app_names + [app]
           else
@@ -4613,13 +4614,16 @@ HOSTS
       initialize_scaling_info_for_app(app)
     end
 
-    # Let's get the application data, and let's check if the application is enabled.
+    # Let's get the application language.
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_language = ""
     loop {
       begin
         app_data = uac.get_app_data(app)
         if app_data[0..4] != "Error"
+          # Let's make sure the application is enabled.
+          result = uac.enable_app(app)
+          Djinn.log_debug("enable_app returned #{result}.")
           app_language = (app_data.scan(/language:(\w+)/).*"").to_s
           break
         end
@@ -5320,7 +5324,7 @@ HOSTS
     Djinn.log_debug("Get app data for #{app}")
 
     begin
-      app_is_enabled = uac.does_app_exist?(app)
+      app_is_enabled = uac.is_app_enabled?(app)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer about " +
         "application #{app}")
