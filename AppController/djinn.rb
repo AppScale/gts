@@ -718,7 +718,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       begin
         uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
-        uac.add_instance(appid, my_public, "#{http_port}-#{https_port}")
+        uac.add_instance(appid, my_public, http_port, https_port)
       rescue FailedNodeException
         Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
           "not have been relocated.")
@@ -4603,7 +4603,7 @@ HOSTS
           Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
 
           app_language = app_data['language']
-          app_ports = [app_data['hosts'].values[0]['http'], app_data['hosts'].values[0]['https']
+          app_ports = [app_data['hosts'].values[0]['http'], app_data['hosts'].values[0]['https']]
           Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_ports}.")
 
           if @app_info_map[app].nil?
@@ -4912,7 +4912,7 @@ HOSTS
       loop {
         Kernel.sleep(SMALL_WAIT)
         begin
-          success = uac.add_instance(app, my_public, "#{nginx_port}-#{https_port}")
+          success = uac.add_instance(app, my_public, nginx_port, https_port)
           Djinn.log_debug("Add instance returned #{success}")
           if success
             # tell ZK that we are hosting the app in case we die, so that

@@ -189,7 +189,7 @@ class Apps:
       ports = self.port_[index].split(PORT_SEPARATOR)
       if len(ports) == 1:
         ports[1] = ''
-      hosts.append({host: {'http': ports[0], 'https': ports[1]})
+      hosts.append({host: {'http': ports[0], 'https': ports[1]}})
 
     response = {
       'hosts': hosts,

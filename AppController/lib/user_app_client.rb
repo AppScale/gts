@@ -281,10 +281,10 @@ class UserAppClient
     return result
   end
 
-  def add_instance(appname, host, port, retry_on_except=true)
+  def add_instance(appname, host, port, https_port, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "add_instance") {
-      result = @conn.add_instance(appname, host, port, @secret)
+      result = @conn.add_instance(appname, host, port, https_port, @secret)
     }
 
     if result == "true"
