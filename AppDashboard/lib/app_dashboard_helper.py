@@ -88,18 +88,6 @@ class AppDashboardHelper(object):
   USER_CAPABILITIES_DELIMITER = ':'
 
 
-  # A regular expression that can be used to find out what port number a Google
-  # App Engine application is bound to from its application data.
-  GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
-
-
-  # A regular expression that can be used to find out how many servers host a
-  # Google App Engine application in this cloud. Typically this is one (since a
-  # full proxy is used to access apps), but historically, it used to be greater
-  # than one (when the full proxy wasn't used).
-  NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
-
-
   # A regular expression that can be used to find out which Google App Engine
   # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
