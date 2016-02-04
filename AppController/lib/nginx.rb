@@ -478,6 +478,22 @@ CONFIG
     return reload_nginx(config_path, app_name)
   end
 
+  # This function checks if Nginx has already configured the specified
+  # application.
+  #
+  # Args:
+  #  app_name: The application to check for.
+  #
+  # Returns:
+  #  bool: true/false depending if the application is already configured.
+  def self.is_app_already_configured(app_name)
+    if app_name != nil
+      return File.exists?(File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}"))
+    end
+
+    return false
+  end
+
   def self.reload_nginx(config_path, app_name)
     if Nginx.check_config()
       Nginx.reload()
