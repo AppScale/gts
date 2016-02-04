@@ -167,8 +167,6 @@ def start_app(config):
   logging.info("Starting %s application %s" % (
     config['language'], config['app_name']))
 
-  start_cmd = ""
-  stop_cmd = ""
   env_vars = config['env_vars']
   env_vars['GOPATH'] = '/root/appscale/AppServer/gopath/'
   env_vars['GOROOT'] = '/root/appscale/AppServer/goroot/'
