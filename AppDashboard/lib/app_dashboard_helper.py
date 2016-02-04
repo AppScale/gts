@@ -321,7 +321,7 @@ class AppDashboardHelper(object):
       app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
       result = json.loads(app_data)
       if result:
-        return int(result['hosts']values()[0]['http'])
+        return int(result['hosts'].values()[0]['http'])
       else:
         raise AppHelperException("Application {0} does not have a port number" \
           " that it runs on.".format(appname))
