@@ -181,7 +181,6 @@ def start_app(config):
       config['app_port'],
       config['load_balancer_ip'],
       config['xmpp_ip'])
-    logging.info(start_cmd)
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
       config['load_balancer_ip'],
