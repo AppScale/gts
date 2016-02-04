@@ -45,7 +45,7 @@ class UserAppClient
     @conn.add_method("get_app_data", "appname", "secret")
     @conn.add_method("delete_instance", "appname", "host", "port", "secret")
     @conn.add_method("get_tar", "app_name", "secret")
-    @conn.add_method("add_instance", "appname", "host", "port", "secret")
+    @conn.add_method("add_instance", "appname", "host", "port", "https_port" "secret")
     @conn.add_method("get_all_apps", "secret")
     @conn.add_method("get_all_users", "secret")
   end

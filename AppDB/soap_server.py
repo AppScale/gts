@@ -184,12 +184,12 @@ class Apps:
     return appstring
 
   def to_json(self):
-    hosts = []
+    hosts = {}
     for index, host in enumerate(self.host_):
       ports = self.port_[index].split(PORT_SEPARATOR)
       if len(ports) == 1:
         ports[1] = ''
-      hosts.append({host: {'http': ports[0], 'https': ports[1]}})
+      hosts[host] = {'http': ports[0], 'https': ports[1]}
 
     response = {
       'hosts': hosts,
