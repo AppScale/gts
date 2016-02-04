@@ -229,6 +229,10 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
+  add_routing(config['app_name'], config['app_port'])
+  logging.info('Successfully established routing for {} on port {}'.
+    format(config['app_name'], config['app_port']))
+
   return 0
 
 def stop_app_instance(app_name, port):
@@ -245,6 +249,9 @@ def stop_app_instance(app_name, port):
     logging.error("Unable to kill app process %s on port %d because of " \
       "invalid name for application" % (app_name, int(port)))
     return False
+
+  logging.info('Removing routing for {} on port {}'.format(app_name, port))
+  remove_routing(app_name, port)
 
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name + "-" + str(port)
