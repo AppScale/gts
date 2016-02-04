@@ -29,8 +29,9 @@ from flexmock import flexmock
 import SOAPpy
 import StringIO
 
-from appcontroller_client import AppControllerClient
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
+from google.appengine.api.appcontroller_client import AppControllerClient
 from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.api import taskqueue
