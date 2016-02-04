@@ -314,22 +314,6 @@ class UserAppClient
     end
   end
 
-  # This method returns an array of strings, each corresponding to a
-  # ip:port that the given app is hosted at.
-  def get_hosts_for_app(appname)
-    app_data = get_app_data(appname)
-    hosts = app_data.scan(/\nhosts:([\d\.|:]+)\n/).flatten.to_s.split(":")
-    ports = app_data.scan(/\nports: ([\d|:]+)\n/).flatten.to_s.split(":")
-
-    host_list = []
-
-    hosts.each_index { |i|
-      host_list << "#{hosts[i]}:#{ports[i]}"
-    }
-
-    return host_list
-  end
-
   # This method finds the first user who is a cloud administrator. Since the
   # UserAppServer doesn't provide a function that does this for us, we have
   # to get a list of all the users that exist and individually query the

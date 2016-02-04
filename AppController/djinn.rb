@@ -3626,39 +3626,16 @@ class Djinn
   end
 
 
-  # Contacts the UserAppServer to get a list of apps that it believes are
-  # running in this AppScale cloud, and instructs it to delete each entry
-  # present.
+  # Delete all apps running on this instance.
   def erase_app_instance_info()
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     begin
-      app_list = uac.get_all_apps()
+      result = uac.delete_all_apps()
+      Djinn.log_info("UserAppServer delete_all_apps returned: #{result}.")
     rescue FailedNodeException
-      Djinn.log_warn("Couldn't call get_all_apps from UserAppServer.")
+      Djinn.log_warn("Couldn't call delete_all_apps from UserAppServer.")
       return
     end
-    my_public = my_node.public_ip
-
-    Djinn.log_info("All apps are [#{app_list.join(', ')}]")
-    app_list.each { |app|
-      begin
-        if uac.is_app_enabled?(app)
-          Djinn.log_debug("App #{app} is enabled, so stopping it.")
-          hosts = uac.get_hosts_for_app(app)
-          Djinn.log_debug("[Stop appengine] hosts for #{app} is [#{hosts.join(', ')}]")
-          hosts.each { |host|
-            Djinn.log_debug("[Stop appengine] deleting instance for app #{app} at #{host}")
-            ip, port = host.split(":")
-            uac.delete_instance(app, ip, port)
-          }
-          Djinn.log_info("Finished deleting instances for app #{app}")
-        else
-          Djinn.log_debug("App #{app} wasnt enabled, skipping it")
-        end
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to the UserAppServer while stopping #{app}.")
-      end
-    }
   end
 
 
