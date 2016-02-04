@@ -1,12 +1,13 @@
-""" This SOAP server is a data access layer over the datastore. It 
+""" This SOAP server is a data access layer over the datastore. It
 presents information about applications and users as SOAP callable
 functions.
 
 """
-#TODO(raj) Rewrite this to use the lastest version of the AppScale 
+#TODO(raj) Rewrite this to use the lastest version of the AppScale
 # datastore API.
 
 import datetime
+import json
 import os
 import re
 import sys
@@ -63,6 +64,9 @@ APPNAME_REGEX = r'^[\d\w\.@-]+$'
 # Different types of valid users created.
 VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 
+# Port separator used to store http and https application ports.
+PORT_SEPARATOR = '-'
+
 class Users:
   attributes_ = USERS_SCHEMA
   def __init__(self, email, password, utype):
@@ -71,7 +75,7 @@ class Users:
     t = datetime.datetime.now()
     self.date_creation_ = str(time.mktime(t.timetuple()))
     self.date_change_ = str(self.date_creation_)
-    self.date_last_login_ = str(self.date_creation_) 
+    self.date_last_login_ = str(self.date_creation_)
     self.applications_ = []
     self.appdrop_rem_token_ = "notSet"
     self.appdrop_rem_token_exp_ = "0"
@@ -85,10 +89,10 @@ class Users:
     self.is_cloud_admin_ = "false"
     self.capabilities_ = ""
     return
-  
+
   def stringit(self):
     userstring = ""
-    userstring += "user_email:" + str(self.email_) + "\n" 
+    userstring += "user_email:" + str(self.email_) + "\n"
     userstring += "password:" + str(self.pw_) + "\n"
     userstring += "num_apps:" + str(len(self.applications_)) + "\n"
     userstring += "applications:" + ':'.join(self.applications_) + "\n"
@@ -120,18 +124,18 @@ class Users:
       else:
         array.append(str(getattr(self, ii+ "_")));
 
-    return array 
-   
+    return array
+
   def unpackit(self, array):
     for ii in range(0,len(array)):
       setattr(self, Users.attributes_[ii] + "_", array[ii])
-    
+
     # convert from string to list
     if self.applications_:
       self.applications_ = self.applications_.split(':')
     else:
       self.applications_ = []
-  
+
     return "true"
 
 class Apps:
@@ -157,7 +161,7 @@ class Apps:
     self.classes_ = []
     self.indexes_ = "0"
     return
-  
+
   def stringit(self):
     appstring = ""
     appstring += "app_name:" + str(self.name_) + "\n"
@@ -178,10 +182,25 @@ class Apps:
     appstring += "classes:" + ':'.join(self.classes_) + "\n"
     appstring += "indexes:" + str(self.indexes_) + "\n"
     return appstring
-  
+
+  def to_json(self):
+    hosts = []
+    for index, host in enumerate(self.host_):
+      ports = self.port_[index].split(PORT_SEPARATOR)
+      if len(ports) == 1:
+        ports[1] = ''
+      hosts.append({host: {'http': ports[0], 'https': ports[1]})
+
+    response = {
+      'hosts': hosts,
+      'language': self.language_,
+      'owner': self.owner_,
+    }
+    return json.dumps(response)
+
   def checksum(self):
     return "true"
-  
+
   def arrayit(self):
     array = []
     # order must match self.attributes
@@ -192,12 +211,12 @@ class Apps:
       else:
         array.append(str(getattr(self, ii+ "_")));
 
-    return array 
-  
+    return array
+
   def unpackit(self, array):
     for ii in range(0,len(array)):
       setattr(self, Apps.attributes_[ii] + "_", array[ii])
-    
+
     # convert to different types
     if self.admins_list_:
       self.admins_list_ = self.admins_list_.split(':')
@@ -211,9 +230,9 @@ class Apps:
 
     if self.port_:
       self.port_ = self.port_.split(':')
-    else: 
+    else:
       self.port_ = []
-     
+
     if self.classes_:
       self.classes_ = self.classes_.split(':')
     else:
@@ -227,9 +246,9 @@ def does_user_exist(username, secret):
     return "Error: bad secret"
   result = db.get_entity(USER_TABLE, username, ["email"])
   if result[0] in ERROR_CODES and len(result) == 2:
-    return "true" 
+    return "true"
   else:
-    return "false"    
+    return "false"
 
 def does_app_exist(appname, secret):
   global db
@@ -240,7 +259,7 @@ def does_app_exist(appname, secret):
   if result[0] in ERROR_CODES and len(result) == 2:
     return "true"
   else:
-    return "false"    
+    return "false"
 
 def get_user_apps(username, secret):
   global db
@@ -249,9 +268,9 @@ def get_user_apps(username, secret):
     return "Error: bad secret"
   result = db.get_entity(USER_TABLE, username, ["applications"])
   if result[0] in ERROR_CODES and len(result) == 2:
-    return result[1] 
+    return result[1]
   else:
-    error = "Error: user not found"  
+    error = "Error: user not found"
     return error
 
 def get_user_data(username, secret):
@@ -261,7 +280,7 @@ def get_user_data(username, secret):
   if secret != super_secret:
     return "Error: bad secret"
   result = db.get_entity(USER_TABLE, username, user_schema)
-   
+
   if result[0] in ERROR_CODES or len(result) == 1:
     result = result[1:]
   else:
@@ -281,7 +300,7 @@ def get_app_data(appname, secret):
     return "Error: bad secret"
   if not appname or  not secret:
     return "Error: Null appname"
-    
+
   result = db.get_entity(APP_TABLE, appname, app_schema)
 
   if result[0] not in ERROR_CODES or len(result) == 1:
@@ -291,12 +310,12 @@ def get_app_data(appname, secret):
 
   if len(app_schema) != len(result):
     error = "Error: Bad length of app schema vs app result " + str(app_schema) + " vs " + str(result) + " for appname: " + appname
-    return  error 
+    return  error
   app = Apps("a","b", "c")
   app.unpackit(result)
-  return app.stringit()
+  return app.to_json()
 
-def commit_new_user(user, passwd, utype, secret):  
+def commit_new_user(user, passwd, utype, secret):
   global db
   global super_secret
   global user_schema
@@ -308,7 +327,7 @@ def commit_new_user(user, passwd, utype, secret):
   # look for the @ and . in the email
   if user.find("@") == -1 or user.find(".") == -1:
     return error
-  
+
   error = "Error: user already exists"
   ret = does_user_exist(user, secret)
   if ret == "true":
@@ -316,7 +335,7 @@ def commit_new_user(user, passwd, utype, secret):
 
   n_user = Users(user, passwd, utype)
   array = n_user.arrayit()
-  result = db.put_entity(USER_TABLE, user, user_schema, array) 
+  result = db.put_entity(USER_TABLE, user, user_schema, array)
   if result[0] not in ERROR_CODES:
     return "false"
   return "true"
@@ -343,19 +362,19 @@ def add_admin_for_app(user, app, secret):
     return user_result
 
   user_result = user_result[1:]
-  n_user = Users("a", "b", "c") 
+  n_user = Users("a", "b", "c")
   n_user.unpackit(user_result)
   n_user.applications_.append(app)
   t = datetime.datetime.now()
   n_user.date_change_ = str(time.mktime(t.timetuple()))
   array = n_user.arrayit()
 
-  result = db.put_entity(USER_TABLE, user, user_schema, array) 
+  result = db.put_entity(USER_TABLE, user, user_schema, array)
   if result[0] in ERROR_CODES:
     return "true"
-  else: 
+  else:
     return "Error: Unable to update the user."
- 
+
 def commit_new_app(appname, user, language, secret):
   global db
   global user_schema
@@ -380,7 +399,7 @@ def commit_new_app(appname, user, language, secret):
   user_result = db.get_entity(USER_TABLE, user, user_schema)
   if user_result[0] in ERROR_CODES and len(user_result) > 1:
     user_result = user_result[1:]
-    n_user = Users("a", "b", "c") 
+    n_user = Users("a", "b", "c")
     n_user.unpackit(user_result)
     n_user.applications_.append(appname)
     t = datetime.datetime.now()
@@ -388,12 +407,12 @@ def commit_new_app(appname, user, language, secret):
     n_app = Apps(appname, user, language)
     array = n_user.arrayit()
 
-    result = db.put_entity(USER_TABLE, user, user_schema, array) 
+    result = db.put_entity(USER_TABLE, user, user_schema, array)
     if result[0] in ERROR_CODES:
       ret = "true"
-    else: 
-      return "false" 
-    
+    else:
+      return "false"
+
     array = n_app.arrayit()
     result = db.put_entity(APP_TABLE, appname, app_schema, array)
     if result[0] in ERROR_CODES:
@@ -460,21 +479,21 @@ def delete_all_users(secret):
   if result[0] not in ERROR_CODES:
     return "false"
 
-  result = result[1:] 
+  result = result[1:]
   for ii in range(0, (len(result)/len(user_schema))):
     partial = result[(ii * len(user_schema)): ((1 + ii) * len(user_schema))]
     if len(partial) != len(user_schema):
       pass
-    else: 
+    else:
       u = Users("x", "x", "user")
       u.unpackit(partial)
       users.append(u)
   ret = "true"
   for ii in u:
-    result = db.delete_row(USER_TABLE, ii.email_)      
+    result = db.delete_row(USER_TABLE, ii.email_)
     if result[0] not in ERROR_CODES:
       ret = "false"
-  return ret 
+  return ret
 
 def delete_all_apps(secret):
   global db
@@ -487,11 +506,11 @@ def delete_all_apps(secret):
   result = db.get_table(APP_TABLE, ['name'])
   if result[0] not in ERROR_CODES:
     return "false"
-  result = result[1:] 
+  result = result[1:]
   for ii in result:
     if delete_app(ii, secret) == "false":
       ret = "false"
-  return ret 
+  return ret
 
 def get_all_users(secret):
   global db
@@ -504,16 +523,16 @@ def get_all_users(secret):
   result = db.get_table(USER_TABLE, user_schema)
   if result[0] not in ERROR_CODES:
     return "Error:" + result[0]
-  result = result[1:] 
+  result = result[1:]
   for ii in range(0, (len(result)/len(user_schema))):
     partial = result[(ii * len(user_schema)): ((1 + ii) * len(user_schema))]
     if len(partial) != len(user_schema):
       pass
-    else: 
+    else:
       a = Users("x", "x", "user")
       a.unpackit(partial)
       users.append(a)
-  
+
   # this is a placeholder, soap exception happens if returning empty string
   userstring = "____"
   for kk in users:
@@ -531,29 +550,29 @@ def get_all_apps(secret):
   result = db.get_table(APP_TABLE, app_schema)
   if result[0] not in ERROR_CODES:
     return "Error:" + result[0]
-  result = result[1:] 
+  result = result[1:]
   for ii in range(0, (len(result)/len(app_schema))):
     partial = result[(ii * len(app_schema)): ((1 + ii) * len(app_schema))]
     if len(partial) != len(app_schema):
       pass
-    else: 
+    else:
       a = Apps("x", "x", "x")
       a.unpackit(partial)
       apps.append(a)
-  
+
   # this is a placeholder, soap exception happens if returning empty string
   appstring = "____"
   for kk in apps:
     appstring += ":" + kk.name_
   return appstring
 
-def add_instance(appname, host, port, secret):
+def add_instance(appname, host, port, https_port, secret):
   global db
   global super_secret
   global app_schema
   if secret != super_secret:
     return "Error: bad secret"
-  
+
   columns = ["host", "port"]
   result = db.get_entity(APP_TABLE, appname, columns)
   error = result[0]
@@ -561,10 +580,11 @@ def add_instance(appname, host, port, secret):
     return "false"
 
   # We only have one host/port for each app.
-  result = db.put_entity(APP_TABLE, appname, columns, [host, str(port)]) 
+  result = db.put_entity(APP_TABLE, appname, columns, [host,
+    "{}{}{}".format(port, PORT_SEPARATOR, https_port)])
   if result[0] not in ERROR_CODES:
     return "false"
-  return "true" 
+  return "true"
 
 def add_class(appname, classname, namespace, secret):
   global db
@@ -572,7 +592,7 @@ def add_class(appname, classname, namespace, secret):
   global app_schema
   if secret != super_secret:
     return "Error: bad secret"
-  
+
   columns = ["classes"]
   result = db.get_entity(APP_TABLE, appname, columns)
   error = result[0]
@@ -581,7 +601,7 @@ def add_class(appname, classname, namespace, secret):
 
   result = result[1:]
 
-  if result[0]: 
+  if result[0]:
     classes = result[0].split(':')
   else:
     classes = []
@@ -593,10 +613,10 @@ def add_class(appname, classname, namespace, secret):
   classes += [str(classname+"___"+namespace)]
   classes = ':'.join(classes)
 
-  result = db.put_entity(APP_TABLE, appname, columns, [classes]) 
+  result = db.put_entity(APP_TABLE, appname, columns, [classes])
   if result[0] not in ERROR_CODES:
     return "false: Unable to put entity for app"
-  return "true" 
+  return "true"
 
 def delete_app(appname, secret):
   global db
@@ -628,9 +648,9 @@ def delete_app(appname, secret):
   if result[0] not in ERROR_CODES:
     return "Error: unable to clear classes"
 
-  # disabling the app, a type of soft delete 
+  # disabling the app, a type of soft delete
   return disable_app(appname, secret)
-  
+
 def delete_instance(appname, host, port, secret):
   global db
   global super_secret
@@ -648,7 +668,7 @@ def delete_instance(appname, host, port, secret):
   hosts = []
   ports = []
 
-  if result[0]: hosts = result[0].split(':') 
+  if result[0]: hosts = result[0].split(':')
   if result[1]: ports = result[1].split(':')
   if len(hosts) != len(ports):
     return "Error: bad number of hosts to ports"
@@ -661,10 +681,10 @@ def delete_instance(appname, host, port, secret):
   hosts = ':'.join(hosts)
   ports = ':'.join(ports)
 
-  result = db.put_entity(APP_TABLE, appname, ['host', 'port'], [hosts, ports]) 
+  result = db.put_entity(APP_TABLE, appname, ['host', 'port'], [hosts, ports])
   if result[0] not in ERROR_CODES:
     return "false"
-  return ret 
+  return ret
 
 def commit_new_token(user, token, token_exp, secret):
   global db
@@ -675,16 +695,16 @@ def commit_new_token(user, token, token_exp, secret):
   columns = ['appdrop_rem_token', 'appdrop_rem_token_exp']
   result = db.get_entity(USER_TABLE, user, columns)
   if result[0] not in ERROR_CODES or len(result) == 1:
-    return "Error: User does not exist" 
+    return "Error: User does not exist"
 
   result = result[1:]
-  #appdrop_rem_token = result[0] 
-  #appdrop_rem_token_exp = result[1] 
+  #appdrop_rem_token = result[0]
+  #appdrop_rem_token_exp = result[1]
   t = datetime.datetime.now()
   date_change = str(time.mktime(t.timetuple()))
 
   values = [token, token_exp, date_change]
-  columns += ['date_change'] 
+  columns += ['date_change']
 
   result = db.put_entity(USER_TABLE, user, columns, values)
   if result[0] not in ERROR_CODES:
@@ -714,12 +734,12 @@ def get_version(appname, secret):
     return "false"
   result = result[1:]
   return "version: " + result[0] + "\n"
- 
+
 def change_password(user, password, secret):
   global db
   global super_secret
   global user_schema
-  
+
   if secret != super_secret:
     return "Error: bad secret"
 
@@ -781,9 +801,9 @@ def is_app_enabled(appname, secret):
     return "Error: bad secret"
   result = db.get_entity(APP_TABLE, appname, ['enabled'])
   if result[0] not in ERROR_CODES or len(result) != 2:
-    return "false" 
+    return "false"
   return result[1]
- 
+
 def enable_user(user, secret):
   global db
   global super_secret
@@ -844,7 +864,7 @@ def is_user_enabled(user, secret):
     return "Error: bad secret"
   result = db.get_entity(USER_TABLE, user, ['enabled'])
   if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false" 
+    return "false"
   return result[1]
 
 def get_key_block(app_id, block_size, secret):
@@ -918,7 +938,7 @@ def usage():
 if __name__ == "__main__":
   """ Main function for running the server. """
   for ii in range(1, len(sys.argv)):
-    if sys.argv[ii] in ("-h", "--help"): 
+    if sys.argv[ii] in ("-h", "--help"):
       usage()
       sys.exit()
     elif sys.argv[ii] in ('-t', "--type"):

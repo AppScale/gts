@@ -318,9 +318,9 @@ class AppDashboardHelper(object):
     """
     try:
       app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      result = re.search(self.GET_APP_PORTS_REGEX, app_data)
+      result = json.loads(app_data)
       if result:
-        return int(result.group(1))
+        return int(result.values()[0]['http'])
       else:
         raise AppHelperException("Application {0} does not have a port number" \
           " that it runs on.".format(appname))
@@ -437,8 +437,7 @@ class AppDashboardHelper(object):
       True if the app id has been registered, and False otherwise.
     """
     try:
-      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      search_data = re.search(self.GET_APP_PORTS_REGEX, app_data)
+      result = self.get_uaserver().does_app_exists(appname, GLOBAL_SECRET_KEY)
       if search_data:
         num_ports = int(search_data.group(1))
         return num_ports > 0

@@ -232,6 +232,11 @@ class UserAppClient
     make_call(DS_MIN_TIMEOUT, retry_on_except, "get_app_data") {
       result = @conn.get_app_data(appname, @secret)
     }
+    if result[0..4] == "Error"
+      msg = "get_app_data: failed to get data for app #{appname}."
+      Djinn.log_debug(msg)
+      raise FailedNodeException.new(msg)
+    end
 
     return result
   end

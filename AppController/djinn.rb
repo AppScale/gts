@@ -4589,31 +4589,36 @@ HOSTS
       end
       app_list.each { |app|
         begin
-          if uac.is_app_enabled?(app)
-            Djinn.log_debug("App #{app} is enabled, so restoring it")
-
-            # We query the UserAppServer looking for application data, in
-            # particular ports and language.
-            app_data = uac.get_app_data(app)
-            app_language = (app_data.scan(/language:(\w+)/).*"").to_s
-            app_ports = ((app_data.scan(/ports:[ ](\w+-\w+)/).*"").to_s).split('-')
-            Djinn.log_info("Restoring app #{app} with ports #{app_ports}.")
-            if @app_info_map[app].nil?
-              @app_info_map[app] = {}
-            end
-            if not app_language.nil?
-              @app_info_map[app]['language'] = app_language
-            end
-            if not app_ports[0].nil?
-              @app_info_map[app]['nginx'] = app_ports[0]
-            end
-            if not app_ports[1].nil?
-              @app_info_map[app]['nginx_https'] = app_ports[1]
-            end
-            @app_names = @app_names + [app]
-          else
-            Djinn.log_debug("App #{app} is not enabled, moving on")
+          if not uac.is_app_enabled?(app)
+            Djinn.log_info("App #{app} is not enabled, moving on")
+            next
           end
+
+          Djinn.log_info("App #{app} is enabled, so restoring it")
+
+          # We query the UserAppServer looking for application data, in
+          # particular ports and language.
+          result = uac.get_app_data(app)
+          app_data = JSON.load(result)
+          Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
+
+          app_language = app_data['language']
+          app_ports = [app_data['hosts'].values[0]['http'], app_data['hosts'].values[0]['https']
+          Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_ports}.")
+
+          if @app_info_map[app].nil?
+            @app_info_map[app] = {}
+          end
+          if not app_language.nil?
+            @app_info_map[app]['language'] = app_language
+          end
+          if not app_ports[0].nil?
+            @app_info_map[app]['nginx'] = app_ports[0]
+          end
+          if not app_ports[1].nil?
+            @app_info_map[app]['nginx_https'] = app_ports[1]
+          end
+          @app_names = @app_names + [app]
         rescue FailedNodeEsception
           Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
         end
@@ -4669,14 +4674,15 @@ HOSTS
     app_language = ""
     loop {
       begin
-        app_data = uac.get_app_data(app)
-        if app_data[0..4] != "Error"
-          # Let's make sure the application is enabled.
-          result = uac.enable_app(app)
-          Djinn.log_debug("enable_app returned #{result}.")
-          app_language = (app_data.scan(/language:(\w+)/).*"").to_s
-          break
-        end
+        result = uac.get_app_data(app)
+        app_data = JSON.load(result)
+        Djinn.log_debug("Got application data for #{app}: #{app_data}.")
+
+        # Let's make sure the application is enabled.
+        result = uac.enable_app(app)
+        Djinn.log_debug("enable_app returned #{result}.")
+        app_language = app_data['language']
+        break
       rescue FailedNodeException
         # Failed to talk to the UserAppServer: let's try again.
       end
@@ -5350,16 +5356,6 @@ HOSTS
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
     warmup_url = "/"
-
-    begin
-      app_data = uac.get_app_data(app)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer about " +
-        "getting data for application #{app}")
-      return
-    end
-
-    Djinn.log_debug("Got app data for #{app}: #{app_data}")
 
     begin
       app_is_enabled = uac.is_app_enabled?(app)
