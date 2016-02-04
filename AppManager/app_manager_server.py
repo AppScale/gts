@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import os
 import SOAPpy
 import subprocess
@@ -20,12 +21,11 @@ import monit_app_configuration
 import monit_interface
 import misc
 
-# Most attempts to see if an application server comes up before failing
-MAX_FETCH_ATTEMPTS = 7
+# The amount of seconds to wait for an application to start up.
+START_APP_TIMEOUT = 180
 
-# The initial amount of time to wait when trying to check if an application
-# is up or not. In seconds.
-INITIAL_BACKOFF_TIME = 1
+# The amount of seconds to wait between checking if an application is up.
+BACKOFF_TIME = 1
 
 # The PID number to return when a process did not start correctly
 BAD_PID = -1
@@ -57,6 +57,12 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 DATASTORE_PATH = "localhost"
 
 HTTP_OK = 200
+
+# The AppController's response if it's not ready to add routing yet.
+NOT_READY = 'false: not ready yet'
+
+# The amount of seconds to wait before retrying to add routing.
+ROUTING_RETRY_INTERVAL = 5
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -327,8 +333,7 @@ def wait_on_app(port):
   Returns:
     True on success, False otherwise
   """
-  backoff = INITIAL_BACKOFF_TIME
-  retries = MAX_FETCH_ATTEMPTS
+  retries = math.ceil(START_APP_TIMEOUT / BACKOFF_TIME)
   private_ip = appscale_info.get_private_ip()
 
   url = "http://" + private_ip + ":" + str(port) + FETCH_PATH
@@ -343,13 +348,10 @@ def wait_on_app(port):
     except IOError:
       retries -= 1
 
-    logging.warning("Application was not up at %s, retrying in %d seconds"%\
-      (url, backoff))
-    time.sleep(backoff)
-    backoff *= 2
+    time.sleep(BACKOFF_TIME)
 
-  logging.error("Application did not come up on %s after %d attemps"%\
-    (url, MAX_FETCH_ATTEMPTS))
+  logging.error('Application did not come up on {} after {} seconds'.
+    format(url, START_APP_TIMEOUT))
   return False
 
 def create_python_app_env(public_ip, app_name):
