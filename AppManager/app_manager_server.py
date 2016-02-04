@@ -107,6 +107,35 @@ def convert_config_from_json(config):
   else:
     return None
 
+def add_routing(app, port):
+  """ Tells the AppController to begin routing traffic to an AppServer.
+
+  Args:
+    app: A string that contains the application ID.
+    port: A string that contains the port that the AppServer listens on.
+  """
+  acc = appscale_info.get_appcontroller_client()
+  appserver_ip = appscale_info.get_private_ip()
+
+  while True:
+    result = acc.add_routing_for_appserver(app, appserver_ip, port)
+    if result == NOT_READY:
+      logging.info('AppController not yet ready to add routing.')
+      time.sleep(ROUTING_RETRY_INTERVAL)
+    else:
+      break
+
+def remove_routing(app, port):
+  """ Tells the AppController to stop routing traffic to an AppServer.
+
+  Args:
+    app: A string that contains the application ID.
+    port: A string that contains the port that the AppServer listens on.
+  """
+  acc = appscale_info.get_appcontroller_client()
+  appserver_ip = appscale_info.get_private_ip()
+  acc.remove_appserver_from_haproxy(app, appserver_ip, port)
+
 def start_app(config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.

@@ -312,3 +312,29 @@ class AppControllerClient():
     the Datastore (which can be viewed in the AppDashboard).
     """
     return self.call(self.MAX_RETRIES, self.server.run_groomer, self.secret)
+
+
+  def add_routing_for_appserver(self, app_id, appserver_ip, port):
+    """ Tells the AppController to begin routing traffic to an AppServer.
+
+    Args:
+      app_id: A string that contains the application ID.
+      appserver_ip: A string that contains the IP Address of the instance
+        running the AppServer.
+      port: A string that contains the port that the AppServer listens on.
+    """
+    return self.call(self.MAX_RETRIES, self.server.add_routing_for_appserver,
+      app_id, appserver_ip, port, self.secret)
+
+  def remove_appserver_from_haproxy(self, app_id, appserver_ip, port):
+    """ Tells the AppController to stop routing traffic to an AppServer.
+
+    Args:
+      app_id: A string that contains the application ID.
+      appserver_ip: A string that contains the IP Address of the instance
+        running the AppServer.
+      port: A string that contains the port that the AppServer listens on.
+    """
+    return self.call(self.MAX_RETRIES,
+      self.server.remove_appserver_from_haproxy, app_id, appserver_ip, port,
+      self.secret)
