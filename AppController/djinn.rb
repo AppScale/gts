@@ -3957,12 +3957,10 @@ class Djinn
     secret_key_loc = "#{APPSCALE_CONFIG_DIR}/secret.key"
     cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
     key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
-    pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
     HelperFunctions.scp_file(cert_loc, cert_loc, ip, ssh_key)
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
-    scp_ssh_key_to_ip(ip, ssh_key, pub_key)
 
     cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
     make_dir = "mkdir -p #{cloud_keys_dir}"
@@ -3988,26 +3986,6 @@ class Djinn
 
     HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
   end
-
-
-  # Copies over SSH keys to ~/.ssh on the given machine, enabling that
-  # machine to log in to itself or any other AppScale VM without being
-  # prompted for a password. Note that since this copies keys to ~./ssh,
-  # it will overwrite any keys that already exist there.
-  # Args:
-  #   ip: The IP address to copy SSH keys to.
-  #   private_key: The SSH private key that should be copied over.
-  #   public_key: The SSH public key that should be copied over.
-  def scp_ssh_key_to_ip(ip, private_key, public_key)
-    HelperFunctions.scp_file(private_key, "~/.ssh/id_rsa", ip,
-      private_key)
-    # this is needed for EC2 integration.
-    HelperFunctions.scp_file(private_key, "~/.ssh/id_dsa", ip,
-      private_key)
-    HelperFunctions.scp_file(public_key, "~/.ssh/id_rsa.pub", ip,
-      private_key)
-  end
-
 
   def rsync_files(dest_node)
     appdb = "#{APPSCALE_HOME}/AppDB"
