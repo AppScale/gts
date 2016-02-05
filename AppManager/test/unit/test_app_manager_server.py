@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import unittest
 import urllib2
@@ -88,7 +89,8 @@ class TestAppManager(unittest.TestCase):
                 .and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write')\
                         .and_return()
-    flexmock(app_manager_server).should_receive('add_routing')
+    flexmock(threading).should_receive('Thread').\
+      and_return(flexmock(start=lambda: None))
     self.assertEqual(0, app_manager_server.start_app(configuration))
   
   def test_start_app_goodconfig_java(self):
@@ -121,7 +123,8 @@ class TestAppManager(unittest.TestCase):
                         .and_return()
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)
-    flexmock(app_manager_server).should_receive('add_routing')
+    flexmock(threading).should_receive('Thread').\
+      and_return(flexmock(start=lambda: None))
     self.assertEqual(0, app_manager_server.start_app(configuration))
 
   def test_start_app_failed_copy_java(self):

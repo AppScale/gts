@@ -7,6 +7,7 @@ import os
 import SOAPpy
 import subprocess
 import sys
+import threading
 import time
 import urllib2
 from xml.etree import ElementTree
@@ -63,9 +64,6 @@ NOT_READY = 'false: not ready yet'
 
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
-
-# The application ID of the dashboard.
-DASHBOARD_ID = 'appscaledashboard'
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -133,6 +131,9 @@ def add_routing(app, port):
       time.sleep(ROUTING_RETRY_INTERVAL)
     else:
       break
+
+  logging.info('Successfully established routing for {} on port {}'.
+    format(app, port))
 
 def remove_routing(app, port):
   """ Tells the AppController to stop routing traffic to an AppServer.
@@ -238,10 +239,8 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
-  if config['app_name'] != DASHBOARD_ID:
-    add_routing(config['app_name'], config['app_port'])
-    logging.info('Successfully established routing for {} on port {}'.
-      format(config['app_name'], config['app_port']))
+  threading.Thread(target=add_routing,
+    args=(config['app_name'], config['app_port'])).start()
 
   return 0
 
