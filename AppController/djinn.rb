@@ -4413,12 +4413,14 @@ HOSTS
     }
     start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
+    match_cmd = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env)
+      MonitInterface.start(:controller, start, stop, SERVER_PORT, env,
+        nil, nil, match_cmd)
     rescue Exception => e
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
