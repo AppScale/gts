@@ -326,6 +326,7 @@ class AppControllerClient():
     return self.call(self.MAX_RETRIES, self.server.add_routing_for_appserver,
       app_id, appserver_ip, port, self.secret)
 
+
   def remove_appserver_from_haproxy(self, app_id, appserver_ip, port):
     """ Tells the AppController to stop routing traffic to an AppServer.
 
@@ -337,4 +338,24 @@ class AppControllerClient():
     """
     return self.call(self.MAX_RETRIES,
       self.server.remove_appserver_from_haproxy, app_id, appserver_ip, port,
+      self.secret)
+
+
+  def deployment_id_exists(self):
+    """ Asks the AppController if the deployment ID is stored in ZooKeeper.
+
+    Returns:
+      A boolean indicating whether the deployment ID is stored or not.
+    """
+    return self.call(self.MAX_RETRIES, self.server.deployment_id_exists,
+      self.secret)
+
+
+  def get_deployment_id(self):
+    """ Retrieves the deployment ID from ZooKeeper.
+
+    Returns:
+      A string containing the deployment ID.
+    """
+    return self.call(self.MAX_RETRIES, self.server.get_deployment_id,
       self.secret)

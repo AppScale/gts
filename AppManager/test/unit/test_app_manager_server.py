@@ -87,6 +87,7 @@ class TestAppManager(unittest.TestCase):
                 .and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write')\
                         .and_return()
+    flexmock(app_manager_server).should_receive('add_routing')
     self.assertEqual(0, app_manager_server.start_app(configuration))
   
   def test_start_app_goodconfig_java(self):
@@ -119,6 +120,7 @@ class TestAppManager(unittest.TestCase):
                         .and_return()
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)
+    flexmock(app_manager_server).should_receive('add_routing')
     self.assertEqual(0, app_manager_server.start_app(configuration))
 
   def test_start_app_failed_copy_java(self):
