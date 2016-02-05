@@ -4411,7 +4411,7 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/bin/ruby -w #{APPSCALE_HOME}/AppController/djinnServer.rb"
+    start = "/usr/sbin/service appscale-controller start"
     stop = "/usr/sbin/service appscale-controller stop"
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
