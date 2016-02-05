@@ -91,9 +91,15 @@ BOO
     # To get monit to capture standard out and standard err from processes it
     # monitors, we have to have bash exec it, and pipe stdout/stderr to a file.
     # Note that we can't just do 2>&1 - monit won't capture stdout or stderr if
-    # we do this.
-    full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
-      "1>>#{logfile} 2>>#{logfile}'"
+    # we do this. Finally, the controller output is independently logged, so
+    # we don't redirect it via the monit start command.
+    if #{watch} == "controller"
+      full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
+        "2>>#{logfile}'"
+    else
+      full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
+        "1>>#{logfile} 2>>#{logfile}'"
+    end
 
     contents = <<BOO
 check process #{watch}-#{port} matching "#{match_cmd}"
