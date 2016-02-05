@@ -64,6 +64,9 @@ NOT_READY = 'false: not ready yet'
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
 
+# The application ID of the dashboard.
+DASHBOARD_ID = 'appscaledashboard'
+
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
   def __init__(self, value):
@@ -235,9 +238,10 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
-  add_routing(config['app_name'], config['app_port'])
-  logging.info('Successfully established routing for {} on port {}'.
-    format(config['app_name'], config['app_port']))
+  if config['app_name'] != DASHBOARD_ID:
+    add_routing(config['app_name'], config['app_port'])
+    logging.info('Successfully established routing for {} on port {}'.
+      format(config['app_name'], config['app_port']))
 
   return 0
 
