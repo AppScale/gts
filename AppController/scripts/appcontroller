@@ -26,8 +26,8 @@ do_start()
      exit 0
    fi
 
-   # If we start from boot, we need to clear the state.
-   rm -rf /etc/appscale/zookeeper_locations.json
+   # If we start from boot, we need to clear the monit state. The
+   # AppController will rebuild it.
    rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
@@ -44,14 +44,18 @@ do_stop()
 
 case "$1" in
  
-    start|stop)
+    start)
         if status_of_proc "$DAEMON_NAME" "$DAEMON" > /dev/null; then
                 echo "$DAEMON_NAME already running."
                 exit 0
         fi
         do_${1}
         ;;
- 
+        
+    stop)
+        do_stop
+        ;;
+        
     restart|reload|force-reload)
         do_stop
         do_start
