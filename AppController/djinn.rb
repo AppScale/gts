@@ -4663,7 +4663,7 @@ HOSTS
         result = uac.delete_app(app)
         Djinn.log_debug("delete_app returned #{result}.")
       rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to UAServer while disabling #{app}".)
+        Djinn.log_warn("Failed to talk to UAServer while disabling #{app}.")
       end
     end
 
