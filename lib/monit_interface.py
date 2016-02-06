@@ -114,6 +114,8 @@ def stop(watch, is_group=True):
   if not run_with_retry([MONIT, 'reload']):
     return False
 
+  return True
+
 def restart(watch):
   """ Instructs monit to restart all processes hosting the given watch.
 
