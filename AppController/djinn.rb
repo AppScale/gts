@@ -441,7 +441,7 @@ class Djinn
 
 
   # Where to put logs.
-  LOG_FILE = "/var/log/appscale/controller-17443.log" 
+  LOG_FILE = "/var/log/appscale/controller-17443.log"
 
 
   # List of parameters allowed in the set_parameter (and in AppScalefile
@@ -2713,9 +2713,9 @@ class Djinn
       elsif k == "@my_index" or k == "@api_status"
         # Don't back up @my_index - it's a node-specific pointer that
         # indicates which node is "our node" and thus should be regenerated
-        # via find_me_in_locations. 
+        # via find_me_in_locations.
         # Also don't worry about @api_status - (used to be for deprecated
-        # API checker) it can take up a lot of space and can easily be 
+        # API checker) it can take up a lot of space and can easily be
         # regenerated with new data.
         next
       end
@@ -2778,7 +2778,7 @@ class Djinn
         v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
-      # node. This node may or may not be the head node, so set those 
+      # node. This node may or may not be the head node, so set those
       # from local files. state_change_lock is a Monitor: no need to
       # restore it.
       if k == "@my_private_ip"
@@ -2983,7 +2983,7 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        if !zookeeper_data['locations'].include? node.private_ip 
+        if !zookeeper_data['locations'].include? node.private_ip
           zookeeper_data['locations'] << node.private_ip
         end
       end
@@ -4558,20 +4558,21 @@ HOSTS
           Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
 
           app_language = app_data['language']
-          app_ports = [app_data['hosts'].values[0]['http'], app_data['hosts'].values[0]['https']]
-          Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_ports}.")
+          Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
 
           if @app_info_map[app].nil?
             @app_info_map[app] = {}
           end
-          if not app_language.nil?
+          if app_language
             @app_info_map[app]['language'] = app_language
           end
-          if not app_ports[0].nil?
-            @app_info_map[app]['nginx'] = app_ports[0]
-          end
-          if not app_ports[1].nil?
-            @app_info_map[app]['nginx_https'] = app_ports[1]
+          if app_data['hosts'].values[0]
+            if app_data['hosts'].values[0]['http']
+              @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+            end
+            if app_data['hosts'].values[0]['https']
+              @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+            end
           end
           @app_names = @app_names + [app]
         rescue FailedNodeEsception
