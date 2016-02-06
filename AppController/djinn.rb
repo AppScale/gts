@@ -4649,7 +4649,7 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-    # Let's create an entry for the application if we don't already have # it.
+    # Let's create an entry for the application if we don't already have it.
     if @app_info_map[app].nil?
       @app_info_map[app] = {}
     end
@@ -4948,14 +4948,11 @@ HOSTS
 
         # Make sure we have the variables to look into: if we catch an app
         # early on, it may not have them.
-        if not (info['nginx'] and info['nginx_https'] and info['haproxy'])
-          next
-        end
-
-        # These ports are allocated on the frontend.
-        if possibly_free_port == Integer(info['nginx']) or
-            possibly_free_port == Integer(info['nginx_https']) or
-            possibly_free_port == Integer(info['haproxy'])
+        if info['nginx'] and possibly_free_port == Integer(info['nginx'])
+          in_use = true
+        elsif info['nginx_https'] and possibly_free_port == Integer(info['nginx_https'])
+          in_use = true
+        elsif info['haproxy'] and possibly_free_port == Integer(info['haproxy'])
           in_use = true
         end
 
