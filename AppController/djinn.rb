@@ -4649,10 +4649,23 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
+    # Let's create an entry for the application if we don't already have # it.
     if @app_info_map[app].nil?
       @app_info_map[app] = {}
     end
-    @app_info_map[app]['language'] = app_language
+
+    # If the language of the application changed, we disable the app since
+    # it may cause some datastore corruption. User will have to create a
+    # new ID.
+    if @app_info_map[app]['language'] and @app_info_map[app]['language'] != app_language
+      Djinn.log_error("Application #{app} changed language! Disabling it.")
+      begin
+        result = uac.delete_app(app)
+        Djinn.log_debug("delete_app returned #{result}.")
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to talk to UAServer while disabling #{app}".)
+      end
+    end
 
     # Delete old version of the app if it's a start or restart.
     app_dir = "/var/apps/#{app}/app"
