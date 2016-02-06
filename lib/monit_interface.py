@@ -1,11 +1,13 @@
+#!/usr/bin/env python2
+
+import glob
 import logging
-import os 
+import os
 import subprocess
-import sys
 import time
 
-import file_io
-import misc 
+import misc
+from monit_app_configuration import MONIT_CONFIG_DIR
 
 """ 
 This file contains top level functions for starting and stopping 
@@ -97,11 +99,17 @@ def stop(watch, is_group=True):
     return False
 
   # Prevent the service from being restarted until the config is re-written.
-  monit_config_file = '/etc/monit/conf.d/{}.cfg'.format(watch)
-  try:
-    os.remove(monit_config_file)
-  except OSError:
-    logging.exception('Error removing {}'.format(monit_config_file))
+  config_files = []
+  if is_group:
+    config_files.extend(
+      glob.glob('{}/appscale-{}-*.cfg'.format(MONIT_CONFIG_DIR, watch)))
+  else:
+    config_files.append('{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch))
+  for config_file in config_files:
+    try:
+      os.remove(config_file)
+    except OSError:
+      logging.exception('Error removing {}'.format())
 
   logging.info("Stopping watch {0}".format(watch))
   if is_group:

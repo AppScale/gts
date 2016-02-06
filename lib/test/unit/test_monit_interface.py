@@ -1,3 +1,4 @@
+import glob
 import os
 import sys
 import subprocess
@@ -40,11 +41,14 @@ class TestGodInterface(unittest.TestCase):
   def test_stop(self):
     testing.disable_logging()
 
-    watch = 'guestbook'
+    watch = 'app___guestbook27'
+    port = 20000
+    config_file = 'appscale-{}-{}.cfg'.format(watch, port)
     flexmock(misc).should_receive('is_string_secure').and_return(False)
     self.assertFalse(monit_interface.stop(watch))
 
     flexmock(misc).should_receive('is_string_secure').and_return(True)
+    flexmock(glob).should_receive('glob').and_return([config_file])
     flexmock(os).should_receive('remove')
     flexmock(monit_interface).should_receive('run_with_retry').\
       with_args([MONIT, 'stop', '-g', watch]).and_return(False)
