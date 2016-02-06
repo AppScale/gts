@@ -193,7 +193,7 @@ EOF
     LOGROTATE_HOURLY=/etc/cron.hourly/logrotate-hourly
     cat <<EOF | tee $LOGROTATE_HOURLY
 #!/bin/sh
-/usr/sbin/logrotate /etc/logrotate.d/appscale
+/usr/sbin/logrotate /etc/logrotate.d/appscale*
 EOF
     chmod +x $LOGROTATE_HOURLY
 }
