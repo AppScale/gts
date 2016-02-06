@@ -171,26 +171,26 @@ class DistributedTaskQueue():
     Returns:
       A JSON string with the result.
     """
-    request = self.__parse_json_and_validate_tags(json_request,  
-                                         self.STOP_WORKERS_TAGS)
+    request = self.__parse_json_and_validate_tags(json_request,
+      self.STOP_WORKERS_TAGS)
     logging.info("Stopping worker: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
 
     app_id = request['app_id']
     watch = "celery-" + str(app_id)
-    try:
-      if monit_interface.stop(watch):
-        stop_command = self.get_worker_stop_command(app_id)
-        os.system(stop_command) 
-        TaskQueueConfig.remove_config_files(app_id)
-        result = {'error': False}
-      else:
-        result = {'error': True, 'reason': "Unable to stop watch %s" % watch}
-    except OSError, os_error:
-      result = {'error': True, 'reason' : str(os_error)}
+    if not monit_interface.stop(watch):
+      error_message = 'Unable to stop {}'.format(watch)
+      logging.error(error_message)
+      return json.dumps({'error': True, 'reason': error_message})
 
-    return json.dumps(result)
+    try:
+      TaskQueueConfig.remove_config_files(app_id)
+    except OSError as os_error:
+      logging.exception('Error removing celery scripts for {}'.format(app_id))
+      return json.dumps({'error': True, 'reason': str(os_error)})
+
+    return json.dumps({'error': False})
     
   def get_worker_stop_command(self, app_id):
     """ Returns the command to run to stop celery workers for
