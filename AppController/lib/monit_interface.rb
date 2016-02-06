@@ -38,36 +38,20 @@ module MonitInterface
     self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
 
-  def self.start_file(watch, path, action, hours=12, remote_ip=nil, remote_key=nil)
+  def self.start_file(watch, path, action, hours=12, group=nil)
+    group = watch unless group
+
     contents = <<BOO
 check file #{watch} path "#{path}" every 2 cycles
-  group #{watch}
-  if timestamp > 12 hours then exec "#{action}"
+  group #{group}
+  if timestamp > #{hours} hours then exec "#{action}"
 BOO
     monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
-    if remote_ip
-      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
-      HelperFunctions.write_file(tempfile, contents)
-      begin
-        HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
-      rescue AppScaleSCPException
-        Djinn.log_error("Failed to write monit file at #{remote_ip}")
-        Djinn.log_run("rm -rf #{tempfile}")
-        raise AppScaleSCPException.new("Failed to write monit file at #{remote_ip}")
-      end
-      Djinn.log_run("rm -rf #{tempfile}")
-    else
-      HelperFunctions.write_file(monit_file, contents)
-    end
+    HelperFunctions.write_file(monit_file, contents)
+    Djinn.log_run('service monit reload')
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
-
-    ip = remote_ip || HelperFunctions.local_ip
-    Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}" +
-      " with exec action [#{action}]")
-
-
-    self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
+    Djinn.log_info("Watching file #{path} for #{watch}")
+    Djinn.log_run("#{MONIT} start -g #{group}")
   end
 
   def self.restart(watch, remote_ip=nil, remote_key=nil)
