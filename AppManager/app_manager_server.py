@@ -227,14 +227,6 @@ def stop_app_instance(app_name, port):
       "port {1}".format(app_name, port))
     return False
 
-  # Now that the AppServer is stopped, remove its monit config file so that
-  # monit doesn't pick it up and restart it.
-  monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
-  try:
-    os.remove(monit_config_file)
-  except OSError as os_error:
-    logging.error("Error deleting {0}".format(monit_config_file))
-
   return True
 
 

@@ -95,7 +95,14 @@ def stop(watch, is_group=True):
   if not misc.is_string_secure(watch):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
-  
+
+  # Prevent the service from being restarted until the config is re-written.
+  monit_config_file = '/etc/monit/conf.d/{}.cfg'.format(watch)
+  try:
+    os.remove(monit_config_file)
+  except OSError:
+    logging.exception('Error removing {}'.format(monit_config_file))
+
   logging.info("Stopping watch {0}".format(watch))
   if is_group:
     stop_command = [MONIT, 'stop', '-g', watch]
@@ -104,12 +111,8 @@ def stop(watch, is_group=True):
   if not run_with_retry(stop_command):
     return False
 
-  logging.info("Unmonitoring watch {0}".format(watch))
-  if is_group:
-    unmonitor_command = [MONIT, 'unmonitor', '-g', watch]
-  else:
-    unmonitor_command = [MONIT, 'unmonitor', watch]
-  return run_with_retry(unmonitor_command)
+  if not run_with_retry([MONIT, 'reload']):
+    return False
 
 def restart(watch):
   """ Instructs monit to restart all processes hosting the given watch.

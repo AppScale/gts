@@ -1,6 +1,7 @@
 #!/usr/bin/ruby -w
 
 # Imports within Ruby's standard libraries.
+require 'fileutils'
 require 'tmpdir'
 
 # Imports AppScale's libraries.
@@ -133,17 +134,10 @@ BOO
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
   end
 
-  def self.stop(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
-  end
-
-  def self.remove(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
-    self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", remote_ip, remote_key)
-  end
-
-  def self.shutdown(remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} quit", remote_ip, remote_key)
+  def self.stop(watch)
+    FileUtils.rm_f("/etc/monit/conf.d/#{watch}.cfg")
+    Djinn.log_run("#{MONIT} stop -g #{watch}")
+    Djinn.log_run('service monit reload')
   end
 
   def self.is_running?(watch, remote_ip=nil, remote_key=nil)
