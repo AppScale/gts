@@ -36,10 +36,10 @@ CRON_HOURLY = '/etc/cron.hourly'
 # Default logrotate configuration directory.
 LOGROTATE_CONFIG_DIR = '/etc/logrotate.d'
 
-# Constant for 10MB.
-TEN_MB = 10 * 1024 * 1024
+# Max log size for AppScale Dashboard servers.
+DASHBOARD_LOG_SIZE = 10 * 1024 * 1024
 
-# Max application server log size.
+# Max application server log size in bytes.
 APP_LOG_SIZE = 250 * 1024 * 1024
 
 # Required configuration fields for starting an application
@@ -222,7 +222,7 @@ def start_app(config):
     log_size = config['log_size']
   else:
     if config['app_name'] == APPSCALE_DASHBOARD_ID:
-      log_size = TEN_MB
+      log_size = DASHBOARD_LOG_SIZE
     else:
       log_size = APP_LOG_SIZE
 
@@ -248,19 +248,16 @@ def setup_logrotate(app_name, watch, log_size):
   app_logrotate_script = "{0}/appscale-{1}".format(LOGROTATE_CONFIG_DIR, app_name)
 
   # Application logrotate script content.
-  contents = "/var/log/appscale/{0}*.log ".format(watch)
-  contents += "{"
-  contents += """
-  size {0}""".format(log_size)
-  contents += """
+  contents = """/var/log/appscale/{watch}*.log {{
+  size {size}
   missingok
   rotate 7
   compress
   delaycompress
   notifempty
   copytruncate
-}
-"""
+}}
+""".format(watch=watch, size=log_size)
   logging.debug("Logrotate file: {} - Contents:\n{}".format(app_logrotate_script, contents))
 
   with open(app_logrotate_script, 'w') as app_logrotate_fd:
