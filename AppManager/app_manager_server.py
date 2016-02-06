@@ -220,7 +220,7 @@ def stop_app_instance(app_name, port):
       "invalid name for application" % (app_name, int(port)))
     return False
 
-  logging.info("Stopping application %s" % app_name)
+  logging.info('Stopping AppServer for {} on port {}'.format(app_name, port))
   watch = "app___" + app_name + "-" + str(port)
   if not monit_interface.stop(watch, is_group=False):
     logging.error("Unable to stop application server for app {0} on " \
@@ -266,10 +266,8 @@ def stop_app(app_name):
 
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name
-  monit_result = monit_interface.stop(watch)
-
-  if not monit_result:
-    logging.error("Unable to shut down monit interface for watch %s" % watch)
+  if not monit_interface.stop(watch):
+    logging.error('Unable to stop {}'.format(app_name))
     return False
 
   return True
