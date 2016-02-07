@@ -796,7 +796,7 @@ class ZKTransaction:
 
     try:
       return self.run_with_retry(self.handle.exists, self.get_xg_path(app_id,
-	      tx_id))
+        tx_id))
     except kazoo.exceptions.ZookeeperError as zk_exception:
       raise ZKTransactionException("ZooKeeper exception:{0}"\
         .format(zk_exception)) 
