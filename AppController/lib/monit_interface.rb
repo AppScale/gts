@@ -12,6 +12,9 @@ require 'helperfunctions'
 # by remotely executed SSH commands.
 WANT_OUTPUT = true
 
+# The directory used when storing a service's config file.
+MONIT_CONFIG_DIR = '/etc/monit/conf.d'
+
 
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
@@ -46,7 +49,7 @@ check file #{watch} path "#{path}" every 2 cycles
   group #{group}
   if timestamp > #{hours} hours then exec "#{action}"
 BOO
-    monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
+    monit_file = "#{MONIT_CONFIG_DIR}/appscale-#{watch}.cfg"
     HelperFunctions.write_file(monit_file, contents)
     Djinn.log_run('service monit reload')
 
