@@ -2,10 +2,12 @@
 
 import json
 import logging
+import math
 import os
 import SOAPpy
 import subprocess
 import sys
+import threading
 import time
 import urllib2
 from xml.etree import ElementTree
@@ -20,12 +22,11 @@ import monit_app_configuration
 import monit_interface
 import misc
 
-# Most attempts to see if an application server comes up before failing
-MAX_FETCH_ATTEMPTS = 7
+# The amount of seconds to wait for an application to start up.
+START_APP_TIMEOUT = 180
 
-# The initial amount of time to wait when trying to check if an application
-# is up or not. In seconds.
-INITIAL_BACKOFF_TIME = 1
+# The amount of seconds to wait between checking if an application is up.
+BACKOFF_TIME = 1
 
 # The PID number to return when a process did not start correctly
 BAD_PID = -1
@@ -57,6 +58,12 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 DATASTORE_PATH = "localhost"
 
 HTTP_OK = 200
+
+# The AppController's response if it's not ready to add routing yet.
+NOT_READY = 'false: not ready yet'
+
+# The amount of seconds to wait before retrying to add routing.
+ROUTING_RETRY_INTERVAL = 5
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -107,6 +114,38 @@ def convert_config_from_json(config):
   else:
     return None
 
+def add_routing(app, port):
+  """ Tells the AppController to begin routing traffic to an AppServer.
+
+  Args:
+    app: A string that contains the application ID.
+    port: A string that contains the port that the AppServer listens on.
+  """
+  acc = appscale_info.get_appcontroller_client()
+  appserver_ip = appscale_info.get_private_ip()
+
+  while True:
+    result = acc.add_routing_for_appserver(app, appserver_ip, port)
+    if result == NOT_READY:
+      logging.info('AppController not yet ready to add routing.')
+      time.sleep(ROUTING_RETRY_INTERVAL)
+    else:
+      break
+
+  logging.info('Successfully established routing for {} on port {}'.
+    format(app, port))
+
+def remove_routing(app, port):
+  """ Tells the AppController to stop routing traffic to an AppServer.
+
+  Args:
+    app: A string that contains the application ID.
+    port: A string that contains the port that the AppServer listens on.
+  """
+  acc = appscale_info.get_appcontroller_client()
+  appserver_ip = appscale_info.get_private_ip()
+  acc.remove_appserver_from_haproxy(app, appserver_ip, port)
+
 def start_app(config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
@@ -138,8 +177,6 @@ def start_app(config):
   logging.info("Starting %s application %s" % (
     config['language'], config['app_name']))
 
-  start_cmd = ""
-  stop_cmd = ""
   env_vars = config['env_vars']
   env_vars['GOPATH'] = '/root/appscale/AppServer/gopath/'
   env_vars['GOROOT'] = '/root/appscale/AppServer/goroot/'
@@ -154,7 +191,6 @@ def start_app(config):
       config['app_port'],
       config['load_balancer_ip'],
       config['xmpp_ip'])
-    logging.info(start_cmd)
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
       config['load_balancer_ip'],
@@ -203,6 +239,9 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
+  threading.Thread(target=add_routing,
+    args=(config['app_name'], config['app_port'])).start()
+
   return 0
 
 def stop_app_instance(app_name, port):
@@ -219,6 +258,9 @@ def stop_app_instance(app_name, port):
     logging.error("Unable to kill app process %s on port %d because of " \
       "invalid name for application" % (app_name, int(port)))
     return False
+
+  logging.info('Removing routing for {} on port {}'.format(app_name, port))
+  remove_routing(app_name, port)
 
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name + "-" + str(port)
@@ -294,8 +336,7 @@ def wait_on_app(port):
   Returns:
     True on success, False otherwise
   """
-  backoff = INITIAL_BACKOFF_TIME
-  retries = MAX_FETCH_ATTEMPTS
+  retries = math.ceil(START_APP_TIMEOUT / BACKOFF_TIME)
   private_ip = appscale_info.get_private_ip()
 
   url = "http://" + private_ip + ":" + str(port) + FETCH_PATH
@@ -310,13 +351,10 @@ def wait_on_app(port):
     except IOError:
       retries -= 1
 
-    logging.warning("Application was not up at %s, retrying in %d seconds"%\
-      (url, backoff))
-    time.sleep(backoff)
-    backoff *= 2
+    time.sleep(BACKOFF_TIME)
 
-  logging.error("Application did not come up on %s after %d attemps"%\
-    (url, MAX_FETCH_ATTEMPTS))
+  logging.error('Application did not come up on {} after {} seconds'.
+    format(url, START_APP_TIMEOUT))
   return False
 
 def create_python_app_env(public_ip, app_name):
