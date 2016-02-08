@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import unittest
 import urllib2
@@ -18,6 +19,7 @@ import monit_app_configuration
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 import appscale_info
+import misc
 import monit_interface
 import testing
 
@@ -87,6 +89,8 @@ class TestAppManager(unittest.TestCase):
                 .and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write')\
                         .and_return()
+    flexmock(threading).should_receive('Thread').\
+      and_return(flexmock(start=lambda: None))
     self.assertEqual(0, app_manager_server.start_app(configuration))
   
   def test_start_app_goodconfig_java(self):
@@ -119,6 +123,8 @@ class TestAppManager(unittest.TestCase):
                         .and_return()
     flexmock(subprocess).should_receive('call')\
                         .and_return(0)
+    flexmock(threading).should_receive('Thread').\
+      and_return(flexmock(start=lambda: None))
     self.assertEqual(0, app_manager_server.start_app(configuration))
 
   def test_start_app_failed_copy_java(self):
@@ -230,13 +236,19 @@ class TestAppManager(unittest.TestCase):
     self.assertIn(str(port), cmd)
 
   def test_stop_app_instance(self):
-    flexmock(subprocess).should_receive('call')\
-                        .and_return(0)
-    flexmock(file_io).should_receive('read')\
-                        .and_return('0')
-    flexmock(os).should_receive('system')\
-                        .and_return(0)
-    app_manager_server.stop_app('test')
+    app_id = 'test'
+    port = 20000
+    flexmock(misc).should_receive('is_app_name_valid').and_return(False)
+    self.assertFalse(app_manager_server.stop_app_instance(app_id, port))
+
+    flexmock(misc).should_receive('is_app_name_valid').and_return(True)
+    flexmock(app_manager_server).should_receive('remove_routing')
+    flexmock(monit_interface).should_receive('stop').and_return(False)
+    self.assertFalse(app_manager_server.stop_app_instance(app_id, port))
+
+    flexmock(monit_interface).should_receive('stop').and_return(True)
+    flexmock(os).should_receive('remove')
+    self.assertTrue(app_manager_server.stop_app_instance(app_id, port))
 
   def test_restart_app_instances_for_app(self):
     flexmock(subprocess).should_receive('call')\
