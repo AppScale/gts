@@ -4319,8 +4319,6 @@ HOSTS
 
     if not HAProxy.is_running?
       HAProxy.initialize_config()
-      HAProxy.create_app_load_balancer_config(my_node.public_ip,
-        my_node.private_ip, AppDashboard::PROXY_PORT)
       HAProxy.start()
       Djinn.log_info("HAProxy configured and started.")
     else
@@ -4329,8 +4327,6 @@ HOSTS
 
     if not Nginx.is_running?
       Nginx.initialize_config()
-      Nginx.create_app_load_balancer_config(my_node.public_ip,
-        my_node.private_ip, AppDashboard::PROXY_PORT)
       Nginx.start()
       Djinn.log_info("Nginx configured and started.")
     else
@@ -4807,29 +4803,6 @@ HOSTS
               " #{app}: check logs and running processes.")
             next
           end
-
-          # Tell the AppController at the login node that a new AppServer is
-          # running.
-          acc = AppControllerClient.new(get_login.private_ip, @@secret)
-          loop {
-            begin
-              result = acc.add_routing_for_appserver(app, my_node.private_ip,
-                appengine_port)
-            rescue FailedNodeException => error
-              Djinn.log_warn("Failed to add routing for #{app}: "\
-                "#{error.message}.")
-              result = NOT_READY
-            end
-            if result == NOT_READY
-              Djinn.log_info("Login node is not yet ready for AppServers to " +
-                "be added - trying again momentarily.")
-              Kernel.sleep(SMALL_WAIT)
-            else
-              Djinn.log_info("Successfully informed login node about new " +
-                "AppServer for #{app} on port #{appengine_port}.")
-              break
-            end
-          }
 
           # At this point we are done adding a single AppServer. The
           # remainder of this function relates only to start or restart
@@ -5339,20 +5312,7 @@ HOSTS
         "application #{app_name}")
     end
 
-    # Tell the AppController at the login node (which runs HAProxy) that this
-    # AppServer isn't running anymore.
-    if my_node.is_login?
-      remove_appserver_from_haproxy(app, my_node.private_ip, port, @@secret)
-    else
-      acc = AppControllerClient.new(get_login.private_ip, @@secret)
-      begin
-        acc.remove_appserver_from_haproxy(app, my_node.private_ip, port)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to remove appserver from haproxy for app #{app}")
-      end
-    end
-
-    # And tell the AppDashboard that the AppServer has been killed.
+    # Tell the AppDashboard that the AppServer has been killed.
     delete_instance_from_dashboard(app, "#{my_node.private_ip}:#{port}")
   end
 
