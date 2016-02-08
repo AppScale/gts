@@ -4665,6 +4665,8 @@ HOSTS
       rescue FailedNodeException
         Djinn.log_warn("Failed to talk to UAServer while disabling #{app}.")
       end
+    else
+      @app_info_map[app]['language'] = app_language
     end
 
     # Delete old version of the app if it's a start or restart.
