@@ -31,6 +31,18 @@ BACKOFF_TIME = 1
 # The PID number to return when a process did not start correctly
 BAD_PID = -1
 
+# Default hourly cron directory.
+CRON_HOURLY = '/etc/cron.hourly'
+
+# Default logrotate configuration directory.
+LOGROTATE_CONFIG_DIR = '/etc/logrotate.d'
+
+# Max log size for AppScale Dashboard servers.
+DASHBOARD_LOG_SIZE = 10 * 1024 * 1024
+
+# Max application server log size in bytes.
+APP_LOG_SIZE = 250 * 1024 * 1024
+
 # Required configuration fields for starting an application
 REQUIRED_CONFIG_FIELDS = [
   'app_name',
@@ -43,6 +55,9 @@ REQUIRED_CONFIG_FIELDS = [
 
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
+
+# The app ID of the AppScale Dashboard.
+APPSCALE_DASHBOARD_ID = "appscaledashboard"
 
 # Apps which can access any application's data.
 TRUSTED_APPS = ["appscaledashboard"]
@@ -242,7 +257,53 @@ def start_app(config):
   threading.Thread(target=add_routing,
     args=(config['app_name'], config['app_port'])).start()
 
+  if 'log_size' in config.keys():
+    log_size = config['log_size']
+  else:
+    if config['app_name'] == APPSCALE_DASHBOARD_ID:
+      log_size = DASHBOARD_LOG_SIZE
+    else:
+      log_size = APP_LOG_SIZE
+
+  if not setup_logrotate(config['app_name'], watch, log_size):
+    logging.error("Error while setting up log rotation for application: {}".
+      format(config['app_name']))
+
+
   return 0
+
+def setup_logrotate(app_name, watch, log_size):
+  """ Creates a logrotate script for the logs that the given application
+      will create.
+
+  Args:
+    app_name: A string, the application ID.
+    watch: A string of the form 'app___<app_ID>'.
+    log_size: An integer, the size of logs that are kept per application server.
+      The size should be in bytes.
+  Returns:
+    True on success, False otherwise.
+  """
+  # Write application specific logrotation script.
+  app_logrotate_script = "{0}/appscale-{1}".format(LOGROTATE_CONFIG_DIR, app_name)
+
+  # Application logrotate script content.
+  contents = """/var/log/appscale/{watch}*.log {{
+  size {size}
+  missingok
+  rotate 7
+  compress
+  delaycompress
+  notifempty
+  copytruncate
+}}
+""".format(watch=watch, size=log_size)
+  logging.debug("Logrotate file: {} - Contents:\n{}".format(app_logrotate_script, contents))
+
+  with open(app_logrotate_script, 'w') as app_logrotate_fd:
+    app_logrotate_fd.write(contents)
+
+  return True
 
 def stop_app_instance(app_name, port):
   """ Stops a Google App Engine application process instance on current
