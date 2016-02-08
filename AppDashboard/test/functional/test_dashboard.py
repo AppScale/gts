@@ -1,51 +1,35 @@
-import sys
-import os
-cwd = os.path.dirname(__file__) + '/../'
-sys.path.append(cwd)
-sys.path.append(cwd + 'lib')
-sys.path.append(cwd + '../AppServer/')
-sys.path.append(cwd + '../AppServer/lib/webapp2')
-sys.path.append(cwd + '../AppServer/lib/webob_1_1_1')
-sys.path.append(cwd + '../AppServer/lib/jinja2/')
-sys.path.append('/usr/local/appscale-tools/lib')
-sys.path.append('/usr/local/lib/python2.6/dist-packages/flexmock-0.9.7-py2.6.egg/')
-#from /root/appscale/AppServer/dev_appserver.py
-sys.path.extend(['/usr/share/pyshared',
-  '/usr/local/lib/python2.7/site-packages',
-  '/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg',
-  '/usr/lib/pymodules/python2.6/',
-  '/usr/share/python-support/python-soappy/SOAPpy',
-  '/usr/local/lib/python2.6/dist-packages/SOAPpy-0.12.5-py2.6.egg',
-  '/root/appscale/AppServer/google/appengine/api/SOAPpy/',
-  '/usr/local/lib/python2.6/dist-packages/termcolor-1.1.0-py2.6.egg',
-  '/usr/local/lib/python2.6/dist-packages/lxml-3.1.1-py2.6-linux-x86_64.egg',
-  '/usr/lib/python2.6/dist-packages/',
-])
+#!/usr/bin/env python2
 
-import unittest
-import webapp2
-import re
 from flexmock import flexmock
+import os
+import re
 import SOAPpy
 import StringIO
+import sys
+import unittest
 
-from appcontroller_client import AppControllerClient
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppDashboard'))
+from dashboard import AppDeletePage
+from dashboard import AppUploadPage
+from dashboard import AuthorizePage
+from dashboard import IndexPage
+from dashboard import LoginPage
+from dashboard import LoginVerify
+from dashboard import LogoutPage
+from dashboard import NewUserPage
+from dashboard import StatusPage
+from dashboard import StatusRefreshPage
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
+from google.appengine.api.appcontroller_client import AppControllerClient
 from google.appengine.ext import db
-from google.appengine.api import users
 from google.appengine.api import taskqueue
+from google.appengine.api import users
 
-# from the app main.py
-import dashboard
-from app_dashboard_helper import AppDashboardHelper
-from app_dashboard_data import AppDashboardData
-
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
 import app_dashboard_data
-from app_dashboard_data import DashboardDataRoot
-from app_dashboard_data import APIstatus
-from app_dashboard_data import ServerStatus
-from app_dashboard_data import AppStatus
-
+from app_dashboard_data import AppDashboardData
+from app_dashboard_helper import AppDashboardHelper
 from secret_key import GLOBAL_SECRET_KEY
 
 class FunctionalTestAppDashboard(unittest.TestCase):
@@ -316,7 +300,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     return res
 
   def test_landing_notloggedin(self):
-    from dashboard import IndexPage
     IndexPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -327,7 +310,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
   def test_landing_loggedin_notAdmin(self):
     self.set_user('b@a.com')
-    from dashboard import IndexPage
     IndexPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -338,7 +320,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
   def test_landing_loggedin_isAdmin(self):
     self.set_user('a@a.com')
-    from dashboard import IndexPage
     IndexPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -348,7 +329,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<a href="/authorize">Manage users.</a>', html))
 
   def test_status_notloggedin_refresh(self):
-    from dashboard import StatusPage
     self.set_get({
       'forcerefresh' : '1',
     })
@@ -360,7 +340,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<a href="/users/login">Login</a>', html))
 
   def test_status_notloggedin(self):
-    from dashboard import StatusPage
     StatusPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -370,7 +349,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
   def test_status_loggedin_notAdmin(self):
     self.set_user('b@a.com')
-    from dashboard import StatusPage
     StatusPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -381,7 +359,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
   def test_status_loggedin_isAdmin(self):
     self.set_user('a@a.com')
-    from dashboard import StatusPage
     StatusPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -391,14 +368,12 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<span>CPU / Memory Usage', html))
 
   def test_newuser_page(self):
-    from dashboard import NewUserPage
     NewUserPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
     self.assertTrue(re.search('<!-- FILE:templates/users/new.html -->', html))
 
   def test_newuser_bademail(self):
-    from dashboard import NewUserPage
     self.set_post({
       'user_email' : 'c@a',
       'user_password' : 'aaaaaa',
@@ -411,7 +386,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Format must be foo@boo.goo.', html))
 
   def test_newuser_shortpasswd(self):
-    from dashboard import NewUserPage
     self.set_post({
       'user_email' : 'c@a.com',
       'user_password' : 'aaa',
@@ -424,7 +398,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Password must be at least 6 characters long.', html))
 
   def test_newuser_passwdnomatch(self):
-    from dashboard import NewUserPage
     self.set_post({
       'user_email' : 'c@a.com',
       'user_password' : 'aaaaa',
@@ -437,7 +410,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Passwords do not match.', html))
 
   def test_newuser_success(self):
-    from dashboard import NewUserPage
     self.set_post({
       'user_email' : 'c@a.com',
       'user_password' : 'aaaaaa',
@@ -450,7 +422,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertEqual(self.response.redirect_location, '/')
 
   def test_loginverify_page(self):
-    from dashboard import LoginVerify
     self.set_get({
       'continue' : 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/'
     })
@@ -461,7 +432,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('http://192.168.33.168:8080/', html))
 
   def test_loginverify_submitcontinue(self):
-    from dashboard import LoginVerify
     self.set_post({
       'commit' : 'Yes',
       'continue' : 'http://192.168.33.168:8080/'
@@ -472,7 +442,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertEqual(self.response.redirect_location, 'http://192.168.33.168:8080/')
 
   def test_loginverify_submitnocontinue(self):
-    from dashboard import LoginVerify
     self.set_post({
       'commit' : 'No',
       'continue' : 'http://192.168.33.168:8080/'
@@ -484,7 +453,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
   def test_logout_page(self):
     self.set_user('a@a.com')
-    from dashboard import LogoutPage
     page = LogoutPage(self.request, self.response)
     page.redirect = self.response.redirect
     page.get()
@@ -492,8 +460,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.deleted_cookies)
 
   def test_login_page(self):
-    from dashboard import LoginPage
-    continue_url = 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/' 
+    continue_url = 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/'
     self.set_get({
       'continue' : continue_url
     })
@@ -504,7 +471,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search(continue_url, html))
 
   def test_login_success(self):
-    from dashboard import LoginPage
     self.set_post({
       'user_email' : 'a@a.com',
       'user_password' : 'aaaaaa'
@@ -517,8 +483,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies)
 
   def test_login_success_redir(self):
-    from dashboard import LoginPage
-    continue_url = 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/' 
+    continue_url = 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/'
     self.set_post({
       'continue' : continue_url,
       'user_email' : 'a@a.com',
@@ -532,7 +497,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies)
 
   def test_login_fail(self):
-    from dashboard import LoginPage
     self.set_post({
       'user_email' : 'a@a.com',
       'user_password' : 'bbbbbb'
@@ -546,7 +510,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Incorrect username / password combination. Please try again', html))
 
   def test_authorize_page_notloggedin(self):
-    from dashboard import AuthorizePage
     AuthorizePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -555,7 +518,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_page_loggedin_notadmin(self):
-    from dashboard import AuthorizePage
     self.set_user('b@a.com')
     AuthorizePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
@@ -565,7 +527,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_page_loggedin_admin(self):
-    from dashboard import AuthorizePage
     self.set_user('a@a.com')
     AuthorizePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
@@ -576,7 +537,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('b@a.com-upload_app', html))
 
   def test_authorize_submit_notloggedin(self):
-    from dashboard import AuthorizePage
     self.set_post({
       'user_permission_1' : 'a@a.com',
       'CURRENT-a@a.com-upload_app' : 'True',
@@ -592,7 +552,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_submit_notadmin(self):
-    from dashboard import AuthorizePage
     self.set_user('b@a.com')
     self.set_post({
       'user_permission_1' : 'a@a.com',
@@ -609,7 +568,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_submit_remove(self):
-    from dashboard import AuthorizePage
     self.set_user('a@a.com')
     self.set_post({
       'user_permission_1' : 'a@a.com',
@@ -626,7 +584,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Disabling upload_app for b@a.com', html))
 
   def test_authorize_submit_add(self):
-    from dashboard import AuthorizePage
     self.set_user('a@a.com')
     self.set_post({
       'user_permission_1' : 'a@a.com',
@@ -644,7 +601,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Enabling upload_app for c@a.com', html))
 
   def test_upload_page_notloggedin(self):
-    from dashboard import AppUploadPage
     AppUploadPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -653,7 +609,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('You do not have permission to upload application.  Please contact your cloud administrator', html))
 
   def test_upload_page_loggedin(self):
-    from dashboard import AppUploadPage
     self.set_user('a@a.com')
     AppUploadPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
@@ -664,7 +619,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
 
   def test_upload_submit_notloggedin(self):
-    from dashboard import AppUploadPage
     self.set_fileupload('app_file_data')
     AppUploadPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
@@ -674,7 +628,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('You do not have permission to upload application.  Please contact your cloud administrator', html))
 
   def test_upload_submit_loggedin(self):
-    from dashboard import AppUploadPage
     self.set_user('a@a.com')
     self.set_fileupload('app_file_data')
     AppUploadPage(self.request, self.response).post()
@@ -685,7 +638,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Application uploaded successfully.  Please wait for the application to start running.', html))
 
   def test_appdelete_page_nologgedin(self):
-    from dashboard import AppDeletePage
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
@@ -694,7 +646,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertFalse(re.search('<option ', html))
 
   def test_appdelete_page_loggedin_twoapps(self):
-    from dashboard import AppDeletePage
     self.set_user('a@a.com')
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
@@ -705,7 +656,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<option value="app2">app2</option>', html))
 
   def test_appdelete_page_loggedin_oneapp(self):
-    from dashboard import AppDeletePage
     self.set_user('b@a.com')
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
@@ -716,7 +666,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<option value="app2">app2</option>', html))
 
   def test_appdelete_submit_notloggedin(self):
-    from dashboard import AppDeletePage
     self.set_post({
       'appname' : 'app1'
     })
@@ -728,7 +677,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('There are no running applications that you have permission to delete.', html))
 
   def test_appdelete_submit_notappadmin(self):
-    from dashboard import AppDeletePage
     self.set_user('b@a.com')
     self.set_post({
       'appname' : 'app1'
@@ -741,7 +689,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('You do not have permission to delete the application: app1', html))
 
   def test_appdelete_submit_success(self):
-    from dashboard import AppDeletePage
     self.set_user('a@a.com')
     self.set_post({
       'appname' : 'app1'
@@ -754,13 +701,11 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('Application removed successfully. Please wait for your app to shut', html))
 
   def test_refresh_data_get(self):
-    from dashboard import StatusRefreshPage
     StatusRefreshPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('datastore updated', html))
 
   def test_refresh_data_post(self):
-    from dashboard import StatusRefreshPage
     StatusRefreshPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
     self.assertTrue(re.search('datastore updated', html))

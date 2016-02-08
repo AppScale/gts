@@ -438,14 +438,6 @@ postinstallzookeeper()
     fi
 }
 
-keygen()
-{
-    test -e /root/.ssh/id_rsa || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
-    touch /root/.ssh/authorized_keys
-    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
-    chmod -v go-r /root/.ssh/authorized_keys
-}
-
 installcelery()
 {
     if [ "$DIST" = "precise" ]; then
