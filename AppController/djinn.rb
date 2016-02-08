@@ -759,7 +759,7 @@ class Djinn
   # Returns:
   #   A String indicating that the termination has started, or the reason why it
   #   failed.
-  def kill(stop_deployment = false, secret)
+  def kill(stop_deployment, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end

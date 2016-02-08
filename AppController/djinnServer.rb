@@ -156,7 +156,7 @@ trap('TERM') {
   Djinn.log_debug("Received TERM signal: stopping node servies.")
   server.djinn.kill_sig_received = true
   server.shutdown
-  server.djinn.kill(secret)
+  server.djinn.kill(false, secret)
 }
 
 new_thread = Thread.new { server.start }
