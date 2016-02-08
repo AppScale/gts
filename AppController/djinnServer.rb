@@ -50,7 +50,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
   def job
     @djinn.job
   end
-  
+
   def djinn_locations
     @djinn.djinn_locations
   end
@@ -65,7 +65,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_app_info_map", "secret")
     add_method(@djinn, "relocate_app", "appid", "http_port", "https_port",
       "secret")
-    add_method(@djinn, "kill", "secret")    
+    add_method(@djinn, "kill", "secret")
     add_method(@djinn, "set_parameters", "djinn_locations",
       "database_credentials", "app_names", "secret")
     add_method(@djinn, "set_apps", "app_names", "secret")
@@ -146,9 +146,16 @@ server = DjinnServer.new(
 )
 
 trap('INT') {
-  Djinn.log_debug("Received INT signal, shutting down server")
+  Djinn.log_debug("Received INT signal: stopping deployment.")
   server.djinn.kill_sig_received = true
-  server.shutdown 
+  server.shutdown
+  server.djinn.kill(true, secret)
+}
+
+trap('TERM') {
+  Djinn.log_debug("Received TERM signal: stopping node servies.")
+  server.djinn.kill_sig_received = true
+  server.shutdown
   server.djinn.kill(secret)
 }
 

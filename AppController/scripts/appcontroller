@@ -38,7 +38,14 @@ do_start()
 do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-   start-stop-daemon --stop --pidfile $PIDFILE --retry 10
+   start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   log_end_msg $?
+}
+
+do_stop_deployment()
+{
+   log_daemon_msg "Stopping AppScale deployment"
+   start-stop-daemon --stop --pidfile $PIDFILE --retry=INT/30/INT/5
    log_end_msg $?
 }
 
@@ -64,6 +71,12 @@ case "$1" in
     status)
         status_of_proc "$DAEMON" "$DAEMON_NAME" && exit 0 || exit $?
         ;;
+
+    stop_deployment)
+        # This option has a different effect only on the head node. On all
+        # other nodes it will be equivalent to stop.
+        ;;
+
     *)
         echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"
         exit 1
