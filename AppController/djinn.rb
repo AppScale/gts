@@ -775,7 +775,7 @@ class Djinn
           if node.private_ip != my_node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
             begin
-              acc.kill()
+              acc.kill(stop_deployment)
               Djinn.log_info("kill: sent kill command to node at #{ip}.")
             rescue FailedNodeException
               Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
