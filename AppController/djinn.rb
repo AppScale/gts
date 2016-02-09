@@ -441,7 +441,7 @@ class Djinn
 
 
   # Where to put logs.
-  LOG_FILE = "/var/log/appscale/controller-17443.log" 
+  LOG_FILE = "/var/log/appscale/controller-17443.log"
 
 
   # List of parameters allowed in the set_parameter (and in AppScalefile
@@ -718,7 +718,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       begin
         uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
-        uac.add_instance(appid, my_public, http_port)
+        uac.add_instance(appid, my_public, http_port, https_port)
       rescue FailedNodeException
         Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
           "not have been relocated.")
@@ -2661,9 +2661,9 @@ class Djinn
       elsif k == "@my_index" or k == "@api_status"
         # Don't back up @my_index - it's a node-specific pointer that
         # indicates which node is "our node" and thus should be regenerated
-        # via find_me_in_locations. 
+        # via find_me_in_locations.
         # Also don't worry about @api_status - (used to be for deprecated
-        # API checker) it can take up a lot of space and can easily be 
+        # API checker) it can take up a lot of space and can easily be
         # regenerated with new data.
         next
       end
@@ -2726,7 +2726,7 @@ class Djinn
         v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
       # my_private_ip and my_public_ip instance variables are from the head
-      # node. This node may or may not be the head node, so set those 
+      # node. This node may or may not be the head node, so set those
       # from local files. state_change_lock is a Monitor: no need to
       # restore it.
       if k == "@my_private_ip"
@@ -2931,7 +2931,7 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        if !zookeeper_data['locations'].include? node.private_ip 
+        if !zookeeper_data['locations'].include? node.private_ip
           zookeeper_data['locations'] << node.private_ip
         end
       end
@@ -3569,39 +3569,16 @@ class Djinn
   end
 
 
-  # Contacts the UserAppServer to get a list of apps that it believes are
-  # running in this AppScale cloud, and instructs it to delete each entry
-  # present.
+  # Delete all apps running on this instance.
   def erase_app_instance_info()
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     begin
-      app_list = uac.get_all_apps()
+      result = uac.delete_all_apps()
+      Djinn.log_info("UserAppServer delete_all_apps returned: #{result}.")
     rescue FailedNodeException
-      Djinn.log_warn("Couldn't call get_all_apps from UserAppServer.")
+      Djinn.log_warn("Couldn't call delete_all_apps from UserAppServer.")
       return
     end
-    my_public = my_node.public_ip
-
-    Djinn.log_info("All apps are [#{app_list.join(', ')}]")
-    app_list.each { |app|
-      begin
-        if uac.is_app_enabled?(app)
-          Djinn.log_debug("App #{app} is enabled, so stopping it.")
-          hosts = uac.get_hosts_for_app(app)
-          Djinn.log_debug("[Stop appengine] hosts for #{app} is [#{hosts.join(', ')}]")
-          hosts.each { |host|
-            Djinn.log_debug("[Stop appengine] deleting instance for app #{app} at #{host}")
-            ip, port = host.split(":")
-            uac.delete_instance(app, ip, port)
-          }
-          Djinn.log_info("Finished deleting instances for app #{app}")
-        else
-          Djinn.log_debug("App #{app} wasnt enabled, skipping it")
-        end
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to the UserAppServer while stopping #{app}.")
-      end
-    }
   end
 
 
@@ -4511,12 +4488,37 @@ HOSTS
       end
       app_list.each { |app|
         begin
-          if uac.is_app_enabled?(app)
-            Djinn.log_debug("App #{app} is enabled, so restoring it")
-            @app_names = @app_names + [app]
-          else
-            Djinn.log_debug("App #{app} is not enabled, moving on")
+          if not uac.is_app_enabled?(app)
+            Djinn.log_info("App #{app} is not enabled, moving on")
+            next
           end
+
+          Djinn.log_info("App #{app} is enabled, so restoring it")
+
+          # We query the UserAppServer looking for application data, in
+          # particular ports and language.
+          result = uac.get_app_data(app)
+          app_data = JSON.load(result)
+          Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
+
+          app_language = app_data['language']
+          Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
+
+          if @app_info_map[app].nil?
+            @app_info_map[app] = {}
+          end
+          if app_language
+            @app_info_map[app]['language'] = app_language
+          end
+          if app_data['hosts'].values[0]
+            if app_data['hosts'].values[0]['http']
+              @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+            end
+            if app_data['hosts'].values[0]['https']
+              @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+            end
+          end
+          @app_names = @app_names + [app]
         rescue FailedNodeEsception
           Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
         end
@@ -4572,26 +4574,42 @@ HOSTS
     app_language = ""
     loop {
       begin
-        app_data = uac.get_app_data(app)
-        if app_data[0..4] != "Error"
-          # Let's make sure the application is enabled.
-          result = uac.enable_app(app)
-          Djinn.log_debug("enable_app returned #{result}.")
-          app_language = (app_data.scan(/language:(\w+)/).*"").to_s
-          break
-        end
+        result = uac.get_app_data(app)
+        app_data = JSON.load(result)
+        Djinn.log_debug("Got application data for #{app}: #{app_data}.")
+
+        # Let's make sure the application is enabled.
+        result = uac.enable_app(app)
+        Djinn.log_debug("enable_app returned #{result}.")
+        app_language = app_data['language']
+        break
       rescue FailedNodeException
         # Failed to talk to the UserAppServer: let's try again.
       end
-      Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+      Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
       Kernel.sleep(SMALL_WAIT)
     }
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
+    # Let's create an entry for the application if we don't already have it.
     if @app_info_map[app].nil?
       @app_info_map[app] = {}
+    end
+
+    # If the language of the application changed, we disable the app since
+    # it may cause some datastore corruption. User will have to create a
+    # new ID.
+    if @app_info_map[app]['language'] and @app_info_map[app]['language'] != app_language
+      Djinn.log_error("Application #{app} changed language! Disabling it.")
+      begin
+        result = uac.delete_app(app)
+        Djinn.log_debug("delete_app returned #{result}.")
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to talk to UAServer while disabling #{app}.")
+      end
+    else
       @app_info_map[app]['language'] = app_language
     end
 
@@ -4629,6 +4647,8 @@ HOSTS
     # issue.
     if state == "new"
       nginx_app_port = find_lowest_free_port(Nginx::START_PORT, Nginx::END_PORT)
+      nginx_app_https = find_lowest_free_port(Nginx.get_ssl_port_for_app(Nginx::START_PORT),
+        Nginx.get_ssl_port_for_app(Nginx::END_PORT))
       haproxy_app_port = find_lowest_free_port(HAProxy::START_PORT)
       if nginx_app_port < 0 or haproxy_app_port < 0
         Djinn.log_error("Cannot find an available port for application #{app}")
@@ -4639,9 +4659,12 @@ HOSTS
 
       if @app_info_map[app]['nginx'].nil?
         @app_info_map[app]['nginx'] = nginx_app_port
+      end
+      if @app_info_map[app]['nginx_https'].nil?
+        @app_info_map[app]['nginx_https'] = nginx_app_https
+      end
+      if @app_info_map[app]['haproxy'].nil?
         @app_info_map[app]['haproxy'] = haproxy_app_port
-        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(
-          @app_info_map[app]['nginx'])
       end
 
       @app_info_map[app]['appengine'] = []
@@ -4781,7 +4804,7 @@ HOSTS
       loop {
         Kernel.sleep(SMALL_WAIT)
         begin
-          success = uac.add_instance(app, my_public, nginx_port)
+          success = uac.add_instance(app, my_public, nginx_port, https_port)
           Djinn.log_debug("Add instance returned #{success}")
           if success
             # tell ZK that we are hosting the app in case we die, so that
@@ -4848,14 +4871,11 @@ HOSTS
 
         # Make sure we have the variables to look into: if we catch an app
         # early on, it may not have them.
-        if not (info['nginx'] and info['nginx_https'] and info['haproxy'])
-          next
-        end
-
-        # These ports are allocated on the frontend.
-        if possibly_free_port == Integer(info['nginx']) or
-            possibly_free_port == Integer(info['nginx_https']) or
-            possibly_free_port == Integer(info['haproxy'])
+        if info['nginx'] and possibly_free_port == Integer(info['nginx'])
+          in_use = true
+        elsif info['nginx_https'] and possibly_free_port == Integer(info['nginx_https'])
+          in_use = true
+        elsif info['haproxy'] and possibly_free_port == Integer(info['haproxy'])
           in_use = true
         end
 
@@ -5225,16 +5245,6 @@ HOSTS
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
     warmup_url = "/"
-
-    begin
-      app_data = uac.get_app_data(app)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer about " +
-        "getting data for application #{app}")
-      return
-    end
-
-    Djinn.log_debug("Get app data for #{app}")
 
     begin
       app_is_enabled = uac.is_app_enabled?(app)

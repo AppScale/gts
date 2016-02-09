@@ -3,6 +3,7 @@
 
 import datetime
 import hashlib
+import json
 import logging
 import os
 import re
@@ -85,18 +86,6 @@ class AppDashboardHelper(object):
   # actions they are allowed to perform in this AppScale deployment. The
   # UserAppServer joins that list with this character.
   USER_CAPABILITIES_DELIMITER = ':'
-
-
-  # A regular expression that can be used to find out what port number a Google
-  # App Engine application is bound to from its application data.
-  GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
-
-
-  # A regular expression that can be used to find out how many servers host a
-  # Google App Engine application in this cloud. Typically this is one (since a
-  # full proxy is used to access apps), but historically, it used to be greater
-  # than one (when the full proxy wasn't used).
-  NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
 
 
   # A regular expression that can be used to find out which Google App Engine
@@ -318,9 +307,9 @@ class AppDashboardHelper(object):
     """
     try:
       app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      result = re.search(self.GET_APP_PORTS_REGEX, app_data)
+      result = json.loads(app_data)
       if result:
-        return int(result.group(1))
+        return int(result['hosts'].values()[0]['http'])
       else:
         raise AppHelperException("Application {0} does not have a port number" \
           " that it runs on.".format(appname))
@@ -437,8 +426,7 @@ class AppDashboardHelper(object):
       True if the app id has been registered, and False otherwise.
     """
     try:
-      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      search_data = re.search(self.GET_APP_PORTS_REGEX, app_data)
+      result = self.get_uaserver().does_app_exists(appname, GLOBAL_SECRET_KEY)
       if search_data:
         num_ports = int(search_data.group(1))
         return num_ports > 0
