@@ -617,7 +617,6 @@ CONFIG
       config += <<CONFIG
     server 127.0.0.1:#{UserAppClient::HAPROXY_SERVER_PORT};
 CONFIG
-    }
     config += <<CONFIG
 }
  

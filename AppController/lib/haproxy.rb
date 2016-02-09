@@ -44,16 +44,16 @@ module HAProxy
 
   # HAProxy Configuration to use for a thread safe gae app.
   THREADED_SERVER_OPTIONS = "maxconn 7 check"
-  
+
 
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
-  
+
   # The default server timeout for the dashboard (apploadbalancer)
   ALB_SERVER_TIMEOUT = 300000
 
-  
+
   def self.start()
     start_cmd = "/usr/sbin/service haproxy start"
     stop_cmd = "/usr/sbin/service haproxy stop"
@@ -87,18 +87,18 @@ module HAProxy
 
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(my_ip, listen_port)
-    self.create_app_config(my_ip, my_ip, UserAppClient::HAPROXY_SERVER_PORT, 
+    self.create_app_config(my_ip, my_ip, UserAppClient::HAPROXY_SERVER_PORT,
       [my_ip], UserAppClient::NAME)
   end
 
   # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
-    self.create_app_config(my_ip, my_ip, listen_port, 
+    self.create_app_config(my_ip, my_ip, listen_port,
       DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
   end
 
   # A generic function for creating haproxy config files used by appscale services
-  def self.create_app_config(my_public_ip, my_private_ip, listen_port, 
+  def self.create_app_config(my_public_ip, my_private_ip, listen_port,
     server_ports, name)
     servers = []
     server_ports.each_with_index do |port, index|
@@ -109,11 +109,11 @@ module HAProxy
     config << "listen #{name} #{my_private_ip}:#{listen_port} \n"
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
-    # can take some time 
+    # can take some time
     if name == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
-  
+
     config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
@@ -124,7 +124,7 @@ module HAProxy
   # an file include option we emulate that functionality here.
   def self.regenerate_config()
     conf = File.open(MAIN_CONFIG_FILE,"w+")
-    
+
     # Start by writing in the base file
     File.open(BASE_CONFIG_FILE, "r") do |base|
       conf.write(base.read())
@@ -150,9 +150,9 @@ module HAProxy
     # to be cut which shows users a nginx 404
     HAProxy.reload()
   end
-  
+
   # Generate the server configuration line for the provided inputs. GAE applications
-  # that are thread safe will have a higher connection limit. 
+  # that are thread safe will have a higher connection limit.
   def self.server_config(app_name, index, location)
     if HelperFunctions.get_app_thread_safe(app_name)
       Djinn.log_debug("[#{app_name}] Writing Threadsafe HAProxy config")
@@ -179,7 +179,7 @@ module HAProxy
     config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
     config << servers.join("\n")
 
-    config_path = File.join(SITES_ENABLED_PATH, 
+    config_path = File.join(SITES_ENABLED_PATH,
       "#{full_app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
@@ -206,10 +206,10 @@ module HAProxy
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
     config << servers.join("\n")
 
-    config_path = File.join(SITES_ENABLED_PATH, 
+    config_path = File.join(SITES_ENABLED_PATH,
       "#{full_app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
- 
+
     HAProxy.regenerate_config()
   end
 
@@ -267,7 +267,7 @@ defaults
   # Log details about HTTP requests
   #option httplog
 
-  # Abort request if client closes its output channel while waiting for the 
+  # Abort request if client closes its output channel while waiting for the
   # request. HAProxy documentation has a long explanation for this option.
   option abortonclose
 
@@ -279,7 +279,7 @@ defaults
   # before aborting the request
   retries 3
 
-  # Do not enforce session affinity (i.e., an HTTP session can be served by 
+  # Do not enforce session affinity (i.e., an HTTP session can be served by
   # any Mongrel, not just the one that started the session
   option redispatch
 
@@ -292,8 +292,8 @@ defaults
   # Timeout a request if Mongrel does not accept the data on the connection,
   # or does not send a response back in 10 minutes.
   timeout server 600000
-  
-  # Enable the statistics page 
+
+  # Enable the statistics page
   stats enable
   stats uri     /haproxy?stats
   stats realm   Haproxy\ Statistics
@@ -310,7 +310,7 @@ CONFIG
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
     end
-    
+
     # Write the base configuration file which sets default configuration parameters
     File.open(BASE_CONFIG_FILE, "w+") { |dest_file| dest_file.write(base_config) }
   end
