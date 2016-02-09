@@ -98,6 +98,14 @@ def stop(watch, is_group=True):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
 
+  logging.info("Stopping watch {0}".format(watch))
+  if is_group:
+    stop_command = [MONIT, 'stop', '-g', watch]
+  else:
+    stop_command = [MONIT, 'stop', watch]
+  if not run_with_retry(stop_command):
+    return False
+
   # Prevent the service from being restarted until the config is re-written.
   config_files = []
   if is_group:
@@ -110,14 +118,6 @@ def stop(watch, is_group=True):
       os.remove(config_file)
     except OSError:
       logging.exception('Error removing {}'.format())
-
-  logging.info("Stopping watch {0}".format(watch))
-  if is_group:
-    stop_command = [MONIT, 'stop', '-g', watch]
-  else:
-    stop_command = [MONIT, 'stop', watch]
-  if not run_with_retry(stop_command):
-    return False
 
   if not run_with_retry([MONIT, 'reload']):
     return False

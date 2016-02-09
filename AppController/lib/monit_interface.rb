@@ -122,11 +122,10 @@ BOO
   end
 
   def self.stop(watch)
-    Dir.glob("/etc/monit/conf.d/appscale-#{watch}-*.cfg") { |config_file|
-      Djinn.log_info("*** Removing file #{config_file}")
+    Djinn.log_run("#{MONIT} stop -g #{watch}")
+    Dir.glob("#{MONIT_CONFIG_DIR}/appscale-#{watch}-*.cfg") { |config_file|
       FileUtils.rm_f(config_file)
     }
-    Djinn.log_run("#{MONIT} stop -g #{watch}")
     Djinn.log_run('service monit reload')
   end
 
