@@ -9,6 +9,7 @@ require 'helperfunctions'
 require 'app_dashboard'
 require 'datastore_server'
 require 'monit_interface'
+reguire 'user_app_client'
 
 
 # A module to wrap all the interactions with the nginx web server
@@ -56,11 +57,6 @@ module Nginx
 
   CHANNELSERVER_PORT = 5280
 
-  # User/apps soap server SSL port.
-  UASERVER_SSL_PORT = 4343
-
-  # User/apps soap server bind port. 
-  UASERVER_NON_SSL_PORT = 4342
 
   def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
@@ -614,20 +610,19 @@ CONFIG
   # 
   # Args:
   #   all_private_ips: A list of strings, the IPs on which the datastore is running. 
-  def self.create_uaserver_config(all_private_ips)
+  def self.create_uaserver_config()
     config = <<CONFIG
 upstream uaserver {
 CONFIG
-    all_private_ips.each { |ip|
       config += <<CONFIG
-    server #{ip}:#{UASERVER_NON_SSL_PORT};
+    server 127.0.0.1:#{UserAppClient::HAPROXY_SERVER_PORT};
 CONFIG
     }
     config += <<CONFIG
 }
  
 server {
-    listen #{UASERVER_SSL_PORT};
+    listen #{SSL_SERVER_PORT};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate #{NGINX_PATH}/mycert.pem;

@@ -17,9 +17,17 @@ require 'helperfunctions'
 class UserAppClient
   attr_reader :conn, :ip, :secret
 
+  # The default name for the server.
+  NAME = "UserAppServer"
 
   # The port that the UserAppServer binds to, by default.
-  SERVER_PORT = 4343
+  SSL_SERVER_PORT = 4343
+
+  # The port the server is listening to.
+  SERVER_PORT = 4342
+
+  # The port used to have haproxy in front of the UserAppServer.
+  HAPROXY_SERVER_PORT = 4341
 
   # This is the minimum Timeout to use when talking to the datastore.
   DS_MIN_TIMEOUT = 20

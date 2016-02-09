@@ -2646,15 +2646,16 @@ class Djinn
     return "OK"
   end
 
-  # Creates an Nginx configuration file for the Users/Apps soap server.
-  def configure_uaserver_nginx()
+  # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
+  def configure_uaserver()
     all_db_private_ips = []
     @nodes.each { | node |
       if node.is_db_master? or node.is_db_slave?
         all_db_private_ips.push(node.private_ip)
       end
     }
-    Nginx.create_uaserver_config(all_db_private_ips)
+    HAProxy.create_ua_server_config(my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    Nginx.create_uaserver_config()
     Nginx.reload()
   end
 

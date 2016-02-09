@@ -8,6 +8,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
 require 'monit_interface'
+require 'user_app_client'
 
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
@@ -84,7 +85,13 @@ module HAProxy
     START_PORT + app_number
   end
 
-  # Create the config file for Datastore Server applications
+  # Create the config file for UserAppServer.
+  def self.create_ua_server_config(my_ip, listen_port)
+    self.create_app_config(my_ip, my_ip, UserAppClient::HAPROXY_SERVER_PORT, 
+      [my_ip], UserAppClient::NAME)
+  end
+
+  # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
     self.create_app_config(my_ip, my_ip, listen_port, 
       DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
