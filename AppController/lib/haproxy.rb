@@ -87,8 +87,8 @@ module HAProxy
 
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(my_ip, listen_port)
-    self.create_app_config(my_ip, my_ip, UserAppClient::HAPROXY_SERVER_PORT,
-      [my_ip], UserAppClient::NAME)
+    self.create_app_config(my_ip, my_ip, listen_port,
+      UserAppClient::SERVER_PORT, UserAppClient::NAME)
   end
 
   # Create the config file for Datastore Server.
