@@ -3509,7 +3509,7 @@ class Djinn
     # ensure the UserAppServer is talking to the persistent state.
     configure_uaserver()
     HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-      UserAppClient::SERVER_PORT, USE_SSL)
+      UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
       app_list = uac.get_all_apps()
