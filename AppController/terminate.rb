@@ -28,6 +28,7 @@ module TerminateHelper
 
     # Let's make sure we restart any non-appscale service.
     `service monit restart`
+    `killall -9 -g -r djinnServer`
     `monit start all`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
     `rm -f #{APPSCALE_CONFIG_DIR}/search_ip`
