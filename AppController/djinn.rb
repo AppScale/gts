@@ -2573,8 +2573,10 @@ class Djinn
     # If this function is called twice, ensure there are no duplicate values.
     @app_info_map[app_id]['appengine'].uniq!()
 
-    HAProxy.update_app_config(my_node.private_ip, app_id,
-      @app_info_map[app_id])
+    unless app_id == AppDashboard.APP_NAME
+      HAProxy.update_app_config(my_node.private_ip, app_id,
+        @app_info_map[app_id])
+    end
 
     unless Nginx.is_app_already_configured(app_id)
       # Get static handlers and make sure cache path is readable.
@@ -4296,6 +4298,8 @@ HOSTS
 
     if not HAProxy.is_running?
       HAProxy.initialize_config()
+      HAProxy.create_app_load_balancer_config(my_node.public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
       HAProxy.start()
       Djinn.log_info("HAProxy configured and started.")
     else
