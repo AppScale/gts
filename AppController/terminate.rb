@@ -19,7 +19,7 @@ module TerminateHelper
     # Stop and then remove the service we configured with monit.
     `monit stop all`
     while system("monit summary | grep Running > /dev/null") do
-      puts "Waiting for monit so stop services ..."
+      puts "Waiting for monit to stop services ..."
       Kernel.sleep(2)
     end
 
