@@ -1,11 +1,13 @@
+#!/usr/bin/env python2
+
+import glob
 import logging
-import os 
+import os
 import subprocess
-import sys
 import time
 
-import file_io
-import misc 
+import misc
+from monit_app_configuration import MONIT_CONFIG_DIR
 
 """ 
 This file contains top level functions for starting and stopping 
@@ -95,7 +97,7 @@ def stop(watch, is_group=True):
   if not misc.is_string_secure(watch):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
-  
+
   logging.info("Stopping watch {0}".format(watch))
   if is_group:
     stop_command = [MONIT, 'stop', '-g', watch]
@@ -104,12 +106,23 @@ def stop(watch, is_group=True):
   if not run_with_retry(stop_command):
     return False
 
-  logging.info("Unmonitoring watch {0}".format(watch))
+  # Prevent the service from being restarted until the config is re-written.
+  config_files = []
   if is_group:
-    unmonitor_command = [MONIT, 'unmonitor', '-g', watch]
+    config_files.extend(
+      glob.glob('{}/appscale-{}-*.cfg'.format(MONIT_CONFIG_DIR, watch)))
   else:
-    unmonitor_command = [MONIT, 'unmonitor', watch]
-  return run_with_retry(unmonitor_command)
+    config_files.append('{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch))
+  for config_file in config_files:
+    try:
+      os.remove(config_file)
+    except OSError:
+      logging.exception('Error removing {}'.format())
+
+  if not run_with_retry([MONIT, 'reload']):
+    return False
+
+  return True
 
 def restart(watch):
   """ Instructs monit to restart all processes hosting the given watch.

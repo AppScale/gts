@@ -323,20 +323,12 @@ def stop_app_instance(app_name, port):
   logging.info('Removing routing for {} on port {}'.format(app_name, port))
   remove_routing(app_name, port)
 
-  logging.info("Stopping application %s" % app_name)
+  logging.info('Stopping AppServer for {} on port {}'.format(app_name, port))
   watch = "app___" + app_name + "-" + str(port)
   if not monit_interface.stop(watch, is_group=False):
     logging.error("Unable to stop application server for app {0} on " \
       "port {1}".format(app_name, port))
     return False
-
-  # Now that the AppServer is stopped, remove its monit config file so that
-  # monit doesn't pick it up and restart it.
-  monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
-  try:
-    os.remove(monit_config_file)
-  except OSError as os_error:
-    logging.error("Error deleting {0}".format(monit_config_file))
 
   return True
 
@@ -377,10 +369,8 @@ def stop_app(app_name):
 
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name
-  monit_result = monit_interface.stop(watch)
-
-  if not monit_result:
-    logging.error("Unable to shut down monit interface for watch %s" % watch)
+  if not monit_interface.stop(watch):
+    logging.error('Unable to stop {}'.format(app_name))
     return False
 
   return True

@@ -1,6 +1,7 @@
 #!/usr/bin/ruby -w
 
 # Imports within Ruby's standard libraries.
+require 'fileutils'
 require 'tmpdir'
 
 # Imports AppScale's libraries.
@@ -10,6 +11,9 @@ require 'helperfunctions'
 # A constant that we use to indicate that we want the output produced
 # by remotely executed SSH commands.
 WANT_OUTPUT = true
+
+# The directory used when storing a service's config file.
+MONIT_CONFIG_DIR = '/etc/monit/conf.d'
 
 
 # AppScale uses monit to start processes, restart them if they die, or kill and
@@ -37,36 +41,20 @@ module MonitInterface
     self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
   end
 
-  def self.start_file(watch, path, action, hours=12, remote_ip=nil, remote_key=nil)
+  def self.start_file(watch, path, action, hours=12, group=nil)
+    group = watch unless group
+
     contents = <<BOO
 check file #{watch} path "#{path}" every 2 cycles
-  group #{watch}
-  if timestamp > 12 hours then exec "#{action}"
+  group #{group}
+  if timestamp > #{hours} hours then exec "#{action}"
 BOO
-    monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
-    if remote_ip
-      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
-      HelperFunctions.write_file(tempfile, contents)
-      begin
-        HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
-      rescue AppScaleSCPException
-        Djinn.log_error("Failed to write monit file at #{remote_ip}")
-        Djinn.log_run("rm -rf #{tempfile}")
-        raise AppScaleSCPException.new("Failed to write monit file at #{remote_ip}")
-      end
-      Djinn.log_run("rm -rf #{tempfile}")
-    else
-      HelperFunctions.write_file(monit_file, contents)
-    end
+    monit_file = "#{MONIT_CONFIG_DIR}/appscale-#{watch}.cfg"
+    HelperFunctions.write_file(monit_file, contents)
+    Djinn.log_run('service monit reload')
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
-
-    ip = remote_ip || HelperFunctions.local_ip
-    Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}" +
-      " with exec action [#{action}]")
-
-
-    self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
+    Djinn.log_info("Watching file #{path} for #{watch}")
+    Djinn.log_run("#{MONIT} start -g #{group}")
   end
 
   def self.restart(watch, remote_ip=nil, remote_key=nil)
@@ -133,17 +121,12 @@ BOO
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
   end
 
-  def self.stop(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
-  end
-
-  def self.remove(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
-    self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", remote_ip, remote_key)
-  end
-
-  def self.shutdown(remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} quit", remote_ip, remote_key)
+  def self.stop(watch)
+    Djinn.log_run("#{MONIT} stop -g #{watch}")
+    Dir.glob("#{MONIT_CONFIG_DIR}/appscale-#{watch}-*.cfg") { |config_file|
+      FileUtils.rm_f(config_file)
+    }
+    Djinn.log_run('service monit reload')
   end
 
   def self.is_running?(watch, remote_ip=nil, remote_key=nil)
