@@ -476,7 +476,7 @@ CONFIG
 }
  
 server {
-    listen #{SSL_SERVER_PORT};
+    listen #{UserAppClient::SSL_SERVER_PORT};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate #{NGINX_PATH}/mycert.pem;
