@@ -9,7 +9,7 @@ require 'helperfunctions'
 require 'app_dashboard'
 require 'datastore_server'
 require 'monit_interface'
-reguire 'user_app_client'
+require 'user_app_client'
 
 
 # A module to wrap all the interactions with the nginx web server
