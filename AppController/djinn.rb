@@ -4308,6 +4308,8 @@ HOSTS
 
     if not Nginx.is_running?
       Nginx.initialize_config()
+      Nginx.create_app_load_balancer_config(my_node.public_ip,
+        my_node.private_ip, AppDashboard::PROXY_PORT)
       Nginx.start()
       Djinn.log_info("Nginx configured and started.")
     else
