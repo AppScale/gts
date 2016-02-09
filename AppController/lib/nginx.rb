@@ -465,12 +465,12 @@ CONFIG
   # 
   # Args:
   #   all_private_ips: A list of strings, the IPs on which the datastore is running. 
-  def self.create_uaserver_config()
+  def self.create_uaserver_config(my_ip)
     config = <<CONFIG
 upstream uaserver {
 CONFIG
       config += <<CONFIG
-    server 127.0.0.1:#{UserAppClient::HAPROXY_SERVER_PORT};
+    server #{my_ip}:#{UserAppClient::HAPROXY_SERVER_PORT};
 CONFIG
     config += <<CONFIG
 }
