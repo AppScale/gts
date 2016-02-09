@@ -21,7 +21,7 @@ module TerminateHelper
     while system("monit summary | grep Running > /dev/null") do
       puts "Waiting for monit so stop services ..."
       Kernel.sleep(2)
-    done
+    end
 
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
