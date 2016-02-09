@@ -2573,7 +2573,7 @@ class Djinn
     # If this function is called twice, ensure there are no duplicate values.
     @app_info_map[app_id]['appengine'].uniq!()
 
-    unless app_id == AppDashboard.APP_NAME
+    unless app_id == AppDashboard::APP_NAME
       HAProxy.update_app_config(my_node.private_ip, app_id,
         @app_info_map[app_id])
     end
