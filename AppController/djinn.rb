@@ -2654,7 +2654,8 @@ class Djinn
         all_db_private_ips.push(node.private_ip)
       end
     }
-    HAProxy.create_ua_server_config(my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    HAProxy.create_ua_server_config(all_db_private_ips,
+      my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
     Nginx.create_uaserver_config()
     Nginx.reload()
   end

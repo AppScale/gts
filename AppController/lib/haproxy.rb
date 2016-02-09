@@ -86,23 +86,43 @@ module HAProxy
   end
 
   # Create the config file for UserAppServer.
-  def self.create_ua_server_config(my_ip, listen_port)
-    self.create_app_config(my_ip, my_ip, listen_port,
-      UserAppClient::SERVER_PORT, UserAppClient::NAME)
+  def self.create_ua_server_config(servers, my_ip, listen_port)
+    # For the UserAppServer we need to reach out a list of servers on the
+    # DB nodes. The port is fixed.
+    ports = []
+    servers.each{ |server|
+      ports << UserAppClient::SERVER_PORT
+    }
+    self.create_app_config(servers, my_ip, listen_port, ports,
+      UserAppClient::NAME)
   end
 
   # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
-    self.create_app_config(my_ip, my_ip, listen_port,
+    # For the Datastore Servers we have a list of local ports the servers
+    # are listening to, and we need to create the list of IPs (all the
+    # local IP of course).
+    ips = []
+    DatastoreServer.get_server_ports(table).each { |port|
+      ips << my_ip
+    }
+    self.create_app_config(ips, my_ip, listen_port,
       DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
   end
 
-  # A generic function for creating haproxy config files used by appscale services
-  def self.create_app_config(my_public_ip, my_private_ip, listen_port,
+  # A generic function for creating haproxy config files used by appscale services.
+  #
+  # Arguments:
+  #   server_ips  : list of IPs where the servers are listening to
+  #   listen_ip   : the IP of where haproxy should listen for
+  #   listen_port : the port to listen to
+  #   server_ports: list of ports one per server_ips as defined above
+  #   name        : the name of the server
+  def self.create_app_config(server_ips, my_private_ip, listen_port,
     server_ports, name)
     servers = []
     server_ports.each_with_index do |port, index|
-      servers << HAProxy.server_config(name, index, "#{my_private_ip}:#{port}")
+      servers << HAProxy.server_config(name, index, "#{server_ips[index]}:#{port}")
     end
 
     config = "# Create a load balancer for the #{name} application \n"
@@ -163,34 +183,8 @@ module HAProxy
     end
   end
 
-  def self.write_app_config(app_name, app_number, num_of_servers, ip)
-    # Add a prefix to the app name to avoid possible conflicts
-    full_app_name = "gae_#{app_name}"
-
-    servers = []
-    num_of_servers.times do |index|
-      port = HelperFunctions.application_port(app_number, index, num_of_servers)
-      server = HAProxy.server_config(full_app_name, index, "#{ip}:#{port}")
-      servers << server
-    end
-
-    listen_port = HAProxy.app_listen_port(app_number)
-    config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
-    config << servers.join("\n")
-
-    config_path = File.join(SITES_ENABLED_PATH,
-      "#{full_app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config()
-  end
-
-
   # Updates the HAProxy config file for this App Engine application to
-  # point to all the ports currently the application. In contrast with
-  # write_app_config, these ports can be non-contiguous.
-  # TODO: Lots of copy/paste here with write_app_config - eliminate it.
+  # point to all the ports currently the application.
   def self.update_app_config(private_ip, app_name, app_info)
     listen_port = app_info['haproxy']
 
