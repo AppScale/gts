@@ -145,13 +145,6 @@ server = DjinnServer.new(
   :SSLCertName => nil
 )
 
-trap('INT') {
-  Djinn.log_debug("Received INT signal: stopping deployment.")
-  server.djinn.kill_sig_received = true
-  server.shutdown
-  server.djinn.kill(true, secret)
-}
-
 trap('TERM') {
   Djinn.log_debug("Received TERM signal: stopping node servies.")
   server.djinn.kill_sig_received = true
