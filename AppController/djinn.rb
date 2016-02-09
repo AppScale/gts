@@ -4294,8 +4294,6 @@ HOSTS
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server()
-    head_node_ip = get_public_ip(@options['hostname'])
-
     if not HAProxy.is_running?
       HAProxy.initialize_config()
       HAProxy.create_app_load_balancer_config(my_node.public_ip,
