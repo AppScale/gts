@@ -26,7 +26,7 @@ class UserAppClient
   # The port the server is listening to.
   SERVER_PORT = 4342
 
-  # The port used to have haproxy in front of the UserAppServer.
+  # The port used to have HAProxy in front of the UserAppServer.
   HAPROXY_SERVER_PORT = 4341
 
   # This is the minimum Timeout to use when talking to the datastore.

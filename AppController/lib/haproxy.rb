@@ -87,8 +87,8 @@ module HAProxy
 
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(servers, my_ip, listen_port)
-    # For the UserAppServer we need to reach out a list of servers on the
-    # DB nodes. The port is fixed.
+    # We reach out to UserAppServers on the DB nodes. 
+    # The port is fixed.
     ports = []
     servers.each{ |server|
       ports << UserAppClient::SERVER_PORT
@@ -99,9 +99,8 @@ module HAProxy
 
   # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
-    # For the Datastore Servers we have a list of local ports the servers
-    # are listening to, and we need to create the list of IPs (all the
-    # local IP of course).
+    # For the Datastore servers we have a list of local ports the servers
+    # are listening to, and we need to create the list of local IPs.
     ips = []
     DatastoreServer.get_server_ports(table).each { |port|
       ips << my_ip
@@ -110,13 +109,13 @@ module HAProxy
       DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
   end
 
-  # A generic function for creating haproxy config files used by appscale services.
+  # A generic function for creating HAProxy config files used by AppScale services.
   #
   # Arguments:
-  #   server_ips  : list of IPs where the servers are listening to
-  #   listen_ip   : the IP of where haproxy should listen for
+  #   server_ips  : list of server IPs
+  #   listen_ip   : the IP HAProxy should listen for
   #   listen_port : the port to listen to
-  #   server_ports: list of ports one per server_ips as defined above
+  #   server_ports: list of server ports, corresponding to server_ips
   #   name        : the name of the server
   def self.create_app_config(server_ips, my_private_ip, listen_port,
     server_ports, name)
@@ -140,8 +139,8 @@ module HAProxy
     HAProxy.regenerate_config
   end
 
-  # Generates a load balancer configuration file. Since haproxy doesn't provide
-  # an file include option we emulate that functionality here.
+  # Generates a load balancer configuration file. Since HAProxy doesn't provide
+  # a `file include` option we emulate that functionality here.
   def self.regenerate_config()
     conf = File.open(MAIN_CONFIG_FILE,"w+")
 
@@ -184,7 +183,7 @@ module HAProxy
   end
 
   # Updates the HAProxy config file for this App Engine application to
-  # point to all the ports currently the application.
+  # point to all the ports currently used by the application.
   def self.update_app_config(private_ip, app_name, app_info)
     listen_port = app_info['haproxy']
 
