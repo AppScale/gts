@@ -385,6 +385,15 @@ def stop_app(app_name):
     logging.error("Unable to shut down monit interface for watch %s" % watch)
     return False
 
+  # Remove the monit config files for the application.
+  # TODO: Reload monit to pick up config changes.
+  config_files = glob.glob('{}/appscale-{}-*.cfg'.format(MONIT_CONFIG_DIR, watch))
+  for config_file in config_files:
+    try:
+      os.remove(config_file)
+    except OSError:
+      logging.exception('Error removing {}'.format(config_file))
+
   return True
 
 ############################################
