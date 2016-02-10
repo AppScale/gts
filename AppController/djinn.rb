@@ -753,95 +753,43 @@ class Djinn
   # in this AppScale deployment.
   #
   # Args:
-  #   secret: A String used to authenticate callers.
+  #   stop_deployment: A boolean to indicate if the whole deployment
+  #                    should be stopped.
+  #   secret         : A String used to authenticate callers.
   # Returns:
   #   A String indicating that the termination has started, or the reason why it
   #   failed.
-  def kill(secret)
+  def kill(stop_deployment, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
     @kill_sig_received = true
 
-    if is_hybrid_cloud?
-      threads << Thread.new {
-        Kernel.sleep(SMALL_WAIT)
-        HelperFunctions.terminate_hybrid_vms(options)
-      }
-    elsif is_cloud?
-      threads << Thread.new {
-        Kernel.sleep(SMALL_WAIT)
-        infrastructure = options["infrastructure"]
-        keyname = options["keyname"]
-        HelperFunctions.terminate_all_vms(infrastructure, keyname)
-      }
-    else
-      # in xen/kvm deployments we actually want to keep the boxes
-      # turned on since that was the state they started in
+    Djinn.log_info("Received a stop request.")
 
-      if my_node.is_login?
-        # Let's stop all other nodes.
-        threads << Thread.new {
-          @nodes.each { |node|
-            if node.private_ip != my_node.private_ip
-              acc = AppControllerClient.new(ip, @@secret)
-              begin
-                acc.kill()
-                Djinn.log_info("kill: sent kill command to node at #{ip}.")
-              rescue FailedNodeException
-                Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
-              end
+    if my_node.is_login? and stop_deployment
+      Djinn.log_info("Stopping all other nodes.")
+      # Let's stop all other nodes.
+      threads << Thread.new {
+        @nodes.each { |node|
+          if node.private_ip != my_node.private_ip
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              acc.kill(stop_deployment)
+              Djinn.log_info("kill: sent kill command to node at #{ip}.")
+            rescue FailedNodeException
+              Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
             end
-          }
+          end
         }
-        stop_ejabberd()
-        TaskQueue.stop_flower()
-      end
-
-      maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
-
-      jobs_to_run = my_node.jobs
-      commands = {
-        "load_balancer" => "stop_app_dashboard",
-        "appengine" => "stop_appengine",
-        "db_master" => "stop_db_master",
-        "db_slave" => "stop_db_slave",
-        "zookeeper" => "stop_zookeeper"
       }
-
-      my_node.jobs.each { |job|
-        if commands.include?(job)
-          Djinn.log_info("About to run [#{commands[job]}]")
-          send(commands[job].to_sym)
-        else
-          Djinn.log_info("Unable to find command for job #{job}. Skipping it.")
-        end
-      }
-
-      if has_soap_server?(my_node)
-        stop_soap_server()
-        stop_datastore_server()
-        stop_groomer_service()
-        stop_backup_service()
-      end
-
-      TaskQueue.stop() if my_node.is_taskqueue_master?
-      TaskQueue.stop() if my_node.is_taskqueue_slave?
-      Search.stop() if my_node.is_search?
-      stop_app_manager_server()
-      stop_infrastructure_manager()
     end
-
-    TerminateHelper.erase_appscale_state
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
     end
-
-    # Wait for the threads to finish.
-    Djinn.log_info("kill: waiting for threads to finish.")
-    threads.each { |t| t.join() }
-    Djinn.log_info("kill: done waiting for threads.")
+    Djinn.log_info("---- Stopping AppController ----")
+    TerminateHelper.erase_appscale_state
 
     return "OK"
   end
