@@ -1,5 +1,6 @@
 """ This service starts and stops application servers of a given application. """
 
+import glob
 import json
 import logging
 import math
@@ -19,6 +20,7 @@ import appscale_info
 import constants
 import file_io
 import monit_app_configuration
+from monit_app_configuration import MONIT_CONFIG_DIR
 import monit_interface
 import misc
 
@@ -332,7 +334,7 @@ def stop_app_instance(app_name, port):
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
-  monit_config_file = "/etc/monit/conf.d/{0}.cfg".format(watch)
+  monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch)
   try:
     os.remove(monit_config_file)
   except OSError as os_error:
@@ -382,6 +384,15 @@ def stop_app(app_name):
   if not monit_result:
     logging.error("Unable to shut down monit interface for watch %s" % watch)
     return False
+
+  # Remove the monit config files for the application.
+  # TODO: Reload monit to pick up config changes.
+  config_files = glob.glob('{}/appscale-{}-*.cfg'.format(MONIT_CONFIG_DIR, watch))
+  for config_file in config_files:
+    try:
+      os.remove(config_file)
+    except OSError:
+      logging.exception('Error removing {}'.format(config_file))
 
   return True
 
