@@ -22,6 +22,11 @@ GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.
 GUESTBOOK_APP="/root/guestbook.tar.gz"
 USE_DEMO_APP="Y"
 
+# On some system, when running this scipt from rc.local (ie at boot time)
+# there may not be any user set, which will cause ssh-copy-id to fail.
+# Forcing HOME to the default enables ssh-copy-id to operate normally.
+export HOME="/root"
+
 # Print help screen.
 usage() {
         echo "Usage: $0 [--user <email> --passwd <password>][--no-demo-app]"
