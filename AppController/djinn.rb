@@ -789,7 +789,6 @@ class Djinn
       HelperFunctions.restore_etc_resolv()
     end
     Djinn.log_info("---- Stopping AppController ----")
-    TerminateHelper.erase_appscale_state
 
     return "OK"
   end
