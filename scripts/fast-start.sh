@@ -210,6 +210,9 @@ if [ ! -e AppScalefile ]; then
     echo -n "Downloading sample app..."
     ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
+else
+    # If AppScalefile is present, do not redeploy the demo app.
+    USE_DEMO_APP="N"
 fi
 
 # Start AppScale.
