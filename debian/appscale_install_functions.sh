@@ -200,9 +200,9 @@ EOF
 
 installthrift()
 {
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper thrift
-    fi
+    case ${DIST} in
+        precise|wheezy) pipwrapper thrift ;;
+    esac
 }
 
 installjavajdk()
@@ -404,7 +404,7 @@ installzookeeper()
 
     # Trusty's kazoo version is too old, so use the version in Xenial.
     case "$DIST" in
-        precise|trusty) pipwrapper "kazoo==2.2.1" ;;
+        precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
         *) apt-get install python-kazoo ;;
     esac
 }
