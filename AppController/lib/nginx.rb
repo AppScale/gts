@@ -66,8 +66,9 @@ module Nginx
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    start_cmd = '/usr/bin/service nginx start'
-    stop_cmd = '/usr/bin/service nginx stop'
+    service_bin = `which service`.chomp()
+    start_cmd = "#{service_bin} nginx start"
+    stop_cmd = "#{service_bin} nginx stop"
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, ports=9999, env_vars=nil,
       remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
