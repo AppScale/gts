@@ -17,9 +17,9 @@ fi
 
 export UNAME_MACHINE=$(uname -m)
 if [ -z "$JAVA_HOME_DIRECTORY" ]; then
-	if [ "$UNAME_MACHINE" -eq "x86_64" ]; then
+	if [ "$UNAME_MACHINE" = "x86_64" ]; then
 		export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
-	elif [ "$UNAME_MACHINE" -eq "armv71" ] || [ "$UNAME_MACHINE" -eq "armv61" ]; then
+	elif [ "$UNAME_MACHINE" = "armv71" ] || [ "$UNAME_MACHINE" = "armv61" ]; then
 		export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-armhf
 	fi
 fi
@@ -281,9 +281,9 @@ installgems()
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
     #gem install zookeeper
-	if [ "$UNAME_MACHINE" -eq "x86_64" ]; then
+	if [ "$UNAME_MACHINE" = "x86_64" ]; then
 		gem install zookeeper
-	elif [ "$UNAME_MACHINE" -eq "armv71" ] || [ "$UNAME_MACHINE" -eq "armv61" ]; then
+	elif [ "$UNAME_MACHINE" = "armv71" ] || [ "$UNAME_MACHINE" = "armv61" ]; then
 		# If machine is Raspberry Pi, then go to patched version.
 	    export PWD_TEMP=$(pwd)
 		cd /root
