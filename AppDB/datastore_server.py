@@ -15,6 +15,7 @@ import md5
 import os
 import random
 import sys
+import threading
 import time
 
 import tornado.httpserver
@@ -297,6 +298,9 @@ class DatastoreDistributed():
 
   # The cassandra index column that stores the reference to the entity.
   INDEX_REFERENCE_COLUMN = 'reference'
+
+  # The number of entities to fetch at a time when updating indices.
+  BATCH_SIZE = 100
 
   def __init__(self, datastore_batch, zookeeper=None, debug=False):
     """
@@ -1148,6 +1152,56 @@ class DatastoreDistributed():
                                           dbconstants.METADATA_SCHEMA, 
                                           row_values)    
     return rand 
+
+  def update_composite_index(self, app_id, index):
+    """ Updates an index for a given app ID.
+
+    Args:
+      app_id: A string containing the app ID.
+      index: An entity_pb.CompositeIndex object.
+    """
+    logging.info('Updating index: {}'.format(index))
+    entries_updated = 0
+    entity_type = index.definition().entity_type()
+
+    # TODO: Adjust prefix based on ancestor.
+    prefix = '{app}{delimiter}{entity_type}{kind_separator}'.format(
+      app=app_id,
+      delimiter=self._SEPARATOR * 2,
+      entity_type=entity_type,
+      kind_separator=dbconstants.KIND_SEPARATOR,
+    )
+    start_row = prefix
+    end_row = prefix + self._TERM_STRING
+    start_inclusive = True
+
+    while True:
+      # Fetch references from the kind table since entity keys can have a
+      # parent prefix.
+      references = self.datastore_batch.range_query(
+        table_name=dbconstants.APP_KIND_TABLE,
+        column_names=dbconstants.APP_KIND_SCHEMA,
+        start_key=start_row,
+        end_key=end_row,
+        limit=self.BATCH_SIZE,
+        offset=0,
+        start_inclusive=start_inclusive,
+      )
+
+      pb_entities = self.__fetch_entities(references, app_id)
+      entities = [entity_pb.EntityProto(entity) for entity in pb_entities]
+
+      self.insert_composite_indexes(entities, [index])
+      entries_updated += len(entities)
+
+      # If we fetched fewer references than we asked for, we're done.
+      if len(references) < self.BATCH_SIZE:
+        break
+
+      start_row = references[-1].keys()[0]
+      start_inclusive = self._DISABLE_INCLUSIVITY
+
+    logging.info('Updated {} index entries.'.format(entries_updated))
 
   def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
@@ -4232,9 +4286,8 @@ class MainHandler(tornado.web.RequestHandler):
     elif method == "GetIndices":
       response, errcode, errdetail = self.get_indices_request(app_id)
     elif method == "UpdateIndex":
-      response = api_base_pb.VoidProto().Encode()
-      errcode = 0
-      errdetail = ""
+      response, errcode, errdetail = self.update_index_request(app_id,
+        http_request_data)
     elif method == "DeleteIndex":
       response, errcode, errdetail = self.delete_index_request(app_id, 
                                                        http_request_data)
@@ -4397,6 +4450,35 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on create index request.")
     return (response.Encode(), 0, "")
+
+  def update_index_request(self, app_id, http_request_data):
+    """ High level function for updating a composite index.
+
+    Args:
+      app_id: A string containing the application ID.
+      http_request_data: A string containing the protocol buffer request
+        from the AppServer.
+    Returns:
+       A tuple containing an encoded response, error code, and error details.
+    """
+    global datastore_access
+    index = entity_pb.CompositeIndex(http_request_data)
+    response = api_base_pb.VoidProto()
+
+    state = index.state()
+    if state not in [index.READ_WRITE, index.WRITE_ONLY]:
+      state_name = entity_pb.CompositeIndex.State_Name(state)
+      error_message = 'Unable to update index because state is {}. '\
+        'Index: {}'.format(state_name, index)
+      logging.error(error_message)
+      return response.Encode(), datastore_pb.Error.PERMISSION_DENIED,\
+        error_message
+    else:
+      # Updating index asynchronously so we can return a response quickly.
+      threading.Thread(target=datastore_access.update_composite_index,
+        args=(app_id, index)).start()
+
+    return response.Encode(), 0, ""
 
   def delete_index_request(self, app_id, http_request_data):
     """ Deletes a composite index for a given application.

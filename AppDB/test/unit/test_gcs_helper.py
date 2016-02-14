@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import re
 import requests
 import subprocess
 import sys
@@ -15,8 +14,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/"))
 import backup_recovery_helper
 import gcs_helper
 
-FakeDFOutput = "\nsome_fs  0 0  1   0% /"
-FakeFilteredDFOutput = "some_fs 0 0 1 0% /"
 FakeInvalidGCSPath = 'gs://'
 FakeGCSPath = 'gs://foo/bar/baz.tar.gz'
 
@@ -27,11 +24,6 @@ class FakeInvalidResponse(object):
 class FakeResponse(object):
   def __init__(self):
     self.headers = {'Location': 'some/location'}
-
-class FakeResponse2(object):
-  def __init__(self, code):
-    self.status_code = code
-    self.content = ""
 
 class TestGCSHelper(unittest.TestCase):
   """ A set of test cases for the GCS helper. """
@@ -96,32 +88,36 @@ class TestGCSHelper(unittest.TestCase):
       'extract_gcs_tokens').with_args(FakeGCSPath).\
       and_return(('foo', 'bar/baz.tar.gz'))
     flexmock(urllib).should_receive('quote_plus').and_return('')
+
     # Test with unsuccessful GET request.
+    response = flexmock(status_code=404)
     flexmock(gcs_helper).should_receive('gcs_get_request').\
-      and_return(FakeResponse2(0))
+      and_return(response)
     self.assertEquals(False, gcs_helper.download_from_bucket(FakeInvalidGCSPath,
       'some/file'))
+
     # Test with HTTPError from GET request.
     flexmock(gcs_helper).should_receive('gcs_get_request').\
       and_raise(requests.HTTPError)
     self.assertEquals(False, gcs_helper.download_from_bucket(FakeGCSPath,
       'some/file'))
+
     # Test with successful GET request.
+    response = flexmock(status_code=200,
+      content=json.dumps({'size': 1024, 'mediaLink': 'some/link'}))
     flexmock(gcs_helper).should_receive('gcs_get_request').\
-      and_return(FakeResponse2(200))
+      and_return(response)
+
     # Test with insufficient disk space.
-    flexmock(json).should_receive('loads').and_return({"size": "2"})
-    flexmock(subprocess).should_receive('check_output').and_return(
-      FakeDFOutput)
-    flexmock(re).should_receive('sub').and_return(FakeFilteredDFOutput)
+    disk_stats = flexmock(f_bavail=0, f_frsize=4096)
+    flexmock(os).should_receive('statvfs').and_return(disk_stats)
     self.assertEquals(False, gcs_helper.download_from_bucket(FakeGCSPath,
       'some/file'))
+
     # Test with sufficient disk space.
-    flexmock(json).should_receive('loads').and_return({
-      "size": "0", "mediaLink": "some/link"})
-    flexmock(subprocess).should_receive('check_output').and_return(
-      FakeDFOutput)
-    flexmock(re).should_receive('sub').and_return(FakeFilteredDFOutput)
+    disk_stats = flexmock(f_bavail=1024, f_frsize=4096)
+    flexmock(os).should_receive('statvfs').and_return(disk_stats)
+    flexmock(subprocess).should_receive('check_output').and_return()
     self.assertEquals(True, gcs_helper.download_from_bucket(FakeGCSPath,
       'some/file'))
 

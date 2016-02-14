@@ -1,5 +1,5 @@
 $:.unshift File.join(File.dirname(__FILE__), "lib")
-APPSCALE_HOME = ENV['APPSCALE_HOME']
+APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 module TerminateHelper
 
@@ -9,20 +9,32 @@ module TerminateHelper
   # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
   def self.erase_appscale_state
-    `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
-    `rm -f #{APPSCALE_HOME}/.appscale/database_info`
+    `rm -f #{APPSCALE_CONFIG_DIR}/secret.key`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /var/appscale/*.pid`
     `rm -f /etc/nginx/sites-enabled/*.conf`
+    `rm -f /etc/haproxy/sites-enabled/*.conf`
+    `service nginx reload`
+    # Stop and then remove the service we configured with monit.
+    `monit stop all`
+    while system("monit summary | grep Running > /dev/null") do
+      puts "Waiting for monit to stop services ..."
+      Kernel.sleep(2)
+    end
+
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
+
+    # Let's make sure we restart any non-appscale service.
     `service monit restart`
-    `rm -f /etc/appscale/port-*.txt`
-    `rm -f /etc/appscale/search_ip`
+    `killall -9 -g -r djinnServer`
+    `monit start all`
+    `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
+    `rm -f #{APPSCALE_CONFIG_DIR}/search_ip`
 
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
-    `rm -rf /etc/appscale/zookeeper_locations.json`
+    `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
     `rm -f /opt/appscale/appcontroller-state.json`
     `rm -f /opt/appscale/appserver-state.json`
   end
@@ -37,7 +49,7 @@ module TerminateHelper
     # TODO: It may be wise to save the apps for when AppScale starts up
     # later.
     `rm -rf /var/apps/`
-    `rm -rf #{APPSCALE_HOME}/.appscale/*.pid`
+    `rm -rf #{APPSCALE_CONFIG_DIR}/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
   end
@@ -54,7 +66,11 @@ module TerminateHelper
     bound_addrs.delete("127.0.0.1")
     ip = bound_addrs[0]
 
-    `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+    # Make sure we have cassandra running, otherwise nodetool may get
+    # stuck.
+    if system("monit summary | grep cassandra | grep Running > /dev/null")
+      `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+    end
 
     # Next, stop ZooKeeper politely: we stop it with both new and old
     # script to be sure.
@@ -72,69 +88,15 @@ module TerminateHelper
     `rm -rf /opt/appscale/celery`
     `rm -rf /opt/appscale/solr`
   end
-
-
-  # Restores AppScale back to a pristine state by killing any service that is
-  # associated with AppScale.
-  def self.force_kill_processes
-    `iptables -F`  # turn off the firewall
-
-    ["memcached",
-     "nginx", "haproxy", "hermes",
-     "soap_server", "appscale_server", "app_manager_server", "datastore_server",
-     "taskqueue_server", "AppDashboard",
-
-     # AppServer
-     "dev_appserver", "DevAppServerMain",
-
-     # Blobstore
-     "blobstore_server",
-
-     # Cassandra
-     "CassandraDaemon",
-
-     # ZooKeeper
-     "ThriftServer",
-
-     "rabbitmq",
-     "djinn", "xmpp_receiver",
-     "InfrastructureManager", "Neptune",
-
-     # RabbitMQ, ejabberd
-     "epmd", "beam", "ejabberd_auth.py", "celery",
-
-     # Search API
-     "solr",
-
-     # Last resort
-     "python", "java", "/usr/bin/python"
-    ].each do |program|
-      # grep out appscale-tools here since the user could be running the tools
-      # on this machine, and that would otherwise cause this command to kill
-      # itself.
-      `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
-    end
-  end
-
-
-  # Kills all Ruby processes on this machine, except for this one.
-  def self.kill_ruby
-    `ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9 > /dev/null 2>&1`
-  end
-
-
 end
 
 
 if __FILE__ == $0
-  TerminateHelper.erase_appscale_state
   TerminateHelper.disable_database_writes
+  TerminateHelper.erase_appscale_state
 
   if ARGV.length == 1 and ARGV[0] == "clean"
     TerminateHelper.erase_database_state
     TerminateHelper.erase_appscale_full_state
   end
-
-  TerminateHelper.force_kill_processes
-  TerminateHelper.kill_ruby
 end

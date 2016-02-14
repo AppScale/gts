@@ -356,7 +356,7 @@ CRON
 
     secret_hash = Digest::SHA1.hexdigest("#{app}/#{HelperFunctions.get_secret}")
     cron_lines.each { |cron|
-      cron << " root curl -H \"X-Appengine-Cron:true\" "\
+      cron << " root curl -sSH \"X-Appengine-Cron:true\" "\
               "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
               "-L \"http://#{ip}:#{port}#{url}\" "\
               "2>&1 >> /var/apps/#{app}/log/cron.log"

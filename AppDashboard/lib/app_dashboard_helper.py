@@ -3,7 +3,9 @@
 
 import datetime
 import hashlib
+import json
 import logging
+import os
 import re
 import tempfile
 import time
@@ -25,6 +27,15 @@ class AppHelperException(Exception):
   """ A special Exception class that should be thrown if a SOAP call to the
   AppController or UserAppServer failed, or returned malformed data. """
   pass
+
+
+class AppUploadStatuses(object):
+  """ A class containing the possible values that the AppController can return
+  when checking the status of an upload.
+  """
+  ID_NOT_FOUND = 'Reservation ID not found.'
+  STARTING = 'starting'
+  COMPLETE = 'true'
 
 
 class AppDashboardHelper(object):
@@ -77,18 +88,6 @@ class AppDashboardHelper(object):
   USER_CAPABILITIES_DELIMITER = ':'
 
 
-  # A regular expression that can be used to find out what port number a Google
-  # App Engine application is bound to from its application data.
-  GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
-
-
-  # A regular expression that can be used to find out how many servers host a
-  # Google App Engine application in this cloud. Typically this is one (since a
-  # full proxy is used to access apps), but historically, it used to be greater
-  # than one (when the full proxy wasn't used).
-  NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
-
-
   # A regular expression that can be used to find out which Google App Engine
   # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
@@ -121,11 +120,6 @@ class AppDashboardHelper(object):
   # whether or not we still need these tokens, and remove them if we don't.
   TOKEN_EXPIRATION = "20121231120000"
 
-
-  # A str that the AppController returns if we check the status of an uploaded
-  # app that the AppController has no information about.
-  ID_NOT_FOUND = "Reservation ID not found."
-
   # Indicates whether or not to use Shibboleth for authentication.
   # Note: If you decide to use Shibboleth, make sure to modify firewall.conf
   # to only allow connections to the dashboard from the Shibboleth connector.
@@ -146,6 +140,9 @@ class AppDashboardHelper(object):
   # the user to close their browser in order to clear the cookie set by the
   # shibboleth IdP.
   SHIBBOLETH_LOGOUT_URL = SHIBBOLETH_CONNECTOR + '/Shibboleth.sso/Logout'
+
+  # The time in seconds to wait before re-checking the app upload status.
+  APP_UPLOAD_CHECK_INTERVAL = 1
 
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
@@ -310,9 +307,9 @@ class AppDashboardHelper(object):
     """
     try:
       app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      result = re.search(self.GET_APP_PORTS_REGEX, app_data)
+      result = json.loads(app_data)
       if result:
-        return int(result.group(1))
+        return int(result['hosts'].values()[0]['http'])
       else:
         raise AppHelperException("Application {0} does not have a port number" \
           " that it runs on.".format(appname))
@@ -355,28 +352,28 @@ class AppDashboardHelper(object):
     try:
       self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
+      acc = self.get_appcontroller_client()
       tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
       tgz_file.close()
-      name = tgz_file.name
-      acc = self.get_appcontroller_client()
-      upload_info = acc.upload_app(name, file_suffix, user.email())
-      if upload_info['status'] == "starting":
-        while True:
-          status = acc.get_app_upload_status(upload_info['reservation_id'])
-          if status == "starting":
-            time.sleep(1)
-          elif status == self.ID_NOT_FOUND:
-            raise AppHelperException("We could not find the reservation ID for "
-              "your app. Please try uploading it again.")
-          else:
-            if status == "true":
-              return "Application uploaded successfully. Please wait for the " \
-                "application to start running."
-            else:
-              raise AppHelperException(status)
-      else:
-        raise AppHelperException(upload_info['status'])
+      upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
+      status = upload_info['status']
+
+      while status == AppUploadStatuses.STARTING:
+        time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
+        status = acc.get_app_upload_status(upload_info['reservation_id'])
+        if status == AppUploadStatuses.ID_NOT_FOUND:
+          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
+          raise AppHelperException('We could not find the reservation ID '
+            'for your app. Please try uploading it again.')
+        if status == AppUploadStatuses.COMPLETE:
+          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
+          return 'Application uploaded successfully. Please wait for the '\
+            'application to start running.'
+      os.remove('{}.{}'.format(tgz_file.name, file_suffix))
+      raise AppHelperException('Saw status {} when trying to upload app.'
+        .format(status))
+
     except Exception as err:
       logging.exception(err)
 
@@ -429,8 +426,7 @@ class AppDashboardHelper(object):
       True if the app id has been registered, and False otherwise.
     """
     try:
-      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      search_data = re.search(self.GET_APP_PORTS_REGEX, app_data)
+      result = self.get_uaserver().does_app_exists(appname, GLOBAL_SECRET_KEY)
       if search_data:
         num_ports = int(search_data.group(1))
         return num_ports > 0

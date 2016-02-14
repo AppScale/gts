@@ -12,8 +12,8 @@ import yaml
 import constants
 import file_io
 
-sys.path.append(os.path.join("/root/appscale-tools"))
-from lib.appcontroller_client import AppControllerClient
+sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+from google.appengine.api.appcontroller_client import AppControllerClient
 
 def read_file_contents(path):
   """ Reads the contents of the given file.

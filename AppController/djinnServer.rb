@@ -50,7 +50,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
   def job
     @djinn.job
   end
-  
+
   def djinn_locations
     @djinn.djinn_locations
   end
@@ -65,7 +65,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_app_info_map", "secret")
     add_method(@djinn, "relocate_app", "appid", "http_port", "https_port",
       "secret")
-    add_method(@djinn, "kill", "secret")    
+    add_method(@djinn, "kill", "stop_deployment", "secret")
     add_method(@djinn, "set_parameters", "djinn_locations",
       "database_credentials", "app_names", "secret")
     add_method(@djinn, "set_apps", "app_names", "secret")
@@ -89,7 +89,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "remove_role", "old_role", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
     add_method(@djinn, "gather_logs", "secret")
-    add_method(@djinn, "add_appserver_to_haproxy", "app_id", "ip", "port",
+    add_method(@djinn, "add_routing_for_appserver", "app_id", "ip", "port",
       "secret")
     add_method(@djinn, "remove_appserver_from_haproxy", "app_id", "ip", "port",
       "secret")
@@ -145,11 +145,11 @@ server = DjinnServer.new(
   :SSLCertName => nil
 )
 
-trap('INT') {
-  Djinn.log_debug("Received INT signal, shutting down server")
+trap('TERM') {
+  Djinn.log_debug("Received TERM signal: stopping node services.")
   server.djinn.kill_sig_received = true
-  server.shutdown 
-  server.djinn.kill(secret)
+  server.shutdown
+  server.djinn.kill(false, secret)
 }
 
 new_thread = Thread.new { server.start }
