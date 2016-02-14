@@ -15,6 +15,15 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
+export UNAME_MACHINE=$(uname -m)
+if [ -z "$JAVA_HOME_DIRECTORY" ]; then
+	if [ "$UNAME_MACHINE" -eq "x86_64" ]; then
+		export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
+	elif [ "$UNAME_MACHINE" -eq "armv71" ]; then
+		export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-armhf
+	fi
+fi
+
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
@@ -175,7 +184,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-7-openjdk-armhf
+JAVA_HOME: ${JAVA_HOME_DIRECTORY}
 EOF
     mkdir -pv /var/log/appscale
     # Allow rsyslog to write to appscale log directory.
@@ -208,7 +217,7 @@ installthrift()
 installjavajdk()
 {
     # This makes jdk-7 the default JVM.
-    update-alternatives --set java /usr/lib/jvm/java-7-openjdk-armhf/jre/bin/java
+    update-alternatives --set java ${JAVA_HOME_DIRECTORY}/jre/bin/java
 }
 
 installappserverjava()
@@ -272,6 +281,18 @@ installgems()
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
     #gem install zookeeper
+	if [ "$UNAME_MACHINE" -eq "x86_64" ]; then
+		gem install zookeeper
+	elif [ "$UNAME_MACHINE" -eq "armv71" ]; then
+		# If machine is Raspberry Pi, then go to patched version.
+	    export PWD_TEMP=$(pwd)
+		cd /root
+		git clone https://github.com/lmandres/zookeeper-raspberry-pi.git
+		cd zookeeper-raspberry-pi
+		gem build zookeeper.gemspec
+		gem install --local zookeeper-1.4.11.gem
+		cd ${PWD_TEMP}
+	fi
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
