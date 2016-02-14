@@ -199,9 +199,10 @@ JVM_OPTS="$JVM_OPTS -XX:CMSInitiatingOccupancyFraction=75"
 JVM_OPTS="$JVM_OPTS -XX:+UseCMSInitiatingOccupancyOnly"
 JVM_OPTS="$JVM_OPTS -XX:+UseTLAB"
 # note: bash evals '1.7.x' as > '1.7' so this is really a >= 1.7 jvm check
-#if [ "$JVM_VERSION" \> "1.7" ] ; then
-#    JVM_OPTS="$JVM_OPTS -XX:+UseCondCardMark"
-#fi
+# note: added check to see if the JVM is 64-bit
+if echo "$java_ver_output" | grep 64-Bit && [ "$JVM_VERSION" \> "1.7" ]; then
+    JVM_OPTS="$JVM_OPTS -XX:+UseCondCardMark"
+fi
 
 # GC logging options -- uncomment to enable
 # JVM_OPTS="$JVM_OPTS -XX:+PrintGCDetails"
