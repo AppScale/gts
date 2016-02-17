@@ -994,7 +994,8 @@ class TestDjinn < Test::Unit::TestCase
 
     # mock out sending the request info
     flexmock(Net::HTTP).new_instances { |instance|
-      instance.should_receive(:post).with("/apps/bazapp", String, Hash).and_raise(Exception)
+      instance.should_receive(:post).with("/apps/json/bazapp", String, Hash).
+        and_raise(StandardError)
     }
 
     assert_equal(false, djinn.send_request_info_to_dashboard("bazapp", 0, 0))
