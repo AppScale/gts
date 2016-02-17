@@ -118,7 +118,7 @@ class AppControllerClient
           yield if block_given?
         rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
           OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-          Errno::ECONNRESET, SOAP::EmptyResponseError, Exception => e
+          Errno::ECONNRESET, SOAP::EmptyResponseError, StandardError => e
           if retry_on_except
             Kernel.sleep(1)
             Djinn.log_debug("[#{callr}] exception in make_call to " +

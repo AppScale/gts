@@ -300,7 +300,7 @@ class ZKInterface
           raise Exception
         end
       end
-    rescue Exception => e
+    rescue => e
       Djinn.log_warn("Saw an exception of class #{e.class}")
       Kernel.sleep(5)
       retry
@@ -308,7 +308,7 @@ class ZKInterface
 
     begin
       yield  # invoke the user's block, and catch any uncaught exceptions
-    rescue Exception => except
+    rescue => except
       Djinn.log_error("Ran caller's block but saw an Exception of class " +
         "#{except.class}")
       raise except
@@ -676,7 +676,7 @@ class ZKInterface
       self.reinitialize()
       Kernel.sleep(1)
       retry
-    rescue Exception => e
+    rescue => e
       backtrace = e.backtrace.join("\n")
       Djinn.log_warn("Saw a transient ZooKeeper error: #{e}\n#{backtrace}")
       Kernel.sleep(1)

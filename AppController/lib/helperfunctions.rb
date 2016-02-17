@@ -575,7 +575,7 @@ module HelperFunctions
     actual_private.each_index { |index|
       begin
         actual_private[index] = HelperFunctions.convert_fqdn_to_ip(actual_private[index])
-      rescue Exception
+      rescue
         # this can happen if the private ip doesn't resolve
         # which can happen in hybrid environments: euca boxes wont be 
         # able to resolve ec2 private ips, and vice-versa in euca-managed-mode
@@ -1233,7 +1233,7 @@ module HelperFunctions
       else
         return false
       end
-    rescue Exception
+    rescue
       Kernel.sleep(SLEEP_TIME)
       retry
     end
