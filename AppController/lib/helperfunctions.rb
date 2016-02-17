@@ -24,7 +24,7 @@ require 'custom_exceptions'
 # BadConfigurationExceptions represent an exception that can be thrown by the
 # AppController or any other library it uses, if a method receives inputs
 # it isn't expecting.
-class BadConfigurationException < Exception
+class BadConfigurationException < StandardError
 end
 
 

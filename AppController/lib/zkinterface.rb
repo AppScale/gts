@@ -16,7 +16,7 @@ require 'zookeeper'
 # A class of exceptions that we throw whenever we perform a ZooKeeper
 # operation that does not return successfully (but does not normally
 # throw an exception).
-class FailedZooKeeperOperationException < Exception
+class FailedZooKeeperOperationException < StandardError
 end
 
 
