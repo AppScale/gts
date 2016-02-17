@@ -295,14 +295,13 @@ class ZKInterface
         if @@client_ip == owner
           got_lock = false
         else 
-          Djinn.log_warn("Tried to get the lock, but it's currently owned " +
-            "by #{owner}. Will try again later.")
-          raise Exception
+          raise "Tried to get the lock, but it's currently owned by #{owner}."
         end
       end
     rescue => e
-      Djinn.log_warn("Saw an exception of class #{e.class}")
-      Kernel.sleep(5)
+      sleep_time = 5
+      Djinn.log_warn("Saw #{e.inspect}. Retrying in #{sleep_time} seconds.")
+      Kernel.sleep(sleep_time)
       retry
     end
 
