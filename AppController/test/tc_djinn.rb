@@ -980,26 +980,6 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4 ")
 
-    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
-    node = DjinnJobData.new(node_info, "boo")
-
-    djinn = Djinn.new()
-    djinn.nodes = [node]
-    djinn.my_index = 0
-
-    # mock out sending the request info
-    flexmock(Net::HTTP).new_instances { |instance|
-      instance.should_receive(:post).with("/apps/bazapp", String, Hash)
-    }
-
-    assert_equal(true, djinn.send_request_info_to_dashboard("bazapp", 0, 0))
-  end
-
-  def test_send_request_info_to_dashboard_when_dash_is_up
-    # mock out getting our ip address
-    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4 ")
-
     node_info = {
       "public_ip" => "1.2.3.3",
       "private_ip" => "1.2.3.3",
