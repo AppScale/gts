@@ -2772,7 +2772,7 @@ class Djinn
         Timeout.timeout(10) do
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
-      end
+        end
       rescue Exception => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
