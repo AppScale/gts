@@ -84,17 +84,17 @@ module HAProxy
     START_PORT + app_number
   end
 
-  # Create the configuration file for the AppDashboard application
-  def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
-    listen_port)
-    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
-  end
-
-  # Create the config file for Datastore Server applications
+  # Create the config file for Datastore Server applications.
   def self.create_datastore_server_config(my_ip, listen_port, table)
     self.create_app_config(my_ip, my_ip, listen_port, 
       DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
+  end
+
+  # Create the configuration file for the AppDashboard application.
+  def self.create_app_load_balancer_config(my_public_ip, my_private_ip,
+    listen_port)
+    self.create_app_config(my_public_ip, my_private_ip, listen_port,
+      AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
   end
 
   # A generic function for creating haproxy config files used by appscale services
