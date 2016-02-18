@@ -36,7 +36,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
-      delete_async='delete_async')
+      delete_async='delete_async', connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').and_return(None)
 
@@ -63,7 +63,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
-      delete='delete')
+      delete='delete', connected=lambda: True)
     fake_zookeeper.should_receive('start')
 
     # mock out zookeeper.create for txn id
@@ -94,7 +94,8 @@ class TestZookeeperTransaction(unittest.TestCase):
       self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', create='create')
+    fake_zookeeper = flexmock(name='fake_zoo', create='create',
+      connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('create', str, value=str,
       acl=None, makepath=bool, sequence=bool, ephemeral=bool)
@@ -123,7 +124,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     time.should_receive('time').and_return(1000)
     
     # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo')
+    fake_zookeeper = flexmock(name='fake_zoo', connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry')
 
@@ -189,7 +190,8 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('get_transaction_path') \
       .and_return('/transaction/path')
 
-    fake_zookeeper = flexmock(name='fake_zoo', exists='exists')
+    fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
+      connected=lambda: True)
     fake_zookeeper.should_receive('start')
 
     flexmock(kazoo.client)
@@ -222,7 +224,8 @@ class TestZookeeperTransaction(unittest.TestCase):
        and_return('/lock/root/path')
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').\
        and_return('/rootpath/' + self.appid)
-    fake_zookeeper = flexmock(name='fake_zoo', get='get')
+    fake_zookeeper = flexmock(name='fake_zoo', get='get',
+      connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry')
 
@@ -288,7 +291,8 @@ class TestZookeeperTransaction(unittest.TestCase):
        and_return('/rootpath/' + self.appid)
 
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
-      create_async='create_async', get='get', set_async='set_async')
+      create_async='create_async', get='get', set_async='set_async',
+      connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('create', str, makepath=bool, sequence=bool,
       ephemeral=bool, value=str, acl=None).and_return("/some/lock/path")
@@ -339,7 +343,8 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
     
     # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', exists='exists')
+    fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
+      connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('exists', str) \
       .and_return(True)
@@ -363,7 +368,8 @@ class TestZookeeperTransaction(unittest.TestCase):
   
   def test_is_xg(self):
     # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', exists='exists')
+    fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
+      connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('exists', str) \
       .and_return(True)
@@ -386,7 +392,8 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', exists='exists', get='get',
-      delete='delete', delete_async='delete_async', get_children='get_children')
+      delete='delete', delete_async='delete_async',
+      get_children='get_children', connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('exists', str) \
       .and_return(True)
@@ -422,7 +429,7 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create', exists='exists',
-      get_children='get_children')
+      get_children='get_children', connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('create', str, str, None,
       bool, bool, bool).and_return()
@@ -450,7 +457,7 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
-      set_async='set_async')
+      set_async='set_async', connected=lambda: True)
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').with_args('exists', str) \
       .and_return(True)
