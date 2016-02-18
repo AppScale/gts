@@ -13,11 +13,6 @@ fi
 
 set -e
 
-# Update the packages list and cache.
-echo -n "Updating package list and cache ..."
-${PKG_CMD} update > /dev/null
-echo "done."
-
 # We need to make sure we have lsb-release, before we use it. On
 # streamlined images (like docker) it may not be present.
 if ! which lsb_release > /dev/null ; then
@@ -64,6 +59,16 @@ fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
+# Wheezy does not have HAProxy in its main repositories.
+if [ "${DIST}" = "wheezy" ]; then
+    echo deb http://httpredir.debian.org/debian wheezy-backports main > \
+      /etc/apt/sources.list.d/backports.list
+fi
+
+echo -n "Updating package list and cache ..."
+${PKG_CMD} update > /dev/null
+echo "done."
+
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +)"
@@ -80,7 +85,8 @@ if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
 fi
 
 # Let's make sure we use ruby 1.9.
-if [ "${DIST}" = "precise" ]; then
+case ${DIST} in
+    precise|wheezy)
         ${PKG_CMD} install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
             ri1.9.1 rdoc1.9.1 build-essential libopenssl-ruby1.9.1 libssl-dev \
             zlib1g-dev
@@ -91,7 +97,8 @@ if [ "${DIST}" = "precise" ]; then
             --slave /usr/bin/irb irb /usr/bin/irb1.9.1 \
             --slave /usr/bin/rdoc rdoc /usr/bin/rdoc1.9.1
         update-alternatives --install /usr/bin/gem gem /usr/bin/gem1.9.1 400
-fi
+        ;;
+esac
 
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.

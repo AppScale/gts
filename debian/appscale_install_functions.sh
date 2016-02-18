@@ -15,6 +15,15 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
+export UNAME_MACHINE=$(uname -m)
+if [ -z "$JAVA_HOME_DIRECTORY" ]; then
+	if [ "$UNAME_MACHINE" = "x86_64" ]; then
+		export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
+	elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then
+		export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-armhf
+	fi
+fi
+
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
@@ -175,7 +184,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
+JAVA_HOME: ${JAVA_HOME_DIRECTORY}
 EOF
     mkdir -pv /var/log/appscale
     # Allow rsyslog to write to appscale log directory.
@@ -200,15 +209,15 @@ EOF
 
 installthrift()
 {
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper thrift
-    fi
+    case ${DIST} in
+        precise|wheezy) pipwrapper thrift ;;
+    esac
 }
 
 installjavajdk()
 {
     # This makes jdk-7 the default JVM.
-    update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+    update-alternatives --set java ${JAVA_HOME_DIRECTORY}/jre/bin/java
 }
 
 installappserverjava()
@@ -271,7 +280,18 @@ installgems()
     gem install rake ${GEMOPT}
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
-    gem install zookeeper
+    if [ "$UNAME_MACHINE" = "x86_64" ]; then
+		gem install zookeeper
+	elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then
+		# If machine is Raspberry Pi, then go to patched version.
+	    export PWD_TEMP=$(pwd)
+		cd /root
+		git clone https://github.com/lmandres/zookeeper-raspberry-pi.git
+		cd zookeeper-raspberry-pi
+		gem build zookeeper.gemspec
+		gem install --local zookeeper-1.4.11.gem
+		cd ${PWD_TEMP}
+	fi
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
@@ -328,6 +348,7 @@ installcassandra()
     cd cassandra
     chmod -v +x bin/cassandra
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
@@ -404,7 +425,7 @@ installzookeeper()
 
     # Trusty's kazoo version is too old, so use the version in Xenial.
     case "$DIST" in
-        precise|trusty) pipwrapper "kazoo==2.2.1" ;;
+        precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
         *) apt-get install python-kazoo ;;
     esac
 }
