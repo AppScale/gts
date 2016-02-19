@@ -280,18 +280,7 @@ installgems()
     gem install rake ${GEMOPT}
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later.
-    if [ "$UNAME_MACHINE" = "x86_64" ]; then
-		gem install zookeeper
-	elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then
-		# If machine is Raspberry Pi, then go to patched version.
-	    export PWD_TEMP=$(pwd)
-		cd /root
-		git clone https://github.com/lmandres/zookeeper-raspberry-pi.git
-		cd zookeeper-raspberry-pi
-		gem build zookeeper.gemspec
-		gem install --local zookeeper-1.4.11.gem
-		cd ${PWD_TEMP}
-	fi
+    gem install zookeeper
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
