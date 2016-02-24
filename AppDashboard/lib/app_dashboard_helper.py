@@ -425,16 +425,9 @@ class AppDashboardHelper(object):
     Returns:
       True if the app id has been registered, and False otherwise.
     """
-    try:
-      result = self.get_uaserver().does_app_exists(appname, GLOBAL_SECRET_KEY)
-      if search_data:
-        num_ports = int(search_data.group(1))
-        return num_ports > 0
-      else:
-        return False
-    except Exception as err:
-      logging.exception(err)
-      return False
+    result = self.get_uaserver().does_app_exist(appname, GLOBAL_SECRET_KEY)
+    app_exists = result.lower() == 'true'
+    return app_exists
 
 
   def is_user_logged_in(self):
