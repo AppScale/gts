@@ -4,6 +4,16 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+
+AppScale version 2.7.1, released February, 2016
+Highlights of features/bugs in this release:
+- A bug in get_app_data that affected upgrades was fixed
+- AppScale can be built on Debian Wheezy
+- AppScale can be built on a Raspberry Pi 2
+- Python applications can now use the vendor module
+- Datastore debug logs are more useful
+- There are fewer ZooKeeper connection errors
+
 AppScale version 2.7.0, released February, 2016
 Highlights of features/bugs in this release:
 - Fixed bug in choosing app ports via lsof
