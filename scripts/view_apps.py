@@ -1,13 +1,13 @@
-import M2Crypto
 import os
 import SOAPpy
-import string
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
 import constants
 # soap server located at appscale/AppDB/soap_server.py
+
+
 def get_soap_accessor():
   """ Returns the SOAP server accessor to deal with application and users.
 
