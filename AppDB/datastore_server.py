@@ -3546,7 +3546,7 @@ class DatastoreDistributed():
     Returns:
       List of entities retrieved from the given query.
     """
-    self.logger('Composite Query:\n{}'.format(query))
+    self.logger.debug('Composite Query:\n{}'.format(query))
     start_inclusive = True
     startrow, endrow = self.get_range_composite_query(query, filter_info)
     # Override the start_key with a cursor if given.
