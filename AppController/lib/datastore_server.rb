@@ -45,7 +45,7 @@ module DatastoreServer
 
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
-  def self.start(master_ip, db_local_ip, my_ip, table)
+  def self.start(master_ip, db_local_ip, table, verbose=false)
     datastore_server = self.get_executable_name(table)
     ports = self.get_server_ports(table)
 
@@ -58,8 +58,9 @@ module DatastoreServer
     ports.each { |port|
       start_cmd = "/usr/bin/python2 #{datastore_server} -p #{port} " +
           "--no_encryption --type #{table}"
+      start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-            "datastore_server #{port}"
+            "datastore_server.py #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, port, env_vars)
     }
   end
@@ -67,19 +68,18 @@ module DatastoreServer
 
   # Stops the Datastore Buffer Server running on this machine. Since it's
   # managed by monit, just tell monit to shut it down.
-  def self.stop(table)
+  def self.stop()
      MonitInterface.stop(:datastore_server)
   end
+
   # The following are needed to comply to the djinn calling in
   # stop_db_master and stop_db_slave.
   def self.stop_db_master(table)
-     MonitInterface.stop(:datastore_server)
+    MonitInterface.stop(:datastore_server)
   end
   def self.stop_db_slave(table)
-     MonitInterface.stop(:datastore_server)
+    MonitInterface.stop(:datastore_server)
   end
-
-
 
   # Restarts the Datastore Buffer Server on this machine by doing a hard
   # stop (killing it) and starting it.
@@ -87,7 +87,6 @@ module DatastoreServer
     self.stop()
     self.start(master_ip, my_ip, table)
   end
-
 
   # Number of servers is based on the number of CPUs.
   def self.number_of_servers()

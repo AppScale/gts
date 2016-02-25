@@ -90,7 +90,17 @@ CRON
       web_inf_dir = HelperFunctions.get_web_inf_dir(HelperFunctions.get_untar_dir(app))
       cron_file = "#{web_inf_dir}/cron.xml"
       return unless File.exists?(cron_file)
-      cron_xml = Document.new(File.new(cron_file)).root
+
+      begin
+        cron_xml = Document.new(File.new(cron_file)).root
+      rescue REXML::ParseException => parse_exception
+        Djinn.log_warn(parse_exception.message)
+        Djinn.log_app_error(app,
+          'The AppController was unable to parse cron.xml. ' +
+          'This application\'s cron jobs will not run.')
+        return
+      end
+
       return if cron_xml.nil?
 
       cron_xml.each_element('//cron') { |item|
@@ -103,6 +113,8 @@ CRON
           Djinn.log_info("Parsed cron URL: #{url}")
         rescue URI::InvalidURIError
           Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
+          Djinn.log_app_error(app,
+            "Invalid cron URL: #{raw_url}. Skipping entry.")
           next
         end
 
@@ -183,7 +195,8 @@ CRON
   #   app: A String that names the appid of this application.
   def self.write_app_crontab(crontab, app)
     Djinn.log_info("Writing crontab for [#{app}]:\n#{crontab}")
-    `echo "#{crontab}" > /etc/cron.d/appscale-#{app}`
+    app_cron_file = "/etc/cron.d/appscale-#{app}"
+    File.open(app_cron_file, 'w') { | file| file.write(crontab) }
   end
 
 
@@ -343,9 +356,9 @@ CRON
 
     secret_hash = Digest::SHA1.hexdigest("#{app}/#{HelperFunctions.get_secret}")
     cron_lines.each { |cron|
-      cron << " root curl -H \"X-Appengine-Cron:true\" "\
+      cron << " root curl -sSH \"X-Appengine-Cron:true\" "\
               "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
-              "-L http://#{ip}:#{port}#{url} "\
+              "-L \"http://#{ip}:#{port}#{url}\" "\
               "2>&1 >> /var/apps/#{app}/log/cron.log"
     }
 
@@ -354,8 +367,10 @@ CRON
       if valid_crontab_line(line)
         valid_cron_lines << line
       else
-        Djinn.log_error("Invalid cron line [#{line}] produced for schedule " +
-          "[#{schedule}]")
+        error = "Invalid cron line [#{line}] produced for schedule " +
+          "[#{schedule}]. Skipping..."
+        Djinn.log_error(error)
+        Djinn.log_app_error(app, error)
       end
     }
 

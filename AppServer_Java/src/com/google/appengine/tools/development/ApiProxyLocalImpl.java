@@ -44,7 +44,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     /**
      * The maximum size of any given API request.
      */
-    private static final int MAX_API_REQUEST_SIZE = 1048576;
+    private static final int MAX_API_REQUEST_SIZE = 33554432;
 
     private static final Logger logger = Logger.getLogger(ApiProxyLocalImpl.class.getName());
 

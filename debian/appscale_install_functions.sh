@@ -15,6 +15,15 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
+export UNAME_MACHINE=$(uname -m)
+if [ -z "$JAVA_HOME_DIRECTORY" ]; then
+    if [ "$UNAME_MACHINE" = "x86_64" ]; then
+        export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
+    elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then
+        export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-armhf
+    fi
+fi
+
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
@@ -175,28 +184,40 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-7-openjdk-amd64
+JAVA_HOME: ${JAVA_HOME_DIRECTORY}
 EOF
     mkdir -pv /var/log/appscale
+    # Allow rsyslog to write to appscale log directory.
+    chgrp adm /var/log/appscale
+    chmod g+rwx /var/log/appscale
+
     mkdir -pv /var/appscale/
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
         cp ${APPSCALE_HOME}/lib/templates/appscale-logrotate.conf /etc/logrotate.d/appscale
     fi
+
+    # Logrotate AppScale logs hourly.
+    LOGROTATE_HOURLY=/etc/cron.hourly/logrotate-hourly
+    cat <<EOF | tee $LOGROTATE_HOURLY
+#!/bin/sh
+/usr/sbin/logrotate /etc/logrotate.d/appscale*
+EOF
+    chmod +x $LOGROTATE_HOURLY
 }
 
 installthrift()
 {
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper thrift
-    fi
+    case ${DIST} in
+        precise|wheezy) pipwrapper thrift ;;
+    esac
 }
 
 installjavajdk()
 {
     # This makes jdk-7 the default JVM.
-    update-alternatives --set java /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+    update-alternatives --set java ${JAVA_HOME_DIRECTORY}/jre/bin/java
 }
 
 installappserverjava()
@@ -208,7 +229,7 @@ installappserverjava()
 
     if [ -n "$DESTDIR" ]; then
         # Delete unnecessary files.
-	rm -rfv src lib
+        rm -rfv src lib
     fi
 }
 
@@ -295,7 +316,7 @@ installsolr()
     mkdir -p ${APPSCALE_HOME}/SearchService/solr
     cd ${APPSCALE_HOME}/SearchService/solr
     rm -rfv solr
-    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
+    curl ${CURL_OPTS} -o solr-${SOLR_VER}.tgz $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
     tar zxvf solr-${SOLR_VER}.tgz
     mv -v solr-${SOLR_VER} solr
     rm -fv solr-${SOLR_VER}.tgz
@@ -309,13 +330,14 @@ installcassandra()
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
-    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    curl ${CURL_OPTS} -o apache-cassandra-${CASSANDRA_VER}-bin.tar.gz $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     cd cassandra
     chmod -v +x bin/cassandra
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
@@ -326,7 +348,7 @@ installcassandra()
     pipwrapper  pycassa
 
     cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
-    wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    curl ${CURL_OPTS} -o jamm-0.2.2.jar $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
@@ -368,7 +390,7 @@ installpythonmemcache()
 
         mkdir -pv ${APPSCALE_HOME}/downloads
         cd ${APPSCALE_HOME}/downloads
-        wget ${WGET_OPTS} $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+        curl ${CURL_OPTS} -o python-memcached-${VERSION}.tar.gz $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
         tar zxvf python-memcached-${VERSION}.tar.gz
         cd python-memcached-${VERSION}
         python setup.py install
@@ -382,15 +404,19 @@ installzookeeper()
 {
     if [ "$DIST" = "precise" ]; then
         ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-        wget ${WGET_OPTS} -O  /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
+        curl ${CURL_OPTS} -o /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
         dpkg -i /tmp/${ZK_REPO_PKG}
         apt-get update
         apt-get install -y zookeeper-server
-        pipwrapper kazoo
     else
         apt-get install -y zookeeper zookeeperd zookeeper-bin
     fi
 
+    # Trusty's kazoo version is too old, so use the version in Xenial.
+    case "$DIST" in
+        precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
+        *) apt-get install python-kazoo ;;
+    esac
 }
 
 installpycrypto()
@@ -420,14 +446,6 @@ postinstallzookeeper()
         # Let's add a rotation directive.
         echo "log4j.appender.ROLLINGFILE.MaxBackupIndex=3" >> /etc/zookeeper/conf/log4j.properties
     fi
-}
-
-keygen()
-{
-    test -e /root/.ssh/id_rsa || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
-    touch /root/.ssh/authorized_keys
-    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
-    chmod -v go-r /root/.ssh/authorized_keys
 }
 
 installcelery()

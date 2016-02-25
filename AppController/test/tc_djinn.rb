@@ -50,7 +50,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.is_done_loading(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.kill(@secret))
+    assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_apps([], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.status(@secret))
@@ -69,7 +69,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '', 
       @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.add_appserver_to_haproxy(@app, 'baz',
+    assert_equal(BAD_SECRET_MSG, djinn.add_routing_for_appserver(@app, 'baz',
       'baz', @secret))
     assert_equal(BAD_SECRET_MSG, djinn.remove_appserver_from_haproxy(@app,
       'baz', 'baz', @secret))
@@ -734,7 +734,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Nginx).should_receive(:is_running?).and_return(true)
 
     # mock out updating the firewall config
-    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    ip_list = "#{Djinn::APPSCALE_CONFIG_DIR}/all_ips"
     flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
     flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
 
@@ -920,7 +920,7 @@ class TestDjinn < Test::Unit::TestCase
       and_return()
 
     # mock out updating the firewall config
-    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    ip_list = "#{Djinn::APPSCALE_CONFIG_DIR}/all_ips"
     flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
     flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
 
@@ -1139,8 +1139,8 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:80").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:80 -sTCP:LISTEN").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380 -sTCP:LISTEN").and_return("")
 
     expected = "Error: requested http port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 80, 4380, @secret))
@@ -1172,8 +1172,8 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:443").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080 -sTCP:LISTEN").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:443 -sTCP:LISTEN").and_return("")
 
     expected = "Error: requested https port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 443, @secret))
@@ -1205,8 +1205,8 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080 -sTCP:LISTEN").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380 -sTCP:LISTEN").and_return("")
 
     expected = "Error: requested https port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
@@ -1238,8 +1238,8 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080 -sTCP:LISTEN").and_return("")
+    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380 -sTCP:LISTEN").and_return("")
 
     expected = "Error: requested http port is already in use."
     assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
