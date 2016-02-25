@@ -4427,7 +4427,8 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.Integer64Proto()
 
     if READ_ONLY:
-      logging.error('Write attempted while in read-only mode.')
+      file_logger.warning('Unable to create in read-only mode: {}'.
+        format(request))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
@@ -4486,14 +4487,15 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      logging.error('Write attempted while in read-only mode.')
+      file_logger.warning('Unable to delete in read-only mode: {}'.
+        format(request))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
-    except dbconstants.AppScaleDBConnectionError, dbce:
-      file_logger.error('DB connection error during {}'.format(request))
+    except dbconstants.AppScaleDBConnectionError:
+      file_logger.exception('DB connection error during {}'.format(request))
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
@@ -4588,7 +4590,8 @@ class MainHandler(tornado.web.RequestHandler):
     putresp_pb = datastore_pb.PutResponse()
 
     if READ_ONLY:
-      logging.error('Write attempted while in read-only mode.')
+      file_logger.warning('Unable to put in read-only mode: {}'.
+        format(putreq_pb))
       return (putresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
@@ -4671,7 +4674,8 @@ class MainHandler(tornado.web.RequestHandler):
     delresp_pb = api_base_pb.VoidProto() 
 
     if READ_ONLY:
-      logging.error('Write attempted while in read-only mode.')
+      file_logger.warning('Unable to delete in read-only mode: {}'.
+        format(delreq_pb))
       return (delresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
