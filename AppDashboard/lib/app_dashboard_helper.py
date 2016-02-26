@@ -320,7 +320,7 @@ class AppDashboardHelper(object):
 
 
   def get_ssl_port(self, appname):
-    """ Queries the UserAppServer to learn the https port the named application.
+    """ Queries the UserAppServer to learn the https port of the named application.
 
     Note that we don't need to query the UserAppServer to learn which host the
     application runs on, as it is always full proxied by the machine running the
