@@ -93,7 +93,8 @@ LOCAL_DATASTORE = "localhost:8888"
 # Global stats.
 STATS = {}
 
-# Determines whether or not to allow datastore writes.
+# Determines whether or not to allow datastore writes. Note: After enabling,
+# datastore processes must be restarted and the groomer must be stopped.
 READ_ONLY = False
 
 def clean_app_id(app_id):
@@ -4103,6 +4104,13 @@ class DatastoreDistributed():
     commitres_pb = datastore_pb.CommitResponse()
     transaction_pb = datastore_pb.Transaction(http_request_data)
     txn_id = transaction_pb.handle()
+
+    if READ_ONLY:
+      self.logger.warning('Unable to commit in read-only mode: {}'.
+        format(transaction_pb))
+      return (commitres_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
@@ -4326,6 +4334,13 @@ class MainHandler(tornado.web.RequestHandler):
 
     handle = None
     transaction_pb = datastore_pb.Transaction()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to begin transaction in read-only mode: {}'.
+        format(begin_transaction_req_pb))
+      return (transaction_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
     except ZKInternalException:
@@ -4360,16 +4375,24 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded protocol buffer void response.
     """
     global datastore_access
+    response = api_base_pb.VoidProto()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to rollback in read-only mode: {}'.
+        format(http_request_data))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
     except ZKInternalException:
-      file_logger.exception('ZK internal exception for {}'.format(app_id))
-      return (api_base_pb.VoidProto().Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
+      file_logger.exception('ZKInternalException during {} for {}'.
+        format(http_request_data, app_id))
+      return (response.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               "Internal error with ZooKeeper connection.")
     except Exception:
       file_logger.exception('Unable to rollback transaction')
-      return(api_base_pb.VoidProto().Encode(),
+      return(response.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Unable to rollback for this transaction")
 
@@ -4457,6 +4480,12 @@ class MainHandler(tornado.web.RequestHandler):
     index = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.VoidProto()
 
+    if READ_ONLY:
+      file_logger.warning('Unable to update in read-only mode: {}'.
+        format(index))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     state = index.state()
     if state not in [index.READ_WRITE, index.WRITE_ONLY]:
       state_name = entity_pb.CompositeIndex.State_Name(state)
@@ -4542,6 +4571,12 @@ class MainHandler(tornado.web.RequestHandler):
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
     reference = request.model_key()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to allocate in read-only mode: {}'.
+        format(request))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
 
     max_id = int(request.max())
     size = int(request.size())
