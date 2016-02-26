@@ -319,6 +319,37 @@ class AppDashboardHelper(object):
         "that it runs on.".format(appname))
 
 
+  def get_ssl_port(self, appname):
+    """ Queries the UserAppServer to learn the https port the named application.
+
+    Note that we don't need to query the UserAppServer to learn which host the
+    application runs on, as it is always full proxied by the machine running the
+    login service.
+
+    Args:
+      appname: A str that indicates which application we want to find a hosted
+        port for.
+    Returns:
+      An int that indicates the ssl port for the named app.
+    Raises:
+      AppHelperException: If the named application is not running in this
+        AppScale deployment, or if it is running but does not have an ssl port
+        assigned to it.
+    """
+    try:
+      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
+      result = json.loads(app_data)
+      if result:
+        return int(result['hosts'].values()[0]['https'])
+      else:
+        raise AppHelperException("Application {0} does not have a port number" \
+          " that it runs on.".format(appname))
+    except Exception as err:
+      logging.exception(err)
+      raise AppHelperException("Application {0} does not have a port number " \
+        "that it runs on.".format(appname))
+
+
   def shell_check(self, argument):
     """ Checks for special characters in arguments that are part of shell
     commands.
