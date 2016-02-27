@@ -4214,15 +4214,15 @@ class MainHandler(tornado.web.RequestHandler):
   
   @tornado.web.asynchronous
   def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppServer in an encoded protocol buffer 
+    """ Function which handles POST requests. Data of the request is
+        the request from the AppServer in an encoded protocol buffer
         format.
     """
     request = self.request
     http_request_data = request.body
     pb_type = request.headers['protocolbuffertype']
     app_data = request.headers['appdata']
-    app_data  = app_data.split(':')
+    app_data = app_data.split(':')
 
     if len(app_data) == 4:
       app_id, user_email, nick_name, auth_domain = app_data
