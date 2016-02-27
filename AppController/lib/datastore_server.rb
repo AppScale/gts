@@ -4,6 +4,7 @@
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'monit_interface'
+require 'net/http'
 
 
 # To support the Google App Engine Datastore API in a way that is
@@ -116,5 +117,15 @@ module DatastoreServer
   def self.get_executable_name(table)
     return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
   end
-end
 
+  # Tell each of the datastore servers on this node to disable writes.
+  def self.set_read_only_mode(read_only)
+    ports = self.get_server_ports()
+    ports.each { |port|
+      http = Net::HTTP.new('localhost', port)
+      request = Net::HTTP::Post.new('/read-only')
+      request.body = {'readOnly' => read_only}.to_json()
+      http.request(request)
+    }
+  end
+end
