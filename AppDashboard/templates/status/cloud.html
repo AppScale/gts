@@ -60,7 +60,8 @@
                                         {% for app_name in apps.keys()|sort %}
                                             <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
                                               {% if apps[app_name] %}
-                                                <a class="btn" href="{{ apps[app_name] }}" target="_blank">{{ app_name }}</a>
+                                                <a class="btn" href="{{ apps[app_name][0] }}" target="_blank">{{ app_name }}</a>
+                                                <a class="btn" href="{{ apps[app_name][1] }}" target="_blank">https-{{ app_name }}</a>
                                               {% else %}
                                                 <a class="btn disabled">{{ app_name }} (loading)</a>
                                               {% endif %}
@@ -95,7 +96,8 @@
                                            if (apps[key] == null) {
                                              apps_html += '<a class="btn disabled">' + key + ' (loading)</a>';
                                            } else {
-                                             apps_html += '<a class="btn" href="' + apps[key] + '" target="_blank">' + key + '</a>';
+                                             apps_html += '<a class="btn" href="' + apps[key][0] + '" target="_blank">' + key + '</a> ';
+                                             apps_html += '<a class="btn" href="' + apps[key][1] + '" target="_blank">' +'https-'+ key + '</a>';
                                            }
                                            apps_html += '</li>';
                                          }

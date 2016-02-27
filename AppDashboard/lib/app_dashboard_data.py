@@ -78,8 +78,7 @@ class AppStatus(ndb.Model):
     timestamp: A timestamp of when this entity was created.
   """
   name = ndb.StringProperty()
-  url = ndb.StringProperty()
-  ssl = ndb.StringProperty()
+  url = ndb.StringProperty(repeated=True)
   timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
@@ -407,14 +406,14 @@ class AppDashboardData():
   def get_application_info(self):
     """ Retrieves a list of Google App Engine applications running in this
       AppScale deployment, along with the URL that users can access them at.
-
+    
     Returns:
       A dict, where each key is a str indicating the name of a Google App Engine
-      application, and each value is an array with http and https urls
-      or None, if the application has been uploaded but
+      application, and each value is either a str, indicating the URL where the
+      application is running, or None, if the application has been uploaded but
       is not yet running (e.g., it is loading).
     """
-    return dict((app.name, [app.url, app.ssl]) for app in self.get_all(AppStatus))
+    return dict((app.name, app.url) for app in self.get_all(AppStatus))
 
 
   def delete_app_from_datastore(self, app, email=None):
@@ -465,7 +464,6 @@ class AppDashboardData():
     try:
       status_on_all_nodes = self.helper.get_status_info()
       app_names_and_urls = {}
-      app_names_and_ssl = {}
 
       if not status_on_all_nodes:
         return {}
@@ -475,19 +473,16 @@ class AppDashboardData():
           if app == self.NO_APPS_RUNNING:
             continue
           if done_loading:
-            app_names_and_urls[app] = None
-            app_names_and_ssl[app] = None
             try:
-              app_names_and_urls[app] = "http://{0}:{1}".format(
-                self.helper.get_login_host(), self.helper.get_app_port(app))
+              host_url = self.helper.get_login_host()
+              ports = self.helper.get_app_ports(app)
+              app_names_and_urls[app] = [
+                  "http://{0}:{1}".format(host_url, ports[0]),
+                  "https://{0}:{1}".format(host_url, ports[1])]
             except AppHelperException:
               app_names_and_urls[app] = None
-            try:
-              app_names_and_ssl[app] = "https://{0}:{1}".format(
-                self.helper.get_login_host(), self.helper.get_ssl_port(app))
-            except AppHelperException:
-              app_names_and_ssl[app] = None
-
+          else:
+            app_names_and_urls[app] = None
 
       # To make sure that we only update apps that have been recently uploaded
       # or removed, we grab a list of all the apps that were running before we
@@ -528,7 +523,7 @@ class AppDashboardData():
           app_names_to_add.append(app_name)
 
       if app_names_to_add:
-        apps_to_add = [AppStatus(id=app, name=app, url=app_names_and_urls[app], ssl=app_names_and_ssl[app])
+        apps_to_add = [AppStatus(id=app, name=app, url=app_names_and_urls[app])
           for app in app_names_to_add]
         ndb.put_multi(apps_to_add)
 
