@@ -10,6 +10,7 @@ import array
 import __builtin__
 import getopt
 import itertools
+import json
 import logging
 import md5
 import os
@@ -96,6 +97,9 @@ STATS = {}
 # Determines whether or not to allow datastore writes. Note: After enabling,
 # datastore processes must be restarted and the groomer must be stopped.
 READ_ONLY = False
+
+# HTTP code to indicate that the request is invalid.
+HTTP_BAD_REQUEST = 400
 
 def clean_app_id(app_id):
   """ Google App Engine uses a special prepended string to signal that it
@@ -4167,6 +4171,29 @@ class ClearHandler(tornado.web.RequestHandler):
     self.write({"message": "Statistics for this server cleared."})
     self.finish()
 
+class ReadOnlyHandler(tornado.web.RequestHandler):
+  """ Handles requests to check or set read-only mode. """
+  @tornado.web.asynchronous
+  def post(self):
+    """ Handle requests to turn read-only mode on or off. """
+    global READ_ONLY
+
+    payload = self.request.body
+    data = json.loads(payload)
+    if 'readOnly' not in data:
+      self.set_status(HTTP_BAD_REQUEST)
+
+    if data['readOnly']:
+      READ_ONLY = True
+      message = 'Write operations now disabled.'
+    else:
+      READ_ONLY = False
+      message = 'Write operations now enabled.'
+
+    file_logger.info(message)
+    self.write({'message': message})
+    self.finish()
+
 class MainHandler(tornado.web.RequestHandler):
   """
   Defines what to do when the webserver receives different types of 
@@ -4749,8 +4776,9 @@ def usage():
   print "\t--port"
 
 pb_application = tornado.web.Application([
-    (r"/clear", ClearHandler),
-    (r"/*", MainHandler),
+  ('/clear', ClearHandler),
+  ('/read-only', ReadOnlyHandler),
+  (r'/*', MainHandler),
 ])
 
 def main(argv):
