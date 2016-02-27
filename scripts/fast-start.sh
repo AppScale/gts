@@ -22,6 +22,11 @@ GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.
 GUESTBOOK_APP="/root/guestbook.tar.gz"
 USE_DEMO_APP="Y"
 
+# On some system, when running this scipt from rc.local (ie at boot time)
+# there may not be any user set, which will cause ssh-copy-id to fail.
+# Forcing HOME to the default enables ssh-copy-id to operate normally.
+export HOME="/root"
+
 # Print help screen.
 usage() {
         echo "Usage: $0 [--user <email> --passwd <password>][--no-demo-app]"
@@ -97,6 +102,8 @@ PRIVATE_IP=""
 if grep docker /proc/1/cgroup > /dev/null ; then
     # We need to start sshd by hand.
     /usr/sbin/sshd
+    # Force Start cron
+    /usr/sbin/cron 
     PROVIDER="Docker"
 elif lspci | grep VirtualBox > /dev/null ; then
     PROVIDER="VirtualBox"
@@ -205,6 +212,9 @@ if [ ! -e AppScalefile ]; then
     echo -n "Downloading sample app..."
     ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
     echo "done."
+else
+    # If AppScalefile is present, do not redeploy the demo app.
+    USE_DEMO_APP="N"
 fi
 
 # Start AppScale.

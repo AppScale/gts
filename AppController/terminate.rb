@@ -18,8 +18,15 @@ module TerminateHelper
     `service nginx reload`
     # Stop and then remove the service we configured with monit.
     `monit stop all`
+    while system("monit summary | grep Running > /dev/null") do
+      puts "Waiting for monit to stop services ..."
+      Kernel.sleep(2)
+    end
+
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
+
+    # Let's make sure we restart any non-appscale service.
     `service monit restart`
     `killall -9 -g -r djinnServer`
     `monit start all`
@@ -59,7 +66,11 @@ module TerminateHelper
     bound_addrs.delete("127.0.0.1")
     ip = bound_addrs[0]
 
-    `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+    # Make sure we have cassandra running, otherwise nodetool may get
+    # stuck.
+    if system("monit summary | grep cassandra | grep Running > /dev/null")
+      `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+    end
 
     # Next, stop ZooKeeper politely: we stop it with both new and old
     # script to be sure.

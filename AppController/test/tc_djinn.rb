@@ -50,7 +50,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.is_done_loading(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.kill(@secret))
+    assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_apps([], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.status(@secret))

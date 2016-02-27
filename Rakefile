@@ -106,7 +106,7 @@ end
 namespace :appdashboard do
 
   task :test do
-    sh "python AppDashboard/test/unit/test_suite.py"
+    sh "nosetests AppDashboard/test/unit"
   end
 
   task :coverage do |test|

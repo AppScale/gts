@@ -87,7 +87,7 @@ module HAProxy
 
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(servers, my_ip, listen_port)
-    # We reach out to UserAppServers on the DB nodes. 
+    # We reach out to UserAppServers on the DB nodes.
     # The port is fixed.
     ports = []
     servers.each{ |server|
