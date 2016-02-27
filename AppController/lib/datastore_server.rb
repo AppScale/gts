@@ -47,7 +47,7 @@ module DatastoreServer
   # it ourselves, so just tell monit to start it and watch it.
   def self.start(master_ip, db_local_ip, table, verbose=false)
     datastore_server = self.get_executable_name(table)
-    ports = self.get_server_ports(table)
+    ports = self.get_server_ports()
 
     env_vars = { 
       'APPSCALE_HOME' => APPSCALE_HOME,
@@ -101,7 +101,7 @@ module DatastoreServer
 
 
   # Returns a list of ports that should be used to host DatastoreServers.
-  def self.get_server_ports(table)
+  def self.get_server_ports()
     num_datastore_servers = self.number_of_servers()
 
     server_ports = []

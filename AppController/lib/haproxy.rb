@@ -87,7 +87,7 @@ module HAProxy
   # Create the config file for Datastore Server applications.
   def self.create_datastore_server_config(my_ip, listen_port, table)
     self.create_app_config(my_ip, my_ip, listen_port, 
-      DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
+      DatastoreServer.get_server_ports(), DatastoreServer::NAME)
   end
 
   # Create the configuration file for the AppDashboard application.
