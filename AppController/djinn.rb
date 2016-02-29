@@ -1191,13 +1191,14 @@ class Djinn
 
     usage = HelperFunctions.get_usage()
     mem = sprintf("%3.2f", usage['mem'])
+    usagecpu = sprintf("%3.2f", usage['cpu'])
 
     jobs = my_node.jobs or ["none"]
     # don't use an actual % below, or it will cause a string format exception
     stats = {
       'ip' => my_node.public_ip,
       'private_ip' => my_node.private_ip,
-      'cpu' => usage['cpu'],
+      'cpu' => usagecpu,
       'num_cpu' => usage['num_cpu'],
       'load' => usage['load'],
       'memory' => mem,
