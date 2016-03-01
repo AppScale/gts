@@ -6,10 +6,6 @@ try:
 except ImportError:
   from unittest.case import TestCase
 
-
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
-
 class TestInfrastructureManager(TestCase):
   def setUp(self):
     flexmock(utils).should_receive('get_secret').and_return('secret')
@@ -26,21 +22,24 @@ class TestInfrastructureManager(TestCase):
     params1 = {}
     result1 = i.describe_instances(params1, 'secret1')
     self.assertFalse(result1['success'])
-    self.assertEquals(result1['reason'], InfrastructureManager.REASON_BAD_SECRET)
+    self.assertEquals(result1['reason'],
+      InfrastructureManager.REASON_BAD_SECRET)
 
     # test the scenario where we fail to give describe_instances a
     # reservation id
     params2 = {}
     result2 = i.describe_instances(params2, 'secret')
     self.assertFalse(result2['success'])
-    self.assertEquals(result2['reason'], 'no ' + InfrastructureManager.PARAM_RESERVATION_ID)
+    self.assertEquals(result2['reason'],
+      'no ' + InfrastructureManager.PARAM_RESERVATION_ID)
 
     # test what happens when a caller fails to give describe instances
     # a reservation id that's in the system
     params3 = {InfrastructureManager.PARAM_RESERVATION_ID: 'boo'}
     result3 = i.describe_instances(params3, 'secret')
     self.assertFalse(result3['success'])
-    self.assertEquals(result3['reason'], InfrastructureManager.REASON_RESERVATION_NOT_FOUND)
+    self.assertEquals(result3['reason'],
+      InfrastructureManager.REASON_RESERVATION_NOT_FOUND)
 
     # test what happens when a caller gives describe_instances a reservation
     # id that is in the system
@@ -82,7 +81,8 @@ class TestInfrastructureManager(TestCase):
     params1 = {}
     result1 = i.run_instances(params1, 'secret1')
     self.assertFalse(result1['success'])
-    self.assertEquals(result1['reason'], InfrastructureManager.REASON_BAD_SECRET)
+    self.assertEquals(result1['reason'],
+      InfrastructureManager.REASON_BAD_SECRET)
 
     params2 = {}
     result2 = i.run_instances(params2, 'secret')
@@ -97,7 +97,8 @@ class TestInfrastructureManager(TestCase):
     params4 = {'infrastructure': 'ec2', 'num_vms': 0}
     result4 = i.run_instances(params4, 'secret')
     self.assertFalse(result4['success'])
-    self.assertEquals(result4['reason'], InfrastructureManager.REASON_BAD_VM_COUNT)
+    self.assertEquals(result4['reason'],
+      InfrastructureManager.REASON_BAD_VM_COUNT)
 
     try:
       result5 = i.run_instances('foo', 'bar')
@@ -111,7 +112,8 @@ class TestInfrastructureManager(TestCase):
     params1 = {}
     result1 = i.terminate_instances(params1, 'secret1')
     self.assertFalse(result1['success'])
-    self.assertEquals(result1['reason'], InfrastructureManager.REASON_BAD_SECRET)
+    self.assertEquals(result1['reason'],
+      InfrastructureManager.REASON_BAD_SECRET)
 
     params2 = {}
     result2 = i.terminate_instances(params2, 'secret')
@@ -123,4 +125,3 @@ class TestInfrastructureManager(TestCase):
       self.fail('Must throw an exception')
     except Exception:
       pass
-

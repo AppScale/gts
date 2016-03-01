@@ -1,9 +1,7 @@
 import boto
 import boto.ec2
 from boto.ec2.spotpricehistory import SpotPriceHistory
-from agents.factory import InfrastructureAgentFactory
-from boto.ec2.connection import EC2Connection
-from boto.ec2.instance import Reservation, Instance
+from boto.ec2.instance import Reservation
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
@@ -15,10 +13,6 @@ try:
   from unittest import TestCase
 except ImportError:
   from unittest.case import TestCase
-
-
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
 
 class TestEC2Agent(TestCase):
 
@@ -47,8 +41,9 @@ class TestEC2Agent(TestCase):
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
     full_params = {
-      'credentials': {'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
-                      'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
+      'credentials': {
+        'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
+        'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'group': 'boogroup',
       'image_id': 'booid',
       'infrastructure': prefix,
@@ -73,13 +68,15 @@ class TestEC2Agent(TestCase):
     if not blocking:
       time.sleep(.1)
     if success:
-      self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(id)['state'])
+      self.assertEquals(InfrastructureManager.STATE_RUNNING,
+        i.reservations.get(id)['state'])
       vm_info = i.reservations.get(id)['vm_info']
       self.assertEquals(['public-ip'], vm_info['public_ips'])
       self.assertEquals(['private-ip'], vm_info['private_ips'])
       self.assertEquals(['i-id'], vm_info['instance_ids'])
     else:
-      self.assertEquals(InfrastructureManager.STATE_FAILED, i.reservations.get(id)['state'])
+      self.assertEquals(InfrastructureManager.STATE_FAILED,
+        i.reservations.get(id)['state'])
 
   def terminate_instances(self, prefix, blocking):
     i = InfrastructureManager(blocking=blocking)
@@ -90,8 +87,9 @@ class TestEC2Agent(TestCase):
     self.assertEquals(result1['reason'], 'no credentials')
 
     params2 = {
-      'credentials': {'a': 'b', 'EC2_URL': 'http://ec2.url.com',
-                      'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
+      'credentials': {
+        'a': 'b', 'EC2_URL': 'http://ec2.url.com',
+        'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'infrastructure': prefix,
       'instance_ids': ['i-12345'],
       'region' : 'my-zone-1'
@@ -150,4 +148,3 @@ class TestEC2Agent(TestCase):
     (flexmock(utils)
      .should_receive('get_random_alphanumeric')
      .reset())
-
