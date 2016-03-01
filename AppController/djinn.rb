@@ -89,6 +89,10 @@ NO_HAPROXY_PRESENT = "false: haproxy not running"
 NOT_READY = "false: not ready yet"
 
 
+# A response that indicates that the caller made an invalid request.
+INVALID_REQUEST = 'false: invalid request'
+
+
 # Regular expression to determine if a file is a .tar.gz file.
 TAR_GZ_REGEX = /\.tar\.gz$/
 
@@ -1365,6 +1369,48 @@ class Djinn
         "with #{e.message}.")
     end
     return
+  end
+
+  # Enables or disables datastore writes on this node.
+  # Args:
+  #   read_only: A string that indicates whether to turn read-only mode on or
+  #     off.
+  def set_node_read_only(read_only, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+    return INVALID_REQUEST unless %w(true false).include?(read_only)
+    read_only = read_only == 'true'
+
+    DatastoreServer.set_read_only_mode(read_only)
+    if read_only
+      GroomerService.stop()
+    else
+      GroomerService.start()
+    end
+
+    return 'OK'
+  end
+
+  # Enables or disables datastore writes on this deployment.
+  # Args:
+  #   read_only: A string that indicates whether to turn read-only mode on or
+  #     off.
+  def set_read_only(read_only, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+    return INVALID_REQUEST unless %w(true false).include?(read_only)
+
+    @nodes.each { | node |
+      if node.is_db_master? or node.is_db_slave?
+        acc = AppControllerClient.new(node.private_ip, @@secret)
+        response = acc.set_node_read_only(read_only)
+        return response unless response == 'OK'
+      end
+    }
+
+    return 'OK'
   end
 
   # Removes an application and stops all AppServers hosting this application.

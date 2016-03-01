@@ -101,7 +101,7 @@ module HAProxy
     # For the Datastore servers we have a list of local ports the servers
     # are listening to, and we need to create the list of local IPs.
     servers = []
-    DatastoreServer.get_server_ports(table).each { |port|
+    DatastoreServer.get_server_ports().each { |port|
       servers << {'ip' => my_ip, 'port' => port}
     }
     self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)

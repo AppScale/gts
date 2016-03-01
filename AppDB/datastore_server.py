@@ -10,6 +10,7 @@ import array
 import __builtin__
 import getopt
 import itertools
+import json
 import logging
 import md5
 import os
@@ -92,6 +93,13 @@ LOCAL_DATASTORE = "localhost:8888"
 
 # Global stats.
 STATS = {}
+
+# Determines whether or not to allow datastore writes. Note: After enabling,
+# datastore processes must be restarted and the groomer must be stopped.
+READ_ONLY = False
+
+# HTTP code to indicate that the request is invalid.
+HTTP_BAD_REQUEST = 400
 
 def clean_app_id(app_id):
   """ Google App Engine uses a special prepended string to signal that it
@@ -4100,6 +4108,13 @@ class DatastoreDistributed():
     commitres_pb = datastore_pb.CommitResponse()
     transaction_pb = datastore_pb.Transaction(http_request_data)
     txn_id = transaction_pb.handle()
+
+    if READ_ONLY:
+      self.logger.warning('Unable to commit in read-only mode: {}'.
+        format(transaction_pb))
+      return (commitres_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
@@ -4156,6 +4171,29 @@ class ClearHandler(tornado.web.RequestHandler):
     self.write({"message": "Statistics for this server cleared."})
     self.finish()
 
+class ReadOnlyHandler(tornado.web.RequestHandler):
+  """ Handles requests to check or set read-only mode. """
+  @tornado.web.asynchronous
+  def post(self):
+    """ Handle requests to turn read-only mode on or off. """
+    global READ_ONLY
+
+    payload = self.request.body
+    data = json.loads(payload)
+    if 'readOnly' not in data:
+      self.set_status(HTTP_BAD_REQUEST)
+
+    if data['readOnly']:
+      READ_ONLY = True
+      message = 'Write operations now disabled.'
+    else:
+      READ_ONLY = False
+      message = 'Write operations now enabled.'
+
+    file_logger.info(message)
+    self.write({'message': message})
+    self.finish()
+
 class MainHandler(tornado.web.RequestHandler):
   """
   Defines what to do when the webserver receives different types of 
@@ -4176,15 +4214,15 @@ class MainHandler(tornado.web.RequestHandler):
   
   @tornado.web.asynchronous
   def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppServer in an encoded protocol buffer 
+    """ Function which handles POST requests. Data of the request is
+        the request from the AppServer in an encoded protocol buffer
         format.
     """
     request = self.request
     http_request_data = request.body
     pb_type = request.headers['protocolbuffertype']
     app_data = request.headers['appdata']
-    app_data  = app_data.split(':')
+    app_data = app_data.split(':')
 
     if len(app_data) == 4:
       app_id, user_email, nick_name, auth_domain = app_data
@@ -4323,6 +4361,13 @@ class MainHandler(tornado.web.RequestHandler):
 
     handle = None
     transaction_pb = datastore_pb.Transaction()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to begin transaction in read-only mode: {}'.
+        format(begin_transaction_req_pb))
+      return (transaction_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
     except ZKInternalException:
@@ -4357,16 +4402,24 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded protocol buffer void response.
     """
     global datastore_access
+    response = api_base_pb.VoidProto()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to rollback in read-only mode: {}'.
+        format(http_request_data))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
     except ZKInternalException:
-      file_logger.exception('ZK internal exception for {}'.format(app_id))
-      return (api_base_pb.VoidProto().Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
+      file_logger.exception('ZKInternalException during {} for {}'.
+        format(http_request_data, app_id))
+      return (response.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               "Internal error with ZooKeeper connection.")
     except Exception:
       file_logger.exception('Unable to rollback transaction')
-      return(api_base_pb.VoidProto().Encode(),
+      return(response.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Unable to rollback for this transaction")
 
@@ -4422,6 +4475,13 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     request = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.Integer64Proto()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to create in read-only mode: {}'.
+        format(request))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
@@ -4446,6 +4506,12 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     index = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.VoidProto()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to update in read-only mode: {}'.
+        format(index))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
 
     state = index.state()
     if state not in [index.READ_WRITE, index.WRITE_ONLY]:
@@ -4475,10 +4541,17 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     request = entity_pb.CompositeIndex(http_request_data)
     response = api_base_pb.VoidProto()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to delete in read-only mode: {}'.
+        format(request))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
-    except dbconstants.AppScaleDBConnectionError, dbce:
-      file_logger.error('DB connection error during {}'.format(request))
+    except dbconstants.AppScaleDBConnectionError:
+      file_logger.exception('DB connection error during {}'.format(request))
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
@@ -4526,6 +4599,12 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.AllocateIdsResponse()
     reference = request.model_key()
 
+    if READ_ONLY:
+      file_logger.warning('Unable to allocate in read-only mode: {}'.
+        format(request))
+      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     max_id = int(request.max())
     size = int(request.size())
     start = end = 0
@@ -4571,6 +4650,12 @@ class MainHandler(tornado.web.RequestHandler):
 
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse()
+
+    if READ_ONLY:
+      file_logger.warning('Unable to put in read-only mode: {}'.
+        format(putreq_pb))
+      return (putresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
 
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
@@ -4650,6 +4735,12 @@ class MainHandler(tornado.web.RequestHandler):
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
 
+    if READ_ONLY:
+      file_logger.warning('Unable to delete in read-only mode: {}'.
+        format(delreq_pb))
+      return (delresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
@@ -4685,8 +4776,9 @@ def usage():
   print "\t--port"
 
 pb_application = tornado.web.Application([
-    (r"/clear", ClearHandler),
-    (r"/*", MainHandler),
+  ('/clear', ClearHandler),
+  ('/read-only', ReadOnlyHandler),
+  (r'/*', MainHandler),
 ])
 
 def main(argv):
