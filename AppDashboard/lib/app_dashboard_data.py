@@ -78,7 +78,7 @@ class AppStatus(ndb.Model):
     timestamp: A timestamp of when this entity was created.
   """
   name = ndb.StringProperty()
-  url = ndb.StringProperty()
+  url = ndb.StringProperty(repeated=True)
   timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
@@ -474,8 +474,11 @@ class AppDashboardData():
             continue
           if done_loading:
             try:
-              app_names_and_urls[app] = "http://{0}:{1}".format(
-                self.helper.get_login_host(), self.helper.get_app_port(app))
+              host_url = self.helper.get_login_host()
+              ports = self.helper.get_app_ports(app)
+              app_names_and_urls[app] = [
+                  "http://{0}:{1}".format(host_url, ports[0]),
+                  "https://{0}:{1}".format(host_url, ports[1])]
             except AppHelperException:
               app_names_and_urls[app] = None
           else:
