@@ -2521,10 +2521,8 @@ class Djinn
     # If this function is called twice, ensure there are no duplicate values.
     @app_info_map[app_id]['appengine'].uniq!()
 
-    unless app_id == AppDashboard::APP_NAME
-      HAProxy.update_app_config(my_node.private_ip, app_id,
-        @app_info_map[app_id])
-    end
+    HAProxy.update_app_config(my_node.private_ip, app_id,
+      @app_info_map[app_id])
 
     unless Nginx.is_app_already_configured(app_id)
       # Get static handlers and make sure cache path is readable.
@@ -2596,15 +2594,17 @@ class Djinn
     return "OK"
   end
 
-  # Creates an Nginx configuration file for the Users/Apps soap server.
-  def configure_uaserver_nginx()
+  # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
+  def configure_uaserver()
     all_db_private_ips = []
     @nodes.each { | node |
       if node.is_db_master? or node.is_db_slave?
         all_db_private_ips.push(node.private_ip)
       end
     }
-    Nginx.create_uaserver_config(all_db_private_ips)
+    HAProxy.create_ua_server_config(all_db_private_ips,
+      my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    Nginx.create_uaserver_config(my_node.private_ip)
     Nginx.reload()
   end
 
@@ -3455,9 +3455,8 @@ class Djinn
 
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
-    configure_uaserver_nginx()
     HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-      UserAppClient::SERVER_PORT, USE_SSL)
+      UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
       app_list = uac.get_all_apps()
@@ -4244,8 +4243,6 @@ HOSTS
   def initialize_server()
     if not HAProxy.is_running?
       HAProxy.initialize_config()
-      HAProxy.create_app_load_balancer_config(my_node.public_ip,
-        my_node.private_ip, AppDashboard::PROXY_PORT)
       HAProxy.start()
       Djinn.log_info("HAProxy configured and started.")
     else
@@ -4254,13 +4251,16 @@ HOSTS
 
     if not Nginx.is_running?
       Nginx.initialize_config()
-      Nginx.create_app_load_balancer_config(my_node.public_ip,
-        my_node.private_ip, AppDashboard::PROXY_PORT)
       Nginx.start()
       Djinn.log_info("Nginx configured and started.")
     else
       Djinn.log_info("Nginx already configured and running.")
     end
+
+    # As per trusty's version of haproxy, we need to have a listening
+    # socket for the daemon to start: we do use the uaserver to configured
+    # a default route.
+    configure_uaserver
 
     # Volume is mounted, let's finish the configuration of static files.
     configure_db_nginx()

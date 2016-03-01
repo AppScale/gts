@@ -9,6 +9,7 @@ require 'helperfunctions'
 require 'app_dashboard'
 require 'datastore_server'
 require 'monit_interface'
+require 'user_app_client'
 
 
 # A module to wrap all the interactions with the nginx web server
@@ -56,11 +57,6 @@ module Nginx
 
   CHANNELSERVER_PORT = 5280
 
-  # User/apps soap server SSL port.
-  UASERVER_SSL_PORT = 4343
-
-  # User/apps soap server bind port. 
-  UASERVER_NON_SSL_PORT = 4342
 
   def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
@@ -112,151 +108,6 @@ module Nginx
   def self.check_config()
     HelperFunctions.shell("#{NGINX_BIN} -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
-  end
-
-  # Creates a Nginx config file for the provided app name
-  def self.write_app_config(app_name, http_port, https_port, my_public_ip,
-    my_private_ip, proxy_port, static_handlers, login_ip)
-    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
-    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
-    always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, https_port)
-    }.join
-    never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, http_port)
-    }.join
-
-    secure_static_handlers = []
-    non_secure_static_handlers = []
-    static_handlers.map { |handler|
-      if handler["secure"] == "always"
-        secure_static_handlers << handler
-      elsif handler["secure"] == "never"
-        non_secure_static_handlers << handler
-      else
-        secure_static_handlers << handler
-        non_secure_static_handlers << handler
-      end
-    }
-
-    secure_static_locations = secure_static_handlers.map { |handler|
-      HelperFunctions.generate_location_config(handler)
-    }.join
-    non_secure_static_locations = non_secure_static_handlers.map { |handler|
-      HelperFunctions.generate_location_config(handler)
-    }.join
-
-    default_location = <<DEFAULT_CONFIG
-location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 600;
-      client_body_timeout 600;
-      proxy_read_timeout 600;
-    }
-DEFAULT_CONFIG
-    secure_default_location = default_location
-    non_secure_default_location = default_location
-    if never_secure_locations.include?('location / {')
-      secure_default_location = ''
-    end
-    if always_secure_locations.include?('location / {')
-      non_secure_default_location = ''
-    end
-
-    config = <<CONFIG
-# Any requests that aren't static files get sent to haproxy
-upstream gae_#{app_name} {
-    server #{my_private_ip}:#{proxy_port};
-}
-
-server {
- 
-    listen #{http_port};
-    server_name #{my_public_ip};
-    root /var/apps/#{app_name}/app;
-    # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
-    error_log  /var/log/nginx/#{app_name}.error.log;
-    access_log off;
-    #error_log /dev/null crit;
-
-    ignore_invalid_headers off;
-
-    rewrite_log off;
-    error_page 404 = /404.html;
-    set $cache_dir /var/apps/#{app_name}/cache;
-
-    # If they come here using HTTPS, bounce them to the correct scheme.
-    error_page 400 http://$host:$server_port$request_uri;
-
-    #{always_secure_locations}
-    #{non_secure_static_locations}
-
-    #{non_secure_default_location}
-
-    location /404.html {
-      root /var/apps/#{app_name};
-    }
-
-    location /reserved-channel-appscale-path {
-      proxy_buffering off;
-      tcp_nodelay on;
-      keepalive_timeout 600;
-      proxy_read_timeout 120;
-      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
-    }
-
-}
-server {
-    listen #{https_port};
-    server_name #{my_public_ip}-#{app_name}-ssl;
-    ssl on;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
-    ignore_invalid_headers off;
-
-    # If they come here using HTTP, bounce them to the correct scheme.
-    error_page 400 https://$host:$server_port$request_uri;
-    error_page 497 https://$host:$server_port$request_uri;
- 
-    #root /var/apps/#{app_name}/app;
-    # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
-    error_log  /var/log/nginx/#{app_name}.error.log;
-    access_log off;
-    #error_log /dev/null crit;
-
-    rewrite_log off;
-    error_page 404 = /404.html;
-    set $cache_dir /var/apps/#{app_name}/cache;
-
-    #{never_secure_locations}
-    #{secure_static_locations}
-
-    #{secure_default_location}
-
-    location /reserved-channel-appscale-path {
-      proxy_buffering off;
-      tcp_nodelay on;
-      keepalive_timeout 600;
-      proxy_read_timeout 120;
-      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
-    }
-
-
-}
-CONFIG
-
-    config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    return reload_nginx(config_path, app_name)
   end
 
   # Creates a Nginx config file for the provided app name on the load balancer
@@ -623,20 +474,18 @@ CONFIG
   # 
   # Args:
   #   all_private_ips: A list of strings, the IPs on which the datastore is running. 
-  def self.create_uaserver_config(all_private_ips)
+  def self.create_uaserver_config(my_ip)
     config = <<CONFIG
 upstream uaserver {
 CONFIG
-    all_private_ips.each { |ip|
       config += <<CONFIG
-    server #{ip}:#{UASERVER_NON_SSL_PORT};
+    server #{my_ip}:#{UserAppClient::HAPROXY_SERVER_PORT};
 CONFIG
-    }
     config += <<CONFIG
 }
  
 server {
-    listen #{UASERVER_SSL_PORT};
+    listen #{UserAppClient::SSL_SERVER_PORT};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate #{NGINX_PATH}/mycert.pem;
@@ -678,103 +527,6 @@ CONFIG
 
     HAProxy.regenerate_config
   end
-
-  # A generic function for creating nginx config files used by appscale services
-  def self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-    listen_port, name, public_dir, ssl_port=nil)
-
-    config = <<CONFIG
-upstream #{name} {
-   server #{my_private_ip}:#{proxy_port};
-}
-CONFIG
-
-    if ssl_port
-      # redirect all request to ssl port.
-      config += <<CONFIG
-server {
-    # If they come here using HTTPS, bounce them to the correct scheme.
-    error_page 400 http://$host:$server_port$request_uri;
-
-
-    listen #{listen_port};
-    rewrite ^(.*) https://#{my_public_ip}:#{ssl_port}$1 permanent;
-}
-
-server {
- 
-    # If they come here using HTTP, bounce them to the correct scheme.
-    error_page 400 https://$host:$server_port$request_uri;
-    error_page 497 https://$host:$server_port$request_uri;
-
-    listen #{ssl_port};
-    ssl on;
-    ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
-
-    # If they come here using HTTP, bounce them to the correct scheme.
-    error_page 400 https://$host:$server_port$request_uri;
-    error_page 497 https://$host:$server_port$request_uri;
-CONFIG
-    else
-      config += <<CONFIG
-server {
- 
-    listen #{listen_port};
-CONFIG
-    end
-
-    config += <<CONFIG
-    root #{public_dir};
-    access_log  /var/log/nginx/load-balancer.access.log upstream;
-    error_log  /var/log/nginx/load-balancer.error.log;
-    rewrite_log off;
-    error_page 502 /502.html;
-    ignore_invalid_headers off;
-
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header  REMOTE_ADDR  $remote_addr;
-      proxy_set_header  HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-
-      client_body_timeout 360;
-      proxy_read_timeout 360;
-CONFIG
-    if name == AppDashboard::APP_NAME
-      config += <<CONFIG
- 
-      # Increase file size for alb so larger applications can be uploaded
-      client_max_body_size 1G;
-CONFIG
-    else
-      config += <<CONFIG
-      client_max_body_size 30M;
-CONFIG
-    end
-    config += <<CONFIG
-      # go to proxy
-      if (!-f $request_filename) {
-        proxy_pass http://#{name};
-        break;
-      }
-    }
-
-    location /502.html {
-      root #{APPSCALE_HOME}/AppDashboard/static;
-    }
-}
-CONFIG
-
-    config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config
-  end
-
 
   # Set up the folder structure and creates the configuration files necessary for nginx
   def self.initialize_config

@@ -8,6 +8,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
 require 'monit_interface'
+require 'user_app_client'
 
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
@@ -43,16 +44,16 @@ module HAProxy
 
   # HAProxy Configuration to use for a thread safe gae app.
   THREADED_SERVER_OPTIONS = "maxconn 7 check"
-  
+
 
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
-  
+
   # The default server timeout for the dashboard (apploadbalancer)
   ALB_SERVER_TIMEOUT = 300000
 
-  
+
   def self.start()
     start_cmd = "/usr/sbin/service haproxy start"
     stop_cmd = "/usr/sbin/service haproxy stop"
@@ -84,47 +85,59 @@ module HAProxy
     START_PORT + app_number
   end
 
-  # Create the config file for Datastore Server applications.
-  def self.create_datastore_server_config(my_ip, listen_port, table)
-    self.create_app_config(my_ip, my_ip, listen_port, 
-      DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
-  end
-
-  # Create the configuration file for the AppDashboard application.
-  def self.create_app_load_balancer_config(my_public_ip, my_private_ip,
-    listen_port)
-    self.create_app_config(my_public_ip, my_private_ip, listen_port,
-      AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
-  end
-
-  # A generic function for creating haproxy config files used by appscale services
-  def self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-    server_ports, name)
+  # Create the config file for UserAppServer.
+  def self.create_ua_server_config(server_ips, my_ip, listen_port)
+    # We reach out to UserAppServers on the DB nodes.
+    # The port is fixed.
     servers = []
-    server_ports.each_with_index do |port, index|
-      servers << HAProxy.server_config(name, index, "#{my_private_ip}:#{port}")
+    server_ips.each{ |server|
+      servers << {'ip' => server, 'port' => UserAppClient::SERVER_PORT }
+    }
+    self.create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
+  end
+
+  # Create the config file for Datastore Server.
+  def self.create_datastore_server_config(my_ip, listen_port, table)
+    # For the Datastore servers we have a list of local ports the servers
+    # are listening to, and we need to create the list of local IPs.
+    servers = []
+    DatastoreServer.get_server_ports(table).each { |port|
+      servers << {'ip' => my_ip, 'port' => port}
+    }
+    self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+  end
+
+  # A generic function for creating HAProxy config files used by AppScale services.
+  #
+  # Arguments:
+  #   servers     : list of hashes containing server IPs and respective ports
+  #   listen_ip   : the IP HAProxy should listen for
+  #   listen_port : the port to listen to
+  #   name        : the name of the server
+  def self.create_app_config(servers, my_private_ip, listen_port, name)
+    config = "# Create a load balancer for the #{name} application\n"
+    config << "listen #{name} #{my_private_ip}:#{listen_port}\n"
+    servers.each_with_index do |server, index|
+      config << HAProxy.server_config(name, index, "#{server['ip']}:#{server['port']}") + "\n"
     end
 
-    config = "# Create a load balancer for the #{name} application \n"
-    config << "listen #{name} #{my_private_ip}:#{listen_port} \n"
-    config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
-    # can take some time 
+    # can take some time.
     if name == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
-  
+
     config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
   end
 
-  # Generates a load balancer configuration file. Since haproxy doesn't provide
-  # an file include option we emulate that functionality here.
+  # Generates a load balancer configuration file. Since HAProxy doesn't provide
+  # a `file include` option we emulate that functionality here.
   def self.regenerate_config()
     conf = File.open(MAIN_CONFIG_FILE,"w+")
-    
+
     # Start by writing in the base file
     File.open(BASE_CONFIG_FILE, "r") do |base|
       conf.write(base.read())
@@ -150,9 +163,9 @@ module HAProxy
     # to be cut which shows users a nginx 404
     HAProxy.reload()
   end
-  
+
   # Generate the server configuration line for the provided inputs. GAE applications
-  # that are thread safe will have a higher connection limit. 
+  # that are thread safe will have a higher connection limit.
   def self.server_config(app_name, index, location)
     if HelperFunctions.get_app_thread_safe(app_name)
       Djinn.log_debug("[#{app_name}] Writing Threadsafe HAProxy config")
@@ -163,34 +176,8 @@ module HAProxy
     end
   end
 
-  def self.write_app_config(app_name, app_number, num_of_servers, ip)
-    # Add a prefix to the app name to avoid possible conflicts
-    full_app_name = "gae_#{app_name}"
-
-    servers = []
-    num_of_servers.times do |index|
-      port = HelperFunctions.application_port(app_number, index, num_of_servers)
-      server = HAProxy.server_config(full_app_name, index, "#{ip}:#{port}")
-      servers << server
-    end
-
-    listen_port = HAProxy.app_listen_port(app_number)
-    config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
-    config << servers.join("\n")
-
-    config_path = File.join(SITES_ENABLED_PATH, 
-      "#{full_app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    HAProxy.regenerate_config()
-  end
-
-
   # Updates the HAProxy config file for this App Engine application to
-  # point to all the ports currently the application. In contrast with
-  # write_app_config, these ports can be non-contiguous.
-  # TODO: Lots of copy/paste here with write_app_config - eliminate it.
+  # point to all the ports currently used by the application.
   def self.update_app_config(private_ip, app_name, app_info)
     listen_port = app_info['haproxy']
 
@@ -206,10 +193,10 @@ module HAProxy
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
     config << servers.join("\n")
 
-    config_path = File.join(SITES_ENABLED_PATH, 
+    config_path = File.join(SITES_ENABLED_PATH,
       "#{full_app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
- 
+
     HAProxy.regenerate_config()
   end
 
@@ -267,7 +254,7 @@ defaults
   # Log details about HTTP requests
   #option httplog
 
-  # Abort request if client closes its output channel while waiting for the 
+  # Abort request if client closes its output channel while waiting for the
   # request. HAProxy documentation has a long explanation for this option.
   option abortonclose
 
@@ -279,7 +266,7 @@ defaults
   # before aborting the request
   retries 3
 
-  # Do not enforce session affinity (i.e., an HTTP session can be served by 
+  # Do not enforce session affinity (i.e., an HTTP session can be served by
   # any Mongrel, not just the one that started the session
   option redispatch
 
@@ -292,8 +279,8 @@ defaults
   # Timeout a request if Mongrel does not accept the data on the connection,
   # or does not send a response back in 10 minutes.
   timeout server 600000
-  
-  # Enable the statistics page 
+
+  # Enable the statistics page
   stats enable
   stats uri     /haproxy?stats
   stats realm   Haproxy\ Statistics
@@ -310,7 +297,7 @@ CONFIG
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
     end
-    
+
     # Write the base configuration file which sets default configuration parameters
     File.open(BASE_CONFIG_FILE, "w+") { |dest_file| dest_file.write(base_config) }
   end
