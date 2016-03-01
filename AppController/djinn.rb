@@ -758,7 +758,8 @@ class Djinn
   #
   # Args:
   #   stop_deployment: A boolean to indicate if the whole deployment
-  #                    should be stopped.
+  #                    should be stopped. This options is available only
+  #                    on the head node.
   #   secret         : A String used to authenticate callers.
   # Returns:
   #   A String indicating that the termination has started, or the reason why it
@@ -878,7 +879,7 @@ class Djinn
       if not (val.class == String or val.class == PARAMETERS_AND_CLASS[key][0] or
          (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class == FalseClass))
         begin
-          msg = "Removing parameter '" + key + "' with unknown value '" +\
+          msg = "Removing parameter '" + key + "' with unknown value '" +
             val.to_s + "'."
         rescue
           msg = "Removing parameter '" + key + "' with unknown value."
@@ -894,9 +895,9 @@ class Djinn
       # Let's check if we can convert them now to the proper class.
       if PARAMETERS_AND_CLASS[key][0] == Fixnum
         begin
-          test_value = Integer(val)
+          Integer(val)
         rescue
-          msg = "Warning: parameter '" + key + "' is not an integer (" +\
+          msg = "Warning: parameter '" + key + "' is not an integer (" +
             val.to_s + "). Removing it."
           Djinn.log_warn(msg)
           options_to_delete.push(key)
@@ -1815,7 +1816,7 @@ class Djinn
       end
       Djinn.log_info("About to restart app #{app_name}")
       APPS_LOCK.synchronize {
-        setup_appengine_application(app_name, state="restart")
+        setup_appengine_application(app_name, "restart")
       }
     }
   end
@@ -2024,10 +2025,9 @@ class Djinn
     Djinn.log_info("Starting new roles in cloud with following info: " +
       "#{ips_to_roles.inspect}")
 
-    keyname = @options['keyname']
     num_of_vms = ips_to_roles.keys.length
     roles = ips_to_roles.values
-    disks = Array.new(size=num_of_vms, obj=nil)  # no persistent disks
+    disks = Array.new(num_of_vms, nil)  # no persistent disks
     Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
     imc = InfrastructureManagerClient.new(@@secret)
 
@@ -2073,7 +2073,6 @@ class Djinn
       "#{ips_to_roles.inspect}")
 
     nodes_info = []
-    keyname = @options['keyname']
     ips_to_roles.each { |ip, roles|
       Djinn.log_info("Will add roles #{roles.join(', ')} to new " +
         "node at IP address #{ip}")
@@ -2100,7 +2099,7 @@ class Djinn
   # combination of the two. 'nodes_needed' should be an Array, where each
   # item is an Array of the roles to start on each node.
   def start_new_roles_on_nodes(nodes_needed, instance_type, secret)
-     if !valid_secret?(secret)
+    if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
@@ -2116,8 +2115,6 @@ class Djinn
 
     vms_to_use = []
     ZKInterface.lock_and_run {
-      num_of_vms_needed = nodes_needed.length
-
       @nodes.each_with_index { |node, index|
         if node.is_open?
           Djinn.log_info("Will use node #{node} to run new roles")
@@ -2156,7 +2153,7 @@ class Djinn
           end
         end
 
-        disks = Array.new(size=vms_to_spawn, obj=nil)  # no persistent disks
+        disks = Array.new(vms_to_spawn, nil)  # no persistent disks
 
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
@@ -2466,9 +2463,6 @@ class Djinn
 
   def get_public_ip(private_ip)
     return private_ip unless is_cloud?
-
-    keyname = @options["keyname"]
-    infrastructure = @options["infrastructure"]
 
     Djinn.log_debug("Looking for #{private_ip}")
     private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
@@ -3048,6 +3042,7 @@ class Djinn
             http.use_ssl = true
             response = http.post(url.path, encoded_logs,
               {'Content-Type'=>'application/json'})
+            Djinn.log_debug("flush_log_buffer got back #{response}.")
           rescue Exception
             # Don't crash the AppController because we weren't able to send over
             # the logs - just continue on.
@@ -3505,7 +3500,7 @@ class Djinn
       UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
-      app_list = uac.get_all_apps()
+      uac.get_all_apps()
     rescue FailedNodeException
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
@@ -3725,7 +3720,6 @@ class Djinn
 
   def start_datastore_server
     db_master_ip = nil
-    my_ip = my_node.public_ip
     verbose = @options['verbose'].downcase == 'true'
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
@@ -3791,8 +3785,6 @@ class Djinn
 
   def spawn_and_setup_appengine()
     # should also make sure the tools are on the vm and the envvars are set
-
-    table = @options['table']
 
     machines = JSON.load(@options["ips"])
     appengine_info = spawn_appengine(machines)
@@ -4582,7 +4574,7 @@ HOSTS
     APPS_LOCK.synchronize {
       apps_to_load = @app_names - @apps_loaded - ["none"]
       apps_to_load.each { |app|
-        setup_appengine_application(app, state="new")
+        setup_appengine_application(app, "new")
       }
     } # end of synchronize
   end
@@ -4641,7 +4633,6 @@ HOSTS
     }
 
     my_public = my_node.public_ip
-    my_private = my_node.private_ip
 
     # Let's create an entry for the application if we don't already have it.
     if @app_info_map[app].nil?
@@ -4789,8 +4780,6 @@ HOSTS
       # send a warmup request to the app to get it loaded - can shave a
       # number of seconds off the initial request if it's java or go
       # go provides a default warmup route
-      # TODO: if the user specifies a warmup route, call it instead of /
-      warmup_url = "/"
 
       app_manager = AppManagerClient.new(my_node.private_ip)
       # TODO: What happens if the user updates their env vars between app
@@ -5126,7 +5115,8 @@ HOSTS
     if average_request_rate < 0
       Djinn.log_info("Saw negative request rate for app #{app_name}, so " +
         "resetting our haproxy stats for this app.")
-      initialize_scaling_info_for_app(app_name, force=true)
+      # This is to force a reset of the scaling info.
+      initialize_scaling_info_for_app(app_name, true)
       return
     end
 
@@ -5192,7 +5182,7 @@ HOSTS
     if appserver_to_use != nil
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       if appserver_to_use == my_node.private_ip
-        setup_appengine_application(app_name, state="add_appserver")
+        setup_appengine_application(app_name, "add_appserver")
       else
         acc = AppControllerClient.new(appserver_to_use, @@secret)
         begin
@@ -5270,7 +5260,7 @@ HOSTS
     end
     Djinn.log_info("Received request to add an appserver for #{app_id}")
     APPS_LOCK.synchronize {
-      setup_appengine_application(app_id, state="add_appserver")
+      setup_appengine_application(app_id, "add_appserver")
     }
 
   end
@@ -5294,7 +5284,6 @@ HOSTS
 
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
-    warmup_url = "/"
 
     begin
       app_is_enabled = uac.is_app_enabled?(app)
@@ -5354,6 +5343,7 @@ HOSTS
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       response = http.post(url.path, encoded_request_info,
         {'Content-Type'=>'application/json'})
+      Djinn.log_debug("send_request_info_to_dashboard got back #{response}.")
       return true
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
       Errno::ECONNRESET => e
@@ -5373,9 +5363,6 @@ HOSTS
     return if !my_node.is_login?
     # TODO: Do we need to get the apps lock here?
     Djinn.log_debug("Seeing if we need to spawn new AppServer nodes")
-
-    appservers = @nodes.select { |node| node.is_appengine? }
-    num_of_appservers = appservers.length
 
     nodes_needed = []
     all_scaling_requests = {}
@@ -5548,7 +5535,6 @@ HOSTS
 
   # Returns true on success, false otherwise
   def copy_app_to_local(appname)
-    app_dir = "/var/apps/#{appname}/app"
     app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{appname}.tar.gz"
 
     if File.exists?(app_path)

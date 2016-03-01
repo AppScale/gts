@@ -280,7 +280,6 @@ CRON
   #   standard cron format. It cannot be applied to a crontab because it only
   #   specifies the frequency of the job, and not the action to perform.
   def self.convert_messy_format(schedule)
-    cron = ""
     splitted = schedule.split
 
     unless splitted.length == 3 or splitted.length == 5

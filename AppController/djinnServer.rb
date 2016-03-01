@@ -1,11 +1,11 @@
 #!/usr/bin/ruby -w
 
 $VERBOSE = nil
-# Imports within Ruby's standard libraries
-require 'soap/rpc/httpserver'
-require 'webrick/https'
+# Imports within Ruby's standard libraries.
 require 'logger'
 require 'soap/rpc/driver'
+require 'soap/rpc/httpserver'
+require 'webrick/https'
 require 'yaml'
 
 require 'net/http'
@@ -111,20 +111,30 @@ appscale_dir = "/etc/appscale/"
 
 secret = nil
 loop {
-  secret = HelperFunctions.get_secret(appscale_dir + "secret.key")
+  begin
+    secret = HelperFunctions.get_secret(appscale_dir + "secret.key")
+  rescue Errno::ENOENT
+    # Ignore the File doesn't exists exception.
+  end
+
   break unless secret.nil?
-  Djinn.log_debug("Still waiting for that secret key...")
+  puts("Still waiting for that secret key...")
   sleep(5)
 }
 
 server_cert = nil
 server_key = nil
 loop {
-  server_cert = HelperFunctions.get_cert(appscale_dir + "certs/mycert.pem")
-  server_key = HelperFunctions.get_key(appscale_dir + "certs/mykey.pem")
-  break if !server_cert.nil? && !server_key.nil?
-  Djinn.log_debug("Waiting on certs")
-  sleep(5)
+  begin
+    server_cert = HelperFunctions.get_cert(appscale_dir + "certs/mycert.pem")
+    server_key = HelperFunctions.get_key(appscale_dir + "certs/mykey.pem")
+    break if !server_cert.nil? && !server_key.nil?
+    puts("Waiting on certs")
+    sleep(5)
+  rescue Errno::ENOENT
+    puts "Certificate directory doesn't exists. Did you build appscale?"
+    exit 1
+  end
 }
 
 # Before we try to bind, make sure that another AppController hasn't already
@@ -148,7 +158,7 @@ server = DjinnServer.new(
 )
 
 trap('TERM') {
-  Djinn.log_debug("Received TERM signal: stopping node services.")
+  puts("Received TERM signal: stopping node services.")
   server.djinn.kill_sig_received = true
   server.shutdown
   server.djinn.kill(false, secret)
