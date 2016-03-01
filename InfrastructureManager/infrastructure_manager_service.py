@@ -91,6 +91,15 @@ class InfrastructureManagerService:
     self.server.registerFunction(i.run_instances)
     self.server.registerFunction(i.terminate_instances)
     self.server.registerFunction(i.attach_disk)
+
+    system_manager = SystemManager()
+
+    self.server.registerFunction(system_manager.get_cpu_usage)
+    self.server.registerFunction(system_manager.get_disk_usage)
+    self.server.registerFunction(system_manager.get_memory_usage)
+    self.server.registerFunction(system_manager.get_monit_summary)
+    self.server.registerFunction(system_manager.get_swap_usage)
+
     self.started = False
 
   def start(self):
