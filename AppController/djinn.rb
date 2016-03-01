@@ -4256,9 +4256,9 @@ HOSTS
       Djinn.log_info("Nginx already configured and running.")
     end
 
-    # TODO: As per trusty's version of haproxy, we need to have a
-    # listening socket for the daemon to start: we do use the uaserver to
-    # configured a default route.
+    # As per trusty's version of haproxy, we need to have a listening
+    # socket for the daemon to start: we do use the uaserver to configured
+    # a default route.
     configure_uaserver
 
     # Volume is mounted, let's finish the configuration of static files.

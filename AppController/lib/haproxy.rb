@@ -86,49 +86,43 @@ module HAProxy
   end
 
   # Create the config file for UserAppServer.
-  def self.create_ua_server_config(servers, my_ip, listen_port)
+  def self.create_ua_server_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
     # The port is fixed.
-    ports = []
-    servers.each{ |server|
-      ports << UserAppClient::SERVER_PORT
+    servers = []
+    server_ips.each{ |server|
+      servers << {'ip' => server, 'port' => UserAppClient::SERVER_PORT }
     }
-    self.create_app_config(servers, my_ip, listen_port, ports,
-      UserAppClient::NAME)
+    self.create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
   end
 
   # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
     # For the Datastore servers we have a list of local ports the servers
     # are listening to, and we need to create the list of local IPs.
-    ips = []
+    servers = []
     DatastoreServer.get_server_ports(table).each { |port|
-      ips << my_ip
+      servers << {'ip' => my_ip, 'port' => port}
     }
-    self.create_app_config(ips, my_ip, listen_port,
-      DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
+    self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
   end
 
   # A generic function for creating HAProxy config files used by AppScale services.
   #
   # Arguments:
-  #   server_ips  : list of server IPs
+  #   servers     : list of hashes containing server IPs and respective ports
   #   listen_ip   : the IP HAProxy should listen for
   #   listen_port : the port to listen to
-  #   server_ports: list of server ports, corresponding to server_ips
   #   name        : the name of the server
-  def self.create_app_config(server_ips, my_private_ip, listen_port,
-    server_ports, name)
-    servers = []
-    server_ports.each_with_index do |port, index|
-      servers << HAProxy.server_config(name, index, "#{server_ips[index]}:#{port}")
+  def self.create_app_config(servers, my_private_ip, listen_port, name)
+    config = "# Create a load balancer for the #{name} application\n"
+    config << "listen #{name} #{my_private_ip}:#{listen_port}\n"
+    servers.each do |server|
+      config << HAProxy.server_config(name, index, "#{server['ip']}:#{server['port']}") + "\n"
     end
 
-    config = "# Create a load balancer for the #{name} application \n"
-    config << "listen #{name} #{my_private_ip}:#{listen_port} \n"
-    config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
-    # can take some time
+    # can take some time.
     if name == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
