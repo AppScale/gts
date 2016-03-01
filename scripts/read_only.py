@@ -7,13 +7,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 
 make_active = False
-if sys.argv[1] == 'on':
-  make_active = True
-elif sys.argv[1] == 'off':
-  make_active = False
-else:
+if len(sys.argv) < 2 or sys.argv[1] not in ['on', 'off']:
   print('Please give a value of "on" or "off".')
   exit(1)
+
+if sys.argv[1] == 'on':
+  make_active = True
 
 acc = appscale_info.get_appcontroller_client()
 if make_active:
