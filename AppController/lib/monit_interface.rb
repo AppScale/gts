@@ -31,7 +31,7 @@ module MonitInterface
     ports = [ports] unless ports.class == Array
     ports.each { |port|
       self.write_monit_config(watch, start_cmd, stop_cmd, port,
-        env_vars, remote_ip, remote_key, match_cmd, mem)
+        env_vars, match_cmd, mem)
     }
 
     self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
@@ -74,7 +74,7 @@ BOO
   end
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
-    env_vars, remote_ip, remote_key, match_cmd, mem)
+    env_vars, match_cmd, mem)
 
     # Monit doesn't support environment variables in its DSL, so if the caller
     # wants environment variables passed to the app, we have to collect them and
@@ -111,25 +111,18 @@ BOO
     end
 
     monit_file = "/etc/monit/conf.d/appscale-#{watch}-#{port}.cfg"
-    if remote_ip
-      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
-      HelperFunctions.write_file(tempfile, contents)
-      begin
-        HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
-      rescue AppScaleSCPException
-        Djinn.log_error("Failed to write monit file at #{remote_ip}")
-        Djinn.log_run("rm -rf #{tempfile}")
-        raise AppScaleSCPException.new("Failed to write monit file at #{remote_ip}")
-      end
-      Djinn.log_run("rm -rf #{tempfile}")
-    else
-      HelperFunctions.write_file(monit_file, contents)
+    changing_config = true
+    if File.file?(monit_file)
+      current_contents = File.open(monit_file).read()
+      changing_config = false if contents == current_contents
     end
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+    if changing_config
+      HelperFunctions.write_file(monit_file, contents)
+      Djinn.log_run('service monit reload')
+    end
 
-    ip = remote_ip || HelperFunctions.local_ip
-    Djinn.log_info("Starting #{watch} on ip #{ip}, port #{port}" +
+    Djinn.log_info("Starting #{watch} on port #{port}" +
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
   end
 

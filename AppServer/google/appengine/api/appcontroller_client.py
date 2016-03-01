@@ -359,3 +359,14 @@ class AppControllerClient():
     """
     return self.call(self.MAX_RETRIES, self.server.get_deployment_id,
       self.secret)
+
+
+  def set_read_only(self, read_only):
+    """ Enables or disables datastore writes for the deployment.
+
+    Args:
+      read_only: A string that indicates whether or to turn read-only mode on
+        or off.
+    """
+    return self.call(self.MAX_RETRIES, self.server.set_read_only, read_only,
+      self.secret)
