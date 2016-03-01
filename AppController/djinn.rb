@@ -1378,14 +1378,8 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
-
-    if read_only == 'true'
-      read_only = true
-    elsif read_only == 'false'
-      read_only = false
-    else
-      return INVALID_REQUEST
-    end
+    return INVALID_REQUEST unless %w(true false).include?(read_only)
+    read_only = read_only == 'true'
 
     DatastoreServer.set_read_only_mode(read_only)
     if read_only
@@ -1393,6 +1387,8 @@ class Djinn
     else
       GroomerService.start()
     end
+
+    return 'OK'
   end
 
   # Enables or disables datastore writes on this deployment.
@@ -1403,13 +1399,17 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
+    return INVALID_REQUEST unless %w(true false).include?(read_only)
 
     @nodes.each { | node |
       if node.is_db_master? or node.is_db_slave?
         acc = AppControllerClient.new(node.private_ip, @@secret)
-        acc.set_node_read_only(read_only)
+        response = acc.set_node_read_only(read_only)
+        return response unless response == 'OK'
       end
     }
+
+    return 'OK'
   end
 
   # Removes an application and stops all AppServers hosting this application.

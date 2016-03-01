@@ -15,9 +15,12 @@ if sys.argv[1] == 'on':
   make_active = True
 
 acc = appscale_info.get_appcontroller_client()
+result = acc.set_read_only(str(make_active).lower())
+if result != 'OK':
+  print(result)
+  exit(1)
+
 if make_active:
-  acc.set_read_only('true')
   print('Datastore writes are now disabled.')
 else:
-  acc.set_read_only('false')
   print('Datastore writes are now enabled.')
