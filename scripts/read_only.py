@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 
+""" This script turns read-only mode on or off for the entire deployment.
+
+This changes the read-only status of all datastore servers and disables
+(or re-starts) the groomer on all datastore nodes.
+
+Args:
+  A string containing 'on' or 'off'.
+Returns:
+  A string indicating whether or not the operation was a success.
+"""
+
 import os
 import sys
 
