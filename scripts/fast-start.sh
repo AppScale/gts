@@ -102,6 +102,8 @@ PRIVATE_IP=""
 if grep docker /proc/1/cgroup > /dev/null ; then
     # We need to start sshd by hand.
     /usr/sbin/sshd
+    # Force Start cron
+    /usr/sbin/cron 
     PROVIDER="Docker"
 elif lspci | grep VirtualBox > /dev/null ; then
     PROVIDER="VirtualBox"

@@ -63,6 +63,7 @@ export APPSCALE_HOME_RUNTIME=`pwd`
 if [ "${DIST}" = "wheezy" ]; then
     echo deb http://httpredir.debian.org/debian wheezy-backports main > \
       /etc/apt/sources.list.d/backports.list
+    curl http://haproxy.debian.net/bernat.debian.org.gpg | apt-key add -
 fi
 
 echo -n "Updating package list and cache ..."
