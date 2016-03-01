@@ -2,9 +2,6 @@ import json
 import os
 from threading import Lock
 
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
-
 class PersistentDictionary:
   """
   A dictionary implementation that optionally writes through to a

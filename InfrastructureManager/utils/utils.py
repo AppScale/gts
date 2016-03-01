@@ -7,9 +7,6 @@ import sys
 import time
 import uuid
 
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
-
 def get_secret(filename='/etc/appscale/secret.key'):
   """
   Reads a secret key string from the specified file and returns
@@ -179,5 +176,3 @@ def sleep(seconds):
     seconds Number of seconds to sleep
   """
   time.sleep(seconds)
-
-
