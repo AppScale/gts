@@ -297,6 +297,8 @@ class GCEAgent(BaseAgent):
     zone_url = '{0}/zones/{1}'.format(project_url, zone)
     network_url = '{0}/global/networks/{1}'.format(project_url, group)
 
+    public_key = utils.get_public_key(keyname)
+
     # Construct the request body
     for index in range(count):
       disk_url = self.create_scratch_disk(parameters)
