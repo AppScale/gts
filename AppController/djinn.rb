@@ -768,19 +768,22 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
-    @kill_sig_received = true
 
-    Djinn.log_info("Received a stop request.")
+    # Check the request: only the head node can stop the deployment.
+    if stop_deployment
+      Djinn.log_info("Received a stop deployment request.")
+      if !my_node.is_login?
+        return "ERROR: this is not the head node."
+      end
 
-    if my_node.is_login? and stop_deployment
-      Djinn.log_info("Stopping all other nodes.")
       # Let's stop all other nodes.
+      Djinn.log_info("Stopping all other nodes.")
       threads << Thread.new {
         @nodes.each { |node|
           if node.private_ip != my_node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
             begin
-              acc.kill(stop_deployment)
+              acc.kill(false)
               Djinn.log_info("kill: sent kill command to node at #{ip}.")
             rescue FailedNodeException
               Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
@@ -788,11 +791,19 @@ class Djinn
           end
         }
       }
+    else
+      Djinn.log_info("Received a stop node request.")
     end
+
+    @kill_sig_received = true
+
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
     end
+
+    # Stop all the services of this node.
+
     Djinn.log_info("---- Stopping AppController ----")
 
     return "OK"
@@ -1691,6 +1702,38 @@ class Djinn
     end
 
     Djinn.log_info("==== Starting AppController ====")
+
+    # If we have the ZK_LOCATIONS_FILE, the deployment has already been
+    # configured and started. We need to check if we are a zookeeper host
+    # and start it if needed.
+    if File.exists?(ZK_LOCATIONS_FILE)
+      # We need to check our saved IPs with the list of zookeeper nodes
+      # (IPs can change in cloud environments).
+      begin
+        my_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
+      rescue Errno::ENOENT
+        @state = "Cannot find my old privat IP address."
+        HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+      end
+
+      zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
+      zookeeper_data['locations'].each { |ip|
+        if ip == my_ip 
+          if !is_zookeeper_running?
+            # We are a zookeeper host and we need to start it.
+            Djinn.log_info("Starting zookeeper.")
+            begin
+              start_zookeeper(false)
+            rescue FailedZooKeeperOperationException
+              @state = "Couldn't start Zookeeper."
+              HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+            end
+          else
+            Djinn.log_info("Zookeeper is already running on this node.")
+          end
+        end
+      }
+    end
 
     start_infrastructure_manager()
 

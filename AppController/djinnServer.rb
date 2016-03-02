@@ -157,11 +157,24 @@ server = DjinnServer.new(
   :SSLCertName => nil
 )
 
-trap('TERM') {
-  puts("Received TERM signal: stopping node services.")
-  server.djinn.kill_sig_received = true
-  server.shutdown
-  server.djinn.kill(false, secret)
+# SIGUSR1 is used to signal the orderly shut down of this node.
+Signal.trap('USR1') {
+  puts("Received USR1 signal: stopping node services.")
+  response = server.djinn.kill(false, secret)
+  puts("Response to the kill command: #{response}")
+  if !response.start_with?('ERROR')
+    server.shutdown
+  end
+}
+
+# SIGUSR2 is used to signal the orderly shut down of the deployment.
+trap('USR2') {
+  puts("Received TERM signal: stopping the deployment.")
+  response = server.djinn.kill(true, secret)
+  puts("Response to the kill command: #{response}")
+  if !response.start_with?('ERROR')
+    server.shutdown
+  end
 }
 
 new_thread = Thread.new { server.start }

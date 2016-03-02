@@ -38,12 +38,18 @@ do_start()
 do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-   start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   start-stop-daemon --stop --pidfile $PIDFILE --siganl USR1 --retry 30
+   log_end_msg $?
+}
+
+do_stop_deployment()
+{
+   log_daemon_msg "Stopping AppScale deployment"
+   start-stop-daemon --stop --pidfile $PIDFILE --signal USR2
    log_end_msg $?
 }
 
 case "$1" in
- 
     start)
         if status_of_proc "$DAEMON_NAME" "$DAEMON" > /dev/null; then
                 echo "$DAEMON_NAME already running."
@@ -51,11 +57,15 @@ case "$1" in
         fi
         do_${1}
         ;;
-        
+
     stop)
         do_stop
         ;;
-        
+
+    stop-deployment)
+        do_stop_deployment
+        ;;
+
     restart|reload|force-reload)
         do_stop
         do_start
@@ -69,6 +79,5 @@ case "$1" in
         echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"
         exit 1
         ;;
- 
 esac
 exit 0
