@@ -1,19 +1,14 @@
-from boto.ec2.spotpricehistory import SpotPriceHistory
-from agents.factory import InfrastructureAgentFactory
 from boto.ec2.connection import EC2Connection
 from boto.ec2.instance import Reservation, Instance
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
-from boto.exception import EC2ResponseError
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
-import time
 from utils import utils
 try:
   from unittest import TestCase
 except ImportError:
   from unittest.case import TestCase
-
 
 class TestEucaAgent(TestCase):
 
@@ -23,8 +18,9 @@ class TestEucaAgent(TestCase):
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
     full_params = {
-      'credentials': {'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
-                      'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
+      'credentials': {
+        'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
+        'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'group': 'boogroup',
       'image_id': 'booid',
       'infrastructure': 'euca',
@@ -45,10 +41,13 @@ class TestEucaAgent(TestCase):
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(id)['state'])
+    self.assertEquals(InfrastructureManager.STATE_RUNNING,
+      i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
-    self.assertEquals(['ABC-public-ip1', 'DEF-public-ip2'], vm_info['public_ips'])
-    self.assertEquals(['DEF-private-ip1', 'ABC-private-ip2'], vm_info['private_ips'])
+    self.assertEquals(['ABC-public-ip1', 'DEF-public-ip2'],
+      vm_info['public_ips'])
+    self.assertEquals(['DEF-private-ip1', 'ABC-private-ip2'],
+      vm_info['private_ips'])
     self.assertEquals(['i-id1', 'i-id2'], vm_info['instance_ids'])
 
 
@@ -116,4 +115,3 @@ class TestEucaAgent(TestCase):
     (flexmock(utils)
      .should_receive('get_random_alphanumeric')
      .reset())
-

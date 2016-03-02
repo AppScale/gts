@@ -1,23 +1,15 @@
-from agents.factory import InfrastructureAgentFactory
 import boto
 import boto.ec2
-from boto.ec2.connection import EC2Connection
-from boto.ec2.instance import Reservation, Instance
+from boto.ec2.instance import Reservation
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
-from boto.exception import EC2ResponseError
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
-import time
 from utils import utils
 try:
   from unittest import TestCase
 except ImportError:
   from unittest.case import TestCase
-
-
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
 
 class TestEC2Agent(TestCase):
 
@@ -27,8 +19,9 @@ class TestEC2Agent(TestCase):
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
     full_params = {
-      'credentials': {'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
-                      'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
+      'credentials': {
+        'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
+        'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'group': 'boogroup',
       'image_id': 'booid',
       'infrastructure': 'ec2',
@@ -51,7 +44,8 @@ class TestEC2Agent(TestCase):
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(id)['state'])
+    self.assertEquals(InfrastructureManager.STATE_RUNNING,
+      i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
     self.assertEquals(['public-ip'], vm_info['public_ips'])
     self.assertEquals(['private-ip'], vm_info['private_ips'])
