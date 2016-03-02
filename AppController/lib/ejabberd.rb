@@ -65,7 +65,7 @@ module Ejabberd
         else
           return false
         end
-      rescue Exception => exception
+      rescue => exception
         backtrace = exception.backtrace.join("\n")
         Djinn.log_warn("Exception while parsing xml contents: #{exception.message}. Backtrace: \n#{backtrace}")
         return false

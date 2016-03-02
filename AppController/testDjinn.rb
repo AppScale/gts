@@ -13,7 +13,7 @@ assert(local_ip_result =~ /\d+\.\d+\.\d+\.\d+/, ip_msg)
   def test_spawn_vms    
     begin
       spawn_vms_result = HelperFunctions.spawn_vms
-    rescue Exception => except
+    rescue => except
       spawn_vms_result = except
     end
     
