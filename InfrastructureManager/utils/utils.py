@@ -3,9 +3,14 @@ A collection of common utility functions which can be used by any
 module within the AppScale Infrastructure Manager implementation.
 """
 import os
+import subprocess
 import sys
 import time
 import uuid
+
+# The directory that contains the deployment's private SSH key.
+KEY_DIRECTORY = '/etc/appscale/keys/cloud1'
+
 
 def get_secret(filename='/etc/appscale/secret.key'):
   """
@@ -176,3 +181,14 @@ def sleep(seconds):
     seconds Number of seconds to sleep
   """
   time.sleep(seconds)
+
+
+def get_public_key(keyname):
+  """ Fetches the deployment's public key.
+
+  Args:
+    keyname: A string containing the deployment's keyname.
+  """
+  private_key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
+  return subprocess.check_output(
+    ['ssh-keygen', '-y', '-f', private_key_file]).strip()
