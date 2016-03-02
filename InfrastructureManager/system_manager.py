@@ -3,6 +3,9 @@ import logging
 import psutil
 import subprocess
 
+MOUNTPOINT_WHITELIST = ['/', '/opt/appscale', '/opt/appscale/backups',
+  '/opt/appscale/cassandra', '/var/apps']
+
 class JSONTags(object):
   # CPU related JSON tags.
   CPU = "cpu"
@@ -16,8 +19,6 @@ class JSONTags(object):
   # Memory related JSON tags.
   MEMORY = "memory"
   AVAILABLE = "available"
-  # Monit related JSON tags.
-  MONIT = "monit"
   # SWAP related JSON tags.
   SWAP = "swap"
 
@@ -56,6 +57,8 @@ class SystemManager():
     inner_disk_stats_dict = []
     for partition in psutil.disk_partitions(all=True):
       disk_stats = psutil.disk_usage(partition.mountpoint)
+      if partition.mountpoint not in MOUNTPOINT_WHITELIST:
+        continue
       inner_disk_stats_dict.append({ partition.mountpoint : {
         JSONTags.FREE : disk_stats.free,
         JSONTags.USED : disk_stats.used
@@ -82,14 +85,21 @@ class SystemManager():
 
     return json.dumps(mem_stats_dict)
 
-  def get_monit_summary(self):
+  def get_service_summary(self):
     """ Retrieves Monit's summary on this node.
 
     Returns:
       A dictionary containing Monit's summary as a string.
     """
     monit_stats = subprocess.check_output(["monit", "summary"])
-    monit_stats_dict = { JSONTags.MONIT : monit_stats}
+
+    monit_stats_dict = {}
+    for line in monit_stats.split("\n"):
+      tokens = " ".join(line.split()).split(" ")
+      if 'Process' in tokens:
+        process_name = tokens[1][1:tokens[1].rfind("-")]
+        process_status = tokens[2].lower()
+        monit_stats_dict[process_name] = process_status
     logging.debug("Monit stats: {}".format(monit_stats_dict))
 
     return json.dumps(monit_stats_dict)

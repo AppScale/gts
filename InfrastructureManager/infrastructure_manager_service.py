@@ -97,7 +97,7 @@ class InfrastructureManagerService:
     self.server.registerFunction(system_manager.get_cpu_usage)
     self.server.registerFunction(system_manager.get_disk_usage)
     self.server.registerFunction(system_manager.get_memory_usage)
-    self.server.registerFunction(system_manager.get_monit_summary)
+    self.server.registerFunction(system_manager.get_service_summary)
     self.server.registerFunction(system_manager.get_swap_usage)
 
     self.started = False
@@ -112,7 +112,7 @@ class InfrastructureManagerService:
       logging.warn('Start called on already running server')
     else:
       logging.info('Starting AppScale Infrastructure Manager on port: '
-        '{}'.format(str(self.port)))
+        '{}'.format(self.port))
       self.started = True
       while self.started:
         self.server.serve_forever()
