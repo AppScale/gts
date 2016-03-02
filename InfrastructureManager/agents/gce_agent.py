@@ -307,23 +307,23 @@ class GCEAgent(BaseAgent):
         # let us use arbitrarily long instance names.
         'name': "appscale-{0}-{1}".format(group, uuid.uuid4())[:62],
         'machineType': machine_type_url,
-       'disks':[{
-         'source': disk_url,
-         'boot': 'true',
-         'type': 'PERSISTENT'
+        'disks':[{
+          'source': disk_url,
+          'boot': 'true',
+          'type': 'PERSISTENT'
         }],
         'image': image_url,
         'networkInterfaces': [{
           'accessConfigs': [{
             'type': 'ONE_TO_ONE_NAT',
             'name': 'External NAT'
-           }],
+          }],
           'network': network_url
         }],
         'serviceAccounts': [{
-             'email': self.DEFAULT_SERVICE_EMAIL,
-             'scopes': [self.GCE_SCOPE]
-        }]
+          'email': self.DEFAULT_SERVICE_EMAIL,
+          'scopes': [self.GCE_SCOPE]
+        }],
       }
 
       # Create the instance
