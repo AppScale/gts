@@ -7,7 +7,6 @@ interact with Google Compute Engine.
 # General-purpose Python library imports
 import datetime
 import os.path
-import shutil
 import time
 import uuid
 
@@ -140,39 +139,6 @@ class GCEAgent(BaseAgent):
       GCE.
     """
     return True
-
-
-  def get_params_from_args(self, args):
-    """ Constructs a dict with only the parameters necessary to interact with
-    Google Compute Engine (here, the client_secrets file and the image name).
-
-    Args:
-      args: A Namespace or dict that maps all of the arguments the user has
-        invoked an AppScale command with their associated value.
-    Returns:
-      A dict containing the location of the client_secrets file and that name
-      of the image to use in GCE.
-    """
-    if not isinstance(args, dict):
-      args = vars(args)
-
-    client_secrets = os.path.expanduser(args['client_secrets'])
-    if not os.path.exists(client_secrets):
-      raise AgentConfigurationException("Couldn't find your client secrets " + \
-        "file at {0}".format(client_secrets))
-    shutil.copy(client_secrets, LocalState.get_CLIENT_SECRETS_LOCATION(
-      args['keyname']))
-
-    params = {
-      self.PARAM_GROUP : args['group'],
-      self.PARAM_IMAGE_ID : args['machine'],
-      self.PARAM_INSTANCE_TYPE : args['instance_type'],
-      self.PARAM_KEYNAME : args['keyname'],
-      self.PARAM_PROJECT : args['project'],
-      self.PARAM_SECRETS : self.CLIENT_SECRETS_LOCATION
-    }
-
-    return params
 
 
   def assert_required_parameters(self, parameters, operation):
