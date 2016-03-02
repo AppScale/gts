@@ -2,6 +2,8 @@ from agents.ec2_agent import EC2Agent
 from agents.euca_agent import EucalyptusAgent
 from agents.gce_agent import GCEAgent
 from agents.openstack_agent import OpenStackAgent
+from agents.vsphere_agent import vSphereAgent
+
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
 
@@ -15,7 +17,8 @@ class InfrastructureAgentFactory:
     'ec2': EC2Agent,
     'euca': EucalyptusAgent,
     'gce': GCEAgent,
-    'openstack': OpenStackAgent
+    'openstack': OpenStackAgent,
+    'vsphere': vSphereAgent
   }
 
   def create_agent(self, infrastructure):
