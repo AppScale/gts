@@ -3911,16 +3911,6 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
     Kernel.sleep(SMALL_WAIT)
 
-    # Commands used in the cloud environment to set the root access.
-    if need_to_ssh
-      options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
-        "'sudo cp -p /root/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
-        "'sudo sed -n \"/Please login/d; w/root/.ssh/authorized_keys\" " +
-        "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old'")
-    end
-
     secret_key_loc = "#{APPSCALE_CONFIG_DIR}/secret.key"
     cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
     key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"

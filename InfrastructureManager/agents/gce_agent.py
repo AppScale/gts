@@ -324,6 +324,12 @@ class GCEAgent(BaseAgent):
           'email': self.DEFAULT_SERVICE_EMAIL,
           'scopes': [self.GCE_SCOPE]
         }],
+        'metadata': {
+          'items': [{
+            'key': 'ssh-keys',
+            'value': 'root:{} root@localhost'.format(public_key)
+          }]
+        }
       }
 
       # Create the instance

@@ -202,6 +202,8 @@ class TestGCEAgent(TestCase):
 
     fake_gce.should_receive('disks').and_return(fake_disks)
 
+    public_key = 'ssh-rsa long_key_string'
+    flexmock(utils).should_receive('get_public_key').and_return(public_key)
 
     i = InfrastructureManager(blocking=True)
 
