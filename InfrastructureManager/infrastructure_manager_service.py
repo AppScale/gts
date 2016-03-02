@@ -1,14 +1,15 @@
-from infrastructure_manager import InfrastructureManager
 import json
-from M2Crypto import SSL
+import logging
 import os
 import SOAPpy
 import sys
+
+from M2Crypto import SSL
+
+from infrastructure_manager import InfrastructureManager
+from system_manager import SystemManager
 from utils import utils
 from utils.persistent_dictionary import PersistentStoreFactory
-
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
 
 class InfrastructureManagerService:
   """
@@ -48,21 +49,21 @@ class InfrastructureManagerService:
         secret = utils.get_secret(self.APPSCALE_DIR + 'secret.key')
         break
       except Exception:
-        utils.log('Waiting for the secret key to become available')
+        logging.info('Waiting for the secret key to become available')
         utils.sleep(5)
-    utils.log('Found the secret set to: {0}'.format(secret))
+    logging.info('Found the secret set to: {0}'.format(secret))
 
     SOAPpy.Config.simplify_objects = True
 
     if ssl:
-      utils.log('Checking for the certificate and private key')
+      logging.info('Checking for the certificate and private key')
       cert = self.APPSCALE_DIR + 'certs/mycert.pem'
       key = self.APPSCALE_DIR + 'certs/mykey.pem'
       while True:
         if os.path.exists(cert) and os.path.exists(key):
           break
         else:
-          utils.log('Waiting for certificates')
+          logging.info('Waiting for certificates')
           utils.sleep(5)
 
       ssl_context = SSL.Context()
@@ -78,7 +79,7 @@ class InfrastructureManagerService:
       params = json.load(file_handle)
       file_handle.close()
       if params.has_key(PersistentStoreFactory.PARAM_STORE_TYPE):
-        utils.log('Loading infrastructure manager configuration from ' +
+        logging.info('Loading infrastructure manager configuration from ' +
                   config_file)
         i = InfrastructureManager(params)
       else:
@@ -90,6 +91,15 @@ class InfrastructureManagerService:
     self.server.registerFunction(i.run_instances)
     self.server.registerFunction(i.terminate_instances)
     self.server.registerFunction(i.attach_disk)
+
+    system_manager = SystemManager()
+
+    self.server.registerFunction(system_manager.get_cpu_usage)
+    self.server.registerFunction(system_manager.get_disk_usage)
+    self.server.registerFunction(system_manager.get_memory_usage)
+    self.server.registerFunction(system_manager.get_service_summary)
+    self.server.registerFunction(system_manager.get_swap_usage)
+
     self.started = False
 
   def start(self):
@@ -99,10 +109,10 @@ class InfrastructureManagerService:
     threading requirements
     """
     if self.started:
-      utils.log('Warning - Start called on already running server')
+      logging.warn('Start called on already running server')
     else:
-      utils.log('Starting AppScale Infrastructure Manager on port: ' +
-                str(self.port))
+      logging.info('Starting AppScale Infrastructure Manager on port: '
+        '{}'.format(self.port))
       self.started = True
       while self.started:
         self.server.serve_forever()
@@ -112,12 +122,15 @@ class InfrastructureManagerService:
     Stop the infrastructure manager service.
     """
     if self.started:
-      utils.log('Stopping AppScale Infrastructure Manager')
+      logging.info('Stopping AppScale Infrastructure Manager')
       self.started = False
       self.server.shutdown()
     else:
-      utils.log('Warning - Stop called on already stopped server')
+      logging.warn('Stop called on already stopped server')
 
 if __name__ == '__main__':
+  logging.basicConfig(level=logging.INFO,
+    format='%(levelname)-8s %(asctime)s %(filename)s:%(lineno)s] %(message)s')
+
   service = InfrastructureManagerService()
   service.start()

@@ -1,4 +1,3 @@
-from time import sleep
 import thread
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
@@ -9,10 +8,6 @@ try:
   from unittest import TestCase
 except ImportError:
   from unittest.case import TestCase
-
-
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
 
 class TestInfrastructureManagerService(TestCase):
   DEFAULT_TEST_PORT = 18881
@@ -25,15 +20,17 @@ class TestInfrastructureManagerService(TestCase):
 
   def test_service(self):
     proxy = SOAPpy.SOAPProxy('http://{0}:{1}'.format('127.0.0.1', self.port))
-    result = proxy.describe_instances({InfrastructureManager.PARAM_RESERVATION_ID: 'foo'},
-      'wrong_secret')
+    result = proxy.describe_instances(
+      {InfrastructureManager.PARAM_RESERVATION_ID: 'foo'}, 'wrong_secret')
     self.assertFalse(result['success'])
-    self.assertEquals(result['reason'], InfrastructureManager.REASON_BAD_SECRET)
+    self.assertEquals(result['reason'],
+      InfrastructureManager.REASON_BAD_SECRET)
 
-    result = proxy.describe_instances({InfrastructureManager.PARAM_RESERVATION_ID: 'foo'},
-      'secret')
+    result = proxy.describe_instances(
+      {InfrastructureManager.PARAM_RESERVATION_ID: 'foo'}, 'secret')
     self.assertFalse(result['success'])
-    self.assertEquals(result['reason'], InfrastructureManager.REASON_RESERVATION_NOT_FOUND)
+    self.assertEquals(result['reason'],
+      InfrastructureManager.REASON_RESERVATION_NOT_FOUND)
 
   def __start_service(self):
     port = self.DEFAULT_TEST_PORT

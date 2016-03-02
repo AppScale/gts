@@ -68,7 +68,8 @@ class TestAppDashboardData(unittest.TestCase):
     fake_key1 = flexmock(name='key1', id=lambda: 'app1')
     fake_key1.should_receive('delete').and_return()
 
-    fake_app1 = flexmock(name='app1', url='http://1.1.1.1:8080', key=fake_key1)
+    fake_app1 = flexmock(name='app1', url=['http://1.1.1.1:8080',
+                                           'https://1.1.1.1:1444'], key=fake_key1)
     fake_app1.should_receive('put').and_return()
 
     fake_key2 = flexmock(name='key2', id=lambda: 'app2')
@@ -142,7 +143,7 @@ class TestAppDashboardData(unittest.TestCase):
 
     data1 = AppDashboardData()
     url = data1.get_monitoring_url()
-    self.assertEquals(url, "http://{0}:{1}".format(fake_ip, 
+    self.assertEquals(url, "http://{0}:{1}".format(fake_ip,
       AppDashboardData.MONITOR_PORT))
 
 
@@ -214,7 +215,8 @@ class TestAppDashboardData(unittest.TestCase):
     data1 = AppDashboardData()
     output = data1.get_application_info()
     self.assertEquals(len(output), 2)
-    self.assertEquals(output['app1'], 'http://1.1.1.1:8080')
+    self.assertEquals(output['app1'], ['http://1.1.1.1:8080',
+                                       'https://1.1.1.1:1444'])
     self.assertEquals(output['app2'], None)
     
   def test_delete_app_from_datastore(self):
@@ -235,8 +237,8 @@ class TestAppDashboardData(unittest.TestCase):
       }]).once()
     flexmock(AppDashboardHelper).should_receive('get_login_host')\
       .and_return('1.1.1.1').never()
-    flexmock(AppDashboardHelper).should_receive('get_app_port')\
-      .and_return('8080').never()
+    flexmock(AppDashboardHelper).should_receive('get_app_ports')\
+      .and_return(['8080', '1444']).never()
     self.setupAppStatusMocks()
     self.setupFakePutsAndDeletes()
 
@@ -252,15 +254,16 @@ class TestAppDashboardData(unittest.TestCase):
       }]).once()
     flexmock(AppDashboardHelper).should_receive('get_login_host')\
       .and_return('1.1.1.1').once()
-    flexmock(AppDashboardHelper).should_receive('get_app_port')\
-      .and_return('8080').once()
+    flexmock(AppDashboardHelper).should_receive('get_app_ports')\
+      .and_return(['8080', '1444']).once()
     self.setupAppStatusMocks()
     self.setupFakePutsAndDeletes()
 
     data1 = AppDashboardData()
     output = data1.update_application_info()
     self.assertEquals(len(output), 2)
-    self.assertEquals(output['app1'], 'http://1.1.1.1:8080')
+    self.assertEquals(output['app1'], ['http://1.1.1.1:8080',
+                                       'https://1.1.1.1:1444'])
     self.assertEquals(output['app2'], None)
     
 

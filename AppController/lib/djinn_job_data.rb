@@ -116,5 +116,14 @@ class DjinnJobData
     super
   end
 
+  def eql?(other_node)
+    self.hash.eql?(other_node.hash)
+  end
+
+  def hash
+    # Consider two nodes to be the same if they have the same SSH key,
+    # private IP, and public IP.
+    [@ssh_key, @private_ip, @public_ip].join().hash()
+  end
 
 end

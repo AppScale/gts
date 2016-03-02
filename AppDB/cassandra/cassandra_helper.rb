@@ -151,7 +151,6 @@ def start_cassandra(clear_datastore)
     THRIFT_PORT)
 end
 
-
 # Kills Cassandra on this machine.
 def stop_db_master
   Djinn.log_info("Stopping Cassandra master")

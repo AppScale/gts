@@ -99,7 +99,7 @@ module AppDashboard
       response = http.get(url.path)
       end_time = Time.now
       Djinn.log_debug("It took #{end_time - start_time} seconds to prime the AppDashboard's cache")
-    rescue Exception => e
+    rescue => e
       # Don't crash the AppController because we weren't able to refresh the
       # AppDashboard - just continue on.
       Djinn.log_debug("Couldn't prime the AppDashboard's cache because of " +

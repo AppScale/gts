@@ -1,14 +1,8 @@
-from os import environ
-from flexmock import flexmock
 from utils import utils
 try:
   from unittest import TestCase
 except ImportError:
   from unittest.case import TestCase
-
-
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
 
 class TestUtils(TestCase):
 
@@ -43,7 +37,3 @@ class TestUtils(TestCase):
     self.assertEquals(result, '123')
     result = utils.obscure_string('abcd')
     self.assertEquals(result, 'abcd')
-
-
-
-

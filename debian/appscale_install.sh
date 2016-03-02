@@ -5,7 +5,7 @@ fi
 
 DESTDIR=$2
 APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
-WGET_OPTS="-q"                                    # Don't write wget progress.
+CURL_OPTS="-s"
 
 . debian/appscale_install_functions.sh
 

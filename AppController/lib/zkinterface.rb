@@ -16,7 +16,7 @@ require 'zookeeper'
 # A class of exceptions that we throw whenever we perform a ZooKeeper
 # operation that does not return successfully (but does not normally
 # throw an exception).
-class FailedZooKeeperOperationException < Exception
+class FailedZooKeeperOperationException < StandardError
 end
 
 
@@ -295,20 +295,19 @@ class ZKInterface
         if @@client_ip == owner
           got_lock = false
         else 
-          Djinn.log_warn("Tried to get the lock, but it's currently owned " +
-            "by #{owner}. Will try again later.")
-          raise Exception
+          raise "Tried to get the lock, but it's currently owned by #{owner}."
         end
       end
-    rescue Exception => e
-      Djinn.log_warn("Saw an exception of class #{e.class}")
-      Kernel.sleep(5)
+    rescue => e
+      sleep_time = 5
+      Djinn.log_warn("Saw #{e.inspect}. Retrying in #{sleep_time} seconds.")
+      Kernel.sleep(sleep_time)
       retry
     end
 
     begin
       yield  # invoke the user's block, and catch any uncaught exceptions
-    rescue Exception => except
+    rescue => except
       Djinn.log_error("Ran caller's block but saw an Exception of class " +
         "#{except.class}")
       raise except
@@ -676,7 +675,7 @@ class ZKInterface
       self.reinitialize()
       Kernel.sleep(1)
       retry
-    rescue Exception => e
+    rescue => e
       backtrace = e.backtrace.join("\n")
       Djinn.log_warn("Saw a transient ZooKeeper error: #{e}\n#{backtrace}")
       Kernel.sleep(1)

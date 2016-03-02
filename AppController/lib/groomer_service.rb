@@ -28,7 +28,8 @@ module GroomerService
   # Stops the groomer service running on this machine. Since it's
   # managed by monit, just tell monit to shut it down.
   def self.stop()
-     MonitInterface.stop(:groomer_service)
+    MonitInterface.stop(:groomer_service)
+    MonitInterface.stop(:groomer_file_check)
   end
 
   def self.scriptname()

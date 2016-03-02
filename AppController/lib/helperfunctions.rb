@@ -24,7 +24,7 @@ require 'custom_exceptions'
 # BadConfigurationExceptions represent an exception that can be thrown by the
 # AppController or any other library it uses, if a method receives inputs
 # it isn't expecting.
-class BadConfigurationException < Exception
+class BadConfigurationException < StandardError
 end
 
 
@@ -175,7 +175,7 @@ module HelperFunctions
 
   # Extracts the version from the VERSION file.
   def self.get_appscale_version
-    version_contents = self.read_file(APPSCALE_HOME + '/VERSION')
+    version_contents = self.read_file(APPSCALE_CONFIG_DIR + '/VERSION')
     version_line = version_contents[/AppScale version (.*)/]
     version_line.sub! 'AppScale version', ''
     return version_line.strip()
@@ -237,7 +237,7 @@ module HelperFunctions
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
-        raise Exception.new("Waited too long for #{ip}#{port} to open!")
+        raise "Waited too long for #{ip}:#{port} to open!"
       end
     }
   end
@@ -257,7 +257,7 @@ module HelperFunctions
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
-        raise Exception.new("Waited too long for #{ip}#{port} to close!")
+        raise "Waited too long for #{ip}:#{port} to close!"
       end
     }
   end
@@ -516,7 +516,7 @@ module HelperFunctions
 
     bound_addrs = self.get_all_local_ips()
     if bound_addrs.length.zero?
-      raise Exception.new("Couldn't get our local IP address")
+      raise "Couldn't get our local IP address"
     end
 
     addr = bound_addrs[0]
@@ -575,7 +575,7 @@ module HelperFunctions
     actual_private.each_index { |index|
       begin
         actual_private[index] = HelperFunctions.convert_fqdn_to_ip(actual_private[index])
-      rescue Exception
+      rescue
         # this can happen if the private ip doesn't resolve
         # which can happen in hybrid environments: euca boxes wont be 
         # able to resolve ec2 private ips, and vice-versa in euca-managed-mode
@@ -639,75 +639,6 @@ module HelperFunctions
   end
 
 
-  def self.set_options_in_env(options, cloud_num)
-    ENV['EC2_JVM_ARGS'] = nil
-
-    options.each_pair { |k, v|
-      next unless k =~ /\ACLOUD/
-      env_key = k.scan(/\ACLOUD_(.*)\Z/).flatten.to_s
-      ENV[env_key] = v
-    }
-
-    # note that key and cert vars are set wrong - they refer to
-    # the location on the user's machine where the key is
-    # thus, let's fix that
-
-    cloud_keys_dir = File.expand_path("#{APPSCALE_HOME}/.appscale/keys/cloud#{cloud_num}")
-    ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
-    ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
-
-    Djinn.log_debug("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
-  end
-
-  def self.spawn_hybrid_vms(options, nodes)
-    info = "Spawning hybrid vms with options #{self.obscure_options(options).inspect} and nodes #{nodes.inspect}"
-    Djinn.log_debug(info)
-
-    cloud_info = []
-
-    cloud_num = 1
-    loop {
-      cloud_type = options["CLOUD#{cloud_num}_TYPE"]
-      break if cloud_type.nil?
-
-      self.set_options_in_env(options, cloud_num)
-
-      if cloud_type == "euca"
-        machine = options["CLOUD#{cloud_num}_EMI"]
-      elsif cloud_type == "ec2"
-        machine = options["CLOUD#{cloud_num}_AMI"]
-      else
-        self.log_and_crash("Cloud type was #{cloud_type}, which is not a supported value.")
-      end
-
-      num_of_vms = 0
-      jobs_needed = []
-      nodes.each_pair { |k, v|
-        if k =~ /\Acloud#{cloud_num}-\d+\Z/
-          num_of_vms += 1
-          jobs_needed << v
-        end
-      }
-
-      instance_type = "m1.large"
-      keyname = options["keyname"]
-      cloud = "cloud#{cloud_num}"
-      group = options["group"]
-
-      this_cloud_info = self.spawn_vms(num_of_vms, jobs_needed, machine, 
-        instance_type, keyname, cloud_type, cloud, group)
-
-      Djinn.log_debug("Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}")
-
-      cloud_info += this_cloud_info
-      cloud_num += 1
-    }
-
-    Djinn.log_debug("Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}")
-
-    return cloud_info
-  end
-
   def self.spawn_vms(num_of_vms_to_spawn, job, image_id, instance_type, keyname,
     infrastructure, cloud, group, spot=false)
 
@@ -715,7 +646,7 @@ module HelperFunctions
 
     return [] if num_of_vms_to_spawn < 1
 
-    ssh_key = File.expand_path("#{APPSCALE_HOME}/.appscale/keys/#{cloud}/#{keyname}.key")
+    ssh_key = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/#{cloud}/#{keyname}.key")
     Djinn.log_debug("About to spawn VMs, expecting to find a key at #{ssh_key}")
 
     self.log_obscured_env
@@ -891,27 +822,6 @@ module HelperFunctions
     self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
   end
 
-  def self.terminate_hybrid_vms(options)
-    # TODO: kill my own cloud last
-    # otherwise could orphan other clouds
-
-    cloud_num = 1
-    loop {
-      key = "CLOUD#{cloud_num}_TYPE"
-      cloud_type = options[key]
-      break if cloud_type.nil?
-
-      self.set_options_in_env(options, cloud_num)
-
-      keyname = options["keyname"]
-      Djinn.log_debug("Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}")
-      self.terminate_all_vms(cloud_type, keyname)
-
-      cloud_num += 1
-    }
-
-  end
-  
   def self.terminate_all_vms(infrastructure, keyname)
     self.log_obscured_env
     desc_instances = `#{infrastructure}-describe-instances`
@@ -1319,11 +1229,13 @@ module HelperFunctions
       end
       retries_left -= 1
       if retries_left > 0
-        raise Exception
+        raise "Received non-zero exit code while checking for #{location}."
       else
         return false
       end
-    rescue Exception
+    rescue => error
+      Djinn.log_debug("Saw #{error.inspect}. " +
+        "Retrying in #{SLEEP_TIME} seconds.")
       Kernel.sleep(SLEEP_TIME)
       retry
     end

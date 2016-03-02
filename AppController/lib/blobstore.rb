@@ -47,11 +47,10 @@ module BlobServer
       return SERVER_PORTS
   end
 
-  def self.is_running(my_ip)
-    ports = self.server_ports
-    ports.each { |blobserver_port|
-     `curl http://#{my_ip}:#{blobserver_port}/` 
-    }
+  def self.is_running?(my_ip)
+    output = MonitInterface.is_running?(:blobstore)
+    Djinn.log_debug("Checking if blobstore is already monitored: #{output}")
+    return output
   end 
 
   def self.scriptname()

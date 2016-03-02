@@ -53,15 +53,6 @@ def create_snapshot(snapshot_name=''):
     return False
   return True
 
-def refresh_data():
-  """ Performs a refresh of the data in Cassandra. """
-  for column_family in dbconstants.INITIAL_TABLES:
-    try:
-      subprocess.check_call([NODE_TOOL, 'refresh', KEYSPACE, column_family])
-    except CalledProcessError as error:
-      logging.error('Error while refreshing Cassandra data. Error: {0}'.\
-        format(error))
-
 def remove_old_data():
   """ Removes previous node data from the Cassandra store. """
   for directory in CASSANDRA_DATA_SUBDIRS:
@@ -228,7 +219,6 @@ def restore_data(storage, path=''):
   # Start Cassandra and repair.
   logging.info("Starting Cassandra.")
   start_cassandra.run()
-  refresh_data()
 
   # Local cleanup.
   clear_old_snapshots()

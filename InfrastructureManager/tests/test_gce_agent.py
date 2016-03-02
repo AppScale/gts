@@ -2,33 +2,27 @@
 
 # General-purpose Python library imports
 import os.path
-import time
 try:
   from unittest import TestCase
 except ImportError:
   from unittest.case import TestCase
 
-
 # Third-party imports
-import apiclient
-from apiclient import discovery
-from flexmock import flexmock
 import httplib2
 import oauth2client.client
 import oauth2client.file
 import oauth2client.tools
 
+from apiclient import discovery
+from flexmock import flexmock
 
 # AppScale-specific imports
 from agents.gce_agent import GCEAgent
-from agents.factory import InfrastructureAgentFactory
 from infrastructure_manager import InfrastructureManager
 from utils import utils
 
-
 class TestGCEAgent(TestCase):
 
-  
   def setUp(self):
     self.project = '123456789'
 
@@ -202,6 +196,8 @@ class TestGCEAgent(TestCase):
 
     fake_gce.should_receive('disks').and_return(fake_disks)
 
+    public_key = 'ssh-rsa long_key_string'
+    flexmock(utils).should_receive('get_public_key').and_return(public_key)
 
     i = InfrastructureManager(blocking=True)
 
