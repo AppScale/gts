@@ -6,9 +6,6 @@ try:
 except ImportError:
   from unittest.case import TestCase
 
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
-
 class TestAgentFactory(TestCase):
 
   def test_create_agent(self):

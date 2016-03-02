@@ -1,12 +1,14 @@
-from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
-from agents.factory import InfrastructureAgentFactory
 import json
 import thread
-from utils import utils
-from utils.persistent_dictionary import PersistentStoreFactory, PersistentDictionary
 
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
+from agents.base_agent import AgentConfigurationException
+from agents.base_agent import AgentRuntimeException
+from agents.base_agent import BaseAgent
+from agents.factory import InfrastructureAgentFactory
+
+from utils import utils
+from utils.persistent_dictionary import PersistentDictionary
+from utils.persistent_dictionary import PersistentStoreFactory
 
 class InfrastructureManager:
   """

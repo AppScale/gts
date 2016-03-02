@@ -24,7 +24,7 @@ require 'custom_exceptions'
 # BadConfigurationExceptions represent an exception that can be thrown by the
 # AppController or any other library it uses, if a method receives inputs
 # it isn't expecting.
-class BadConfigurationException < Exception
+class BadConfigurationException < StandardError
 end
 
 
@@ -237,7 +237,7 @@ module HelperFunctions
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
-        raise Exception.new("Waited too long for #{ip}:#{port} to open!")
+        raise "Waited too long for #{ip}:#{port} to open!"
       end
     }
   end
@@ -257,7 +257,7 @@ module HelperFunctions
       total_time_slept += sleep_time
 
       if !timeout.nil? and total_time_slept > timeout
-        raise Exception.new("Waited too long for #{ip}:#{port} to close!")
+        raise "Waited too long for #{ip}:#{port} to close!"
       end
     }
   end
@@ -516,7 +516,7 @@ module HelperFunctions
 
     bound_addrs = self.get_all_local_ips()
     if bound_addrs.length.zero?
-      raise Exception.new("Couldn't get our local IP address")
+      raise "Couldn't get our local IP address"
     end
 
     addr = bound_addrs[0]
@@ -575,7 +575,7 @@ module HelperFunctions
     actual_private.each_index { |index|
       begin
         actual_private[index] = HelperFunctions.convert_fqdn_to_ip(actual_private[index])
-      rescue Exception
+      rescue
         # this can happen if the private ip doesn't resolve
         # which can happen in hybrid environments: euca boxes wont be 
         # able to resolve ec2 private ips, and vice-versa in euca-managed-mode
@@ -1229,11 +1229,13 @@ module HelperFunctions
       end
       retries_left -= 1
       if retries_left > 0
-        raise Exception
+        raise "Received non-zero exit code while checking for #{location}."
       else
         return false
       end
-    rescue Exception
+    rescue => error
+      Djinn.log_debug("Saw #{error.inspect}. " +
+        "Retrying in #{SLEEP_TIME} seconds.")
       Kernel.sleep(SLEEP_TIME)
       retry
     end

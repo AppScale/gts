@@ -2819,8 +2819,8 @@ class Djinn
         Timeout.timeout(10) do
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
-      end
-      rescue Exception => e
+        end
+      rescue => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
         next
@@ -3005,7 +3005,7 @@ class Djinn
         @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
         ZKInterface.write_node_information(my_node, @done_loading)
       }
-    rescue Exception => e
+    rescue => e
       Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
     end
 
@@ -3048,7 +3048,7 @@ class Djinn
             http.use_ssl = true
             response = http.post(url.path, encoded_logs,
               {'Content-Type'=>'application/json'})
-          rescue Exception
+          rescue
             # Don't crash the AppController because we weren't able to send over
             # the logs - just continue on.
           end
@@ -3091,7 +3091,7 @@ class Djinn
         backtrace = e.backtrace.join("\n")
         Djinn.log_warn("Error in send_instance_info: #{e.message}\n#{backtrace}")
         retry
-      rescue Exception => exception
+      rescue => exception
         # Don't crash the AppController because we weren't able to send over
         # the instance info - just continue on.
         Djinn.log_warn("Couldn't send instance info to the AppDashboard " +
@@ -3127,7 +3127,7 @@ class Djinn
       response = http.request(request)
       Djinn.log_debug("Sent delete_instance to AppDashboard. Info is: " +
         "#{instance_info.inspect}. Response is: #{response.body}.")
-    rescue Exception => exception
+    rescue => exception
       # Don't crash the AppController because we weren't able to send over
       # the instance info - just continue on.
       Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
@@ -3216,7 +3216,7 @@ class Djinn
           regenerate_nginx_config_files()
         end
       }
-    rescue Exception => e
+    rescue => e
       Djinn.log_warn("(update_local_node) saw exception #{e.message}")
       return false
     end
@@ -3353,7 +3353,7 @@ class Djinn
     if @options["hostname"] =~ /#{FQDN_REGEX}/
       begin
         @options["hostname"] = HelperFunctions.convert_fqdn_to_ip(@options["hostname"])
-      rescue Exception => e
+      rescue => e
         HelperFunctions.log_and_crash("Failed to convert main hostname #{@options['hostname']}")
       end
     end
@@ -3366,7 +3366,7 @@ class Djinn
       if pri =~ /#{FQDN_REGEX}/
         begin
           node.private_ip = HelperFunctions.convert_fqdn_to_ip(pri)
-        rescue Exception => e
+        rescue => e
           Djinn.log_info("Failed to convert IP: #{e.message}")
           node.private_ip = node.public_ip
         end
@@ -3986,7 +3986,7 @@ class Djinn
     # require db_file
     begin
       require "#{APPSCALE_HOME}/AppDB/#{table}/#{table}_helper"
-    rescue Exception => e
+    rescue => e
       backtrace = e.backtrace.join("\n")
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +
         " Please verify datastore type: #{e}\n#{backtrace}")
@@ -4360,7 +4360,7 @@ HOSTS
     begin
       MonitInterface.start(:controller, start, stop, SERVER_PORT, env,
         nil, nil, match_cmd)
-    rescue Exception => e
+    rescue => e
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
     end
@@ -4374,7 +4374,7 @@ HOSTS
     tries = RETRIES
     begin
       result = HelperFunctions.run_remote_command(ip, remote_cmd, node.ssh_key, true)
-    rescue Exception => except
+    rescue => except
       backtrace = except.backtrace.join("\n")
       remote_start_msg = "[remote_start] Unforeseen exception when " + \
         "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
@@ -4911,13 +4911,14 @@ HOSTS
 
         # Make sure we have the variables to look into: if we catch an app
         # early on, it may not have them.
-        if info['nginx'] and possibly_free_port == Integer(info['nginx'])
-          in_use = true
-        elsif info['nginx_https'] and possibly_free_port == Integer(info['nginx_https'])
-          in_use = true
-        elsif info['haproxy'] and possibly_free_port == Integer(info['haproxy'])
-          in_use = true
-        end
+        %w(nginx nginx_https haproxy).each{ |key|
+          next unless info[key]
+          begin
+            in_use = true if possibly_free_port == Integer(info[key])
+          rescue ArgumentError
+            next
+          end
+        }
 
         # These ports are allocated on the AppServers nodes.
         if info['appengine']
@@ -5350,7 +5351,7 @@ HOSTS
       backtrace = e.backtrace.join("\n")
       Djinn.log_warn("Error sending logs: #{e.message}\n#{backtrace}")
       retry
-    rescue Exception
+    rescue
       # Don't crash the AppController because we weren't able to send over
       # the request info - just inform the caller that we couldn't send it.
       Djinn.log_info("Couldn't send request info for app #{app_id} to #{url}")

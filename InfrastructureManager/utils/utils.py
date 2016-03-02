@@ -8,9 +8,6 @@ import sys
 import time
 import uuid
 
-__author__ = 'hiranya'
-__email__ = 'hiranya@appscale.com'
-
 # The directory that contains the deployment's private SSH key.
 KEY_DIRECTORY = '/etc/appscale/keys/cloud1'
 
