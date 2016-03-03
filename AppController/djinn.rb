@@ -795,14 +795,13 @@ class Djinn
       Djinn.log_info("Received a stop node request.")
     end
 
+    # Stop all the services of this node.
     @kill_sig_received = true
-
+    stop_api_services()
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
     end
-
-    # Stop all the services of this node.
 
     Djinn.log_info("---- Stopping AppController ----")
 
@@ -1718,7 +1717,7 @@ class Djinn
 
       zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
       zookeeper_data['locations'].each { |ip|
-        if ip == my_ip 
+        if ip == my_ip
           if !is_zookeeper_running?
             # We are a zookeeper host and we need to start it.
             Djinn.log_info("Starting zookeeper.")
@@ -3624,6 +3623,86 @@ class Djinn
     end
   end
 
+  def stop_api_services()
+    @state = "Stopping API Services."
+    Djinn.log_info("#{@state}")
+
+    threads = []
+
+    if my_node.is_login?
+      stop_app_dashboard()
+      stop_hermes()
+      TaskQueue.stop_flower()
+      stop_ejabberd()
+    end
+
+    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
+      threads << Thread.new {
+        stop_taskqueue()
+      }
+    end
+
+    if my_node.is_search?
+      threads << Thread.new {
+        stop_search_role()
+      }
+    end
+
+    if my_node.is_appengine?
+      threads << Thread.new {
+        stop_blobstore_server()
+      }
+    end
+
+    threads << Thread.new {
+      stop_app_manager_server()
+    }
+
+    if my_node.is_memcache?
+      threads << Thread.new {
+        stop_memcache()
+      }
+    end
+
+    if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
+      threads << Thread.new {
+        if my_node.is_db_master? or my_node.is_db_slave?
+          stop_groomer_service()
+        end
+        stop_backup_service()
+      }
+    end
+
+    threads << Thread.new {
+      if is_zookeeper_running? and my_node.is_zookeeper?
+        Djinn.log_info("Stopping zookeeper.")
+        begin
+          stop_zookeeper()
+        rescue FailedZooKeeperOperationException
+          @state = "Couldn't stop Zookeeper."
+        end
+      end
+    }
+
+    if my_node.is_db_master? or my_node.is_db_slave?
+      threads << Thread.new {
+        Djinn.log_info("Stoppping database services.")
+        stop_soap_server()
+        stop_datastore_server()
+        if my_node.is_db_master?
+          stop_db_master()
+        else
+          stop_db_slave()
+        end
+        Djinn.log_info("Done stopping database services.")
+      }
+    end
+
+    Djinn.log_info("Stopping all services.")
+    threads.each { |t| t.join() }
+    Djinn.log_info("API services have stopped on this node.")
+  end
+
 
   # Creates database tables in the underlying datastore to hold information
   # about the users that interact with AppScale clouds, and about the
@@ -3682,11 +3761,14 @@ class Djinn
     Search.start_master(@options['clear_datastore'].downcase == "true")
   end
 
+  def stop_search_role()
+    Search.stop()
+  end
+
   def start_taskqueue_master()
     TaskQueue.start_master(@options['clear_datastore'].downcase == "true")
     return true
   end
-
 
   def start_taskqueue_slave()
     # All slaves connect to the master to start
@@ -3698,6 +3780,12 @@ class Djinn
     TaskQueue.start_slave(master_ip, @options['clear_datastore'].downcase == "true")
     return true
   end
+
+  def stop_taskqueue()
+    TaskQueue.stop()
+    return true
+  end
+
 
   # Starts the application manager which is a SOAP service in charge of
   # starting and stopping applications.
@@ -3718,6 +3806,14 @@ class Djinn
     Djinn.log_info("Starting Hermes service.")
     HermesService.start()
     Djinn.log_info("Done starting Hermes service.")
+  end
+
+  # Stops the Hermes service on this node.
+  def stop_hermes()
+    @state = "Stopping Hermes"
+    Djinn.log_info("Stopping Hermes service.")
+    HermesService.stop()
+    Djinn.log_info("Done stopping Hermes service.")
   end
 
   # Starts the groomer service on this node. The groomer cleans the datastore of deleted
