@@ -1791,7 +1791,7 @@ class Djinn
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
         stats = JSON.parse(get_monitors(secret))
 
-        Djinn.log_info("--- Node at #{stats['public_ip']} is using has " +
+        Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
         last_print = Time.now.to_i
@@ -5682,7 +5682,7 @@ HOSTS
   # Returns:
   #   A hash in string format containing system and platform stats for this
   #     node.
-  def get_monitors(secret)
+  def get_all_stats(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end

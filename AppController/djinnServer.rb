@@ -104,8 +104,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "set_deployment_id", "secret")
     add_method(@djinn, "set_node_read_only", "read_only", "secret")
     add_method(@djinn, "set_read_only", "read_only", "secret")
-
-    add_method(@djinn, "get_monitors", "secret")
+    add_method(@djinn, "get_all_stats", "secret")
   end
 end
 
