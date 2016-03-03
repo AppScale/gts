@@ -5656,4 +5656,32 @@ HOSTS
     return
   end
 
+  # Gathers App Controller and System Manager stats for this node.
+  #
+  # Args:
+  #   secret: The secret of this deployment.
+  # Returns:
+  #   A hash containing system and platform stats for this node.
+  def get_monitors(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    controller_stats = get_stats(secret)
+    Djinn.log_debug("Controller stats: #{controller_stats}")
+
+    imc = InfrastructureManagerClient.new(secret)
+    system_stats = imc.get_system_stats()
+    Djinn.log_debug("System stats: #{system_stats}")
+
+    all_stats = system_stats
+    all_stats["apps"] = controller_stats["apps"]
+    all_stats["public_ip"] = controller_stats["ip"]
+    all_stats["private_ip"] = controller_stats["private_ip"]
+    all_stats["roles"] = controller_stats["roles"]
+    Djinn.log_warn("All stats: #{all_stats}")
+
+    return all_stats.to_json()
+  end
+
 end
