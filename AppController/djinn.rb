@@ -5018,20 +5018,24 @@ HOSTS
   end
 
 
-  # Queries haproxy to see how many requests are queued for a given application
-  # and how many requests are served at a given time. Based on this information,
-  # this method reports whether or not AppServers should be added, removed, or
-  # if no changes are needed.
-  def get_scaling_info_for_app(app_name, update_dashboard=true)
+  # Retrieves HAProxy stats for the given app.
+  #
+  # Args:
+  #   app_name: The name of the app to get HAProxy stats for.
+  # Returns:
+  #   The total requests for the app, the requests enqueued and the
+  #    timestamp of stat collection.
+  def get_haproxy_stats(app_name)
     Djinn.log_debug("Getting scaling info for application #{app_name}")
 
     total_requests_seen = 0
     total_req_in_queue = 0
     time_requests_were_seen = 0
 
-    # Now see how many requests came in for our app and how many are enqueued
+    # Retrieve total and enqueued requests for the given app.
     monitoring_info = Djinn.log_run("echo \"show info;show stat\" | " +
       "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}")
+    Djinn.log_debug("HAProxy raw stats: #{monitoring_info}")
 
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
@@ -5060,6 +5064,21 @@ HOSTS
           "#{total_req_in_queue}")
       end
     }
+
+    return total_requests_seen, total_req_in_queue, time_requests_were_seen
+  end
+
+  # Queries haproxy to see how many requests are queued for a given application
+  # and how many requests are served at a given time. Based on this information,
+  # this method reports whether or not AppServers should be added, removed, or
+  # if no changes are needed.
+  def get_scaling_info_for_app(app_name, update_dashboard=true)
+
+    total_requests_seen = 0
+    total_req_in_queue = 0
+    time_requests_were_seen = 0
+
+    total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
 
     if time_requests_were_seen.zero?
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5661,27 +5680,49 @@ HOSTS
   # Args:
   #   secret: The secret of this deployment.
   # Returns:
-  #   A hash containing system and platform stats for this node.
+  #   A hash in string format containing system and platform stats for this
+  #     node.
   def get_monitors(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
+    # Get default AppController stats.
     controller_stats = get_stats(secret)
     Djinn.log_debug("Controller stats: #{controller_stats}")
 
+    # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = imc.get_system_stats()
     Djinn.log_debug("System stats: #{system_stats}")
 
+    # Combine all useful stats and return.
     all_stats = system_stats
-    all_stats["apps"] = controller_stats["apps"]
+    all_stats["apps"] = []
+    controller_stats["apps"].each { |app_name, enabled|
+      if my_node.is_login?
+        # Get HAProxy requests.
+        Djinn.log_debug("Getting HAProxy stats for: #{app_name}")
+        total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+        # Create the apps hash with useful information containing HAProxy stats.
+        all_stats["apps"] << {
+        app_name => {
+            "language" => @app_info_map[app_name]["language"],
+            "appservers" => @app_info_map[app_name]["appengine"].length,
+            "http" => @app_info_map[app_name]["nginx"],
+            "https" => @app_info_map[app_name]["nginx_https"],
+            "total_reqs" => total_reqs,
+            "reqs_enqueued" => reqs_enqueued
+          }
+        }
+      end
+    }
     all_stats["public_ip"] = controller_stats["ip"]
     all_stats["private_ip"] = controller_stats["private_ip"]
     all_stats["roles"] = controller_stats["roles"]
-    Djinn.log_warn("All stats: #{all_stats}")
+    Djinn.log_info("All stats: #{all_stats}")
 
-    return all_stats.to_json()
+    return JSON.dump(all_stats)
   end
 
 end
