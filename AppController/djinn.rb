@@ -5698,15 +5698,15 @@ HOSTS
 
     # Combine all useful stats and return.
     all_stats = system_stats
-    all_stats["apps"] = []
+    all_stats["apps"] = {}
     controller_stats["apps"].each { |app_name, enabled|
       if my_node.is_login?
         # Get HAProxy requests.
         Djinn.log_debug("Getting HAProxy stats for: #{app_name}")
         total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
         # Create the apps hash with useful information containing HAProxy stats.
-        all_stats["apps"] << {
-        app_name => {
+        all_stats["apps"] => {
+          app_name => {
             "language" => @app_info_map[app_name]["language"],
             "appservers" => @app_info_map[app_name]["appengine"].length,
             "http" => @app_info_map[app_name]["nginx"],

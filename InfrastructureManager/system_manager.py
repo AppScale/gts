@@ -125,6 +125,7 @@ class SystemManager():
 
     monit_stats_dict = {}
     for line in monit_stats.split("\n"):
+      # Get rid of extra whitespaces.
       tokens = " ".join(line.split()).split(" ")
       if 'Process' in tokens:
         process_name = tokens[1][1:-1] # Remove quotes.
@@ -160,15 +161,19 @@ class SystemManager():
 
     return json.dumps(swap_stats_dict)
 
-  def __generate_response(self, status, message):
+  def __generate_response(self, success, message):
     """ Generate a system manager service response
 
     Args:
-      status:  A boolean value indicating the status.
-      message: A str, the reason or failure.
+      success:  A boolean value indicating the success status.
+      message: A str, the reason of failure.
 
     Returns:
       A dictionary containing the operation response.
     """
-    logging.warn("Sending success = {0}, reason = {1}".format(status, message))
-    return {'success': status, 'reason': message}
+    response = "Sending success = {0}, reason = {1}".format(success, message)
+    if success:
+      logging.debug(response)
+    else:
+      logging.warn(response)
+    return {'success': success, 'reason': message}
