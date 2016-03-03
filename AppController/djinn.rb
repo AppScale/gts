@@ -1787,13 +1787,13 @@ class Djinn
         end
       }
 
-      # Print stats in the log recurrently; works as a heartbeat # mechanism.
+      # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
-        stats = get_stats(secret)
+        stats = JSON.parse(get_monitors(secret))
 
-        Djinn.log_info("--- Node at #{stats['ip']} is using" +
-          " #{stats['disk']}% disk, has #{stats['free_memory']}M memory" +
-          " available and knows about these apps #{stats['apps']}.")
+        Djinn.log_info("--- Node at #{stats['public_ip']} is using has " +
+          "#{stats['memory']['available']/(1024*1024)}MB memory available " +
+          "and knows about these apps #{stats['apps']}.")
         last_print = Time.now.to_i
       end
 
@@ -5720,7 +5720,7 @@ HOSTS
     all_stats["public_ip"] = controller_stats["ip"]
     all_stats["private_ip"] = controller_stats["private_ip"]
     all_stats["roles"] = controller_stats["roles"]
-    Djinn.log_info("All stats: #{all_stats}")
+    Djinn.log_debug("All stats: #{all_stats}")
 
     return JSON.dump(all_stats)
   end
