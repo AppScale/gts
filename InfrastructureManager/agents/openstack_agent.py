@@ -43,7 +43,7 @@ class OpenStackAgent(EC2Agent):
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
 
-    key_path = '/etc/appscale/keys/cloud1/{0}.key'.format(keyname)
+    key_path = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
     ssh_key = os.path.abspath(key_path)
     utils.log('About to spawn OpenStack instances - ' \
               'Expecting to find a key at {0}'.format(ssh_key))

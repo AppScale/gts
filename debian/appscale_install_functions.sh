@@ -520,3 +520,10 @@ EOF
     service monit stop
     disableservice monit
 }
+
+installpsutil()
+{
+    case ${DIST} in
+        precise|wheezy) pipwrapper psutil ;;
+    esac
+}
