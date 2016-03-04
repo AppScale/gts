@@ -3882,7 +3882,7 @@ class Djinn
   end
 
   # Stops the blobstore server.
-  def stop_blob_server
+  def stop_blobstore_server
     BlobServer.stop
   end
 
