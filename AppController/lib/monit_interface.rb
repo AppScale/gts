@@ -83,7 +83,7 @@ BOO
     if stop
       self.execute_remote_command("#{MONIT} stop -g #{watch}", nil, nil)
     else
-      self.execute_remote_command("#{MONIT} unmonitor #{watch}", nil, nil)
+      self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", nil, nil)
     end
     # Now let's find the corresponding configuration file and remove it.
     config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
