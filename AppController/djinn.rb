@@ -4506,6 +4506,14 @@ HOSTS
     end
   end
 
+  def stop_appcontroller_monit()
+    Djinn.log_debug("Stopping monit monitoring of AppController.")
+    # We stop monitoring but don't call stop, since it's a circular
+    # dependency (ie service appscale controller stop will get us here
+    # again).
+    MonitInterface.stop_monitoring(:controller, false)
+  end
+
   def start_appcontroller(node)
     ip = node.private_ip
 

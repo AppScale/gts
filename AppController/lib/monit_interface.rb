@@ -12,6 +12,10 @@ require 'helperfunctions'
 WANT_OUTPUT = true
 
 
+# Where we save the configuration file.
+MONIT_CONFIG = "/etc/monit/conf.d"
+
+
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
 # away interfacing with monit directly.
@@ -43,7 +47,7 @@ check file #{watch} path "#{path}" every 2 cycles
   group #{watch}
   if timestamp > 12 hours then exec "#{action}"
 BOO
-    monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
+    monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
     if remote_ip
       tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
       HelperFunctions.write_file(tempfile, contents)
@@ -72,6 +76,24 @@ BOO
   def self.restart(watch, remote_ip=nil, remote_key=nil)
     self.execute_remote_command("#{MONIT} restart -g #{watch}", remote_ip, remote_key)
   end
+
+  # This function unmonitor and optionally stop the service, and remove
+  # the monit configuration file.
+  def self.stop_monitoring(watch, stop=true)
+    if stop
+      self.execute_remote_command("#{MONIT} stop -g #{watch}", nil, nil)
+    else
+      self.execute_remote_command("#{MONIT} unmonitor #{watch}", nil, nil)
+    end
+    # Now let's find the corresponding configuration file and remove it.
+    config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
+    if config.length == 1
+      FileUtils.rm_rf(config[0])
+    else
+      Djinn.log_warn("Found multiple monit config match for #{watch}: #{config}.")
+    end
+  end
+
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
     env_vars, match_cmd, mem)
@@ -110,7 +132,7 @@ BOO
       # It was not an integer, ignoring it.
     end
 
-    monit_file = "/etc/monit/conf.d/appscale-#{watch}-#{port}.cfg"
+    monit_file = "#{MONIT_CONFIG}/appscale-#{watch}-#{port}.cfg"
     changing_config = true
     if File.file?(monit_file)
       current_contents = File.open(monit_file).read()
