@@ -7,11 +7,6 @@ require 'tmpdir'
 require 'helperfunctions'
 
 
-# A constant that we use to indicate that we want the output produced
-# by remotely executed SSH commands.
-WANT_OUTPUT = true
-
-
 # Where we save the configuration file.
 MONIT_CONFIG = "/etc/monit/conf.d"
 
@@ -25,12 +20,13 @@ module MonitInterface
   # The location on the local filesystem of the monit executable.
   MONIT = "/usr/bin/monit"
 
-  def self.start_monit(remote_ip, remote_key)
-    self.execute_remote_command("service monit start", remote_ip, remote_key)
+  def self.start_monit()
+    self.execute_command("service monit start")
+      output = Djinn.log_run("service monit start")
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
-    remote_ip=nil, remote_key=nil, match_cmd=start_cmd, mem=nil)
+    match_cmd=start_cmd, mem=nil)
 
     ports = [ports] unless ports.class == Array
     ports.each { |port|
@@ -38,43 +34,28 @@ module MonitInterface
         env_vars, match_cmd, mem)
     }
 
-    self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
+    self.execute_command("#{MONIT} start -g #{watch}")
   end
 
-  def self.start_file(watch, path, action, hours=12, remote_ip=nil, remote_key=nil)
+  def self.start_file(watch, path, action, hours=12)
     contents = <<BOO
 check file #{watch} path "#{path}" every 2 cycles
   group #{watch}
   if timestamp > 12 hours then exec "#{action}"
 BOO
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
-    if remote_ip
-      tempfile = "#{Dir.tmpdir}/monit-#{watch}-#{port}.cfg"
-      HelperFunctions.write_file(tempfile, contents)
-      begin
-        HelperFunctions.scp_file(tempfile, monit_file, remote_ip, remote_key)
-      rescue AppScaleSCPException
-        Djinn.log_error("Failed to write monit file at #{remote_ip}")
-        Djinn.log_run("rm -rf #{tempfile}")
-        raise AppScaleSCPException.new("Failed to write monit file at #{remote_ip}")
-      end
-      Djinn.log_run("rm -rf #{tempfile}")
-    else
-      HelperFunctions.write_file(monit_file, contents)
-    end
+    HelperFunctions.write_file(monit_file, contents)
 
-    self.execute_remote_command("service monit reload", remote_ip, remote_key)
+    self.execute_command("service monit reload")
 
-    ip = remote_ip || HelperFunctions.local_ip
-    Djinn.log_info("Watching file #{path} for #{watch} on ip #{ip}" +
-      " with exec action [#{action}]")
+    Djinn.log_info("Watching file #{path} for #{watch} with action [#{action}]")
 
 
-    self.execute_remote_command("#{MONIT} start -g #{watch}", remote_ip, remote_key)
+    self.execute_command("#{MONIT} start -g #{watch}")
   end
 
-  def self.restart(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} restart -g #{watch}", remote_ip, remote_key)
+  def self.restart(watch)
+    self.execute_command("#{MONIT} restart -g #{watch}")
   end
 
   # This function unmonitor and optionally stop the service, and remove
@@ -82,10 +63,10 @@ BOO
   def self.stop_monitoring(watch, stop=true)
     if stop
       Djinn.log_info("stop_monitoring: stopping service #{watch}.")
-      self.execute_remote_command("#{MONIT} stop -g #{watch}", nil, nil)
+      self.execute_command("#{MONIT} stop -g #{watch}")
     else
       Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
-      self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", nil, nil)
+      self.execute_command("#{MONIT} unmonitor -g #{watch}")
     end
     # Now let's find the corresponding configuration file and remove it.
     config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
@@ -158,35 +139,28 @@ BOO
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
   end
 
-  def self.stop(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
+  def self.stop(watch)
+    self.execute_command("#{MONIT} stop -g #{watch}")
   end
 
-  def self.remove(watch, remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} stop -g #{watch}", remote_ip, remote_key)
-    self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", remote_ip, remote_key)
+  def self.remove(watch)
+    self.execute_command("#{MONIT} stop -g #{watch}")
+    self.execute_command("#{MONIT} unmonitor -g #{watch}")
   end
 
-  def self.shutdown(remote_ip=nil, remote_key=nil)
-    self.execute_remote_command("#{MONIT} quit", remote_ip, remote_key)
+  def self.shutdown()
+    self.execute_command("#{MONIT} quit")
   end
 
-  def self.is_running?(watch, remote_ip=nil, remote_key=nil)
-    output = self.execute_remote_command("#{MONIT} summary | grep #{watch} " +
-      "| grep Running", remote_ip, remote_key)
+  def self.is_running?(watch)
+    output = self.execute_command("#{MONIT} summary | grep #{watch} | grep Running")
     return (not output == "")
   end
 
   private
-  def self.execute_remote_command(cmd, ip, ssh_key)
-    local = ip.nil?
-    
-    if local
-      output = Djinn.log_run(cmd)
-    else
-      output = HelperFunctions.run_remote_command(ip, cmd, ssh_key, WANT_OUTPUT)
-      Djinn.log_debug("running command #{cmd} on ip #{ip} returned #{output}")
-    end
+  def self.execute_command(cmd)
+    output = Djinn.log_run(cmd)
+    Djinn.log_debug("running command #{cmd} returned #{output}.")
 
     return output
   end

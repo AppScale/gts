@@ -59,7 +59,7 @@ module HAProxy
     stop_cmd = "/usr/sbin/service haproxy stop"
     match_cmd = "/usr/sbin/haproxy"
     MonitInterface.start(:haproxy, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+      env_vars=nil, match_cmd=match_cmd)
   end
 
   def self.stop()

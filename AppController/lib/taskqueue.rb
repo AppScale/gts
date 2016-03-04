@@ -72,7 +72,7 @@ module TaskQueue
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
     MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+      env_vars=nil, match_cmd=match_cmd)
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server()
@@ -137,7 +137,7 @@ module TaskQueue
     tries_left = RABBIT_START_RETRY
     loop {
       MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, ports=9999,
-        env_vars=nil, remote_ip=nil, remote_key=nil, match_cmd=match_cmd)
+        env_vars=nil, match_cmd=match_cmd)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
