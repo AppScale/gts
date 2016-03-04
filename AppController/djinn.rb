@@ -795,8 +795,15 @@ class Djinn
       Djinn.log_info("Received a stop node request.")
     end
 
-    # Stop all the services of this node.
     @kill_sig_received = true
+
+    # Stop all applications: since we set kill_sig_received we won't
+    # change the UAServer application status.
+    @app_names.each { |name|
+      self.stop_app(name, @@secret)
+    }
+
+    # Stop all the services of this node.
     stop_appcontroller_monit()
     stop_api_services()
     stop_infrastructure_manager()
@@ -1451,17 +1458,22 @@ class Djinn
       # inform the other nodes to stop the application, and remove the
       # application from the metadata (soap_server).
       if my_node.is_login?
-        begin
-          uac = UserAppClient.new(my_node.private_ip, @@secret)
-          if not uac.does_app_exist?(app_name)
-            Djinn.log_info("(stop_app) #{app_name} does not exist.")
-          else
-            result = uac.delete_app(app_name)
-            Djinn.log_debug("(stop_app) delete_app returned: #{result}.")
+        if !@kill_sig_received
+          begin
+            uac = UserAppClient.new(my_node.private_ip, @@secret)
+            if not uac.does_app_exist?(app_name)
+              Djinn.log_info("(stop_app) #{app_name} does not exist.")
+            else
+              result = uac.delete_app(app_name)
+              Djinn.log_debug("(stop_app) delete_app returned: #{result}.")
+            end
+          rescue FailedNodeException
+            Djinn.log_warn("(stop_app) delete_app: failed to talk " +
+              "to the UserAppServer.")
           end
-        rescue FailedNodeException
-          Djinn.log_warn("(stop_app) delete_app: failed to talk " +
-            "to the UserAppServer.")
+        else
+          Djinn.log_info("(stop_app) not changing application status since" +
+            " the node is shutting down.")
         end
         @nodes.each { |node|
           next if node.private_ip == my_node.private_ip
