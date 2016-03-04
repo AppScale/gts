@@ -797,7 +797,9 @@ class Djinn
 
     # Stop all the services of this node.
     @kill_sig_received = true
+    stop_appcontroller_monit()
     stop_api_services()
+    stop_infrastructure_manager()
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
