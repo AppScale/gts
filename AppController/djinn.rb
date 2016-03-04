@@ -2786,8 +2786,7 @@ class Djinn
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
-  #   A boolean to indicate if we were able to restore the state from
-  #   either zookeeper of the local disk.
+  #   A boolean to indicate if we were able to restore the state.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state")
     json_state=""
@@ -2800,16 +2799,8 @@ class Djinn
       end
     end
 
-    if json_state.empty? and File.exists?(HelperFunctions::APPCONTROLLER_STATE_LOCATION)
-      Djinn.log_info("Trying to restore data from local data.")
-      json_state = restore_from_local_data()
-      if not json_state.empty?
-        Djinn.log_info("Restored data from local data.")
-      end
-    end
-
     if json_state.empty?
-      Djinn.log_warn("Unable to restore from ZK or local state, not restoring!")
+      Djinn.log_warn("Unable to restore state.")
       return false
     end
 
