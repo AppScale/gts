@@ -5,6 +5,7 @@ require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
 
+require 'json'
 
 # Imports for the AppController
 $:.unshift File.join(File.dirname(__FILE__), "..")
@@ -61,6 +62,11 @@ class InfrastructureManagerClient
     @conn.add_method("terminate_instances", "parameters", "secret")
     @conn.add_method("attach_disk", "parameters", "disk_name", "instance_id",
       "secret")
+    @conn.add_method("get_cpu_usage", "secret")
+    @conn.add_method("get_disk_usage", "secret")
+    @conn.add_method("get_memory_usage", "secret")
+    @conn.add_method("get_service_summary", "secret")
+    @conn.add_method("get_swap_usage", "secret")
   end
   
 
@@ -240,6 +246,41 @@ class InfrastructureManagerClient
       Djinn.log_debug("Attach disk returned #{disk_info.inspect}")
       return disk_info['location']
     }
+  end
+
+
+
+  # Retrieves system monitoring statistics from the SystemManager.
+  # Returns:
+  #  A hash of the all the stats combined.
+  def get_system_stats()
+    Djinn.log_debug("Calling SystemManager")
+
+    cpu_usage = JSON.parse(@conn.get_cpu_usage(@secret))
+    Djinn.log_debug("CPU usage: #{cpu_usage}")
+
+    disk_usage = JSON.parse(@conn.get_disk_usage(@secret))
+    Djinn.log_debug("Disk usage: #{disk_usage}")
+
+    memory_usage = JSON.parse(@conn.get_memory_usage(@secret))
+    Djinn.log_debug("Memory usage: #{memory_usage}")
+
+    service_summary = JSON.parse(@conn.get_service_summary(@secret))
+    Djinn.log_debug("Service summary: #{service_summary}")
+
+    swap_usage = JSON.parse(@conn.get_swap_usage(@secret))
+    Djinn.log_debug("Swap usage: #{swap_usage}")
+
+    all_stats = cpu_usage
+    all_stats = all_stats.merge(disk_usage)
+    all_stats = all_stats.merge(memory_usage)
+    all_stats = all_stats.merge(swap_usage)
+
+    # Service summary is a flat dictionary, while the rest contain nested
+    # dictionaries.
+    all_stats["services"] = service_summary
+
+    return all_stats
   end
 
 
