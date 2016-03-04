@@ -55,7 +55,11 @@ from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 from M2Crypto import SSL
 
+# The format to use for logging.
+LOG_FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)s %(message)s '
+
 # Set up logging for when this file is run directly.
+logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 file_logger = logging.getLogger(__name__)
 
 # Buffer type used for key storage in the datastore
