@@ -802,6 +802,7 @@ class Djinn
     @app_names.each { |name|
       self.stop_app(name, @@secret)
     }
+    stop_app_dashboard()
 
     # Stop all the services of this node.
     stop_appcontroller_monit()
