@@ -83,6 +83,7 @@ BOO
       Djinn.log_debug("Waiting for monit to stop #{watch}.")
       Kernel.sleep(1)
     }
+    Djinn.log_run('service monit reload')
   end
 
 
