@@ -3658,8 +3658,6 @@ class Djinn
     @state = "Stopping API Services."
     Djinn.log_info("#{@state}")
 
-    threads = []
-
     if my_node.is_login?
       stop_app_dashboard()
       stop_hermes()
@@ -3668,69 +3666,51 @@ class Djinn
     end
 
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      threads << Thread.new {
-        stop_taskqueue()
-      }
+      stop_taskqueue()
     end
 
     if my_node.is_search?
-      threads << Thread.new {
-        stop_search_role()
-      }
+      stop_search_role()
     end
 
     if my_node.is_appengine?
-      threads << Thread.new {
-        stop_blobstore_server()
-      }
+      stop_blobstore_server()
     end
 
-    threads << Thread.new {
-      stop_app_manager_server()
-    }
+    stop_app_manager_server()
 
     if my_node.is_memcache?
-      threads << Thread.new {
-        stop_memcache()
-      }
+      stop_memcache()
     end
 
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
-      threads << Thread.new {
-        if my_node.is_db_master? or my_node.is_db_slave?
-          stop_groomer_service()
-        end
-        stop_backup_service()
-      }
+      if my_node.is_db_master? or my_node.is_db_slave?
+        stop_groomer_service()
+      end
+      stop_backup_service()
     end
 
-    threads << Thread.new {
-      if is_zookeeper_running? and my_node.is_zookeeper?
-        Djinn.log_info("Stopping zookeeper.")
-        begin
-          stop_zookeeper()
-        rescue FailedZooKeeperOperationException
-          @state = "Couldn't stop Zookeeper."
-        end
+    if is_zookeeper_running? and my_node.is_zookeeper?
+      Djinn.log_info("Stopping zookeeper.")
+      begin
+        stop_zookeeper()
+      rescue FailedZooKeeperOperationException
+        @state = "Couldn't stop Zookeeper."
       end
-    }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
-      threads << Thread.new {
-        Djinn.log_info("Stoppping database services.")
-        stop_soap_server()
-        stop_datastore_server()
-        if my_node.is_db_master?
-          stop_db_master()
-        else
-          stop_db_slave()
-        end
-        Djinn.log_info("Done stopping database services.")
-      }
+      Djinn.log_info("Stoppping database services.")
+      stop_soap_server()
+      stop_datastore_server()
+      if my_node.is_db_master?
+        stop_db_master()
+      else
+        stop_db_slave()
+      end
+      Djinn.log_info("Done stopping database services.")
     end
 
-    Djinn.log_info("Stopping all services.")
-    threads.each { |t| t.join() }
     Djinn.log_info("API services have stopped on this node.")
   end
 
