@@ -808,7 +808,7 @@ class Djinn
         self.stop_app(name, @@secret)
       }
       loop {
-        if @app_names == "none"
+        if @app_names[0] == "none"
           break
         end
         Djinn.log_info("Waiting for appsevers to shutdown.")
