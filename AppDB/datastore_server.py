@@ -311,7 +311,7 @@ class DatastoreDistributed():
   # The number of entities to fetch at a time when updating indices.
   BATCH_SIZE = 100
 
-  def __init__(self, datastore_batch, zookeeper=None, debug=False):
+  def __init__(self, datastore_batch, zookeeper=None, log_level=logging.INFO):
     """
        Constructor.
      
@@ -321,8 +321,7 @@ class DatastoreDistributed():
     """
     class_name = self.__class__.__name__
     self.logger = logging.getLogger(class_name)
-    if debug:
-      self.logger.setLevel(logging.DEBUG)
+    self.logger.setLevel(log_level)
 
     self.logger.info('Starting {}'.format(class_name))
 
@@ -4826,7 +4825,7 @@ def main(argv):
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
 
   datastore_access = DatastoreDistributed(datastore_batch,
-    zookeeper=zookeeper, debug=verbose)
+    zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
   if port == DEFAULT_SSL_PORT and not is_encrypted:
     port = DEFAULT_PORT
 
