@@ -81,8 +81,10 @@ BOO
   # the monit configuration file.
   def self.stop_monitoring(watch, stop=true)
     if stop
+      Djinn.log_info("stop_monitoring: stopping service #{watch}.")
       self.execute_remote_command("#{MONIT} stop -g #{watch}", nil, nil)
     else
+      Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
       self.execute_remote_command("#{MONIT} unmonitor -g #{watch}", nil, nil)
     end
     # Now let's find the corresponding configuration file and remove it.
@@ -92,6 +94,14 @@ BOO
     else
       Djinn.log_warn("Found multiple monit config match for #{watch}: #{config}.")
     end
+    # And now we wait till the service is not marked as running anylonger.
+    loop {
+      if not self.is_running?(watch)
+        break
+      end
+      Djinn.log_debug("Waiting for monit to stop #{watch}.")
+      Kernel.sleep(1)
+    }
   end
 
 
