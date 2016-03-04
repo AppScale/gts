@@ -56,10 +56,6 @@ from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 from M2Crypto import SSL
 
-# Set up logging for when this file is run directly.
-logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-file_logger = logging.getLogger(__name__)
-
 # Buffer type used for key storage in the datastore
 buffer = __builtin__.buffer
 
@@ -4192,7 +4188,7 @@ class ReadOnlyHandler(tornado.web.RequestHandler):
       READ_ONLY = False
       message = 'Write operations now enabled.'
 
-    file_logger.info(message)
+    logger.info(message)
     self.write({'message': message})
     self.finish()
 
@@ -4283,7 +4279,7 @@ class MainHandler(tornado.web.RequestHandler):
     method = apirequest.method()
     http_request_data = apirequest.request()
     start = time.time()
-    file_logger.debug('Request type: {}'.format(method))
+    logger.debug('Request type: {}'.format(method))
     if method == "Put":
       response, errcode, errdetail = self.put_request(app_id, 
                                                  http_request_data)
@@ -4365,7 +4361,7 @@ class MainHandler(tornado.web.RequestHandler):
     transaction_pb = datastore_pb.Transaction()
 
     if READ_ONLY:
-      file_logger.warning('Unable to begin transaction in read-only mode: {}'.
+      logger.warning('Unable to begin transaction in read-only mode: {}'.
         format(begin_transaction_req_pb))
       return (transaction_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4373,7 +4369,7 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
     except ZKInternalException:
-      file_logger.exception('Unable to begin {}'.format(transaction_pb))
+      logger.exception('Unable to begin {}'.format(transaction_pb))
       return (transaction_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
@@ -4407,7 +4403,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      file_logger.warning('Unable to rollback in read-only mode: {}'.
+      logger.warning('Unable to rollback in read-only mode: {}'.
         format(http_request_data))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4415,12 +4411,12 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
     except ZKInternalException:
-      file_logger.exception('ZKInternalException during {} for {}'.
+      logger.exception('ZKInternalException during {} for {}'.
         format(http_request_data, app_id))
       return (response.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               "Internal error with ZooKeeper connection.")
     except Exception:
-      file_logger.exception('Unable to rollback transaction')
+      logger.exception('Unable to rollback transaction')
       return(response.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Unable to rollback for this transaction")
@@ -4439,25 +4435,25 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access._dynamic_run_query(query, clone_qr_pb)
     except ZKBadRequest, zkie:
-      file_logger.exception('Illegal arguments in transaction during {}'.
+      logger.exception('Illegal arguments in transaction during {}'.
         format(query))
       return (clone_qr_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException:
-      file_logger.exception('ZKInternalException during {}'.format(query))
+      logger.exception('ZKInternalException during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except ZKTransactionException:
-      file_logger.exception('Concurrent transaction during {}'.format(query))
+      logger.exception('Concurrent transaction during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error during {}'.format(query))
+      logger.exception('DB connection error during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
@@ -4479,7 +4475,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.Integer64Proto()
 
     if READ_ONLY:
-      file_logger.warning('Unable to create in read-only mode: {}'.
+      logger.warning('Unable to create in read-only mode: {}'.
         format(request))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4488,7 +4484,7 @@ class MainHandler(tornado.web.RequestHandler):
       index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during {}'.format(request))
       response.set_value(0)
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
@@ -4510,7 +4506,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      file_logger.warning('Unable to update in read-only mode: {}'.
+      logger.warning('Unable to update in read-only mode: {}'.
         format(index))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4520,7 +4516,7 @@ class MainHandler(tornado.web.RequestHandler):
       state_name = entity_pb.CompositeIndex.State_Name(state)
       error_message = 'Unable to update index because state is {}. '\
         'Index: {}'.format(state_name, index)
-      file_logger.error(error_message)
+      logger.error(error_message)
       return response.Encode(), datastore_pb.Error.PERMISSION_DENIED,\
         error_message
     else:
@@ -4545,7 +4541,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      file_logger.warning('Unable to delete in read-only mode: {}'.
+      logger.warning('Unable to delete in read-only mode: {}'.
         format(request))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4553,7 +4549,7 @@ class MainHandler(tornado.web.RequestHandler):
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during {}'.format(request))
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
@@ -4574,7 +4570,7 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       indices = datastore_access.get_indices(app_id)
     except dbconstants.AppScaleDBConnectionError, dbce:
-      file_logger.exception('DB connection error while fetching indices for '
+      logger.exception('DB connection error while fetching indices for '
         '{}'.format(app_id))
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
@@ -4602,7 +4598,7 @@ class MainHandler(tornado.web.RequestHandler):
     reference = request.model_key()
 
     if READ_ONLY:
-      file_logger.warning('Unable to allocate in read-only mode: {}'.
+      logger.warning('Unable to allocate in read-only mode: {}'.
         format(request))
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4613,22 +4609,22 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
     except ZKBadRequest, zkie:
-      file_logger.exception('Unable to allocate IDs for {}'.format(app_id))
+      logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException:
-      file_logger.exception('Unable to allocate IDs for {}'.format(app_id))
+      logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except ZKTransactionException:
-      file_logger.exception('Unable to allocate IDs for {}'.format(app_id))
+      logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on allocate id request.")
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error while allocating IDs for {}'.
+      logger.exception('DB connection error while allocating IDs for {}'.
         format(app_id))
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
@@ -4654,7 +4650,7 @@ class MainHandler(tornado.web.RequestHandler):
     putresp_pb = datastore_pb.PutResponse()
 
     if READ_ONLY:
-      file_logger.warning('Unable to put in read-only mode: {}'.
+      logger.warning('Unable to put in read-only mode: {}'.
         format(putreq_pb))
       return (putresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4663,23 +4659,23 @@ class MainHandler(tornado.web.RequestHandler):
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
     except ZKBadRequest, zkie:
-      file_logger.exception('Illegal argument during {}'.format(putreq_pb))
+      logger.exception('Illegal argument during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
             datastore_pb.Error.BAD_REQUEST, 
             "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException:
-      file_logger.exception('ZKInternalException during {}'.format(putreq_pb))
+      logger.exception('ZKInternalException during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except ZKTransactionException:
-      file_logger.exception('Concurrent transaction during {}'.
+      logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
       return (putresp_pb.Encode(),
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error during {}'.format(putreq_pb))
+      logger.exception('DB connection error during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
@@ -4700,23 +4696,23 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
     except ZKBadRequest, zkie:
-      file_logger.exception('Illegal argument during {}'.format(getreq_pb))
+      logger.exception('Illegal argument during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException:
-      file_logger.exception('ZKInternalException during {}'.format(getreq_pb))
+      logger.exception('ZKInternalException during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except ZKTransactionException:
-      file_logger.exception('Concurrent transaction during {}'.
+      logger.exception('Concurrent transaction during {}'.
         format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on get.")
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error during {}'.format(getreq_pb))
+      logger.exception('DB connection error during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on get.")
@@ -4738,7 +4734,7 @@ class MainHandler(tornado.web.RequestHandler):
     delresp_pb = api_base_pb.VoidProto() 
 
     if READ_ONLY:
-      file_logger.warning('Unable to delete in read-only mode: {}'.
+      logger.warning('Unable to delete in read-only mode: {}'.
         format(delreq_pb))
       return (delresp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
@@ -4747,23 +4743,23 @@ class MainHandler(tornado.web.RequestHandler):
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
     except ZKBadRequest, zkie:
-      file_logger.exception('Illegal argument during {}'.format(delreq_pb))
+      logger.exception('Illegal argument during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except ZKInternalException:
-      file_logger.exception('ZKInternalException during {}'.format(delreq_pb))
+      logger.exception('ZKInternalException during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
     except ZKTransactionException:
-      file_logger.exception('Concurrent transaction during {}'.
+      logger.exception('Concurrent transaction during {}'.
         format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on delete.")
     except dbconstants.AppScaleDBConnectionError:
-      file_logger.exception('DB connection error during {}'.format(delreq_pb))
+      logger.exception('DB connection error during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")
@@ -4785,6 +4781,11 @@ pb_application = tornado.web.Application([
 
 def main(argv):
   """ Starts a web service for handing datastore requests. """
+
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  global logger
+  logger = logging.getLogger(__name__)
+
   global datastore_access
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
@@ -4813,7 +4814,7 @@ def main(argv):
       verbose = True
 
   if verbose:
-    file_logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
