@@ -4539,7 +4539,7 @@ HOSTS
     # We stop monitoring but don't call stop, since it's a circular
     # dependency (ie service appscale controller stop will get us here
     # again).
-    MonitInterface.stop_monitoring(:controller, false)
+    MonitInterface.stop(:controller, false)
   end
 
   def start_appcontroller(node)

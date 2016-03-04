@@ -60,7 +60,7 @@ BOO
 
   # This function unmonitor and optionally stop the service, and remove
   # the monit configuration file.
-  def self.stop_monitoring(watch, stop=true)
+  def self.stop(watch, stop=true)
     if stop
       Djinn.log_info("stop_monitoring: stopping service #{watch}.")
       self.execute_command("#{MONIT} stop -g #{watch}")
@@ -137,10 +137,6 @@ BOO
 
     Djinn.log_info("Starting #{watch} on port #{port}" +
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
-  end
-
-  def self.stop(watch)
-    self.execute_command("#{MONIT} stop -g #{watch}")
   end
 
   def self.remove(watch)
