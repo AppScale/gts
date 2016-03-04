@@ -34,6 +34,7 @@ from zkappscale.zktransaction import ZKTransactionException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+from constants import LOG_FORMAT
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
@@ -54,9 +55,6 @@ from google.appengine.ext.remote_api import remote_api_pb
 from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 from M2Crypto import SSL
-
-# The format to use for logging.
-LOG_FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)s %(message)s '
 
 # Set up logging for when this file is run directly.
 logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
