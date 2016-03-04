@@ -4639,6 +4639,8 @@ HOSTS
   def stop_app_dashboard()
     Djinn.log_info("Shutting down AppDashboard")
     AppDashboard.stop()
+    maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
+    CronHelper.clear_app_crontab(AppDashboard::APP_NAME)
   end
 
   def start_shadow()
