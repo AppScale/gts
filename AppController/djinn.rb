@@ -790,19 +790,41 @@ class Djinn
             end
           end
         }
+        Djinn.log_info("Waiting for all nodes to shutdown...")
+        threads.each { |t| t.join() }
       }
     else
       Djinn.log_info("Received a stop node request.")
     end
 
+    Djinn.log_info("Shutting down node.")
     @kill_sig_received = true
 
     # Stop all applications: since we set kill_sig_received we won't
-    # change the UAServer application status.
-    @app_names.each { |name|
-      self.stop_app(name, @@secret)
-    }
-    stop_app_dashboard()
+    # change the UAServer application status. This is done by all
+    # appengine nodes.
+    if my_node.is_appengine?
+      @app_names.each { |name|
+        self.stop_app(name, @@secret)
+      }
+      loop {
+        if @app_names == "none"
+          break
+        end
+        Djinn.log_info("Waiting for appsevers to shutdown.")
+        Kernel.sleep(SMALL_WAIT)
+      }
+    end
+
+    # Login node needs to shutdown dashboard.
+    if my_node.is_login?
+      stop_app_dashboard()
+    end
+
+    # Shadow saves the latest appcontroller state.
+    if my_node.is_shadow?
+      backup_appcontroller_state()
+    end
 
     # Stop all the services of this node.
     stop_appcontroller_monit()
