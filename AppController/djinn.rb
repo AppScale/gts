@@ -5698,23 +5698,27 @@ HOSTS
 
     # Combine all useful stats and return.
     all_stats = system_stats
-    all_stats["apps"] = {}
-    controller_stats["apps"].each { |app_name, enabled|
-      if my_node.is_login?
-        # Get HAProxy requests.
-        Djinn.log_debug("Getting HAProxy stats for: #{app_name}")
-        total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-        # Create the apps hash with useful information containing HAProxy stats.
-        all_stats["apps"][app_name] = {
-          "language" => @app_info_map[app_name]["language"],
-          "appservers" => @app_info_map[app_name]["appengine"].length,
-          "http" => @app_info_map[app_name]["nginx"],
-          "https" => @app_info_map[app_name]["nginx_https"],
-          "total_reqs" => total_reqs,
-          "reqs_enqueued" => reqs_enqueued
+    if my_node.is_login?
+      all_stats["apps"] = {}
+      if !app_info_map.nil?
+        controller_stats["apps"].each { |app_name, enabled|
+          # Get HAProxy requests.
+          Djinn.log_warn("Getting HAProxy stats for: #{app_name}")
+          if app_name != "none"
+            total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+            # Create the apps hash with useful information containing HAProxy stats.
+            all_stats["apps"][app_name] = {
+              "language" => @app_info_map[app_name]["language"],
+              "appservers" => @app_info_map[app_name]["appengine"].length,
+              "http" => @app_info_map[app_name]["nginx"],
+              "https" => @app_info_map[app_name]["nginx_https"],
+              "total_reqs" => total_reqs,
+              "reqs_enqueued" => reqs_enqueued
+            }
+          end
         }
       end
-    }
+    end
     all_stats["public_ip"] = controller_stats["ip"]
     all_stats["private_ip"] = controller_stats["private_ip"]
     all_stats["roles"] = controller_stats["roles"]
