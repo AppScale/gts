@@ -2850,6 +2850,9 @@ class Djinn
       end
     }
 
+    # We reset the kill received signal since we are starting now.
+    @kill_sig_received = false
+
     # Check to see if our IP address has changed. If so, we need to update all
     # of our internal state to use the new public and private IP anywhere the
     # old ones were present.
