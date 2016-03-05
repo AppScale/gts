@@ -797,6 +797,11 @@ class Djinn
       Djinn.log_info("Received a stop node request.")
     end
 
+    if @kill_sig_received
+      Djinn.log_info("Node is already stopping.")
+      return "Node is already stopping."
+    end
+
     Djinn.log_info("Shutting down node.")
     @kill_sig_received = true
 

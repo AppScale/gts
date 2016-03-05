@@ -68,13 +68,14 @@ BOO
       Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
       self.execute_command("#{MONIT} unmonitor -g #{watch}")
     end
+
     # Now let's find the corresponding configuration file and remove it.
     config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
-    if config.length == 1
-      FileUtils.rm_rf(config[0])
-    else
+    if config.length != 1
       Djinn.log_warn("Found multiple monit config match for #{watch}: #{config}.")
     end
+    FileUtils.rm_rf(config)
+
     # And now we wait till the service is not marked as running anylonger.
     loop {
       if not self.is_running?(watch)
