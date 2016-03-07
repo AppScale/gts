@@ -545,7 +545,7 @@ class Djinn
     @memcache_contents = ""
 
     # Make sure monit is started.
-    MonitInterface.start_monit(nil, nil)
+    MonitInterface.start_monit()
   end
 
   # This method is needed, since we are not able to change log level on
@@ -4368,7 +4368,7 @@ HOSTS
 
     begin
       MonitInterface.start(:controller, start, stop, SERVER_PORT, env,
-        nil, nil, match_cmd)
+        match_cmd)
     rescue => e
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
