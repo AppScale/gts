@@ -42,6 +42,13 @@ do_stop()
    log_end_msg $?
 }
 
+do_force_stop()
+{
+   log_daemon_msg "Fore stopping system $DAEMON_NAME daemon"
+   ruby ${DIR}/terminate.rb
+   log_end_msg $?
+}
+
 do_stop_deployment()
 {
    log_daemon_msg "Stopping AppScale deployment"
