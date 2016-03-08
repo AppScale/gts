@@ -21,8 +21,7 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit()
-    self.execute_command("service monit start")
-      output = Djinn.log_run("service monit start")
+    Djinn.log_run("service monit start")
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
@@ -34,7 +33,7 @@ module MonitInterface
         env_vars, match_cmd, mem)
     }
 
-    self.execute_command("#{MONIT} start -g #{watch}")
+    Djinn.log_run("#{MONIT} start -g #{watch}")
   end
 
   def self.start_file(watch, path, action, hours=12)
@@ -43,19 +42,20 @@ check file #{watch} path "#{path}" every 2 cycles
   group #{watch}
   if timestamp > 12 hours then exec "#{action}"
 BOO
-    monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
+    monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
     HelperFunctions.write_file(monit_file, contents)
 
-    self.execute_command("service monit reload")
+    Djinn.log_run("service monit reload")
 
-    Djinn.log_info("Watching file #{path} for #{watch} with action [#{action}]")
+    Djinn.log_info("Watching file #{path} for #{watch}" +
+      " with exec action [#{action}]")
 
 
-    self.execute_command("#{MONIT} start -g #{watch}")
+    Djinn.log_run("#{MONIT} start -g #{watch}")
   end
 
   def self.restart(watch)
-    self.execute_command("#{MONIT} restart -g #{watch}")
+    Djinn.log_run("#{MONIT} restart -g #{watch}")
   end
 
   # This function unmonitor and optionally stop the service, and remove
@@ -141,25 +141,17 @@ BOO
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
   end
 
-  def self.remove(watch)
-    self.execute_command("#{MONIT} stop -g #{watch}")
-    self.execute_command("#{MONIT} unmonitor -g #{watch}")
+  def self.stop(watch)
+    Djinn.log_run("#{MONIT} stop -g #{watch}")
   end
 
-  def self.shutdown()
-    self.execute_command("#{MONIT} quit")
+  def self.remove(watch)
+    Djinn.log_run("#{MONIT} stop -g #{watch}")
+    Djinn.log_run("#{MONIT} unmonitor -g #{watch}")
   end
 
   def self.is_running?(watch)
-    output = self.execute_command("#{MONIT} summary | grep #{watch} | grep Running")
+    output = Djinn.log_run("#{MONIT} summary | grep #{watch} | grep Running")
     return (not output == "")
-  end
-
-  private
-  def self.execute_command(cmd)
-    output = Djinn.log_run(cmd)
-    Djinn.log_debug("running command #{cmd} returned #{output}.")
-
-    return output
   end
 end
