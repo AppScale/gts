@@ -117,8 +117,8 @@ APPSERVER_STATE_FILE = "/opt/appscale/appserver-state.json"
 LOGROTATE_DIR = '/etc/logrotate.d'
 
 
-# The location of the generic appscale centralized app logrotate script.
-APPSCALE_APP_LOGROTATE = '../lib/templates/appscale-app-logrotate.conf'
+# The name of the generic appscale centralized app logrotate script.
+APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'
 
 
 # Djinn (interchangeably known as 'the AppController') automatically
@@ -4334,7 +4334,9 @@ HOSTS
   # This method is called only when the appengine role does not run
   # on the head node.
   def write_app_logrotate()
-    FileUtils.cp(APPSCALE_APP_LOGROTATE, "#{LOGROTATE_DIR}/appscale-app")
+    template_dir = File.join(File.dirname(__FILE__), "../lib/templates")
+    FileUtils.cp("#{template_dir}/#{APPSCALE_APP_LOGROTATE}",
+      "#{LOGROTATE_DIR}/appscale-app")
   end
 
   # Runs any commands provided by the user in their AppScalefile on the given
