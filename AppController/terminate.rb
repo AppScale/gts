@@ -26,6 +26,8 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
 
+    `rm -f /etc/logrotate.d/appscale-*`
+
     # Let's make sure we restart any non-appscale service.
     `service monit restart`
     `killall -9 -g -r djinnServer`
