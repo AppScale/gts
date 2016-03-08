@@ -59,7 +59,7 @@ def poll():
   response = helper.urlfetch(request)
 
   if not response[JSONTags.SUCCESS]:
-    logging.error("Inaccessible resource: {}",format(url))
+    logging.error("Inaccessible resource: {}".format(url))
     return
 
   try:
