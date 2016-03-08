@@ -112,6 +112,15 @@ ZK_LOCATIONS_FILE = "/etc/appscale/zookeeper_locations.json"
 # ports this machine is using for nginx, haproxy, and AppServers.
 APPSERVER_STATE_FILE = "/opt/appscale/appserver-state.json"
 
+
+# The location of the logrotate scripts.
+LOGROTATE_DIR = '/etc/logrotate.d'
+
+
+# The name of the generic appscale centralized app logrotate script.
+APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -4308,6 +4317,10 @@ HOSTS
     configure_uaserver
 
     # Volume is mounted, let's finish the configuration of static files.
+    if my_node.is_login? and not my_node.is_appengine?
+      write_app_logrotate()
+      Djinn.log_info("Copying logrotate script for centralized app logs")
+    end
     configure_db_nginx()
     write_memcache_locations()
     write_apploadbalancer_location()
@@ -4315,6 +4328,15 @@ HOSTS
     write_taskqueue_nodes_file()
     write_search_node_file()
     setup_config_files()
+  end
+
+  # Sets up logrotate for this node's centralized app logs.
+  # This method is called only when the appengine role does not run
+  # on the head node.
+  def write_app_logrotate()
+    template_dir = File.join(File.dirname(__FILE__), "../lib/templates")
+    FileUtils.cp("#{template_dir}/#{APPSCALE_APP_LOGROTATE}",
+      "#{LOGROTATE_DIR}/appscale-app")
   end
 
   # Runs any commands provided by the user in their AppScalefile on the given
