@@ -22,7 +22,7 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit()
-    self.execute_command("service monit start", remote_ip, remote_key)
+    self.execute_command("service monit start")
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
