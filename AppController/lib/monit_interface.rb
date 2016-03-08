@@ -63,10 +63,10 @@ BOO
   def self.stop(watch, stop=true)
     if stop
       Djinn.log_info("stop_monitoring: stopping service #{watch}.")
-      self.execute_command("#{MONIT} stop -g #{watch}")
+      Djinn.log_run("#{MONIT} stop -g #{watch}")
     else
       Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
-      self.execute_command("#{MONIT} unmonitor -g #{watch}")
+      Djinn.log_run("#{MONIT} unmonitor -g #{watch}")
     end
 
     # Now let's find the corresponding configuration file and remove it.
@@ -139,10 +139,6 @@ BOO
 
     Djinn.log_info("Starting #{watch} on port #{port}" +
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
-  end
-
-  def self.stop(watch)
-    Djinn.log_run("#{MONIT} stop -g #{watch}")
   end
 
   def self.remove(watch)
