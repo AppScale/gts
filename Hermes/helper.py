@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import SOAPpy
 import sys
 import threading
 import tornado.httpclient
@@ -33,6 +34,7 @@ REPORT_TASKS = ['backup', 'restore']
 
 class JSONTags(object):
   """ A class containing all JSON tags used for Hermes functionality. """
+  ALL_STATS = 'all_stats'
   BUCKET_NAME = 'bucket_name'
   BODY = 'body'
   DEPLOYMENT_ID = 'deployment_id'
@@ -230,6 +232,33 @@ def delete_task_from_mem(task_id):
   if task_id in TASK_STATUS.keys():
     del TASK_STATUS[task_id]
   TASK_STATUS_LOCK.release()
+
+def get_all_stats():
+  """ Collects platform stats from all deployment nodes.
+
+  Returns:
+    A dictionary containing all the monitoring stats, if all nodes are
+    accessible. {"success": False, "error": message} otherwise.
+  """
+  all_stats = {}
+
+  secret = appscale_info.get_secret()
+  logging.debug("Retrieved deployment secret: {}".format(secret))
+  for ip in appscale_info.get_all_ips():
+    appcontroller_endpoint = "https://{}:{}".format(ip,
+      hermes_constants.APPCONTROLLER_PORT)
+    logging.debug("Connecting to AC at: {}".format(appcontroller_endpoint))
+    # Do a SOAP call to the AppController on that IP to get stats.
+    server = SOAPpy.SOAPProxy(appcontroller_endpoint)
+    try:
+      all_stats[ip] = server.get_all_stats(secret)
+    except SOAPpy.SOAPException as soap_exception:
+      logging.exception("Exception while performing SOAP call to "
+        "{}".format(appcontroller_endpoint))
+      logging.exception(soap_exception)
+      return {"success": False, "error": "Node {} inaccessible".format(ip)}
+
+  return all_stats
 
 def report_status(task, task_id, status):
   """ Sends a status report for the given task to the AppScale Portal.

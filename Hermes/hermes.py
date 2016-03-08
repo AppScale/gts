@@ -57,6 +57,11 @@ def poll():
   data = urllib.urlencode({JSONTags.DEPLOYMENT_ID: deployment_id})
   request = helper.create_request(url=url, method='POST', body=data)
   response = helper.urlfetch(request)
+
+  if not response[JSONTags.SUCCESS]:
+    logging.error("Inaccessible resource: {}",format(url))
+    return
+
   try:
     data = json.loads(response[JSONTags.BODY])
   except (TypeError, ValueError) as error:
@@ -79,6 +84,34 @@ def poll():
 
   # The poller can move forward without waiting for a response here.
   helper.urlfetch_async(request)
+
+def send_all_stats():
+  """ Calls get_all_stats and sends the deployment monitoring stats to the
+  AppScale Portal. """
+  deployment_id = helper.get_deployment_id()
+  # If the deployment is not registered, skip.
+  if not deployment_id:
+    return
+
+  # Get all stats from this deployment.
+  logging.debug("Getting all stats from every deployment node.")
+  all_stats = helper.get_all_stats()
+
+  # Send request to AppScale Portal.
+  url = "{0}{1}".format(hermes_constants.PORTAL_URL,
+      hermes_constants.PORTAL_STATS_PATH)
+  data = urllib.urlencode({
+      JSONTags.DEPLOYMENT_ID: deployment_id,
+      JSONTags.ALL_STATS: all_stats
+    })
+  logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".format(
+    all_stats))
+  request = helper.create_request(url=url, method='POST', body=data)
+  response = helper.urlfetch(request)
+
+  if not response[JSONTags.SUCCESS]:
+    logging.error("Inaccessible resource: {}".format(url))
+    return
 
 def signal_handler(signal, frame):
   """ Signal handler for graceful shutdown. """
@@ -123,6 +156,10 @@ def main():
   # Note: Currently, any active handlers from the tornado app will block
   # polling until they complete.
   PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).start()
+
+  # Periodically send all available stats from each deployment node to the
+  # AppScale Portal.
+  PeriodicCallback(send_all_stats, hermes_constants.STATS_INTERVAL).start()
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()

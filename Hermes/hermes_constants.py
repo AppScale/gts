@@ -1,5 +1,8 @@
 """ Constants that are used for Hermes functionality (backup/restore/etc.). """
 
+# The AppController port.
+APPCONTROLLER_PORT = "17443"
+
 # The port br_service listens to.
 BR_SERVICE_PORT = "8423"
 
@@ -38,6 +41,9 @@ PORTAL_URL = "https://portal.appscale.com"
 # The AppScale Portal path for getting new tasks.
 PORTAL_POLL_PATH = "/get_appscale_task"
 
+# The AppScale Portal path for sending all stats.
+PORTAL_STATS_PATH = "/all_stats"
+
 # The AppScale Portal path for reporting task status.
 PORTAL_STATUS_PATH = "/report_appscale_task"
 
@@ -49,6 +55,9 @@ REQUEST_TIMEOUT = 12*60*60
 
 # The list of supported tasks.
 SUPPORTED_TASKS = ['backup', 'restore']
+
+# The interval for sending deployment stats.
+STATS_INTERVAL = 60*1000    # 60 seconds.
 
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """

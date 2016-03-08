@@ -15,7 +15,10 @@ APPSCALE_DATA_DIR = '/opt/appscale/'
 # Location of Java AppServer.
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 
-# The location of the file which specifies the public IP of the head node..
+# The location of the file which specifies all the ips for this deployment.
+ALL_IPS_LOC = '/etc/appscale/all_ips'
+
+# The location of the file which specifies the public IP of the head node.
 LOGIN_IP_LOC = '/etc/appscale/login_ip'
 
 # The location of the file which specifies the current private IP.
