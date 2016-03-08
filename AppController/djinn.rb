@@ -799,9 +799,9 @@ class Djinn
             end
           end
         }
-        Djinn.log_info("Waiting for all nodes to shutdown...")
-        threads.each { |t| t.join() }
       }
+      Djinn.log_info("Waiting for all nodes to shutdown...")
+      threads.each { |t| t.join() }
     else
       Djinn.log_info("Received a stop node request.")
     end
@@ -822,7 +822,7 @@ class Djinn
         self.stop_app(name, @@secret)
       }
       loop {
-        if @app_names[0] == "none"
+        if @app_names.empty? or @app_names[0] == "none"
           break
         end
         Djinn.log_info("Waiting for appsevers to shutdown.")
