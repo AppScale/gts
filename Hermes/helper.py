@@ -38,13 +38,15 @@ class JSONTags(object):
   BUCKET_NAME = 'bucket_name'
   BODY = 'body'
   DEPLOYMENT_ID = 'deployment_id'
+  ERROR = 'error'
   OBJECT_NAME = 'object_name'
+  REASON = 'reason'
   STATUS = 'status'
   STORAGE = 'storage'
   SUCCESS = 'success'
   TASK_ID = 'task_id'
   TYPE = 'type'
-  REASON = 'reason'
+  UNREACHABLE = 'unreachable'
 
 class NodeInfoTags(object):
   """ A class containing all the dict keys for node information on this
@@ -256,7 +258,7 @@ def get_all_stats():
       logging.exception("Exception while performing SOAP call to "
         "{}".format(appcontroller_endpoint))
       logging.exception(soap_exception)
-      return {"success": False, "error": "Node {} inaccessible".format(ip)}
+      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
 
   return all_stats
 
