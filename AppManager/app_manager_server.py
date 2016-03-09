@@ -287,7 +287,8 @@ def setup_logrotate(app_name, watch, log_size):
     True on success, False otherwise.
   """
   # Write application specific logrotation script.
-  app_logrotate_script = "{0}/appscale-{1}".format(LOGROTATE_CONFIG_DIR, app_name)
+  app_logrotate_script = "{0}/appscale-{1}".\
+    format(LOGROTATE_CONFIG_DIR, app_name)
 
   # Application logrotate script content.
   contents = """/var/log/appscale/{watch}*.log {{
@@ -300,7 +301,8 @@ def setup_logrotate(app_name, watch, log_size):
   copytruncate
 }}
 """.format(watch=watch, size=log_size)
-  logging.debug("Logrotate file: {} - Contents:\n{}".format(app_logrotate_script, contents))
+  logging.debug("Logrotate file: {} - Contents:\n{}".
+    format(app_logrotate_script, contents))
 
   with open(app_logrotate_script, 'w') as app_logrotate_fd:
     app_logrotate_fd.write(contents)
@@ -312,10 +314,10 @@ def stop_app_instance(app_name, port):
       machine.
 
   Args:
-    app_name: Name of application to stop
-    port: The port the application is running on
+    app_name: A string, the name of application to stop.
+    port: The port the application is running on.
   Returns:
-    True on success, False otherwise
+    True on success, False otherwise.
   """
   if not misc.is_app_name_valid(app_name):
     logging.error("Unable to kill app process %s on port %d because of " \
@@ -341,7 +343,6 @@ def stop_app_instance(app_name, port):
     logging.error("Error deleting {0}".format(monit_config_file))
 
   return True
-
 
 def restart_app_instances_for_app(app_name, language):
   """ Restarts all instances of a Google App Engine application on this machine.
@@ -393,6 +394,30 @@ def stop_app(app_name):
       os.remove(config_file)
     except OSError:
       logging.exception('Error removing {}'.format(config_file))
+
+  if not remove_logrotate(app_name):
+    logging.error("Error while setting up log rotation for application: {}".
+      format(app_name))
+
+  return True
+
+def remove_logrotate(app_name):
+  """ Removes logrotate script for the given application.
+
+  Args:
+    app_name: A string, the name of the application to remove logrotate for.
+  Returns:
+    True on success, False otherwise.
+  """
+  app_logrotate_script = "{0}/appscale-{1}".\
+    format(LOGROTATE_CONFIG_DIR, app_name)
+  logging.debug("Removing script: {}".format(app_logrotate_script))
+
+  try:
+    os.remove(app_logrotate_script)
+  except OSError:
+    logging.error("Error deleting {0}".format(app_logrotate_script))
+    return False
 
   return True
 
