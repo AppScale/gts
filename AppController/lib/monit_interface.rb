@@ -1,6 +1,7 @@
 #!/usr/bin/ruby -w
 
 # Imports within Ruby's standard libraries.
+require 'monitor'
 require 'tmpdir'
 
 # Imports AppScale's libraries.
@@ -10,6 +11,10 @@ require 'helperfunctions'
 # Where we save the configuration file.
 MONIT_CONFIG = "/etc/monit/conf.d"
 
+
+# Monit is finnicky when it comes to multiple commands at the same time.
+# Let's make sure we serialize access.
+MONIT_LOCK = Monitor.new()
 
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
@@ -21,7 +26,7 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit()
-    Djinn.log_run("service monit start")
+    self.run_cmd("service monit start")
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
@@ -33,7 +38,7 @@ module MonitInterface
         env_vars, match_cmd, mem)
     }
 
-    Djinn.log_run("#{MONIT} start -g #{watch}")
+    self.run_cmd("#{MONIT} start -g #{watch}")
   end
 
   def self.start_file(watch, path, action, hours=12)
@@ -45,17 +50,17 @@ BOO
     monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
     HelperFunctions.write_file(monit_file, contents)
 
-    Djinn.log_run("service monit reload")
+    self.run_cmd("service monit reload")
 
     Djinn.log_info("Watching file #{path} for #{watch}" +
       " with exec action [#{action}]")
 
 
-    Djinn.log_run("#{MONIT} start -g #{watch}")
+    self.run_cmd("#{MONIT} start -g #{watch}")
   end
 
   def self.restart(watch)
-    Djinn.log_run("#{MONIT} restart -g #{watch}")
+    self.run_cmd("#{MONIT} restart -g #{watch}")
   end
 
   # This function unmonitor and optionally stop the service, and remove
@@ -63,10 +68,10 @@ BOO
   def self.stop(watch, stop=true)
     if stop
       Djinn.log_info("stop_monitoring: stopping service #{watch}.")
-      Djinn.log_run("#{MONIT} stop -g #{watch}")
+      self.run_cmd("#{MONIT} stop -g #{watch}")
     else
       Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
-      Djinn.log_run("#{MONIT} unmonitor -g #{watch}")
+      self.run_cmd("#{MONIT} unmonitor -g #{watch}")
     end
 
     # Now let's find the corresponding configuration file and remove it.
@@ -84,7 +89,7 @@ BOO
       Djinn.log_debug("Waiting for monit to stop #{watch}.")
       Kernel.sleep(1)
     }
-    Djinn.log_run('service monit reload')
+    self.run_cmd('service monit reload')
   end
 
 
@@ -134,7 +139,7 @@ BOO
 
     if changing_config
       HelperFunctions.write_file(monit_file, contents)
-      Djinn.log_run('service monit reload')
+      self.run_cmd('service monit reload')
     end
 
     Djinn.log_info("Starting #{watch} on port #{port}" +
@@ -142,12 +147,24 @@ BOO
   end
 
   def self.remove(watch)
-    Djinn.log_run("#{MONIT} stop -g #{watch}")
-    Djinn.log_run("#{MONIT} unmonitor -g #{watch}")
+    self.run_cmd("#{MONIT} stop -g #{watch}")
+    self.run_cmd("#{MONIT} unmonitor -g #{watch}")
   end
 
   def self.is_running?(watch)
-    output = Djinn.log_run("#{MONIT} summary | grep #{watch} | grep Running")
+    output = self.run_cmd("#{MONIT} summary | grep #{watch} | grep Running")
     return (not output == "")
+  end
+
+  private
+  def self.run_cmd(cmd)
+    output = ""
+    MONIT_LOCK.synchronize {
+      output = Djinn.log_run(cmd)
+      # If the command here is a reload, we need to give monit time to get
+      # the server side up, otherwise some command may be ignored.
+      Kernel.sleep(1)
+    }
+    return output
   end
 end
