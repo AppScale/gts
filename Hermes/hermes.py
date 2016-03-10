@@ -3,10 +3,9 @@ initiates actions accordingly. """
 
 import json
 import logging
-import os
 import signal
 import socket
-import sys
+import datetime
 import tornado.escape
 import tornado.httpclient
 import tornado.web
@@ -102,13 +101,16 @@ def send_all_stats():
   # Send request to AppScale Portal.
   url = "{0}{1}".format(hermes_constants.PORTAL_URL,
       hermes_constants.PORTAL_STATS_PATH)
-  data = urllib.urlencode({
-      JSONTags.DEPLOYMENT_ID: deployment_id,
-      JSONTags.ALL_STATS: all_stats
-    })
-  logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".format(
-    all_stats))
-  request = helper.create_request(url=url, method='POST', body=data)
+  data = {
+    JSONTags.DEPLOYMENT_ID: deployment_id,
+    JSONTags.TIMESTAMP: datetime.datetime.utcnow(),
+    JSONTags.ALL_STATS: all_stats
+  }
+  logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".
+    format(data))
+
+  request = helper.create_request(url=url, method='POST',
+    body=urllib.urlencode(data))
   response = helper.urlfetch(request)
 
   if not response[JSONTags.SUCCESS]:

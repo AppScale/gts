@@ -50,6 +50,7 @@ class JSONTags(object):
   STORAGE = 'storage'
   SUCCESS = 'success'
   TASK_ID = 'task_id'
+  TIMESTAMP = 'timestamp'
   TYPE = 'type'
   UNREACHABLE = 'unreachable'
 
