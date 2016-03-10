@@ -9,6 +9,8 @@ import threading
 import tornado.httpclient
 import urllib
 
+from socket import error as socket_error
+
 import hermes_constants
 from custom_hermes_exceptions import MissingRequestArgs
 
@@ -18,6 +20,9 @@ import appscale_info
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDB/backup/"))
 from backup_recovery_constants import StorageTypes
 import backup_recovery_helper as BR
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+from google.appengine.api.appcontroller_client import AppControllerException
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -145,10 +150,14 @@ def get_deployment_id():
     A str, the secret key used for registering this deployment with the
     AppScale Portal. None if the deployment is not registered.
   """
-  acc = appscale_info.get_appcontroller_client()
-  if acc.deployment_id_exists():
-    return acc.get_deployment_id()
-  return None
+  try:
+    acc = appscale_info.get_appcontroller_client()
+    if acc.deployment_id_exists():
+      return acc.get_deployment_id()
+  except AppControllerException:
+    logging.exception("AppControllerException while querying for deployment "
+      "ID.")
+    return None
 
 def get_node_info():
   """ Creates a list of JSON objects that contain node information and are
@@ -258,6 +267,11 @@ def get_all_stats():
       logging.exception("Exception while performing SOAP call to "
         "{}".format(appcontroller_endpoint))
       logging.exception(soap_exception)
+      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
+    except socket_error as serr:
+      logging.error("Socket error while performing SOAP call to "
+        "{}".format(appcontroller_endpoint))
+      logging.error(serr)
       all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
 
   return all_stats
