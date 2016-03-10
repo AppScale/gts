@@ -16,6 +16,11 @@ MONIT_CONFIG = "/etc/monit/conf.d"
 # Let's make sure we serialize access.
 MONIT_LOCK = Monitor.new()
 
+
+# Monit requires a bit of time after doing a reload to ensure no request
+# is lost.
+MONIT_RELOAD_TIME = 2
+
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
 # away interfacing with monit directly.
@@ -50,7 +55,7 @@ BOO
     monit_file = "/etc/monit/conf.d/appscale-#{watch}.cfg"
     HelperFunctions.write_file(monit_file, contents)
 
-    self.run_cmd("service monit reload")
+    self.run_cmd("service monit reload", true)
 
     Djinn.log_info("Watching file #{path} for #{watch}" +
       " with exec action [#{action}]")
@@ -89,7 +94,7 @@ BOO
       Djinn.log_debug("Waiting for monit to stop #{watch}.")
       Kernel.sleep(1)
     }
-    self.run_cmd('service monit reload')
+    self.run_cmd('service monit reload', true)
   end
 
 
@@ -139,16 +144,11 @@ BOO
 
     if changing_config
       HelperFunctions.write_file(monit_file, contents)
-      self.run_cmd('service monit reload')
+      self.run_cmd('service monit reload', true)
     end
 
     Djinn.log_info("Starting #{watch} on port #{port}" +
       " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
-  end
-
-  def self.remove(watch)
-    self.run_cmd("#{MONIT} stop -g #{watch}")
-    self.run_cmd("#{MONIT} unmonitor -g #{watch}")
   end
 
   def self.is_running?(watch)
@@ -157,13 +157,13 @@ BOO
   end
 
   private
-  def self.run_cmd(cmd)
+  def self.run_cmd(cmd, sleep=false)
     output = ""
     MONIT_LOCK.synchronize {
       output = Djinn.log_run(cmd)
-      # If the command here is a reload, we need to give monit time to get
-      # the server side up, otherwise some command may be ignored.
-      Kernel.sleep(1)
+      # Some command (ie reload) requires some extra time to ensure monit
+      # is ready for the subsequent command.
+      Kernel.sleep(MONIT_RELOAD_TIME) if sleep
     }
     return output
   end

@@ -3672,59 +3672,78 @@ class Djinn
     @state = "Stopping API Services."
     Djinn.log_info("#{@state}")
 
+    threads = []
     if my_node.is_login?
-      stop_app_dashboard()
-      stop_hermes()
-      TaskQueue.stop_flower()
-      stop_ejabberd()
+      threads << Thread.new {
+        stop_app_dashboard()
+        stop_hermes()
+        TaskQueue.stop_flower()
+        stop_ejabberd()
+      }
     end
 
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      stop_taskqueue()
+      threads << Thread.new {
+        stop_taskqueue()
+      }
     end
 
     if my_node.is_search?
-      stop_search_role()
+      threads << Thread.new {
+        stop_search_role()
+      }
     end
 
     if my_node.is_appengine?
-      stop_blobstore_server()
+      threads << Thread.new {
+        stop_blobstore_server()
+      }
     end
 
-    stop_app_manager_server()
+    threads << Thread.new {
+      stop_app_manager_server()
+    }
 
     if my_node.is_memcache?
-      stop_memcache()
+      threads << Thread.new {
+        stop_memcache()
+      }
     end
 
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
-      if my_node.is_db_master? or my_node.is_db_slave?
-        stop_groomer_service()
-      end
-      stop_backup_service()
+      threads << Thread.new {
+        if my_node.is_db_master? or my_node.is_db_slave?
+          stop_groomer_service()
+        end
+        stop_backup_service()
+      }
     end
 
     if is_zookeeper_running? and my_node.is_zookeeper?
-      Djinn.log_info("Stopping zookeeper.")
-      begin
-        stop_zookeeper()
-      rescue FailedZooKeeperOperationException
-        @state = "Couldn't stop Zookeeper."
-      end
+      threads << Thread.new {
+        begin
+          stop_zookeeper()
+        rescue FailedZooKeeperOperationException
+          @state = "Couldn't stop Zookeeper."
+        end
+      }
     end
 
     if my_node.is_db_master? or my_node.is_db_slave?
-      Djinn.log_info("Stoppping database services.")
-      stop_soap_server()
-      stop_datastore_server()
-      if my_node.is_db_master?
-        stop_db_master()
-      else
-        stop_db_slave()
-      end
-      Djinn.log_info("Done stopping database services.")
+      threads << Thread.new {
+        Djinn.log_info("Stoppping database services.")
+        stop_soap_server()
+        stop_datastore_server()
+        if my_node.is_db_master?
+          stop_db_master()
+        else
+          stop_db_slave()
+        end
+        Djinn.log_info("Done stopping database services.")
+      }
     end
 
+    threads.each { |t| t.join() }
     Djinn.log_info("API services have stopped on this node.")
   end
 
@@ -5836,7 +5855,7 @@ HOSTS
   #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
-    MonitInterface.remove("xmpp-#{app}")
+    MonitInterface.stop("xmpp-#{app}")
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
 
