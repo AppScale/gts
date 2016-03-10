@@ -116,7 +116,8 @@ module HAProxy
 
   # Delete the config file for the UAserver.
   def self.remove_uaserver()
-    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, UserAppClient::NAME))
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH,
+        "#{UserAppClient::NAME}.#{CONFIG_EXTENSION}"))
     HAProxy.regenerate_config
   end
 
