@@ -19,7 +19,8 @@ MONIT_LOCK = Monitor.new()
 
 # Monit requires a bit of time after doing a reload to ensure no request
 # is lost.
-MONIT_RELOAD_TIME = 2
+SMALL_WAIT = 2
+
 
 # AppScale uses monit to start processes, restart them if they die, or kill and
 # restart them if they take up too much CPU or memory. This module abstracts
@@ -92,7 +93,7 @@ BOO
         break
       end
       Djinn.log_debug("Waiting for monit to stop #{watch}.")
-      Kernel.sleep(1)
+      Kernel.sleep(SMALL_WAIT)
     }
     self.run_cmd('service monit reload', true)
   end
@@ -163,7 +164,7 @@ BOO
       output = Djinn.log_run(cmd)
       # Some command (ie reload) requires some extra time to ensure monit
       # is ready for the subsequent command.
-      Kernel.sleep(MONIT_RELOAD_TIME) if sleep
+      Kernel.sleep(SMALL_WAIT) if sleep
     }
     return output
   end
