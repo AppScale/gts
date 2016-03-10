@@ -844,6 +844,8 @@ class Djinn
     stop_appcontroller_monit()
     stop_api_services()
     stop_infrastructure_manager()
+    HAProxy.stop()
+    Nginx.stop()
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
