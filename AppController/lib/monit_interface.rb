@@ -82,8 +82,8 @@ BOO
 
     # Now let's find the corresponding configuration file and remove it.
     config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
-    if config.length != 1
-      Djinn.log_warn("Found multiple monit config match for #{watch}: #{config}.")
+    if config.length > 1
+      Djinn.log_info("Found multiple monit config match for #{watch}: #{config}.")
     end
     FileUtils.rm_rf(config)
 

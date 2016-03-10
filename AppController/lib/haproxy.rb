@@ -109,7 +109,8 @@ module HAProxy
 
   # Delete the config file for the datastore.
   def self.remove_datastore()
-    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, DatastoreServer::NAME))
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH,
+        "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}"))
     HAProxy.regenerate_config
   end
 
