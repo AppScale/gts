@@ -2735,7 +2735,7 @@ class Djinn
         all_db_private_ips.push(node.private_ip)
       end
     }
-    HAProxy.create_ua_server_config(all_db_private_ips,
+    HAProxy.create_uaserver_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
     Nginx.create_uaserver_config(my_node.private_ip)
     Nginx.reload()
@@ -3931,6 +3931,8 @@ class Djinn
   # Stops the User/Apps soap server.
   def stop_soap_server
     MonitInterface.stop(:uaserver)
+    HAProxy.remove_uaserver()
+    Nginx.remove_uaserver()
   end
 
   # Stops the AppManager service
@@ -3948,6 +3950,8 @@ class Djinn
   # Stops the datastore server.
   def stop_datastore_server
     DatastoreServer.stop()
+    HAProxy.remove_datastore()
+    Nginx.remove_datastore()
   end
 
   def is_hybrid_cloud?

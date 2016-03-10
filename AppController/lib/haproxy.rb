@@ -86,7 +86,7 @@ module HAProxy
   end
 
   # Create the config file for UserAppServer.
-  def self.create_ua_server_config(server_ips, my_ip, listen_port)
+  def self.create_uaserver_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
     # The port is fixed.
     servers = []
@@ -105,6 +105,18 @@ module HAProxy
       servers << {'ip' => my_ip, 'port' => port}
     }
     self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+  end
+
+  # Delete the config file for the datastore.
+  def self.remove_datastore()
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, DatastoreServer::NAME))
+    HAProxy.regenerate_config
+  end
+
+  # Delete the config file for the UAserver.
+  def self.remove_uaserver()
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, UserAppClient::NAME))
+    HAProxy.regenerate_config
   end
 
   # A generic function for creating HAProxy config files used by AppScale services.

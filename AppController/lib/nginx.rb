@@ -363,6 +363,16 @@ CONFIG
     Nginx.reload()
   end
 
+  def self.remove_datastore()
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}"))
+    Nginx.reload()
+  end
+
+  def self.remove_uaserver()
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}"))
+    Nginx.reload()
+  end
+
   # Removes all the enabled sites
   def self.clear_sites_enabled()
     if File.directory?(SITES_ENABLED_PATH)
