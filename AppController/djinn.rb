@@ -5725,7 +5725,7 @@ HOSTS
       if !app_info_map.nil?
         controller_stats["apps"].each { |app_name, enabled|
           # Get HAProxy requests.
-          Djinn.log_warn("Getting HAProxy stats for: #{app_name}")
+          Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           if app_name != "none"
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
             # Create the apps hash with useful information containing HAProxy stats.

@@ -3,10 +3,13 @@
 import json
 import logging
 import os
+import SOAPpy
 import sys
 import threading
 import tornado.httpclient
 import urllib
+
+from socket import error as socket_error
 
 import hermes_constants
 from custom_hermes_exceptions import MissingRequestArgs
@@ -17,6 +20,9 @@ import appscale_info
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDB/backup/"))
 from backup_recovery_constants import StorageTypes
 import backup_recovery_helper as BR
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+from google.appengine.api.appcontroller_client import AppControllerException
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -33,16 +39,20 @@ REPORT_TASKS = ['backup', 'restore']
 
 class JSONTags(object):
   """ A class containing all JSON tags used for Hermes functionality. """
+  ALL_STATS = 'all_stats'
   BUCKET_NAME = 'bucket_name'
   BODY = 'body'
   DEPLOYMENT_ID = 'deployment_id'
+  ERROR = 'error'
   OBJECT_NAME = 'object_name'
+  REASON = 'reason'
   STATUS = 'status'
   STORAGE = 'storage'
   SUCCESS = 'success'
   TASK_ID = 'task_id'
+  TIMESTAMP = 'timestamp'
   TYPE = 'type'
-  REASON = 'reason'
+  UNREACHABLE = 'unreachable'
 
 class NodeInfoTags(object):
   """ A class containing all the dict keys for node information on this
@@ -141,10 +151,14 @@ def get_deployment_id():
     A str, the secret key used for registering this deployment with the
     AppScale Portal. None if the deployment is not registered.
   """
-  acc = appscale_info.get_appcontroller_client()
-  if acc.deployment_id_exists():
-    return acc.get_deployment_id()
-  return None
+  try:
+    acc = appscale_info.get_appcontroller_client()
+    if acc.deployment_id_exists():
+      return acc.get_deployment_id()
+  except AppControllerException:
+    logging.exception("AppControllerException while querying for deployment "
+      "ID.")
+    return None
 
 def get_node_info():
   """ Creates a list of JSON objects that contain node information and are
@@ -230,6 +244,38 @@ def delete_task_from_mem(task_id):
   if task_id in TASK_STATUS.keys():
     del TASK_STATUS[task_id]
   TASK_STATUS_LOCK.release()
+
+def get_all_stats():
+  """ Collects platform stats from all deployment nodes.
+
+  Returns:
+    A dictionary containing all the monitoring stats, if all nodes are
+    accessible. {"success": False, "error": message} otherwise.
+  """
+  all_stats = {}
+
+  secret = appscale_info.get_secret()
+  logging.debug("Retrieved deployment secret: {}".format(secret))
+  for ip in appscale_info.get_all_ips():
+    appcontroller_endpoint = "https://{}:{}".format(ip,
+      hermes_constants.APPCONTROLLER_PORT)
+    logging.debug("Connecting to AC at: {}".format(appcontroller_endpoint))
+    # Do a SOAP call to the AppController on that IP to get stats.
+    server = SOAPpy.SOAPProxy(appcontroller_endpoint)
+    try:
+      all_stats[ip] = server.get_all_stats(secret)
+    except SOAPpy.SOAPException as soap_exception:
+      logging.exception("Exception while performing SOAP call to "
+        "{}".format(appcontroller_endpoint))
+      logging.exception(soap_exception)
+      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
+    except socket_error as serr:
+      logging.error("Socket error while performing SOAP call to "
+        "{}".format(appcontroller_endpoint))
+      logging.error(serr)
+      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
+
+  return all_stats
 
 def report_status(task, task_id, status):
   """ Sends a status report for the given task to the AppScale Portal.
