@@ -4748,6 +4748,9 @@ HOSTS
           next
         rescue AppIsDownException
           Djinn.log_info("App #{app} is down.")
+          APPS_LOCK.synchronize {
+            @apps_loaded = @apps_loaded - [app]
+          }
         end
 
         # TODO: we should now send a stop_app to all appservers before
