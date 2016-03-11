@@ -1874,9 +1874,9 @@ class Djinn
 
       # These operations can take some time, so we spawn a thread for it.
       Thread.new {
-        check_running_apps()
         start_or_restart_appengine()
         if my_node.is_login?
+          check_running_apps()
           scale_appservers_within_nodes()
           scale_appservers_across_nodes()
         end
