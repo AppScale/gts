@@ -359,6 +359,11 @@ class Djinn
   REQ_IN_QUEUE_INDEX = 2
 
 
+  # The position in the haproxy profiling information where the status of
+  # the backend service (UP or DOWN) is specified.
+  BACKEND_STATUS_INDEX = 17
+
+
   # The position in the haproxy profiling information where the total number of
   # requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
@@ -4732,13 +4737,17 @@ HOSTS
         end
 
         Djinn.log_debug("Checking if qpp #{app} is enabled.")
-        # We really care to see if the first value is different than
-        # :no_change, in which case the application is setup on the load
-        # balancer.
-        is_running, a, b  = get_haproxy_stats(app)
-        if is_running != :no_change
+        # We really only care if we get exceptions here: if we do the app
+        # is either not running, or effectively down.
+        begin
+          get_haproxy_stats(app)
           Djinn.log_debug("App #{app} is already running.")
           next
+        rescue AppNotRunningException
+          Djinn.log_info("App #{app} is not running yet.")
+          next
+        rescue AppIsDownException
+          Djinn.log_info("App #{app} is down.")
         end
 
         # TODO: we should now send a stop_app to all appservers before
@@ -5176,8 +5185,14 @@ HOSTS
         when :scale_down
           Djinn.log_debug("Considering scaling down app #{app_name}.")
           try_to_scale_down(app_name)
-        else
+        when :not_running
+          Djinn.log_info("App #{app_name} is not running (yet?).")
+        when :down
+          Djinn.log_info("App #{app_name} backed is down.")
+        when :no_change
           Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
+        else
+          Djinn.log_warn("Got wrong scale info for app #{app_name}.")
         end
       }
     }
@@ -5228,7 +5243,7 @@ HOSTS
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
         "be running.")
-      return :no_change
+      raise AppNotRunningException.new("#{app_name} has no haproxy entries.")
     end
 
     monitoring_info.each_line { |line|
@@ -5250,6 +5265,11 @@ HOSTS
         total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
         Djinn.log_debug("#{app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
+        is_up = parsed_info[BACKEND_STATUS_INDEX] == "UP"
+        if !is_up
+          Djinn.log_info("Backend for #{app_name} is currently DOWN.")
+          raise AppIsDownException.new("#{app_name} backend is down.")
+        end
       end
     }
 
@@ -5266,7 +5286,13 @@ HOSTS
     total_req_in_queue = 0
     time_requests_were_seen = 0
 
-    total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
+    begin
+      total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
+    rescue AppNotRunningException
+      return :not_running
+    rescue AppIsDownException
+      return :down
+    end
 
     if time_requests_were_seen.zero?
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5889,7 +5915,13 @@ HOSTS
           # Get HAProxy requests.
           Djinn.log_warn("Getting HAProxy stats for: #{app_name}")
           if app_name != "none"
-            total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+            begin
+              total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+            rescue AppNotRunningException, AppIsDownException
+              # TODO: we should have a better state to report.
+              total_reqs = 0
+              reqs_enqueued = 0
+            end
             # Create the apps hash with useful information containing HAProxy stats.
             all_stats["apps"][app_name] = {
               "language" => @app_info_map[app_name]["language"],
