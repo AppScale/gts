@@ -4381,7 +4381,7 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/sbin/service appscale-controller start"
+    start = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
     stop = "/usr/sbin/service appscale-controller stop"
     match_cmd = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
