@@ -3686,14 +3686,6 @@ class Djinn
       stop_backup_service()
     end
 
-    if is_zookeeper_running? and my_node.is_zookeeper?
-      begin
-        stop_zookeeper()
-      rescue FailedZooKeeperOperationException
-        @state = "Couldn't stop Zookeeper."
-      end
-    end
-
     if my_node.is_db_master? or my_node.is_db_slave?
       Djinn.log_info("Stoppping database services.")
       stop_soap_server()
@@ -3704,6 +3696,14 @@ class Djinn
         stop_db_slave()
       end
       Djinn.log_info("Done stopping database services.")
+    end
+
+    if is_zookeeper_running? and my_node.is_zookeeper?
+      begin
+        stop_zookeeper()
+      rescue FailedZooKeeperOperationException
+        @state = "Couldn't stop Zookeeper."
+      end
     end
 
     Djinn.log_info("API services have stopped on this node.")
