@@ -18,7 +18,10 @@ JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 # The format each service should use for logging.
 LOG_FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)s %(message)s '
 
-# The location of the file which specifies the public IP of the head node..
+# The location of the file which specifies all the ips for this deployment.
+ALL_IPS_LOC = '/etc/appscale/all_ips'
+
+# The location of the file which specifies the public IP of the head node.
 LOGIN_IP_LOC = '/etc/appscale/login_ip'
 
 # The location of the file which specifies the current private IP.

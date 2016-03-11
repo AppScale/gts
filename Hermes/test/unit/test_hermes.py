@@ -12,12 +12,9 @@ import unittest
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import helper
 from hermes import poll
+from hermes import send_all_stats
 from hermes import shutdown
 from hermes import signal_handler
-
-class FakeResponse(object):
-  def __init__(self):
-    self.body = "{}"
 
 class TestHelper(unittest.TestCase):
   """ A set of test cases for Hermes top level functions. """
@@ -49,9 +46,32 @@ class TestHelper(unittest.TestCase):
       and_return(http_client)
     flexmock(json).should_receive('dumps').and_return('{}')
     flexmock(helper).should_receive('create_request').and_return()
-    flexmock(helper).should_receive('urlfetch').and_return(FakeResponse())
+
+    # Assume request to the AppScale Portal is successful.
+    flexmock(helper).should_receive('urlfetch').\
+      and_return({"success": True, "body": {}})
     flexmock(helper).should_receive('urlfetch_async').and_return()
     poll()
+
+    # Assume request to the AppScale Portal is successful.
+    flexmock(helper).should_receive('urlfetch').\
+      and_return({"success": False, "reason": "error"})
+    poll()
+
+  def test_send_all_stats(self):
+    # Assume deployment is not registered.
+    flexmock(helper).should_receive('get_deployment_id').and_return(None)
+    send_all_stats()
+
+    flexmock(helper).should_receive('get_deployment_id').\
+      and_return('deployment_id')
+
+    fake_stats = {}
+    flexmock(helper).should_receive('get_all_stats').and_return(fake_stats)
+    flexmock(helper).should_receive('create_request').and_return()
+    flexmock(helper).should_receive('urlfetch').\
+      and_return({"success": True, "body": {}})
+    send_all_stats()
 
   def test_signal_handler(self):
     flexmock(IOLoop.instance()).should_receive('add_callback').and_return()\
