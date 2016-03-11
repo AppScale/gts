@@ -190,11 +190,6 @@ class Djinn
   attr_accessor :num_appengines
 
 
-  # A boolean that indicates if we are done restoring state from a previously
-  # running AppScale deployment.
-  attr_accessor :restored
-
-
   # An Array that lists the CPU, disk, and memory usage of each machine in this
   # AppScale deployment. Used as a cache so that it does not need to be
   # generated in response to AppDashboard requests.
@@ -531,7 +526,6 @@ class Djinn
     @userappserver_ip = NOT_UP_YET
     @state = "AppController just started"
     @num_appengines = 1
-    @restored = false
     @all_stats = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
@@ -1875,8 +1869,8 @@ class Djinn
 
       # These operations can take some time, so we spawn a thread for it.
       Thread.new {
-        start_appengine()
-        restart_appengine_apps()
+        check_running_apps()
+        start_or_restart_appengine()
         if my_node.is_login?
           scale_appservers_within_nodes()
           scale_appservers_across_nodes()
@@ -1895,25 +1889,6 @@ class Djinn
 
       Kernel.sleep(DUTY_CYCLE)
     end
-  end
-
-
-  # Examines the list of applications that need to be updated, and restarts them
-  # on the same ports that they were previously running on.
-  def restart_appengine_apps()
-    # use a copy of @apps_to_restart here since we delete from it in
-    # setup_appengine_application
-    apps = @apps_to_restart
-    apps.each { |app_name|
-      if !my_node.is_login?  # this node has the new app - don't erase it here
-        Djinn.log_info("Removing old version of app #{app_name}")
-        Djinn.log_run("rm -fv #{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
-      end
-      Djinn.log_info("About to restart app #{app_name}")
-      APPS_LOCK.synchronize {
-        setup_appengine_application(app_name, "restart")
-      }
-    }
   end
 
 
@@ -4705,69 +4680,101 @@ HOSTS
     ea.generate(language)
   end
 
-  def start_appengine()
-    @state = "Preparing to run AppEngine apps if needed"
-    Djinn.log_debug("Preparing to run AppEngine apps if needed")
+  # Examine the list of applications to restarts, or the applications that
+  # should be running, and respectively restarts or stats them.
+  def start_or_restart_appengine()
+    @state = "Preparing to restart AppEngine apps if needed"
+    Djinn.log_debug(@state)
 
-    if @restored == false
-      # Wait till we can talk to the UserAppServer while we restore.
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      Djinn.log_info("Need to restore")
-      begin
-        app_list = uac.get_all_apps()
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to get app listing: retrying.")
-        retry
+    # use a copy of @apps_to_restart here since we delete from it in
+    # setup_appengine_application
+    apps = @apps_to_restart
+    apps.each { |app_name|
+      if !my_node.is_login?  # this node has the new app - don't erase it here
+        Djinn.log_info("Removing old version of app #{app_name}")
+        Djinn.log_run("rm -fv #{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
       end
-      app_list.each { |app|
-        begin
-          if not uac.is_app_enabled?(app)
-            Djinn.log_info("App #{app} is not enabled, moving on")
-            next
-          end
-
-          Djinn.log_info("App #{app} is enabled, so restoring it")
-
-          # We query the UserAppServer looking for application data, in
-          # particular ports and language.
-          result = uac.get_app_data(app)
-          app_data = JSON.load(result)
-          Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
-
-          app_language = app_data['language']
-          Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
-
-          if @app_info_map[app].nil?
-            @app_info_map[app] = {}
-          end
-          if app_language
-            @app_info_map[app]['language'] = app_language
-          end
-          if app_data['hosts'].values[0]
-            if app_data['hosts'].values[0]['http']
-              @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
-            end
-            if app_data['hosts'].values[0]['https']
-              @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
-            end
-          end
-          @app_names = @app_names + [app]
-        rescue FailedNodeEsception
-          Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
-        end
+      Djinn.log_info("About to restart app #{app_name}")
+      APPS_LOCK.synchronize {
+        setup_appengine_application(app_name, "restart")
       }
+    }
 
-      @app_names.uniq!
-      Djinn.log_debug("Decided to restore these apps: [#{@app_names.join(', ')}]")
-      @restored = true
-    end
+    @state = "Preparing to run AppEngine apps if needed"
+    Djinn.log_debug(@state)
 
     APPS_LOCK.synchronize {
       apps_to_load = @app_names - @apps_loaded - ["none"]
       apps_to_load.each { |app|
         setup_appengine_application(app, "new")
       }
-    } # end of synchronize
+    }
+  end
+
+  # Check with the UserAppServer the list of application that should be
+  # running, compare them with the list we have on the load balancer, and
+  # marks the missing ones for start at the next cycle.
+  def check_running_apps()
+    # Wait till we can talk to the UserAppServer while we restore.
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    Djinn.log_debug("Checking applications that should be running.")
+    begin
+      app_list = uac.get_all_apps()
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to get app listing: retrying.")
+      retry
+    end
+    app_list.each { |app|
+      begin
+        if not uac.is_app_enabled?(app)
+          Djinn.log_debug("App #{app} is not enabled, moving on.")
+          next
+        end
+
+        Djinn.log_debug("Checking if qpp #{app} is enabled.")
+        # We really care to see if the first value is different than
+        # :no_change, in which case the application is setup on the load
+        # balancer.
+        is_running, a, b  = get_haproxy_stats(app)
+        if is_running != :no_change
+          Djinn.log_debug("App #{app} is already running.")
+          next
+        end
+
+        # TODO: we should now send a stop_app to all appservers before
+        # setting the application to start to avoid unaccounted appservers.
+        Djinn.log_info("App #{app} is not running: marked for start.")
+
+        # We query the UserAppServer looking for application data, in
+        # particular ports and language.
+        result = uac.get_app_data(app)
+        app_data = JSON.load(result)
+        Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
+
+        app_language = app_data['language']
+        Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
+
+        if @app_info_map[app].nil?
+          @app_info_map[app] = {}
+        end
+        if app_language
+          @app_info_map[app]['language'] = app_language
+        end
+        if app_data['hosts'].values[0]
+          if app_data['hosts'].values[0]['http']
+            @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+          end
+          if app_data['hosts'].values[0]['https']
+            @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+          end
+        end
+        @app_names = @app_names + [app]
+      rescue FailedNodeEsception
+        Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
+      end
+    }
+
+    @app_names.uniq!
   end
 
 
@@ -5740,7 +5747,6 @@ HOSTS
     APPS_LOCK.synchronize {
       @app_names = []
       @apps_loaded = []
-      @restored = false
     }
   end
 

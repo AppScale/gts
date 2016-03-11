@@ -18,7 +18,7 @@ class UserAppClient
   attr_reader :conn, :ip, :secret
 
   # The default name for the server.
-  NAME = "as_username_server"
+  NAME = "as_userapp_server"
 
   # The port that the UserAppServer binds to, by default.
   SSL_SERVER_PORT = 4343

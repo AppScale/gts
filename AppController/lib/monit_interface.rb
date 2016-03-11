@@ -72,12 +72,26 @@ BOO
   # This function unmonitor and optionally stop the service, and remove
   # the monit configuration file.
   def self.stop(watch, stop=true)
-    if stop
-      Djinn.log_info("stop_monitoring: stopping service #{watch}.")
-      self.run_cmd("#{MONIT} stop -g #{watch}")
-    else
-      Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
-      self.run_cmd("#{MONIT} unmonitor -g #{watch}")
+    # To make sure the service is stopped, we query monit till the service
+    # is not anylonger running.
+    running = true
+    while running
+      if stop
+        Djinn.log_info("stop_monitoring: stopping service #{watch}.")
+        self.run_cmd("#{MONIT} stop -g #{watch}")
+      else
+        Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
+        self.run_cmd("#{MONIT} unmonitor -g #{watch}")
+      end
+
+      10.downto(0) {
+        if not self.is_running?(watch)
+          running = false
+          break
+        end
+        Djinn.log_debug("Waiting for monit to stop #{watch}.")
+        Kernel.sleep(SMALL_WAIT)
+      }
     end
 
     # Now let's find the corresponding configuration file and remove it.
@@ -86,15 +100,6 @@ BOO
       Djinn.log_info("Found multiple monit config match for #{watch}: #{config}.")
     end
     FileUtils.rm_rf(config)
-
-    # And now we wait till the service is not marked as running anylonger.
-    loop {
-      if not self.is_running?(watch)
-        break
-      end
-      Djinn.log_debug("Waiting for monit to stop #{watch}.")
-      Kernel.sleep(SMALL_WAIT)
-    }
     self.run_cmd('service monit reload', true)
   end
 
