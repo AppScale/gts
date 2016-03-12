@@ -698,11 +698,6 @@ class Djinn
     my_public = my_node.public_ip
     login_ip = get_login.private_ip
 
-    # Since we've changed what ports the app runs on, we should persist this
-    # immediately, instead of waiting for the main thread to do this
-    # out-of-band.
-    backup_appserver_state()
-
     static_handlers = HelperFunctions.parse_static_data(appid)
     Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
       my_private, proxy_port, static_handlers, login_ip,
@@ -1859,14 +1854,6 @@ class Djinn
         backup_appcontroller_state()
       end
 
-      # The Shadow doesn't have information about how many AppServers run
-      # on each node, what apps they're hosting, and so on. Therefore,
-      # have login nodes (which have nginx and haproxy info) and AppServer nodes
-      # back up info themselves.
-      if my_node.is_login? or my_node.is_appengine?
-        backup_appserver_state()
-      end
-
       # Login node gets the statistic for all nodes.
       if my_node.is_login?
         update_node_info_cache()
@@ -1874,9 +1861,9 @@ class Djinn
 
       # These operations can take some time, so we spawn a thread for it.
       Thread.new {
+        check_running_apps()
         start_or_restart_appengine()
         if my_node.is_login?
-          check_running_apps()
           scale_appservers_within_nodes()
           scale_appservers_across_nodes()
         end
@@ -2862,13 +2849,6 @@ class Djinn
     # which node in @nodes is ours
     find_me_in_locations()
 
-    # Finally, if we're running nginx, haproxy, or dev_appservers, restore
-    # info about what ports everything should run on (and only if it was in
-    # ZooKeeper).
-    if my_node.is_login? or my_node.is_appengine?
-      restore_appserver_state()
-    end
-
     return true
   end
 
@@ -3003,32 +2983,6 @@ class Djinn
 
     @my_public_ip = new_public_ip
     @my_private_ip = new_private_ip
-  end
-
-
-  # Saves a copy of the Hash that indicates where each App Engine app is
-  # running on this machine to ZooKeeper, in case this AppController crashes.
-  def backup_appserver_state()
-    HelperFunctions.write_json_file(APPSERVER_STATE_FILE, @app_info_map)
-    begin
-      ZKInterface.write_appserver_state(my_node.public_ip, @app_info_map)
-    rescue FailedZooKeeperOperationException => e
-      Djinn.log_warn("Couldn't talk to zookeeper while backing " +
-        "the appserver state with #{e.message}.")
-    end
-  end
-
-
-  # Contacts ZooKeeper to acquire information about the AppServers running on
-  # this machine, including what nginx, haproxy, and dev_appservers are running
-  # and bound to ports on this node.
-  def restore_appserver_state()
-    if File.exists?(APPSERVER_STATE_FILE)
-      Djinn.log_debug("Restoring AppServer state from local filesystem")
-      @app_info_map = HelperFunctions.read_json_file(APPSERVER_STATE_FILE)
-    else
-      Djinn.log_debug("Didn't see any AppServer state, so not restoring it.")
-    end
   end
 
 
@@ -4392,14 +4346,6 @@ HOSTS
           "needing to format it.")
         Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
-        # In cloud deployments, information about what ports are being used gets
-        # persisted to an external disk, which isn't available to us when we
-        # initially try to restore the AppController's state. Now that this info
-        # is available, try again.
-        if my_node.is_login? or my_node.is_appengine?
-          restore_appserver_state()
-        end
-
         # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
         # Make sure there is data present there and that it points to our
         # persistent disk.
@@ -4720,73 +4666,101 @@ HOSTS
   # running, compare them with the list we have on the load balancer, and
   # marks the missing ones for start at the next cycle.
   def check_running_apps()
-    # Wait till we can talk to the UserAppServer while we restore.
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    Djinn.log_debug("Checking applications that should be running.")
-    begin
-      app_list = uac.get_all_apps()
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to get app listing: retrying.")
-      retry
-    end
-    app_list.each { |app|
-      begin
-        if not uac.is_app_enabled?(app)
-          Djinn.log_debug("App #{app} is not enabled, moving on.")
-          next
-        end
+    # Each appengine node check that locally all the appserver are indeed
+    # running.
+    if my_node.is_appengine?
+      APPS_LOCK.synchronize {
+        @app_info_map.each { |app, info|
+          next if not info['appengine']
 
-        Djinn.log_debug("Checking if qpp #{app} is enabled.")
-        # We really only care if we get exceptions here: if we do the app
-        # is either not running, or effectively down.
-        begin
-          get_haproxy_stats(app)
-          Djinn.log_debug("App #{app} is already running.")
-          next
-        rescue AppNotRunningException
-          Djinn.log_info("App #{app} is not running yet.")
-          next
-        rescue AppIsDownException
-          Djinn.log_info("App #{app} is down.")
-          APPS_LOCK.synchronize {
-            @apps_loaded = @apps_loaded - [app]
+          new_appengine = []
+          info['appengine'].each { |location|
+            host, port = location.split(":")
+            next if @my_private_ip != host
+
+            if MonitInterface.is_running("#{app}-#{port}")
+              new_appengine << "#{host}:#{port}"
+            end
           }
-        end
-
-        # TODO: we should now send a stop_app to all appservers before
-        # setting the application to start to avoid unaccounted appservers.
-        Djinn.log_info("App #{app} is not running: marked for start.")
-
-        # We query the UserAppServer looking for application data, in
-        # particular ports and language.
-        result = uac.get_app_data(app)
-        app_data = JSON.load(result)
-        Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
-
-        app_language = app_data['language']
-        Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
-
-        if @app_info_map[app].nil?
-          @app_info_map[app] = {}
-        end
-        if app_language
-          @app_info_map[app]['language'] = app_language
-        end
-        if app_data['hosts'].values[0]
-          if app_data['hosts'].values[0]['http']
-            @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+          if new_appengine.length > 0
+            info['appengine'] = new_appengine
+          else
+            if not my_node.is_login?
+              # We are not hosting this application: forget about it.
+              @app_names = @app_names - [app]
+              @apps_loaded = @apps_loaded - [app]
+            end
           end
-          if app_data['hosts'].values[0]['https']
-            @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
-          end
-        end
-        @app_names = @app_names + [app]
-      rescue FailedNodeEsception
-        Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
+        }
+      }
+    end
+
+    # The login node cross-check with the UserAppServer if all the
+    # applications that should be running are indeed running.
+    if my_node.is_login?
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      Djinn.log_debug("Checking applications that should be running.")
+      begin
+        app_list = uac.get_all_apps()
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to get app listing: retrying.")
+        retry
       end
-    }
+      app_list.each { |app|
+        begin
+          if not uac.is_app_enabled?(app)
+            Djinn.log_debug("App #{app} is not enabled, moving on.")
+            next
+          end
 
-    @app_names.uniq!
+          Djinn.log_debug("Checking if qpp #{app} is enabled.")
+          # We really only care if we get exceptions here: if we do the app
+          # is either not running, or effectively down.
+          begin
+            get_haproxy_stats(app)
+            Djinn.log_debug("App #{app} is already running.")
+            next
+          rescue AppNotRunningException
+            Djinn.log_info("App #{app} is not running yet.")
+            next
+          rescue AppIsDownException
+            Djinn.log_info("App #{app} is down.")
+            APPS_LOCK.synchronize {
+              @apps_loaded = @apps_loaded - [app]
+            }
+          end
+          Djinn.log_info("App #{app} is not running: marked for start.")
+
+          # We query the UserAppServer looking for application data, in
+          # particular ports and language.
+          result = uac.get_app_data(app)
+          app_data = JSON.load(result)
+          Djinn.log_debug("start_appengine: got app data for #{app}: #{app_data}")
+
+          app_language = app_data['language']
+          Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
+
+          if @app_info_map[app].nil?
+            @app_info_map[app] = {}
+          end
+          if app_language
+            @app_info_map[app]['language'] = app_language
+          end
+          if app_data['hosts'].values[0]
+            if app_data['hosts'].values[0]['http']
+              @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+            end
+            if app_data['hosts'].values[0]['https']
+              @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+            end
+          end
+          @app_names = @app_names + [app]
+        rescue FailedNodeEsception
+          Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
+        end
+      }
+      @app_names.uniq!
+    end
   end
 
 
