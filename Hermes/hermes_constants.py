@@ -42,7 +42,7 @@ PORTAL_URL = "https://portal.appscale.com"
 PORTAL_POLL_PATH = "/get_appscale_task"
 
 # The AppScale Portal path for sending all stats.
-PORTAL_STATS_PATH = "/all_stats"
+PORTAL_STATS_PATH = "/deployments/{}/all_stats"
 
 # The AppScale Portal path for reporting task status.
 PORTAL_STATUS_PATH = "/report_appscale_task"
