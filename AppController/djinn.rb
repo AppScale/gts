@@ -1798,7 +1798,7 @@ class Djinn
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
-        stats = JSON.parse(get_monitors(secret))
+        stats = JSON.parse(get_all_stats(secret))
 
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
