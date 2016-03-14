@@ -263,7 +263,7 @@ def get_all_stats():
     # Do a SOAP call to the AppController on that IP to get stats.
     server = SOAPpy.SOAPProxy(appcontroller_endpoint)
     try:
-      all_stats[ip] = server.get_all_stats(secret)
+      all_stats[ip] = json.loads(server.get_all_stats(secret))
     except SOAPpy.SOAPException as soap_exception:
       logging.exception("Exception while performing SOAP call to "
         "{}".format(appcontroller_endpoint))
