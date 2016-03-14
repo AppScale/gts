@@ -4634,7 +4634,7 @@ HOSTS
   # Examine the list of applications to restarts, or the applications that
   # should be running, and respectively restarts or stats them.
   def start_or_restart_appengine()
-    @state = "Preparing to restart AppEngine apps if needed"
+    @state = "Preparing to restart AppEngine apps if needed."
     Djinn.log_debug(@state)
 
     # use a copy of @apps_to_restart here since we delete from it in
@@ -4651,7 +4651,7 @@ HOSTS
       }
     }
 
-    @state = "Preparing to run AppEngine apps if needed"
+    @state = "Preparing to run AppEngine apps if needed."
     Djinn.log_debug(@state)
 
     APPS_LOCK.synchronize {
@@ -4687,6 +4687,7 @@ HOSTS
           else
             if not my_node.is_login?
               # We are not hosting this application: forget about it.
+              Djinn.log_info("We are not hosting app #{app}: forgetting about it.")
               @app_names = @app_names - [app]
               @apps_loaded = @apps_loaded - [app]
             end
@@ -4713,7 +4714,7 @@ HOSTS
             next
           end
 
-          Djinn.log_debug("Checking if qpp #{app} is enabled.")
+          Djinn.log_debug("Checking if app #{app} is enabled.")
           # We really only care if we get exceptions here: if we do the app
           # is either not running, or effectively down.
           begin
@@ -5206,7 +5207,7 @@ HOSTS
   #   The total requests for the app, the requests enqueued and the
   #    timestamp of stat collection.
   def get_haproxy_stats(app_name)
-    Djinn.log_debug("Getting scaling info for application #{app_name}")
+    Djinn.log_debug("Getting scaling info for application #{app_name}.")
 
     total_requests_seen = 0
     total_req_in_queue = 0
