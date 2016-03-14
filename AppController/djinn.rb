@@ -5730,7 +5730,7 @@ HOSTS
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
             # Create the apps hash with useful information containing HAProxy stats.
             all_stats["apps"][app_name] = {
-              "language" => @app_info_map[app_name]["language"],
+              "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
               "appservers" => @app_info_map[app_name]["appengine"].length,
               "http" => @app_info_map[app_name]["nginx"],
               "https" => @app_info_map[app_name]["nginx_https"],
