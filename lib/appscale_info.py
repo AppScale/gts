@@ -38,6 +38,16 @@ def get_keyname():
   """ Returns the keyname for this deployment. """
   return get_db_info()[':keyname']
 
+def get_all_ips():
+  """ Get the IPs for all deployment nodes.
+
+  Returns:
+    A list of node IPs.
+  """
+  nodes = file_io.read(constants.ALL_IPS_LOC)
+  nodes = nodes.split('\n')
+  return filter(None, nodes)
+
 def get_login_ip():
   """ Get the public IP of the head node.
 

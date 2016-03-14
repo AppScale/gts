@@ -4459,7 +4459,7 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/sbin/service appscale-controller start"
+    start = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
     stop = "/usr/sbin/service appscale-controller stop"
     match_cmd = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
@@ -5891,7 +5891,7 @@ HOSTS
       if !app_info_map.nil?
         controller_stats["apps"].each { |app_name, enabled|
           # Get HAProxy requests.
-          Djinn.log_warn("Getting HAProxy stats for: #{app_name}")
+          Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           if app_name != "none"
             begin
               total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
