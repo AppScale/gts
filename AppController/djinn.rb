@@ -4658,6 +4658,7 @@ HOSTS
         @app_info_map.each { |app, info|
           next if not info['appengine']
 
+          Djinn.log_debug("Checking #{app} with appengine #{info}.")
           info['appengine'].each { |location|
             host, port = location.split(":")
             next if @my_private_ip != host
@@ -4869,8 +4870,9 @@ HOSTS
       if @app_info_map[app]['haproxy'].nil?
         @app_info_map[app]['haproxy'] = haproxy_app_port
       end
-
-      @app_info_map[app]['appengine'] = []
+      if @app_info_map[app]['appengine'].nil?
+        @app_info_map[app]['appengine'] = []
+      end
     else
       maybe_reload_taskqueue_worker(app)
     end
