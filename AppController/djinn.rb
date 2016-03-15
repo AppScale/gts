@@ -1625,6 +1625,15 @@ class Djinn
     end
   end
 
+  def set_apps(app_names, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    @app_names = app_names
+    return "App names is now #{@app_names.join(', ')}"
+  end
+
   def update(app_names, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -2788,14 +2797,13 @@ class Djinn
     if File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("Trying to restore data from ZooKeeper.")
       json_state = restore_from_zookeeper()
-      if not json_state.empty?
-        Djinn.log_info("Restored data from ZooKeeper.")
-      end
     end
 
     if json_state.empty?
       Djinn.log_warn("Unable to restore state.")
       return false
+    else
+      Djinn.log_info("Restored data from ZooKeeper.")
     end
 
     Djinn.log_info("Reload State : #{json_state}")
