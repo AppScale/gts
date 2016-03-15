@@ -1860,7 +1860,7 @@ class Djinn
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
-        stats = JSON.parse(get_monitors(secret))
+        stats = JSON.parse(get_all_stats(secret))
 
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
@@ -5876,7 +5876,7 @@ HOSTS
             end
             # Create the apps hash with useful information containing HAProxy stats.
             all_stats["apps"][app_name] = {
-              "language" => @app_info_map[app_name]["language"],
+              "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
               "appservers" => @app_info_map[app_name]["appengine"].length,
               "http" => @app_info_map[app_name]["nginx"],
               "https" => @app_info_map[app_name]["nginx_https"],

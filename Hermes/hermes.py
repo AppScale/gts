@@ -99,12 +99,12 @@ def send_all_stats():
   all_stats = helper.get_all_stats()
 
   # Send request to AppScale Portal.
-  url = "{0}{1}".format(hermes_constants.PORTAL_URL,
-      hermes_constants.PORTAL_STATS_PATH)
+  portal_path = hermes_constants.PORTAL_STATS_PATH.format(deployment_id)
+  url = "{0}{1}".format(hermes_constants.PORTAL_URL, portal_path)
   data = {
     JSONTags.DEPLOYMENT_ID: deployment_id,
     JSONTags.TIMESTAMP: datetime.datetime.utcnow(),
-    JSONTags.ALL_STATS: all_stats
+    JSONTags.ALL_STATS: json.dumps(all_stats)
   }
   logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".
     format(data))
