@@ -1828,7 +1828,7 @@ class Djinn
       write_zookeeper_locations()
 
       # Reload state from head node.
-      restore_appcontroller_state()
+      restore_appcontroller_state() if not my_node.is_login?
 
 #      if update_local_nodes()
 #        Djinn.log_info("[job_start]: updated local node configuration")
@@ -2790,11 +2790,14 @@ class Djinn
       json_state = restore_from_zookeeper()
       if not json_state.empty?
         Djinn.log_info("Restored data from ZooKeeper.")
-      else
-        Djinn.log_warn("Unable to restore state.")
-        return false
       end
     end
+
+    if json_state.empty?
+      Djinn.log_warn("Unable to restore state.")
+      return false
+    end
+
     Djinn.log_info("Reload State : #{json_state}")
 
     @@secret = json_state['@@secret']
