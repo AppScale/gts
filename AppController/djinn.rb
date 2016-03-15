@@ -1625,15 +1625,6 @@ class Djinn
     end
   end
 
-  def set_apps(app_names, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
-    @app_names = app_names
-    return "App names is now #{@app_names.join(', ')}"
-  end
-
   def update(app_names, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -1653,7 +1644,7 @@ class Djinn
     # Begin by marking the apps that should be running.
     current_apps_uploaded = @apps_loaded
     @app_names |= app_names
-    Djinn.log_debug("Running apps: #{apps.join(', ')}.")
+    Djinn.log_debug("Running apps: #{app_names.join(', ')}.")
 
     # Next, restart any apps that have new code uploaded.
     apps_to_restart = current_apps_uploaded & app_names
