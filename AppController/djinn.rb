@@ -1422,6 +1422,126 @@ class Djinn
     return 'OK'
   end
 
+  # Queries the UserAppServer to see if the named application exists,
+  # and it is listening to any port.
+  #
+  # Args:
+  #   appname: The name of the app that we should check for existence.
+  # Returns:
+  #   A boolean indicating whether or not the user application exists.
+  def does_app_exist(appname, secret)
+    Djinn.log_warn("App name #{appname}")
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      return uac.does_app_exist?(appname)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer to check if the  " +
+        "application #{appname} exists")
+    end
+  end
+
+  # Resets a user's password the currently running AppScale deployment.
+  #
+  # Args:
+  #   username: The email-address for the user whose password will be changed.
+  #   password: The SHA1-hashed password that will be set as the user's password.
+  def reset_password(username, password, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      return uac.change_password(username, password)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer while resetting " +
+        "the user's password.")
+    end
+  end
+
+  # Queries the UserAppServer to see if the given user exists.
+  #
+  # Args:
+  #   username: The email address registered as username for the user's application
+  def does_user_exist(username, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      return uac.does_user_exist?(username)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer to check if the " +
+        "the user #{username} exists")
+    end
+  end
+
+  # Grants the given user the ability to perform any administrative action.
+  #
+  # Args:
+  #   username: The e-mail address that should be given administrative authorizations.
+  def set_admin_role(username, is_cloud_admin, capabilities, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac.set_admin_role(username, is_cloud_admin, capabilities)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " +
+        "for the user #{username}")
+    end
+  end
+
+  # Queries the UserAppServer to see which user owns the given application.
+  #
+  #  Args:
+  #    app_id: The name of the app that we should see the administrator on.
+  #  Returns:
+  #    A str containing the name of the application's administrator, or None
+  #      if there is none.
+  def get_app_admin(app_id, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      return uac.get_app_data(app_id)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app admin" +
+        "for the application #{app_id}")
+    end
+  end
+
+  # Tells the UserAppServer to reserve the given app_id for
+  # a particular user.
+  #
+  # Args:
+  #   username: A str representing the app administrator's e-mail address.
+  #   app_id: A str representing the application ID to reserve.
+  #   app_language: The runtime (Python 2.5/2.7, Java, or Go) that the app
+  #     runs over.
+  def reserve_app_id(username, app_id, app_language, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      return uac.commit_new_app_name(username, app_id, app_language)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer while reserving app id " +
+                         "for the application #{app_id}")
+    end
+  end
+
   # Removes an application and stops all AppServers hosting this application.
   #
   # Args:
@@ -5729,14 +5849,29 @@ HOSTS
           if app_name != "none"
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
             # Create the apps hash with useful information containing HAProxy stats.
-            all_stats["apps"][app_name] = {
-              "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
-              "appservers" => @app_info_map[app_name]["appengine"].length,
-              "http" => @app_info_map[app_name]["nginx"],
-              "https" => @app_info_map[app_name]["nginx_https"],
-              "total_reqs" => total_reqs,
-              "reqs_enqueued" => reqs_enqueued
-            }
+            tries = 11
+            begin
+              all_stats["apps"][app_name] = {
+                  "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
+                  "appservers" => @app_info_map[app_name]["appengine"].length,
+                  "http" => @app_info_map[app_name]["nginx"],
+                  "https" => @app_info_map[app_name]["nginx_https"],
+                  "total_reqs" => total_reqs,
+                  "reqs_enqueued" => reqs_enqueued
+              }
+            rescue => exception
+              backtrace = exception.backtrace.join("\n")
+              message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+              tries -= 1
+              if tries > 0
+                Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
+                Kernel.sleep(SMALL_WAIT)
+                retry
+              else
+                @state = message
+                HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+              end
+            end
           end
         }
       end
