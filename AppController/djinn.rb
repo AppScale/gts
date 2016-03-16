@@ -4663,7 +4663,7 @@ HOSTS
             host, port = location.split(":")
             next if @my_private_ip != host
 
-            if not MonitInterface.is_running("#{app}-#{port}")
+            if not MonitInterface.is_running?("#{app}-#{port}")
               Djinn.log_info("Starting AppServer for #{app} at port #{port}.")
               setup_appengine_application(app, "add_appserver")
             end
