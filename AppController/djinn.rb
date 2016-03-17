@@ -2601,7 +2601,7 @@ class Djinn
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}.")
 
     # Find and remove an entry for this appserver node and app.
-    to_add = @app_info_map[app_id]['appengine'].index("#{ip}:-1"
+    to_add = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
     if to_add
       @app_info_map[app_id]['appengine'].delete_at(to_add)
     else
