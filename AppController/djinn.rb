@@ -5369,7 +5369,7 @@ HOSTS
 
     if !File.exists?(app_path)
       Djinn.log_warn("Cannot find source code for app: #{app}.")
-      error_msg = "ERROR: No source code found for app: #{app}.")
+      error_msg = "ERROR: No source code found for app: #{app}."
     else
       if remove_old
         Djinn.log_info("Removing old application directory for app: #{app}.")
@@ -5387,7 +5387,7 @@ HOSTS
           # (which can happen if the scp fails on a large app), throw up a dummy
           # app.
           if !HelperFunctions.app_has_config_file?(app_path)
-            error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app} "
+            error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
           else
             # Application is good: let's set it up.
             HelperFunctions.setup_app(app)
@@ -5395,7 +5395,7 @@ HOSTS
         else
           # If we couldn't get a copy of the application, place a dummy error
           # application to inform the user we had issues.
-          error_msg = "ERROR: Failed to copy app: #{app}"
+          error_msg = "ERROR: Failed to copy app: #{app}."
         end
       end
     end
