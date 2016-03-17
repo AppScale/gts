@@ -4767,6 +4767,7 @@ HOSTS
       Djinn.log_warn("Invalid state request (#{state}) for #{app}")
       return
     end
+    Djinn.log_debug("setup_appengine_application: got a call for #{app}: #{state}.")
 
     # Let's get the application language.
     uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -4840,6 +4841,8 @@ HOSTS
       Djinn.log_error("Cannot find an available port for application #{app}")
       return
     end
+    Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
+
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
@@ -4897,6 +4900,7 @@ HOSTS
       # deploys?
       if state == "restart"
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
+        setup_app_dir(app, true)
         begin
           result = app_manager.restart_app_instances_for_app(app,
             @app_info_map[app]['language'])
@@ -5352,6 +5356,58 @@ HOSTS
     @last_decision[app_name] = Time.now.to_i
   end
 
+  # This function unpack an application tarball if needed. A removal of
+  # the old application code can be forced with a parameter.
+  #
+  # Args:
+  #   app       : the application name to setup
+  #   remove_old: boolean to force a re-setup of the app from the tarball
+  def self.setup_app_dir(app, remove_old=false)
+    app_dir = "/var/apps/#{app}/app"
+    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
+    error_msg = ""
+
+    if !File.exists?(app_path)
+      Djinn.log_warn("Cannot find source code for app: #{app}.")
+      error_msg = "ERROR: No source code found for app: #{app}.")
+    else
+      if remove_old
+        Djinn.log_info("Removing old application directory for app: #{app}.")
+        FileUtils.rm_rf(app_dir)
+      end
+
+      if !File.directory?(app_dir)
+        Djinn.log_info("App untar directory created from scratch.")
+        FileUtils.mkdir_p(app_dir)
+
+        # Let's make sure we have a copy of the application locally.
+        if copy_app_to_local(app)
+          # Let's make sure their app has an app.yaml or appengine-web.xml in it,
+          # since the following code assumes it is present. If it is not there
+          # (which can happen if the scp fails on a large app), throw up a dummy
+          # app.
+          if !HelperFunctions.app_has_config_file?(app_path)
+            error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app} "
+          else
+            # Application is good: let's set it up.
+            HelperFunctions.setup_app(app)
+          end
+        else
+          # If we couldn't get a copy of the application, place a dummy error
+          # application to inform the user we had issues.
+          error_msg = "ERROR: Failed to copy app: #{app}"
+        end
+      end
+    end
+
+    if !error_msg.empty?
+      # Something went wrong: place the error applcation instead.
+      place_error_app(app, error_msg, @app_info_map[app]['language'])
+      @app_info_map[app]['language'] = "python27"
+    end
+  end
+
+
   # Starts a new AppServer for the given application.
   #
   # Args:
@@ -5369,38 +5425,13 @@ HOSTS
       return "false: application #{app} is unknown."
     end
 
+    # Make sure we have the application code.
+    setup_app_dir(app)
+
     APPS_LOCK.synchronize {
       app_language = @app_info_map[app]['language']
 
-      # Delete old version of the app if it's a start or restart.
-      app_dir = "/var/apps/#{app}/app"
-      app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
-      FileUtils.rm_rf(app_dir)
-      FileUtils.mkdir_p(app_dir)
-      Djinn.log_debug("App untar directory created from scratch")
-
-      # Let's make sure we have a copy of the application locally.
-      if copy_app_to_local(app)
-        # Let's make sure their app has an app.yaml or appengine-web.xml in it,
-        # since the following code assumes it is present. If it is not there
-        # (which can happen if the scp fails on a large app), throw up a dummy
-        # app.
-        if !HelperFunctions.app_has_config_file?(app_path)
-          place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " +
-            app, app_language)
-        else
-          # Application is good: let's set it up.
-          HelperFunctions.setup_app(app)
-        end
-      else
-        # If we couldn't get a copy of the application, place a dummy error
-        # application to inform the user we had issues.
-        place_error_app(app, "ERROR: Failed to copy app: #{app}", app_language)
-        app_language = "python27"
-      end
-
-      # Only take a new port for this application if there's no data about
-      # this app. Use the existing port if there is info about it.
+      # We use the ports as assigned by the head node.
       nginx_port = @app_info_map[app]['nginx']
       https_port = @app_info_map[app]['nginx_https']
       proxy_port = @app_info_map[app]['haproxy']
