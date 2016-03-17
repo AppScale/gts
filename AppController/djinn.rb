@@ -375,11 +375,6 @@ class Djinn
   SCALEUP_QUEUE_SIZE_THRESHOLD = 5
 
 
-  # The path to the file where we will store information about AppServer
-  # scaling decisions.
-  AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
-
-
   # A Float that determines how much CPU can be used before the autoscaler will
   # stop adding AppServers on a node.
   MAX_CPU_FOR_APPSERVERS = 90.00
@@ -4832,6 +4827,9 @@ HOSTS
       @app_info_map[app]['haproxy'] = find_lowest_free_port(
         HAProxy::START_PORT)
     end
+    if @app_info_map[app]['appengine'].nil?
+      @app_info_map[app]['appengine'] = []
+    end
     if !@app_info_map[app]['nginx'] or
             !@app_info_map[app]['nginx_https'] or
             !@app_info_map[app]['haproxy']
@@ -5023,9 +5021,7 @@ HOSTS
   # one thread call it at a time. We also only perform scaling if the user
   # wants us to, and simply return otherwise.
   def scale_appservers_within_nodes
-    if @options['autoscale'].downcase == "true"
-      perform_scaling_for_appservers()
-    end
+    perform_scaling_for_appservers()
   end
 
 
@@ -5148,7 +5144,9 @@ HOSTS
     time_requests_were_seen = 0
 
     # Let's make sure we have the minimum number of appserver running.
+    Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if @app_info_map[app_name]['appengine'].length < @num_appengines
+       Djinn.log_info("App #{app_name} doesn't have appservers.")
        @last_decision[app_name] = 0
       return :scale_up
     end
@@ -5455,7 +5453,7 @@ HOSTS
       Djinn.log_info("Done adding AppServer for #{app}.")
 
       # Add an application entry to ZooKeeper.
-      done_uploading(app, app_path, @@secret) ??
+      done_uploading(app, app_path, @@secret)
     }
   end
 
