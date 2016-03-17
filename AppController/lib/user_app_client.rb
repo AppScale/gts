@@ -342,8 +342,16 @@ class UserAppClient
   end
 
   def set_admin_role(username, is_cloud_admin, capabilities, retry_on_except=true)
-    set_cloud_admin_status(username, is_cloud_admin, retry_on_except)
-    set_capabilities(username, capabilities, retry_on_except)
+    result_cloud_admin_status = set_cloud_admin_status(username, is_cloud_admin, retry_on_except)
+    result_set_capabilities = set_capabilities(username, capabilities, retry_on_except)
+    if result_cloud_admin_status and result_set_capabilities == "true"
+      puts "We successfully set admin role for the given user."
+      return "true"
+    else
+      puts "Got this message back while setting cloud admin status and capabilities:" +
+          "Set cloud admin status: [#{result_cloud_admin_status}]" +
+          "Set capabilities: [#{result_set_capabilities}]"
+    end
   end
 
   def set_cloud_admin_status(username, is_cloud_admin, retry_on_except)
@@ -358,6 +366,7 @@ class UserAppClient
     else
       puts "[unexpected] Got this message back: [#{result}]"
     end
+    return result
   end
 
   def set_capabilities(username, capabilities, retry_on_except)
@@ -372,6 +381,7 @@ class UserAppClient
     else
       puts "[unexpected] Got this message back: [#{result}]"
     end
+    return result
   end
 
 end

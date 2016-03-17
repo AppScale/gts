@@ -1477,7 +1477,21 @@ class Djinn
       return uac.does_user_exist?(username)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer to check if the " +
-        "the user #{username} exists")
+        "the user #{username} exists.")
+    end
+  end
+
+  def create_user(username, password, account_type, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    begin
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      return uac.commit_new_user(username, password, account_type)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer while commiting " +
+                         "the user #{username}.")
     end
   end
 
@@ -1492,10 +1506,10 @@ class Djinn
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
-      uac.set_admin_role(username, is_cloud_admin, capabilities)
+      return uac.set_admin_role(username, is_cloud_admin, capabilities)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " +
-        "for the user #{username}")
+        "for the user #{username}.")
     end
   end
 
@@ -1516,7 +1530,7 @@ class Djinn
       return uac.get_app_data(app_id)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while getting the app admin" +
-        "for the application #{app_id}")
+        "for the application #{app_id}.")
     end
   end
 
@@ -1538,7 +1552,7 @@ class Djinn
       return uac.commit_new_app_name(username, app_id, app_language)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while reserving app id " +
-                         "for the application #{app_id}")
+                         "for the application #{app_id}.")
     end
   end
 
