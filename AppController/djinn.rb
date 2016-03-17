@@ -1846,7 +1846,7 @@ class Djinn
       # These operations can take some time, so we spawn a thread for it.
       Thread.new {
         check_running_apps()
-        start_or_restart_appengine()
+        restart_appengine()
         if my_node.is_login?
           scale_appservers_within_nodes()
           scale_appservers_across_nodes()
@@ -4614,7 +4614,7 @@ HOSTS
 
   # Examine the list of applications to restarts, or the applications that
   # should be running, and respectively restarts or stats them.
-  def start_or_restart_appengine()
+  def restart_appengine()
     @state = "Preparing to restart AppEngine apps if needed."
     Djinn.log_debug(@state)
 
@@ -4630,17 +4630,6 @@ HOSTS
       APPS_LOCK.synchronize {
         setup_appengine_application(app_name, "restart")
         maybe_reload_taskqueue_worker(app_name)
-      }
-    }
-
-    @state = "Preparing to run AppEngine apps if needed."
-    Djinn.log_debug(@state)
-
-    APPS_LOCK.synchronize {
-      apps_to_load = @app_names - @apps_loaded - ["none"]
-      apps_to_load.each { |app|
-        setup_appengine_application(app, "new")
-        maybe_start_taskqueue_worker(app)
       }
     }
   end
@@ -4741,6 +4730,16 @@ HOSTS
           end
         }
         @app_names.uniq!
+
+        # And now starts applications.
+        @state = "Preparing to run AppEngine apps if needed."
+        Djinn.log_debug(@state)
+
+        apps_to_load = @app_names - @apps_loaded - ["none"]
+        apps_to_load.each { |app|
+          setup_appengine_application(app, "new")
+          maybe_start_taskqueue_worker(app)
+        }
       }
     end
   end
