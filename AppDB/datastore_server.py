@@ -835,7 +835,7 @@ class DatastoreDistributed():
     value(s): The string representation of mulitiple properties.
     entity_key: The entity key (full path) used as a means of having a unique
       identifier. This prevents two entities with the same values from
-      colliding. 
+      colliding.
 
     Args:
       index: A datstore_pb.CompositeIndex.
@@ -862,7 +862,7 @@ class DatastoreDistributed():
 
     value_dict = {}
     for prop in entity.property_list():
-      value_dict[prop.name()]  = \
+      value_dict[prop.name()] = \
         str(DatastoreDistributed.__encode_index_pb(prop.value()))
 
     # Position list and filters are used if we're creating a composite
@@ -885,7 +885,7 @@ class DatastoreDistributed():
       if name in value_dict:
         value = value_dict[name]
       elif name == "__key__":
-        value = DatastoreDistributed.__encode_index_pb(entity.key().path())
+        value = ent_key
       else:
         logging.warning("Given entity {0} is missing a property value {1}.".\
           format(entity, prop.name()))
@@ -3560,8 +3560,8 @@ class DatastoreDistributed():
       last_result = cursor._GetLastResult()
       composite_index = query.composite_index_list()[0]
        
-      startrow = self.get_composite_index_key(composite_index, last_result, \
-        position_list=query.compiled_cursor().position_list(), 
+      startrow = self.get_composite_index_key(composite_index, last_result,
+        position_list=query.compiled_cursor().position_list(),
         filters=query.filter_list())
       start_inclusive = False
       if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
@@ -3577,9 +3577,9 @@ class DatastoreDistributed():
         cursor = appscale_stub_util.ListCursor(query)
         last_result = cursor._GetEndResult()
         composite_index = query.composite_index_list()[0]
-        endrow = self.get_composite_index_key(composite_index, last_result, \
-          position_list=end_compiled_cursor.position_list(), filters= \
-          query.filter_list())
+        endrow = self.get_composite_index_key(composite_index, last_result,
+          position_list=end_compiled_cursor.position_list(),
+          filters=query.filter_list())
       else:
         self.logger.warning('Unable to use end compiled cursor for query:\n'
           '{}'.format(query))
