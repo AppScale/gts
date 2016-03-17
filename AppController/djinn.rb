@@ -4843,6 +4843,16 @@ HOSTS
     end
     Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
 
+    # Now let's make sure we have the correct version of the app. In the
+    # case of a new start we need to ensure we can unpack the tarball, and
+    # in the case of a restart, we need to remove the old unpacked source
+    # code, and use the new one.
+    if state == "new"
+      setup_app_dir(app)
+    else
+      setup_app_dir(app, true)
+    end
+
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
@@ -4900,7 +4910,6 @@ HOSTS
       # deploys?
       if state == "restart"
         Djinn.log_info("Restarting AppServers hosting old version of #{app}")
-        setup_app_dir(app, true)
         begin
           result = app_manager.restart_app_instances_for_app(app,
             @app_info_map[app]['language'])
@@ -5362,41 +5371,37 @@ HOSTS
   # Args:
   #   app       : the application name to setup
   #   remove_old: boolean to force a re-setup of the app from the tarball
-  def self.setup_app_dir(app, remove_old=false)
+  def setup_app_dir(app, remove_old=false)
     app_dir = "/var/apps/#{app}/app"
     app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
     error_msg = ""
 
-    if !File.exists?(app_path)
-      Djinn.log_warn("Cannot find source code for app: #{app}.")
-      error_msg = "ERROR: No source code found for app: #{app}."
-    else
-      if remove_old
-        Djinn.log_info("Removing old application directory for app: #{app}.")
-        FileUtils.rm_rf(app_dir)
-      end
+    if remove_old
+      Djinn.log_info("Removing old application directory for app: #{app}.")
+      FileUtils.rm_rf(app_path)
+      FileUtils.rm_rf(app_dir)
+    end
 
-      if !File.directory?(app_dir)
-        Djinn.log_info("App untar directory created from scratch.")
-        FileUtils.mkdir_p(app_dir)
+    if !File.directory?(app_dir)
+      Djinn.log_info("App untar directory created from scratch.")
+      FileUtils.mkdir_p(app_dir)
 
-        # Let's make sure we have a copy of the application locally.
-        if copy_app_to_local(app)
-          # Let's make sure their app has an app.yaml or appengine-web.xml in it,
-          # since the following code assumes it is present. If it is not there
-          # (which can happen if the scp fails on a large app), throw up a dummy
-          # app.
-          if !HelperFunctions.app_has_config_file?(app_path)
-            error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
-          else
-            # Application is good: let's set it up.
-            HelperFunctions.setup_app(app)
-          end
+      # Let's make sure we have a copy of the application locally.
+      if copy_app_to_local(app)
+        # Let's make sure their app has an app.yaml or appengine-web.xml in it,
+        # since the following code assumes it is present. If it is not there
+        # (which can happen if the scp fails on a large app), throw up a dummy
+        # app.
+        if !HelperFunctions.app_has_config_file?(app_path)
+          error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
         else
-          # If we couldn't get a copy of the application, place a dummy error
-          # application to inform the user we had issues.
-          error_msg = "ERROR: Failed to copy app: #{app}."
+          # Application is good: let's set it up.
+          HelperFunctions.setup_app(app)
         end
+      else
+        # If we couldn't get a copy of the application, place a dummy error
+        # application to inform the user we had issues.
+        error_msg = "ERROR: Failed to copy app: #{app}."
       end
     end
 
