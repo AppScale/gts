@@ -5265,15 +5265,15 @@ HOSTS
           # The host needs to have normalized average load less than
           # MAX_LOAD_AVG, current CPU usage less than 90% and enough
           # memory to run an AppServer (and some safe extra).
-          if node['free_memory'] > Integer(@options['max_memory']) + SAFE_MEM and
-            node['cpu'] < MAX_CPU_FOR_APPSERVERS and
-            node['load'] / node['num_cpu'] < MAX_LOAD_AVG
+          if Float(node['free_memory']) > Integer(@options['max_memory']) + SAFE_MEM and
+            Float(node['cpu']) < MAX_CPU_FOR_APPSERVERS and
+            Float(node['load']) / Float(node['num_cpu']) < MAX_LOAD_AVG
             # The host can run a new appserver. Let's check if it's a
             # better candidate (we do use lowest cpu load for it).
             if lowest_load == nil or
-              lowest_load > (node['load'] / node['num_cpu'])
+              lowest_load > (Float(node['load']) / Float(node['num_cpu']))
               appserver_to_use = host
-              lowest_load = node['load'] / node['num_cpu']
+              lowest_load = Float(node['load']) / Float(node['num_cpu'])
             end
           else
             Djinn.log_debug("#{host} is too busy: not using it to scale #{app_name}")
