@@ -287,14 +287,6 @@ class Djinn
   BAD_INPUT_MSG = JSON.dump({'success' => false, 'message' => 'bad input'})
 
 
-  # The message to display to users if they try to add nodes to a one node
-  # deployment, which currently is not supported.
-  CANT_SCALE_FROM_ONE_NODE = JSON.dump({
-    'success' => false,
-    'message' => "can't scale up from a one node deployment"
-  })
-
-
   # The message that we display to the user if they want to scale up services
   # in an Xen/KVM deployment but don't have enough open nodes to do so.
   NOT_ENOUGH_OPEN_NODES = JSON.dump({'success' => false,
@@ -334,6 +326,7 @@ class Djinn
   # boot, and to reap the benefit of an already running instance. This is
   # a multiplication factor we use with the above thresholds.
   SCALE_TIME_MULTIPLIER = 6
+
 
   # This is the generic retries to do.
   RETRIES = 5
@@ -388,6 +381,7 @@ class Djinn
   # We need to leave some extra RAM available for the system to operate
   # safely.
   SAFE_MEM = 500
+
 
   # A regular expression that can be used to match any character that is not
   # acceptable to use in a hostname:port string, used to filter out unacceptable
@@ -1803,13 +1797,15 @@ class Djinn
     wait_for_nodes_to_finish_loading(@nodes)
 
     # We update the dashboard on a separate thread.
-    Thread.new {
-      loop {
-        Kernel.sleep(DUTY_CYCLE)
-        flush_log_buffer()
-        send_instance_info_to_dashboard()
+    if my_node.is_login?
+      Thread.new {
+        loop {
+          Kernel.sleep(DUTY_CYCLE)
+          flush_log_buffer()
+          send_instance_info_to_dashboard()
+        }
       }
-    }
+    end
 
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
@@ -2602,7 +2598,15 @@ class Djinn
       return NOT_READY
     end
 
-    Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}")
+    Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}.")
+
+    # Find and remove an entry for this appserver node and app.
+    to_add = @app_info_map[app_id]['appengine'].index("#{ip}:-1"
+    if to_add
+      @app_info_map[app_id]['appengine'].delete_at(to_add)
+    else
+      Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
+    end
     @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
     # If this function is called twice, ensure there are no duplicate values.
     @app_info_map[app_id]['appengine'].uniq!()
@@ -4638,32 +4642,6 @@ HOSTS
   # running, compare them with the list we have on the load balancer, and
   # marks the missing ones for start at the next cycle.
   def check_running_apps()
-    # AppEngine nodes checks if the appservers are still running.
-    if my_node.is_appengine?
-      @app_info_map.each { |app, info|
-        next if not info['appengine']
-
-        Djinn.log_debug("Checking #{app} with appengine #{info}.")
-        info['appengine'].each { |location|
-          host, port = location.split(":")
-          next if @my_private_ip != host
-
-          if not MonitInterface.is_running?("#{app}-#{port}")
-            login_ip = get_login.private_ip
-            Djinn.log_warn("Cannot start AppServer for #{app} at port #{port}: port in use.")
-            acc = AppControllerClient.new(login_ip, @@secret)
-            begin
-              acc.remove_appserver_from_haproxy(app, login_ip, port)
-            rescue FailedNodeException
-              Djinn.log_warn("Failed to notify head node to remove appserver at port #{port}.")
-            end
-          end
-        }
-        # TODO: Check that all the appservers running are indeed known to
-        # the head node.
-      }
-    end
-
     # The login node cross-check with the UserAppServer if all the
     # applications that should be running are indeed running.
     if my_node.is_login?
@@ -4740,6 +4718,35 @@ HOSTS
           setup_appengine_application(app, "new")
           maybe_start_taskqueue_worker(app)
         }
+      }
+    end
+
+    # AppEngine nodes checks if the appservers are still running.
+    if my_node.is_appengine?
+      @app_info_map.each { |app, info|
+        next if not info['appengine']
+
+        Djinn.log_debug("Checking #{app} with appengine #{info}.")
+        info['appengine'].each { |location|
+          host, port = location.split(":")
+          next if @my_private_ip != host
+
+          if port < 0
+            # We need to start an appserver for this app.
+            add_appserver_process(app, @@secret)
+          elsif not MonitInterface.is_running?("#{app}-#{port}")
+            Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
+            login_ip = get_login.private_ip
+            acc = AppControllerClient.new(login_ip, @@secret)
+            begin
+              acc.remove_appserver_from_haproxy(app, login_ip, port)
+            rescue FailedNodeException
+              Djinn.log_warn("Failed to notify head node to remove appserver at port #{port}.")
+            end
+          end
+        }
+        # TODO: Check that all the appservers running are indeed known to
+        # the head node.
       }
     end
   end
@@ -5298,17 +5305,7 @@ HOSTS
     # If we found a host, let's use it.
     if appserver_to_use != nil
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
-      if appserver_to_use == my_node.private_ip
-        add_appserver_process(app_name, @@secret)
-      else
-        acc = AppControllerClient.new(appserver_to_use, @@secret)
-        begin
-          acc.add_appserver_process(app_name)
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to talk to #{appserver_to_use} to add" +
-            " appserver for app #{app_name}")
-        end
-      end
+      @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
     else
       Djinn.log_info("No AppServer available to scale #{app_name}")
@@ -5351,17 +5348,7 @@ HOSTS
     appserver_to_use, port = scapegoat.split(":")
     Djinn.log_info("Removing an appserver from #{appserver_to_use} for #{app_name}")
 
-    if appserver_to_use == my_node.private_ip
-      remove_appserver_process(app_name, port, @@secret)
-    else
-      acc = AppControllerClient.new(appserver_to_use, @@secret)
-      begin
-        acc.remove_appserver_process(app_name, port)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to #{appserver_to_use} to remove" +
-          " appserver for app #{app_name}")
-      end
-    end
+    @app_info_map[app_name]['appengine'].delete("#{appserver_to_use}:#{port}")
     @last_decision[app_name] = Time.now.to_i
   end
 
