@@ -174,6 +174,7 @@ BOO
       return appengines.split("\n")
     else
       return []
+    end
   end
 
   private
