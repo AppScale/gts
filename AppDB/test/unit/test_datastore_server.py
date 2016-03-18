@@ -8,16 +8,12 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
 from google.appengine.datastore import entity_pb
-from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_pb
 from google.appengine.api import api_base_pb
-from google.appengine.api import datastore
 from google.appengine.ext import db
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from appscale_datastore_batch import DatastoreFactory
 from datastore_server import DatastoreDistributed
-from datastore_server import BLOCK_SIZE
 from datastore_server import TOMBSTONE
 from dbconstants import *
 
