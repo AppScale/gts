@@ -4673,7 +4673,7 @@ HOSTS
               next
             rescue AppIsDownException
               Djinn.log_info("App #{app} is down.")
-              @apps_loaded = @apps_loaded - [app]
+              next
             end
             Djinn.log_info("App #{app} is not running: marked for start.")
 
