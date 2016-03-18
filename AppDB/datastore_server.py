@@ -2373,14 +2373,13 @@ class DatastoreDistributed():
 
     return self.__extract_entities(final_result)
 
-  def kindless_query(self, query, filter_info, order_info):
+  def kindless_query(self, query, filter_info):
     """ Performs kindless queries where queries are performed 
         on the entity table and go across kinds.
       
     Args: 
       query: The query to run.
       filter_info: Tuple with filter operators and values.
-      order_info: Tuple with property name and the sort order.
     Returns:
       Entities that match the query.
     """       
@@ -2395,6 +2394,8 @@ class DatastoreDistributed():
 
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
+    order = None
+    prop_name = None
 
     startrow = prefix + self._SEPARATOR + __key__
     endrow = prefix + self._SEPARATOR + self._TERM_STRING
@@ -2419,10 +2420,6 @@ class DatastoreDistributed():
       startrow = prefix + self._SEPARATOR 
       endrow = prefix + self._SEPARATOR + __key__ 
 
-    if not order_info:
-      order = None
-      prop_name = None
-    
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
@@ -2551,7 +2548,7 @@ class DatastoreDistributed():
     if query.has_ancestor() and not query.has_kind():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
-      return self.kindless_query(query, filter_info, order_info)
+      return self.kindless_query(query, filter_info)
     elif query.kind().startswith("__") and \
       query.kind().endswith("__"):
       # Use the default namespace for metadata queries.

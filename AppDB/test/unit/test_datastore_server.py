@@ -693,7 +693,7 @@ class TestDatastoreServer(unittest.TestCase):
     filter_info = {
       '__key__' : [[0, 0]]
     }
-    dd.kindless_query(query, filter_info, None)
+    dd.kindless_query(query, filter_info)
 
   def test_dynamic_delete(self):
     del_request = flexmock()
