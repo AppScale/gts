@@ -2432,14 +2432,16 @@ class DatastoreDistributed():
         start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self.get_limit(query)
-    return self.fetch_from_entity_table(startrow,
-                                        endrow,
-                                        limit, 
-                                        0, 
-                                        start_inclusive, 
-                                        end_inclusive, 
-                                        query, 
-                                        0)
+    return self.fetch_from_entity_table(
+      startrow,
+      endrow,
+      limit,
+      offset=0,
+      start_inclusive=start_inclusive,
+      end_inclusive=end_inclusive,
+      query=query,
+      txn_id=0,
+    )
   
   def reverse_path(self, key):
     """ Use this function for reversing the key ancestry order. 
