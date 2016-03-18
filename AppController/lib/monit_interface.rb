@@ -162,6 +162,17 @@ BOO
     return (not output == "")
   end
 
+  # This functions returns a list of running applications: the
+  # dev_appservers needs to still be monitored by monit.
+  # Returns:
+  #   A list of application:port
+  def self.running_appengines()
+    output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
+    appengines = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
+    Djinn.log_debug("Found these appengines running: #{appengines}.")
+    return appengines.split("\n")
+  end
+
   private
   def self.run_cmd(cmd, sleep=false)
     output = ""

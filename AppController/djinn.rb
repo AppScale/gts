@@ -4723,6 +4723,9 @@ HOSTS
 
     # AppEngine nodes checks if the appservers are still running.
     if my_node.is_appengine?
+      to_terminate = []
+      to_start = []
+      my_appengines = []
       @app_info_map.each { |app, info|
         next if not info['appengine']
 
@@ -4731,22 +4734,45 @@ HOSTS
           host, port = location.split(":")
           next if @my_private_ip != host
 
-          if port < 0
-            # We need to start an appserver for this app.
-            add_appserver_process(app, @@secret)
+          if Integer(port) < 0
+            to_start << app
           elsif not MonitInterface.is_running?("#{app}-#{port}")
             Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
-            login_ip = get_login.private_ip
-            acc = AppControllerClient.new(login_ip, @@secret)
-            begin
-              acc.remove_appserver_from_haproxy(app, login_ip, port)
-            rescue FailedNodeException
-              Djinn.log_warn("Failed to notify head node to remove appserver at port #{port}.")
-            end
+            to_terminate << "#{app}:#{port}"
+          else
+            my_appengines << "#{app}:#{port}"
           end
         }
-        # TODO: Check that all the appservers running are indeed known to
-        # the head node.
+      }
+      Djinn.log_debug("Found the following app/port: #{my_appengines}")
+
+      # Check that all the appservers running are indeed known to the
+      # head node.
+      # TODO: this should be implemented in the AppManager
+      MonitInterface.running_appengines().each { |appengine|
+        found_on_head_node = false
+        my_appengines.each { |ae|
+          if ae == appengine
+            found_on_head_node = true
+            break
+          end
+        }
+        to_terminate << "#{appengine}" if !found_on_head_node
+      }
+      to_start.each { |app|
+        Djinn.log_info("Starting appserver for app: #{app}")
+        add_appserver_process(app, @@secret)
+      }
+      to_terminate.each { |appserver|
+        Djinn.log_info("Terminate the following appserver: #{appserver}")
+        app, port = appserver.split(":")
+        app_manager = AppManagerClient.new(my_node.private_ip)
+        begin
+          result = app_manager.stop_app_instance(app, port)
+          Djinn.log_info("stop_app_instance returned #{result}.")
+        rescue FailedNodeException
+          Djinn.log_warn("Failed to stop instance #{appserver}.")
+        end
       }
     end
   end
@@ -5065,7 +5091,7 @@ HOSTS
         when :not_running
           Djinn.log_info("App #{app_name} is not running (yet?).")
         when :down
-          Djinn.log_info("App #{app_name} backed is down.")
+          Djinn.log_info("App #{app_name} backend is down.")
         when :no_change
           Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
         else
