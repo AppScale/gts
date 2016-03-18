@@ -1821,12 +1821,6 @@ class Djinn
       # Reload state from head node.
       restore_appcontroller_state() if not my_node.is_login?
 
-#      if update_local_nodes()
-#        Djinn.log_info("[job_start]: updated local node configuration")
-#      else
-#        Djinn.log_debug("[job_start]: no need to update local node configuration")
-#      end
-
       if my_node.is_shadow?
         # Since we now backup state to ZK, don't make everyone do it.
         # The Shadow has the most up-to-date info, so let it handle this
@@ -4675,10 +4669,13 @@ HOSTS
               # This is a 503 since haproxy is seeing all the backend
               # servers as DOWN. Let's remove them and have the autoscaler
               # engine to replace them.
-              Djinn.log_warn("App #{app} is down.")
+              Djinn.log_warn("App #{app} is down: trying to restart it.")
+              @app_info_map[app]['appengine'].each { |location|
+                host, port = location.split(":")
+                remove_appserver_from_haproxy(app, host, port, @@secret)
+              }
               @app_info_map[app]['appengine'] = []
               @apps_loaded = @apps_loaded - [app]
-              next
             end
             Djinn.log_info("App #{app} is not running: marked for start.")
 
