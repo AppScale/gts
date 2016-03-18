@@ -1,28 +1,23 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+from flexmock import flexmock
 import os
 import sys
 import unittest
-from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
-from google.appengine.datastore import entity_pb
-from google.appengine.datastore import datastore_index
-from google.appengine.datastore import datastore_pb
 from google.appengine.api import api_base_pb
-from google.appengine.api import datastore
+from google.appengine.datastore import entity_pb
+from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from appscale_datastore_batch import DatastoreFactory
 from datastore_server import DatastoreDistributed
-from datastore_server import BLOCK_SIZE
 from datastore_server import TOMBSTONE
-from dbconstants import *
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from zkappscale import zktransaction as zk
+from dbconstants import APP_ENTITY_SCHEMA
+from dbconstants import JOURNAL_SCHEMA
+from dbconstants import KEY_DELIMITER
 from zkappscale.zktransaction import ZKTransactionException
 
 class Item(db.Model):
@@ -697,7 +692,7 @@ class TestDatastoreServer(unittest.TestCase):
     filter_info = {
       '__key__' : [[0, 0]]
     }
-    dd.kindless_query(query, filter_info, None)
+    dd.kindless_query(query, filter_info)
 
   def test_dynamic_delete(self):
     del_request = flexmock()
