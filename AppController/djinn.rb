@@ -4672,7 +4672,12 @@ HOSTS
               Djinn.log_info("App #{app} is not running yet.")
               next
             rescue AppIsDownException
-              Djinn.log_info("App #{app} is down.")
+              # This is a 503 since haproxy is seeing all the backend
+              # servers as DOWN. Let's remove them and have the autoscaler
+              # engine to replace them.
+              Djinn.log_warn("App #{app} is down.")
+              @app_info_map[app]['appengine'] = []
+              @apps_loaded = @apps_loaded - [app]
               next
             end
             Djinn.log_info("App #{app} is not running: marked for start.")
