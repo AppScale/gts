@@ -2385,40 +2385,32 @@ class DatastoreDistributed():
     """       
     prefix = self.get_table_prefix(query)
 
+    filters = []
     if '__key__' in filter_info:
-      __key__ = str(filter_info['__key__'][0][1])
-      op = filter_info['__key__'][0][0]
-    else:
-      __key__ = ''
-      op = None
+      for filter in filter_info['__key__']:
+        filters.append({'key': str(filter[1]), 'op': filter[0]})
 
-    end_inclusive = self._ENABLE_INCLUSIVITY
-    start_inclusive = self._ENABLE_INCLUSIVITY
     order = None
     prop_name = None
 
-    startrow = prefix + self._SEPARATOR + __key__
+    startrow = prefix + self._SEPARATOR
     endrow = prefix + self._SEPARATOR + self._TERM_STRING
-
-    if op and op == datastore_pb.Query_Filter.EQUAL:
-      startrow = prefix + self._SEPARATOR + __key__
-      endrow = prefix + self._SEPARATOR + __key__
-    elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
-      start_inclusive = self._DISABLE_INCLUSIVITY
-      startrow = prefix + self._SEPARATOR + __key__ 
-      endrow = prefix + self._SEPARATOR + self._TERM_STRING
-      end_inclusive = self._DISABLE_INCLUSIVITY
-    elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-      startrow = prefix + self._SEPARATOR + __key__
-      endrow = prefix + self._SEPARATOR + self._TERM_STRING
-      end_inclusive = self._DISABLE_INCLUSIVITY
-    elif op and op == datastore_pb.Query_Filter.LESS_THAN:
-      startrow = prefix + self._SEPARATOR  
-      endrow = prefix + self._SEPARATOR + __key__
-      end_inclusive = self._DISABLE_INCLUSIVITY
-    elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-      startrow = prefix + self._SEPARATOR 
-      endrow = prefix + self._SEPARATOR + __key__ 
+    start_inclusive = self._ENABLE_INCLUSIVITY
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    for filter in filters:
+      if filter['op'] == datastore_pb.Query_Filter.EQUAL:
+        startrow = prefix + self._SEPARATOR + filter['key']
+        endrow = startrow
+      if filter['op'] == datastore_pb.Query_Filter.GREATER_THAN:
+        startrow = prefix + self._SEPARATOR + filters[0]['key']
+        start_inclusive = self._DISABLE_INCLUSIVITY
+      if filter['op'] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        startrow = prefix + self._SEPARATOR + filters[0]['key']
+      if filter['op'] == datastore_pb.Query_Filter.LESS_THAN:
+        endrow = prefix + self._SEPARATOR + filter['key']
+        end_inclusive = self._DISABLE_INCLUSIVITY
+      if filter['op'] == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        endrow = prefix + self._SEPARATOR + filter['key']
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
