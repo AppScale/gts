@@ -2866,25 +2866,10 @@ class DatastoreDistributed():
       start_inclusive = False
 
     if end_compiled_cursor:
-      position = end_compiled_cursor.position(0)
-      if position.has_start_key():
-        cursor = appscale_stub_util.ListCursor(query)
-        last_result = cursor._GetEndResult()
-        endrow = self.__get_start_key(prefix, property_name, direction, 
-          last_result)
-      elif position.indexvalue_size() > 0:
-        index_value = position.indexvalue(0)
-        property_name = index_value.property()
-        value = index_value.value()
-        value = str(self.__encode_index_pb(value))
-        key_path = None
-        if position.has_key():
-          key_path = str(self.__encode_index_pb(position.key().path()))
-        params = [prefix, kind, property_name, value, key_path]
-        endrow = self.get_index_key_from_params(params)
-      else:
-        self.logger.warning('Unable to use end compiled cursor for query:\n{}'.
-          format(query))
+      list_cursor = appscale_stub_util.ListCursor(query)
+      last_result, _ = list_cursor._DecodeCompiledCursor(end_compiled_cursor)
+      endrow = self.__get_start_key(prefix, property_name, direction,
+        last_result)
 
     # This query is returning based on order on a specfic property name 
     # The start key (if not already supplied) depends on the property
@@ -3567,23 +3552,14 @@ class DatastoreDistributed():
       if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
         start_inclusive = True
 
-    end_compiled_cursor = None
     if query.has_end_compiled_cursor():
       end_compiled_cursor = query.end_compiled_cursor()
-
-    if end_compiled_cursor:
-      position = end_compiled_cursor.position(0)
-      if position.has_start_key():
-        cursor = appscale_stub_util.ListCursor(query)
-        last_result = cursor._GetEndResult()
-        composite_index = query.composite_index_list()[0]
-        endrow = self.get_composite_index_key(composite_index, last_result,
-          position_list=end_compiled_cursor.position_list(),
-          filters=query.filter_list())
-      else:
-        self.logger.warning('Unable to use end compiled cursor for query:\n'
-          '{}'.format(query))
-
+      list_cursor = appscale_stub_util.ListCursor(query)
+      last_result, _ = list_cursor._DecodeCompiledCursor(end_compiled_cursor)
+      composite_index = query.composite_index_list()[0]
+      endrow = self.get_composite_index_key(composite_index, last_result,
+        position_list=end_compiled_cursor.position_list(),
+        filters=query.filter_list())
 
     table_name = dbconstants.COMPOSITE_TABLE
     column_names = dbconstants.COMPOSITE_SCHEMA
