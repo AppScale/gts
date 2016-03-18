@@ -4673,9 +4673,7 @@ HOSTS
               next
             rescue AppIsDownException
               Djinn.log_info("App #{app} is down.")
-              APPS_LOCK.synchronize {
-                @apps_loaded = @apps_loaded - [app]
-              }
+              @apps_loaded = @apps_loaded - [app]
             end
             Djinn.log_info("App #{app} is not running: marked for start.")
 
@@ -4759,6 +4757,14 @@ HOSTS
         }
         to_terminate << "#{appengine}" if !found_on_head_node
       }
+      if to_start.length > 0
+        Djinn.log_info("Appservers to start: #{to_start}.")
+      end
+      if to_terminate.length > 0
+        Djinn.log_info("Appservers to terminate: #{to_terminate}.")
+      end
+
+      # Now we got the list to start and terminate: let's do this.
       to_start.each { |app|
         Djinn.log_info("Starting appserver for app: #{app}")
         add_appserver_process(app, @@secret)
@@ -5465,7 +5471,6 @@ HOSTS
         return
       end
 
-      app_manager = AppManagerClient.new(my_node.private_ip)
       # TODO: What happens if the user updates their env vars between app
       # deploys?
       appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
@@ -5479,6 +5484,7 @@ HOSTS
 
       xmpp_ip = get_login.public_ip
 
+      app_manager = AppManagerClient.new(my_node.private_ip)
       begin
         pid = Integer(app_manager.start_app(app, appengine_port,
           get_load_balancer_ip(), app_language, xmpp_ip,
