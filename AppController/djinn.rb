@@ -620,6 +620,7 @@ class Djinn
       http_port = Integer(http_port)
       https_port = Integer(https_port)
     rescue ArgumentError
+      Djinn.log_warn("relocate_app: received non-numeric arguments for ports.")
       return "Error: non-numeric arguments for ports."
     end
 
@@ -1720,23 +1721,16 @@ class Djinn
       end
 
       zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-      zookeeper_data['locations'].each { |ip|
-        if ip == my_ip
-          if !is_zookeeper_running?
-            # We are a zookeeper host and we need to start it.
-            Djinn.log_info("Starting zookeeper.")
-            begin
-              start_zookeeper(false)
-              break
-            rescue FailedZooKeeperOperationException
-              @state = "Couldn't start Zookeeper."
-              HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
-            end
-          else
-            Djinn.log_info("Zookeeper is already running on this node.")
-          end
+      if zookeeper_data['locations'].include?(my_ip) and !is_zookeeper_running?
+        # We are a zookeeper host and we need to start it.
+        Djinn.log_info("Starting zookeeper.")
+        begin
+          start_zookeeper(false)
+        rescue FailedZooKeeperOperationException
+          @state = "Couldn't start Zookeeper."
+          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
-      }
+      end
     end
 
     start_infrastructure_manager()
@@ -4582,32 +4576,33 @@ HOSTS
         Djinn.log_debug("Got these apps to check: #{app_list}.")
         app_list.each { |app|
           begin
+            # If app is not enabled or if we already know of it, we skip it.
+            next if @app_names.include?(app)
             next if !uac.is_app_enabled?(app)
 
-            if !@app_names.include?(app)
-              Djinn.log_info("Adding #{app} to running apps.")
+            # If we don't have a record for this app, we start it.
+            Djinn.log_info("Adding #{app} to running apps.")
 
-              # We query the UserAppServer looking for application data, in
-              # particular ports and language.
-              result = uac.get_app_data(app)
-              app_data = JSON.load(result)
-              Djinn.log_debug("Got app data for #{app}: #{app_data}")
+            # We query the UserAppServer looking for application data, in
+            # particular ports and language.
+            result = uac.get_app_data(app)
+            app_data = JSON.load(result)
+            Djinn.log_debug("Got app data for #{app}: #{app_data}")
 
-              app_language = app_data['language']
-              Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
+            app_language = app_data['language']
+            Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
 
-              @app_info_map[app] = {} if @app_info_map[app].nil?
-              @app_info_map[app]['language'] = app_language if app_language
-              if app_data['hosts'].values[0]
-                if app_data['hosts'].values[0]['http']
-                  @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
-                end
-                if app_data['hosts'].values[0]['https']
-                  @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
-                end
+            @app_info_map[app] = {} if @app_info_map[app].nil?
+            @app_info_map[app]['language'] = app_language if app_language
+            if app_data['hosts'].values[0]
+              if app_data['hosts'].values[0]['http']
+                @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
               end
-              @app_names = @app_names + [app]
+              if app_data['hosts'].values[0]['https']
+                @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+              end
             end
+            @app_names = @app_names + [app]
           rescue FailedNodeEsception
             Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
           end
