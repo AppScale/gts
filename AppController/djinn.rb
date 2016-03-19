@@ -589,6 +589,22 @@ class Djinn
   end
 
 
+  # A SOAP-exposed method that callers can use to get information about what
+  # apps are running on this machine, as well as what ports they are bound to,
+  # and what ports run nginx and haproxy in front of them.
+  #
+  # Args:
+  #   secret: A String that authenticates callers.
+  # Returns:
+  #   BAD_SECRET_MSG if the caller could not be authenticated. If the caller
+  #   can be authenticated, a JSON-dumped Hash containing information about
+  #   applications on this machine is returned.
+  def get_app_info_map(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+  end
+
   # A SOAP-exposed method that callers can use to tell this AppController that
   # an app hosted in this cloud needs to have its nginx reverse proxy serving
   # HTTP and HTTPS traffic on different ports.
