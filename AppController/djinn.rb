@@ -1772,7 +1772,7 @@ class Djinn
     # will restart if needed).
     set_appcontroller_monit()
     @done_loading = true
-    wriete_out_node_info()
+    write_out_node_info()
 
     wait_for_nodes_to_finish_loading(@nodes)
 
