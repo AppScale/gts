@@ -1772,6 +1772,9 @@ class Djinn
     # will restart if needed).
     set_appcontroller_monit()
     @done_loading = true
+    ZKInterface.lock_and_run {
+      ZKInterface.set_done_loading(my_node.public_ip, true)
+    }
 
     wait_for_nodes_to_finish_loading(@nodes)
 
