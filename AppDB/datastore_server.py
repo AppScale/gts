@@ -2373,56 +2373,45 @@ class DatastoreDistributed():
 
     return self.__extract_entities(final_result)
 
-  def kindless_query(self, query, filter_info, order_info):
+  def kindless_query(self, query, filter_info):
     """ Performs kindless queries where queries are performed 
         on the entity table and go across kinds.
       
     Args: 
       query: The query to run.
       filter_info: Tuple with filter operators and values.
-      order_info: Tuple with property name and the sort order.
     Returns:
       Entities that match the query.
     """       
     prefix = self.get_table_prefix(query)
 
+    filters = []
     if '__key__' in filter_info:
-      __key__ = str(filter_info['__key__'][0][1])
-      op = filter_info['__key__'][0][0]
-    else:
-      __key__ = ''
-      op = None
+      for filter in filter_info['__key__']:
+        filters.append({'key': str(filter[1]), 'op': filter[0]})
 
-    end_inclusive = self._ENABLE_INCLUSIVITY
-    start_inclusive = self._ENABLE_INCLUSIVITY
+    order = None
+    prop_name = None
 
-    startrow = prefix + self._SEPARATOR + __key__
+    startrow = prefix + self._SEPARATOR
     endrow = prefix + self._SEPARATOR + self._TERM_STRING
+    start_inclusive = self._ENABLE_INCLUSIVITY
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    for filter in filters:
+      if filter['op'] == datastore_pb.Query_Filter.EQUAL:
+        startrow = prefix + self._SEPARATOR + filter['key']
+        endrow = startrow
+      if filter['op'] == datastore_pb.Query_Filter.GREATER_THAN:
+        startrow = prefix + self._SEPARATOR + filters[0]['key']
+        start_inclusive = self._DISABLE_INCLUSIVITY
+      if filter['op'] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        startrow = prefix + self._SEPARATOR + filters[0]['key']
+      if filter['op'] == datastore_pb.Query_Filter.LESS_THAN:
+        endrow = prefix + self._SEPARATOR + filter['key']
+        end_inclusive = self._DISABLE_INCLUSIVITY
+      if filter['op'] == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        endrow = prefix + self._SEPARATOR + filter['key']
 
-    if op and op == datastore_pb.Query_Filter.EQUAL:
-      startrow = prefix + self._SEPARATOR + __key__
-      endrow = prefix + self._SEPARATOR + __key__
-    elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
-      start_inclusive = self._DISABLE_INCLUSIVITY
-      startrow = prefix + self._SEPARATOR + __key__ 
-      endrow = prefix + self._SEPARATOR + self._TERM_STRING
-      end_inclusive = self._DISABLE_INCLUSIVITY
-    elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-      startrow = prefix + self._SEPARATOR + __key__
-      endrow = prefix + self._SEPARATOR + self._TERM_STRING
-      end_inclusive = self._DISABLE_INCLUSIVITY
-    elif op and op == datastore_pb.Query_Filter.LESS_THAN:
-      startrow = prefix + self._SEPARATOR  
-      endrow = prefix + self._SEPARATOR + __key__
-      end_inclusive = self._DISABLE_INCLUSIVITY
-    elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-      startrow = prefix + self._SEPARATOR 
-      endrow = prefix + self._SEPARATOR + __key__ 
-
-    if not order_info:
-      order = None
-      prop_name = None
-    
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
@@ -2432,14 +2421,16 @@ class DatastoreDistributed():
         start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self.get_limit(query)
-    return self.fetch_from_entity_table(startrow,
-                                        endrow,
-                                        limit, 
-                                        0, 
-                                        start_inclusive, 
-                                        end_inclusive, 
-                                        query, 
-                                        0)
+    return self.fetch_from_entity_table(
+      startrow,
+      endrow,
+      limit,
+      offset=0,
+      start_inclusive=start_inclusive,
+      end_inclusive=end_inclusive,
+      query=query,
+      txn_id=0,
+    )
   
   def reverse_path(self, key):
     """ Use this function for reversing the key ancestry order. 
@@ -2549,7 +2540,7 @@ class DatastoreDistributed():
     if query.has_ancestor() and not query.has_kind():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
-      return self.kindless_query(query, filter_info, order_info)
+      return self.kindless_query(query, filter_info)
     elif query.kind().startswith("__") and \
       query.kind().endswith("__"):
       # Use the default namespace for metadata queries.
