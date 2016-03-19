@@ -25,14 +25,8 @@ public final class LocalLoginServlet extends HttpServlet
     {
         LoginCookieUtils.removeCookie(req, resp);
         String login_service_endpoint = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/login";
-
         String continue_url = req.getParameter(CONTINUE_PARAM);
-        String host = "http://" + System.getProperty(NGINX_ADDR_PROPERTY);
-        if (!System.getProperty(NGINX_PORT_PROPERTY).equals("80")) host = host + ":" + System.getProperty(NGINX_PORT_PROPERTY);
-        String ah_path = System.getProperty(PATH_INFO_PROPERTY);
-        String ah_login_url = host;
-        if (ah_path != null) ah_login_url += ah_path;
-        String redirect_url = login_service_endpoint + "?" + CONTINUE_PARAM + "=" + ah_login_url + "?" + CONTINUE_PARAM + "=" + continue_url;
+        String redirect_url = login_service_endpoint + "?" + CONTINUE_PARAM + "=" + continue_url;
         redirect_url.replace(":", "%3A");
         redirect_url.replace("?", "%3F");
         redirect_url.replace("=", "%3D");
