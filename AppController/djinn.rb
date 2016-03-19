@@ -670,8 +670,10 @@ class Djinn
 
     # Next, rewrite the nginx config file with the new ports
     Djinn.log_info("Regenerating nginx config for relocated app #{appid}")
-    @app_info_map[appid]['nginx'] = http_port
-    @app_info_map[appid]['nginx_https'] = https_port
+    APPS_LOCK.synchronize {
+      @app_info_map[appid]['nginx'] = http_port
+      @app_info_map[appid]['nginx_https'] = https_port
+    }
     proxy_port = @app_info_map[appid]['haproxy']
     my_private = my_node.private_ip
     my_public = my_node.public_ip
@@ -1819,19 +1821,15 @@ class Djinn
       write_zookeeper_locations()
 
       # Reload state from head node.
-      restore_appcontroller_state() if not my_node.is_login?
-
-      if my_node.is_shadow?
-        # Since we now backup state to ZK, don't make everyone do it.
-        # The Shadow has the most up-to-date info, so let it handle this
-        backup_appcontroller_state()
-      end
-
-
-      # Login node gets the statistic for all nodes.
       if my_node.is_login?
         update_node_info_cache()
+      else
+        restore_appcontroller_state()
       end
+
+      # Since we now backup state to ZK, don't make everyone do it.
+      # The Shadow has the most up-to-date info, so let it handle this
+      backup_appcontroller_state() if my_node.is_shadow?
 
       # These operations can take some time, so we spawn a thread for it.
       Thread.new {
@@ -2595,15 +2593,15 @@ class Djinn
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}.")
 
     # Find and remove an entry for this appserver node and app.
-    to_add = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
-    if to_add
-      @app_info_map[app_id]['appengine'].delete_at(to_add)
-    else
-      Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
-    end
-    @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
-    # If this function is called twice, ensure there are no duplicate values.
-    @app_info_map[app_id]['appengine'].uniq!()
+    APPS_LOCK.synchronize {
+      to_add = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
+      if to_add
+        @app_info_map[app_id]['appengine'].delete_at(to_add)
+      else
+        Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
+      end
+      @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+    }
 
     HAProxy.update_app_config(my_node.private_ip, app_id,
       @app_info_map[app_id])
@@ -4666,16 +4664,8 @@ HOSTS
               Djinn.log_info("App #{app} is not running yet.")
               next
             rescue AppIsDownException
-              # This is a 503 since haproxy is seeing all the backend
-              # servers as DOWN. Let's remove them and have the autoscaler
-              # engine to replace them.
-              Djinn.log_warn("App #{app} is down: trying to restart it.")
-              @app_info_map[app]['appengine'].each { |location|
-                host, port = location.split(":")
-                remove_appserver_from_haproxy(app, host, port, @@secret)
-              }
-              @app_info_map[app]['appengine'] = []
-              @apps_loaded = @apps_loaded - [app]
+              # Message comes from perform_scaling_for_appservers.
+              next
             end
             Djinn.log_info("App #{app} is not running: marked for start.")
 
@@ -4888,11 +4878,7 @@ HOSTS
     # case of a new start we need to ensure we can unpack the tarball, and
     # in the case of a restart, we need to remove the old unpacked source
     # code, and use the new one.
-    if state == "new"
-      setup_app_dir(app)
-    else
-      setup_app_dir(app, true)
-    end
+    setup_app_dir(app, state == "new")
 
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
@@ -5451,10 +5437,10 @@ HOSTS
       return "false: application #{app} is unknown."
     end
 
-    # Make sure we have the application code.
-    setup_app_dir(app)
-
     APPS_LOCK.synchronize {
+      # Make sure we have the application code.
+      setup_app_dir(app)
+
       app_language = @app_info_map[app]['language']
 
       # We use the ports as assigned by the head node.
