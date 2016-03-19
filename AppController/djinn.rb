@@ -1772,9 +1772,7 @@ class Djinn
     # will restart if needed).
     set_appcontroller_monit()
     @done_loading = true
-    ZKInterface.lock_and_run {
-      ZKInterface.set_done_loading(my_node.public_ip, true)
-    }
+    wriete_out_node_info()
 
     wait_for_nodes_to_finish_loading(@nodes)
 
@@ -2943,6 +2941,24 @@ class Djinn
       @zookeeper_data = zookeeper_data['locations']
       Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
     end
+  end
+
+
+  # Backs up information about what this node is doing (roles, apps it is
+  # running) to ZooKeeper, for later recovery or updates by other nodes.
+  def write_our_node_info()
+    # Since more than one AppController could write its data at the same
+    # time, get a lock before we write to it.
+    begin
+      ZKInterface.lock_and_run {
+        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
+        ZKInterface.write_node_information(my_node, @done_loading)
+      }
+    rescue => e
+      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
+    end
+
+    return
   end
 
 
