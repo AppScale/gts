@@ -603,6 +603,8 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
+
+    return JSON.dump(@app_info_map)
   end
 
   # A SOAP-exposed method that callers can use to tell this AppController that
@@ -1799,6 +1801,7 @@ class Djinn
           Kernel.sleep(DUTY_CYCLE)
           flush_log_buffer()
           send_instance_info_to_dashboard()
+          break if @kill_sig_received
         }
       }
     end
@@ -5322,7 +5325,7 @@ HOSTS
 
     if remove_old
       Djinn.log_info("Removing old application directory for app: #{app}.")
-      FileUtils.rm_rf(app_path)
+      FileUtils.rm_rf(app_path) if !my_node.is_login?
       FileUtils.rm_rf(app_dir)
     end
 
