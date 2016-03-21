@@ -1329,4 +1329,142 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
+  def get_djinn_mock
+    role = {
+        "public_ip" => "app_public_ip1",
+        "private_ip" => "app_private_ip2",
+        "jobs" => ["login"]
+    }
+    djinn = flexmock(Djinn.new())
+    djinn.my_index = 0
+    djinn.nodes = [DjinnJobData.new(role, "appscale")]
+    djinn.last_updated = 0
+    djinn.done_loading = true
+    djinn
+  end
+
+
+  def test_does_app_exist
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    app_exists = true
+    appname = 'app1'
+
+    flexmock(UserAppClient).new_instances.should_receive(:does_app_exist? => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.does_app_exist(appname, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(app_exists, djinn.does_app_exist(appname, good_secret))
+  end
+
+
+  def test_reset_password
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    username = 'user'
+    password = 'password'
+    change_pwd_success = true
+
+    flexmock(UserAppClient).new_instances.should_receive(:change_password => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.reset_password(username, password, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(change_pwd_success, djinn.reset_password(username, password, good_secret))
+  end
+
+
+  def test_does_user_exist
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    username = 'user'
+    user_exists = true
+
+    flexmock(UserAppClient).new_instances.should_receive(:does_user_exist? => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.does_user_exist(username, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(user_exists, djinn.does_user_exist(username, good_secret))
+  end
+
+
+  def test_create_user
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    username = 'user'
+    password = 'password'
+    account_type = 'account_type'
+    create_user_success = true
+
+    flexmock(UserAppClient).new_instances.should_receive(:commit_new_user => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.create_user(username, password, account_type, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(create_user_success, djinn.create_user(username, password, account_type, good_secret))
+  end
+
+
+  def test_set_admin_role
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    username = 'user'
+    is_cloud_admin = 'true'
+    capabilities = 'admin_capabilties'
+    set_admin_role_success = true
+
+    flexmock(UserAppClient).new_instances.should_receive(:set_admin_role => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.set_admin_role(username, is_cloud_admin, capabilities, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(set_admin_role_success, djinn.set_admin_role(username, is_cloud_admin, capabilities, good_secret))
+  end
+
+  def test_get_app_admin
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    app_id = 'app1'
+    get_app_admin_success = true
+
+    flexmock(UserAppClient).new_instances.should_receive(:get_app_data => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.get_app_admin(app_id, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(get_app_admin_success, djinn.get_app_admin(app_id, good_secret))
+  end
+
+
+  def test_reserve_app_id
+    good_secret = 'good_secret'
+    bad_secret = 'bad_secret'
+    username = 'user'
+    app_id = 'app1'
+    app_language = 'python'
+    reserve_app_id_success = true
+
+    flexmock(UserAppClient).new_instances.should_receive(:commit_new_app_name => true)
+
+    djinn = get_djinn_mock
+    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
+    assert_equal(BAD_SECRET_MSG, djinn.reserve_app_id(username, app_id, app_language, bad_secret))
+
+    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
+    assert_equal(reserve_app_id_success, djinn.reserve_app_id(username, app_id, app_language, good_secret))
+  end
 end

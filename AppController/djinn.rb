@@ -1430,7 +1430,6 @@ class Djinn
   # Returns:
   #   A boolean indicating whether or not the user application exists.
   def does_app_exist(appname, secret)
-    Djinn.log_warn("App name #{appname}")
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
