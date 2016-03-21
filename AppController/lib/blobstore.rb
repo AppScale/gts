@@ -14,6 +14,7 @@ module BlobServer
 
   SERVER_PORTS = [6107]
 
+  NAME = 'as_blob_server'
 
   def self.start(db_local_ip, db_local_port)
     blobserver = self.scriptname()
@@ -37,11 +38,6 @@ module BlobServer
     self.stop()
     self.start(my_ip, db_port)
   end
-
-  def self.name()
-    "as_blobserver"
-  end
-
 
   def self.server_ports()
       return SERVER_PORTS
