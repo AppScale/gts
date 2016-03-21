@@ -1821,7 +1821,14 @@ class Djinn
       if my_node.is_login?
         update_node_info_cache()
       else
-        restore_appcontroller_state()
+        loop {
+          break if restore_appcontroller_state()
+          # TODO: we need to switch to a survival state, since without
+          # talking to ZK we cannot really operate or take decisions.
+          Djinn.log_warn("Couldn't talk to zookeeper: waiting to reconnect.")
+          Kernel.sleep(SMALL_WAIT)
+        }
+
       end
 
       # Since we now backup state to ZK, don't make everyone do it.
