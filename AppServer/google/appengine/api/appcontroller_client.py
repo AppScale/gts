@@ -41,6 +41,8 @@ class AppControllerClient():
   # themselves correctly.
   BAD_SECRET_MESSAGE = 'false: bad secret'
 
+  # An AppController response that indicates Nginx and HAProxy are not set up.
+  NOT_READY = 'false: not ready yet'
 
   def __init__(self, host, secret):
     """Creates a new AppControllerClient.

@@ -24,6 +24,9 @@ from monit_app_configuration import MONIT_CONFIG_DIR
 import monit_interface
 import misc
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+from google.appengine.api.appcontroller_client import AppControllerClient
+
 # The amount of seconds to wait for an application to start up.
 START_APP_TIMEOUT = 180
 
@@ -75,9 +78,6 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 DATASTORE_PATH = "localhost"
 
 HTTP_OK = 200
-
-# The AppController's response if it's not ready to add routing yet.
-NOT_READY = 'false: not ready yet'
 
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
@@ -143,7 +143,7 @@ def add_routing(app, port):
 
   while True:
     result = acc.add_routing_for_appserver(app, appserver_ip, port)
-    if result == NOT_READY:
+    if result == AppControllerClient.NOT_READY:
       logging.info('AppController not yet ready to add routing.')
       time.sleep(ROUTING_RETRY_INTERVAL)
     else:
