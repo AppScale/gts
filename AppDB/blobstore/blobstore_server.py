@@ -17,15 +17,13 @@ import logging
 import mimetools
 import os 
 import os.path
-import sys
-import urllib
-import urllib2
-
 from StringIO import StringIO
-
+import sys
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
+import urllib
+import urllib2
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
