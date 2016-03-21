@@ -252,35 +252,6 @@ server {
     }
 
 }
-server {
-    listen #{BLOBSERVER_LISTEN_PORT};
-    server_name #{my_public_ip}-#{app_name}-blobstore;
-    #root /var/apps/#{app_name}/app;
-    # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/#{app_name}-blobstore.access.log upstream;
-    error_log  /var/log/nginx/#{app_name}-blobstore.error.log;
-    access_log off;
-    #error_log /dev/null crit;
-    ignore_invalid_headers off;
-
-    # If they come here using HTTPS, bounce them to the correct scheme.
-    error_page 400 http://$host:$server_port$request_uri;
-
-    rewrite_log off;
-    error_page 404 = /404.html;
-
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name}_blobstore;
-      client_max_body_size 2G;
-      proxy_connect_timeout 600;
-      client_body_timeout 600;
-      proxy_read_timeout 600;
-    }
-}    
 
 server {
     listen #{https_port};
