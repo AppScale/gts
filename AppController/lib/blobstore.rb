@@ -57,4 +57,3 @@ module BlobServer
     return "#{APPSCALE_HOME}/AppDB/blobstore/blobstore_server.py"
   end
 end
-

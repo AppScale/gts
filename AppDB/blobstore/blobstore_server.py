@@ -31,10 +31,8 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
-
 from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
-
 from google.appengine.tools import dev_appserver_upload
 
 # The URL path used for uploading blobs
@@ -343,7 +341,7 @@ class UploadHandler(tornado.web.RequestHandler):
         return
       else:
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
-        return         
+        return
 
 def usage():
   """ The usage printed to the screen. """
@@ -380,4 +378,3 @@ if __name__ == "__main__":
       datastore_path = arg
     
   main(port)
-

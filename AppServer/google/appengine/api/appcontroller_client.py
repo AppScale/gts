@@ -27,10 +27,8 @@ class AppControllerClient():
   deployment as well as what services each node runs.
   """
 
-
   # The port that the AppController runs on by default.
   PORT = 17443
-
 
   # Maximum number of times we try a call to the AppController.
   MAX_RETRIES = 3
@@ -38,7 +36,6 @@ class AppControllerClient():
   # The number of seconds we should wait for when waiting for the UserAppServer
   # to start up.
   WAIT_TIME = 10
-
 
   # The message that an AppController can return if callers do not authenticate
   # themselves correctly.
