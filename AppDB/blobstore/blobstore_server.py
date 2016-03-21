@@ -53,7 +53,8 @@ STRIPPED_HEADERS = frozenset(('content-length',
                               'content-type',
                              ))
 
-UPLOAD_ERROR = """There was an error with your upload. Redirect path not found. The path given must be a redirect code in the 300's. Please contact the app owner if this persist."""
+UPLOAD_ERROR = 'There was an error with your upload. Redirect path not '\
+  'found. Please contact the app owner if this persists.'
 
 # The maximum size of an incoming request.
 MAX_REQUEST_BUFF_SIZE = 2 * 1024 * 1024 * 1024  # 2GBs
