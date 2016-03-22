@@ -35,6 +35,7 @@ from google.appengine.tools import dev_appserver_upload
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
 import appscale_info
+from constants import LOG_FORMAT
 
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'
@@ -371,6 +372,7 @@ def main(port):
 
 if __name__ == "__main__":
   global datastore_path
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   try:
     opts, args = getopt.getopt(sys.argv[1:], "p:d:",
                                ["port", "database_path"])
