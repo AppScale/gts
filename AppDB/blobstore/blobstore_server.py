@@ -371,7 +371,6 @@ def main(port):
   tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":
-  global datastore_path
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   try:
     opts, args = getopt.getopt(sys.argv[1:], "p:d:",
