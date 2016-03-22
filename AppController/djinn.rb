@@ -1794,18 +1794,6 @@ class Djinn
 
     wait_for_nodes_to_finish_loading(@nodes)
 
-    # We update the dashboard on a separate thread.
-    if my_node.is_login?
-      Thread.new {
-        loop {
-          Kernel.sleep(DUTY_CYCLE)
-          flush_log_buffer()
-          send_instance_info_to_dashboard()
-          break if @kill_sig_received
-        }
-      }
-    end
-
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
     last_print = Time.now.to_i
@@ -1819,16 +1807,13 @@ class Djinn
 
       # Reload state from head node.
       if my_node.is_login?
+        flush_log_buffer()
+        send_instance_info_to_dashboard()
         update_node_info_cache()
       else
-        loop {
-          break if restore_appcontroller_state()
-          # TODO: we need to switch to a survival state, since without
-          # talking to ZK we cannot really operate or take decisions.
-          Djinn.log_warn("Couldn't talk to zookeeper: waiting to reconnect.")
-          Kernel.sleep(SMALL_WAIT)
-        }
-
+        if !restore_appcontroller_state()
+          HelperFunctions.log_and_crash("#{ZK_LOCATIONS_FILE} was deleted!")
+        end
       end
 
       # Since we now backup state to ZK, don't make everyone do it.
@@ -2780,18 +2765,16 @@ class Djinn
     Djinn.log_info("Restoring AppController state")
     json_state=""
 
-    if File.exists?(ZK_LOCATIONS_FILE)
-      Djinn.log_info("Trying to restore data from ZooKeeper.")
-      json_state = restore_from_zookeeper()
-    end
-
-    if json_state.empty?
-      Djinn.log_warn("Unable to restore state.")
+    if !File.exists?(ZK_LOCATIONS_FILE)
+      Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exists: not restoring data.")
       return false
-    else
-      Djinn.log_info("Restored data from ZooKeeper.")
     end
 
+    loop {
+      json_state = restore_from_zookeeper()
+      break if !json_state.empty?
+      Djinn.log_warn("Unable to talk to zookeeper: trying again.")
+    }
     Djinn.log_info("Reload State : #{json_state}")
 
     @@secret = json_state['@@secret']
