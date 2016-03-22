@@ -13,6 +13,9 @@ module BlobServer
 
   SERVER_PORT = 6107
 
+  # HAProxy on the head node forwards this port to the server port on an app
+  # engine node.
+  HAPROXY_PORT = 6106
 
   NAME = 'as_blob_server'
 

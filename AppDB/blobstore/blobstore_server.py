@@ -33,6 +33,9 @@ from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
 from google.appengine.tools import dev_appserver_upload
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
+import appscale_info
+
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'
 
@@ -358,8 +361,14 @@ def main(port):
   http_server = tornado.httpserver.HTTPServer(Application(),
     max_buffer_size=MAX_REQUEST_BUFF_SIZE)
   http_server.listen(int(port))
+
+  acc = appscale_info.get_appcontroller_client()
+  acc.add_routing_for_blob_server()
+  logging.info('Added routing for BlobServer'.format(port))
+
+  logging.info('Starting BlobServer on {}'.format(port))
   tornado.ioloop.IOLoop.instance().start()
-  
+
 if __name__ == "__main__":
   global datastore_path
   try:

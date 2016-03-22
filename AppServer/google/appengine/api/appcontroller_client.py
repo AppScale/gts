@@ -326,6 +326,14 @@ class AppControllerClient():
       app_id, appserver_ip, port, self.secret)
 
 
+  def add_routing_for_blob_server(self):
+    """ Tells the AppController to begin routing traffic to the
+        BlobServer(s).
+    """
+    return self.call(self.MAX_RETRIES, self.server.add_routing_for_blob_server,
+      self.secret)
+
+
   def remove_appserver_from_haproxy(self, app_id, appserver_ip, port):
     """ Tells the AppController to stop routing traffic to an AppServer.
 

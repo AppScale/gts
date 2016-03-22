@@ -5,9 +5,10 @@ require 'fileutils'
 
 
 $:.unshift File.join(File.dirname(__FILE__))
-require 'helperfunctions'
 require 'app_dashboard'
+require 'blobstore'
 require 'datastore_server'
+require 'helperfunctions'
 require 'monit_interface'
 require 'user_app_client'
 
@@ -47,12 +48,6 @@ module Nginx
   # This is the start port of SSL connections to applications. Where an
   # app would have the set of ports (8080, 3700), (8081, 3701), and so on.
   SSL_PORT_OFFSET = 3700 
-
-
-  BLOBSERVER_LISTEN_PORT = 6106
-
-
-  BLOBSERVER_PORT = 6107
 
 
   CHANNELSERVER_PORT = 5280
@@ -211,7 +206,7 @@ upstream gae_ssl_#{app_name} {
 }
 
 upstream gae_#{app_name}_blobstore {
-    server #{my_private_ip}:#{BLOBSERVER_PORT};
+    server #{my_private_ip}:#{BlobServer::HAPROXY_PORT};
 }
 
 map $scheme $ssl {

@@ -2610,6 +2610,33 @@ class Djinn
     return "OK"
   end
 
+  # Instruct HAProxy to begin routing traffic to the BlobServers.
+  #
+  # Args:
+  #   secret: A String that is used to authenticate the caller.
+  #
+  # Returns:
+  #   "OK" if the addition was successful. In case of failures, the following
+  #   Strings may be returned:
+  #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
+  #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
+  def add_routing_for_blob_server(secret)
+    unless valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    unless my_node.is_login?
+      return NO_HAPROXY_PRESENT
+    end
+
+    Djinn.log_debug('Adding BlobServer routing.')
+    servers = []
+    get_all_appengine_nodes.each { |ip|
+      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
+    }
+    HAProxy.create_app_config(servers, my_node.private_ip,
+      BlobServer::HAPROXY_PORT, BlobServer::NAME)
+  end
 
   # Instructs HAProxy to stop routing traffic for the named application to
   # the AppServer at the given location.
