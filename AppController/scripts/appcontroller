@@ -17,6 +17,7 @@ DAEMON_NAME=appscale-controller
 DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 SECRET_FILE=/etc/appscale/secret.key
+LOG_FILE=/var/log/appscale/controller-17443.log
 . /lib/lsb/init-functions
 
 do_start()
@@ -31,7 +32,9 @@ do_start()
    rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON
+   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile\
+     --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
+     "$DAEMON >> $LOG_FILE 2>&1"
    log_end_msg $?
 }
 
