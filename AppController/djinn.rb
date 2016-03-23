@@ -514,8 +514,8 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
-    @@log = nil
-    set_log_level(Logger::INFO)
+    @@log = Logger.new(STDOUT)
+    @@log.level = Logger::INFO
 
     @nodes = []
     @my_index = nil
@@ -555,23 +555,6 @@ class Djinn
 
     # Make sure monit is started.
     MonitInterface.start_monit()
-  end
-
-  # This method is needed, since we are not able to change log level on
-  # the fly (or at least we are seeing issues). So we create a new Logger
-  # each time with the desired level.
-  def set_log_level(level)
-    if @@log
-      @@log.close()
-    end
-
-    # The log file to use. Make sure it is synchronous to ensure we get
-    # all message in case of a crash.
-    file = File.open(LOG_FILE, File::WRONLY | File::APPEND | File::CREAT)
-    file.sync = true
-
-    @@log = Logger.new(file)
-    @@log.level = level
   end
 
   # A SOAP-exposed method that callers can use to determine if this node
@@ -964,11 +947,7 @@ class Djinn
       HelperFunctions.alter_etc_resolv()
     end
 
-    if @options['verbose'].downcase == "true"
-      set_log_level(Logger::DEBUG)
-    else
-      set_log_level(Logger::INFO)
-    end
+    @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
 
     begin
       @options['zone'] = JSON.load(@options['zone'])
@@ -2351,7 +2330,6 @@ class Djinn
   def self.log_to_buffer(level, message)
     return if message.empty?
     return if level < @@log.level
-    puts message
     time = Time.now
     @@logs_buffer << {
       'timestamp' => time.to_i,
@@ -2610,6 +2588,33 @@ class Djinn
     return "OK"
   end
 
+  # Instruct HAProxy to begin routing traffic to the BlobServers.
+  #
+  # Args:
+  #   secret: A String that is used to authenticate the caller.
+  #
+  # Returns:
+  #   "OK" if the addition was successful. In case of failures, the following
+  #   Strings may be returned:
+  #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
+  #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
+  def add_routing_for_blob_server(secret)
+    unless valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    unless my_node.is_login?
+      return NO_HAPROXY_PRESENT
+    end
+
+    Djinn.log_debug('Adding BlobServer routing.')
+    servers = []
+    get_all_appengine_nodes.each { |ip|
+      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
+    }
+    HAProxy.create_app_config(servers, my_node.private_ip,
+      BlobServer::HAPROXY_PORT, BlobServer::NAME)
+  end
 
   # Instructs HAProxy to stop routing traffic for the named application to
   # the AppServer at the given location.
@@ -3296,11 +3301,7 @@ class Djinn
     end
 
     # Set the proper log level.
-    if @options['verbose'].downcase == "true"
-      set_log_level(Logger::DEBUG)
-    else
-      set_log_level(Logger::INFO)
-    end
+    @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
 
     keypath = @options['keyname'] + ".key"
     Djinn.log_debug("Keypath is #{keypath}, keyname is #{@options['keyname']}")
