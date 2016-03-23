@@ -17,31 +17,31 @@ import logging
 import mimetools
 import os 
 import os.path
-import sys
-import urllib
-import urllib2
-
 from StringIO import StringIO
-
+import sys
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
+import urllib
+import urllib2
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
-
 from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
-
 from google.appengine.tools import dev_appserver_upload
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
+import appscale_info
+from constants import LOG_FORMAT
 
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'
 
 # The port this service binds to
-DEFAULT_PORT = "6106"
+DEFAULT_PORT = "6107"
 
 # Connects to localhost to get access to the datastore
 DEFAULT_DATASTORE_PATH = "http://127.0.0.1:8888"
@@ -55,7 +55,8 @@ STRIPPED_HEADERS = frozenset(('content-length',
                               'content-type',
                              ))
 
-UPLOAD_ERROR = """There was an error with your upload. Redirect path not found. The path given must be a redirect code in the 300's. Please contact the app owner if this persist."""
+UPLOAD_ERROR = 'There was an error with your upload. Redirect path not '\
+  'found. Please contact the app owner if this persists.'
 
 # The maximum size of an incoming request.
 MAX_REQUEST_BUFF_SIZE = 2 * 1024 * 1024 * 1024  # 2GBs
@@ -343,7 +344,7 @@ class UploadHandler(tornado.web.RequestHandler):
         return
       else:
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
-        return         
+        return
 
 def usage():
   """ The usage printed to the screen. """
@@ -361,10 +362,16 @@ def main(port):
   http_server = tornado.httpserver.HTTPServer(Application(),
     max_buffer_size=MAX_REQUEST_BUFF_SIZE)
   http_server.listen(int(port))
+
+  acc = appscale_info.get_appcontroller_client()
+  acc.add_routing_for_blob_server()
+  logging.info('Added routing for BlobServer'.format(port))
+
+  logging.info('Starting BlobServer on {}'.format(port))
   tornado.ioloop.IOLoop.instance().start()
-  
+
 if __name__ == "__main__":
-  global datastore_path
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   try:
     opts, args = getopt.getopt(sys.argv[1:], "p:d:",
                                ["port", "database_path"])
@@ -380,4 +387,3 @@ if __name__ == "__main__":
       datastore_path = arg
     
   main(port)
-
