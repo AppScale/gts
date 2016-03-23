@@ -11,12 +11,14 @@ require 'monit_interface'
 # start, stop, and monitor the Blobstore Server as needed.
 module BlobServer
 
+  # The BlobServer listens to this port.
   SERVER_PORT = 6107
 
   # HAProxy on the head node forwards this port to the server port on an app
   # engine node.
   HAPROXY_PORT = 6106
 
+  # The server name used for HAProxy configuration.
   NAME = 'as_blob_server'
 
   def self.start(db_local_ip, db_local_port)
