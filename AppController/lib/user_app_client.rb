@@ -349,8 +349,8 @@ class UserAppClient
       return "true"
     else
       puts "Got this message back while setting cloud admin status and capabilities:" +
-          "Set cloud admin status: [#{result_cloud_admin_status}]" +
-          "Set capabilities: [#{result_set_capabilities}]"
+        "Set cloud admin status: [#{result_cloud_admin_status}]" +
+        "Set capabilities: [#{result_set_capabilities}]"
     end
   end
 

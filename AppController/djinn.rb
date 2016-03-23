@@ -350,8 +350,13 @@ class Djinn
   # a multiplication factor we use with the above thresholds.
   SCALE_TIME_MULTIPLIER = 6
 
+
   # This is the generic retries to do.
   RETRIES = 5
+
+
+  # This is more number of retries for methods that take longer.
+  MAX_RETRIES = 10
 
 
   # The position in the haproxy profiling information where the name of
@@ -1423,7 +1428,7 @@ class Djinn
   end
 
   # Queries the UserAppServer to see if the named application exists,
-  # and it is listening to any port.
+  # and if it is listening to any port.
   #
   # Args:
   #   appname: The name of the app that we should check for existence.
@@ -1446,7 +1451,7 @@ class Djinn
   # Resets a user's password the currently running AppScale deployment.
   #
   # Args:
-  #   username: The email-address for the user whose password will be changed.
+  #   username: The email address for the user whose password will be changed.
   #   password: The SHA1-hashed password that will be set as the user's password.
   def reset_password(username, password, secret)
     if !valid_secret?(secret)
@@ -1465,7 +1470,7 @@ class Djinn
   # Queries the UserAppServer to see if the given user exists.
   #
   # Args:
-  #   username: The email address registered as username for the user's application
+  #   username: The email address registered as username for the user's application.
   def does_user_exist(username, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -1480,6 +1485,13 @@ class Djinn
     end
   end
 
+  # Creates a new user account, with the given username and hashed password.
+  #
+  # Args:
+  #   username: An email address that should be set as the new username.
+  #   password: A sha1-hashed password that is bound to the given username.
+  #   account_type: A str that indicates if this account can be logged into
+  #     by XMPP users.
   def create_user(username, password, account_type, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -1490,7 +1502,7 @@ class Djinn
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while commiting " +
-                         "the user #{username}.")
+        "the user #{username}.")
     end
   end
 
@@ -5862,7 +5874,7 @@ HOSTS
           if app_name != "none"
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
             # Create the apps hash with useful information containing HAProxy stats.
-            tries = 11
+            tries = MAX_RETRIES
             begin
               all_stats["apps"][app_name] = {
                   "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
@@ -5875,10 +5887,11 @@ HOSTS
             rescue => exception
               backtrace = exception.backtrace.join("\n")
               message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-              tries -= 1
+              
               if tries > 0
                 Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
                 Kernel.sleep(SMALL_WAIT)
+                tries -= 1
                 retry
               else
                 @state = message

@@ -1331,8 +1331,8 @@ class TestDjinn < Test::Unit::TestCase
 
   def get_djinn_mock
     role = {
-        "public_ip" => "app_public_ip1",
-        "private_ip" => "app_private_ip2",
+        "public_ip" => "my public ip",
+        "private_ip" => "my private ip",
         "jobs" => ["login"]
     }
     djinn = flexmock(Djinn.new())
@@ -1432,6 +1432,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
     assert_equal(set_admin_role_success, djinn.set_admin_role(username, is_cloud_admin, capabilities, good_secret))
   end
+
 
   def test_get_app_admin
     good_secret = 'good_secret'
