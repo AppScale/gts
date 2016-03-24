@@ -3663,11 +3663,10 @@ class DatastoreDistributed():
         continue
 
       for prop in query_filter.property_list():
-        if prop.multiple():
-          if prop.name() not in equality_filters:
-            equality_filters[prop.name()] = []
+        if prop.name() not in equality_filters:
+          equality_filters[prop.name()] = []
 
-          equality_filters[prop.name()].append(prop)
+        equality_filters[prop.name()].append(prop)
 
     single_eq_filters = []
     for prop in equality_filters:
