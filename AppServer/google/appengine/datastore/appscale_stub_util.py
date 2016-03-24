@@ -31,11 +31,13 @@ from google.appengine.api import datastore_types
 from google.appengine.api.datastore_errors import BadRequestError
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_pb
+from google.appengine.datastore.datastore_stub_util import Check
+from google.appengine.datastore.datastore_stub_util import _GuessOrders
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.datastore import entity_pb
 
 
-_CURSOR_CONCAT_STR = '!CURSOR!'
+
 
 
 _PROPERTY_TYPE_NAMES = {
@@ -559,6 +561,19 @@ def FillUser(property):
       property.mutable_value().mutable_uservalue().set_obfuscated_gaiaid(uid)
 
 
+def order_property_names(query):
+  """ Generates a list of relevant order properties from the query.
+
+  Returns:
+    A set of Property objects.
+  """
+  filters, orders = datastore_index.Normalize(query.filter_list(),
+    query.order_list(), [])
+  orders = _GuessOrders(filters, orders)
+  return set(order.property()
+             for order in orders if order.property() != '__key__')
+
+
 class BaseCursor(object):
   """A base query cursor over a list of entities.
 
@@ -612,6 +627,7 @@ class QueryCursor(object):
       results: A list of EntityProtos.
       last_ent: The last entity (used for cursors).
     """
+    self.__order_property_names = order_property_names(query)
     self.__results = results
     self.__query = query
     self.__last_ent = last_ent
@@ -622,61 +638,6 @@ class QueryCursor(object):
     else:
       self.limit = None
 
-  def _MinimalQueryInfo(self, query):
-    """Extract the minimal set of information for query matching.
-
-    Args:
-      query: datastore_pb.Query instance from which to extract info.
-
-    Returns:
-      datastore_pb.Query instance suitable for matching against when
-      validating cursors.
-    """
-    query_info = datastore_pb.Query()
-    query_info.set_app(query.app())
-
-    for filter in query.filter_list():
-      query_info.filter_list().append(filter)
-    for order in query.order_list():
-      query_info.order_list().append(order)
-
-    if query.has_ancestor():
-      query_info.mutable_ancestor().CopyFrom(query.ancestor())
-
-    for attr in ('kind', 'name_space', 'search_query'):
-      query_has_attr = getattr(query, 'has_%s' % attr)
-      query_attr = getattr(query, attr)
-      query_info_set_attr = getattr(query_info, 'set_%s' % attr)
-      if query_has_attr():
-        query_info_set_attr(query_attr())
-
-    return query_info
-
-  def _MinimalEntityInfo(self, entity_proto, query):
-    """Extract the minimal set of information that preserves entity order.
-
-    Args:
-      entity_proto: datastore_pb.EntityProto instance from which to extract
-      information
-      query: datastore_pb.Query instance for which ordering must be preserved.
-
-    Returns:
-      datastore_pb.EntityProto instance suitable for matching against a list of
-      results when finding cursor positions.
-    """
-    entity_info = datastore_pb.EntityProto()   
-    order_names = [o.property() for o in query.order_list()]
-    entity_info.mutable_key().MergeFrom(entity_proto.key())
-    entity_info.mutable_entity_group().MergeFrom(entity_proto.entity_group())
-    for prop in entity_proto.property_list():
-      if order_names:
-        if prop.name() in order_names:
-          entity_info.add_property().MergeFrom(prop)
-      else:
-        entity_info.add_property().MergeFrom(prop)
-    return entity_info
-
-
   def _EncodeCompiledCursor(self, compiled_cursor):
     """Converts the current state of the cursor into a compiled_cursor.
 
@@ -684,21 +645,22 @@ class QueryCursor(object):
       query: the datastore_pb.Query this cursor is related to
       compiled_cursor: an empty datstore_pb.CompiledCursor
     """
+    last_result = None
     if self.__results:
       last_result = self.__results[-1]
     elif self.__last_ent:
       last_result = entity_pb.EntityProto()
       last_result.ParseFromString(self.__last_ent)
-    else:
-      last_result = None
-    position = compiled_cursor.add_position()
-    query_info = self._MinimalQueryInfo(self.__query)
-    entity_info = self._MinimalEntityInfo(last_result, self.__query)
-    start_key = _CURSOR_CONCAT_STR.join((
-        query_info.Encode(),
-        entity_info.Encode()))
-    position.set_start_key(str(start_key))
-    position.set_start_inclusive(False)
+
+    if last_result is not None:
+      position = compiled_cursor.add_position()
+      position.mutable_key().MergeFrom(last_result.key())
+      for prop in last_result.property_list():
+        if prop.name() in self.__order_property_names:
+          indexvalue = position.add_indexvalue()
+          indexvalue.set_property(prop.name())
+          indexvalue.mutable_value().CopyFrom(prop.value())
+      position.set_start_inclusive(False)
 
   def PopulateQueryResult(self, count, offset, result):
     """Populates a QueryResult PB with results from the cursor.
@@ -738,22 +700,23 @@ class ListCursor(BaseCursor):
 
     Args:
       query: the query request proto
-      # the query results, in order, such that results[self.offset+1] is
-      # the next result
-      results: list of datastore_pb.EntityProto
-      order_compare_entities: a __cmp__ function for datastore_pb.EntityProto
-        that follows sort order as specified by the query
     """
     super(ListCursor, self).__init__(query.app())
 
+    self.__order_property_names = order_property_names(query)
     if query.has_compiled_cursor() and query.compiled_cursor().position_list():
-      (self.__last_result, _) = self._DecodeCompiledCursor(
-          query, query.compiled_cursor())
+      self.__last_result, _ = (self._DecodeCompiledCursor(
+          query.compiled_cursor()))
+    else:
+      self.__last_result = None
 
     if query.has_end_compiled_cursor():
-      (self.__end_result, _) = self._DecodeCompiledCursor(                      
-          query, query.end_compiled_cursor())                                   
-                                                     
+      if query.end_compiled_cursor().position_list():
+        self.__end_result, _ = self._DecodeCompiledCursor(
+            query.end_compiled_cursor())
+    else:
+      self.__end_result = None
+
     self.__query = query
     self.__offset = 0
     self.__count = query.limit()
@@ -803,59 +766,37 @@ class ListCursor(BaseCursor):
           lo = mid + 1
     return lo
 
-  def _ValidateQuery(self, query, query_info):
-    """Ensure that the given query matches the query_info.
+  def _DecodeCompiledCursor(self, compiled_cursor):
+    """Converts a compiled_cursor into a cursor_entity.
 
     Args:
-      query: datastore_pb.Query instance we are chacking
-      query_info: datastore_pb.Query instance we want to match
-
-    Raises BadRequestError on failure.
-    """
-    error_msg = 'Cursor does not match query: %s'
-    if query_info.filter_list() != query.filter_list():
-      raise BadRequestError(error_msg % 'filters do not match')
-    if query_info.order_list() != query.order_list():
-      raise BadRequestError(error_msg % 'orders do not match')
-
-
-    for attr in ('ancestor', 'kind', 'name_space', 'search_query'):
-      query_info_has_attr = getattr(query_info, 'has_%s' % attr)
-      query_info_attr = getattr(query_info, attr)
-      query_has_attr = getattr(query, 'has_%s' % attr)
-      query_attr = getattr(query, attr)
-      if query_info_has_attr():
-        if not query_has_attr() or query_info_attr() != query_attr():
-          raise BadRequestError(error_msg % ('%s does not match' % attr))
-      elif query_has_attr():
-        raise BadRequestError(error_msg % ('%s does not match' % attr))
-
-
-  def _DecodeCompiledCursor(self, query, compiled_cursor):
-    """Converts a compiled_cursor into a cursor_entity.
+      compiled_cursor: The datastore_pb.CompiledCursor to decode.
 
     Returns:
       (cursor_entity, inclusive): a datastore_pb.EntityProto and if it should
       be included in the result set.
     """
     assert len(compiled_cursor.position_list()) == 1
-    
-    position = compiled_cursor.position(0)
-    entity_as_pb = datastore_pb.EntityProto()
-    if position.start_key():
-      (query_info_encoded, entity_encoded) = \
-                 position.start_key().split(_CURSOR_CONCAT_STR, 1)
-      query_info_pb = datastore_pb.Query()
-      query_info_pb.ParseFromString(query_info_encoded)
-      entity_as_pb.ParseFromString(entity_encoded)
-    else:
-      """Java doesn't include a start_key() so we will create the last entity
-         from the position variable. 
-      """
-      entity_as_pb.key().MergeFrom(position.key_)
-      entity_as_pb.entity_group().MergeFrom(position.key_.path_)
-    return (entity_as_pb, position.start_inclusive())
 
+    position = compiled_cursor.position(0)
+
+
+
+
+    remaining_properties = self.__order_property_names.copy()
+    cursor_entity = datastore_pb.EntityProto()
+    cursor_entity.mutable_key().CopyFrom(position.key())
+    for indexvalue in position.indexvalue_list():
+      property = cursor_entity.add_property()
+      property.set_name(indexvalue.property())
+      property.mutable_value().CopyFrom(indexvalue.value())
+      remaining_properties.remove(indexvalue.property())
+
+    Check(not remaining_properties,
+          'Cursor does not match query: missing values for %r' %
+          remaining_properties)
+
+    return (cursor_entity, position.start_inclusive())
 
   def Count(self):
     """Counts results, up to the query's limit.
