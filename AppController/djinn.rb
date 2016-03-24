@@ -1427,7 +1427,7 @@ class Djinn
     end
   end
 
-  # Resets a user's password the currently running AppScale deployment.
+  # Resets a user's password.
   #
   # Args:
   #   username: The email address for the user whose password will be changed.
@@ -1542,7 +1542,7 @@ class Djinn
       return uac.commit_new_app_name(username, app_id, app_language)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while reserving app id " +
-                         "for the application #{app_id}.")
+        "for the application #{app_id}.")
     end
   end
 
@@ -5895,8 +5895,7 @@ HOSTS
                 tries -= 1
                 retry
               else
-                @state = message
-                HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+                Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
               end
             end
           end
