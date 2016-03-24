@@ -527,3 +527,13 @@ installpsutil()
         precise|wheezy) pipwrapper psutil ;;
     esac
 }
+
+buildgo()
+{
+    GOROOT_DIR=${APPSCALE_HOME_RUNTIME}/AppServer/goroot
+    export GOROOT=${GOROOT_DIR}
+    cd ${GOROOT_DIR}/src
+    GO_VERSION=`cat ${GOROOT_DIR}/VERSION`
+    echo "Building ${GO_VERSION} ..."
+    bash ./all.bash
+}

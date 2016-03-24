@@ -37,6 +37,8 @@ Substitute 6g with 8g or 5g where appropriate.
 Flags:
 	-o file
 		output file, default file.6 for 6g, etc.
+	-pack
+		write an archive file rather than an object file
 	-e
 		normally the compiler quits after 10 errors; -e prints all errors
 	-p path
@@ -50,12 +52,14 @@ Flags:
 		add dir1 and dir2 to the list of paths to check for imported packages
 	-N
 		disable optimizations
+	-nolocalimports
+		disallow local (relative) imports
 	-S
 		write assembly language text to standard output (code only)
 	-S -S
 		write assembly language text to standard output (code and data)
 	-u
-		disallow importing packages not marked as safe
+		disallow importing packages not marked as safe; implies -nolocalimports
 	-V
 		print the compiler version
 	-race
