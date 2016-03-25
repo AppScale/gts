@@ -2823,10 +2823,10 @@ class Djinn
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-        Timeout.timeout(10) do
+        Timeout::timeout(SMALL_WAIT) {
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
-        end
+        }
       rescue => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
