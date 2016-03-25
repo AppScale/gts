@@ -315,9 +315,11 @@ installsolr()
     SOLR_VER=4.10.2
     mkdir -p ${APPSCALE_HOME}/SearchService/solr
     cd ${APPSCALE_HOME}/SearchService/solr
-    rm -rfv solr
-    curl ${CURL_OPTS} -o solr-${SOLR_VER}.tgz $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
-    tar zxvf solr-${SOLR_VER}.tgz
+    rm -rf solr
+    echo "Fetching solr-${SOLR_VER}.tgz"
+    curl ${CURL_OPTS} -o solr-${SOLR_VER}.tgz\
+      $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
+    tar xzf solr-${SOLR_VER}.tgz
     mv -v solr-${SOLR_VER} solr
     rm -fv solr-${SOLR_VER}.tgz
 }
@@ -329,9 +331,11 @@ installcassandra()
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
-    rm -rfv cassandra
-    curl ${CURL_OPTS} -o apache-cassandra-${CASSANDRA_VER}-bin.tar.gz $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    rm -rf cassandra
+    echo "Fetching apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
+    curl ${CURL_OPTS} -o apache-cassandra-${CASSANDRA_VER}-bin.tar.gz\
+      $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    tar xzf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     cd cassandra
