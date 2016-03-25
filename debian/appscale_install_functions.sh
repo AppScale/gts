@@ -534,5 +534,5 @@ buildgo()
     export GOROOT=${GOROOT_DIR}
     GO_VERSION=`cat ${GOROOT_DIR}/VERSION`
     echo "Building ${GO_VERSION} ..."
-    (cd ${GOROOT_DIR}/src && ./all.bash)
+    (cd ${GOROOT_DIR}/src && ./make.bash)
 }
