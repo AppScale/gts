@@ -1,0 +1,10 @@
+#!/bin/bash
+
+GOROOT=/usr/local/go
+
+echo "Fixing permissions"
+cd $GOROOT
+find . -exec chmod ugo+r \{\} \;
+find bin -exec chmod ugo+rx \{\} \;
+find . -type d -exec chmod ugo+rx \{\} \;
+chmod o-w .

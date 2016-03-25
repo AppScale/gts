@@ -1,5 +1,5 @@
 <!--{
-	"Title": "FAQ",
+	"Title": "Frequently Asked Questions (FAQ)",
 	"Path": "/doc/faq"
 }-->
 
@@ -55,13 +55,18 @@ By its design, Go proposes an approach for the construction of system
 software on multicore machines.
 </ul>
 
+<p>
+A much more expansive answer to this question is available in the article,
+<a href="//talks.golang.org/2012/splash.article">Go at Google:
+Language Design in the Service of Software Engineering</a>.
+
 <h3 id="What_is_the_status_of_the_project">
 What is the status of the project?</h3>
 
 <p>
 Go became a public open source project on November 10, 2009.
 After a couple of years of very active design and development, stability was called for and
-Go 1 was <a href="http://blog.golang.org/2012/03/go-version-1-is-released.html">released</a>
+Go 1 was <a href="//blog.golang.org/2012/03/go-version-1-is-released.html">released</a>
 on March 28, 2012.
 Go 1, which includes a <a href="/ref/spec">language specification</a>,
 <a href="/pkg/">standard libraries</a>,
@@ -158,7 +163,7 @@ language was called for.
 </p>
 
 <p>
-The article <a href="http://talks.golang.org/2012/splash.article">Go at Google</a>
+The article <a href="//talks.golang.org/2012/splash.article">Go at Google</a>
 discusses the background and motivation behind the design of the Go language,
 as well as providing more detail about many of the answers presented in this FAQ.
 </p>
@@ -216,14 +221,14 @@ easier to understand what happens when things combine.
 <p>
 Yes. There are now several Go programs deployed in
 production inside Google.  A public example is the server behind
-<a href="http://golang.org">http://golang.org</a>.
+<a href="//golang.org">golang.org</a>.
 It's just the <a href="/cmd/godoc"><code>godoc</code></a>
 document server running in a production configuration on
 <a href="https://developers.google.com/appengine/">Google App Engine</a>.
 </p>
 
 <p>
-Other examples include the <a href="https://code.google.com/p/vitess/">Vitess</a>
+Other examples include the <a href="//code.google.com/p/vitess/">Vitess</a>
 system for large-scale SQL installations and Google's download server, <code>dl.google.com</code>,
 which delivers Chrome binaries and other large installables such as <code>apt-get</code>
 packages.
@@ -255,7 +260,7 @@ Does Go support Google's protocol buffers?</h3>
 <p>
 A separate open source project provides the necessary compiler plugin and library.
 It is available at
-<a href="http://code.google.com/p/goprotobuf/">http://code.google.com/p/goprotobuf/</a>
+<a href="//code.google.com/p/goprotobuf/">code.google.com/p/goprotobuf/</a>
 </p>
 
 
@@ -265,9 +270,9 @@ Can I translate the Go home page into another language?</h3>
 <p>
 Absolutely. We encourage developers to make Go Language sites in their own languages.
 However, if you choose to add the Google logo or branding to your site
-(it does not appear on <a href="http://golang.org/">golang.org</a>),
+(it does not appear on <a href="//golang.org/">golang.org</a>),
 you will need to abide by the guidelines at
-<a href="http://www.google.com/permissions/guidelines.html">http://www.google.com/permissions/guidelines.html</a>
+<a href="//www.google.com/permissions/guidelines.html">www.google.com/permissions/guidelines.html</a>
 </p>
 
 <h2 id="Design">Design</h2>
@@ -421,18 +426,20 @@ When a coroutine blocks, such as by calling a blocking system call,
 the run-time automatically moves other coroutines on the same operating
 system thread to a different, runnable thread so they won't be blocked.
 The programmer sees none of this, which is the point.
-The result, which we call goroutines, can be very cheap: unless they spend a lot of time
-in long-running system calls, they cost little more than the memory
-for the stack, which is just a few kilobytes.
+The result, which we call goroutines, can be very cheap: they have little
+overhead beyond the memory for the stack, which is just a few kilobytes.
 </p>
 
 <p>
-To make the stacks small, Go's run-time uses segmented stacks.  A newly
+To make the stacks small, Go's run-time uses resizable, bounded stacks.  A newly
 minted goroutine is given a few kilobytes, which is almost always enough.
-When it isn't, the run-time allocates (and frees) extension segments automatically.
-The overhead averages about three cheap instructions per function call.
+When it isn't, the run-time grows (and shrinks) the memory for storing
+the stack automatically, allowing many goroutines to live in a modest
+amount of memory.
+The CPU overhead averages about three cheap instructions per function call.
 It is practical to create hundreds of thousands of goroutines in the same
-address space.  If goroutines were just threads, system resources would
+address space.
+If goroutines were just threads, system resources would
 run out at a much smaller number.
 </p>
 
@@ -441,7 +448,7 @@ Why are map operations not defined to be atomic?</h3>
 
 <p>
 After long discussion it was decided that the typical use of maps did not require
-safe access from multiple threads, and in those cases where it did, the map was
+safe access from multiple goroutines, and in those cases where it did, the map was
 probably part of some larger data structure or computation that was already
 synchronized.  Therefore requiring that all map operations grab a mutex would slow
 down most programs and add safety to few.  This was not an easy decision,
@@ -459,7 +466,7 @@ Will you accept my language change?</h3>
 
 <p>
 People often suggest improvements to the language—the
-<a href="http://groups.google.com/group/golang-nuts">mailing list</a>
+<a href="//groups.google.com/group/golang-nuts">mailing list</a>
 contains a rich history of such discussions—but very few of these changes have
 been accepted.
 </p>
@@ -475,9 +482,9 @@ to start talking about what that might be.
 </p>
 
 <p>
-Even if your proposal is compatible with the Go 1 spec, it may be
+Even if your proposal is compatible with the Go 1 spec, it might
 not be in the spirit of Go's design goals.
-The article <i><a href="http://talks.golang.org/2012/splash.article">Go
+The article <i><a href="//talks.golang.org/2012/splash.article">Go
 at Google: Language Design in the Service of Software Engineering</a></i>
 explains Go's origins and the motivation behind its design.
 </p>
@@ -701,7 +708,7 @@ A related example goes the other way:
 
 <pre>
 type Opener interface {
-   Open(name) Reader
+   Open() Reader
 }
 
 func (t T3) Open() *os.File
@@ -882,6 +889,11 @@ type is generic; if you care about how many bits an integer holds, Go
 encourages you to be explicit.
 </p>
 
+<p>
+A blog post, title <a href="http://blog.golang.org/constants">Constants</a>,
+explores this topic in more detail.
+</p>
+
 <h3 id="builtin_maps">
 Why are maps built in?</h3>
 <p>
@@ -933,9 +945,9 @@ How are libraries documented?</h3>
 There is a program, <code>godoc</code>, written in Go, that extracts
 package documentation from the source code. It can be used on the
 command line or on the web. An instance is running at
-<a href="http://golang.org/pkg/">http://golang.org/pkg/</a>.
+<a href="/pkg/">golang.org/pkg/</a>.
 In fact, <code>godoc</code> implements the full site at
-<a href="http://golang.org/">http://golang.org/</a>.
+<a href="/">golang.org/</a>.
 </p>
 
 <h3 id="Is_there_a_Go_programming_style_guide">
@@ -952,11 +964,19 @@ compendium of do's and don'ts that allows interpretation.
 All the Go code in the repository has been run through <code>gofmt</code>.
 </p>
 
+<p>
+The document titled
+<a href="//golang.org/s/comments">Go Code Review Comments</a>
+is a collection of very short essays about details of Go idiom that are often
+missed by programmers.
+It is a handy reference for people doing code reviews for Go projects.
+</p>
+
 <h3 id="How_do_I_submit_patches_to_the_Go_libraries">
 How do I submit patches to the Go libraries?</h3>
 
 <p>
-The library sources are in <code>go/src/pkg</code>.
+The library sources are in the <code>src</code> directory of the repository.
 If you want to make a significant change, please discuss on the mailing list before embarking.
 </p>
 
@@ -964,32 +984,6 @@ If you want to make a significant change, please discuss on the mailing list bef
 See the document
 <a href="contribute.html">Contributing to the Go project</a>
 for more information about how to proceed.
-</p>
-
-<h3 id="Why_does_the_project_use_Mercurial_and_not_git">
-Why does the project use Mercurial and not git?</h3>
-
-<p>
-The Go project, hosted by Google Code at
-<a href="http://code.google.com/p/go">code.google.com/p/go</a>,
-uses Mercurial as its version control system.
-When the project launched,
-Google Code supported only Subversion and Mercurial.
-Mercurial was a better choice because of its plugin mechanism
-that allowed us to create the "codereview" plugin to connect
-the project to the excellent code review tools at
-<a href="http://codereview.appspot.com">codereview.appspot.com</a>.
-</p>
-
-<p>
-Programmers who work
-with the Go project's source rather than release downloads sometimes
-ask for the project to switch to git.
-That would be possible, but it would be a lot of work and
-would also require reimplementing the codereview plugin.
-Given that Mercurial works today, with code review support,
-combined with the Go project's mostly linear, non-branching use of
-version control, a switch to git doesn't seem worthwhile.
 </p>
 
 <h3 id="git_https">
@@ -1023,6 +1017,37 @@ these two lines to <code>~/.gitconfig</code>:
 </pre>
 </li>
 </ul>
+
+<h3 id="get_version">
+How should I manage package versions using "go get"?</h3>
+
+<p>
+"Go get" does not have any explicit concept of package versions.
+Versioning is a source of significant complexity, especially in large code bases,
+and we are unaware of any approach that works well at scale in a large enough
+variety of situations to be appropriate to force on all Go users.
+What "go get" and the larger Go toolchain do provide is isolation of
+packages with different import paths.
+For example, the standard library's <code>html/template</code> and <code>text/template</code>
+coexist even though both are "package template".
+This observation leads to some advice for package authors and package users.
+</p>
+
+<p>
+Packages intended for public use should try to maintain backwards compatibility as they evolve.
+The <a href="/doc/go1compat.html">Go 1 compatibility guidelines</a> are a good reference here:
+don't remove exported names, encourage tagged composite literals, and so on.
+If different functionality is required, add a new name instead of changing an old one.
+If a complete break is required, create a new package with a new import path.</p>
+
+<p>
+If you're using an externally supplied package and worry that it might change in
+unexpected ways, the simplest solution is to copy it to your local repository.
+(This is the approach Google takes internally.)
+Store the copy under a new import path that identifies it as a local copy.
+For example, you might copy "original.com/pkg" to "you.com/external/original.com/pkg".
+Keith Rarick's <a href="https://github.com/kr/goven">goven</a> is one tool to help automate this process.
+</p>
 
 <h2 id="Pointers">Pointers and Allocation</h2>
 
@@ -1064,7 +1089,7 @@ error but the situation can still be confusing, because sometimes a
 <a href="#different_method_sets">pointer
 is necessary to satisfy an interface</a>.
 The insight is that although a pointer to a concrete type can satisfy
-an interface, with one exception <em>a pointer to an interface can never satisfy a interface</em>.
+an interface, with one exception <em>a pointer to an interface can never satisfy an interface</em>.
 </p>
 
 <p>
@@ -1258,7 +1283,7 @@ Do not communicate by sharing memory. Instead, share memory by communicating.
 </p>
 
 <p>
-See the <a href="/doc/codewalk/sharemem/">Share Memory By Communicating</a> code walk and its <a href="http://blog.golang.org/2010/07/share-memory-by-communicating.html">associated article</a> for a detailed discussion of this concept.
+See the <a href="/doc/codewalk/sharemem/">Share Memory By Communicating</a> code walk and its <a href="//blog.golang.org/2010/07/share-memory-by-communicating.html">associated article</a> for a detailed discussion of this concept.
 </p>
 
 <h3 id="Why_no_multi_CPU">
@@ -1275,7 +1300,7 @@ run-time support to utilize more than one OS thread.
 Programs that perform parallel computation should benefit from an increase in
 <code>GOMAXPROCS</code>.
 However, be aware that
-<a href="http://blog.golang.org/2013/01/concurrency-is-not-parallelism.html">concurrency
+<a href="//blog.golang.org/2013/01/concurrency-is-not-parallelism.html">concurrency
 is not parallelism</a>.
 </p>
 
@@ -1305,14 +1330,14 @@ to speed it up.
 </p>
 
 <p>
-Go's goroutine scheduler is not as good as it needs to be. In future, it
+Go's goroutine scheduler is not as good as it needs to be. In the future, it
 should recognize such cases and optimize its use of OS threads. For now,
 <code>GOMAXPROCS</code> should be set on a per-application basis.
 </p>
 
 <p>
 For more detail on this topic see the talk entitled,
-<a href="http://blog.golang.org/2013/01/concurrency-is-not-parallelism.html">Concurrency
+<a href="//blog.golang.org/2013/01/concurrency-is-not-parallelism.html">Concurrency
 is not Parallelism</a>.
 
 <h2 id="Functions_methods">Functions and Methods</h2>
@@ -1391,7 +1416,7 @@ each closure shares that single variable. When the closure runs, it prints the
 value of <code>v</code> at the time <code>fmt.Println</code> is executed,
 but <code>v</code> may have been modified since the goroutine was launched.
 To help detect this and other problems before they happen, run
-<a href="http://golang.org/cmd/go/#hdr-Run_go_tool_vet_on_packages"><code>go vet</code></a>.
+<a href="/cmd/go/#hdr-Run_go_tool_vet_on_packages"><code>go vet</code></a>.
 </p>
 
 <p>
@@ -1525,7 +1550,7 @@ table-driven, iterating over a list of inputs and outputs defined
 in a data structure (Go has excellent support for data structure literals).
 The work to write a good test and good error messages will then be amortized over many
 test cases. The standard Go library is full of illustrative examples, such as in
-<a href="/src/pkg/fmt/fmt_test.go">the formatting tests for the <code>fmt</code> package</a>.
+<a href="/src/fmt/fmt_test.go">the formatting tests for the <code>fmt</code> package</a>.
 </p>
 
 
@@ -1544,35 +1569,46 @@ and uses a variant of the Plan 9 loader to generate ELF/Mach-O/PE binaries.
 </p>
 
 <p>
-We considered writing <code>gc</code>, the original Go compiler, in Go itself but
-elected not to do so because of the difficulties of bootstrapping and
-especially of open source distribution&mdash;you'd need a Go compiler to
-set up a Go environment. <code>Gccgo</code>, which came later, makes it possible to
-consider writing a compiler in Go, which might well happen.
-(Go would be a
-fine language in which to implement a compiler; a native lexer and
-parser are already available in the <a href="/pkg/go/"><code>go</code></a> package
-and a type checker is in the works.)
+We considered using LLVM for <code>gc</code> but we felt it was too large and
+slow to meet our performance goals.
 </p>
 
 <p>
-We also considered using LLVM for <code>gc</code> but we felt it was too large and
-slow to meet our performance goals.
+We also considered writing <code>gc</code>, the original Go compiler, in Go itself but
+elected not to do so because of the difficulties of bootstrapping and
+especially of open source distribution&mdash;you'd need a Go compiler to
+set up a Go environment. <code>Gccgo</code>, which came later, makes it possible to
+consider writing a compiler in Go.
+A plan to do that by machine translation of the existing compiler is under development.
+<a href="http://golang.org/s/go13compiler">A separate document</a>
+explains the reason for this approach.
+</p>
+
+<p>
+That plan aside,
+Go is a
+fine language in which to implement a self-hosting compiler: a native lexer and
+parser are already available in the <a href="/pkg/go/"><code>go</code></a> package
+and a separate type checking
+<a href="http://godoc.org/golang.org/x/tools/go/types">package</a>
+has also been written.
 </p>
 
 <h3 id="How_is_the_run_time_support_implemented">
 How is the run-time support implemented?</h3>
 
 <p>
-Again due to bootstrapping issues, the run-time code is mostly in C (with a
-tiny bit of assembler) although Go is capable of implementing most of
-it now. <code>Gccgo</code>'s run-time support uses <code>glibc</code>.
-<code>Gc</code> uses a custom library to keep the footprint under
+Again due to bootstrapping issues, the run-time code was originally written mostly in C (with a
+tiny bit of assembler) although much of it has been translated to Go since then
+and one day all of it might be (except for the assembler bits).
+<code>Gccgo</code>'s run-time support uses <code>glibc</code>.
+<code>Gc</code> uses a custom C library to keep the footprint under
 control; it is
 compiled with a version of the Plan 9 C compiler that supports
-segmented stacks for goroutines.
-The <code>gccgo</code> compiler implements segmented
-stacks on Linux only, supported by recent modifications to the gold linker.
+resizable stacks for goroutines.
+The <code>gccgo</code> compiler implements these on Linux only,
+using a technique called segmented stacks,
+supported by recent modifications to the gold linker.
 </p>
 
 <h3 id="Why_is_my_trivial_program_such_a_large_binary">
@@ -1590,8 +1626,8 @@ A simple C "hello, world" program compiled and linked statically using gcc
 on Linux is around 750 kB,
 including an implementation of <code>printf</code>.
 An equivalent Go program using <code>fmt.Printf</code>
-is around 1.2 MB, but
-that includes more powerful run-time support.
+is around 1.9 MB, but
+that includes more powerful run-time support and type information.
 </p>
 
 <h3 id="unused_variables_and_imports">
@@ -1599,14 +1635,17 @@ Can I stop these complaints about my unused variable/import?</h3>
 
 <p>
 The presence of an unused variable may indicate a bug, while
-unused imports just slow down compilation.
-Accumulate enough unused imports in your code tree and
-things can get very slow.
-For these reasons, Go allows neither.
+unused imports just slow down compilation,
+an effect that can become substantial as a program accumulates
+code and programmers over time.
+For these reasons, Go refuses to compile programs with unused
+variables or imports,
+trading short-term convenience for long-term build speed and
+program clarity.
 </p>
 
 <p>
-When developing code, it's common to create these situations
+Still, when developing code, it's common to create these situations
 temporarily and it can be annoying to have to edit them out before the
 program will compile.
 </p>
@@ -1647,6 +1686,14 @@ func main() {
     ....
 }
 </pre>
+
+<p>
+Nowadays, most Go programmers use a tool,
+<a href="http://godoc.org/golang.org/x/tools/cmd/goimports">goimports</a>,
+which automatically rewrites a Go source file to have the correct imports,
+eliminating the unused imports issue in practice.
+This program is easily connected to most editors to run automatically when a Go source file is written.
+</p>
 
 <h2 id="Performance">Performance</h2>
 
@@ -1689,7 +1736,7 @@ In any case, Go can often be very competitive.
 There has been significant improvement in the performance of many programs
 as the language and tools have developed.
 See the blog post about
-<a href="http://blog.golang.org/2011/06/profiling-go-programs.html">profiling
+<a href="//blog.golang.org/2011/06/profiling-go-programs.html">profiling
 Go programs</a> for an informative example.
 
 <h2 id="change_from_c">Changes from C</h2>
@@ -1848,7 +1895,7 @@ considerable control over memory layout and allocation, much more than
 is typical in garbage-collected languages. A careful programmer can reduce
 the garbage collection overhead dramatically by using the language well;
 see the article about
-<a href="http://blog.golang.org/2011/06/profiling-go-programs.html">profiling
+<a href="//blog.golang.org/2011/06/profiling-go-programs.html">profiling
 Go programs</a> for a worked example, including a demonstration of Go's
 profiling tools.
 </p>

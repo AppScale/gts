@@ -1,6 +1,6 @@
 <!--{
 	"Title": "The Go Memory Model",
-	"Subtitle": "Version of March 6, 2012",
+	"Subtitle": "Version of May 31, 2014",
 	"Path": "/ref/mem"
 }-->
 
@@ -19,6 +19,29 @@ span.event {
 The Go memory model specifies the conditions under which
 reads of a variable in one goroutine can be guaranteed to
 observe values produced by writes to the same variable in a different goroutine.
+</p>
+
+
+<h2>Advice</h2>
+
+<p>
+Programs that modify data being simultaneously accessed by multiple goroutines
+must serialize such access.
+</p>
+
+<p>
+To serialize access, protect the data with channel operations or other synchronization primitives
+such as those in the <a href="/pkg/sync/"><code>sync</code></a>
+and <a href="/pkg/sync/atomic/"><code>sync/atomic</code></a> packages.
+</p>
+
+<p>
+If you must read the rest of this document to understand the behavior of your program,
+you are being too clever.
+</p>
+
+<p>
+Don't be clever.
 </p>
 
 <h2>Happens Before</h2>
@@ -274,6 +297,41 @@ then the program would not be guaranteed to print
 crash, or do something else.)
 </p>
 
+<p class="rule">
+The <i>k</i>th receive on a channel with capacity <i>C</i> happens before the <i>k</i>+<i>C</i>th send from that channel completes.
+</p>
+
+<p>
+This rule generalizes the previous rule to buffered channels.
+It allows a counting semaphore to be modeled by a buffered channel:
+the number of items in the channel corresponds to the number of active uses,
+the capacity of the channel corresponds to the maximum number of simultaneous uses,
+sending an item acquires the semaphore, and receiving an item releases
+the semaphore.
+This is a common idiom for limiting concurrency.
+</p>
+
+<p>
+This program starts a goroutine for every entry in the work list, but the
+goroutines coordinate using the <code>limit</code> channel to ensure
+that at most three are running work functions at a time.
+</p>
+
+<pre>
+var limit = make(chan int, 3)
+
+func main() {
+	for _, w := range work {
+		go func() {
+			limit <- 1
+			w()
+			<-limit
+		}()
+	}
+	select{}
+}
+</pre>
+
 <h3>Locks</h3>
 
 <p>
@@ -361,7 +419,7 @@ func twoprint() {
 
 <p>
 calling <code>twoprint</code> causes <code>"hello, world"</code> to be printed twice.
-The first call to <code>twoprint</code> runs <code>setup</code> once.
+The first call to <code>doprint</code> runs <code>setup</code> once.
 </p>
 
 <h2>Incorrect synchronization</h2>

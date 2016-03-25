@@ -6,15 +6,11 @@
 
 Cgo enables the creation of Go packages that call C code.
 
-Usage:
-	go tool cgo [compiler options] file.go
+Using cgo with the go command
 
-The compiler options are passed through uninterpreted when
-invoking gcc to compile the C parts of the package.
-
-The input file.go is a syntactically valid Go source file that imports
-the pseudo-package "C" and then refers to types such as C.size_t,
-variables such as C.stdout, or functions such as C.putchar.
+To use cgo write normal Go code that imports a pseudo-package "C".
+The Go code can then refer to types such as C.size_t, variables such
+as C.stdout, or functions such as C.putchar.
 
 If the import of "C" is immediately preceded by a comment, that
 comment, called the preamble, is used as a header when compiling
@@ -24,19 +20,25 @@ the C parts of the package.  For example:
 	// #include <errno.h>
 	import "C"
 
-CFLAGS and LDFLAGS may be defined with pseudo #cgo directives
-within these comments to tweak the behavior of gcc.  Values defined
-in multiple directives are concatenated together.  Options prefixed
-by $GOOS, $GOARCH, or $GOOS/$GOARCH are only defined in matching
-systems.  For example:
+See $GOROOT/misc/cgo/stdio and $GOROOT/misc/cgo/gmp for examples.  See
+"C? Go? Cgo!" for an introduction to using cgo:
+http://golang.org/doc/articles/c_go_cgo.html.
+
+CFLAGS, CPPFLAGS, CXXFLAGS and LDFLAGS may be defined with pseudo #cgo
+directives within these comments to tweak the behavior of the C or C++
+compiler.  Values defined in multiple directives are concatenated
+together.  The directive can include a list of build constraints limiting its
+effect to systems satisfying one of the constraints
+(see http://golang.org/pkg/go/build/#hdr-Build_Constraints for details about the constraint syntax).
+For example:
 
 	// #cgo CFLAGS: -DPNG_DEBUG=1
-	// #cgo linux CFLAGS: -DLINUX=1
+	// #cgo amd64 386 CFLAGS: -DX86=1
 	// #cgo LDFLAGS: -lpng
 	// #include <png.h>
 	import "C"
 
-Alternatively, CFLAGS and LDFLAGS may be obtained via the pkg-config
+Alternatively, CPPFLAGS and LDFLAGS may be obtained via the pkg-config
 tool using a '#cgo pkg-config:' directive followed by the package names.
 For example:
 
@@ -44,14 +46,51 @@ For example:
 	// #include <png.h>
 	import "C"
 
-The CGO_CFLAGS and CGO_LDFLAGS environment variables are added
-to the flags derived from these directives.  Package-specific flags should
-be set using the directives, not the environment variables, so that builds
-work in unmodified environments.
+When building, the CGO_CFLAGS, CGO_CPPFLAGS, CGO_CXXFLAGS and
+CGO_LDFLAGS environment variables are added to the flags derived from
+these directives.  Package-specific flags should be set using the
+directives, not the environment variables, so that builds work in
+unmodified environments.
 
-Within the Go file, C identifiers or field names that are keywords in Go
+All the cgo CPPFLAGS and CFLAGS directives in a package are concatenated and
+used to compile C files in that package.  All the CPPFLAGS and CXXFLAGS
+directives in a package are concatenated and used to compile C++ files in that
+package.  All the LDFLAGS directives in any package in the program are
+concatenated and used at link time.  All the pkg-config directives are
+concatenated and sent to pkg-config simultaneously to add to each appropriate
+set of command-line flags.
+
+When the Go tool sees that one or more Go files use the special import
+"C", it will look for other non-Go files in the directory and compile
+them as part of the Go package.  Any .c, .s, or .S files will be
+compiled with the C compiler.  Any .cc, .cpp, or .cxx files will be
+compiled with the C++ compiler.  Any .h, .hh, .hpp, or .hxx files will
+not be compiled separately, but, if these header files are changed,
+the C and C++ files will be recompiled.  The default C and C++
+compilers may be changed by the CC and CXX environment variables,
+respectively; those environment variables may include command line
+options.
+
+To enable cgo during cross compiling builds, set the CGO_ENABLED
+environment variable to 1 when building the Go tools with make.bash.
+Also, set CC_FOR_TARGET to the C cross compiler for the target.  CC will
+be used for compiling for the host.
+
+After the Go tools are built, when running the go command, CC_FOR_TARGET is
+ignored.  The value of CC_FOR_TARGET when running make.bash is the default
+compiler.  However, you can set the environment variable CC, not CC_FOR_TARGET,
+to control the compiler when running the go tool.
+
+CXX_FOR_TARGET works in a similar way for C++ code.
+
+Go references to C
+
+Within the Go file, C's struct field names that are keywords in Go
 can be accessed by prefixing them with an underscore: if x points at a C
 struct with a field named "type", x._type accesses the field.
+C struct fields that cannot be expressed in Go, such as bit fields
+or misaligned data, are omitted in the Go struct, replaced by
+appropriate padding to reach the next field or the end of the struct.
 
 The standard C numeric types are available under the names
 C.char, C.schar (signed char), C.uchar (unsigned char),
@@ -63,7 +102,15 @@ The C type void* is represented by Go's unsafe.Pointer.
 To access a struct, union, or enum type directly, prefix it with
 struct_, union_, or enum_, as in C.struct_stat.
 
+As Go doesn't have support for C's union type in the general case,
+C's union types are represented as a Go byte array with the same length.
+
 Go structs cannot embed fields with C types.
+
+Cgo translates C types into equivalent unexported Go types.
+Because the translations are unexported, a Go package should not
+expose C types in its exported API: a C type used in one Go package
+is different from the same C type used in another.
 
 Any C function (even void functions) may be called in a multiple
 assignment context to retrieve both the return value (if any) and the
@@ -73,11 +120,39 @@ function returns void).  For example:
 	n, err := C.sqrt(-1)
 	_, err := C.voidFunc()
 
+Calling C function pointers is currently not supported, however you can
+declare Go variables which hold C function pointers and pass them
+back and forth between Go and C. C code may call function pointers
+received from Go. For example:
+
+	package main
+
+	// typedef int (*intFunc) ();
+	//
+	// int
+	// bridge_int_func(intFunc f)
+	// {
+	//		return f();
+	// }
+	//
+	// int fortytwo()
+	// {
+	//	    return 42;
+	// }
+	import "C"
+	import "fmt"
+
+	func main() {
+		f := C.intFunc(C.fortytwo)
+		fmt.Println(int(C.bridge_int_func(f)))
+		// Output: 42
+	}
+
 In C, a function argument written as a fixed size array
 actually requires a pointer to the first element of the array.
 C compilers are aware of this calling convention and adjust
 the call accordingly, but Go cannot.  In Go, you must pass
-the pointer to the first element explicitly: C.f(&x[0]).
+the pointer to the first element explicitly: C.f(&C.x[0]).
 
 A few special functions convert between Go and C types
 by making copies of the data.  In pseudo-Go definitions:
@@ -98,6 +173,8 @@ by making copies of the data.  In pseudo-Go definitions:
 	// C pointer, length to Go []byte
 	func C.GoBytes(unsafe.Pointer, C.int) []byte
 
+C references to Go
+
 Go functions can be exported for use by C code in the following way:
 
 	//export MyFunction
@@ -111,7 +188,7 @@ They will be available in the C code as:
 	extern int64 MyFunction(int arg1, int arg2, GoString arg3);
 	extern struct MyFunction2_return MyFunction2(int arg1, int arg2, GoString arg3);
 
-found in _cgo_export.h generated header, after any preambles
+found in the _cgo_export.h generated header, after any preambles
 copied from the cgo input files. Functions with multiple
 return values are mapped to functions returning a struct.
 Not all Go types can be mapped to C types in a useful way.
@@ -121,17 +198,54 @@ since it is copied into two different C output files, it must not
 contain any definitions, only declarations. Definitions must be
 placed in preambles in other files, or in C source files.
 
-Cgo transforms the input file into four output files: two Go source
+Using cgo directly
+
+Usage:
+	go tool cgo [cgo options] [-- compiler options] file.go
+
+Cgo transforms the input file.go into four output files: two Go source
 files, a C file for 6c (or 8c or 5c), and a C file for gcc.
 
-The standard package construction rules of the go command
-automate the process of using cgo.  See $GOROOT/misc/cgo/stdio
-and $GOROOT/misc/cgo/gmp for examples.
+The compiler options are passed through uninterpreted when
+invoking the C compiler to compile the C parts of the package.
 
-Cgo does not yet work with gccgo.
+The following options are available when running cgo directly:
 
-See "C? Go? Cgo!" for an introduction to using cgo:
-http://golang.org/doc/articles/c_go_cgo.html
+	-dynimport file
+		Write list of symbols imported by file. Write to
+		-dynout argument or to standard output. Used by go
+		build when building a cgo package.
+	-dynout file
+		Write -dynimport output to file.
+	-dynlinker
+		Write dynamic linker as part of -dynimport output.
+	-godefs
+		Write out input file in Go syntax replacing C package
+		names with real values. Used to generate files in the
+		syscall package when bootstrapping a new target.
+	-cdefs
+		Like -godefs, but write file in C syntax.
+		Used to generate files in the runtime package when
+		bootstrapping a new target.
+	-objdir directory
+		Put all generated files in directory.
+	-gccgo
+		Generate output for the gccgo compiler rather than the
+		gc compiler.
+	-gccgoprefix prefix
+		The -fgo-prefix option to be used with gccgo.
+	-gccgopkgpath path
+		The -fgo-pkgpath option to be used with gccgo.
+	-import_runtime_cgo
+		If set (which it is by default) import runtime/cgo in
+		generated output.
+	-import_syscall
+		If set (which it is by default) import syscall in
+		generated output.
+	-debug-define
+		Debugging option. Print #defines.
+	-debug-gcc
+		Debugging option. Trace C compiler execution and output.
 */
 package main
 
@@ -183,29 +297,30 @@ Next, cgo needs to identify the kinds for each identifier. For the
 identifiers C.foo and C.bar, cgo generates this C program:
 
 	<preamble>
-	void __cgo__f__(void) {
-	#line 1 "cgo-test"
-		foo;
-		enum { _cgo_enum_0 = foo };
-		bar;
-		enum { _cgo_enum_1 = bar };
-	}
+	#line 1 "not-declared"
+	void __cgo_f_xxx_1(void) { __typeof__(foo) *__cgo_undefined__; }
+	#line 1 "not-type"
+	void __cgo_f_xxx_2(void) { foo *__cgo_undefined__; }
+	#line 1 "not-const"
+	void __cgo_f_xxx_3(void) { enum { __cgo_undefined__ = (foo)*1 }; }
+	#line 2 "not-declared"
+	void __cgo_f_xxx_1(void) { __typeof__(bar) *__cgo_undefined__; }
+	#line 2 "not-type"
+	void __cgo_f_xxx_2(void) { bar *__cgo_undefined__; }
+	#line 2 "not-const"
+	void __cgo_f_xxx_3(void) { enum { __cgo_undefined__ = (bar)*1 }; }
 
-This program will not compile, but cgo can look at the error messages
-to infer the kind of each identifier. The line number given in the
-error tells cgo which identifier is involved.
+This program will not compile, but cgo can use the presence or absence
+of an error message on a given line to deduce the information it
+needs. The program is syntactically valid regardless of whether each
+name is a type or an ordinary identifier, so there will be no syntax
+errors that might stop parsing early.
 
-An error like "unexpected type name" or "useless type name in empty
-declaration" or "declaration does not declare anything" tells cgo that
-the identifier is a type.
+An error on not-declared:1 indicates that foo is undeclared.
+An error on not-type:1 indicates that foo is not a type (if declared at all, it is an identifier).
+An error on not-const:1 indicates that foo is not an integer constant.
 
-An error like "statement with no effect" or "expression result unused"
-tells cgo that the identifier is not a type, but not whether it is a
-constant, function, or global variable.
-
-An error like "not an integer constant" tells cgo that the identifier
-is not a constant. If it is also not a type, it must be a function or
-global variable. For now, those can be treated the same.
+The line number specifies the name involved. In the example, 1 is foo and 2 is bar.
 
 Next, cgo must learn the details of each type, variable, function, or
 constant. It can do this by reading object files. If cgo has decided
@@ -213,14 +328,14 @@ that t1 is a type, v2 and v3 are variables or functions, and c4, c5,
 and c6 are constants, it generates:
 
 	<preamble>
-	typeof(t1) *__cgo__1;
-	typeof(v2) *__cgo__2;
-	typeof(v3) *__cgo__3;
-	typeof(c4) *__cgo__4;
+	__typeof__(t1) *__cgo__1;
+	__typeof__(v2) *__cgo__2;
+	__typeof__(v3) *__cgo__3;
+	__typeof__(c4) *__cgo__4;
 	enum { __cgo_enum__4 = c4 };
-	typeof(c5) *__cgo__5;
+	__typeof__(c5) *__cgo__5;
 	enum { __cgo_enum__5 = c5 };
-	typeof(c6) *__cgo__6;
+	__typeof__(c6) *__cgo__6;
 	enum { __cgo_enum__6 = c6 };
 
 	long long __cgo_debug_data[] = {
@@ -310,7 +425,7 @@ file compiled by gcc, the file x.cgo2.c:
 			char* p0;
 			int r;
 			char __pad12[4];
-		} __attribute__((__packed__)) *a = v;
+		} __attribute__((__packed__, __gcc_struct__)) *a = v;
 		a->r = puts((void*)a->p0);
 	}
 
@@ -395,8 +510,6 @@ gcc-compiled function that can be called early during program startup,
 and libcgo_thread_start to a gcc-compiled function that can be used to
 create a new thread, in place of the runtime's usual direct system
 calls.
-
-[NOTE: From here down is planned but not yet implemented.]
 
 Internal and External Linking
 
@@ -615,15 +728,18 @@ the godoc binary, which uses net but no other cgo, can run without
 needing gcc available. The second rule means that a build of a
 cgo-wrapped library like sqlite3 can generate a standalone executable
 instead of needing to refer to a dynamic library. The specific choice
-can be overridden using a command line flag: 6l -cgolink=internal or
-6l -cgolink=external.
+can be overridden using a command line flag: 6l -linkmode=internal or
+6l -linkmode=external.
 
 In an external link, 6l will create a temporary directory, write any
 host object files found in package archives to that directory (renamed
 to avoid conflicts), write the go.o file to that directory, and invoke
 the host linker. The default value for the host linker is $CC, split
 into fields, or else "gcc". The specific host linker command line can
-be overridden using a command line flag: 6l -hostld='gcc -ggdb'
+be overridden using command line flags: 6l -extld=clang
+-extldflags='-ggdb -O3'.  If any package in a build includes a .cc or
+other file compiled by the C++ compiler, the go tool will use the
+-extld option to set the host linker to the C++ compiler.
 
 These defaults mean that Go-aware build systems can ignore the linking
 changes and keep running plain '6l' and get reasonable results, but

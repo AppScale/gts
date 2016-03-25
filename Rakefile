@@ -60,6 +60,15 @@ namespace :apptaskqueue do
 
 end
 
+namespace :go do
+
+  task :test do
+    goroot = '/root/appscale/AppServer/goroot'
+    sh "PATH=#{goroot}/bin:${PATH}; cd #{goroot}/src; ./run.bash --no-rebuild"
+  end
+
+end
+
 namespace :hermes do
 
   task :test do
@@ -127,4 +136,4 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'hermes:test', 'searchservice:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
+task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'go:test', 'hermes:test', 'searchservice:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
