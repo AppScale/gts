@@ -33,6 +33,8 @@ Options new in this version:
 		linker. This flag cannot be used when $GOOS is windows.
 	-H darwin     (only in 6l/8l)
 		Write Apple Mach-O binaries (default when $GOOS is darwin)
+	-H dragonfly  (only in 6l/8l)
+		Write DragonFly ELF binaries (default when $GOOS is dragonfly)
 	-H linux
 		Write Linux ELF binaries (default when $GOOS is linux)
 	-H freebsd
@@ -41,6 +43,8 @@ Options new in this version:
 		Write NetBSD ELF binaries (default when $GOOS is netbsd)
 	-H openbsd    (only in 6l/8l)
 		Write OpenBSD ELF binaries (default when $GOOS is openbsd)
+	-H solaris    (only in 6l)
+		Write Solaris ELF binaries (default when $GOOS is solaris)
 	-H windows    (only in 6l/8l)
 		Write Windows PE32+ Console binaries (default when $GOOS is windows)
 	-H windowsgui (only in 6l/8l)
@@ -52,12 +56,16 @@ Options new in this version:
 		The default is the single location $GOROOT/pkg/$GOOS_$GOARCH.
 	-r dir1:dir2:...
 		Set the dynamic linker search path when using ELF.
+	-s
+		Omit the symbol table and debug information.
 	-V
 		Print the linker version.
+	-w
+		Omit the DWARF symbol table.
 	-X symbol value
-		Set the value of an otherwise uninitialized string variable.
-		The symbol name should be of the form importpath.name,
-		as displayed in the symbol table printed by "go tool nm".
+		Set the value of a string variable. The symbol name
+		should be of the form importpath.name, as displayed
+		in the symbol table printed by "go tool nm".
 	-race
 		Link with race detection libraries.
 	-B value

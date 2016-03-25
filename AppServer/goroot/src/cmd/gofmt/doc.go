@@ -4,6 +4,7 @@
 
 /*
 Gofmt formats Go programs.
+It uses tabs (width = 8) for indentation and blanks for alignment.
 
 Without an explicit path, it processes the standard input.  Given a file,
 it operates on that file; given a directory, it operates on all .go files in
@@ -33,13 +34,9 @@ The flags are:
 		If a file's formatting is different from gofmt's, overwrite it
 		with gofmt's version.
 
-Formatting control flags:
-	-comments=true
-		Print comments; if false, all comments are elided from the output.
-	-tabs=true
-		Indent with tabs; if false, spaces are used instead.
-	-tabwidth=8
-		Tab width in spaces.
+Debugging support:
+	-cpuprofile filename
+		Write cpu profile to the specified file.
 
 
 The rewrite rule specified with the -r flag must be a string of the form:
@@ -70,7 +67,26 @@ To remove the parentheses:
 
 To convert the package tree from explicit slice upper bounds to implicit ones:
 
-	gofmt -r 'α[β:len(α)] -> α[β:]' -w $GOROOT/src/pkg
+	gofmt -r 'α[β:len(α)] -> α[β:]' -w $GOROOT/src
+
+The simplify command
+
+When invoked with -s gofmt will make the following source transformations where possible.
+
+	An array, slice, or map composite literal of the form:
+		[]T{T{}, T{}}
+	will be simplified to:
+		[]T{{}, {}}
+
+	A slice expression of the form:
+		s[a:len(s)]
+	will be simplified to:
+		s[a:]
+
+	A range of the form:
+		for x, _ = range v {...}
+	will be simplified to:
+		for x = range v {...}
 */
 package main
 

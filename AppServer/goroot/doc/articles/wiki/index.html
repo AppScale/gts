@@ -128,11 +128,10 @@ In addition to saving pages, we will want to load pages, too:
 {{code "doc/articles/wiki/part1-noerror.go" `/^func loadPage/` `/^}/`}}
 
 <p>
-The function <code>loadPage</code> constructs the file name from
-the title parameter, reads the file's contents into a new
-variable <code>body</code>, and returns two values: a pointer to a
-<code>Page</code> literal constructed with the proper title and body
-values and <code>nil</code> for the error value.
+The function <code>loadPage</code> constructs the file name from the title
+parameter, reads the file's contents into a new variable <code>body</code>, and
+returns a pointer to a <code>Page</code> literal constructed with the proper
+title and body values.
 </p>
 
 <p>
@@ -261,18 +260,15 @@ Let's create a handler, <code>viewHandler</code> that will allow users to
 view a wiki page. It will handle URLs prefixed with "/view/".
 </p>
 
-{{code "doc/articles/wiki/part2.go" `/^const lenPath/`}}
-
 {{code "doc/articles/wiki/part2.go" `/^func viewHandler/` `/^}/`}}
 
 <p>
 First, this function extracts the page title from <code>r.URL.Path</code>,
-the path component of the request URL. The global constant
-<code>lenPath</code> is the length of the leading <code>"/view/"</code>
-component of the request path.
-The <code>Path</code> is re-sliced with <code>[lenPath:]</code> to drop the
-first 6 characters of the string. This is because the path will invariably
-begin with <code>"/view/"</code>, which is not part of the page's title.
+the path component of the request URL.
+The <code>Path</code> is re-sliced with <code>[len("/view/"):]</code> to drop
+the leading <code>"/view/"</code> component of the request path.
+This is because the path will invariably begin with <code>"/view/"</code>,
+which is not part of the page's title.
 </p>
 
 <p>
@@ -432,6 +428,11 @@ to its own function:
 </p>
 
 {{code "doc/articles/wiki/final-template.go" `/^func renderTemplate/` `/^}/`}}
+
+<p>
+And modify the handlers to use that function:
+</p>
+
 {{code "doc/articles/wiki/final-template.go" `/^func viewHandler/` `/^}/`}}
 {{code "doc/articles/wiki/final-template.go" `/^func editHandler/` `/^}/`}}
 
@@ -465,7 +466,7 @@ header to the HTTP response.
 <p>
 The function <code>saveHandler</code> will handle the submission of forms
 located on the edit pages. After uncommenting the related line in
-<code>main</code>, let's implement the the handler:
+<code>main</code>, let's implement the handler:
 </p>
 
 {{code "doc/articles/wiki/final-template.go" `/^func saveHandler/` `/^}/`}}
@@ -574,10 +575,11 @@ this, we can write a function to validate the title with a regular expression.
 
 <p>
 First, add <code>"regexp"</code> to the <code>import</code> list.
-Then we can create a global variable to store our validation regexp:
+Then we can create a global variable to store our validation 
+expression:
 </p>
 
-{{code "doc/articles/wiki/final-noclosure.go" `/^var titleValidator/`}}
+{{code "doc/articles/wiki/final-noclosure.go" `/^var validPath/`}}
 
 <p>
 The function <code>regexp.MustCompile</code> will parse and compile the
@@ -588,9 +590,8 @@ an <code>error</code> as a second parameter.
 </p>
 
 <p>
-Now, let's write a function, <code>getTitle</code>, that extracts the title
-string from the request URL, and tests it against our
-<code>TitleValidator</code> expression:
+Now, let's write a function that uses the <code>validPath</code>
+expression to validate path and extract the page title:
 </p>
 
 {{code "doc/articles/wiki/final-noclosure.go" `/func getTitle/` `/^}/`}}
@@ -617,7 +618,7 @@ Let's put a call to <code>getTitle</code> in each of the handlers:
 Catching the error condition in each handler introduces a lot of repeated code.
 What if we could wrap each of the handlers in a function that does this
 validation and error checking? Go's
-<a href="/ref/spec#Function_declarations">function
+<a href="/ref/spec#Function_literals">function
 literals</a> provide a powerful means of abstracting functionality
 that can help us here.
 </p>

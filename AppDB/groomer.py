@@ -100,6 +100,9 @@ class DatastoreGroomer(threading.Thread):
   # The ID for the task to clean up descending indices.
   CLEAN_DSC_INDICES_TASK = 'dsc-indices'
 
+  # The ID for the task to clean up kind indices.
+  CLEAN_KIND_INDICES_TASK = 'kind-indices'
+
   # The ID for the task to clean up old logs.
   CLEAN_LOGS_TASK = 'logs'
 
@@ -533,6 +536,51 @@ class DatastoreGroomer(threading.Thread):
       retry_time=self.ds_access.LOCK_RETRY_TIME
     )
 
+  def lock_and_delete_kind_index(self, reference):
+    """ For a list of index entries that have the same entity, lock the entity
+    and delete the indexes.
+
+    Since another process can update an entity after we've determined that
+    an index entry is invalid, we need to re-check the index entries after
+    locking their entity key.
+
+    Args:
+      reference: A dictionary containing a kind reference.
+    """
+    table_name = dbconstants.APP_KIND_TABLE
+    entity_key = reference.values()[0].values()[0]
+    app = entity_key.split(self.ds_access._SEPARATOR)[0]
+    try:
+      txn_id = self.acquire_lock_for_key(
+        app_id=app,
+        key=entity_key,
+        retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
+        retry_time=self.ds_access.LOCK_RETRY_TIME
+      )
+    except zk.ZKTransactionException:
+      self.index_entries_delete_failures += 1
+      return
+
+    entities = self.fetch_entity_dict_for_references([reference])
+    if entity_key not in entities:
+      index_to_delete = reference.keys()[0]
+      logging.debug('Removing {}'.format([index_to_delete]))
+      try:
+        self.db_access.batch_delete(table_name, [index_to_delete],
+          column_names=dbconstants.APP_KIND_SCHEMA)
+        self.index_entries_cleaned += 1
+      except dbconstants.AppScaleDBConnectionError:
+        logging.exception('Unable to delete index.')
+        self.index_entries_delete_failures += 1
+
+    self.release_lock_for_key(
+      app_id=app,
+      key=entity_key,
+      txn_id=txn_id,
+      retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
+      retry_time=self.ds_access.LOCK_RETRY_TIME
+    )
+
   def clean_up_indexes(self, direction):
     """ Deletes invalid single property index entries.
 
@@ -600,6 +648,56 @@ class DatastoreGroomer(threading.Thread):
 
       for entity_key in invalid_refs:
         self.lock_and_delete_indexes(invalid_refs[entity_key], direction, entity_key)
+      self.update_groomer_state([task_id, start_key])
+
+  def clean_up_kind_indices(self):
+    """ Deletes invalid kind index entries.
+
+    This is needed because the datastore does not delete kind index entries
+    when deleting entities.
+    """
+    table_name = dbconstants.APP_KIND_TABLE
+    task_id = self.CLEAN_KIND_INDICES_TASK
+
+    start_key = ''
+    end_key = dbconstants.TERMINATING_STRING
+    if len(self.groomer_state) > 1:
+      start_key = self.groomer_state[1]
+
+    while True:
+      references = self.db_access.range_query(
+        table_name=table_name,
+        column_names=dbconstants.APP_KIND_SCHEMA,
+        start_key=start_key,
+        end_key=end_key,
+        limit=self.BATCH_SIZE,
+        start_inclusive=False,
+      )
+      if len(references) == 0:
+        break
+
+      self.index_entries_checked += len(references)
+      if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+        logging.info('Checked {} index entries'.
+          format(self.index_entries_checked))
+        self.last_logged = time.time()
+      first_ref = references[0].keys()[0]
+      logging.debug('Fetched {} kind indices, starting with {}'.
+        format(len(references), [first_ref]))
+
+      last_start_key = start_key
+      start_key = references[-1].keys()[0]
+      if start_key == last_start_key:
+        raise dbconstants.AppScaleDBError(
+          'An infinite loop was detected while fetching references.')
+
+      entities = self.fetch_entity_dict_for_references(references)
+
+      for reference in references:
+        entity_key = reference.values()[0].values()[0]
+        if entity_key not in entities:
+          self.lock_and_delete_kind_index(reference)
+
       self.update_groomer_state([task_id, start_key])
 
   def clean_up_composite_indexes(self):
@@ -1324,6 +1422,12 @@ class DatastoreGroomer(threading.Thread):
         'description': 'clean up descending indices',
         'function': self.clean_up_indexes,
         'args': [datastore_pb.Query_Order.DESCENDING]
+      },
+      {
+        'id': self.CLEAN_KIND_INDICES_TASK,
+        'description': 'clean up kind indices',
+        'function': self.clean_up_kind_indices,
+        'args': []
       },
       {
         'id': self.CLEAN_LOGS_TASK,

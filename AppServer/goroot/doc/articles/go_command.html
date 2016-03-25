@@ -78,17 +78,18 @@ well-established conventions.</p>
 source code.  For Bitbucket, GitHub, Google Code, and Launchpad, the
 root directory of the repository is identified by the repository's
 main URL, without the <code>http://</code> prefix.  Subdirectories are named by
-adding to that path.  For example, the supplemental networking
-libraries for Go are obtained by running</p>
+adding to that path.
+For example, the Go example programs are obtained by running</p>
 
 <pre>
-hg clone http://code.google.com/p/go.net
+git clone https://github.com/golang/example
 </pre>
 
 <p>and thus the import path for the root directory of that repository is
-"<code>code.google.com/p/go.net</code>".  The websocket package is stored in a
-subdirectory, so its import path is
-"<code>code.google.com/p/go.net/websocket</code>".</p>
+"<code>github.com/golang/example</code>".
+The <a href="https://godoc.org/github.com/golang/example/stringutil">stringutil</a>
+package is stored in a subdirectory, so its import path is
+"<code>github.com/golang/example/stringutil</code>".</p>
 
 <p>These paths are on the long side, but in exchange we get an
 automatically managed name space for import paths and the ability for
@@ -99,7 +100,7 @@ deduce where to obtain the source code.</p>
 in a known way from the import path.  Specifically, the first choice
 is <code>$GOPATH/src/&lt;import-path&gt;</code>.  If <code>$GOPATH</code> is
 unset, the go command will fall back to storing source code alongside the
-standard Go packages, in <code>$GOROOT/src/pkg/&lt;import-path&gt;</code>.
+standard Go packages, in <code>$GOROOT/src/&lt;import-path&gt;</code>.
 If <code>$GOPATH</code> is set to a list of paths, the go command tries
 <code>&lt;dir&gt;/src/&lt;import-path&gt;</code> for each of the directories in
 that list.</p>

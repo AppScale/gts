@@ -11,22 +11,26 @@ require 'monit_interface'
 # start, stop, and monitor the Blobstore Server as needed.
 module BlobServer
 
+  # The BlobServer listens to this port.
+  SERVER_PORT = 6107
 
-  SERVER_PORTS = [6107]
+  # HAProxy on the head node forwards this port to the server port on an app
+  # engine node.
+  HAPROXY_PORT = 6106
 
+  # The server name used for HAProxy configuration.
+  NAME = 'as_blob_server'
 
   def self.start(db_local_ip, db_local_port)
-    blobserver = self.scriptname()
-    ports = self.server_ports()
-    ports.each { |blobserver_port|
-      start_cmd = ["/usr/bin/python2 #{blobserver}",
-            "-d #{db_local_ip}:#{db_local_port}",
-            "-p #{blobserver_port}"].join(' ')
-      stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-        "#{blobserver} /usr/bin/python2"
+    start_cmd = [
+      "/usr/bin/python2 #{self.scriptname}",
+      "-d #{db_local_ip}:#{db_local_port}",
+      "-p #{self::SERVER_PORT}"
+    ].join(' ')
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      "#{self.scriptname} /usr/bin/python2"
 
-      MonitInterface.start(:blobstore, start_cmd, stop_cmd, blobserver_port)
-    }
+    MonitInterface.start(:blobstore, start_cmd, stop_cmd, self::SERVER_PORT)
   end
 
   def self.stop()
@@ -36,15 +40,6 @@ module BlobServer
   def self.restart(my_ip, db_port)
     self.stop()
     self.start(my_ip, db_port)
-  end
-
-  def self.name()
-    "as_blobserver"
-  end
-
-
-  def self.server_ports()
-      return SERVER_PORTS
   end
 
   def self.is_running?(my_ip)
@@ -57,4 +52,3 @@ module BlobServer
     return "#{APPSCALE_HOME}/AppDB/blobstore/blobstore_server.py"
   end
 end
-
