@@ -264,3 +264,4 @@ func fixCount(n int, err error) (int, error) {
 	}
 	return n, err
 }
+var DisableWritesForAppEngine = false
