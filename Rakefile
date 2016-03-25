@@ -28,15 +28,6 @@ namespace :appcontroller do
 
 end
 
-
-namespace :python do
-
-  task :test do
-    sh "bash ts_python.sh"
-  end
-
-end
-
 namespace :appmanager do
   
   task :test do
