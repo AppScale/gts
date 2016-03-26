@@ -2971,7 +2971,7 @@ class Djinn
     json_state = {}
     zookeeper_data['locations'].each { |ip|
       begin
-        Djinn.log_info("Restoring AppController state from ZK at #{ip}")
+        Djinn.log_debug("Restoring AppController state from ZK at #{ip}.")
         Timeout::timeout(SMALL_WAIT) {
           ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
           json_state = ZKInterface.get_appcontroller_state()
@@ -2982,7 +2982,7 @@ class Djinn
         next
       end
 
-      Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
+      Djinn.log_debug("Got data #{json_state.inspect} successfully from #{ip}")
       return json_state
     }
 
@@ -3567,7 +3567,6 @@ class Djinn
         Djinn.log_info("Zookeeper already running.")
       end
       write_zookeeper_locations()
-      ZKInterface.init(my_node, @nodes)
     }
 
     if my_node.is_db_master? or my_node.is_db_slave?
