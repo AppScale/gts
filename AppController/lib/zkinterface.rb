@@ -131,17 +131,6 @@ class ZKInterface
   end
 
 
-  # Initializes a new ZooKeeper connection to the "closest" node in the
-  # system. "Closeness" is defined as either "this node" (if it runs
-  # ZooKeeper), or an arbitrary node that runs ZooKeeper. Callers should use
-  # this method when they don't want to determine on their own which
-  # ZooKeeper box to connect to.
-  def self.init(my_node, all_nodes)
-    self.init_to_ip(my_node.private_ip, self.get_zk_location(my_node,
-      all_nodes))
-  end
-
-
   # Creates a new connection to use with ZooKeeper. Useful for scenarios
   # where the ZooKeeper library has terminated our connection but we still
   # need it. Also recreates any ephemeral links that were lost when the
@@ -793,28 +782,5 @@ class ZKInterface
         " path #{key}, saw info #{info.inspect}")
     end
   end
-
-
-  def self.get_zk_location(my_node, all_nodes)
-    if my_node.is_zookeeper?
-      return my_node.private_ip
-    end
-
-    zk_node = nil
-    all_nodes.each { |node|
-      if node.is_zookeeper?
-        zk_node = node
-        break
-      end
-    }
-
-    if zk_node.nil?
-      HelperFunctions.log_and_crash("No ZooKeeper nodes were found. All " +
-        "nodes are #{nodes}, while my node is #{my_node}.")
-    end
-
-    return zk_node.private_ip
-  end
-
 
 end

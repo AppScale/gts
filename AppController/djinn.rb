@@ -518,7 +518,6 @@ class Djinn
     @state_change_lock = Monitor.new()
     @app_info_map = {}
 
-    @scaling_in_progress = false
     @last_decision = {}
     @initialized_apps = {}
     @total_req_rate = {}
@@ -752,8 +751,8 @@ class Djinn
 
       # Let's stop all other nodes.
       Djinn.log_info("Stopping all other nodes.")
-      threads << Thread.new {
-        @nodes.each { |node|
+      @nodes.each { |node|
+        threads << Thread.new {
           if node.private_ip != my_node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
             begin
