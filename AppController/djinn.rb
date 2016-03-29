@@ -2924,7 +2924,7 @@ class Djinn
       begin
         json_state = ZKInterface.get_appcontroller_state()
       rescue => e
-        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
+        Djinn.log_warn("Saw exception of class #{e.class} " +
           "trying to read appcontroller state.")
         next
       end
