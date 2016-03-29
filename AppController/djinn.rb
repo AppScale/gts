@@ -1900,6 +1900,7 @@ class Djinn
       Djinn.log_info("Spawning/setting up other nodes.")
       spawn_and_setup_appengine
     end
+    write_zookeeper_locations()
 
     # Initialize the current server and starts all the API and essential
     # services. The functions are idempotent ie won't restart already
@@ -1926,7 +1927,6 @@ class Djinn
       update_firewall()
       write_memcache_locations()
       write_zookeeper_locations()
-      set_zookeepers_servers()
 
       # Reload state from head node.
       if my_node.is_login?
@@ -2973,21 +2973,6 @@ class Djinn
   end
 
 
-  def set_zookeepers_servers()
-    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-    zookeeper_data['locations'].each { |ip|
-      begin
-        Djinn.log_debug("Restoring AppController state from ZK at #{ip}.")
-        break if ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
-      rescue => e
-        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
-          "trying next ZooKeeper node")
-        next
-      end
-    }
-  end
-
-
   # Updates all instance variables stored within the AppController with the new
   # public and private IP addreses of this machine.
   #
@@ -3093,9 +3078,24 @@ class Djinn
     # Let's see if it changed since last time we got the list.
     zookeeper_data['locations'].sort!
     if zookeeper_data['locations'] != @zookeeper_data
+      # Save the latest list of zookeeper nodes: needed to restart the
+      # deployment.
       HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
       @zookeeper_data = zookeeper_data['locations']
       Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
+
+      # Ane now let's make sure we are using the most up-to-date list of
+      # zookeeper nodes.
+      zookeeper_data['locations'].each { |ip|
+        begin
+          Djinn.log_debug("Trying to use zookeeper server at #{ip}.")
+          break if ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
+        rescue => e
+          Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
+            "trying next ZooKeeper node")
+          next
+        end
+      }
     end
   end
 
