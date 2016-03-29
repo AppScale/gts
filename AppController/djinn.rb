@@ -1860,8 +1860,10 @@ class Djinn
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
 
+      # Restore the initial list of zookeeper nodes.
       zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-      if zookeeper_data['locations'].include?(my_ip) and !is_zookeeper_running?
+      @zookeeper_data = zookeeper_data['locations']
+      if @zookeeper_data.include?(my_ip) and !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
         Djinn.log_info("Starting zookeeper.")
         begin
@@ -1913,7 +1915,9 @@ class Djinn
     set_appcontroller_monit()
     @done_loading = true
 
-    write_zookeeper_locations()
+    # Now we have to wait for a zookeeper server, to write and read nodes
+    # status.
+    pick_zookeeper(@zookeeper_data)
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
 
@@ -1922,11 +1926,12 @@ class Djinn
     last_print = Time.now.to_i
 
     while !@kill_sig_received do
-      @state = "Done starting up AppScale, now in heartbeat mode"
       write_database_info()
       update_firewall()
       write_memcache_locations()
       write_zookeeper_locations()
+      @state = "Looking up a zookeeper server"
+      pick_zookeeper(@zookeeper_data)
 
       # Reload state from head node.
       if my_node.is_login?
@@ -1934,11 +1939,11 @@ class Djinn
         send_instance_info_to_dashboard()
         update_node_info_cache()
       else
-        # Every other node syncs its state with what the login nodes sees.
-        if !restore_appcontroller_state()
-          HelperFunctions.log_and_crash("#{ZK_LOCATIONS_FILE} was deleted!")
-        end
+        # Every other node syncs its state with the login's node state.
+        next if !restore_appcontroller_state()
       end
+
+      @state = "Done starting up AppScale, now in heartbeat mode"
 
       # Since we now backup state to ZK, don't make everyone do it.
       # The Shadow has the most up-to-date info, so let it handle this
@@ -2924,12 +2929,12 @@ class Djinn
       begin
         json_state = ZKInterface.get_appcontroller_state()
       rescue => e
-        Djinn.log_warn("Saw exception of class #{e.class} " +
-          "trying to read appcontroller state.")
-        next
+        Djinn.log_warn("Saw exception #{e.message} reading appcontroller state.")
+        json_state = ""
       end
       break if !json_state.empty?
       Djinn.log_warn("Unable to talk to zookeeper: trying again.")
+      pick_zookeeper(@zookeeper_data)
     }
     Djinn.log_info("Reload State : #{json_state}")
 
@@ -3083,22 +3088,22 @@ class Djinn
       HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
       @zookeeper_data = zookeeper_data['locations']
       Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
-
-      # Ane now let's make sure we are using the most up-to-date list of
-      # zookeeper nodes.
-      zookeeper_data['locations'].each { |ip|
-        begin
-          Djinn.log_debug("Trying to use zookeeper server at #{ip}.")
-          break if ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
-        rescue => e
-          Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
-            "trying next ZooKeeper node")
-          next
-        end
-      }
     end
   end
 
+  # This function makes sure we have a zookeeper connection active to one
+  # of the ZK servers.
+  def self.pick_zookeeper(zk_list)
+    if zk_list.length < 1
+      HelperFunctions.log_and_crash("Don't have valid zookeeper servers.")
+    end
+    loop {
+      break if ZKInterface.is_connected?
+      ip = zk_list.sample()
+      Djinn.log_info("Trying to use zookeeper server at #{ip}.")
+      ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
+    }
+  end
 
   # Backs up information about what this node is doing (roles, apps it is
   # running) to ZooKeeper, for later recovery or updates by other nodes.
@@ -3372,7 +3377,6 @@ class Djinn
     loop {
       break if got_all_data()
       if @kill_sig_received
-        Djinn.log_fatal("Received kill signal, aborting startup")
         HelperFunctions.log_and_crash("Received kill signal, aborting startup")
       else
         Djinn.log_info("Waiting for data from the load balancer or cmdline tools")

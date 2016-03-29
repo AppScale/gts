@@ -106,14 +106,6 @@ class ZKInterface
     Djinn.log_debug("Waiting for #{ip}:#{SERVER_PORT} to open")
     HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT)
 
-    # Avoid a reconnection if we are already connected to the same IP.
-    if defined?(@@ip) and defined?(@@zk)
-      if @@ip == ip and @@zk.connected?
-        Djinn.log_debug("Reusing active connection to zookeeper at #{ip}.")
-        return
-      end
-    end
-
     @@client_ip = client_ip
     @@ip = ip
 
@@ -127,10 +119,15 @@ class ZKInterface
         @@zk.close
       end
       @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
-      return @@zk.connected?
     }
   end
 
+  def self.is_connected?()
+    if defined?(@@zk)
+      return @@zk.connected?
+    end
+    return false
+  end
 
   # Creates a new connection to use with ZooKeeper. Useful for scenarios
   # where the ZooKeeper library has terminated our connection but we still
