@@ -1900,7 +1900,6 @@ class Djinn
       Djinn.log_info("Spawning/setting up other nodes.")
       spawn_and_setup_appengine
     end
-    write_zookeeper_locations()
 
     # Initialize the current server and starts all the API and essential
     # services. The functions are idempotent ie won't restart already
@@ -1913,8 +1912,9 @@ class Djinn
     # will restart if needed).
     set_appcontroller_monit()
     @done_loading = true
-    write_our_node_info()
 
+    write_zookeeper_locations()
+    write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
 
     # This variable is used to keep track of the last time we printed some
@@ -3564,7 +3564,6 @@ class Djinn
       else
         Djinn.log_info("Zookeeper already running.")
       end
-      write_zookeeper_locations()
     }
 
     if my_node.is_db_master? or my_node.is_db_slave?
