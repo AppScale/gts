@@ -1873,6 +1873,7 @@ class Djinn
           HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
         end
       end
+      pick_zookeeper(@zookeeper_data)
     end
 
     start_infrastructure_manager()
@@ -1915,8 +1916,7 @@ class Djinn
     set_appcontroller_monit()
     @done_loading = true
 
-    # Now we have to wait for a zookeeper server, to write and read nodes
-    # status.
+    write_zookeeper_locations()
     pick_zookeeper(@zookeeper_data)
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
@@ -3093,7 +3093,7 @@ class Djinn
 
   # This function makes sure we have a zookeeper connection active to one
   # of the ZK servers.
-  def self.pick_zookeeper(zk_list)
+  def pick_zookeeper(zk_list)
     if zk_list.length < 1
       HelperFunctions.log_and_crash("Don't have valid zookeeper servers.")
     end
