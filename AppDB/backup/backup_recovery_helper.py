@@ -114,7 +114,7 @@ def get_snapshot_paths(service):
     return file_list
 
   look_for = 'snapshots'
-  data_dir = "{0}{1}".format(APPSCALE_DATA_DIR, service)
+  data_dir = "{0}/{1}".format(APPSCALE_DATA_DIR, service)
   for full_path, _, file in os.walk(data_dir):
     if look_for in full_path:
       file_list.append(full_path)

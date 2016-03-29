@@ -56,7 +56,7 @@ def create_snapshot(snapshot_name=''):
 def remove_old_data():
   """ Removes previous node data from the Cassandra store. """
   for directory in CASSANDRA_DATA_SUBDIRS:
-    data_dir = "{0}{1}/{2}".format(APPSCALE_DATA_DIR, "cassandra",
+    data_dir = "{0}/{1}/{2}".format(APPSCALE_DATA_DIR, "cassandra",
       directory)
     logging.warning("Removing data from {0}".format(data_dir))
     try:
@@ -76,7 +76,7 @@ def restore_snapshots():
   logging.info("Restoring Cassandra snapshots.")
 
   for directory in CASSANDRA_DATA_SUBDIRS:
-    data_dir = "{0}{1}/{2}/".format(APPSCALE_DATA_DIR, "cassandra",
+    data_dir = "{0}/{1}/{2}/".format(APPSCALE_DATA_DIR, "cassandra",
       directory)
     logging.debug("Restoring in dir {0}".format(data_dir))
     for path, _, filenames in os.walk(data_dir):
