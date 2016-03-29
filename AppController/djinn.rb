@@ -1926,6 +1926,7 @@ class Djinn
       update_firewall()
       write_memcache_locations()
       write_zookeeper_locations()
+      set_zookeepers_servers()
 
       # Reload state from head node.
       if my_node.is_login?
@@ -1933,6 +1934,7 @@ class Djinn
         send_instance_info_to_dashboard()
         update_node_info_cache()
       else
+        # Every other node syncs its state with what the login nodes sees.
         if !restore_appcontroller_state()
           HelperFunctions.log_and_crash("#{ZK_LOCATIONS_FILE} was deleted!")
         end
@@ -2919,7 +2921,13 @@ class Djinn
     end
 
     loop {
-      json_state = restore_from_zookeeper()
+      begin
+        json_state = ZKInterface.get_appcontroller_state()
+      rescue => e
+        Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
+          "trying to read appcontroller state.")
+        next
+      end
       break if !json_state.empty?
       Djinn.log_warn("Unable to talk to zookeeper: trying again.")
     }
@@ -2965,27 +2973,18 @@ class Djinn
   end
 
 
-  def restore_from_zookeeper()
+  def set_zookeepers_servers()
     zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-    json_state = {}
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_debug("Restoring AppController state from ZK at #{ip}.")
-        Timeout::timeout(SMALL_WAIT) {
-          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
-          json_state = ZKInterface.get_appcontroller_state()
-        }
+        break if ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
       rescue => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
         next
       end
-
-      Djinn.log_debug("Got data #{json_state.inspect} successfully from #{ip}")
-      return json_state
     }
-
-    return json_state
   end
 
 

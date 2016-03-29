@@ -127,6 +127,7 @@ class ZKInterface
         @@zk.close
       end
       @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
+      return @@zk.connected?
     }
   end
 
