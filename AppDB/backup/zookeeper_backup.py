@@ -154,7 +154,7 @@ def backup_data(path, keyname):
   # Stop ZooKeeper and backup data on only one ZooKeeper machine.
   # This is to avoid downtime on deployments with multiple ZooKeeper machines.
   zk_ips = appscale_info.get_zk_node_ips()
-  if len(zk_ips) < 1:
+  if not zk_ips:
     raise BRException('Unable to find any ZooKeeper machines.')
   zk_ip = zk_ips[0]
 

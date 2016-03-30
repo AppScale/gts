@@ -131,8 +131,7 @@ def backup_data(path, keyname):
   logging.info("Starting new db backup.")
 
   db_ips = appscale_info.get_db_ips()
-  print('db_ips: {}'.format(db_ips))
-  if len(db_ips) < 1:
+  if not db_ips:
     raise BRException('Unable to find any Cassandra machines.')
 
   for db_ip in db_ips:
@@ -176,7 +175,7 @@ def restore_data(path, keyname):
   logging.info("Starting new db restore.")
 
   db_ips = appscale_info.get_db_ips()
-  if len(db_ips) < 1:
+  if not db_ips:
     raise BRException('Unable to find any Cassandra machines.')
 
   machines_without_restore = []
@@ -186,7 +185,7 @@ def restore_data(path, keyname):
     if exit_code != ExitCodes.SUCCESS:
       machines_without_restore.append(db_ip)
 
-  if len(machines_without_restore) > 0:
+  if machines_without_restore:
     logging.info('The following machines do not have a restore file: {}'.
       format(machines_without_restore))
     response = raw_input('Would you like to continue? [y/N] ')
@@ -247,7 +246,7 @@ if "__main__" == __name__:
   if len(keys) > 1:
     raise AmbiguousKeyException(
       'There is more than one ssh key in {}'.format(KEY_DIRECTORY))
-  if len(keys) < 1:
+  if not keys:
     raise NoKeyException('There is no ssh key in {}'.format(KEY_DIRECTORY))
   keyname = keys[0].split('.')[0]
 
