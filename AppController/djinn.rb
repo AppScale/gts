@@ -871,18 +871,11 @@ class Djinn
     @options = possible_credentials
     @app_names = app_names
 
-    # We use the layout coming from the tools, only if we are not
-    # recovering a known state.
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
-    if @nodes.empty?
-      @state_change_lock.synchronize {
-        @nodes = converted_nodes
-      }
-    else
-      Djinn.warn("Ignored request for new nodes layout on a deployed system!")
-    end
-
+    @state_change_lock.synchronize {
+      @nodes = converted_nodes
+    }
     @options = sanitize_credentials()
 
     # Check that we got good parameters: we removed the unkown ones for
@@ -2408,7 +2401,7 @@ class Djinn
       else
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
-        Kernel.sleep(SMALL_WAIT)
+        Kernel.sleep(DUTY_CYCLE)
         redo
       end
     }
@@ -5970,6 +5963,10 @@ HOSTS
       return BAD_SECRET_MSG
     end
 
+    # Get default AppController stats.
+    controller_stats = get_stats(secret)
+    Djinn.log_debug("Controller stats: #{controller_stats}")
+
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = imc.get_system_stats()
@@ -5979,39 +5976,49 @@ HOSTS
     all_stats = system_stats
     if my_node.is_login?
       all_stats["apps"] = {}
-      @app_loaded.each { |app_name|
-        next if app_name != "none"
-        next if !@app_info_map[app_name]
-
-        # Get HAProxy requests.
-        Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-        begin
-          total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-        rescue AppNotRunningException, AppIsDownException
-          total_reqs = 0
-          reqs_enqueued = 0
-        end
-
-        # Create the apps hash with useful information containing HAProxy stats.
-        begin
-          all_stats["apps"][app_name] = {
-              "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
-              "appservers" => @app_info_map[app_name]["appengine"].length,
-              "http" => @app_info_map[app_name]["nginx"],
-              "https" => @app_info_map[app_name]["nginx_https"],
-              "total_reqs" => total_reqs,
-              "reqs_enqueued" => reqs_enqueued
-          }
-        rescue => exception
-          backtrace = exception.backtrace.join("\n")
-          message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-          Djinn.log_warn("Unable to get application stats: #{message}")
-        end
-      }
+      if !app_info_map.nil?
+        controller_stats["apps"].each { |app_name, enabled|
+          # Get HAProxy requests.
+          Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
+          if app_name != "none"
+            begin
+              total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+            rescue AppNotRunningException, AppIsDownException
+              # TODO: we should have a better state to report.
+              total_reqs = 0
+              reqs_enqueued = 0
+            end
+            # Create the apps hash with useful information containing HAProxy stats.
+            tries = MAX_RETRIES
+            begin
+              all_stats["apps"][app_name] = {
+                  "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
+                  "appservers" => @app_info_map[app_name]["appengine"].length,
+                  "http" => @app_info_map[app_name]["nginx"],
+                  "https" => @app_info_map[app_name]["nginx_https"],
+                  "total_reqs" => total_reqs,
+                  "reqs_enqueued" => reqs_enqueued
+              }
+            rescue => exception
+              backtrace = exception.backtrace.join("\n")
+              message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+              
+              if tries > 0
+                Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
+                Kernel.sleep(SMALL_WAIT)
+                tries -= 1
+                retry
+              else
+                Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
+              end
+            end
+          end
+        }
+      end
     end
-    all_stats["public_ip"] = my_node.public_ip
-    all_stats["private_ip"] = my_node.private_ip
-    all_stats["roles"] = my_node.jobs or ["none"]
+    all_stats["public_ip"] = controller_stats["ip"]
+    all_stats["private_ip"] = controller_stats["private_ip"]
+    all_stats["roles"] = controller_stats["roles"]
     Djinn.log_debug("All stats: #{all_stats}")
 
     return JSON.dump(all_stats)
