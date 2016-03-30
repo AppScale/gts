@@ -17,6 +17,9 @@ import appscale_info
 from constants import CONTROLLER_SERVICE
 from constants import LOG_FORMAT
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../AppDB'))
+from zkappscale import zktransaction
+
 sys.path.append(
   os.path.join(os.path.dirname(__file__), '../../InfrastructureManager'))
 from utils import utils
@@ -213,7 +216,9 @@ def restore_data(path, keyname):
 
   # Save deployment-specific data.
   deployment_data = StringIO()
-  zk = kazoo.client.KazooClient(hosts=':2181,'.join(zk_ips) + ':2181')
+  hosts_template = ':{},'.join(zk_ips) + ':{}'
+  zk = kazoo.client.KazooClient(
+    hosts=hosts_template.format(zktransaction.DEFAULT_PORT))
   zk.start()
   for zk_node in ZK_KEEP_PATHS:
     recursive_dump(zk, zk_node, deployment_data)
