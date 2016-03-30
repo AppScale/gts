@@ -1,31 +1,38 @@
+#!/usr/bin/env python2
 """ Cassandra data backup. """
 
+import argparse
 import logging
 import os
 import subprocess
 import sys
 from subprocess import CalledProcessError
+import time
 
-import backup_exceptions
+from backup_exceptions import AmbiguousKeyException
+from backup_exceptions import BRException
+from backup_exceptions import NoKeyException
 import backup_recovery_helper
-import gcs_helper
 
-from backup_recovery_constants import CASSANDRA_BACKUP_FILE_LOCATION
+from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import CASSANDRA_DATA_SUBDIRS
-from backup_recovery_constants import StorageTypes
+from backup_recovery_constants import PADDING_PERCENTAGE
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-import dbconstants
-
-from cassandra import start_cassandra
 from cassandra import shut_down_cassandra
 from cassandra.cassandra_interface import NODE_TOOL
-from cassandra.cassandra_interface import KEYSPACE
+from cassandra.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+import appscale_info
 from constants import APPSCALE_DATA_DIR
+from constants import LOG_FORMAT
 
-logging.getLogger().setLevel(logging.INFO)
+sys.path.append(
+  os.path.join(os.path.dirname(__file__), '../../InfrastructureManager'))
+from utils import utils
+from utils.utils import KEY_DIRECTORY
+from utils.utils import MonitStates
 
 def clear_old_snapshots():
   """ Remove any old snapshots to minimize disk space usage locally. """
@@ -108,127 +115,141 @@ def shutdown_datastore():
     return False
   return True
 
-def backup_data(storage, path=''):
+def backup_data(path, keyname):
   """ Backup Cassandra snapshot data directories/files.
 
   Args:
-    storage: A str, the storage that is used for storing the backup.
-    path: A str, the full backup filename path to use for cloud backup.
-  Returns:
-    The path to the backup file on success, None otherwise.
+    path: A string containing the location to store the backup on each of the
+      DB machines.
+    keyname: A string containing the deployment's keyname.
+  Raises:
+    BRException if unable to find any Cassandra machines or if DB machine has
+      insufficient space.
   """
-  if storage not in StorageTypes().get_storage_types():
-    logging.error("Storage '{0}' not supported.")
-    return None
-
   logging.info("Starting new db backup.")
-  clear_old_snapshots()
 
-  if not create_snapshot():
-    logging.error("Failed to create Cassandra snapshots. Aborting backup...")
-    return None
+  db_ips = appscale_info.get_db_ips()
+  print('db_ips: {}'.format(db_ips))
+  if len(db_ips) < 1:
+    raise BRException('Unable to find any Cassandra machines.')
 
-  files = backup_recovery_helper.get_snapshot_paths('cassandra')
-  if not files:
-    logging.error("No Cassandra files were found to tar up. Aborting backup...")
-    return None
+  for db_ip in db_ips:
+    utils.ssh(db_ip, keyname, '{} clearsnapshot'.format(NODE_TOOL))
+    utils.ssh(db_ip, keyname, '{} snapshot'.format(NODE_TOOL))
 
-  if not backup_recovery_helper.enough_disk_space('cassandra'):
-    logging.error("There's not enough available space to create another db"
-      "backup. Aborting...")
-    return None
+    get_snapshot_size = 'find {0} -name "snapshots" -exec du -s {{}} \;'.\
+      format(APPSCALE_DATA_DIR)
+    du_output = utils.ssh(db_ip, keyname, get_snapshot_size,
+      method=subprocess.check_output)
+    backup_size = sum(int(line.split()[0])
+                      for line in du_output.split('\n') if line)
 
-  tar_file = backup_recovery_helper.tar_backup_files(files,
-    CASSANDRA_BACKUP_FILE_LOCATION)
-  if not tar_file:
-    logging.error('Error while tarring up snapshot files. Aborting backup...')
-    clear_old_snapshots()
-    backup_recovery_helper.delete_local_backup_file(tar_file)
-    backup_recovery_helper.move_secondary_backup(tar_file)
-    return None
+    df_output = utils.ssh(db_ip, keyname, 'df {}'.format(BACKUP_DIR_LOCATION),
+      method=subprocess.check_output)
+    available = int(df_output.split('\n')[1].split()[3])
 
-  if storage == StorageTypes.LOCAL_FS:
-    logging.info("Done with local db backup!")
-    clear_old_snapshots()
-    backup_recovery_helper.\
-      delete_secondary_backup(CASSANDRA_BACKUP_FILE_LOCATION)
-    return tar_file
-  elif storage == StorageTypes.GCS:
-    return_value = path
-    # Upload to GCS.
-    if not gcs_helper.upload_to_bucket(path, tar_file):
-      logging.error("Upload to GCS failed. Aborting backup...")
-      backup_recovery_helper.move_secondary_backup(tar_file)
-      return_value = None
-    else:
-      logging.info("Done with db backup!")
-      backup_recovery_helper.\
-        delete_secondary_backup(CASSANDRA_BACKUP_FILE_LOCATION)
+    if backup_size > available * PADDING_PERCENTAGE:
+      raise BRException('{} has insufficient space: {}/{}'.
+        format(db_ip, available * PADDING_PERCENTAGE, backup_size))
 
-    # Remove local backup file(s).
-    clear_old_snapshots()
-    backup_recovery_helper.delete_local_backup_file(tar_file)
-    return return_value
+  cassandra_dir = '{}/cassandra'.format(APPSCALE_DATA_DIR)
+  for db_ip in db_ips:
+    create_tar = 'find . -regex ".*/snapshots/[0-9]*/.*" -exec tar '\
+      '--transform="s/snapshots\/[0-9]*\///" -cf {0} {{}} +'.format(path)
+    utils.ssh(db_ip, keyname, 'cd {} && {}'.format(cassandra_dir, create_tar))
 
-def restore_data(storage, path=''):
+  logging.info("Done with db backup.")
+
+def restore_data(path, keyname):
   """ Restores the Cassandra backup.
 
   Args:
-    storage: A str, one of the StorageTypes class members.
-    path: A str, the name of the backup file to restore from.
-  Returns:
-    True on success, False otherwise.
+    path: A string containing the location on each of the DB machines to use
+      for restoring data.
+    keyname: A string containing the deployment's keyname.
+  Raises:
+    BRException if unable to find any Cassandra machines or if DB machine has
+      insufficient space.
   """
-  if storage not in StorageTypes().get_storage_types():
-    logging.error("Storage '{0}' not supported.")
-    return False
-
   logging.info("Starting new db restore.")
 
-  if storage == StorageTypes.GCS:
-    # Download backup file and store locally with a fixed name.
-    if not gcs_helper.download_from_bucket(path,
-        CASSANDRA_BACKUP_FILE_LOCATION):
-      logging.error("Download from GCS failed. Aborting recovery...")
-      return False
+  db_ips = appscale_info.get_db_ips()
+  if len(db_ips) < 1:
+    raise BRException('Unable to find any Cassandra machines.')
 
-  # TODO Make sure there's a snapshot to rollback to if restore fails.
-  # Not pressing for fresh deployments.
-  # create_snapshot('rollback-snapshot')
+  machines_without_restore = []
+  for db_ip in db_ips:
+    e_code = utils.ssh(db_ip, keyname, 'ls {}'.format(path),
+      method=subprocess.call)
+    if e_code != 0:
+      machines_without_restore.append(db_ip)
 
-  if not shut_down_cassandra.run():
-    logging.error("Unable to shut down Cassandra. Aborting restore...")
-    if storage == StorageTypes.GCS:
-      backup_recovery_helper.\
-        delete_local_backup_file(CASSANDRA_BACKUP_FILE_LOCATION)
-    return False
+  if len(machines_without_restore) > 0:
+    logging.info('The following machines do not have a restore file: {}'.
+      format(machines_without_restore))
+    response = raw_input('Would you like to continue? [y/N] ')
+    if response not in ['Y', 'y']:
+      return
 
-  remove_old_data()
-  try:
-    backup_recovery_helper.untar_backup_files(CASSANDRA_BACKUP_FILE_LOCATION)
-  except backup_exceptions.BRException as br_exception:
-    logging.exception("Error while unpacking backup files. Exception: {0}".
-      format(str(br_exception)))
-    start_cassandra.run()
-    if storage == StorageTypes.GCS:
-      backup_recovery_helper.\
-        delete_local_backup_file(CASSANDRA_BACKUP_FILE_LOCATION)
-    return False
-  restore_snapshots()
+  for db_ip in db_ips:
+    logging.info('Stopping Cassandra on {}'.format(db_ip))
+    summary = utils.ssh(db_ip, keyname, 'monit summary',
+      method=subprocess.check_output)
+    status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
+    retries = 10
+    while status != MonitStates.UNMONITORED:
+      utils.ssh(db_ip, keyname,
+        'monit stop {}'.format(CASSANDRA_MONIT_WATCH_NAME))
+      time.sleep(1)
+      summary = utils.ssh(db_ip, keyname, 'monit summary',
+        method=subprocess.check_output)
+      status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
+      retries -= 1
+      if retries < 0:
+        raise BRException('Unable to stop Cassandra')
 
-  # Start Cassandra and repair.
-  logging.info("Starting Cassandra.")
-  start_cassandra.run()
+  cassandra_dir = '{}/cassandra'.format(APPSCALE_DATA_DIR)
+  for db_ip in db_ips:
+    logging.info('Restoring Cassandra data on {}'.format(db_ip))
+    clear_db = 'find {0} -regex ".*\.\(db\|txt\|log\)$" -exec rm {{}} \;'.\
+      format(cassandra_dir)
+    utils.ssh(db_ip, keyname, clear_db)
 
-  # Local cleanup.
-  clear_old_snapshots()
-  if storage == StorageTypes.GCS:
-    backup_recovery_helper.\
-      delete_local_backup_file(CASSANDRA_BACKUP_FILE_LOCATION)
+    if db_ip not in machines_without_restore:
+      utils.ssh(db_ip, keyname, 'tar xf {} -C {}'.format(path, cassandra_dir))
+
+    utils.ssh(db_ip, keyname,
+      'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
 
   logging.info("Done with db restore.")
-  return True
 
 if "__main__" == __name__:
-  backup_data(storage='', path='')
-  # restore_data(storage='', path='')
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+
+  parser = argparse.ArgumentParser(
+    description='Backup or restore Cassandra data.')
+  io_group = parser.add_mutually_exclusive_group(required=True)
+  io_group.add_argument('--input', help='The location on each of the DB '\
+    'machines to use for restoring data.')
+  io_group.add_argument('--output', help='The location to store the '\
+    'backup on each of the DB machines.')
+  parser.add_argument('--verbose', action='store_true',
+    help='Enable debug-level logging.')
+
+  args = parser.parse_args()
+
+  if args.verbose:
+    logging.getLogger().setLevel(logging.DEBUG)
+
+  keys = [key for key in os.listdir(KEY_DIRECTORY) if key.endswith('.key')]
+  if len(keys) > 1:
+    raise AmbiguousKeyException(
+      'There is more than one ssh key in {}'.format(KEY_DIRECTORY))
+  if len(keys) < 1:
+    raise NoKeyException('There is no ssh key in {}'.format(KEY_DIRECTORY))
+  keyname = keys[0].split('.')[0]
+
+  if args.input is not None:
+    restore_data(args.input, keyname)
+  else:
+    backup_data(args.output, keyname)

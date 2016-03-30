@@ -215,7 +215,7 @@ def tar_backup_files(file_paths, target):
       format(backup_file_location))
 
   # Tar up the backup files.
-  tar = tarfile.open(backup_file_location, "w:gz")
+  tar = tarfile.open(backup_file_location, "w")
   for name in file_paths:
     tar.add(name)
   tar.close()
