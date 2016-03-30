@@ -17,6 +17,7 @@ import backup_recovery_helper
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import CASSANDRA_DATA_SUBDIRS
 from backup_recovery_constants import PADDING_PERCENTAGE
+from backup_recovery_constants import SERVICE_STOP_RETRIES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from cassandra import shut_down_cassandra
@@ -196,7 +197,7 @@ def restore_data(path, keyname):
     summary = utils.ssh(db_ip, keyname, 'monit summary',
       method=subprocess.check_output)
     status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
-    retries = 10
+    retries = SERVICE_STOP_RETRIES
     while status != MonitStates.UNMONITORED:
       utils.ssh(db_ip, keyname,
         'monit stop {}'.format(CASSANDRA_MONIT_WATCH_NAME))
