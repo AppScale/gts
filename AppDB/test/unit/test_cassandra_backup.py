@@ -85,7 +85,7 @@ class TestCassandraBackup(unittest.TestCase):
       keyname, 'ls {}'.format(path)).and_return(0)
 
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname,  'monit summary').and_return('summary output')
+      keyname, 'monit summary').and_return('summary output')
     flexmock(utils).should_receive('monit_status').and_return('Not monitored')
 
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),

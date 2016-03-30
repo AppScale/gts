@@ -258,7 +258,7 @@ def scp_from(ip_address, keyname, remote_file, local_file):
 
 
 def zk_service_name(ip_address, keyname):
-  """ Fetches the name of the zookeeper service on a given machine.
+  """ Fetches the name of the ZooKeeper service on a given machine.
 
   Args:
     ip_address: A string containing the IP address of the ZooKeeper machine.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-""" Backup or restore ZooKeeper Data. """
+""" Backup or restore ZooKeeper data. """
 
 import argparse
 import json
@@ -7,10 +7,10 @@ import kazoo.client
 import kazoo.exceptions
 import logging
 import os
-from StringIO import StringIO
 import subprocess
 import sys
 import time
+from StringIO import StringIO
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
 import appscale_info
@@ -26,9 +26,9 @@ from backup_exceptions import AmbiguousKeyException
 from backup_exceptions import BRException
 from backup_exceptions import NoKeyException
 from backup_recovery_constants import BACKUP_DIR_LOCATION
+from backup_recovery_constants import ZK_DATA_DIR
 from backup_recovery_constants import ZK_KEEP_PATHS
 from backup_recovery_constants import ZK_TOP_LEVEL
-from backup_recovery_constants import ZK_DATA_DIR
 
 from zkappscale import shut_down_zookeeper
 from zkappscale.zktransaction import DEFAULT_HOST as ZK_DEFAULT_HOST
