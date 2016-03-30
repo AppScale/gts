@@ -283,5 +283,5 @@ def monit_status(summary, service):
   """
   for line in summary.split('\n'):
     if service in line:
-      return line.split()[-1]
+      return ' '.join(line.split()[2:])
   raise ServiceException('Unable to find Monit entry for {}')

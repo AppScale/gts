@@ -131,7 +131,7 @@ class SystemManager():
         # Only keep the service port to identify distinct app servers.
         if not process_name.startswith("app___"):
           process_name = process_name[:process_name.rfind("-")]
-        process_status = tokens[2].lower()
+        process_status = ' '.join(tokens[2:]).lower()
         monit_stats_dict[process_name] = process_status
     logging.debug("Monit stats: {}".format(monit_stats_dict))
 
