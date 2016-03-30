@@ -873,9 +873,13 @@ class Djinn
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
-    @state_change_lock.synchronize {
-      @nodes = converted_nodes
-    }
+    if @nodes.empty?
+      @state_change_lock.synchronize {
+        @nodes = converted_nodes
+      }
+    else
+      Djinn.warn("Ignored request for new nodes layout on a deployed system!")
+    end
     @options = sanitize_credentials()
 
     # Check that we got good parameters: we removed the unkown ones for
@@ -2401,7 +2405,7 @@ class Djinn
       else
         Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
           "loading - will wait for it to finish.")
-        Kernel.sleep(DUTY_CYCLE)
+        Kernel.sleep(SMALL_WAIT)
         redo
       end
     }
