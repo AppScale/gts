@@ -8,8 +8,19 @@ import sys
 import time
 import uuid
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
+from constants import SERVICES_DIR
+
 # The directory that contains the deployment's private SSH key.
 KEY_DIRECTORY = '/etc/appscale/keys/cloud1'
+
+class MonitStates(object):
+  RUNNING = 'Running'
+  UNMONITORED = 'Not monitored'
+
+
+class ServiceException(Exception):
+  pass
 
 
 def get_secret(filename='/etc/appscale/secret.key'):
@@ -192,3 +203,85 @@ def get_public_key(keyname):
   private_key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
   return subprocess.check_output(
     ['ssh-keygen', '-y', '-f', private_key_file]).strip()
+
+
+def ssh(ip_address, keyname, cmd, method=subprocess.check_call):
+  """ Runs a command on a given machine.
+
+  Args:
+    ip_address: A string containing the IP address of the remote machine.
+    keyname: A string containing the deployment's keyname.
+    cmd: The command to run on the remote machine.
+    method: The function to run the command with.
+  Returns:
+    The output of the function defined by method.
+  """
+  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
+  ssh_cmd = ['ssh', '-i', key_file, ip_address, cmd]
+  return method(ssh_cmd)
+
+
+def scp_to(ip_address, keyname, local_file, remote_file):
+  """ Copies a file from the local machine to a remote one.
+
+  Args:
+    ip_address: A string containing the IP address of the remote machine.
+    keyname: A string containing the deployment's keyname.
+    local_file: A string containing the location of a file.
+    remote_file: A string containing a location on the remote machine.
+  """
+  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
+  remote_location = '{}:{}'.format(ip_address, remote_file)
+  scp_cmd = ['scp', '-i', key_file, local_file, remote_location]
+  subprocess.check_call(scp_cmd)
+
+
+def scp_from(ip_address, keyname, remote_file, local_file):
+  """ Copies a file from a remote machine to the local one.
+
+  Args:
+    ip_address: A string containing the IP address of the remote machine.
+    keyname: A string containing the deployment's keyname.
+    remote_file: A string containing a location on the remote machine.
+    local_file: A string containing the location of a file.
+  """
+  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
+  remote_location = '{}:{}'.format(ip_address, remote_file)
+  scp_cmd = ['scp', '-i', key_file, remote_location, local_file]
+  subprocess.check_call(scp_cmd)
+
+
+def zk_service_name(ip_address, keyname):
+  """ Fetches the name of the zookeeper service on a given machine.
+
+  Args:
+    ip_address: A string containing the IP address of the ZooKeeper machine.
+    keyname: A string containing the deployment's keyname.
+  Returns:
+    A string containing the name of the zookeeper service.
+  Raises:
+    OSError if the zookeeper service cannot be found.
+  """
+  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
+  ssh_cmd = ['ssh', '-i', key_file, ip_address, 'ls {}'.format(SERVICES_DIR)]
+  response = subprocess.check_output(ssh_cmd)
+  init_files = response.split()
+  for init_file in init_files:
+    if 'zookeeper' in init_file:
+      return init_file
+  raise OSError('Unable to find ZooKeeper on {}'.format(ip_address))
+
+
+def monit_status(summary, service):
+  """ Retrieves the status of a Monit service.
+
+  Args:
+    summary: A string containing the output of 'monit summary'.
+    service: A string containing the name of a service.
+  Raises:
+    ServiceException if summary does not include service.
+  """
+  for line in summary.split('\n'):
+    if service in line:
+      return line.split()[-1]
+  raise ServiceException('Unable to find Monit entry for {}')

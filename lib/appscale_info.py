@@ -188,6 +188,14 @@ def get_db_slave_ips():
     nodes = nodes[:-1]
   return nodes
 
+def get_db_ips():
+  """ Returns a list of database machines.
+
+  Returns:
+    A list of strings containing IP addresses.
+  """
+  return list(set([get_db_master_ip()] + get_db_slave_ips()))
+
 def get_search_location():
   """ Returns the IP and port of where the search service is running.
 
