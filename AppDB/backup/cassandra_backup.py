@@ -32,6 +32,7 @@ from constants import LOG_FORMAT
 sys.path.append(
   os.path.join(os.path.dirname(__file__), '../../InfrastructureManager'))
 from utils import utils
+from utils.utils import ExitCodes
 from utils.utils import KEY_DIRECTORY
 from utils.utils import MonitStates
 
@@ -180,9 +181,9 @@ def restore_data(path, keyname):
 
   machines_without_restore = []
   for db_ip in db_ips:
-    e_code = utils.ssh(db_ip, keyname, 'ls {}'.format(path),
+    exit_code = utils.ssh(db_ip, keyname, 'ls {}'.format(path),
       method=subprocess.call)
-    if e_code != 0:
+    if exit_code != ExitCodes.SUCCESS:
       machines_without_restore.append(db_ip)
 
   if len(machines_without_restore) > 0:

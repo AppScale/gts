@@ -14,6 +14,12 @@ from constants import SERVICES_DIR
 # The directory that contains the deployment's private SSH key.
 KEY_DIRECTORY = '/etc/appscale/keys/cloud1'
 
+
+class ExitCodes(object):
+  """ Shell exit codes. """
+  SUCCESS = 0
+
+
 class MonitStates(object):
   RUNNING = 'Running'
   UNMONITORED = 'Not monitored'
