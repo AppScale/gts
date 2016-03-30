@@ -125,8 +125,7 @@ class SystemManager():
 
     monit_stats_dict = {}
     for line in monit_stats.split("\n"):
-      # Get rid of extra whitespaces.
-      tokens = " ".join(line.split()).split(" ")
+      tokens = line.split()
       if 'Process' in tokens:
         process_name = tokens[1][1:-1] # Remove quotes.
         # Only keep the service port to identify distinct app servers.
