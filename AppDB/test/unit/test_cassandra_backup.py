@@ -6,12 +6,10 @@ import subprocess
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/"))
-import backup_exceptions
-import backup_recovery_constants
-import backup_recovery_helper
-import cassandra_backup
-import gcs_helper
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+from backup import backup_exceptions
+from backup import cassandra_backup
+
 
 from cassandra import shut_down_cassandra
 from cassandra import start_cassandra

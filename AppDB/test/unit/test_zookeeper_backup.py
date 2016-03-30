@@ -6,12 +6,9 @@ import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/"))
-import backup_exceptions
-import backup_recovery_constants
-import backup_recovery_helper
-import zookeeper_backup
-import gcs_helper
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
+from backup import zookeeper_backup
+
 
 from zkappscale.zktransaction import DEFAULT_HOST as ZK_DEFAULT_HOST
 from zkappscale import shut_down_zookeeper
