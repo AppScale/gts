@@ -2,15 +2,23 @@
 
 import kazoo.client
 import os
+import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
 from backup import zookeeper_backup
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
+import appscale_info
 
-from zkappscale.zktransaction import DEFAULT_HOST as ZK_DEFAULT_HOST
+sys.path.append(
+  os.path.join(os.path.dirname(__file__), '../../../InfrastructureManager'))
+from utils import utils
+
 from zkappscale import shut_down_zookeeper
 
 class TestZookeeperBackup(unittest.TestCase):
@@ -20,9 +28,6 @@ class TestZookeeperBackup(unittest.TestCase):
     pass
 
   def test_recursive_dump(self):
-    pass
-
-  def test_flush_zk(self):
     pass
 
   def test_recursive_flush(self):
@@ -36,109 +41,47 @@ class TestZookeeperBackup(unittest.TestCase):
     zookeeper_backup.shutdown_zookeeper()
 
   def test_backup_data(self):
-    # Test for unsupported storage backend.
-    flexmock(backup_recovery_constants.StorageTypes()).\
-      should_receive("get_storage_types").and_return([])
-    self.assertEquals(None, zookeeper_backup.backup_data('blah', ''))
+    zk_ips = ['192.168.33.12', '192.168.33.13']
+    zk_ip = zk_ips[0]
+    path = '~/zookeeper_backup.tar.gz'
+    keyname = 'key1'
 
-    # Test with failure to tar ZK data file.
-    flexmock(zookeeper_backup).should_receive('dump_zk').\
-      and_return()
-    flexmock(backup_recovery_helper).should_receive('tar_backup_files').\
-      and_return(None)
-    flexmock(backup_recovery_helper).should_receive('remove').\
-      and_return()
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_local_backup_file').\
-      and_return()
-    flexmock(backup_recovery_helper).should_receive('move_secondary_backup').\
-      and_return()
-    self.assertEquals(None, zookeeper_backup.backup_data('', ''))
+    flexmock(subprocess).should_receive('call').and_return(0)
 
-    # Test with successful tar creation and local storage.
-    flexmock(backup_recovery_helper).should_receive('tar_backup_files').\
-      and_return('some/snapshot')
-    flexmock(backup_recovery_helper).should_receive('remove').\
-      and_return()
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_secondary_backup').\
-      and_return()
-    self.assertEquals('some/snapshot', zookeeper_backup.backup_data('', ''))
+    flexmock(appscale_info).should_receive('get_zk_node_ips').\
+      and_return(zk_ips)
 
-    # Test with GCS as storage backend and failure to upload.
-    flexmock(gcs_helper).should_receive('upload_to_bucket').and_return(False)
-    flexmock(backup_recovery_helper).should_receive('move_secondary_backup').\
-      and_return()
-    flexmock(backup_recovery_helper).should_receive('remove').\
-      and_return()
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_local_backup_file').\
-      and_return()
-    self.assertEquals(None, zookeeper_backup.backup_data(
-      backup_recovery_constants.StorageTypes.GCS, ''))
-
-    # Test with GCS as storage backend and successful upload.
-    flexmock(gcs_helper).should_receive('upload_to_bucket').and_return(True)
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_secondary_backup').\
-      and_return()
-    flexmock(backup_recovery_helper).should_receive('remove').\
-      and_return()
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_local_backup_file').\
-      and_return()
-    self.assertIsNotNone(zookeeper_backup.backup_data(
-      backup_recovery_constants.StorageTypes.GCS, ''))
+    flexmock(utils).should_receive('ssh').with_args(zk_ip, keyname,
+      'monit stop -g zookeeper')
+    flexmock(utils).should_receive('ssh').with_args(zk_ip, keyname,
+      re.compile('^tar czf .*'))
+    flexmock(utils).should_receive('scp_from').with_args(zk_ip, keyname,
+      re.compile('.*zk_backup_.*.tar.gz$'), path)
+    flexmock(utils).should_receive('ssh').with_args(zk_ip, keyname,
+      re.compile('^rm -f .*'))
+    flexmock(utils).should_receive('ssh').with_args(zk_ip, keyname,
+      'monit start -g zookeeper')
 
   def test_restore_data(self):
-    # Test for unsupported storage backend.
-    flexmock(backup_recovery_constants.StorageTypes()).\
-      should_receive("get_storage_types").and_return([])
-    self.assertEquals(False, zookeeper_backup.restore_data('blah', ''))
+    zk_ips = ['192.168.33.12', '192.168.33.13']
 
-    # Test with failure to download backup from GCS.
-    flexmock(gcs_helper).should_receive('download_from_bucket').and_return(
-      False)
-    self.assertEquals(False, zookeeper_backup.restore_data(
-      backup_recovery_constants.StorageTypes.GCS, ''))
+    flexmock(subprocess).should_receive('call').and_return(1)
 
-    # Test with successful download from GCS and failure to untar.
-    flexmock(gcs_helper).should_receive('download_from_bucket').and_return(
-      True)
-    flexmock(zookeeper_backup).should_receive('flush_zk').and_return()
-    flexmock(backup_recovery_helper).should_receive(
-      'untar_backup_files').and_raise(backup_exceptions.BRException)
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_local_backup_file').\
-      and_return()
-    self.assertEquals(False, zookeeper_backup.restore_data(
-      backup_recovery_constants.StorageTypes.GCS, ''))
+    flexmock(appscale_info).should_receive('get_zk_node_ips').\
+      and_return(zk_ips)
 
-    # Test normal case for GCS.
-    flexmock(backup_recovery_helper).should_receive('untar_backup_files').\
-      and_return()
-    flexmock(zookeeper_backup).should_receive('restore_zk').and_return()
-    flexmock(backup_recovery_helper).should_receive('remove').and_return()
-    flexmock(backup_recovery_helper).\
-      should_receive('delete_local_backup_file').\
-      and_return()
-    self.assertEquals(True, zookeeper_backup.restore_data(
-      backup_recovery_constants.StorageTypes.GCS, ''))
+    flexmock(utils).should_receive('zk_service_name').and_return('zookeeper')
 
-    # Test with failure to untar in local mode.
-    flexmock(zookeeper_backup).should_receive('flush_zk').and_return()
-    flexmock(backup_recovery_helper).should_receive('untar_backup_files').\
-      and_raise(backup_exceptions.BRException)
-    flexmock(zookeeper_backup).should_receive('restore_zk').and_return()
-    flexmock(backup_recovery_helper).should_receive('remove').and_return()
-    self.assertEquals(False, zookeeper_backup.restore_data('', ''))
+    flexmock(utils).should_receive('scp_to')
+    flexmock(utils).should_receive('ssh')
 
-    # Test normal case in local mode.
-    flexmock(backup_recovery_helper).should_receive('untar_backup_files').\
-      and_return()
-    flexmock(zookeeper_backup).should_receive('restore_zk').and_return()
-    flexmock(backup_recovery_helper).should_receive('remove').and_return()
-    self.assertEquals(True, zookeeper_backup.restore_data('', ''))
+    zk_file = flexmock(close=lambda: None)
+    flexmock(tempfile).should_receive('TemporaryFile').and_return(zk_file)
+    zk = flexmock(start=lambda: None, stop=lambda: None)
+    flexmock(kazoo.client.KazooClient).should_receive('__init__').\
+      and_return(zk)
+    flexmock(zookeeper_backup).should_receive('recursive_dump')
+    flexmock(zookeeper_backup).should_receive('recursive_flush')
 
 if __name__ == "__main__":
   unittest.main()    
