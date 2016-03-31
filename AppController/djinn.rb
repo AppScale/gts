@@ -4665,8 +4665,8 @@ HOSTS
           'nginx' => 1080,
           'nginx_https' => 1443,
           'haproxy' => AppDashboard::PROXY_PORT,
-          'appengine' => ["#{my_private}:8000", "#{my_private}:8001",
-                          "#{my_private}:8002"],
+          'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
+                          "#{my_private}:-1"],
           'language' => 'python27'
       }
 
