@@ -4792,12 +4792,12 @@ HOSTS
         apps_to_load = @app_names - @apps_loaded - ["none"]
         apps_to_load.each { |app|
           setup_appengine_application(app, "new")
-          maybe_start_taskqueue_worker(app)
-
-          # Since this is a new application, let's get it started right
-          # away, after we check that the app was correctly loaded. This
-          # avoid the wait for a possibly full duty cycle.
-          try_to_sale_up(app) if @apps_loaded.include?(app)
+          # If the app was succesfully setup, we started an appserver
+          # right away.
+          if @apps_loaded.include?(app)
+            maybe_start_taskqueue_worker(app)
+            try_to_scale_up(app)
+          end
         }
       }
     end
