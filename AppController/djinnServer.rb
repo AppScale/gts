@@ -177,8 +177,8 @@ Signal.trap('USR1') {
 }
 
 # SIGUSR2 is used to signal the orderly shut down of the deployment.
-trap('USR2') {
-  puts("Received TERM signal: stopping the deployment.")
+Signal.trap('USR2') {
+  puts("Received URS2 signal: stopping the deployment.")
   response = server.djinn.kill(true, secret)
   puts("Response to the kill command: #{response}")
   if !response.start_with?('ERROR')

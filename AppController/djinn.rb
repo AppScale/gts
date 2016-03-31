@@ -742,31 +742,30 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    # Check the request: only the head node can stop the deployment.
     if stop_deployment
       Djinn.log_info("Received a stop deployment request.")
-      if !my_node.is_login?
-        return "ERROR: this is not the head node."
-      end
 
-      # Let's stop all other nodes.
-      Djinn.log_info("Stopping all other nodes.")
-      threads = []
-      @nodes.each { |node|
-        threads << Thread.new {
-          if node.private_ip != my_node.private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              acc.kill(false)
-              Djinn.log_info("kill: sent kill command to node at #{node.private_ip}.")
-            rescue FailedNodeException
-              Djinn.log_warn("kill: failed to talk to node at #{node.private_ip} while.")
+      # Head node will have to stop all other nodes for a stop deployment
+      # command.
+      if my_node.is_login?
+        Djinn.log_info("Stopping all other nodes.")
+        threads = []
+        @nodes.each { |node|
+          threads << Thread.new {
+            if node.private_ip != my_node.private_ip
+              acc = AppControllerClient.new(node.private_ip, @@secret)
+              begin
+                acc.kill(true)
+                Djinn.log_info("Sent stop deployment to #{node.private_ip}.")
+              rescue FailedNodeException
+                Djinn.log_warn("kill: failed to talk to node at #{node.private_ip}.")
+              end
             end
-          end
+          }
         }
-      }
-      Djinn.log_info("Waiting for all nodes to shutdown...")
-      threads.each { |t| t.join() }
+        Djinn.log_info("Waiting for all nodes to shutdown...")
+        threads.each { |t| t.join() }
+      end
     else
       Djinn.log_info("Received a stop node request.")
     end
@@ -811,6 +810,13 @@ class Djinn
     stop_infrastructure_manager()
     HAProxy.stop()
     Nginx.stop()
+
+    # If we are in a stop deployment, let's make sure we don't
+    # accidentally restarts.
+    if stop_deployment
+      Djinn.log_debug("Removing zookeeper locations.")
+      FileUtils.rm_rf(ZK_LOCATIONS_FILE)
+    end
 
     if @options['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
@@ -874,13 +880,8 @@ class Djinn
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
-    if @nodes.empty?
-      @state_change_lock.synchronize {
-        @nodes = converted_nodes
-      }
-    else
-      Djinn.warn("Ignored request for new nodes layout on a deployed system!")
-    end
+    @state_change_lock.synchronize {
+      @nodes = converted_nodes
     @options = sanitize_credentials()
 
     # Check that we got good parameters: we remove the unkown ones for
