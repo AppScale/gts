@@ -114,7 +114,7 @@ def get_snapshot_paths(service):
     return file_list
 
   look_for = 'snapshots'
-  data_dir = "{0}{1}".format(APPSCALE_DATA_DIR, service)
+  data_dir = "{0}/{1}".format(APPSCALE_DATA_DIR, service)
   for full_path, _, file in os.walk(data_dir):
     if look_for in full_path:
       file_list.append(full_path)
@@ -215,7 +215,7 @@ def tar_backup_files(file_paths, target):
       format(backup_file_location))
 
   # Tar up the backup files.
-  tar = tarfile.open(backup_file_location, "w:gz")
+  tar = tarfile.open(backup_file_location, "w")
   for name in file_paths:
     tar.add(name)
   tar.close()

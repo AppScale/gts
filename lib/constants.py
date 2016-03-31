@@ -10,7 +10,7 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 APP_PID_DIR = '/etc/appscale/'
 
 # Location of where data is persisted on disk.
-APPSCALE_DATA_DIR = '/opt/appscale/'
+APPSCALE_DATA_DIR = '/opt/appscale'
 
 # Location of Java AppServer.
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
@@ -86,3 +86,9 @@ RESERVED_APP_IDS = [DASHBOARD_APP_ID]
 
 # Location of where the search service is running.
 SEARCH_FILE_LOC = "/etc/appscale/search_ip"
+
+# Service scripts directory.
+SERVICES_DIR = '/etc/init.d'
+
+# The AppController's service name.
+CONTROLLER_SERVICE = 'appscale-controller'
