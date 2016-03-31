@@ -1550,7 +1550,7 @@ class Djinn
       return uac.get_app_data(app_id)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while getting the app admin" +
-        "for the application #{app_id}.")
+        " for the application #{app_id}.")
     end
   end
 
