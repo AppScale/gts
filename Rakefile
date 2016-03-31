@@ -136,4 +136,21 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'go:test', 'hermes:test', 'searchservice:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
+python_tests = [
+  'appdashboard:test',
+  'appdb:test',
+  'appmanager:test',
+  'appserver:test',
+  'apptaskqueue:test',
+  'hermes:test',
+  'infrastructuremanager:test',
+  'lib:test',
+  'searchservice:test',
+  'xmppreceiver:test',
+]
+ruby_tests = ['appcontroller:test']
+go_tests = ['go:test']
+
+task :brief => python_tests + ruby_tests
+
+task :default => python_tests + ruby_tests + go_tests

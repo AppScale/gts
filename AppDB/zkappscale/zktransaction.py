@@ -29,8 +29,11 @@ TX_TIMEOUT = 30
 # garbage collector.
 GC_INTERVAL = 30
 
+# The default port that ZooKeeper runs on.
+DEFAULT_PORT = 2181
+
 # The host and port that the Zookeeper service runs on, if none is provided.
-DEFAULT_HOST = "localhost:2181"
+DEFAULT_HOST = 'localhost:{}'.format(DEFAULT_PORT)
 
 # The value that we should set for paths whose value we don't care about.
 DEFAULT_VAL = "default"
