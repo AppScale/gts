@@ -216,9 +216,9 @@ def restore_data(path, keyname):
 
   # Save deployment-specific data.
   deployment_data = StringIO()
-  hosts_template = ':{},'.join(zk_ips) + ':{}'
+  hosts_template = ':{port},'.join(zk_ips) + ':{port}'
   zk = kazoo.client.KazooClient(
-    hosts=hosts_template.format(zktransaction.DEFAULT_PORT))
+    hosts=hosts_template.format(port=zktransaction.DEFAULT_PORT))
   zk.start()
   for zk_node in ZK_KEEP_PATHS:
     recursive_dump(zk, zk_node, deployment_data)
