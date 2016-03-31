@@ -1953,15 +1953,14 @@ class Djinn
       # The Shadow has the most up-to-date info, so let it handle this
       backup_appcontroller_state() if my_node.is_shadow?
 
-      # These operations can take some time, so we spawn a thread for it.
-      Thread.new {
-        check_running_apps()
-        restart_appengine()
-        if my_node.is_login?
-          scale_appservers_within_nodes()
-          scale_appservers_across_nodes()
-        end
-      }
+      # The following is the core of the duty cycle: start new apps,
+      # restarts apps, terminate non-responsive appserver, and autoscale.
+      check_running_apps()
+      restart_appengine()
+      if my_node.is_login?
+        scale_appservers_within_nodes()
+        scale_appservers_across_nodes()
+      end
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -1973,7 +1972,12 @@ class Djinn
         last_print = Time.now.to_i
       end
 
-      Kernel.sleep(DUTY_CYCLE)
+      # Avoid long waits if a new apps needs to be started.
+      DUTY_CYCLE.downto(0) {
+        apps_to_load = @app_names - @apps_loaded - ["none"]
+        break if !apps_to_load.empty?
+        Kernel.sleep(1)
+      }
     end
   end
 
@@ -4792,12 +4796,7 @@ HOSTS
         apps_to_load = @app_names - @apps_loaded - ["none"]
         apps_to_load.each { |app|
           setup_appengine_application(app, "new")
-          # If the app was succesfully setup, we started an appserver
-          # right away.
-          if @apps_loaded.include?(app)
-            maybe_start_taskqueue_worker(app)
-            try_to_scale_up(app)
-          end
+          maybe_start_taskqueue_worker(app)
         }
       }
     end
