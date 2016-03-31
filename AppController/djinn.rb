@@ -3181,7 +3181,7 @@ class Djinn
         next if app_info['appengine'].nil?
         app_info['appengine'].each { |location|
           host, port = location.split(":")
-          next if port < 0
+          next if Integer(port) < 0
           instance_info << {
             'appid' => appid,
             'host' => host,
