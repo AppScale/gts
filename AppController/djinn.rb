@@ -882,6 +882,7 @@ class Djinn
     converted_nodes = convert_fqdns_to_ips(nodes)
     @state_change_lock.synchronize {
       @nodes = converted_nodes
+    }
     @options = sanitize_credentials()
 
     # Check that we got good parameters: we remove the unkown ones for
