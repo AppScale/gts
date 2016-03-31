@@ -751,6 +751,7 @@ class Djinn
 
       # Let's stop all other nodes.
       Djinn.log_info("Stopping all other nodes.")
+      threads = []
       @nodes.each { |node|
         threads << Thread.new {
           if node.private_ip != my_node.private_ip
@@ -882,7 +883,7 @@ class Djinn
     end
     @options = sanitize_credentials()
 
-    # Check that we got good parameters: we removed the unkown ones for
+    # Check that we got good parameters: we remove the unkown ones for
     # backward compatibilty.
     options_to_delete = []
     @options.each { |key, val|
