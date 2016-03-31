@@ -3181,6 +3181,7 @@ class Djinn
         next if app_info['appengine'].nil?
         app_info['appengine'].each { |location|
           host, port = location.split(":")
+          next if port < 0
           instance_info << {
             'appid' => appid,
             'host' => host,
@@ -5544,7 +5545,20 @@ HOSTS
 
       # TODO: What happens if the user updates their env vars between app
       # deploys?
-      appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
+
+      # To ensure we don't have possible collisions, we start from a safe
+      # minimum appengine port.
+      port_offset = 0
+      @app_info_map.each { |app_id, info|
+        next if info['appengine'].nil?
+
+        info['appengine'].each { |location|
+          host, port = location.split(":")
+          port_offset += 1 if host == my_node.private_ip
+        }
+      }
+
+      appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT + port_offset)
       if appengine_port < 0
         Djinn.log_error("Failed to get port for application #{app} on " +
           "#{@my_private_ip}")
@@ -5813,9 +5827,7 @@ HOSTS
     remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
 
     @app_info_map.each { |app_id, info|
-      if info['appengine'].nil?
-        next
-      end
+      next if info['appengine'].nil?
 
       info['appengine'].each { |location|
         host, port = location.split(":")
@@ -6000,10 +6012,10 @@ HOSTS
             tries = MAX_RETRIES
             begin
               all_stats["apps"][app_name] = {
-                  "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
-                  "appservers" => @app_info_map[app_name]["appengine"].length,
-                  "http" => @app_info_map[app_name]["nginx"],
-                  "https" => @app_info_map[app_name]["nginx_https"],
+                  "language" => @app_info_map[app_name]['language'].tr('^A-Za-z', ''),
+                  "appservers" => @app_info_map[app_name]['appengine'].length,
+                  "http" => @app_info_map[app_name]['nginx'],
+                  "https" => @app_info_map[app_name]['nginx_https'],
                   "total_reqs" => total_reqs,
                   "reqs_enqueued" => reqs_enqueued
               }
