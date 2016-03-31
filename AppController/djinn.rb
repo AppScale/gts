@@ -5582,11 +5582,11 @@ HOSTS
       end
 
       maybe_start_taskqueue_worker(app)
+      app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
+      done_uploading(app, app_path, @@secret)
 
       Djinn.log_info("Done adding AppServer for #{app}.")
 
-      # Add an application entry to ZooKeeper.
-      done_uploading(app, app_path, @@secret)
     }
   end
 
