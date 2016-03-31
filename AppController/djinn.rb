@@ -954,10 +954,8 @@ class Djinn
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
     PARAMETERS_AND_CLASS.each { |key, key_type, val|
-      if @options[key]
-        # The parameter 'key' is defined, no need to do anything.
-        next
-      end
+      # The parameter 'key' is defined, no need to do anything.
+      next if @options[key]
       if PARAMETERS_AND_CLASS[key][1]
          # The parameter has a default, and it's not defined. Adding
          # default value.
@@ -5096,9 +5094,7 @@ HOSTS
       in_use = false
       @app_info_map.each { |app, info|
         # If appid is defined, let's ignore its ports.
-        if app == appid
-          next
-        end
+        next if app == appid
 
         # Make sure we have the variables to look into: if we catch an app
         # early on, it may not have them.
@@ -5229,9 +5225,7 @@ HOSTS
 
     monitoring_info.each_line { |line|
       parsed_info = line.split(',')
-      if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
-        next
-      end
+      next if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
 
       service_name = parsed_info[SERVICE_NAME_INDEX]
 
