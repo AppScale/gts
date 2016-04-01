@@ -20,14 +20,14 @@ class TestMemcache(unittest.TestCase):
 
     # Test execution without exceptions.
     mock.should_receive("set").and_return()
-    results = memcache.set_test('xxx')
+    results = memcache.set('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
 
     # Test with exceptions being thrown up.
     mock.should_receive("set").and_raise(Exception("test exception"))
-    results = memcache.set_test('xxx')
+    results = memcache.set('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
 
@@ -40,14 +40,14 @@ class TestMemcache(unittest.TestCase):
     # Test execution without exceptions.
     value = 'xxx' + util.random_string(constants.MAX_STRING_LENGTH)
     mock.should_receive("get").and_return(value)
-    results = memcache.get_test('xxx')
+    results = memcache.get('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
 
     # Test with exceptions being thrown up.
     mock.should_receive("get").and_raise(Exception("test exception"))
-    results = memcache.get_test('xxx')
+    results = memcache.get('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
 
@@ -59,14 +59,14 @@ class TestMemcache(unittest.TestCase):
 
     # Test execution without exceptions.
     mock.should_receive("delete").and_return()
-    results = memcache.delete_test('xxx')
+    results = memcache.delete('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
 
     # Test with exceptions being thrown up.
     mock.should_receive("delete").and_raise(Exception("test exception"))
-    results = memcache.delete_test('xxx')
+    results = memcache.delete('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
 

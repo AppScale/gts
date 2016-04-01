@@ -9,8 +9,10 @@ import hashlib
 import os
 import random
 import re
+import sys
 import time
-from constants import FORCE_LOCAL
+
+from common import constants
 
 def chunks(list, chunk_size):
   """ Yield successive n-sized chunks from list.
@@ -58,7 +60,7 @@ def is_local():
     True if local, False otherwise.
   """
   return 'SERVER_SOFTWARE' in os.environ and \
-    os.environ['SERVER_SOFTWARE'].startswith('Development') or FORCE_LOCAL
+    os.environ['SERVER_SOFTWARE'].startswith('Development') or constants.FORCE_LOCAL
 
 def is_appscale():
   """ Determine if we are running on AppScale.

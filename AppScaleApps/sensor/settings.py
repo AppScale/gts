@@ -4,7 +4,7 @@ These are replaced with production values for each user.
 """
 
 # The API key for communication with the server.
-API_KEY = ""
+API_KEY = "test"
 
 # The registered email of the user.
 USER_ID = ""

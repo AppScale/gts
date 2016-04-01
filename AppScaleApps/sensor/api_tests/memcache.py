@@ -5,8 +5,9 @@ import os
 import sys
 import time
 
-from ..common import util
-from ..common import constants
+sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
+from common import util
+from common import constants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import memcache

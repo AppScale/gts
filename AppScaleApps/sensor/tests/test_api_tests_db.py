@@ -27,7 +27,7 @@ class TestDB(unittest.TestCase):
   def test_put_test(self):
     mock = flexmock(db)
     mock.should_receive("TestModel").and_return(TestModelFake())
-    results = db.put_test('xxx')      
+    results = db.put('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
@@ -37,7 +37,7 @@ class TestDB(unittest.TestCase):
     exception_model = flexmock(TestModelFake).should_receive("put").\
       and_raise(Exception("test exception"))
     mock.should_receive("TestModel").and_return(exception_model)
-    results = db.put_test('xxx')      
+    results = db.put('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     # All puts caused an exception.
@@ -46,7 +46,7 @@ class TestDB(unittest.TestCase):
   def test_get_test(self):
     mock = flexmock(db.TestModel)
     mock.should_receive("get_by_key_name").and_return(TestModelFake())
-    results = db.get_test('xxx') 
+    results = db.get('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
@@ -54,7 +54,7 @@ class TestDB(unittest.TestCase):
     mock.should_receive("get_by_key_name").and_raise(\
       Exception("test exception"))
 
-    results = db.get_test('xxx')
+    results = db.get('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     # All puts caused an exception.
@@ -64,14 +64,14 @@ class TestDB(unittest.TestCase):
   def test_delete_test(self):
     mock = flexmock(db.TestModel)
     mock.should_receive("get_by_key_name").and_return(TestModelFake())
-    results = db.delete_test('xxx') 
+    results = db.delete('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
 
     exception_model = flexmock(TestModelFake).should_receive("delete").\
       and_raise(Exception("test exception"))
-    results = db.delete_test('xxx')      
+    results = db.delete('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     # All puts caused an exception.
@@ -80,7 +80,7 @@ class TestDB(unittest.TestCase):
     # Have exceptions come when doing the get instead.
     mock.should_receive("get_by_key_name").and_raise(\
       Exception("test exception"))
-    results = db.delete_test('xxx')      
+    results = db.delete('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     # All puts caused an exception.
@@ -97,15 +97,15 @@ class TestDB(unittest.TestCase):
     mock = flexmock(db.TestModel)
     mock.should_receive("all").and_return(fake_query)
 
-    results = db.query_test("xxx")
-    self.assertEquals(len(db.query_test("xxx")), 2)
+    results = db.query("xxx")
+    self.assertEquals(len(db.query("xxx")), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     self.assertEquals(len(results[1]), 0)
 
     fake_query.should_receive("fetch").and_raise(\
       Exception("test exception"))
 
-    results = db.query_test('xxx')      
+    results = db.query('xxx')
     self.assertEquals(len(results), 2)
     self.assertEquals(len(results[0]), constants.NUM_SAMPLES)
     # All puts caused an exception.
