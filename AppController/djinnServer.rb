@@ -167,23 +167,25 @@ server = DjinnServer.new(
 )
 
 # SIGUSR1 is used to signal the orderly shut down of this node.
-Signal.trap('USR1') {
+Signal.trap('SIGUSR1') {
   puts("Received USR1 signal: stopping node services.")
   response = server.djinn.kill(false, secret)
   puts("Response to the kill command: #{response}")
   if !response.start_with?('ERROR')
     server.shutdown
   end
+  exit 0
 }
 
 # SIGUSR2 is used to signal the orderly shut down of the deployment.
-Signal.trap('USR2') {
+Signal.trap('SIGUSR2') {
   puts("Received URS2 signal: stopping the deployment.")
   response = server.djinn.kill(true, secret)
   puts("Response to the kill command: #{response}")
   if !response.start_with?('ERROR')
     server.shutdown
   end
+  exit 0
 }
 
 new_thread = Thread.new { server.start }

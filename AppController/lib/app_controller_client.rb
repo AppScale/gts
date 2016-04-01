@@ -172,6 +172,10 @@ class AppControllerClient
     return status
   end
 
+  def kill(stop_deployment)
+    make_call(240, ABORT_ON_FAIL, "kill") { @conn.kill(stop_deployment, @secret) }
+  end
+
   def get_status()
     if !HelperFunctions.is_port_open?(@ip, 17443)
       raise FailedNodeException.new("Cannot talk to AppController at #{@ip}.")
