@@ -36,11 +36,11 @@ namespace :appmanager do
 
 end
 
-namespace :appscaleapps do
+namespace :apps do
 
   task :test do
-    sh "nosetests AppScaleApps/sensor/tests " +
-      "AppScaleApps/sensor/common/tests"
+    sh "nosetests Apps/sensor/tests " +
+      "Apps/sensor/common/tests"
   end
   
 end
@@ -156,7 +156,7 @@ python_tests = [
   'lib:test',
   'searchservice:test',
   'xmppreceiver:test',
-  'appscaleapps:test'
+  'apps:test'
 ]
 ruby_tests = ['appcontroller:test']
 go_tests = ['go:test']
