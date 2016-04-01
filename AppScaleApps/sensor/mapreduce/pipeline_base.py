@@ -2,9 +2,9 @@
 """Base pipelines."""
 
 
-from mapreduce.third_party import pipeline
+from .third_party import pipeline
 
-from mapreduce import parameters
+from . import parameters
 
 # pylint: disable=g-bad-name
 

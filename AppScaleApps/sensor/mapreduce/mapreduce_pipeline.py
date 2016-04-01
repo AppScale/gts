@@ -30,15 +30,14 @@ __all__ = [
     ]
 
 
-from mapreduce.third_party import pipeline
-from mapreduce.third_party.pipeline import common as pipeline_common
-from google.appengine.api import files
-from mapreduce import input_readers
-from mapreduce import mapper_pipeline
-from mapreduce import model
-from mapreduce import output_writers
-from mapreduce import pipeline_base
-from mapreduce import shuffler
+from .third_party import pipeline
+from .third_party.pipeline import common as pipeline_common
+from . import input_readers
+from . import mapper_pipeline
+from . import model
+from . import output_writers
+from . import pipeline_base
+from . import shuffler
 
 # pylint: disable=g-bad-name
 # pylint: disable=protected-access

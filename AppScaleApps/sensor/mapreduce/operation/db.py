@@ -21,7 +21,7 @@
 __all__ = ['Put', 'Delete']
 
 
-from mapreduce.operation import base
+from ..operation import base
 
 # pylint: disable=protected-access
 

@@ -52,9 +52,9 @@ import StringIO
 import time
 import zipfile
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.net.proto import ProtocolBuffer
 from google.appengine.ext import ndb
-
 from google.appengine.api import datastore
 from google.appengine.api import files
 from google.appengine.api import logservice
@@ -64,19 +64,19 @@ from google.appengine.ext import blobstore
 from google.appengine.ext import db
 from google.appengine.ext import key_range
 from google.appengine.ext.db import metadata
-from mapreduce import context
-from mapreduce import datastore_range_iterators as db_iters
-from mapreduce import errors
-from mapreduce import file_format_parser
-from mapreduce import file_format_root
-from mapreduce import json_util
-from mapreduce import key_ranges
-from mapreduce import model
-from mapreduce import namespace_range
-from mapreduce import operation
-from mapreduce import property_range
-from mapreduce import records
-from mapreduce import util
+from . import context
+from . import datastore_range_iterators as db_iters
+from . import errors
+from . import file_format_parser
+from . import file_format_root
+from . import json_util
+from . import key_ranges
+from . import model
+from . import namespace_range
+from . import operation
+from . import property_range
+from . import records
+from . import util
 
 # pylint: disable=g-import-not-at-top
 # TODO(user): Cleanup imports if/when cloudstorage becomes part of runtime.

@@ -38,20 +38,23 @@ __all__ = ["MapreduceState",
 
 import cgi
 import datetime
+import os
+import sys
 import urllib
 import zlib
 
-from mapreduce.third_party.graphy.backends import google_chart_api
-from mapreduce.third_party import simplejson
+from .third_party.graphy.backends import google_chart_api
+from .third_party import simplejson
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
-from mapreduce import context
-from mapreduce import hooks
-from mapreduce import json_util
-from mapreduce import util
+from . import context
+from . import hooks
+from . import json_util
+from . import util
 
 
 # pylint: disable=protected-access

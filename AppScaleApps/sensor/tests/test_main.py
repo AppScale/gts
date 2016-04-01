@@ -12,11 +12,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 import main
 
 # Include these paths to get webapp2.
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../google_appengine/lib/webob-1.2.3"))
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../google_appengine/lib/webapp2-2.5.2/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer/lib/webob-1.2.3"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer/lib/webapp2-2.5.2/"))
 import webapp2
-
-from common import constants
 
 class TestHandlers(unittest.TestCase):
   def test_home(self):

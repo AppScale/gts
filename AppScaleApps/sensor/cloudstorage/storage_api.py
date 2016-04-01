@@ -24,6 +24,7 @@ __all__ = ['ReadBuffer',
 
 import collections
 import os
+import sys
 import urlparse
 
 from . import api_utils
@@ -35,6 +36,7 @@ try:
   from google.appengine.api import urlfetch
   from google.appengine.ext import ndb
 except ImportError:
+  sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
   from google.appengine.api import urlfetch
   from google.appengine.ext import ndb
 

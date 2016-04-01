@@ -1,6 +1,12 @@
 """ Replies with basic information. """
 
 import json
+import os
+import sys
+
+# Include these paths to get webapp2.
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webob-1.2.3"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webapp2-2.5.2/"))
 import webapp2
 
 from common import constants

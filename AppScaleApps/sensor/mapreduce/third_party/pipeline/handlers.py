@@ -20,7 +20,10 @@ In a separate file from the core pipeline module to break circular dependencies.
 """
 
 import logging
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../AppServer"))
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import util as webapp_util
 

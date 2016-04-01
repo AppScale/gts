@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 """An abstract for a collection of key_range.KeyRange objects."""
 
+import os
+import sys
 
-
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import key_range
-from mapreduce import namespace_range
+from . import namespace_range
 
 
 __all__ = [

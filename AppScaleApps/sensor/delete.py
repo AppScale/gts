@@ -4,6 +4,10 @@
 
 import json
 import os
+import sys
+# Include these paths to get webapp2.
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webob-1.2.3"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webapp2-2.5.2/"))
 import webapp2
 
 from base_handler import BaseHandler
@@ -17,6 +21,7 @@ from mapreduce import control
 from mapreduce import model
 from mapreduce import operation
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer"))
 from google.appengine.api import memcache
 
 # Job name prefix for testing writability.

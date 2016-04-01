@@ -42,10 +42,10 @@ import sys
 import time
 import types
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import ndb
-
 from google.appengine.datastore import datastore_rpc
-from mapreduce import parameters
+from . import parameters
 
 # Taskqueue task header for mr id. Use internal by MR.
 _MR_ID_TASK_HEADER = "AE-MR-ID"

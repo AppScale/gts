@@ -14,9 +14,9 @@ import logging
 import pickle
 import time
 
-from mapreduce import errors
-from mapreduce import records
-from mapreduce.api import map_job
+from ... import errors
+from ... import records
+from ...api import map_job
 
 
 # pylint: disable=g-import-not-at-top

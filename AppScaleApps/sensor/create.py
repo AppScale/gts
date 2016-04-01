@@ -4,12 +4,19 @@
 
 import json
 import logging
+import os
+import sys
+
+# Include these paths to get webapp2.
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webob-1.2.3"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webapp2-2.5.2/"))
 import webapp2
 
 from base_handler import BaseHandler
 from common import constants
 import settings
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer"))
 from google.appengine.api.namespace_manager import set_namespace
 from google.appengine.ext import db
 

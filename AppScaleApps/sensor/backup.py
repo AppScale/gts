@@ -7,6 +7,11 @@ import logging
 import os
 import random
 import re
+import sys
+
+# Include these paths to get webapp2.
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webob-1.2.3"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webapp2-2.5.2/"))
 import webapp2
 
 from base_handler import BaseHandler
@@ -26,6 +31,7 @@ from mapreduce import datastore_range_iterators as db_iters
 from mapreduce import output_writers
 from mapreduce import input_readers
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer"))
 from google.appengine.api import files
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch

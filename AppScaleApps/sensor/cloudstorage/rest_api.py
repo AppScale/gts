@@ -20,7 +20,9 @@
 
 __all__ = ['add_sync_methods']
 
+import os
 import random
+import sys
 import time
 
 from . import api_utils
@@ -29,6 +31,7 @@ try:
   from google.appengine.api import app_identity
   from google.appengine.ext import ndb
 except ImportError:
+  sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
   from google.appengine.api import app_identity
   from google.appengine.ext import ndb
 

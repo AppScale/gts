@@ -23,9 +23,11 @@ import collections
 import logging
 import os
 import re
+import sys
 
-from mapreduce import main
-from mapreduce import model
+from . import main
+from . import model
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext.webapp import mock_webapp
 
 # TODO(user): Add tests for this file.

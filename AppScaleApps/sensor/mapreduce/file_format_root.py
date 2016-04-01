@@ -24,11 +24,14 @@ __all__ = ['FileFormatRoot',
            'split']
 
 import copy
-from google.appengine.api.files import file as files
-from mapreduce import file_formats
-from mapreduce import json_util
-import mapreduce.file_format_parser as parser
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
+from google.appengine.api.files import file as files
+from . import file_formats
+from . import json_util
+from . import file_format_parser as parser
 
 def split(filenames, format_string, shards):
   """Get a FileFormatRoot for each shard.

@@ -4,10 +4,10 @@ import random
 import string
 import time
 
-from mapreduce import context
-from mapreduce import errors
-from mapreduce import operation
-from mapreduce.api import map_job
+from ... import context
+from ... import errors
+from ... import operation
+from .. import map_job
 
 # pylint: disable=invalid-name
 

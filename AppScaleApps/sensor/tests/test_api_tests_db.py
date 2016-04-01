@@ -10,9 +10,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from common import constants
 from api_tests import db
 
-sys.path.append(os.path.join(os.path.dirname(__file__),
-  "../../google_appengine"))
-
 class TestModelFake():
   def __init__(self):
     self.test_string = ""

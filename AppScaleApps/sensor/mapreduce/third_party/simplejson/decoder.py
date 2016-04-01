@@ -5,7 +5,7 @@ import re
 import sys
 import struct
 
-from mapreduce.third_party.simplejson.scanner import make_scanner
+from ..simplejson.scanner import make_scanner
 try:
     from mapreduce.third_party.simplejson._speedups import scanstring as c_scanstring
 except ImportError:

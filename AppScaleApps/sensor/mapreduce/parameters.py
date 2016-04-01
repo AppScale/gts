@@ -3,9 +3,9 @@
 
 __all__ = ["CONFIG_NAMESPACE",
            "config"]
-
+import os
 import pickle
-
+import sys
 
 # To break circular dependency and more.
 # pylint: disable=g-import-not-at-top
@@ -18,6 +18,7 @@ try:
 except ImportError:
   pipeline_util = None
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import lib_config
 
 CONFIG_NAMESPACE = "mapreduce"

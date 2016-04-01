@@ -15,13 +15,16 @@
 # limitations under the License.
 
 """Datastore models used by the Google App Engine Pipeline API."""
+import os
+import sys
+import util
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../AppServer"))
 from google.appengine.ext import db
 from google.appengine.ext import blobstore
 
 # Relative imports
-from mapreduce.third_party import simplejson
-import util
+from .. import simplejson
 
 
 class _PipelineRecord(db.Model):

@@ -46,10 +46,12 @@ from email import utils as email_utils
 import logging
 import os
 import re
+import sys
 
 try:
   from google.appengine.api import runtime
 except ImportError:
+  sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
   from google.appengine.api import runtime
 
 

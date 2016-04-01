@@ -21,13 +21,15 @@
 __all__ = [
     "MapperPipeline",
     ]
+import os
+import sys
 
-
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import files
-from mapreduce import control
-from mapreduce import model
-from mapreduce import parameters
-from mapreduce import pipeline_base
+from . import control
+from . import model
+from . import parameters
+from . import pipeline_base
 
 # pylint: disable=g-bad-name
 # pylint: disable=protected-access

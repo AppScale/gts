@@ -30,8 +30,11 @@ __all__ = [
 ]
 
 import itertools
+import os
 import string
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import datastore
 from google.appengine.ext import db
 from google.appengine.ext.db import metadata

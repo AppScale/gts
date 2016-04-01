@@ -3,8 +3,11 @@
 import copy
 import datetime
 import logging
-from mapreduce.third_party import simplejson
+import os
+import sys
 
+from .third_party import simplejson
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.ext import db

@@ -18,8 +18,8 @@
 
 import warnings
 
-from mapreduce.third_party.graphy import common
-from mapreduce.third_party.graphy import util
+from . import common
+from . import util
 
 
 class Segment(common.DataSeries):

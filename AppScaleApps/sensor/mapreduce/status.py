@@ -21,8 +21,10 @@ __author__ = ("aizatsky@google.com (Mike Aizatsky)",
 
 import os
 import pkgutil
+import sys
 import time
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import validation
 from google.appengine.api import yaml_builder
 from google.appengine.api import yaml_errors
@@ -30,9 +32,9 @@ from google.appengine.api import yaml_listener
 from google.appengine.api import yaml_object
 from google.appengine.ext import db
 from google.appengine.ext import webapp
-from mapreduce import base_handler
-from mapreduce import errors
-from mapreduce import model
+from . import base_handler
+from . import errors
+from . import model
 
 
 # TODO(user): a list of features we'd like to have in status page:

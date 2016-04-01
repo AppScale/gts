@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 """Abstract Datastore Input Reader implementation for the map_job API."""
+import os
 import random
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../AppServer"))
 from google.appengine.api import datastore
 from google.appengine.ext import key_range
-from mapreduce import datastore_range_iterators as db_iters
-from mapreduce import errors
-from mapreduce import key_ranges
-from mapreduce import model
-from mapreduce import namespace_range
-from mapreduce.api.map_job import input_reader
+from ... import datastore_range_iterators as db_iters
+from ... import errors
+from ... import key_ranges
+from ... import model
+from ... import namespace_range
+from . import input_reader
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name

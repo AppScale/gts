@@ -21,11 +21,12 @@ import os
 import pkgutil
 import traceback
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../AppServer"))
 from google.appengine.api import users
 from google.appengine.ext import webapp
 
 # Relative imports
-from mapreduce.third_party import simplejson
+from .. import simplejson
 import util
 
 

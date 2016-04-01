@@ -39,6 +39,7 @@ import time
 import urllib
 import uuid
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../AppServer"))
 from google.appengine.api import mail
 from google.appengine.api import files
 from google.appengine.api import users
@@ -48,7 +49,7 @@ from google.appengine.ext import webapp
 
 # Relative imports
 import models
-from mapreduce.third_party import simplejson
+from .. import simplejson
 import status_ui
 import util as mr_util
 

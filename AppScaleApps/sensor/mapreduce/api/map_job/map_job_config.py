@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 """Per job config for map jobs."""
-from mapreduce import hooks
-from mapreduce import input_readers
-from mapreduce import output_writers
-from mapreduce import parameters
-from mapreduce import util
-from mapreduce.api.map_job import input_reader
-from mapreduce.api.map_job import mapper as mapper_module
+from ... import hooks
+from ... import input_readers
+from ... import output_writers
+from ... import parameters
+from ... import util
+from . import input_reader
+from . import mapper as mapper_module
 
 
 # pylint: disable=protected-access

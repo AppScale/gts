@@ -10,8 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from common import constants
 from api_tests import urlfetch
 
-sys.path.append(os.path.join(os.path.dirname(__file__),
-  "../../google_appengine"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import urlfetch as google_urlfetch
 
 class FakeGoodResponse:

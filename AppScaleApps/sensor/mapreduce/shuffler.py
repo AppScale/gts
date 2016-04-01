@@ -29,22 +29,25 @@ import gc
 import heapq
 import logging
 import os
+import sys
 import time
 
-from mapreduce.third_party import pipeline
-from mapreduce.third_party.pipeline import common as pipeline_common
+from .third_party import pipeline
+from .third_party.pipeline import common as pipeline_common
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import files
 from google.appengine.api import modules
 from google.appengine.api.files import file_service_pb
 from google.appengine.ext import db
-from mapreduce import context
-from mapreduce import errors
-from mapreduce import input_readers
-from mapreduce import mapper_pipeline
-from mapreduce import operation
-from mapreduce import output_writers
-from mapreduce import pipeline_base
-from mapreduce import records
+from . import context
+from . import errors
+from . import input_readers
+from . import mapper_pipeline
+from . import operation
+from . import output_writers
+from . import pipeline_base
+from . import records
 
 # pylint: disable=g-bad-name
 # pylint: disable=protected-access

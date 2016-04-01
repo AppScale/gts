@@ -29,27 +29,27 @@ import random
 import sys
 import time
 import traceback
-from mapreduce.third_party import simplejson
+from .third_party import simplejson
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import ndb
-
 from google.appengine import runtime
 from google.appengine.api import datastore_errors
 from google.appengine.api import logservice
 from google.appengine.api import modules
 from google.appengine.api import taskqueue
 from google.appengine.ext import db
-from mapreduce import base_handler
-from mapreduce import context
-from mapreduce import errors
-from mapreduce import input_readers
-from mapreduce import model
-from mapreduce import operation
-from mapreduce import output_writers
-from mapreduce import parameters
-from mapreduce import util
-from mapreduce.api import map_job
-from mapreduce.api.map_job import shard_life_cycle
+from . import base_handler
+from . import context
+from . import errors
+from . import input_readers
+from . import model
+from . import operation
+from . import output_writers
+from . import parameters
+from . import util
+from .api import map_job
+from .api.map_job import shard_life_cycle
 from google.appengine.runtime import apiproxy_errors
 
 # pylint: disable=g-import-not-at-top

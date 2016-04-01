@@ -19,7 +19,7 @@
 Not intended for end users, use the methods in __init__ instead."""
 
 import warnings
-from mapreduce.third_party.graphy.backends.google_chart_api import util
+from . import util
 
 
 class BaseChartEncoder(object):

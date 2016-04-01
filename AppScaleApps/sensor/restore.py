@@ -6,6 +6,11 @@ import json
 import logging
 import os
 import re
+import sys
+
+# Include these paths to get webapp2.
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webob-1.2.3"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer/lib/webapp2-2.5.2/"))
 import webapp2
 
 from base_handler import BaseHandler
@@ -18,6 +23,7 @@ from utils import start_map
 from utils import validate_gs_bucket_name
 
 import cloudstorage
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../AppServer"))
 from google.appengine.api import datastore
 from google.appengine.api import urlfetch
 from google.appengine.datastore import entity_pb

@@ -4,17 +4,20 @@
 
 
 # pylint: disable=g-bad-name
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.datastore import datastore_query
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
 from google.appengine.ext import key_range
-from mapreduce import json_util
-from mapreduce import key_ranges
-from mapreduce import model
-from mapreduce import namespace_range
-from mapreduce import property_range
-from mapreduce import util
+from . import json_util
+from . import key_ranges
+from . import model
+from . import namespace_range
+from . import property_range
+from . import util
 
 
 __all__ = [

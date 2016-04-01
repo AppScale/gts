@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 """User API for controlling Map job execution."""
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../AppServer"))
 from google.appengine.api import taskqueue
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
-from mapreduce import model
-from mapreduce import util
-from mapreduce.api.map_job import map_job_config
+from ... import model
+from ... import util
+from . import map_job_config
 
 # pylint: disable=g-bad-name
 # pylint: disable=protected-access

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """A simple reader for file segs produced by GCS output writer."""
 
-from mapreduce import output_writers
+from .. import output_writers
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name

@@ -26,6 +26,7 @@ import logging
 import math
 import os
 import threading
+import sys
 import time
 import urllib
 
@@ -41,6 +42,7 @@ try:
   from google.appengine import runtime
   from google.appengine.runtime import apiproxy_errors
 except ImportError:
+  sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
   from google.appengine.api import app_identity
   from google.appengine.api import urlfetch
   from google.appengine.datastore import datastore_rpc

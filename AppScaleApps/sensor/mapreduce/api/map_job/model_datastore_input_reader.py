@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 """Model Datastore Input Reader implementation for the map_job API."""
 import copy
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../AppServer"))
 from google.appengine.ext import ndb
-
 from google.appengine.ext import db
-from mapreduce import datastore_range_iterators as db_iters
-from mapreduce import errors
-from mapreduce import namespace_range
-from mapreduce import property_range
-from mapreduce import util
-from mapreduce.api.map_job import abstract_datastore_input_reader
+from ... import datastore_range_iterators as db_iters
+from ... import errors
+from ... import namespace_range
+from ... import property_range
+from ... import util
+from . import abstract_datastore_input_reader
 
 # pylint: disable=invalid-name
 

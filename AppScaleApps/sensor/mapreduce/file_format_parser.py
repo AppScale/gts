@@ -24,7 +24,7 @@ __all__ = ['parse']
 import re
 import tokenize
 
-from mapreduce import file_formats
+from . import file_formats
 
 
 def parse(format_string):

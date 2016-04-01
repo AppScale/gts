@@ -19,7 +19,7 @@
 import copy
 import warnings
 
-from mapreduce.third_party.graphy import common
+from . import common
 
 
 class LineStyle(object):

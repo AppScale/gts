@@ -7,12 +7,15 @@
 # pylint: disable=g-import-not-at-top
 
 import datetime
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import ndb
-
 from google.appengine.ext import db
-from mapreduce import errors
-from mapreduce import util
+
+from . import errors
+from . import util
 
 __all__ = [
     "should_shard_by_property_range",

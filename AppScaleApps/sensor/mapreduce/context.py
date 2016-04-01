@@ -34,12 +34,16 @@ __all__ = ["get",
 
 import heapq
 import logging
+import os
+import sys
 import threading
 
 try:
   from google.appengine.ext import ndb
 except ImportError:
   ndb = None
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import datastore
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors

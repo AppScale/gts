@@ -2,8 +2,8 @@
 """Output writer interface for map job."""
 
 from . import shard_life_cycle
-from mapreduce import errors
-from mapreduce import json_util
+from ... import errors
+from ... import json_util
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name

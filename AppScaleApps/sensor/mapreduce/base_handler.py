@@ -23,8 +23,10 @@
 
 import httplib
 import logging
+import os
+import sys
 
-from mapreduce.third_party import simplejson
+from .third_party import simplejson
 
 try:
   from mapreduce import pipeline_base
@@ -38,11 +40,12 @@ try:
 except ImportError:
   cloudstorage = None
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import webapp
-from mapreduce import errors
-from mapreduce import json_util
-from mapreduce import model
-from mapreduce import parameters
+from . import errors
+from . import json_util
+from . import model
+from . import parameters
 
 
 class Error(Exception):

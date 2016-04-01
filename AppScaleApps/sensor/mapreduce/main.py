@@ -34,10 +34,14 @@ try:
 except ImportError:
   pipeline = None
 
+import os
+import sys
+
 # pylint: disable=g-import-not-at-top
+from . import handlers
+from . import status
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import webapp
-from mapreduce import handlers
-from mapreduce import status
 from google.appengine.ext.webapp import util
 
 

@@ -10,7 +10,7 @@ marshal and pickle modules.
 
 Encoding basic Python object hierarchies::
 
-    >>> import simplejson
+    >>> import ..simplejson
     >>> simplejson.dumps(['foo', {'bar': ('baz', None, 1.0, 2)}])
     '["foo", {"bar": ["baz", null, 1.0, 2]}]'
     >>> print simplejson.dumps("\"foo\bar")
@@ -29,7 +29,7 @@ Encoding basic Python object hierarchies::
 
 Compact encoding::
 
-    >>> import simplejson
+    >>> import ..simplejson
     >>> compact = simplejson.dumps([1,2,3,{'4': 5, '6': 7}], separators=(',',':'))
     >>> # Can't assume dict ordering
     >>> compact in ('[1,2,3,{"4":5,"6":7}]', '[1,2,3,{"6":7,"4":5}]')
@@ -37,13 +37,13 @@ Compact encoding::
 
 Pretty printing (using repr() because of extraneous whitespace in the output)::
 
-    >>> import simplejson
+    >>> import ..simplejson
     >>> print repr(simplejson.dumps({'4': 5, '6': 7}, sort_keys=True, indent=4))
     '{\n    "4": 5, \n    "6": 7\n}'
 
 Decoding JSON::
 
-    >>> import simplejson
+    >>> import .. simplejson
     >>> simplejson.loads('["foo", {"bar":["baz", null, 1.0, 2]}]') == ["foo", {"bar":["baz", None, 1.0, 2]}]
     True
     >>> simplejson.loads('"\\"foo\\bar"') == '"foo\x08ar'
@@ -55,7 +55,7 @@ Decoding JSON::
 
 Specializing JSON object decoding::
 
-    >>> import simplejson
+    >>> import ..simplejson
     >>> def as_complex(dct):
     ...     if '__complex__' in dct:
     ...         return complex(dct['real'], dct['imag'])
@@ -70,7 +70,7 @@ Specializing JSON object decoding::
 
 Extending JSONEncoder::
 
-    >>> import simplejson
+    >>> import ..simplejson
     >>> class ComplexEncoder(simplejson.JSONEncoder):
     ...     def default(self, obj):
     ...         if isinstance(obj, complex):

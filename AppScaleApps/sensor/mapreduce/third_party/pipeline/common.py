@@ -18,8 +18,11 @@
 
 import cgi
 import logging
+import os
 import random
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../AppServer"))
 from google.appengine.api import mail
 from google.appengine.api import taskqueue
 from google.appengine.ext import webapp

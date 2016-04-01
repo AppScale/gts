@@ -16,10 +16,10 @@
 
 """Backend which can generate charts using the Google Chart API."""
 
-from mapreduce.third_party.graphy import line_chart
-from mapreduce.third_party.graphy import bar_chart
-from mapreduce.third_party.graphy import pie_chart
-from mapreduce.third_party.graphy.backends.google_chart_api import encoders
+from ... import line_chart
+from ... import bar_chart
+from ... import pie_chart
+from . import encoders
 
 def _GetChartFactory(chart_class, display_class):
   """Create a factory method for instantiating charts with displays.

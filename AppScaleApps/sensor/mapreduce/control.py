@@ -25,13 +25,16 @@ __all__ = ["start_map"]
 
 
 import logging
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.ext import db
-from mapreduce import handlers
-from mapreduce import model
-from mapreduce import parameters
-from mapreduce import util
-from mapreduce.api import map_job
+from . import handlers
+from . import model
+from . import parameters
+from . import util
+from .api import map_job
 
 
 def start_map(name,

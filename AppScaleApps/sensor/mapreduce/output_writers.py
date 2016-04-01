@@ -40,18 +40,21 @@ __all__ = [
 import cStringIO
 import gc
 import logging
+import os
 import pickle
 import string
+import sys
 import time
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import files
 from google.appengine.api.files import file_service_pb
-from mapreduce import context
-from mapreduce import errors
-from mapreduce import json_util
-from mapreduce import model
-from mapreduce import operation
-from mapreduce import records
+from . import context
+from . import errors
+from . import json_util
+from . import model
+from . import operation
+from . import records
 
 # pylint: disable=g-import-not-at-top
 # TODO(user): Cleanup imports if/when cloudstorage becomes part of runtime.

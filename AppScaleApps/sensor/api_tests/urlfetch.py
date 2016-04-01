@@ -5,9 +5,9 @@ import os
 import sys
 import time
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-from common import constants
+from ..common import constants
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import urlfetch
 
 from __init__ import ApiTestBase
