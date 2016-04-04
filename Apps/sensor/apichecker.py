@@ -5,11 +5,11 @@ Checks different APIs and sends data to AppScale servers for analysis.
 from common import constants
 from common import util
 
-import settings
+import importlib
 import json
 import logging
-import importlib
 import os
+import settings
 import sys
 
 # Include these paths to get webapp2.
@@ -62,7 +62,7 @@ def get_result(suite_tag, uuid_tag):
     suite_tag: A str, locates the test runner for an API.
     uuid: A str, a unique string to identify a test.
   Returns:
-    A json result string.
+    A JSON result string.
   """
   suite_runner_constructor = get_runner_constructor(suite_tag)
   suite_runner = suite_runner_constructor(uuid_tag) 

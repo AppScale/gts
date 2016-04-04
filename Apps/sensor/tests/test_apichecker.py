@@ -2,26 +2,17 @@
 """ Testing for high level API checker. """
 import json
 import os
+import settings
 import sys
 import unittest
 
 from flexmock import flexmock
 
-# Include these paths to get webapp2.
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer/lib/webob-1.2.3"))
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer/lib/webapp2-2.5.2/"))
-import webapp2
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 import apichecker
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
-from google.appengine.api import urlfetch
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from common import constants
-from common import util
-import settings
 
 class FakeRunner:
   def __init__(self, uuid):

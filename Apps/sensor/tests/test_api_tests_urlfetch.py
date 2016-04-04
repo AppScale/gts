@@ -4,11 +4,12 @@
 import os
 import sys
 import unittest
+
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-from common import constants
 from api_tests import urlfetch
+from common import constants
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import urlfetch as google_urlfetch

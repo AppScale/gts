@@ -7,8 +7,9 @@ import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-from common import constants
 from api_tests import db
+from common import constants
+
 
 class TestModelFake():
   def __init__(self):

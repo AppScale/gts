@@ -3,10 +3,7 @@
 
 import os
 import sys
-import time
 import unittest
-
-from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 import main

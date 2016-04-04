@@ -8,44 +8,8 @@ handlers:
 - url: /health/all
   script: apichecker.APP
   secure: always
-  
-# Protected with a shared key.
-- url: /remote_control/
-  script: remote_control.APP
-  secure: always
-
-- url: /backup/
-  script: backup.APP
-  secure: always
-
-- url: /backupcomplete/
-  script: backup.APP
-  secure: always
-
-- url: /restore/
-  script: restore.APP
-  secure: always
-
-- url: /restorecomplete/
-  script: restore.APP
-  secure: always
-
-- url: /delete/
-  script: delete.APP
-  secure: always
-
-- url: /deletecomplete/
-  script: delete.APP
-  secure: always
-
-# Create test dummy data.
-- url: /create/
-  script: create.APP
-  secure: always
 
 # Unprotected path to verify the app is running.
 - url: /
   script: main.APP
 
-includes:
-- mapreduce/include.yaml  

@@ -14,9 +14,9 @@ from google.appengine.api import urlfetch
 from __init__ import ApiTestBase
 
 class TestUrlfetch(ApiTestBase):
-  """ Class implementing urlfetch test. """
+  """ Class implementing URLfetch test. """
   def run(self):
-    """ Runs the Urlfetch tests.
+    """ Runs the URLfetch tests.
 
     Returns:
       A dictionary with results.
@@ -28,13 +28,13 @@ class TestUrlfetch(ApiTestBase):
     return result
 
   def cleanup(self):
-    """ Clean up for urlfetch. Do nothing since operations are 
+    """ Clean up for URLfetch. Do nothing since operations are
     idempotent.
     """
     pass
 
 def fetch(url):
-  """ Fetches an items from the given url and returns timings.
+  """ Fetches an item from the given URL and returns timings.
 
   Args:
     url: The URL to fetch from.

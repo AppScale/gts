@@ -29,13 +29,13 @@ class TestMemcache(ApiTestBase):
     return result
 
   def cleanup(self):
-    """ Clean up for memcache. Since memcache is transient, we do
+    """ Clean up for Memcache. Since Memcache is transient, we do
       not clean this up.
     """
     pass
 
 def set(uuid):
-  """ Stores items in the memcache and times them.
+  """ Stores items in the Memcache and times them.
 
   Args:
     uuid: A unique identifier as part of the keynames of items.
@@ -64,7 +64,7 @@ def set(uuid):
   return (timings, errors)
 
 def get(uuid):
-  """ Retrieves items from the memcache and times them.
+  """ Retrieves items from the Memcache and times them.
 
   Args:
     uuid: A unique identifier as part of the keynames of items.
@@ -96,7 +96,7 @@ def get(uuid):
   return (timings, errors)
 
 def delete(uuid):
-  """ Deletes memcache items and times them.
+  """ Deletes Memcache items and times them.
 
   Args:
     uuid: A unique identifier as part of the keynames of items.

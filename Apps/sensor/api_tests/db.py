@@ -68,15 +68,14 @@ def put(uuid):
   return (timings, errors)
  
 def get(uuid):
-  """ Retrieves entities from the datastore and time them.
+  """ Retrieves entities from the datastore and times them.
 
   Args:
-    uuid: A str, unique identifier a part of the keynames of entities.
+    uuid: A str, unique identifier, a part of the keynames of entities.
   Returns:
     A tuple of two lists. A list of float times to get
     all entities, and a list of errors. A zero value signifies 
     a failure.
-
   """
   timings = []
   errors = []
@@ -125,7 +124,7 @@ def delete(uuid):
   """ Deletes stored entities and time them.
 
   Args:
-    uuid: A str, unique identifier a part of the keynames of entities.
+    uuid: A str, unique identifier, a part of the keynames of entities.
   Returns:
     A tuple of two lists. A list of float times to delete
     all entities, and a list of errors. A zero value signifies 
