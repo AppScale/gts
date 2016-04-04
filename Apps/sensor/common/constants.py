@@ -33,9 +33,6 @@ NUM_SAMPLES = 1
 # Convert multiplier from seconds to milliseconds.
 SECONDS_TO_MILLI = 1000
 
-# Whether or not we're in test mode.
-TEST_MODE = False
-
 if 'SERVER_SOFTWARE' in os.environ and \
   os.environ['SERVER_SOFTWARE'].startswith('Development'):
   logging.info("In DEBUG/TEST mode.")
@@ -45,17 +42,9 @@ if 'SERVER_SOFTWARE' in os.environ and \
 # High level tags use to communicate between the server and client.
 class ApiTags(object):
   """ A class containing shared constants. """
-  ALL_TESTS = "all"
   API_KEY = "api_key"
   APP_ID = "app_id"
-  CREDS = "creds"
   DATA = "data"
-  DISPLAY = "display"
-  ERROR = "error"
-  STATUS = "status"
-  REFRESH_TOKEN = "refresh_token"
-  REQUEST_TOKEN = "request_token"
-  SECRET_KEY = "shared_key"
   USER_ID = "email"
 
 # A class with all the tests for the DB API.
