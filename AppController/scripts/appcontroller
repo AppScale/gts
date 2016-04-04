@@ -7,7 +7,7 @@
 # Default-Stop:      0 1 6
 # X-Interactive:     false
 # Short-Description: Init script for AppScale AppController.
-# Description:       Start/stop script for AppScale AppController. 
+# Description:       Start/stop script for AppScale AppController.
 ### END INIT INFO
 
 DESC="AppScale Controller"
@@ -32,7 +32,7 @@ do_start()
    rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile\
+   start-stop-daemon --start --background --pidfile $PIDFILE\
      --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
      "$DAEMON >> $LOG_FILE 2>&1"
    log_end_msg $?
@@ -80,7 +80,7 @@ case "$1" in
         do_stop
         do_start
         ;;
- 
+
     status)
         status_of_proc "$DAEMON" "$DAEMON_NAME" && exit 0 || exit $?
         ;;

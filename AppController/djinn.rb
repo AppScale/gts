@@ -440,6 +440,10 @@ class Djinn
   LOG_FILE = "/var/log/appscale/controller-17443.log"
 
 
+  # Where to pud the pid of the controller.
+  PID_FILE = "/var/run/appscale-controller.pid"
+
+
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified.
@@ -1851,6 +1855,9 @@ class Djinn
     end
 
     Djinn.log_info("==== Starting AppController ====")
+
+    # This pid is used to control this deployment using the init script.
+    HelperFunctions.write_file(PID_FILE, "#{Process.pid}")
 
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
     # configured and started. We need to check if we are a zookeeper host
