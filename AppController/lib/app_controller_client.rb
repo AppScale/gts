@@ -70,6 +70,7 @@ class AppControllerClient
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
     @conn.add_method("set_apps", "app_names", "secret")
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
+    @conn.add_method("kill", "stop_deployment", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
     @conn.add_method("upload_app", "app", "secret")

@@ -767,8 +767,6 @@ class Djinn
             end
           }
         }
-        Djinn.log_info("Waiting for all nodes to shutdown...")
-        threads.each { |t| t.join() }
       end
     else
       Djinn.log_info("Received a stop node request.")
@@ -818,6 +816,10 @@ class Djinn
     # If we are in a stop deployment, let's make sure we don't
     # accidentally restarts.
     if stop_deployment
+      Djinn.log_info("Waiting for all nodes to shutdown...")
+      threads.each { |t| t.join() }
+      Djinn.log_info("Nodes have terminated.")
+
       Djinn.log_debug("Removing zookeeper locations.")
       FileUtils.rm_rf(ZK_LOCATIONS_FILE)
     end
