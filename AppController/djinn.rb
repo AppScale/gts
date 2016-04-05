@@ -1851,7 +1851,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    Djinn.log_info("==== Starting AppController ====")
+    Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
 
     # This pid is used to control this deployment using the init script.
     HelperFunctions.write_file(PID_FILE, "#{Process.pid}")
@@ -1949,7 +1949,10 @@ class Djinn
         update_node_info_cache()
       else
         # Every other node syncs its state with the login's node state.
-        next if !restore_appcontroller_state()
+        if !restore_appcontroller_state()
+          Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
+          next
+        end
       end
 
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -3111,7 +3114,10 @@ class Djinn
       HelperFunctions.log_and_crash("Don't have valid zookeeper servers.")
     end
     loop {
-      break if ZKInterface.is_connected?
+      if ZKInterface.is_connected?
+        Djinn.log_info("Re-using current connection to zookeeper.")
+        break
+      end
       ip = zk_list.sample()
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
       ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
@@ -3577,8 +3583,8 @@ class Djinn
             @state = "Couldn't start Zookeeper."
             HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
           end
+          Djinn.log_info("Done configuring zookeeper.")
         end
-        Djinn.log_info("Done configuring zookeeper.")
       else
         Djinn.log_info("Zookeeper already running.")
       end
