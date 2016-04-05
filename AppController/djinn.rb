@@ -796,11 +796,6 @@ class Djinn
       }
     end
 
-    # Login node needs to shutdown dashboard.
-    if my_node.is_login?
-      stop_app_dashboard()
-    end
-
     # Shadow saves the latest appcontroller state.
     if my_node.is_shadow?
       backup_appcontroller_state()
