@@ -36,6 +36,15 @@ namespace :appmanager do
 
 end
 
+namespace :apps do
+
+  task :test do
+    sh "nosetests Apps/sensor/tests " +
+      "Apps/sensor/common/tests"
+  end
+  
+end
+
 namespace :infrastructuremanager do
 
   task :test do
@@ -147,6 +156,7 @@ python_tests = [
   'lib:test',
   'searchservice:test',
   'xmppreceiver:test',
+  'apps:test'
 ]
 ruby_tests = ['appcontroller:test']
 go_tests = ['go:test']
