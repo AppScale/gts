@@ -115,9 +115,13 @@ class ZKInterface
 
     @@lock.synchronize {
       if defined?(@@zk)
-        Djinn.log_info("Closing old connection to zookeeper.")
-        @@zk.close
+        while not @@zk.closed?
+          Djinn.log_debug("Closing old connection to zookeeper.")
+          @@zk.close
+          Kernel.sleep(1)
+        end
       end
+      Djinn.log_debug("Opengin connection to zookeeper at #{ip}.")
       @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
     }
   end
