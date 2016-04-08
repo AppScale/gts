@@ -2950,9 +2950,7 @@ class Djinn
       end
       break if !json_state.empty?
       Djinn.log_warn("Unable to talk to zookeeper: trying again.")
-
-      # Forcing a reconnect to Zookeeper.
-      pick_zookeeper(@zookeeper_data, true)
+      pick_zookeeper(@zookeeper_data)
     }
     Djinn.log_info("Reload State : #{json_state}")
 
@@ -3111,19 +3109,17 @@ class Djinn
 
   # This function makes sure we have a zookeeper connection active to one
   # of the ZK servers.
-  def pick_zookeeper(zk_list, force=false)
+  def pick_zookeeper(zk_list)
     if zk_list.length < 1
       HelperFunctions.log_and_crash("Don't have valid zookeeper servers.")
     end
     loop {
-      if ZKInterface.is_connected? and !force
-        Djinn.log_info("Re-using current connection to zookeeper.")
-        break
-      end
+      break if ZKInterface.is_connected?
       ip = zk_list.sample()
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
       ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
     }
+    Djinn.log_debug("Found zookeeper server.")
   end
 
   # Backs up information about what this node is doing (roles, apps it is

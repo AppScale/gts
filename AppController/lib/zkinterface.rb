@@ -124,10 +124,12 @@ class ZKInterface
   end
 
   def self.is_connected?()
+    ret = false
     if defined?(@@zk)
-      return @@zk.connected?
+      ret = @@zk.connected?
     end
-    return false
+    Djinn.log_debug("Connection status with zookeeper server: #{ret}.")
+    return ret
   end
 
   # Creates a new connection to use with ZooKeeper. Useful for scenarios
