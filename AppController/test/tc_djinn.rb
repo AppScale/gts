@@ -331,7 +331,7 @@ class TestDjinn < Test::Unit::TestCase
 
     baz = flexmock("baz")
     baz.should_receive(:connected?).and_return(false)
-    baz.should_receive(:close)
+    baz.should_receive(:close!)
     all_ok = {:rc => 0}
 
     # Mocks for lock acquire / release
@@ -433,7 +433,7 @@ class TestDjinn < Test::Unit::TestCase
 
     baz = flexmock("baz")
     baz.should_receive(:connected?).and_return(false)
-    baz.should_receive(:close)
+    baz.should_receive(:close!)
 
     # Mocks for lock acquisition / release
     baz.should_receive(:get).with(
@@ -519,7 +519,7 @@ class TestDjinn < Test::Unit::TestCase
 
     mocked_zk = flexmock("zk")
     mocked_zk.should_receive(:connected?).and_return(false)
-    mocked_zk.should_receive(:close)
+    mocked_zk.should_receive(:close!)
 
     # Mocks for Appcontroller root node
     file_exists = {:rc => 0, :data => ZKInterface::DUMMY_DATA,
