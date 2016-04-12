@@ -3,6 +3,9 @@
 # The AppController port.
 APPCONTROLLER_PORT = "17443"
 
+# Location where deployed app source code resides in an AppScale deployment.
+APP_DIR_LOCATION = "/opt/appscale/apps"
+
 # The port br_service listens to.
 BR_SERVICE_PORT = "8423"
 

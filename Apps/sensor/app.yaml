@@ -1,4 +1,4 @@
-application: appid
+application: sensor
 version: appscale-hawkeye-thirdparty
 runtime: python27
 api_version: 1
