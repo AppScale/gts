@@ -166,9 +166,7 @@ def deploy_sensor_app():
 
   pwd = encrypt_password(USER_EMAIL, random_password_generator())
   if create_appscale_user(pwd, uaserver) and create_xmpp_user(pwd, uaserver):
-    logging.info("Created new user and now tarring app to be deployed...")
-    # Locates the sensor application under the Apps directory and tar zips it
-    # and places in the /opt/appscale/apps directory.
+    logging.info("Created new user and now tarring app to be deployed.")
     file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
     file_suffix = 'tar.gz'
     app_dir_location = os.path.join(hermes_constants.APP_DIR_LOCATION,
@@ -178,7 +176,7 @@ def deploy_sensor_app():
     archive.close()
 
     try:
-      logging.info("Deploying the sensor app for registered deployments...")
+      logging.info("Deploying the sensor app for registered deployments.")
       acc = appscale_info.get_appcontroller_client()
       acc.upload_app(app_dir_location, file_suffix, USER_EMAIL)
 
