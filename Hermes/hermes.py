@@ -161,7 +161,7 @@ def deploy_sensor_app():
   is_app_enabled = uaserver.is_app_enabled(APPSCALE_SENSOR,
     appscale_info.get_secret())
   if is_app_enabled == "true":
-    logging.info("{} application is already running.".format(APPSCALE_SENSOR))
+    logging.debug("{} application is already running.".format(APPSCALE_SENSOR))
     return
 
   pwd = encrypt_password(USER_EMAIL, random_password_generator())

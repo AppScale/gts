@@ -117,6 +117,7 @@ class TestHelper(unittest.TestCase):
       self.DEPLOYMENT_ID)
     flexmock(appscale_info).should_receive('get_secret').and_return(
       "fake_secret")
+    flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
 
     fake_uaserver = flexmock(name='fake_uaserver')
     # The appscalesensor app has already been deployed and is running
@@ -139,6 +140,7 @@ class TestHelper(unittest.TestCase):
       self.DEPLOYMENT_ID)
     flexmock(appscale_info).should_receive('get_secret').and_return(
       "fake_secret")
+    flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
 
     fake_uaserver = flexmock(name='fake_uaserver')
     # The appscalesensor app is not currently running so it has to be deployed.
@@ -161,6 +163,7 @@ class TestHelper(unittest.TestCase):
       self.DEPLOYMENT_ID)
     flexmock(appscale_info).should_receive('get_secret').and_return(
       "fake_secret")
+    flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
 
     fake_uaserver = flexmock(name='fake_uaserver')
     fake_uaserver.should_receive('is_app_enabled').with_args(
