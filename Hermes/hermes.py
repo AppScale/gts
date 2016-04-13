@@ -3,6 +3,8 @@ initiates actions accordingly. """
 
 import datetime
 import hashlib
+import helper
+import hermes_constants
 import json
 import logging
 import os
@@ -19,6 +21,10 @@ import tornado.httpclient
 import tornado.web
 import urllib
 
+from handlers import MainHandler
+from handlers import TaskHandler
+from helper import JSONTags
+
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback
 from tornado.options import define
@@ -30,12 +36,6 @@ from google.appengine.api.appcontroller_client import AppControllerException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
-
-import hermes_constants
-import helper
-from handlers import MainHandler
-from handlers import TaskHandler
-from helper import JSONTags
 
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
@@ -157,7 +157,7 @@ def deploy_sensor_app():
   uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
     appscale_info.get_db_master_ip(), UA_SERVER_PORT))
 
-  # If the appscalesensor app is already deployed, then do nothing.
+  # If the appscalesensor app is already running, then do nothing.
   is_app_enabled = uaserver.is_app_enabled(APPSCALE_SENSOR,
     appscale_info.get_secret())
   if is_app_enabled == "true":
@@ -167,6 +167,8 @@ def deploy_sensor_app():
   pwd = encrypt_password(USER_EMAIL, random_password_generator())
   if create_appscale_user(pwd, uaserver) and create_xmpp_user(pwd, uaserver):
     logging.info("Created new user and now tarring app to be deployed...")
+    # Locates the sensor application under the Apps directory and tar zips it
+    # and places in the /opt/appscale/apps directory.
     file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
     file_suffix = 'tar.gz'
     app_dir_location = os.path.join(hermes_constants.APP_DIR_LOCATION,
@@ -195,7 +197,8 @@ def create_appscale_user(password, uaserver):
       format(USER_EMAIL))
     return True
   else:
-    if uaserver.commit_new_user(USER_EMAIL, password, ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
+    if uaserver.commit_new_user(
+      USER_EMAIL, password, ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
       return True
     else:
       logging.error("Error while creating an Appscale user.")
@@ -215,7 +218,8 @@ def create_xmpp_user(password, uaserver):
       format(xmpp_user))
     return True
   else:
-    if uaserver.commit_new_user(xmpp_user, xmpp_pass, ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
+    if uaserver.commit_new_user(
+      xmpp_user, xmpp_pass, ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
       logging.info("XMPP username is {0}".format(xmpp_user))
       return True
     else:
