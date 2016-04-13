@@ -27,7 +27,6 @@ from tornado.options import parse_command_line
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
-from google.appengine.api import users
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -44,13 +43,17 @@ define("port", default=hermes_constants.HERMES_PORT, type=int)
 # The port that the SOAP server listens to.
 UA_SERVER_PORT = 4343
 
+# The username for deploying the appscalesensor app.
 USER_EMAIL = "appscale_user@appscale.local"
 
-DEFAULT_PASSWORD = "appscale"
-
+# The user account type for deploying the appscalesensor app.
 ACCOUNT_TYPE = "user"
 
+# The size for the random password to be created for the appscalesensor app user.
 PASSWORD_SIZE = 6
+
+# The app id for the appscalesensor application.
+APPSCALE_SENSOR = 'appscalesensor'
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
@@ -144,69 +147,79 @@ def send_all_stats():
     return
 
 def deploy_sensor_app():
-  """ Uploads the sensor app for registered deployments."""
+  """ Uploads the sensor app for registered deployments. """
 
   deployment_id = helper.get_deployment_id()
   #If deployment is not registered, then do nothing.
-  #if not deployment_id:
-    #return
+  if not deployment_id:
+    return
 
   uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
     appscale_info.get_db_master_ip(), UA_SERVER_PORT))
 
-  password = encrypt_password(USER_EMAIL, random_password_generator())
-  if create_appscale_user(password, uaserver) and create_xmpp_user(password, uaserver):
-    logging.warn("Created new users and now deploying app...")
+  # If the appscalesensor app is already deployed, then do nothing.
+  is_app_enabled = uaserver.is_app_enabled(APPSCALE_SENSOR,
+    appscale_info.get_secret())
+  if is_app_enabled == "true":
+    logging.info("{} application is already running.".format(APPSCALE_SENSOR))
+    return
+
+  pwd = encrypt_password(USER_EMAIL, random_password_generator())
+  if create_appscale_user(pwd, uaserver) and create_xmpp_user(pwd, uaserver):
+    logging.info("Created new user and now tarring app to be deployed...")
     file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
     file_suffix = 'tar.gz'
-    app_dir_location = os.path.join(hermes_constants.APP_DIR_LOCATION, 'sensor')
-
+    app_dir_location = os.path.join(hermes_constants.APP_DIR_LOCATION,
+      APPSCALE_SENSOR)
     archive = tarfile.open(app_dir_location, "w|gz")
-    archive.add(file_path, arcname="sensor")
+    archive.add(file_path, arcname= APPSCALE_SENSOR)
     archive.close()
 
     try:
-      logging.warn("Deploying the sensor app for registered deployments.")
+      logging.info("Deploying the sensor app for registered deployments...")
       acc = appscale_info.get_appcontroller_client()
-      return acc.upload_app(app_dir_location, file_suffix, USER_EMAIL)
+      acc.upload_app(app_dir_location, file_suffix, USER_EMAIL)
 
     except AppControllerException:
-      logging.exception("AppControllerException while trying to upload "
-        "sensor app.")
+      logging.exception("AppControllerException while trying to deploy "
+        "appscalesensor app.")
   else:
-    logging.warn("Error while creating a new user or accessing existing user.")
+    logging.error("Error while creating or accessing the user to deploy "
+      "appscalesensor app.")
 
 def create_appscale_user(password, uaserver):
+  """ Creates the user account with the email address and password provided. """
   does_user_exist = uaserver.does_user_exist(USER_EMAIL, appscale_info.get_secret())
   if does_user_exist == "true":
-    logging.warn("User {0} already exists, so not creating it again.".
+    logging.info("User {0} already exists, so not creating it again.".
       format(USER_EMAIL))
     return True
   else:
     if uaserver.commit_new_user(USER_EMAIL, password, ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
       return True
     else:
-      logging.warn("Appscale user was not created.")
+      logging.error("Error while creating an Appscale user.")
       return False
 
 def create_xmpp_user(password, uaserver):
-  # Create the XMPP account. If the user's email is a@a.com, then that
-  # means their XMPP account name is a@login_ip
+  """ Creates the XMPP account. If the user's email is a@a.com, then that
+  means their XMPP account name is a@login_ip. """
   username_regex = re.compile('\A(.*)@')
   username = username_regex.match(USER_EMAIL).groups()[0]
   xmpp_user = "{0}@{1}".format(username, appscale_info.get_login_ip())
   xmpp_pass = encrypt_password(xmpp_user, password)
-  does_user_exist = uaserver.does_user_exist(xmpp_user, appscale_info.get_secret())
+  does_user_exist = uaserver.does_user_exist(xmpp_user,
+    appscale_info.get_secret())
   if does_user_exist == "true":
-    logging.warn("XMPP User {0} already exists, so not creating it again.".
+    logging.info("XMPP User {0} already exists, so not creating it again.".
       format(xmpp_user))
     return True
   else:
     if uaserver.commit_new_user(xmpp_user, xmpp_pass, ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
-      logging.warn("XMPP username is {0}".format(xmpp_user))
+      logging.info("XMPP username is {0}".format(xmpp_user))
       return True
     else:
-      logging.warn("XMPP user not created.")
+      logging.error("Error while creating an XMPP user.")
       return False
 
 def random_password_generator():
@@ -216,6 +229,7 @@ def random_password_generator():
   return ''.join((random.choice(characters)) for x in range(pwdSize))
 
 def encrypt_password(username, password):
+  """ Salts the given password with the provided username and encrypts it. """
   return hashlib.sha1(username + password).hexdigest()
 
 def signal_handler(signal, frame):
@@ -265,6 +279,10 @@ def main():
   # Periodically send all available stats from each deployment node to the
   # AppScale Portal.
   PeriodicCallback(send_all_stats, hermes_constants.STATS_INTERVAL).start()
+
+  # Periodically checks if the deployment is registered and uploads the
+  # appscalesensor app for registered deployments.
+  PeriodicCallback(deploy_sensor_app, hermes_constants.UPLOAD_SENSOR_INTERVAL).start()
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()

@@ -62,6 +62,9 @@ SUPPORTED_TASKS = ['backup', 'restore']
 # The interval for sending deployment stats.
 STATS_INTERVAL = 60*1000    # 60 seconds.
 
+# The interval for checking for registered deployments.
+UPLOAD_SENSOR_INTERVAL = 60*1000    # 60 seconds.
+
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
   HTTP_OK = 200
