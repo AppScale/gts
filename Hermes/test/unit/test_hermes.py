@@ -164,6 +164,7 @@ class TestHelper(unittest.TestCase):
     flexmock(appscale_info).should_receive('get_secret').and_return(
       "fake_secret")
     flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
+    flexmock(appscale_info).should_receive('get_login_ip').and_return()
 
     fake_uaserver = flexmock(name='fake_uaserver')
     fake_uaserver.should_receive('is_app_enabled').with_args(
