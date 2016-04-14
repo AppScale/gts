@@ -14,7 +14,6 @@ from backup_exceptions import BRException
 from backup_exceptions import NoKeyException
 import backup_recovery_helper
 
-from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import CASSANDRA_DATA_SUBDIRS
 from backup_recovery_constants import PADDING_PERCENTAGE
 from backup_recovery_constants import SERVICE_STOP_RETRIES
@@ -145,7 +144,8 @@ def backup_data(path, keyname):
     backup_size = sum(int(line.split()[0])
                       for line in du_output.split('\n') if line)
 
-    df_output = utils.ssh(db_ip, keyname, 'df {}'.format(BACKUP_DIR_LOCATION),
+    output_dir = '/'.join(path.split('/')[:-1])
+    df_output = utils.ssh(db_ip, keyname, 'df {}'.format(output_dir),
       method=subprocess.check_output)
     available = int(df_output.split('\n')[1].split()[3])
 
