@@ -144,7 +144,7 @@ def backup_data(path, keyname):
     backup_size = sum(int(line.split()[0])
                       for line in du_output.split('\n') if line)
 
-    output_dir = '/'.join(path.split('/')[:-1])
+    output_dir = '/'.join(path.split('/')[:-1]) + '/'
     df_output = utils.ssh(db_ip, keyname, 'df {}'.format(output_dir),
       method=subprocess.check_output)
     available = int(df_output.split('\n')[1].split()[3])
