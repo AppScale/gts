@@ -1987,9 +1987,9 @@ class Djinn
 
       # Avoid long waits if a new apps needs to be started.
       DUTY_CYCLE.downto(0) {
+        Kernel.sleep(1)
         apps_to_load = @app_names - @apps_loaded - ["none"]
         break if !apps_to_load.empty?
-        Kernel.sleep(1)
       }
     end
   end
@@ -4822,6 +4822,9 @@ HOSTS
 
     # AppEngine nodes checks if the appservers are still running.
     if my_node.is_appengine?
+      # Only one thread talking to the appmanagerserver at a time.
+      return if AMS_LOCK.locked?
+
       to_terminate = []
       to_start = []
       my_appengines = []
@@ -4860,23 +4863,20 @@ HOSTS
       end
 
       # Now we do the talking with the appmanagerserver. Since it may take
-      # some time to start/stop apps, we do this in a thread, and if a
-      # previous thread is already at it, we simply skip this duty cycle.timeout.
-      if not AMS.locked?
-        AMS.synchronize {
-          Thread.new {
-            to_start.each { |app|
-              Djinn.log_info("Starting appserver for app: #{app}.")
-              add_appserver_process(app)
-            }
-            to_terminate.each { |appserver|
-              Djinn.log_info("Terminate the following appserver: #{appserver}.")
-              app, port = appserver.split(":")
-              remove_appserver_process(app, port)
-            }
+      # some time to start/stop apps, we do this in a thread.
+      AMS_LOCK.synchronize {
+        Thread.new {
+          to_start.each { |app|
+            Djinn.log_info("Starting appserver for app: #{app}.")
+            add_appserver_process(app)
+          }
+          to_terminate.each { |appserver|
+            Djinn.log_info("Terminate the following appserver: #{appserver}.")
+            app, port = appserver.split(":")
+            remove_appserver_process(app, port)
           }
         }
-      end
+      }
     end
   end
 
