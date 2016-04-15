@@ -108,7 +108,7 @@ class AppManagerClient
               'syslog_server' => syslog_server}
     json_config = JSON.dump(config)
     result = ""
-    make_call(MAX_TIME_OUT, false, "start_app") {
+    make_call(MAX_TIME_OUT*50, false, "start_app") {
       result = @conn.start_app(json_config)
     }
     return result

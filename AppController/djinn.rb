@@ -9,6 +9,7 @@ require 'openssl'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
+require 'thread'
 require 'timeout'
 require 'tmpdir'
 require 'yaml'
@@ -54,6 +55,10 @@ APPSCALE_TOOLS_HOME = "/usr/local/appscale-tools/"
 # This lock makes it so that global variables related to apps are not updated
 # concurrently, preventing race conditions.
 APPS_LOCK = Monitor.new()
+
+# This lock is to ensure that only one thread is trying to start/stop
+# applications.
+AMS_LOCK = Mutex.new()
 
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
@@ -2829,9 +2834,13 @@ class Djinn
     end
 
     Djinn.log_debug("Removing AppServer for app #{app_id} at #{ip}:#{port}")
-    @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
-    HAProxy.update_app_config(my_node.private_ip, app_id,
-      @app_info_map[app_id])
+    if @app_info_map[app_id] and @app_info_map[app_id]['appengine']
+      @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
+    else
+      Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
+      HAProxy.update_app_config(my_node.private_ip, app_id,
+        @app_info_map[app_id])
+    end
 
     return "OK"
   end
@@ -4838,7 +4847,6 @@ HOSTS
 
       # Check that all the appservers running are indeed known to the
       # head node.
-      # TODO: this should be implemented in the AppManager
       MonitInterface.running_appengines().each { |appengine|
         if !my_appengines.include?(appengine)
           to_terminate << "#{appengine}"
@@ -4851,22 +4859,24 @@ HOSTS
         Djinn.log_info("Appservers to terminate: #{to_terminate}.")
       end
 
-      # Now we got the list to start and terminate: let's do this.
-      to_start.each { |app|
-        Djinn.log_info("Starting appserver for app: #{app}.")
-        add_appserver_process(app, @@secret)
-      }
-      to_terminate.each { |appserver|
-        Djinn.log_info("Terminate the following appserver: #{appserver}.")
-        app, port = appserver.split(":")
-        app_manager = AppManagerClient.new(my_node.private_ip)
-        begin
-          result = app_manager.stop_app_instance(app, port)
-          Djinn.log_info("stop_app_instance returned #{result}.")
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to stop instance #{appserver}.")
-        end
-      }
+      # Now we do the talking with the appmanagerserver. Since it may take
+      # some time to start/stop apps, we do this in a thread, and if a
+      # previous thread is already at it, we simply skip this duty cycle.timeout.
+      if not AMS.locked?
+        AMS.synchronize {
+          Thread.new {
+            to_start.each { |app|
+              Djinn.log_info("Starting appserver for app: #{app}.")
+              add_appserver_process(app)
+            }
+            to_terminate.each { |appserver|
+              Djinn.log_info("Terminate the following appserver: #{appserver}.")
+              app, port = appserver.split(":")
+              remove_appserver_process(app, port)
+            }
+          }
+        }
+      end
     end
   end
 
@@ -5515,12 +5525,8 @@ HOSTS
   #   app_id: A String naming the application that an additional instance will
   #     be added for.
   #   secret: A String that is used to authenticate the caller.
-  def add_appserver_process(app, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
-    Djinn.log_info("Received request to add an appserver for #{app}")
+  def add_appserver_process(app)
+    Djinn.log_info("Received request to add an appserver for #{app}.")
 
     if @app_info_map[app].nil? or @app_info_map[app]['language'].nil?
       return "false: application #{app} is unknown."
@@ -5597,7 +5603,6 @@ HOSTS
       done_uploading(app, app_path, @@secret)
 
       Djinn.log_info("Done adding AppServer for #{app}.")
-
     }
   end
 
@@ -5610,11 +5615,7 @@ HOSTS
   #     from.
   #   port: A Fixnum that names the port of the AppServer to remove.
   #   secret: A String that is used to authenticate the caller.
-  def remove_appserver_process(app_id, port, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
+  def remove_appserver_process(app_id, port)
     app = app_id
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting appserver instance to free up unused resources")

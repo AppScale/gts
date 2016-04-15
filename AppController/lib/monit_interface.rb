@@ -169,7 +169,7 @@ BOO
   def self.running_appengines()
     output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
     appengines = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
-    Djinn.log_debug("Found these appengines running: #{appengines}.")
+    Djinn.log_debug("Found these appengines running: #{appengines.gsub("\n", ' ')}.")
     if appengines
       return appengines.split("\n")
     else
