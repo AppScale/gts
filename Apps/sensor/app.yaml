@@ -1,0 +1,15 @@
+application: appid
+version: appscale-hawkeye-thirdparty
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /health/all
+  script: apichecker.APP
+  secure: always
+
+# Unprotected path to verify the app is running.
+- url: /
+  script: main.APP
+
