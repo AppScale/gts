@@ -256,7 +256,7 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
-  add_routing(config['app_name'], config['port'])
+  add_routing(config['app_name'], config['app_port'])
 
   if 'log_size' in config.keys():
     log_size = config['log_size']

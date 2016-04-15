@@ -1985,13 +1985,7 @@ class Djinn
         last_print = Time.now.to_i
       end
 
-      # Avoid long waits if a new apps needs to be started.
-      DUTY_CYCLE.downto(0) {
-        Kernel.sleep(1)
-        apps_to_load = @app_names - @apps_loaded - ["none"]
-        break if !apps_to_load.empty?
-      }
-    end
+      Kernel.sleep(DUTY_CYCLE)
   end
 
 
@@ -4682,16 +4676,18 @@ HOSTS
     Thread.new{
       my_public = my_node.public_ip
       my_private = my_node.private_ip
-      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
 
-      @app_info_map[AppDashboard::APP_NAME] = {
-          'nginx' => 1080,
-          'nginx_https' => 1443,
-          'haproxy' => AppDashboard::PROXY_PORT,
-          'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
-                          "#{my_private}:-1"],
-          'language' => 'python27'
+      APPS_LOCK.synchronize {
+        @app_info_map[AppDashboard::APP_NAME] = {
+            'nginx' => 1080,
+            'nginx_https' => 1443,
+            'haproxy' => AppDashboard::PROXY_PORT,
+            'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
+                            "#{my_private}:-1"],
+            'language' => 'python27'
+        }
       }
+      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
 
       Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
       maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
