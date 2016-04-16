@@ -1986,6 +1986,7 @@ class Djinn
       end
 
       Kernel.sleep(DUTY_CYCLE)
+    end
   end
 
 
