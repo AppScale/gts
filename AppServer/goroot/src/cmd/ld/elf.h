@@ -503,7 +503,24 @@ typedef struct {
 #define	R_X86_64_GOTTPOFF 22	/* PC relative offset to IE GOT entry */
 #define	R_X86_64_TPOFF32 23	/* Offset in static TLS block */
 
-#define	R_X86_64_COUNT	24	/* Count of defined relocation types. */
+// Backported from Go 1.5.2
+#define	R_X86_64_PC64 24
+#define	R_X86_64_GOTOFF64 25
+#define	R_X86_64_GOTPC32 26
+#define	R_X86_64_GOT64 27
+#define	R_X86_64_GOTPCREL64 28
+#define	R_X86_64_GOTPC64 29
+#define	R_X86_64_GOTPLT64 30
+#define	R_X86_64_PLTOFF64 31
+#define	R_X86_64_SIZE32 32
+#define	R_X86_64_SIZE64 33
+#define	R_X86_64_GOTPC32_TLSDEC 34
+#define	R_X86_64_TLSDESC_CALL 35
+#define	R_X86_64_TLSDESC 36
+#define	R_X86_64_IRELATIVE 37
+#define	R_X86_64_PC32_BND 40
+#define	R_X86_64_GOTPCRELX 41
+#define	R_X86_64_REX_GOTPCRELX 42
 
 
 #define	R_ALPHA_NONE		0	/* No reloc */
