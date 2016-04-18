@@ -8,7 +8,6 @@ import os
 import SOAPpy
 import subprocess
 import sys
-import threading
 import time
 import urllib2
 from xml.etree import ElementTree

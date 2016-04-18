@@ -96,12 +96,12 @@ class TestAppManager(unittest.TestCase):
       and_return(True)
     flexmock(app_manager_server).should_receive('wait_on_app').\
       and_return(True)
+    flexmock(app_manager_server).should_receive('add_routing').\
+      and_return(True)
     flexmock(os).should_receive('popen').\
       and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write').\
       and_return()
-    flexmock(threading).should_receive('Thread').\
-      and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
     self.assertEqual(0, app_manager_server.start_app(configuration))
   
@@ -129,14 +129,14 @@ class TestAppManager(unittest.TestCase):
       and_return({})
     flexmock(app_manager_server).should_receive('wait_on_app').\
       and_return(True)
+    flexmock(app_manager_server).should_receive('add_routing').\
+      and_return(True)
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
     flexmock(os).should_receive('popen').\
       and_return(flexmock(read=lambda: '0\n'))
     flexmock(file_io).should_receive('write').and_return()
     flexmock(subprocess).should_receive('call').and_return(0)
-    flexmock(threading).should_receive('Thread').\
-      and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
     self.assertEqual(0, app_manager_server.start_app(configuration))
 
