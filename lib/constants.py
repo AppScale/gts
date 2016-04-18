@@ -24,6 +24,9 @@ ALL_IPS_LOC = '/etc/appscale/all_ips'
 # The location of the file which specifies the public IP of the head node.
 LOGIN_IP_LOC = '/etc/appscale/login_ip'
 
+# The size for the random password to be created for the appscalesensor app user.
+PASSWORD_SIZE = 6
+
 # The location of the file which specifies the current private IP.
 PRIVATE_IP_LOC = '/etc/appscale/my_private_ip'
 
