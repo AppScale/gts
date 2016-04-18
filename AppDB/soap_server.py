@@ -247,6 +247,8 @@ def does_user_exist(username, secret):
   result = db.get_entity(USER_TABLE, username, ["email"])
   if result[0] in ERROR_CODES and len(result) == 2:
     return "true"
+  elif 'Exception' in result[0]:
+    return result[0]
   else:
     return "false"
 
