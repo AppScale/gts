@@ -161,7 +161,7 @@ def backup_data(path, keyname):
 
   logging.info("Done with db backup.")
 
-def restore_data(path, keyname):
+def restore_data(path, keyname, force=False):
   """ Restores the Cassandra backup.
 
   Args:
@@ -185,7 +185,7 @@ def restore_data(path, keyname):
     if exit_code != ExitCodes.SUCCESS:
       machines_without_restore.append(db_ip)
 
-  if machines_without_restore:
+  if machines_without_restore and not force:
     logging.info('The following machines do not have a restore file: {}'.
       format(machines_without_restore))
     response = raw_input('Would you like to continue? [y/N] ')
@@ -230,12 +230,17 @@ if "__main__" == __name__:
   parser = argparse.ArgumentParser(
     description='Backup or restore Cassandra data.')
   io_group = parser.add_mutually_exclusive_group(required=True)
-  io_group.add_argument('--input', help='The location on each of the DB '\
-    'machines to use for restoring data.')
-  io_group.add_argument('--output', help='The location to store the '\
-    'backup on each of the DB machines.')
+  io_group.add_argument('--input',
+                        help='The location on each of the DB machines to use '
+                        'for restoring data.')
+  io_group.add_argument('--output',
+                        help='The location to store the backup on each of '
+                        'the DB machines.')
+
   parser.add_argument('--verbose', action='store_true',
-    help='Enable debug-level logging.')
+                      help='Enable debug-level logging.')
+  parser.add_argument('--force', action='store_true',
+                      help='Restore without prompting.')
 
   args = parser.parse_args()
 
@@ -251,6 +256,6 @@ if "__main__" == __name__:
   keyname = keys[0].split('.')[0]
 
   if args.input is not None:
-    restore_data(args.input, keyname)
+    restore_data(args.input, keyname, force=args.force)
   else:
     backup_data(args.output, keyname)
