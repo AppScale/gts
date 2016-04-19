@@ -12,5 +12,13 @@ def random_password_generator():
   return ''.join((random.choice(characters)) for x in range(pwd_size))
 
 def encrypt_password(username, password):
-  """ Salts the given password with the provided username and encrypts it. """
+  """Salts the given password with the provided username and encrypts it.
+
+    Args:
+      username: A str representing the username whose password we wish to
+        encrypt.
+      password: A str representing the password to encrypt.
+    Returns:
+      The SHA1-encrypted password.
+    """
   return hashlib.sha1(username + password).hexdigest()
