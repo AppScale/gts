@@ -2949,12 +2949,12 @@ class Djinn
       begin
         json_state = ZKInterface.get_appcontroller_state()
       rescue => e
-        Djinn.log_warn("Saw exception #{e.message} reading appcontroller state.")
+        Djinn.log_debug("Saw exception #{e.message} reading appcontroller state.")
         json_state = ""
         Kernel.sleep(SMALL_WAIT)
       end
       break if !json_state.empty?
-      Djinn.log_warn("Unable to talk to zookeeper: trying again.")
+      Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
     Djinn.log_info("Reload State : #{json_state}")
