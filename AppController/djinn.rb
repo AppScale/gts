@@ -5208,7 +5208,8 @@ HOSTS
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
         "be running.")
-      return :no_change
+      raise ApplicationBackendMissing.new("#{app_name} may not be running. " +
+        "No Backends detected")
     end
 
     monitoring_info.each_line { |line|
@@ -5873,30 +5874,27 @@ HOSTS
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           if app_name != "none"
-            total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-            # Create the apps hash with useful information containing HAProxy stats.
-            tries = MAX_RETRIES
             begin
-              all_stats["apps"][app_name] = {
+              total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+              # Create the apps hash with useful information containing HAProxy stats.
+              begin
+                all_stats["apps"][app_name] = {
                   "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
                   "appservers" => @app_info_map[app_name]["appengine"].length,
                   "http" => @app_info_map[app_name]["nginx"],
                   "https" => @app_info_map[app_name]["nginx_https"],
                   "total_reqs" => total_reqs,
                   "reqs_enqueued" => reqs_enqueued
-              }
-            rescue => exception
+               }
+              rescue => exception
+                backtrace = exception.backtrace.join("\n")
+                message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+                Djinn.log_warn("Unable to get application stats: #{message}")
+              end
+            rescue ApplicationBackendMissing => exception
               backtrace = exception.backtrace.join("\n")
               message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-              
-              if tries > 0
-                Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
-                Kernel.sleep(SMALL_WAIT)
-                tries -= 1
-                retry
-              else
-                Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
-              end
+              Djinn.log_warn("Unable to get HAProxy stats for #{app_name}: #{message}")
             end
           end
         }

@@ -1,7 +1,14 @@
-# Programmer: Navraj Chohan
+# Custom exceptions raised in AppController context.
+
+# A class of exceptions that can be thrown if HAProxy has no knowledge
+# of running application backends. The HAProxy status report is empty for that
+# application.
+class ApplicationBackendMissing < StandardError
+end
+
 
 # A class of exceptions that can be thrown if the AppController is put into an
-# unrecoverable state, or a state that we would not normally expect a perfectly
+# irrecoverable state, or a state that we would not normally expect a perfectly
 # working AppScale system to get into.
 class AppScaleException < StandardError
 end
