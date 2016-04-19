@@ -744,6 +744,25 @@ const (
 	R_X86_64_DTPOFF32 R_X86_64 = 21 /* Offset in TLS block */
 	R_X86_64_GOTTPOFF R_X86_64 = 22 /* PC relative offset to IE GOT entry */
 	R_X86_64_TPOFF32  R_X86_64 = 23 /* Offset in static TLS block */
+
+	// Backported from Go 1.5.2
+	R_X86_64_PC64           R_X86_64 = 24
+	R_X86_64_GOTOFF64       R_X86_64 = 25
+	R_X86_64_GOTPC32        R_X86_64 = 26
+	R_X86_64_GOT64          R_X86_64 = 27
+	R_X86_64_GOTPCREL64     R_X86_64 = 28
+	R_X86_64_GOTPC64        R_X86_64 = 29
+	R_X86_64_GOTPLT64       R_X86_64 = 30
+	R_X86_64_PLTOFF64       R_X86_64 = 31
+	R_X86_64_SIZE32         R_X86_64 = 32
+	R_X86_64_SIZE64         R_X86_64 = 33
+	R_X86_64_GOTPC32_TLSDEC R_X86_64 = 34
+	R_X86_64_TLSDESC_CALL   R_X86_64 = 35
+	R_X86_64_TLSDESC        R_X86_64 = 36
+	R_X86_64_IRELATIVE      R_X86_64 = 37
+	R_X86_64_PC32_BND       R_X86_64 = 40
+	R_X86_64_GOTPCRELX      R_X86_64 = 41
+	R_X86_64_REX_GOTPCRELX  R_X86_64 = 42
 )
 
 var rx86_64Strings = []intName{
@@ -771,6 +790,23 @@ var rx86_64Strings = []intName{
 	{21, "R_X86_64_DTPOFF32"},
 	{22, "R_X86_64_GOTTPOFF"},
 	{23, "R_X86_64_TPOFF32"},
+	{24, "R_X86_64_PC64"},
+	{25, "R_X86_64_GOTOFF64"},
+	{26, "R_X86_64_GOTPC32"},
+	{27, "R_X86_64_GOT64"},
+	{28, "R_X86_64_GOTPCREL64"},
+	{29, "R_X86_64_GOTPC64"},
+	{30, "R_X86_64_GOTPLT64"},
+	{31, "R_X86_64_PLTOFF64"},
+	{32, "R_X86_64_SIZE32"},
+	{33, "R_X86_64_SIZE32"},
+	{34, "R_X86_64_GOTPC32_TLSDEC"},
+	{35, "R_X86_64_TLSDESC_CALL"},
+	{36, "R_X86_64_TLSDESC"},
+	{37, "R_X86_64_IRELATIVE"},
+	{40, "R_X86_64_PC32_BND"},
+	{41, "R_X86_64_GOTPCRELX"},
+	{42, "R_X86_64_REX_GOTPCRELX"},
 }
 
 func (i R_X86_64) String() string   { return stringName(uint32(i), rx86_64Strings, false) }
