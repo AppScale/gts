@@ -2951,6 +2951,7 @@ class Djinn
       rescue => e
         Djinn.log_warn("Saw exception #{e.message} reading appcontroller state.")
         json_state = ""
+        Kernel.sleep(SMALL_WAIT)
       end
       break if !json_state.empty?
       Djinn.log_warn("Unable to talk to zookeeper: trying again.")
