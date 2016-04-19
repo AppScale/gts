@@ -1503,14 +1503,13 @@ class Djinn
     end
   end
 
-  # Queries the UserAppServer to see which user owns the given application.
+  # Retrieve application metadata from the UAServer.
   #
   #  Args:
-  #    app_id: The name of the app that we should see the administrator on.
+  #    app_id: A string containing the application ID.
   #  Returns:
-  #    A str containing the name of the application's administrator, or None
-  #      if there is none.
-  def get_app_admin(app_id, secret)
+  #    A JSON-encoded string containing the application metadata.
+  def get_app_data(app_id, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
