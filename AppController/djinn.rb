@@ -1038,7 +1038,7 @@ class Djinn
           stats_str << "Unknown\n"
         end
         stats_str << "        HTTPS port          : "
-        if !@app_info_map[app_name]['nginx'].nil?
+        if !@app_info_map[app_name]['nginx_https'].nil?
           stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
         else
           stats_str << "Unknown\n"
