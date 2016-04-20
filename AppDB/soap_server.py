@@ -188,7 +188,7 @@ class Apps:
     for index, host in enumerate(self.host_):
       ports = self.port_[index].split(PORT_SEPARATOR)
       hosts[host] = {'http': ports[0]}
-      if len(ports) > 1:
+      if len(ports) > 1 and ports[1]:
         hosts[host]['https'] = ports[1]
 
     response = {
