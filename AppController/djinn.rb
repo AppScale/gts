@@ -5895,8 +5895,7 @@ HOSTS
               end
             rescue ApplicationBackendMissing => exception
               backtrace = exception.backtrace.join("\n")
-              message = "'#{exception}' - Backtrace: \n#{backtrace}"
-              Djinn.log_warn("Unable to get HAProxy stats for #{app_name}: #{message}")
+              Djinn.log_warn("Unable to get HAProxy stats for #{app_name}: '#{exception}'")
             end
           end
         }
