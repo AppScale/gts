@@ -5193,6 +5193,8 @@ HOSTS
   # Returns:
   #   The total requests for the app, the requests enqueued and the
   #    timestamp of stat collection.
+  # Raises:
+  #   ApplicationBackendMissing exception if HAProxy status report is empty.
   def get_haproxy_stats(app_name)
     Djinn.log_debug("Getting scaling info for application #{app_name}")
 
