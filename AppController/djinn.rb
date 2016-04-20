@@ -1170,8 +1170,8 @@ class Djinn
   # Returns:
   #   A JSON string with the database information.
   def get_database_information(secret)
-    tree = { :table => @options["table"], :replication => @options["replication"],
-      :keyname => @options["keyname"] }
+    tree = { :table => @options['table'], :replication => @options['replication'],
+      :keyname => @options['keyname'] }
     return JSON.dump(tree)
   end
 
@@ -2599,8 +2599,8 @@ class Djinn
   def get_public_ip(private_ip)
     return private_ip unless is_cloud?
 
-    keyname = @options["keyname"]
-    infrastructure = @options["infrastructure"]
+    keyname = @options['keyname']
+    infrastructure = @options['infrastructure']
 
     Djinn.log_debug("Looking for #{private_ip}")
     private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
@@ -2826,9 +2826,9 @@ class Djinn
 
 
   def write_database_info()
-    table = @options["table"]
-    replication = @options["replication"]
-    keyname = @options["keyname"]
+    table = @options['table']
+    replication = @options['replication']
+    keyname = @options['keyname']
 
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
@@ -3033,9 +3033,9 @@ class Djinn
     # Next, find out this machine's public IP address. In a cloud deployment, we
     # have to rely on the metadata server, while in a cluster deployment, it's
     # the same as the private IP.
-    if ["ec2", "euca"].include?(@options["infrastructure"])
+    if ["ec2", "euca"].include?(@options['infrastructure'])
       new_public_ip = HelperFunctions.get_public_ip_from_aws_metadata_service()
-    elsif @options["infrastructure"] == "gce"
+    elsif @options['infrastructure'] == "gce"
       new_public_ip = HelperFunctions.get_public_ip_from_gce_metadata_service()
     else
       new_public_ip = new_private_ip
@@ -3060,18 +3060,18 @@ class Djinn
       end
     }
 
-    if @options["hostname"] == old_public_ip
-      @options["hostname"] = new_public_ip
+    if @options['hostname'] == old_public_ip
+      @options['hostname'] = new_public_ip
     end
 
     if !is_cloud?
-      nodes = JSON.load(@options["ips"])
+      nodes = JSON.load(@options['ips'])
       nodes.each { |node|
         if node['ip'] == old_private_ip
           node['ip'] == new_private_ip
         end
       }
-      @options["ips"] = JSON.dump(nodes)
+      @options['ips'] = JSON.dump(nodes)
     end
 
     @app_info_map.each { |appid, app_info|
@@ -3458,9 +3458,9 @@ class Djinn
 
     if is_cloud?
       # for euca
-      ENV['EC2_ACCESS_KEY'] = @options["ec2_access_key"]
-      ENV['EC2_SECRET_KEY'] = @options["ec2_secret_key"]
-      ENV['EC2_URL'] = @options["ec2_url"]
+      ENV['EC2_ACCESS_KEY'] = @options['ec2_access_key']
+      ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
+      ENV['EC2_URL'] = @options['ec2_url']
 
       # for ec2
       cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
@@ -3505,9 +3505,9 @@ class Djinn
       return nodes
     end
 
-    if @options["hostname"] =~ /#{FQDN_REGEX}/
+    if @options['hostname'] =~ /#{FQDN_REGEX}/
       begin
-        @options["hostname"] = HelperFunctions.convert_fqdn_to_ip(@options["hostname"])
+        @options['hostname'] = HelperFunctions.convert_fqdn_to_ip(@options['hostname'])
       rescue => e
         HelperFunctions.log_and_crash("Failed to convert main hostname #{@options['hostname']}")
       end
@@ -3929,15 +3929,15 @@ class Djinn
   end
 
   def is_hybrid_cloud?
-    if @options["infrastructure"].nil?
+    if @options['infrastructure'].nil?
       false
     else
-      @options["infrastructure"] == "hybrid"
+      @options['infrastructure'] == "hybrid"
     end
   end
 
   def is_cloud?
-    !@options["infrastructure"].nil?
+    !@options['infrastructure'].nil?
   end
 
   def restore_from_db?
@@ -3949,13 +3949,13 @@ class Djinn
 
     table = @options['table']
 
-    machines = JSON.load(@options["ips"])
+    machines = JSON.load(@options['ips'])
     appengine_info = spawn_appengine(machines)
     Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}.")
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
-    keyname = @options["keyname"]
+    keyname = @options['keyname']
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
@@ -4040,7 +4040,7 @@ class Djinn
     key = node.ssh_key
     HelperFunctions.ensure_image_is_appscale(ip, key)
     HelperFunctions.ensure_version_is_supported(ip, key)
-    HelperFunctions.ensure_db_is_supported(ip, @options["table"], key)
+    HelperFunctions.ensure_db_is_supported(ip, @options['table'], key)
   end
 
   def copy_encryption_keys(dest_node)
@@ -4050,7 +4050,7 @@ class Djinn
 
     # Get the username to use for ssh (depends on environments).
     user_name = "ubuntu"
-    if ["ec2", "euca"].include?(@options["infrastructure"])
+    if ["ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
       options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
       backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' +
@@ -4063,7 +4063,7 @@ class Djinn
         "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
         "'#{merge_keys}'")
-    elsif @options["infrastructure"] == "gce"
+    elsif @options['infrastructure'] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
       # sure.
@@ -4096,7 +4096,7 @@ class Djinn
 
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
-    return if @options["infrastructure"] != "gce"
+    return if @options['infrastructure'] != "gce"
 
     client_secrets = "#{APPSCALE_CONFIG_DIR}/client_secrets.json"
     gce_oauth = "#{APPSCALE_CONFIG_DIR}/oauth2.dat"
@@ -4192,7 +4192,7 @@ class Djinn
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips, Integer(@options["replication"]))
+    setup_db_config_files(master_ip, slave_ips, Integer(@options['replication']))
 
     update_hosts_info()
 
