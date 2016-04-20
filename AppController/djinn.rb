@@ -5209,7 +5209,7 @@ HOSTS
       Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
         "be running.")
       raise ApplicationBackendMissing.new("#{app_name} may not be running. " +
-        "No Backends detected")
+        "No backends detected.")
     end
 
     monitoring_info.each_line { |line|
@@ -5247,9 +5247,9 @@ HOSTS
     total_req_in_queue = 0
     time_requests_were_seen = 0
 
-    total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
-
-    if time_requests_were_seen.zero?
+    begin
+      total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
+    rescue ApplicationBackendMissing => exception
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return :no_change
     end
@@ -5888,12 +5888,12 @@ HOSTS
                }
               rescue => exception
                 backtrace = exception.backtrace.join("\n")
-                message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+                message = "Unforseen exception: '#{exception}' - Backtrace: \n#{backtrace}"
                 Djinn.log_warn("Unable to get application stats: #{message}")
               end
             rescue ApplicationBackendMissing => exception
               backtrace = exception.backtrace.join("\n")
-              message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+              message = "'#{exception}' - Backtrace: \n#{backtrace}"
               Djinn.log_warn("Unable to get HAProxy stats for #{app_name}: #{message}")
             end
           end
