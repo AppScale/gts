@@ -715,10 +715,9 @@ class Djinn
     HelperFunctions.write_file(port_file, http_port)
 
     Thread.new {
-      # Next, remove the old port from the UAServer and add the new one.
+      # Notify the UAServer about the new ports.
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       begin
-        uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
         uac.add_instance(appid, my_public, http_port, https_port)
       rescue FailedNodeException
         Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
@@ -1038,7 +1037,7 @@ class Djinn
           stats_str << "Unknown\n"
         end
         stats_str << "        HTTPS port          : "
-        if !@app_info_map[app_name]['nginx'].nil?
+        if !@app_info_map[app_name]['nginx_https'].nil?
           stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
         else
           stats_str << "Unknown\n"
