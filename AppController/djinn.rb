@@ -351,11 +351,6 @@ class Djinn
   REQ_IN_QUEUE_INDEX = 2
 
 
-  # The position in the haproxy profiling information where the status of
-  # the backend service (UP or DOWN) is specified.
-  BACKEND_STATUS_INDEX = 17
-
-
   # The position in the haproxy profiling information where the total number of
   # requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
@@ -5178,16 +5173,6 @@ HOSTS
         when :scale_down
           Djinn.log_debug("Considering scaling down app #{app_name}.")
           try_to_scale_down(app_name)
-        when :not_running
-          Djinn.log_info("App #{app_name} is not running (yet?).")
-        when :down
-          Djinn.log_info("App #{app_name} backend is down.")
-          if @last_decision[app_name] != 0 and
-              Time.now.to_i - @last_decision[app_name] > SCALEDOWN_THRESHOLD * DUTY_CYCLE
-            Djinn.log_info("#{app_name} is unresponsive: removing an appserver.")
-            @app_info_map[app_name]['appengine'].shift()
-            @last_decision[app_name] = Time.now.to_i
-          end
         when :no_change
           Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
         else
@@ -5242,12 +5227,14 @@ HOSTS
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
         "be running.")
-      raise AppNotRunningException.new("#{app_name} has no haproxy entries.")
+      return :no_change
     end
 
     monitoring_info.each_line { |line|
       parsed_info = line.split(',')
-      next if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
+      if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
+        next
+      end
 
       service_name = parsed_info[SERVICE_NAME_INDEX]
 
@@ -5262,11 +5249,6 @@ HOSTS
         total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
         Djinn.log_debug("#{app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
-        is_up = parsed_info[BACKEND_STATUS_INDEX] == "UP"
-        if !is_up
-          Djinn.log_info("Backend for #{app_name} is currently DOWN.")
-          raise AppIsDownException.new("#{app_name} backend is down.")
-        end
       end
     }
 
@@ -5291,13 +5273,7 @@ HOSTS
     end
 
     # We need the haproxy stats to decide upon what to do.
-    begin
-      total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
-    rescue AppNotRunningException
-      return :not_running
-    rescue AppIsDownException
-      return :down
-    end
+    total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
 
     if time_requests_were_seen.zero?
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -6008,13 +5984,8 @@ HOSTS
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           if app_name != "none"
-            begin
-              total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-            rescue AppNotRunningException, AppIsDownException
-              # TODO: we should have a better state to report.
-              total_reqs = 0
-              reqs_enqueued = 0
-            end
+            total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+
             # Create the apps hash with useful information containing HAProxy stats.
             tries = MAX_RETRIES
             begin
