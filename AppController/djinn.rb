@@ -5888,7 +5888,7 @@ HOSTS
               rescue => exception
                 backtrace = exception.backtrace.join("\n")
                 message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-                Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
+                Djinn.log_warn("Unable to get application stats: #{message}")
               end
             end
           end
