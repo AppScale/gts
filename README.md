@@ -15,8 +15,8 @@ The goal of AppScale is to provide developers with a rapid, API-driven developme
 ## I Want ...
 * to [contribute](https://github.com/AppScale/appscale/wiki/Contribute%21)
 * to [try AppScale](https://github.com/AppScale/appscale/wiki/Running-AppScale)
-* to see [how other people use AppScale](http://www.appscale.com/why-appscale/)
-* [customer support](http://www.appscale.com/products/appscale-customer-success/)
+* to see [how other people use AppScale](http://www.appscale.com/why-appscale/?utm_source=github&utm_medium=referral&utm_campaign=community-github)
+* [customer support](http://www.appscale.com/products/appscale-customer-success/?utm_source=github&utm_medium=referral&utm_campaign=community-github)
 * to [learn more](https://github.com/AppScale/appscale/wiki)
 
 
