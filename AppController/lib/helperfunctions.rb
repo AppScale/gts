@@ -353,8 +353,7 @@ module HelperFunctions
     local_file_loc = File.expand_path(local_file_loc)
     retval_file = "#{Dir.tmpdir}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    scp_result = self.shell(cmd)
-    Djinn.log_debug("scp_file returned #{scp_result}.")
+    self.shell(cmd)
 
     loop {
       break if File.exists?(retval_file)

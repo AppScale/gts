@@ -24,16 +24,3 @@ end
 # do not return properly (specifically, not having a return value of zero).
 class FailedShellExec < StandardError
 end
-
-
-# A class of exceptions that can be thrown when the AppController detects
-# an application that should be running doesn't have entries in haproxy.
-class AppNotRunningException < AppScaleException
-end
-
-
-# A class of exceptions that can be thrown when the AppController detects
-# when an application's appservers are not running (ie the application is
-# effectively down).
-class AppIsDownException < AppScaleException
-end
