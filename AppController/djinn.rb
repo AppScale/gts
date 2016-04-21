@@ -5876,7 +5876,6 @@ HOSTS
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
             if collection_time != :no_backend
               # Create the apps hash with useful information containing HAProxy stats.
-              tries = MAX_RETRIES
               begin
                 all_stats["apps"][app_name] = {
                   "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
@@ -5889,15 +5888,7 @@ HOSTS
               rescue => exception
                 backtrace = exception.backtrace.join("\n")
                 message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-              
-                if tries > 0
-                  Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
-                  Kernel.sleep(SMALL_WAIT)
-                  tries -= 1
-                  retry
-                else
-                  Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
-                end
+                Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
               end
             end
           end
