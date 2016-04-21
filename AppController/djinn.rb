@@ -317,13 +317,13 @@ class Djinn
 
 
   # How often we should attempt to increase the number of AppServers on a
-  # given node.
-  SCALEUP_TIME_THRESHOLD = 12  # seconds
+  # given node. It's measured as a multiplier of DUTY_CYCLE.
+  SCALEUP_THRESHOLD = 3
 
 
   # How often we should attempt to decrease the number of AppServers on a
-  # given node.
-  SCALEDOWN_TIME_THRESHOLD = 300  # seconds
+  # given node. It's measured as a multiplier of DUTY_CYCLE.
+  SCALEDOWN_THRESHOLD = 9
 
 
   # When spinning new node up or down, we need to use a much longer time
@@ -4820,9 +4820,12 @@ HOSTS
     # AppEngine nodes checks if the appservers are still running.
     if my_node.is_appengine?
       # Only one thread talking to the appmanagerserver at a time.
-      return if AMS_LOCK.locked?
+      if AMS_LOCK.locked?
+        Djinn.log_debug("Another thread already working with appmanager.")
+        return
+      end
 
-      to_terminate = []
+      to_end = []
       to_start = []
       my_appengines = []
       @app_info_map.each { |app, info|
@@ -4837,7 +4840,7 @@ HOSTS
             to_start << app
           elsif not MonitInterface.is_running?("#{app}-#{port}")
             Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
-            to_terminate << "#{app}:#{port}"
+            to_end << "#{app}:#{port}"
           else
             my_appengines << "#{app}:#{port}"
           end
@@ -4848,16 +4851,17 @@ HOSTS
       # Check that all the appservers running are indeed known to the
       # head node.
       MonitInterface.running_appengines().each { |appengine|
-        if !my_appengines.include?(appengine)
-          to_terminate << "#{appengine}"
-        end
+        app, port = appserver.split(":")
+
+        # If the app needs to be started, we will keep the appserver
+        # around: it may be the headnode wasn't notified yet.
+        next if to_start.include?(app)
+
+        # Otherwise terminate the ones we cannot account for.
+        to_end << "#{appengine}" if !my_appengines.include?(appengine)
       }
-      if to_start.length > 0
-        Djinn.log_info("Appservers to start: #{to_start}.")
-      end
-      if to_terminate.length > 0
-        Djinn.log_info("Appservers to terminate: #{to_terminate}.")
-      end
+      Djinn.log_info("Appservers to start: #{to_start}.") if to_start.length > 0
+      Djinn.log_info("Appservers to terminate: #{to_end}.") if to_end.length > 0
 
       # Now we do the talking with the appmanagerserver. Since it may take
       # some time to start/stop apps, we do this in a thread.
@@ -4867,7 +4871,7 @@ HOSTS
             Djinn.log_info("Starting appserver for app: #{app}.")
             add_appserver_process(app)
           }
-          to_terminate.each { |appserver|
+          to_end.each { |appserver|
             Djinn.log_info("Terminate the following appserver: #{appserver}.")
             app, port = appserver.split(":")
             remove_appserver_process(app, port)
@@ -5179,7 +5183,7 @@ HOSTS
         when :down
           Djinn.log_info("App #{app_name} backend is down.")
           if @last_decision[app_name] != 0 and
-              Time.now.to_i - @last_decision[app_name] > SCALEDOWN_TIME_THRESHOLD
+              Time.now.to_i - @last_decision[app_name] > SCALEDOWN_THRESHOLD * DUTY_CYCLE
             Djinn.log_info("#{app_name} is unresponsive: removing an appserver.")
             @app_info_map[app_name]['appengine'].shift()
             @last_decision[app_name] = Time.now.to_i
@@ -5381,7 +5385,7 @@ HOSTS
     end
 
     # We scale only if the designed time is passed.
-    if Time.now.to_i - @last_decision[app_name] < SCALEUP_TIME_THRESHOLD
+    if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
       return
     end
@@ -5440,7 +5444,7 @@ HOSTS
     end
 
     # We scale only if the designed time is passed.
-    if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_TIME_THRESHOLD
+    if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale down app #{app_name}")
       return
     end
@@ -5728,8 +5732,8 @@ HOSTS
       return examine_scale_down_requests(all_scaling_requests)
     end
 
-    if Time.now.to_i - @last_scaling_time < (SCALEUP_TIME_THRESHOLD *
-            SCALE_TIME_MULTIPLIER)
+    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
+            SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling up right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -5804,8 +5808,8 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now.to_i - @last_scaling_time < (SCALEDOWN_TIME_THRESHOLD *
-            SCALE_TIME_MULTIPLIER)
+    if Time.now.to_i - @last_scaling_time < (SCALEDOWN_THRESHOLD *
+            SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -6025,7 +6029,7 @@ HOSTS
             rescue => exception
               backtrace = exception.backtrace.join("\n")
               message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-              
+
               if tries > 0
                 Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
                 Kernel.sleep(SMALL_WAIT)
