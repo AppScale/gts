@@ -885,7 +885,7 @@ class Djinn
     }
     @options = sanitize_credentials()
 
-    # Check that we got good parameters: we remove the unkown ones for
+    # Check that we got good parameters: we remove the unknown ones for
     # backward compatibilty.
     options_to_delete = []
     @options.each { |key, val|
@@ -1864,7 +1864,7 @@ class Djinn
       begin
         my_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
       rescue Errno::ENOENT
-        @state = "Cannot find my old privat IP address."
+        @state = "Cannot find my old private IP address."
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
 
