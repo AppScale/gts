@@ -194,8 +194,10 @@ class Apps:
     response = {
       'hosts': hosts,
       'language': self.language_,
-      'owner': self.owner_,
     }
+    if self.owner_:
+      response['owner'] = self.owner_
+
     return json.dumps(response)
 
   def checksum(self):
