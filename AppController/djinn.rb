@@ -318,12 +318,12 @@ class Djinn
 
   # How often we should attempt to increase the number of AppServers on a
   # given node. It's measured as a multiplier of DUTY_CYCLE.
-  SCALEUP_THRESHOLD = 3
+  SCALEUP_THRESHOLD = 5
 
 
   # How often we should attempt to decrease the number of AppServers on a
   # given node. It's measured as a multiplier of DUTY_CYCLE.
-  SCALEDOWN_THRESHOLD = 9
+  SCALEDOWN_THRESHOLD = 15
 
 
   # When spinning new node up or down, we need to use a much longer time
