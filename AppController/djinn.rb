@@ -299,11 +299,11 @@ class Djinn
 
 
   # This is the duty cycle for the main loop(s).
-  DUTY_CYCLE = 20
+  DUTY_CYCLE = 10
 
 
   # How many minutes to print the stats in the logs.
-  PRINT_STATS_MINUTES = 60
+  PRINT_STATS_MINUTES = 30
 
 
   # This is the time to wait before aborting after a crash. We use this
@@ -4846,7 +4846,7 @@ HOSTS
       # Check that all the appservers running are indeed known to the
       # head node.
       MonitInterface.running_appengines().each { |appengine|
-        app, port = appserver.split(":")
+        app, port = appengine.split(":")
 
         # If the app needs to be started, we will keep the appserver
         # around: it may be the headnode wasn't notified yet.
