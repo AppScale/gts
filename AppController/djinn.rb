@@ -4950,6 +4950,29 @@ HOSTS
       end
     end
 
+    if my_node.is_login?
+      loop {
+        begin
+          success = uac.add_instance(app, my_public, nginx_port, https_port)
+          Djinn.log_debug("Add instance returned #{success}")
+          if success
+            # tell ZK that we are hosting the app in case we die, so that
+            # other nodes can update the UserAppServer on its behalf
+            ZKInterface.add_app_instance(app, my_public, nginx_port)
+            break
+          end
+        rescue FailedNodeException
+          Djinn.log_info("Couldn't talk to the UserAppServer " +
+            "to add instance for application #{app}: retrying.")
+        rescue FailedZooKeeperOperationException
+          Djinn.log_info("Couldn't talk to zookeeper while trying " +
+            "to add instance for application #{app}: retrying.")
+        end
+        Kernel.sleep(SMALL_WAIT)
+      }
+      Djinn.log_info("Committed application info for #{app} to user_app_server")
+    end
+
     if my_node.is_appengine?
       # send a warmup request to the app to get it loaded - can shave a
       # number of seconds off the initial request if it's java or go
@@ -5013,29 +5036,6 @@ HOSTS
       end
 
       Djinn.log_info("Done setting appserver for #{app}")
-    end
-
-    if my_node.is_login?
-      loop {
-        Kernel.sleep(SMALL_WAIT)
-        begin
-          success = uac.add_instance(app, my_public, nginx_port, https_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
-            break
-          end
-        rescue FailedNodeException
-          Djinn.log_info("Couldn't talk to the UserAppServer " +
-            "to add instance for application #{app}: retrying.")
-        rescue FailedZooKeeperOperationException
-          Djinn.log_info("Couldn't talk to zookeeper while trying " +
-            "to add instance for application #{app}: retrying.")
-        end
-      }
-      Djinn.log_info("Done setting application #{app}")
     end
 
     if @app_names.include?("none")
