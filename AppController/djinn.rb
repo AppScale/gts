@@ -2724,6 +2724,7 @@ class Djinn
         @app_info_map[app_id]['language']
       )
 
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
       loop {
         success = uac.add_instance(app, my_public, nginx_port, https_port)
         Djinn.log_debug("Add instance returned #{success}")
