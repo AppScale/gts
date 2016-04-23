@@ -2724,24 +2724,28 @@ class Djinn
         @app_info_map[app_id]['language']
       )
 
+      http_port = @app_info_map[app]['nginx']
+      https_port = @app_info_map[app]['nginx_https']
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       loop {
-        success = uac.add_instance(app, my_public, nginx_port, https_port)
+        success = uac.add_instance(app_id, my_node.public_ip,
+          http_port, https_port)
         Djinn.log_debug("Add instance returned #{success}")
         begin
           if success
             # tell ZK that we are hosting the app in case we die, so that
             # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
+            ZKInterface.add_app_instance(app_id, my_node.public_ip, http_port)
             break
           end
         rescue FailedZooKeeperOperationException
           Djinn.log_info("Couldn't talk to zookeeper while trying " +
-            "to add instance for application #{app}: retrying.")
+            "to add instance for application #{app_id}: retrying.")
         end
         Kernel.sleep(SMALL_WAIT)
       }
-      Djinn.log_info("Committed application info for #{app} to user_app_server")
+      Djinn.log_info("Committed application info for #{app_id} " +
+        "to user_app_server")
 
       Djinn.log_info("Done setting full proxy for #{app_id}.")
     end
