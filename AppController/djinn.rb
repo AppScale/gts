@@ -717,11 +717,9 @@ class Djinn
     Thread.new {
       # Notify the UAServer about the new ports.
       uac = UserAppClient.new(my_node.private_ip, @@secret)
-      begin
-        uac.add_instance(appid, my_public, http_port, https_port)
-      rescue FailedNodeException
-        Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
-          "not have been relocated.")
+      success = uac.add_instance(appid, my_public, http_port, https_port)
+      Djinn.log_debug("Add instance returned #{success}")
+      if !success
         return
       end
 
@@ -2725,6 +2723,25 @@ class Djinn
         get_login.private_ip,
         @app_info_map[app_id]['language']
       )
+
+      loop {
+        success = uac.add_instance(app, my_public, nginx_port, https_port)
+        Djinn.log_debug("Add instance returned #{success}")
+        begin
+          if success
+            # tell ZK that we are hosting the app in case we die, so that
+            # other nodes can update the UserAppServer on its behalf
+            ZKInterface.add_app_instance(app, my_public, nginx_port)
+            break
+          end
+        rescue FailedZooKeeperOperationException
+          Djinn.log_info("Couldn't talk to zookeeper while trying " +
+            "to add instance for application #{app}: retrying.")
+        end
+        Kernel.sleep(SMALL_WAIT)
+      }
+      Djinn.log_info("Committed application info for #{app} to user_app_server")
+
       Djinn.log_info("Done setting full proxy for #{app_id}.")
     end
 
@@ -4948,29 +4965,6 @@ HOSTS
       rescue FailedNodeException
         Djinn.log_warn("Failed to start xmpp for application #{app}")
       end
-    end
-
-    if my_node.is_login?
-      loop {
-        begin
-          success = uac.add_instance(app, my_public, nginx_port, https_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
-            break
-          end
-        rescue FailedNodeException
-          Djinn.log_info("Couldn't talk to the UserAppServer " +
-            "to add instance for application #{app}: retrying.")
-        rescue FailedZooKeeperOperationException
-          Djinn.log_info("Couldn't talk to zookeeper while trying " +
-            "to add instance for application #{app}: retrying.")
-        end
-        Kernel.sleep(SMALL_WAIT)
-      }
-      Djinn.log_info("Committed application info for #{app} to user_app_server")
     end
 
     if my_node.is_appengine?

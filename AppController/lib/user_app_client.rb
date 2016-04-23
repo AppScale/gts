@@ -295,9 +295,15 @@ class UserAppClient
 
   def add_instance(appname, host, port, https_port, retry_on_except=true)
     result = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "add_instance") {
-      result = @conn.add_instance(appname, host, port, https_port, @secret)
-    }
+    begin
+      make_call(DS_MIN_TIMEOUT, retry_on_except, "add_instance") {
+        result = @conn.add_instance(appname, host, port, https_port, @secret)
+      }
+    rescue FailedNodeException
+      Djinn.log_error("Exception talking to the UserAppServer. " +
+        "#{appname} may not have been updated.")
+      return false
+    end
 
     if result == "true"
       return true
