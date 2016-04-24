@@ -4811,68 +4811,67 @@ HOSTS
       }
     end
 
-    # AppEngine nodes checks if the appservers are still running.
-    if my_node.is_appengine?
-      # Only one thread talking to the appmanagerserver at a time.
-      if AMS_LOCK.locked?
-        Djinn.log_debug("Another thread already working with appmanager.")
-        return
-      end
-
-      to_end = []
-      to_start = []
-      my_appengines = []
-      @app_info_map.each { |app, info|
-        next if not info['appengine']
-
-        Djinn.log_debug("Checking #{app} with appengine #{info}.")
-        info['appengine'].each { |location|
-          host, port = location.split(":")
-          next if @my_private_ip != host
-
-          if Integer(port) < 0
-            to_start << app
-          elsif not MonitInterface.is_running?("#{app}-#{port}")
-            Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
-            to_end << "#{app}:#{port}"
-          else
-            my_appengines << "#{app}:#{port}"
-          end
-        }
-      }
-      Djinn.log_debug("Found the following app:port: #{my_appengines}")
-
-      # Check that all the appservers running are indeed known to the
-      # head node.
-      MonitInterface.running_appengines().each { |appengine|
-        app, port = appengine.split(":")
-
-        # If the app needs to be started, we will keep the appserver
-        # around: it may be the headnode wasn't notified yet.
-        next if to_start.include?(app)
-
-        # Otherwise terminate the ones we cannot account for.
-        to_end << "#{appengine}" if !my_appengines.include?(appengine)
-      }
-      Djinn.log_info("Appservers to start: #{to_start}.") if to_start.length > 0
-      Djinn.log_info("Appservers to terminate: #{to_end}.") if to_end.length > 0
-
-      # Now we do the talking with the appmanagerserver. Since it may take
-      # some time to start/stop apps, we do this in a thread.
-      AMS_LOCK.synchronize {
-        Thread.new {
-          to_start.each { |app|
-            Djinn.log_info("Starting appserver for app: #{app}.")
-            add_appserver_process(app)
-          }
-          to_end.each { |appserver|
-            Djinn.log_info("Terminate the following appserver: #{appserver}.")
-            app, port = appserver.split(":")
-            remove_appserver_process(app, port)
-          }
-        }
-      }
+    # From here on, we check that the running appservers matches the
+    # headnode view.  Only one thread talking to the appmanagerserver at a
+    # time.
+    if AMS_LOCK.locked?
+      Djinn.log_debug("Another thread already working with appmanager.")
+      return
     end
+
+    to_end = []
+    to_start = []
+    my_apps = []
+    @app_info_map.each { |app, info|
+      next if not info['appengine']
+
+      Djinn.log_debug("Checking #{app} with appengine #{info}.")
+      info['appengine'].each { |location|
+        host, port = location.split(":")
+        next if @my_private_ip != host
+
+        if Integer(port) < 0
+          to_start << app
+        elsif not MonitInterface.is_running?("#{app}-#{port}")
+          Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
+          to_end << "#{app}:#{port}"
+        else
+          my_apps << "#{app}:#{port}"
+        end
+      }
+    }
+    Djinn.log_debug("Running appservers on this node: #{my_apps}.") if !my_apps.empty?
+
+    # Check that all the appservers running are indeed known to the
+    # head node.
+    MonitInterface.running_appengines().each { |appengine|
+      app, port = appengine.split(":")
+
+      # If the app needs to be started, we will keep the appserver
+      # around: it may be the headnode wasn't notified yet.
+      next if to_start.include?(app)
+
+      # Otherwise terminate the ones we cannot account for.
+      to_end << "#{appengine}" if !my_apps.include?(appengine)
+    }
+    Djinn.log_info("Appservers to start: #{to_start}.") if !to_start.empty?
+    Djinn.log_info("Appservers to terminate: #{to_end}.") if !to_end.empty?
+
+    # Now we do the talking with the appmanagerserver. Since it may take
+    # some time to start/stop apps, we do this in a thread.
+    AMS_LOCK.synchronize {
+      Thread.new {
+        to_start.each { |app|
+          Djinn.log_info("Starting appserver for app: #{app}.")
+          add_appserver_process(app)
+        }
+        to_end.each { |appserver|
+          Djinn.log_info("Terminate the following appserver: #{appserver}.")
+          app, port = appserver.split(":")
+          remove_appserver_process(app, port)
+        }
+      }
+    }
   end
 
   # Performs all of the preprocessing needed to start an App Engine application

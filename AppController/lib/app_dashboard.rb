@@ -34,10 +34,6 @@ module AppDashboard
   APP_LANGUAGE = "python27"
 
 
-  # The path on the local filesystem where static files can be served from.
-  PUBLIC_DIRECTORY = "#{APPSCALE_HOME}/AppDashboard/static"
-
-
   # Starts the AppDashboard on this machine. Does not configure or start nginx
   # or haproxy, which are needed to load balance traffic to the AppDashboard
   # instances we start here.

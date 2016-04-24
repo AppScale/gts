@@ -8,6 +8,7 @@ import os
 import SOAPpy
 import subprocess
 import sys
+import threading
 import time
 import urllib2
 from xml.etree import ElementTree
@@ -255,7 +256,8 @@ def start_app(config):
     monit_interface.stop(watch)
     return BAD_PID
 
-  add_routing(config['app_name'], config['app_port'])
+  threading.Thread(target=add_routing,
+    args=(config['app_name'], config['app_port'])).start()
 
   if 'log_size' in config.keys():
     log_size = config['log_size']
