@@ -4684,9 +4684,6 @@ HOSTS
         }
       }
 
-#      Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
-#      maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
-
       Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
       CronHelper.update_cron(login_ip, AppDashboard::LISTEN_PORT,
         AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
