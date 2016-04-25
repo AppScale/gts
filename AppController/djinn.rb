@@ -4672,6 +4672,7 @@ HOSTS
       my_public = my_node.public_ip
       my_private = my_node.private_ip
 
+      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
       APPS_LOCK.synchronize {
         @app_info_map[AppDashboard::APP_NAME] = {
             'nginx' => 1080,
@@ -4682,10 +4683,9 @@ HOSTS
             'language' => 'python27'
         }
       }
-      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
 
-      Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
-      maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
+#      Djinn.log_info("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
+#      maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
 
       Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
       CronHelper.update_cron(login_ip, AppDashboard::LISTEN_PORT,
@@ -5572,11 +5572,7 @@ HOSTS
           " #{app}: check logs and running processes.")
         return
       end
-
       maybe_start_taskqueue_worker(app)
-      app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
-      done_uploading(app, app_path, @@secret)
-
       Djinn.log_info("Done adding AppServer for #{app}.")
     }
   end
@@ -5878,6 +5874,7 @@ HOSTS
         Djinn.log_debug("Trying #{ip}:#{app_path} for the application")
         Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
         if File.exist?("#{app_path}") == true
+          done_uploading(app, app_path, @@secret)
           Djinn.log_debug("Got a copy of #{appname} from #{ip}")
           return true
         end
