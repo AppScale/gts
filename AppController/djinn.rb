@@ -2748,9 +2748,8 @@ class Djinn
         end
         Kernel.sleep(SMALL_WAIT)
       }
+      Djinn.log_info("Done setting full proxy for #{app_id}.")
     end
-
-    Djinn.log_info("Done setting full proxy for #{app_id}.")
 
     return "OK"
   end
