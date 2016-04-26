@@ -14,17 +14,19 @@ The goal of AppScale is to provide developers with a rapid, API-driven developme
 
 ## I Want ...
 * to [contribute](https://github.com/AppScale/appscale/wiki/Contribute%21)
-* to [try AppScale](https://github.com/AppScale/appscale/wiki/Running-AppScale)
-* to see [how other people use AppScale](http://www.appscale.com/why-appscale/?utm_source=github&utm_medium=referral&utm_campaign=community-github)
-* [customer support](http://www.appscale.com/products/appscale-customer-success/?utm_source=github&utm_medium=referral&utm_campaign=community-github)
+* to [try AppScale](http://www.appscale.com/get-started/)
+* to see [how other people use AppScale](http://www.appscale.com/why-appscale/)
+* [customer support](http://www.appscale.com/products/appscale-customer-success/)
 * to [learn more](https://github.com/AppScale/appscale/wiki)
 
 
 ## Documentation
-* [Getting Started](https://github.com/AppScale/appscale/wiki/Running-AppScale)
-  * Find detailed instructions for the environment of your choice
+* Getting Started
+  * [AppScale FastStart](http://www.appscale.com/get-started/)
+  * [Deployment types](http://www.appscale.com/get-started/deployment-types/)
+  * [Deploy AppScale](http://www.appscale.com/get-started/deploy-appscale/)
 * Users
-  * [Managing Apps, Machines and Logs](https://github.com/AppScale/appscale/wiki/Managing-Apps%2C-Machines%2C-and-Logs)
+  * [Managing Apps and AppScale](http://www.appscale.com/get-started/management/)
   * [Automated Data Persistence](https://github.com/AppScale/appscale/wiki/Automated-Data-Persistence)
   * [Multinode Deployments](https://github.com/AppScale/appscale/wiki/Distributed-Deployment)
   * [Making AppScale Scale](https://github.com/AppScale/appscale/wiki#making-appscale-scale)
