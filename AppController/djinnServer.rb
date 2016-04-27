@@ -116,6 +116,15 @@ class DjinnServer < SOAP::RPC::HTTPServer
   end
 end
 
+def run_server(server)
+  begin
+    server.start
+  rescue => server_error
+    Djinn.log_error(server_error.message)
+    run_server(server)
+  end
+end
+
 appscale_dir = "/etc/appscale/"
 
 secret = nil
@@ -163,6 +172,6 @@ trap('TERM') {
   server.djinn.kill(false, secret)
 }
 
-new_thread = Thread.new { server.start }
+new_thread = Thread.new { run_server(server) }
 server.djinn.job_start(secret)
 new_thread.join()
