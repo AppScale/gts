@@ -14,19 +14,19 @@ The goal of AppScale is to provide developers with a rapid, API-driven developme
 
 ## I Want ...
 * to [contribute](https://github.com/AppScale/appscale/wiki/Contribute%21)
-* to [try AppScale](http://www.appscale.com/get-started/)
-* to see [how other people use AppScale](http://www.appscale.com/why-appscale/)
-* [customer support](http://www.appscale.com/products/appscale-customer-success/)
+* to [try AppScale](https://www.appscale.com/get-started/)
+* to see [how other people use AppScale](https://www.appscale.com/why-appscale/)
+* [customer support](https://www.appscale.com/products/appscale-customer-success/)
 * to [learn more](https://github.com/AppScale/appscale/wiki)
 
 
 ## Documentation
 * Getting Started
-  * [AppScale FastStart](http://www.appscale.com/get-started/)
-  * [Deployment types](http://www.appscale.com/get-started/deployment-types/)
-  * [Deploy AppScale](http://www.appscale.com/get-started/deploy-appscale/)
+  * [AppScale FastStart](https://www.appscale.com/get-started/)
+  * [Deployment types](https://www.appscale.com/get-started/deployment-types/)
+  * [Deploy AppScale](https://www.appscale.com/get-started/deploy-appscale/)
 * Users
-  * [Managing Apps and AppScale](http://www.appscale.com/get-started/management/)
+  * [Managing Apps and AppScale](https://www.appscale.com/get-started/management/)
   * [Automated Data Persistence](https://github.com/AppScale/appscale/wiki/Automated-Data-Persistence)
   * [Multinode Deployments](https://github.com/AppScale/appscale/wiki/Distributed-Deployment)
   * [Making AppScale Scale](https://github.com/AppScale/appscale/wiki#making-appscale-scale)
