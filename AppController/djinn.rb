@@ -1861,15 +1861,6 @@ class Djinn
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)
 
-    # We update the dashboard on a separate thread.
-    Thread.new {
-      loop {
-        Kernel.sleep(DUTY_CYCLE)
-        flush_log_buffer()
-        send_instance_info_to_dashboard()
-      }
-    }
-
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
     last_print = Time.now.to_i
@@ -1904,6 +1895,8 @@ class Djinn
       # Login node gets the statistic for all nodes.
       if my_node.is_login?
         update_node_info_cache()
+        flush_log_buffer()
+        send_instance_info_to_dashboard()
       end
 
       # These operations can take some time, so we spawn a thread for it.
