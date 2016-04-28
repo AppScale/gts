@@ -717,11 +717,9 @@ class Djinn
     Thread.new {
       # Notify the UAServer about the new ports.
       uac = UserAppClient.new(my_node.private_ip, @@secret)
-      begin
-        uac.add_instance(appid, my_public, http_port, https_port)
-      rescue FailedNodeException
-        Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
-          "not have been relocated.")
+      success = uac.add_instance(appid, my_public, http_port, https_port)
+      if !success
+        Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
         return
       end
 
@@ -2706,11 +2704,14 @@ class Djinn
         static_handlers = []
       end
 
+      http_port = @app_info_map[app_id]['nginx']
+      https_port = @app_info_map[app_id]['nginx_https']
+
       # Make sure the Nginx port is opened after HAProxy is configured.
       Nginx.write_fullproxy_app_config(
         app_id,
-        @app_info_map[app_id]['nginx'],
-        @app_info_map[app_id]['nginx_https'],
+        http_port,
+        https_port,
         my_node.public_ip,
         my_node.private_ip,
         @app_info_map[app_id]['haproxy'],
@@ -2718,6 +2719,28 @@ class Djinn
         get_login.private_ip,
         @app_info_map[app_id]['language']
       )
+
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      loop {
+        success = uac.add_instance(app_id, my_node.public_ip,
+          http_port, https_port)
+        if success
+          Djinn.log_info("Committed application info for #{app_id} " +
+            "to user_app_server")
+        end
+        begin
+          if success
+            # tell ZK that we are hosting the app in case we die, so that
+            # other nodes can update the UserAppServer on its behalf
+            ZKInterface.add_app_instance(app_id, my_node.public_ip, http_port)
+            break
+          end
+        rescue FailedZooKeeperOperationException
+          Djinn.log_info("Couldn't talk to zookeeper while trying " +
+            "to add instance for application #{app_id}: retrying.")
+        end
+        Kernel.sleep(SMALL_WAIT)
+      }
       Djinn.log_info("Done setting full proxy for #{app_id}.")
     end
 
@@ -5006,29 +5029,6 @@ HOSTS
       end
 
       Djinn.log_info("Done setting appserver for #{app}")
-    end
-
-    if my_node.is_login?
-      loop {
-        Kernel.sleep(SMALL_WAIT)
-        begin
-          success = uac.add_instance(app, my_public, nginx_port, https_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
-            break
-          end
-        rescue FailedNodeException
-          Djinn.log_info("Couldn't talk to the UserAppServer " +
-            "to add instance for application #{app}: retrying.")
-        rescue FailedZooKeeperOperationException
-          Djinn.log_info("Couldn't talk to zookeeper while trying " +
-            "to add instance for application #{app}: retrying.")
-        end
-      }
-      Djinn.log_info("Done setting application #{app}")
     end
 
     if @app_names.include?("none")
