@@ -4061,6 +4061,7 @@ class Djinn
     ip = dest_node.private_ip
     Djinn.log_info("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
+    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
 
     # Get the username to use for ssh (depends on environments).
     user_name = "ubuntu"
@@ -4086,7 +4087,6 @@ class Djinn
       Kernel.sleep(60)
     end
 
-    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
     Kernel.sleep(SMALL_WAIT)
 
     secret_key_loc = "#{APPSCALE_CONFIG_DIR}/secret.key"
