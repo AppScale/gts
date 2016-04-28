@@ -5853,11 +5853,11 @@ HOSTS
       nodes_with_app = ZKInterface.get_app_hosters(appname, @options['keyname'])
       break if !nodes_with_app.empty?
       Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
-        "have a copy of app #{appname}")
+        "have a copy of app #{appname}.")
       Kernel.sleep(SMALL_WAIT)
       retries_left -=1
       if retries_left.zero?
-        Djinn.log_warn("Nobody appears to be hosting app #{appname}")
+        Djinn.log_warn("Nobody appears to be hosting app #{appname}.")
         return false
       end
     }
@@ -5865,28 +5865,28 @@ HOSTS
     # Try 3 times on each node known to have this application
     nodes_with_app.each { |node|
       ssh_key = node.ssh_key
-      ip = node.public_ip
+      ip = node.private_ip
       tries = 3
       loop {
-        Djinn.log_debug("Trying #{ip}:#{app_path} for the application")
+        Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
         Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
-        if File.exist?("#{app_path}") == true
-          done_uploading(app, app_path, @@secret)
-          Djinn.log_debug("Got a copy of #{appname} from #{ip}")
+        if File.exists?(app_path)
+          done_uploading(appname, app_path, @@secret)
+          Djinn.log_debug("Got a copy of #{appname} from #{ip}.")
           return true
         end
         Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
         if tries > 0
-          Djinn.log_debug("Trying again in 5 seconds")
+          Djinn.log_debug("Trying again in few seconds.")
           tries = tries - 1
           Kernel.sleep(SMALL_WAIT)
         else
-          Djinn.log_warn("Giving up on node #{ip} for the application")
+          Djinn.log_warn("Giving up on node #{ip} for the application.")
           break
         end
       }
     }
-    Djinn.log_error("Unable to get the application from any node")
+    Djinn.log_error("Unable to get the application from any node.")
     return false
   end
 
@@ -5896,7 +5896,7 @@ HOSTS
 
     # If we have it already running, nothing to do
     if MonitInterface.is_running?(watch_name)
-      Djinn.log_debug("xmpp already running for application #{app}")
+      Djinn.log_debug("xmpp already running for application #{app}.")
       return
     end
 
