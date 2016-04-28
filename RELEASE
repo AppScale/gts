@@ -5,6 +5,45 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
 
+AppScale version 2.8.0, released May, 2016
+Highlights of features/bugs in this release:
+- Alternative install for zookeeper was removed
+- Start cron in docker for faststart
+- Run AppDashboard tests by using nosetests in Rakefile
+- Include ssl port in AppDasboard /apps/json route
+- Round up cpu usage in appscale status
+- Added HAProxy for UserAppServer
+- Allow datastore to operate in read-only mode
+- Better exception handling by raising specific errors
+- System stats are now reported by the SystemManager
+- Added deployment key to GCE instance metadata
+- Added ability to gather system and platform stats in the AppController
+- Defined celery amp backend as scheme
+- Added app log rotate when appengine role is not running
+- Removed the ability to call monit remotely from MonitInterface
+- Removed log rotate scripts for apps during terminate
+- Hermes collects monitoring stats from all deployment nodes
+- Ensure Datastore logging is configured correctly
+- Changed AppController's monit start command to only start Ruby process
+- Omitted python version in application stats
+- Changed the use of killall to stop the AppController
+- Allow multiple filters on kindness queries
+- Removed duplicate continue path for Java authentication redirects
+- Added HAProxy routing for BlobServer
+- Have the controller log to STDOUT
+- Cleaned up invalid kind indices
+- Fixed multiple equality filters for NDB queries
+- Updated the query cursor format to use the one introduced in 1.5.1 SDK
+- Reduced build verbosity
+- Updated Go to version 1.4.3
+- Added new methods in the AppController for the tools to call out to the UserAppServer
+- Coordinate backup and restore operations from head node
+- Allow Cassandra restore to run without prompting
+- Check available space on backup output directory
+- Support for new amd64 relocations
+- Deploy appscalesensor app for registered deployments
+- Cleaner UserAppServer responses
+
 AppScale version 2.7.1, released February, 2016
 Highlights of features/bugs in this release:
 - A bug in get_app_data that affected upgrades was fixed
