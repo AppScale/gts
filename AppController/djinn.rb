@@ -715,14 +715,11 @@ class Djinn
     HelperFunctions.write_file(port_file, http_port)
 
     Thread.new {
-      # Next, remove the old port from the UAServer and add the new one.
+      # Notify the UAServer about the new ports.
       uac = UserAppClient.new(my_node.private_ip, @@secret)
-      begin
-        uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
-        uac.add_instance(appid, my_public, http_port, https_port)
-      rescue FailedNodeException
-        Djinn.log_warn("Issue talking to the UserAppServer. #{appid} may " +
-          "not have been relocated.")
+      success = uac.add_instance(appid, my_public, http_port, https_port)
+      if !success
+        Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
         return
       end
 
@@ -1038,7 +1035,7 @@ class Djinn
           stats_str << "Unknown\n"
         end
         stats_str << "        HTTPS port          : "
-        if !@app_info_map[app_name]['nginx'].nil?
+        if !@app_info_map[app_name]['nginx_https'].nil?
           stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
         else
           stats_str << "Unknown\n"
@@ -1170,8 +1167,8 @@ class Djinn
   # Returns:
   #   A JSON string with the database information.
   def get_database_information(secret)
-    tree = { :table => @options["table"], :replication => @options["replication"],
-      :keyname => @options["keyname"] }
+    tree = { :table => @options['table'], :replication => @options['replication'],
+      :keyname => @options['keyname'] }
     return JSON.dump(tree)
   end
 
@@ -1503,14 +1500,13 @@ class Djinn
     end
   end
 
-  # Queries the UserAppServer to see which user owns the given application.
+  # Retrieve application metadata from the UAServer.
   #
   #  Args:
-  #    app_id: The name of the app that we should see the administrator on.
+  #    app_id: A string containing the application ID.
   #  Returns:
-  #    A str containing the name of the application's administrator, or None
-  #      if there is none.
-  def get_app_admin(app_id, secret)
+  #    A JSON-encoded string containing the application metadata.
+  def get_app_data(app_id, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
@@ -2599,8 +2595,8 @@ class Djinn
   def get_public_ip(private_ip)
     return private_ip unless is_cloud?
 
-    keyname = @options["keyname"]
-    infrastructure = @options["infrastructure"]
+    keyname = @options['keyname']
+    infrastructure = @options['infrastructure']
 
     Djinn.log_debug("Looking for #{private_ip}")
     private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
@@ -2715,11 +2711,14 @@ class Djinn
         static_handlers = []
       end
 
+      http_port = @app_info_map[app_id]['nginx']
+      https_port = @app_info_map[app_id]['nginx_https']
+
       # Make sure the Nginx port is opened after HAProxy is configured.
       Nginx.write_fullproxy_app_config(
         app_id,
-        @app_info_map[app_id]['nginx'],
-        @app_info_map[app_id]['nginx_https'],
+        http_port,
+        https_port,
         my_node.public_ip,
         my_node.private_ip,
         @app_info_map[app_id]['haproxy'],
@@ -2727,6 +2726,28 @@ class Djinn
         get_login.private_ip,
         @app_info_map[app_id]['language']
       )
+
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      loop {
+        success = uac.add_instance(app_id, my_node.public_ip,
+          http_port, https_port)
+        if success
+          Djinn.log_info("Committed application info for #{app_id} " +
+            "to user_app_server")
+        end
+        begin
+          if success
+            # tell ZK that we are hosting the app in case we die, so that
+            # other nodes can update the UserAppServer on its behalf
+            ZKInterface.add_app_instance(app_id, my_node.public_ip, http_port)
+            break
+          end
+        rescue FailedZooKeeperOperationException
+          Djinn.log_info("Couldn't talk to zookeeper while trying " +
+            "to add instance for application #{app_id}: retrying.")
+        end
+        Kernel.sleep(SMALL_WAIT)
+      }
       Djinn.log_info("Done setting full proxy for #{app_id}.")
     end
 
@@ -2826,9 +2847,9 @@ class Djinn
 
 
   def write_database_info()
-    table = @options["table"]
-    replication = @options["replication"]
-    keyname = @options["keyname"]
+    table = @options['table']
+    replication = @options['replication']
+    keyname = @options['keyname']
 
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
@@ -3033,9 +3054,9 @@ class Djinn
     # Next, find out this machine's public IP address. In a cloud deployment, we
     # have to rely on the metadata server, while in a cluster deployment, it's
     # the same as the private IP.
-    if ["ec2", "euca"].include?(@options["infrastructure"])
+    if ["ec2", "euca"].include?(@options['infrastructure'])
       new_public_ip = HelperFunctions.get_public_ip_from_aws_metadata_service()
-    elsif @options["infrastructure"] == "gce"
+    elsif @options['infrastructure'] == "gce"
       new_public_ip = HelperFunctions.get_public_ip_from_gce_metadata_service()
     else
       new_public_ip = new_private_ip
@@ -3060,18 +3081,18 @@ class Djinn
       end
     }
 
-    if @options["hostname"] == old_public_ip
-      @options["hostname"] = new_public_ip
+    if @options['hostname'] == old_public_ip
+      @options['hostname'] = new_public_ip
     end
 
     if !is_cloud?
-      nodes = JSON.load(@options["ips"])
+      nodes = JSON.load(@options['ips'])
       nodes.each { |node|
         if node['ip'] == old_private_ip
           node['ip'] == new_private_ip
         end
       }
-      @options["ips"] = JSON.dump(nodes)
+      @options['ips'] = JSON.dump(nodes)
     end
 
     @app_info_map.each { |appid, app_info|
@@ -3458,9 +3479,9 @@ class Djinn
 
     if is_cloud?
       # for euca
-      ENV['EC2_ACCESS_KEY'] = @options["ec2_access_key"]
-      ENV['EC2_SECRET_KEY'] = @options["ec2_secret_key"]
-      ENV['EC2_URL'] = @options["ec2_url"]
+      ENV['EC2_ACCESS_KEY'] = @options['ec2_access_key']
+      ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
+      ENV['EC2_URL'] = @options['ec2_url']
 
       # for ec2
       cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
@@ -3505,9 +3526,9 @@ class Djinn
       return nodes
     end
 
-    if @options["hostname"] =~ /#{FQDN_REGEX}/
+    if @options['hostname'] =~ /#{FQDN_REGEX}/
       begin
-        @options["hostname"] = HelperFunctions.convert_fqdn_to_ip(@options["hostname"])
+        @options['hostname'] = HelperFunctions.convert_fqdn_to_ip(@options['hostname'])
       rescue => e
         HelperFunctions.log_and_crash("Failed to convert main hostname #{@options['hostname']}")
       end
@@ -3929,15 +3950,15 @@ class Djinn
   end
 
   def is_hybrid_cloud?
-    if @options["infrastructure"].nil?
+    if @options['infrastructure'].nil?
       false
     else
-      @options["infrastructure"] == "hybrid"
+      @options['infrastructure'] == "hybrid"
     end
   end
 
   def is_cloud?
-    !@options["infrastructure"].nil?
+    !@options['infrastructure'].nil?
   end
 
   def restore_from_db?
@@ -3949,13 +3970,13 @@ class Djinn
 
     table = @options['table']
 
-    machines = JSON.load(@options["ips"])
+    machines = JSON.load(@options['ips'])
     appengine_info = spawn_appengine(machines)
     Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}.")
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
-    keyname = @options["keyname"]
+    keyname = @options['keyname']
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
@@ -4040,7 +4061,7 @@ class Djinn
     key = node.ssh_key
     HelperFunctions.ensure_image_is_appscale(ip, key)
     HelperFunctions.ensure_version_is_supported(ip, key)
-    HelperFunctions.ensure_db_is_supported(ip, @options["table"], key)
+    HelperFunctions.ensure_db_is_supported(ip, @options['table'], key)
   end
 
   def copy_encryption_keys(dest_node)
@@ -4050,7 +4071,7 @@ class Djinn
 
     # Get the username to use for ssh (depends on environments).
     user_name = "ubuntu"
-    if ["ec2", "euca"].include?(@options["infrastructure"])
+    if ["ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
       options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
       backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' +
@@ -4063,7 +4084,7 @@ class Djinn
         "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
         "'#{merge_keys}'")
-    elsif @options["infrastructure"] == "gce"
+    elsif @options['infrastructure'] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
       # sure.
@@ -4096,7 +4117,7 @@ class Djinn
 
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
-    return if @options["infrastructure"] != "gce"
+    return if @options['infrastructure'] != "gce"
 
     client_secrets = "#{APPSCALE_CONFIG_DIR}/client_secrets.json"
     gce_oauth = "#{APPSCALE_CONFIG_DIR}/oauth2.dat"
@@ -4192,7 +4213,7 @@ class Djinn
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips, Integer(@options["replication"]))
+    setup_db_config_files(master_ip, slave_ips, Integer(@options['replication']))
 
     update_hosts_info()
 
@@ -5017,29 +5038,6 @@ HOSTS
       Djinn.log_info("Done setting appserver for #{app}")
     end
 
-    if my_node.is_login?
-      loop {
-        Kernel.sleep(SMALL_WAIT)
-        begin
-          success = uac.add_instance(app, my_public, nginx_port, https_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, nginx_port)
-            break
-          end
-        rescue FailedNodeException
-          Djinn.log_info("Couldn't talk to the UserAppServer " +
-            "to add instance for application #{app}: retrying.")
-        rescue FailedZooKeeperOperationException
-          Djinn.log_info("Couldn't talk to zookeeper while trying " +
-            "to add instance for application #{app}: retrying.")
-        end
-      }
-      Djinn.log_info("Done setting application #{app}")
-    end
-
     if @app_names.include?("none")
       @apps_loaded = @apps_loaded - ["none"]
       @app_names = @app_names - ["none"]
@@ -5208,7 +5206,7 @@ HOSTS
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
         "be running.")
-      return :no_change
+      return :no_change, :no_change, :no_backend
     end
 
     monitoring_info.each_line { |line|
@@ -5248,7 +5246,7 @@ HOSTS
 
     total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
 
-    if time_requests_were_seen.zero?
+    if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return :no_change
     end
@@ -5874,28 +5872,21 @@ HOSTS
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           if app_name != "none"
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-            # Create the apps hash with useful information containing HAProxy stats.
-            tries = MAX_RETRIES
-            begin
-              all_stats["apps"][app_name] = {
+            if collection_time != :no_backend
+              # Create the apps hash with useful information containing HAProxy stats.
+              begin
+                all_stats["apps"][app_name] = {
                   "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
                   "appservers" => @app_info_map[app_name]["appengine"].length,
                   "http" => @app_info_map[app_name]["nginx"],
                   "https" => @app_info_map[app_name]["nginx_https"],
                   "total_reqs" => total_reqs,
                   "reqs_enqueued" => reqs_enqueued
-              }
-            rescue => exception
-              backtrace = exception.backtrace.join("\n")
-              message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-              
-              if tries > 0
-                Djinn.log_warn("Try: #{tries} Unforseen exception: #{exception} \nBacktrace: #{backtrace} \n")
-                Kernel.sleep(SMALL_WAIT)
-                tries -= 1
-                retry
-              else
-                Djinn.log_warn("Unable to get application stats and exceeded number of retries: #{message}")
+                }
+              rescue => exception
+                backtrace = exception.backtrace.join("\n")
+                message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+                Djinn.log_warn("Unable to get application stats: #{message}")
               end
             end
           end
