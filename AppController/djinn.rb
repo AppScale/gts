@@ -1768,6 +1768,10 @@ class Djinn
       }
     end
 
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
+
     Djinn.log_debug("Done updating apps!")
 
     # Since we have application running, we don't need to display anymore
