@@ -4879,8 +4879,8 @@ HOSTS
 
     # Now we do the talking with the appmanagerserver. Since it may take
     # some time to start/stop apps, we do this in a thread.
-    AMS_LOCK.synchronize {
-      Thread.new {
+    Thread.new {
+      AMS_LOCK.synchronize {
         to_start.each { |app|
           Djinn.log_info("Starting appserver for app: #{app}.")
           add_appserver_process(app)
