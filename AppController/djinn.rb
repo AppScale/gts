@@ -4871,15 +4871,19 @@ HOSTS
     MonitInterface.running_appengines().each { |appengine|
       app, port = appengine.split(":")
 
-      # If the app needs to be started, we will keep the appserver
-      # around: it may be the headnode wasn't notified yet.
-      next if to_start.include?(app)
-
-      # Otherwise terminate the ones we cannot account for.
-      to_end << "#{appengine}" if !my_apps.include?(appengine)
+      # If the app needs to be started, but we have an appserver not
+      # accounted for, we don't take action (ie we wait for headnode
+      # state to settle).
+      if to_start.include?(app)
+        Djinn.log_debug("Ignoring request for #{app} since we have pending appservers.")
+        to_start.delete(app)
+      else
+        # Otherwise terminate the ones we cannot account for.
+        to_end << "#{appengine}" if !my_apps.include?(appengine)
+      end
     }
-    Djinn.log_info("Appservers to start: #{to_start}.") if !to_start.empty?
-    Djinn.log_info("Appservers to terminate: #{to_end}.") if !to_end.empty?
+    Djinn.log_debug("Appservers to start: #{to_start}.") if !to_start.empty?
+    Djinn.log_debug("Appservers to terminate: #{to_end}.") if !to_end.empty?
 
     # Now we do the talking with the appmanagerserver. Since it may take
     # some time to start/stop apps, we do this in a thread.
