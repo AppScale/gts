@@ -4891,12 +4891,14 @@ HOSTS
       AMS_LOCK.synchronize {
         to_start.each { |app|
           Djinn.log_info("Starting appserver for app: #{app}.")
-          add_appserver_process(app)
+          ret = add_appserver_process(app)
+          Djinn.log_debug("add_appserver_process returned: #{ret}.")
         }
         to_end.each { |appserver|
           Djinn.log_info("Terminate the following appserver: #{appserver}.")
           app, port = appserver.split(":")
-          remove_appserver_process(app, port)
+          ret = remove_appserver_process(app, port)
+          Djinn.log_debug("remove_appserver_process returned: #{ret}.")
         }
       }
     }
@@ -4924,7 +4926,7 @@ HOSTS
       Djinn.log_warn("Invalid state request (#{state}) for #{app}")
       return
     end
-    Djinn.log_debug("setup_appengine_application: got a call for #{app}: #{state}.")
+    Djinn.log_debug("setup_appengine_application: got a call for #{app} action #{state}.")
 
     # Let's get the application language.
     uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -5505,81 +5507,85 @@ HOSTS
   #   app_id: A String naming the application that an additional instance will
   #     be added for.
   #   secret: A String that is used to authenticate the caller.
+  #
+  # Returns:
+  #   A Boolean to indicate if the appserver was successfully started.
   def add_appserver_process(app)
     Djinn.log_info("Received request to add an appserver for #{app}.")
 
     if @app_info_map[app].nil? or @app_info_map[app]['language'].nil?
-      return "false: application #{app} is unknown."
+      Djinn.log_warn "add_appserver_process: #{app} is unknown."
+      return false
     end
 
     APPS_LOCK.synchronize {
       # Make sure we have the application code.
       setup_app_dir(app)
-
-      app_language = @app_info_map[app]['language']
-
-      # We use the ports as assigned by the head node.
-      nginx_port = @app_info_map[app]['nginx']
-      https_port = @app_info_map[app]['nginx_https']
-      proxy_port = @app_info_map[app]['haproxy']
-
-      if not my_node.is_appengine?
-        Djinn.log_info("Not an appengine node: skipping start of appserver.")
-      end
-
-      # Wait for the head node to be setup for this app.
-      port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
-      if !File.exists?(port_file)
-        Djinn.log_info("Waiting for port file for app #{app}.")
-        return
-      end
-
-      # TODO: What happens if the user updates their env vars between app
-      # deploys?
-
-      # To ensure we don't have possible collisions, we start from a safe
-      # minimum appengine port.
-      port_offset = 0
-      @app_info_map.each { |app_id, info|
-        next if info['appengine'].nil?
-
-        info['appengine'].each { |location|
-          host, port = location.split(":")
-          port_offset += 1 if host == my_node.private_ip
-        }
-      }
-
-      appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT + port_offset)
-      if appengine_port < 0
-        Djinn.log_error("Failed to get port for application #{app} on " +
-          "#{@my_private_ip}")
-        return
-      end
-      Djinn.log_info("Starting #{app_language} app #{app} on " +
-        "#{@my_private_ip}:#{appengine_port}")
-
-      xmpp_ip = get_login.public_ip
-
-      app_manager = AppManagerClient.new(my_node.private_ip)
-      begin
-        pid = Integer(app_manager.start_app(app, appengine_port,
-          get_load_balancer_ip(), app_language, xmpp_ip,
-          HelperFunctions.get_app_env_vars(app),
-          Integer(@options['max_memory']), get_login.private_ip))
-      rescue FailedNodeException, ArgumentError => error
-        Djinn.log_warn("#{error.class} encountered while starting #{app} "\
-          "with AppManager: #{error.message}")
-        pid = -1
-      end
-      if pid < 0
-        # Something went wrong: inform the user and move on.
-        Djinn.log_error("Something went wrong starting appserver for" +
-          " #{app}: check logs and running processes.")
-        return
-      end
-      maybe_start_taskqueue_worker(app)
-      Djinn.log_info("Done adding AppServer for #{app}.")
     }
+
+    app_language = @app_info_map[app]['language']
+
+    # We use the ports as assigned by the head node.
+    nginx_port = @app_info_map[app]['nginx']
+    https_port = @app_info_map[app]['nginx_https']
+    proxy_port = @app_info_map[app]['haproxy']
+
+    if not my_node.is_appengine?
+      Djinn.log_info("Not an appengine node: skipping start of appserver.")
+    end
+
+    # Wait for the head node to be setup for this app.
+    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
+    if !File.exists?(port_file)
+      Djinn.log_info("Waiting for port file for app #{app}.")
+      return false
+    end
+
+    # TODO: What happens if the user updates their env vars between app
+    # deploys?
+
+    # To ensure we don't have possible collisions, we start from a safe
+    # minimum appengine port.
+    port_offset = 0
+    @app_info_map.each { |app_id, info|
+      next if info['appengine'].nil?
+
+      info['appengine'].each { |location|
+        host, port = location.split(":")
+        port_offset += 1 if host == my_node.private_ip
+      }
+    }
+
+    appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT + port_offset)
+    if appengine_port < 0
+      Djinn.log_error("Failed to get port for application #{app} on " +
+        "#{@my_private_ip}")
+      return false
+    end
+    Djinn.log_info("Starting #{app_language} app #{app} on " +
+      "#{@my_private_ip}:#{appengine_port}")
+
+    xmpp_ip = get_login.public_ip
+
+    app_manager = AppManagerClient.new(my_node.private_ip)
+    begin
+      pid = Integer(app_manager.start_app(app, appengine_port,
+        get_load_balancer_ip(), app_language, xmpp_ip,
+        HelperFunctions.get_app_env_vars(app),
+        Integer(@options['max_memory']), get_login.private_ip))
+    rescue FailedNodeException, ArgumentError => error
+      Djinn.log_warn("#{error.class} encountered while starting #{app} "\
+        "with AppManager: #{error.message}")
+      pid = -1
+    end
+    if pid < 0
+      # Something may have gone wrong: inform the user and move on.
+      Djinn.log_warn("Something went wrong starting appserver for" +
+        " #{app}: check logs and running processes.")
+    end
+    maybe_start_taskqueue_worker(app)
+    Djinn.log_info("Done adding AppServer for #{app}.")
+    return true
   end
 
 
@@ -5591,6 +5597,8 @@ HOSTS
   #     from.
   #   port: A Fixnum that names the port of the AppServer to remove.
   #   secret: A String that is used to authenticate the caller.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
   def remove_appserver_process(app_id, port)
     app = app_id
     @state = "Stopping an AppServer to free unused resources"
@@ -5604,11 +5612,11 @@ HOSTS
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer about " +
         "application #{app}")
-      return
+      return false
     end
     Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
     if app_is_enabled == "false"
-      return
+      return false
     end
 
     begin
@@ -5625,6 +5633,8 @@ HOSTS
 
     # Tell the AppDashboard that the AppServer has been killed.
     delete_instance_from_dashboard(app, "#{my_node.private_ip}:#{port}")
+
+    return true
   end
 
 
