@@ -5869,22 +5869,26 @@ HOSTS
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           if app_name != "none"
             total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-            if collection_time != :no_backend
-              # Create the apps hash with useful information containing HAProxy stats.
-              begin
-                all_stats["apps"][app_name] = {
-                  "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
-                  "appservers" => @app_info_map[app_name]["appengine"].length,
-                  "http" => @app_info_map[app_name]["nginx"],
-                  "https" => @app_info_map[app_name]["nginx_https"],
-                  "total_reqs" => total_reqs,
-                  "reqs_enqueued" => reqs_enqueued
-                }
-              rescue => exception
-                backtrace = exception.backtrace.join("\n")
-                message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-                Djinn.log_warn("Unable to get application stats: #{message}")
-              end
+            appservers = @app_info_map[app_name]["appengine"].length
+            if collection_time == :no_backend
+              appservers = 0
+              total_reqs = 0
+              reqs_enqueued = 0
+            end
+            # Create the apps hash with useful information containing HAProxy stats.
+            begin
+              all_stats["apps"][app_name] = {
+                "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
+                "appservers" => appservers,
+                "http" => @app_info_map[app_name]["nginx"],
+                "https" => @app_info_map[app_name]["nginx_https"],
+                "total_reqs" => total_reqs,
+                "reqs_enqueued" => reqs_enqueued
+              }
+            rescue => exception
+              backtrace = exception.backtrace.join("\n")
+              message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+              Djinn.log_warn("Unable to get application stats: #{message}")
             end
           end
         }
