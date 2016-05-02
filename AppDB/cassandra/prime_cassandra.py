@@ -78,8 +78,8 @@ def prime_cassandra(replication):
 
   create_keyspaces(int(replication))
   print "Prime Cassandra database"
+  db = py_cassandra.DatastoreProxy()
   try:
-    db = py_cassandra.DatastoreProxy()
     db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
     db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
   # TODO: Figure out the exact exceptions we're trying to catch in the 
