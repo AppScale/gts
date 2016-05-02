@@ -74,7 +74,7 @@ def prime_cassandra(replication):
     0 on success, 1 on failure. Passed up as process exit value.
   """ 
   if int(replication) <= 0: 
-    raise AppScaleBadArg("Replication must be greater than zero")
+    raise dbconstants.AppScaleBadArg("Replication must be greater than zero")
 
   create_keyspaces(int(replication))
   print "Prime Cassandra database"
