@@ -2,8 +2,6 @@ import os
 import sys
 import unittest
 
-from dbconstants import *
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra"))
 import cassandra_interface
 

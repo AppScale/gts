@@ -3,10 +3,8 @@
 import os
 import pycassa
 import sys
-import time
 
 import dbconstants
-import helper_functions
 import py_cassandra
 
 from cassandra import cassandra_interface
