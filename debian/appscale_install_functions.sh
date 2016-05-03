@@ -407,17 +407,7 @@ postinstallservice()
 installpythonmemcache()
 {
     if [ "$DIST" = "precise" ]; then
-        VERSION=1.53
-
-        mkdir -pv ${APPSCALE_HOME}/downloads
-        cd ${APPSCALE_HOME}/downloads
-        curl ${CURL_OPTS} -o python-memcached-${VERSION}.tar.gz $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
-        tar zxvf python-memcached-${VERSION}.tar.gz
-        cd python-memcached-${VERSION}
-        python setup.py install
-        cd ..
-        rm -fr python-memcached-${VERSION}.tar.gz
-        rm -fr python-memcached-${VERSION}
+        pipwrapper "python-memcached==1.53"
     fi
 }
 
