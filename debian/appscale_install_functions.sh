@@ -27,6 +27,8 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
+PACKAGE_CACHE="/var/cache/appscale"
+
 
 pipwrapper ()
 {
@@ -48,6 +50,21 @@ pipwrapper ()
         echo "Need an argument for pip!"
         exit 1
     fi
+}
+
+# Download a package from a mirror if it's not already cached.
+cachepackage() {
+    CACHED_FILE="${PACKAGE_CACHE}/$1"
+    mkdir -p ${PACKAGE_CACHE}
+    if [ -f ${CACHED_FILE} ]; then
+        MD5=($(md5sum ${CACHED_FILE}))
+        if [ "$MD5" = "$2" ]; then
+            return 0
+        fi
+    fi
+
+    echo "Fetching $1 from $APPSCALE_PACKAGE_MIRROR"
+    curl ${CURL_OPTS} -o ${CACHED_FILE} "${APPSCALE_PACKAGE_MIRROR}/$1"
 }
 
 # This function is to disable the specify service so that it won't start
@@ -147,9 +164,8 @@ installappscaleprofile()
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-export PYTHON_EGG_CACHE=/tmp/.python_eggs
-export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
-export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
+export EC2_PRIVATE_KEY=${CONFIG_DIR}/certs/mykey.pem
+export EC2_CERT=${CONFIG_DIR}/certs/mycert.pem
 export LC_ALL='en_US.UTF-8'
 EOF
 # This enables to load AppServer and AppDB modules. It must be before the python-support.
@@ -169,16 +185,16 @@ EOF
 EOF
 
     # This create link to appscale settings.
-    rm -rfv ${DESTDIR}/etc/appscale
+    rm -rfv ${DESTDIR}${CONFIG_DIR}
     mkdir -pv ~/.appscale
     mkdir -pv ${APPSCALE_HOME_RUNTIME}/.appscale
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/.appscale ${DESTDIR}/etc/appscale
+    ln -sfv ${APPSCALE_HOME_RUNTIME}/.appscale ${DESTDIR}${CONFIG_DIR}
 
-    cat <<EOF | tee /etc/appscale/home || exit
+    cat <<EOF | tee ${CONFIG_DIR}/home || exit
 ${APPSCALE_HOME_RUNTIME}
 EOF
     # Create the global AppScale environment file.
-    DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
+    DESTFILE=${DESTDIR}${CONFIG_DIR}/environment.yaml
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
@@ -311,35 +327,36 @@ postinstallnginx()
 installsolr()
 {
     SOLR_VER=4.10.2
-    mkdir -p ${APPSCALE_HOME}/SearchService/solr
-    cd ${APPSCALE_HOME}/SearchService/solr
-    rm -rf solr
-    echo "Fetching solr-${SOLR_VER}.tgz"
-    curl ${CURL_OPTS} -o solr-${SOLR_VER}.tgz\
-      $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
-    tar xzf solr-${SOLR_VER}.tgz
-    mv -v solr-${SOLR_VER} solr
-    rm -fv solr-${SOLR_VER}.tgz
+    SOLR_DIR="${APPSCALE_HOME}/SearchService/solr"
+    mkdir -p ${SOLR_DIR}
+    rm -rf "${SOLR_DIR}/solr"
+
+    SOLR_PACKAGE="solr-${SOLR_VER}.tgz"
+    SOLR_PACKAGE_MD5="a24f73f70e3fcf6aa8fda67444981f78"
+    cachepackage ${SOLR_PACKAGE} ${SOLR_PACKAGE_MD5}
+    tar xzf "${PACKAGE_CACHE}/${SOLR_PACKAGE}" -C ${SOLR_DIR}
+    mv -v ${SOLR_DIR}/solr-${SOLR_VER} ${SOLR_DIR}/solr
 }
 
 installcassandra()
 {
     CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
-    
-    mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
-    cd ${APPSCALE_HOME}/AppDB/cassandra
-    rm -rf cassandra
-    echo "Fetching apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    curl ${CURL_OPTS} -o apache-cassandra-${CASSANDRA_VER}-bin.tar.gz\
-      $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    tar xzf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    mv -v apache-cassandra-${CASSANDRA_VER} cassandra
-    rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    cd cassandra
-    chmod -v +x bin/cassandra
-    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
-    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
+
+    CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
+    CASSANDRA_PACKAGE_MD5="1894c5103d12a2be14a2c44bfa2363cc"
+    cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
+
+    CASSANDRA_DIR="${APPSCALE_HOME}/AppDB/cassandra"
+    rm -rf ${CASSANDRA_DIR}/cassandra
+    tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
+    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
+
+    chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh\
+        ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh\
+        ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
@@ -349,8 +366,10 @@ installcassandra()
     fi
     pipwrapper  pycassa
 
-    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
-    curl ${CURL_OPTS} -o jamm-0.2.2.jar $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    JAMM_PACKAGE="jamm-0.2.2.jar"
+    JAMM_PACKAGE_MD5="07829fab6b45af032e061b5708cfbb3b"
+    cachepackage ${JAMM_PACKAGE} ${JAMM_PACKAGE_MD5}
+    cp "${PACKAGE_CACHE}/${JAMM_PACKAGE}" ${CASSANDRA_DIR}/cassandra/lib
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
@@ -358,8 +377,8 @@ installcassandra()
 
 postinstallcassandra()
 {
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/cassandra
+    mkdir -p ${CONFIG_DIR}/${APPSCALE_VERSION}
+    touch ${CONFIG_DIR}/${APPSCALE_VERSION}/cassandra
 }
 
 
@@ -388,17 +407,7 @@ postinstallservice()
 installpythonmemcache()
 {
     if [ "$DIST" = "precise" ]; then
-        VERSION=1.53
-
-        mkdir -pv ${APPSCALE_HOME}/downloads
-        cd ${APPSCALE_HOME}/downloads
-        curl ${CURL_OPTS} -o python-memcached-${VERSION}.tar.gz $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
-        tar zxvf python-memcached-${VERSION}.tar.gz
-        cd python-memcached-${VERSION}
-        python setup.py install
-        cd ..
-        rm -fr python-memcached-${VERSION}.tar.gz
-        rm -fr python-memcached-${VERSION}
+        pipwrapper "python-memcached==1.53"
     fi
 }
 
@@ -469,10 +478,10 @@ installVersion()
 {
     # Install the VERSION file. We should sign it to ensure the version is
     # correct.
-    if [ -e /etc/appscale/VERSION ]; then
-        mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
+    if [ -e ${CONFIG_DIR}/VERSION ]; then
+        mv ${CONFIG_DIR}/VERSION ${CONFIG_DIR}/VERSION-$(date --rfc-3339=date)
     fi
-    cp ${APPSCALE_HOME}/VERSION /etc/appscale/
+    cp ${APPSCALE_HOME}/VERSION ${CONFIG_DIR}
 }
 
 installrequests()
