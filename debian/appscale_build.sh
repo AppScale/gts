@@ -58,6 +58,7 @@ if grep docker /proc/1/cgroup > /dev/null ; then
 fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
+export CONFIG_DIR="/etc/appscale"
 
 # Wheezy does not have HAProxy in its main repositories.
 if [ "${DIST}" = "wheezy" ]; then
@@ -103,9 +104,9 @@ esac
 
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
-if [ -d appscale/.appscale/certs ]; then
+if [ -d ${CONFIG_DIR}/certs ]; then
         # Version 2.3.1 and prior didn't have /etc/appscale/VERSION.
-        WHERE_IS_VERSION="/etc/appscale/VERSION"
+        WHERE_IS_VERSION="${CONFIG_DIR}/VERSION"
         if [ ! -e ${WHERE_IS_VERSION} ]; then
                 WHERE_IS_VERSION="appscale/VERSION"
         fi
@@ -170,7 +171,7 @@ else
     bash debian/appscale_install.sh all || exit 1
 fi
 
-if ! mkdir -p $APPSCALE_HOME_RUNTIME/.appscale/certs; then
+if ! mkdir -p ${CONFIG_DIR}/certs; then
     echo "Unable to complete AppScale installation."
     exit 1
 fi
