@@ -83,7 +83,6 @@ def setup_db_config_files(master_ip, slave_ips, replication)
   source_dir = "#{CASSANDRA_ENV_DIR}/templates"
   dest_dir = "#{CASSANDRA_DIR}/cassandra/conf"
 
-  all_ips = [master_ip, slave_ips].flatten
   local_token = get_local_token(master_ip, slave_ips)
 
   files_to_config = Djinn.log_run("ls #{source_dir}").split
