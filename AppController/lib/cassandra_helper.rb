@@ -25,6 +25,10 @@ CASSANDRA_DIR = "/opt/cassandra"
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
+# A directory containing Cassandra-related scripts and libraries.
+CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
+
+
 # Determines if a UserAppServer should run on this machine.
 #
 # Args:
@@ -76,7 +80,7 @@ end
 #     FQDN or IP address of a machine hosting a Database Slave role.
 #   replication: The desired level of replication.
 def setup_db_config_files(master_ip, slave_ips, replication)
-  source_dir = "#{CASSANDRA_DIR}/templates"
+  source_dir = "#{CASSANDRA_ENV_DIR}/templates"
   dest_dir = "#{CASSANDRA_DIR}/cassandra/conf"
 
   all_ips = [master_ip, slave_ips].flatten
