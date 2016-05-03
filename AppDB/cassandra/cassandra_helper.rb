@@ -17,7 +17,7 @@ PID_FILE = "/var/appscale/appscale-cassandra.pid"
 
 
 # A String that indicates where we install Cassandra on this machine.
-CASSANDRA_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
+CASSANDRA_DIR = "/opt/cassandra"
 
 
 # A String that indicates where the Cassandra binary is located on this
@@ -144,7 +144,7 @@ def start_cassandra(clear_datastore)
   # TODO: Consider a more graceful stop command than this, which does a kill -9.
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
   stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py java cassandra"
-  match_cmd = "#{APPSCALE_HOME}/AppDB/cassandra"
+  match_cmd = "/opt/cassandra"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     match_cmd=match_cmd)
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip,

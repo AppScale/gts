@@ -71,7 +71,7 @@ module TerminateHelper
     # Make sure we have cassandra running, otherwise nodetool may get
     # stuck.
     if system("monit summary | grep cassandra | grep Running > /dev/null")
-      `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+      `/opt/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
     end
 
     # Next, stop ZooKeeper politely: we stop it with both new and old
