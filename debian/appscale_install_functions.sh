@@ -164,9 +164,8 @@ installappscaleprofile()
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-export PYTHON_EGG_CACHE=/tmp/.python_eggs
-export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
-export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
+export EC2_PRIVATE_KEY=${CONFIG_DIR}/certs/mykey.pem
+export EC2_CERT=${CONFIG_DIR}/certs/mycert.pem
 export LC_ALL='en_US.UTF-8'
 EOF
 # This enables to load AppServer and AppDB modules. It must be before the python-support.
@@ -186,16 +185,16 @@ EOF
 EOF
 
     # This create link to appscale settings.
-    rm -rfv ${DESTDIR}/etc/appscale
+    rm -rfv ${DESTDIR}${CONFIG_DIR}
     mkdir -pv ~/.appscale
     mkdir -pv ${APPSCALE_HOME_RUNTIME}/.appscale
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/.appscale ${DESTDIR}/etc/appscale
+    ln -sfv ${APPSCALE_HOME_RUNTIME}/.appscale ${DESTDIR}${CONFIG_DIR}
 
-    cat <<EOF | tee /etc/appscale/home || exit
+    cat <<EOF | tee ${CONFIG_DIR}/home || exit
 ${APPSCALE_HOME_RUNTIME}
 EOF
     # Create the global AppScale environment file.
-    DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
+    DESTFILE=${DESTDIR}${CONFIG_DIR}/environment.yaml
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
@@ -380,8 +379,8 @@ installcassandra()
 
 postinstallcassandra()
 {
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/cassandra
+    mkdir -p ${CONFIG_DIR}/${APPSCALE_VERSION}
+    touch ${CONFIG_DIR}/${APPSCALE_VERSION}/cassandra
 }
 
 
@@ -481,10 +480,10 @@ installVersion()
 {
     # Install the VERSION file. We should sign it to ensure the version is
     # correct.
-    if [ -e /etc/appscale/VERSION ]; then
-        mv /etc/appscale/VERSION /etc/appscale/VERSION-$(date --rfc-3339=date)
+    if [ -e ${CONFIG_DIR}/VERSION ]; then
+        mv ${CONFIG_DIR}/VERSION ${CONFIG_DIR}/VERSION-$(date --rfc-3339=date)
     fi
-    cp ${APPSCALE_HOME}/VERSION /etc/appscale/
+    cp ${APPSCALE_HOME}/VERSION ${CONFIG_DIR}
 }
 
 installrequests()
