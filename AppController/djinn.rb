@@ -4167,7 +4167,7 @@ class Djinn
     table = @options['table']
     # require db_file
     begin
-      require "#{APPSCALE_HOME}/AppDB/#{table}/#{table}_helper"
+      require "#{table}_helper"
     rescue => e
       backtrace = e.backtrace.join("\n")
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +
