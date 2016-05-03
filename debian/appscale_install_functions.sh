@@ -27,6 +27,8 @@ fi
 VERSION_FILE="$APPSCALE_HOME_RUNTIME"/VERSION
 export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale version \(.*\)/\1/')
 
+PACKAGE_CACHE="/var/cache/appscale"
+
 
 pipwrapper ()
 {
@@ -48,6 +50,21 @@ pipwrapper ()
         echo "Need an argument for pip!"
         exit 1
     fi
+}
+
+# Download a package from a mirror if it's not already cached.
+cachepackage() {
+    CACHED_FILE="${PACKAGE_CACHE}/$1"
+    mkdir -p ${PACKAGE_CACHE}
+    if [ -f ${CACHED_FILE} ]; then
+        MD5=($(md5sum ${CACHED_FILE}))
+        if [ "$MD5" = "$2" ]; then
+            return 0
+        fi
+    fi
+
+    echo "Fetching $1 from $APPSCALE_PACKAGE_MIRROR"
+    curl ${CURL_OPTS} -o ${CACHED_FILE} "${APPSCALE_PACKAGE_MIRROR}/$1"
 }
 
 # This function is to disable the specify service so that it won't start
@@ -313,35 +330,34 @@ postinstallnginx()
 installsolr()
 {
     SOLR_VER=4.10.2
-    mkdir -p ${APPSCALE_HOME}/SearchService/solr
-    cd ${APPSCALE_HOME}/SearchService/solr
-    rm -rf solr
-    echo "Fetching solr-${SOLR_VER}.tgz"
-    curl ${CURL_OPTS} -o solr-${SOLR_VER}.tgz\
-      $APPSCALE_PACKAGE_MIRROR/solr-${SOLR_VER}.tgz
-    tar xzf solr-${SOLR_VER}.tgz
-    mv -v solr-${SOLR_VER} solr
-    rm -fv solr-${SOLR_VER}.tgz
+    SOLR_DIR="${APPSCALE_HOME}/SearchService/solr"
+    mkdir -p ${SOLR_DIR}
+    rm -rf "${SOLR_DIR}/solr"
+
+    SOLR_PACKAGE="solr-${SOLR_VER}.tgz"
+    cachepackage ${SOLR_PACKAGE} "a24f73f70e3fcf6aa8fda67444981f78"
+    tar xzf "${PACKAGE_CACHE}/${SOLR_PACKAGE}" -C ${SOLR_DIR}
+    mv -v ${SOLR_DIR}/solr-${SOLR_VER} ${SOLR_DIR}/solr
 }
 
 installcassandra()
 {
     CASSANDRA_VER=2.0.7
     PYCASSA_VER=1.9.1
-    
-    mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
-    cd ${APPSCALE_HOME}/AppDB/cassandra
-    rm -rf cassandra
-    echo "Fetching apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    curl ${CURL_OPTS} -o apache-cassandra-${CASSANDRA_VER}-bin.tar.gz\
-      $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    tar xzf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    mv -v apache-cassandra-${CASSANDRA_VER} cassandra
-    rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
-    cd cassandra
-    chmod -v +x bin/cassandra
-    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
-    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
+
+    CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
+    cachepackage ${CASSANDRA_PACKAGE} "1894c5103d12a2be14a2c44bfa2363cc"
+
+    CASSANDRA_DIR="${APPSCALE_HOME}/AppDB/cassandra"
+    rm -rf ${CASSANDRA_DIR}/cassandra
+    tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
+    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
+
+    chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh\
+        ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh\
+        ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
@@ -351,8 +367,9 @@ installcassandra()
     fi
     pipwrapper  pycassa
 
-    cd ${APPSCALE_HOME}/AppDB/cassandra/cassandra/lib
-    curl ${CURL_OPTS} -o jamm-0.2.2.jar $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
+    JAMM_PACKAGE="jamm-0.2.2.jar"
+    cachepackage ${JAMM_PACKAGE} "07829fab6b45af032e061b5708cfbb3b"
+    cp "${PACKAGE_CACHE}/${JAMM_PACKAGE}" ${CASSANDRA_DIR}/cassandra/lib
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
