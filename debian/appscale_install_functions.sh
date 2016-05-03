@@ -164,7 +164,6 @@ installappscaleprofile()
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-export PYTHON_EGG_CACHE=/tmp/.python_eggs
 export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
 export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
 export LC_ALL='en_US.UTF-8'
