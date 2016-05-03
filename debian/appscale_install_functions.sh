@@ -335,7 +335,8 @@ installsolr()
     rm -rf "${SOLR_DIR}/solr"
 
     SOLR_PACKAGE="solr-${SOLR_VER}.tgz"
-    cachepackage ${SOLR_PACKAGE} "a24f73f70e3fcf6aa8fda67444981f78"
+    SOLR_PACKAGE_MD5="a24f73f70e3fcf6aa8fda67444981f78"
+    cachepackage ${SOLR_PACKAGE} ${SOLR_PACKAGE_MD5}
     tar xzf "${PACKAGE_CACHE}/${SOLR_PACKAGE}" -C ${SOLR_DIR}
     mv -v ${SOLR_DIR}/solr-${SOLR_VER} ${SOLR_DIR}/solr
 }
@@ -346,7 +347,8 @@ installcassandra()
     PYCASSA_VER=1.9.1
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    cachepackage ${CASSANDRA_PACKAGE} "1894c5103d12a2be14a2c44bfa2363cc"
+    CASSANDRA_PACKAGE_MD5="1894c5103d12a2be14a2c44bfa2363cc"
+    cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     CASSANDRA_DIR="${APPSCALE_HOME}/AppDB/cassandra"
     rm -rf ${CASSANDRA_DIR}/cassandra
@@ -368,7 +370,8 @@ installcassandra()
     pipwrapper  pycassa
 
     JAMM_PACKAGE="jamm-0.2.2.jar"
-    cachepackage ${JAMM_PACKAGE} "07829fab6b45af032e061b5708cfbb3b"
+    JAMM_PACKAGE_MD5="07829fab6b45af032e061b5708cfbb3b"
+    cachepackage ${JAMM_PACKAGE} ${JAMM_PACKAGE_MD5}
     cp "${PACKAGE_CACHE}/${JAMM_PACKAGE}" ${CASSANDRA_DIR}/cassandra/lib
 
     # Create separate log directory.
