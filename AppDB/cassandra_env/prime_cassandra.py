@@ -7,7 +7,7 @@ import sys
 import dbconstants
 import py_cassandra
 
-from cassandra import cassandra_interface
+from cassandra_env import cassandra_interface
 
 from pycassa import system_manager
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))

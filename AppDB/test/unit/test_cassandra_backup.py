@@ -18,8 +18,8 @@ sys.path.append(
   os.path.join(os.path.dirname(__file__), '../../../InfrastructureManager'))
 from utils import utils
 
-from cassandra import shut_down_cassandra
-from cassandra.cassandra_interface import NODE_TOOL
+from cassandra_env import shut_down_cassandra
+from cassandra_env.cassandra_interface import NODE_TOOL
 
 class TestCassandraBackup(unittest.TestCase):
   """ A set of test cases for the Cassandra backup. """

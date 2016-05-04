@@ -21,7 +21,7 @@ class DatastoreFactory:
     Args: 
       d_type: The name of the datastore (ex: cassandra)
     """
-    database_env_dir = '{}/{}'.format(DATASTORE_DIR, d_type)
+    database_env_dir = '{}/{}_env'.format(DATASTORE_DIR, d_type)
     sys.path.append(database_env_dir)
 
     module_name = '{}_interface'.format(d_type)

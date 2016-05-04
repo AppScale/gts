@@ -18,7 +18,7 @@ DATASTORE_DIR= "%s/AppDB" % constants.APPSCALE_HOME
 class DatastoreFactory:
   @classmethod
   def getDatastore(cls, d_type):
-    database_env_dir = '{}/{}'.format(DATASTORE_DIR, d_type)
+    database_env_dir = '{}/{}_env'.format(DATASTORE_DIR, d_type)
     sys.path.append(database_env_dir)
 
     module_name = 'py_{}'.format(d_type)
@@ -35,9 +35,8 @@ class DatastoreFactory:
 
   @classmethod
   def valid_datastores(cls):
-    # TODO: return only directory name
-    dblist = os.listdir(DATASTORE_DIR)
-    return dblist
+    return [entry.replace('_env', '') for entry in
+            os.listdir(DATASTORE_DIR) if entry.endswith('_env')]
 
   @classmethod
   def error_codes(cls):

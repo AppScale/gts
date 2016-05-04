@@ -26,7 +26,7 @@ CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
 # A directory containing Cassandra-related scripts and libraries.
-CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
+CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra_env"
 
 
 # Determines if a UserAppServer should run on this machine.

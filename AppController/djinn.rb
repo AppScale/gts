@@ -3768,7 +3768,7 @@ class Djinn
   #     after ten retries.
   def prime_database()
     table = @options['table']
-    prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
+    prime_script = "#{APPSCALE_HOME}/AppDB/#{table}_env/prime_#{table}.py"
     retries = 10
     loop {
       Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +

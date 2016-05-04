@@ -9,7 +9,7 @@ import unittest
 
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra"))  
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra_env"))
 import prime_cassandra
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
