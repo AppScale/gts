@@ -45,6 +45,7 @@ require 'taskqueue_client'
 require 'terminate'
 require 'user_app_client'
 require 'zkinterface'
+require "zookeeper_helper"
 
 NO_OUTPUT = false
 
@@ -55,9 +56,6 @@ APPSCALE_TOOLS_HOME = "/usr/local/appscale-tools/"
 # concurrently, preventing race conditions.
 APPS_LOCK = Monitor.new()
 
-
-$:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
-require "zookeeper_helper"
 
 # A HTTP client that assumes that responses returned are JSON, and automatically
 # loads them, returning the result. Raises a NoMethodError if the host/URL is
@@ -4167,7 +4165,7 @@ class Djinn
     table = @options['table']
     # require db_file
     begin
-      require "#{APPSCALE_HOME}/AppDB/#{table}/#{table}_helper"
+      require "#{table}_helper"
     rescue => e
       backtrace = e.backtrace.join("\n")
       HelperFunctions.log_and_crash("Unable to find #{table} helper." +

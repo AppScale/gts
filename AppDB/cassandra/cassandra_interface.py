@@ -19,9 +19,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import file_io
 import constants
 
+# The directory Cassandra is installed to.
+CASSANDRA_INSTALL_DIR = '/opt/cassandra'
+
 # Full path for the nodetool binary.
-NODE_TOOL = '{0}/AppDB/cassandra/cassandra/bin/nodetool'.\
-  format(constants.APPSCALE_HOME)
+NODE_TOOL = '{}/cassandra/bin/nodetool'.format(CASSANDRA_INSTALL_DIR)
 
 # This is the default cassandra connection port
 CASS_DEFAULT_PORT = 9160

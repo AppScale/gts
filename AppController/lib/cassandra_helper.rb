@@ -17,12 +17,16 @@ PID_FILE = "/var/appscale/appscale-cassandra.pid"
 
 
 # A String that indicates where we install Cassandra on this machine.
-CASSANDRA_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
+CASSANDRA_DIR = "/opt/cassandra"
 
 
 # A String that indicates where the Cassandra binary is located on this
 # machine.
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
+
+
+# A directory containing Cassandra-related scripts and libraries.
+CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra"
 
 
 # Determines if a UserAppServer should run on this machine.
@@ -76,10 +80,9 @@ end
 #     FQDN or IP address of a machine hosting a Database Slave role.
 #   replication: The desired level of replication.
 def setup_db_config_files(master_ip, slave_ips, replication)
-  source_dir = "#{CASSANDRA_DIR}/templates"
+  source_dir = "#{CASSANDRA_ENV_DIR}/templates"
   dest_dir = "#{CASSANDRA_DIR}/cassandra/conf"
 
-  all_ips = [master_ip, slave_ips].flatten
   local_token = get_local_token(master_ip, slave_ips)
 
   files_to_config = Djinn.log_run("ls #{source_dir}").split
@@ -144,7 +147,7 @@ def start_cassandra(clear_datastore)
   # TODO: Consider a more graceful stop command than this, which does a kill -9.
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
   stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py java cassandra"
-  match_cmd = "#{APPSCALE_HOME}/AppDB/cassandra"
+  match_cmd = "/opt/cassandra"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     match_cmd=match_cmd)
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip,

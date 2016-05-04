@@ -349,16 +349,17 @@ installcassandra()
     CASSANDRA_PACKAGE_MD5="1894c5103d12a2be14a2c44bfa2363cc"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
-    CASSANDRA_DIR="${APPSCALE_HOME}/AppDB/cassandra"
+    CASSANDRA_DIR="/opt/cassandra"
+    mkdir -p ${CASSANDRA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
     mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
 
     chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh\
-        ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
+        ${CASSANDRA_DIR}/cassandra/bin
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra-env.sh\
-        ${APPSCALE_HOME}/AppDB/cassandra/cassandra/conf
+        ${CASSANDRA_DIR}/cassandra/conf
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra

@@ -6,7 +6,7 @@
 # Author: graziano
 
 # Cassandra nodetool.
-CMD="/root/appscale/AppDB/cassandra/cassandra/bin/nodetool"
+CMD="/opt/cassandra/cassandra/bin/nodetool"
 
 # The keyspace to work on.
 KEYSPACE="Keyspace1"
