@@ -1766,10 +1766,10 @@ class Djinn
         end
         Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
       }
-    end
 
-    if my_node.is_login?
-      regenerate_nginx_config_files()
+      if my_node.is_login?
+        regenerate_nginx_config_files()
+      end
     end
 
     Djinn.log_debug("Done updating apps!")
