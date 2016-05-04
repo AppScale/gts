@@ -8,6 +8,7 @@ functions.
 
 import datetime
 import json
+import logging
 import os
 import re
 import sys
@@ -19,7 +20,7 @@ import appscale_datastore
 import SOAPpy
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import constants
+from constants import LOG_FORMAT
 import appscale_info
 
 # Name of the application table which stores AppScale application information.
@@ -941,6 +942,9 @@ def usage():
 
 if __name__ == "__main__":
   """ Main function for running the server. """
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  logging.info('Starting UAServer')
+
   for ii in range(1, len(sys.argv)):
     if sys.argv[ii] in ("-h", "--help"):
       usage()
@@ -956,9 +960,10 @@ if __name__ == "__main__":
 
   db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
   ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
-  if not datastore_type in \
-    appscale_datastore.DatastoreFactory.valid_datastores():
-    exit(2)
+  valid_datastores = appscale_datastore.DatastoreFactory.valid_datastores()
+  if datastore_type not in valid_datastores:
+    raise Exception('{} not in valid datastores ({})'.
+                    format(datastore_type, valid_datastores))
 
   # Keep trying until it gets the schema.
   timeout = 5
@@ -981,6 +986,7 @@ if __name__ == "__main__":
 
   ip = "0.0.0.0"
   server = SOAPpy.SOAPServer((ip, bindport))
+  logging.info('Serving on {}'.format(bindport))
   # To debug this service, uncomment the 2 lines below.
   #server.config.dumpSOAPOut = 1
   #server.config.dumpSOAPIn = 1
