@@ -21,20 +21,15 @@ class DatastoreFactory:
     Args: 
       d_type: The name of the datastore (ex: cassandra)
     """
+    database_env_dir = '{}/{}'.format(DATASTORE_DIR, d_type)
+    sys.path.append(database_env_dir)
 
-    datastore = None
-    mod_path = DATASTORE_DIR + "/" + d_type + "/" + d_type + "_interface.py"
-
-    if not os.path.exists(mod_path):
-      raise Exception('{} does not exist'.format(mod_path))
-
-    sys.path.append(DATASTORE_DIR + "/" + d_type)
     module_name = '{}_interface'.format(d_type)
     handle, path, description = imp.find_module(module_name)
 
     try:
-      d_mod = imp.load_module(module_name, handle, path, description)
-      datastore = d_mod.DatastoreProxy()
+      db_module = imp.load_module(module_name, handle, path, description)
+      datastore = db_module.DatastoreProxy()
     finally:
       if handle:
         handle.close()
