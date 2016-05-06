@@ -51,9 +51,9 @@ install: build
 	dh_installdirs
 	# Add here commands to install the package into debian/appscale.
 #	$(MAKE) DESTDIR=$(CURDIR)/debian/appscale install
-	py_compilefiles AppDB/cassandra/*.py
+	py_compilefiles AppDB/cassandra_env/*.py
 	mkdir -p $(APPSCALE)/AppDB
-	cp -r AppDB/cassandra $(APPSCALE)/AppDB
+	cp -r AppDB/cassandra_env $(APPSCALE)/AppDB
 	bash $(CURDIR)/debian/appscale_install.sh cassandra $(DESTDIR)
 
 # Build architecture-independent files here.
