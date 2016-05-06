@@ -1902,8 +1902,12 @@ class Djinn
         flush_log_buffer()
         send_instance_info_to_dashboard()
         update_node_info_cache()
-        flush_log_buffer()
-        send_instance_info_to_dashboard()
+      else
+        # Every other node syncs its state with the login's node state.
+        if !restore_appcontroller_state()
+          Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
+          next
+        end
       end
 
       @state = "Done starting up AppScale, now in heartbeat mode"
