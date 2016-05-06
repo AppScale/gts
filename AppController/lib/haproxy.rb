@@ -63,7 +63,7 @@ module HAProxy
   end
 
   def self.stop()
-    MonitInterface.stop(:haproxy)
+    MonitInterface.stop(:haproxy, false)
   end
 
   def self.restart()

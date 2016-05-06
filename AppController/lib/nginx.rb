@@ -66,7 +66,7 @@ module Nginx
   end
 
   def self.stop()
-    MonitInterface.stop(:nginx)
+    MonitInterface.stop(:nginx, false)
   end
 
   # Kills nginx if there was a failure when trying to start/reload.

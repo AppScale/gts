@@ -114,21 +114,23 @@ class ZKInterface
     end
 
     @@lock.synchronize {
+      if defined?(@@zk)
+        Djinn.log_debug("Closing old connection to zookeeper.")
+        @@zk.close!
+      end
+      Djinn.log_debug("Opening connection to zookeeper at #{ip}.")
       @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
     }
   end
 
-
-  # Initializes a new ZooKeeper connection to the "closest" node in the
-  # system. "Closeness" is defined as either "this node" (if it runs
-  # ZooKeeper), or an arbitrary node that runs ZooKeeper. Callers should use
-  # this method when they don't want to determine on their own which
-  # ZooKeeper box to connect to.
-  def self.init(my_node, all_nodes)
-    self.init_to_ip(my_node.private_ip, self.get_zk_location(my_node,
-      all_nodes))
+  def self.is_connected?()
+    ret = false
+    if defined?(@@zk)
+      ret = @@zk.connected?
+    end
+    Djinn.log_debug("Connection status with zookeeper server: #{ret}.")
+    return ret
   end
-
 
   # Creates a new connection to use with ZooKeeper. Useful for scenarios
   # where the ZooKeeper library has terminated our connection but we still
@@ -781,28 +783,5 @@ class ZKInterface
         " path #{key}, saw info #{info.inspect}")
     end
   end
-
-
-  def self.get_zk_location(my_node, all_nodes)
-    if my_node.is_zookeeper?
-      return my_node.private_ip
-    end
-
-    zk_node = nil
-    all_nodes.each { |node|
-      if node.is_zookeeper?
-        zk_node = node
-        break
-      end
-    }
-
-    if zk_node.nil?
-      HelperFunctions.log_and_crash("No ZooKeeper nodes were found. All " +
-        "nodes are #{nodes}, while my node is #{my_node}.")
-    end
-
-    return zk_node.private_ip
-  end
-
 
 end

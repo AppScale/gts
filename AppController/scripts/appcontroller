@@ -32,7 +32,7 @@ do_start()
    rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile\
+   start-stop-daemon --start --background --pidfile $PIDFILE\
      --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
      "$DAEMON >> $LOG_FILE 2>&1"
    log_end_msg $?
