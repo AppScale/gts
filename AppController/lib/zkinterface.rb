@@ -123,6 +123,11 @@ class ZKInterface
     }
   end
 
+  # This method check if we are already connected to a zookeeper server.
+  #
+  # Returns:
+  #   A boolean to indicate if we are already connected to a zookeeper
+  #   server.
   def self.is_connected?()
     ret = false
     if defined?(@@zk)

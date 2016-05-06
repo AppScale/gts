@@ -453,7 +453,7 @@ class Djinn
   LOG_FILE = "/var/log/appscale/controller-17443.log"
 
 
-  # Where to pud the pid of the controller.
+  # Where to put the pid of the controller.
   PID_FILE = "/var/run/appscale-controller.pid"
 
 
@@ -1818,7 +1818,7 @@ class Djinn
       # We need to check our saved IPs with the list of zookeeper nodes
       # (IPs can change in cloud environments).
       begin
-        my_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
+        my_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
       rescue Errno::ENOENT
         @state = "Cannot find my old private IP address."
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
@@ -1852,7 +1852,7 @@ class Djinn
     end
     parse_options()
 
-    # We reset the kill received signal since we are starting now.
+    # We reset the kill signal received since we are starting now.
     @kill_sig_received = false
 
     # From here on we have the basic local state that allows to operate.
@@ -1912,12 +1912,11 @@ class Djinn
 
       @state = "Done starting up AppScale, now in heartbeat mode"
 
-      # Since we now backup state to ZK, don't make everyone do it.
-      # The Shadow has the most up-to-date info, so let it handle this
+      # Only the shadow backup the deployment state to zookeeper.
       backup_appcontroller_state() if my_node.is_shadow?
 
       # The following is the core of the duty cycle: start new apps,
-      # restarts apps, terminate non-responsive appserver, and autoscale.
+      # restart apps, terminate non-responsive appserver, and autoscale.
       check_running_apps()
       restart_appengine()
       if my_node.is_login?
@@ -2684,9 +2683,9 @@ class Djinn
 
     # Find and remove an entry for this appserver node and app.
     APPS_LOCK.synchronize {
-      to_add = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
-      if to_add
-        @app_info_map[app_id]['appengine'].delete_at(to_add)
+      match = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
+      if match
+        @app_info_map[app_id]['appengine'].delete_at(match)
       else
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
@@ -2923,7 +2922,7 @@ class Djinn
     json_state=""
 
     if !File.exists?(ZK_LOCATIONS_FILE)
-      Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exists: not restoring data.")
+      Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exist: not restoring data.")
       return false
     end
 
@@ -4588,12 +4587,12 @@ HOSTS
       AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
       APPS_LOCK.synchronize {
         @app_info_map[AppDashboard::APP_NAME] = {
-            'nginx' => 1080,
-            'nginx_https' => 1443,
+            'nginx' => AppDashboard::LISTEN_PORT,
+            'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
             'haproxy' => AppDashboard::PROXY_PORT,
             'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
                             "#{my_private}:-1"],
-            'language' => 'python27'
+            'language' => AppDashboard::APP_LANGUAGE
         }
       }
 
@@ -4634,17 +4633,17 @@ HOSTS
     ea.generate(language)
   end
 
-  # Examine the list of applications to restarts, or the applications that
-  # should be running, and respectively restarts or stats them.
+  # Examine the list of applications to restart, or the applications that
+  # should be running, and respectively restart or start them.
   def restart_appengine()
     @state = "Preparing to restart AppEngine apps if needed."
     Djinn.log_debug(@state)
 
-    # use a copy of @apps_to_restart here since we delete from it in
-    # setup_appengine_application
+    # Use a copy of @apps_to_restart here since we delete from it in
+    # setup_appengine_application.
     apps = @apps_to_restart
     apps.each { |app_name|
-      if !my_node.is_login?  # this node has the new app - don't erase it here
+      if !my_node.is_login?  # This node has the new app - don't erase it here.
         Djinn.log_info("Removing old version of app #{app_name}")
         Djinn.log_run("rm -fv #{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
       end
@@ -4656,12 +4655,16 @@ HOSTS
     }
   end
 
-  # Check with the UserAppServer the list of application that should be
-  # running, compare them with the list we have on the load balancer, and
-  # marks the missing ones for start at the next cycle.
+  # Login nodes will compares the list of applications that should be
+  # running according to the UserAppServer with the list we have on the
+  # load balancer, and marks the missing apps for start during the next
+  # cycle.
+  #
+  # All nodes will compares the list of appservers they should be running,
+  # with the list of appservers actually running, and make the necessary
+  # adjustments. Effectively only login nodes and appengine nodes will run
+  # appserver (login nodes runs the dashboard).
   def check_running_apps()
-    # The login node cross-check with the UserAppServer if all the
-    # applications that should be running are indeed running.
     if my_node.is_login?
       APPS_LOCK.synchronize {
         uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -4689,7 +4692,8 @@ HOSTS
             Djinn.log_debug("Got app data for #{app}: #{app_data}")
 
             app_language = app_data['language']
-            Djinn.log_info("Restoring app #{app} language #{app_language} with ports #{app_data['hosts']}.")
+            Djinn.log_info("Restoring app #{app} (language #{app_language})" +
+              " with ports #{app_data['hosts']}.")
 
             @app_info_map[app] = {} if @app_info_map[app].nil?
             @app_info_map[app]['language'] = app_language if app_language
@@ -4719,8 +4723,8 @@ HOSTS
       }
     end
 
-    # From here on, we check that the running appservers matches the
-    # headnode view.  Only one thread talking to the appmanagerserver at a
+    # From here on, we check that the running appservers match the
+    # headnode view.  Only one thread talking to the AppManagerServer at a
     # time.
     if AMS_LOCK.locked?
       Djinn.log_debug("Another thread already working with appmanager.")
@@ -4875,8 +4879,8 @@ HOSTS
       @app_info_map[app]['appengine'] = []
     end
     if !@app_info_map[app]['nginx'] or
-            !@app_info_map[app]['nginx_https'] or
-            !@app_info_map[app]['haproxy']
+        !@app_info_map[app]['nginx_https'] or
+        !@app_info_map[app]['haproxy']
       # Free possibly allocated ports and return an error if we couldn't
       # get all ports.
       @app_info_map[app]['nginx'] = nil
@@ -5156,7 +5160,7 @@ HOSTS
     total_req_in_queue = 0
     time_requests_were_seen = 0
 
-    # Let's make sure we have the minimum number of appserver running.
+    # Let's make sure we have the minimum number of appservers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if @app_info_map[app_name]['appengine'].length < @num_appengines
        Djinn.log_info("App #{app_name} doesn't have appservers.")
@@ -5272,12 +5276,12 @@ HOSTS
           # MAX_LOAD_AVG, current CPU usage less than 90% and enough
           # memory to run an AppServer (and some safe extra).
           if Float(node['free_memory']) > Integer(@options['max_memory']) + SAFE_MEM and
-            Float(node['cpu']) < MAX_CPU_FOR_APPSERVERS and
-            Float(node['load']) / Float(node['num_cpu']) < MAX_LOAD_AVG
+              Float(node['cpu']) < MAX_CPU_FOR_APPSERVERS and
+              Float(node['load']) / Float(node['num_cpu']) < MAX_LOAD_AVG
             # The host can run a new appserver. Let's check if it's a
             # better candidate (we do use lowest cpu load for it).
             if lowest_load == nil or
-              lowest_load > (Float(node['load']) / Float(node['num_cpu']))
+                lowest_load > (Float(node['load']) / Float(node['num_cpu']))
               appserver_to_use = host
               lowest_load = Float(node['load']) / Float(node['num_cpu'])
             end
@@ -5339,7 +5343,7 @@ HOSTS
     @last_decision[app_name] = Time.now.to_i
   end
 
-  # This function unpack an application tarball if needed. A removal of
+  # This function unpacks an application tarball if needed. A removal of
   # the old application code can be forced with a parameter.
   #
   # Args:

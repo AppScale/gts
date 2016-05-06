@@ -12,7 +12,7 @@ require 'helperfunctions'
 MONIT_CONFIG = "/etc/monit/conf.d"
 
 
-# Monit is finnicky when it comes to multiple commands at the same time.
+# Monit is finicky when it comes to multiple commands at the same time.
 # Let's make sure we serialize access.
 MONIT_LOCK = Monitor.new()
 
@@ -67,11 +67,11 @@ BOO
     self.run_cmd("#{MONIT} restart -g #{watch}")
   end
 
-  # This function unmonitor and optionally stop the service, and remove
+  # This function unmonitors and optionally stops the service, and removes
   # the monit configuration file.
   def self.stop(watch, stop=true)
     # To make sure the service is stopped, we query monit till the service
-    # is not anylonger running.
+    # is not any longer running.
     running = true
     while running
       if stop
@@ -95,7 +95,7 @@ BOO
     # Now let's find the corresponding configuration file and remove it.
     config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
     if config.length > 1
-      Djinn.log_info("Found multiple monit config match for #{watch}: #{config}.")
+      Djinn.log_info("Found multiple monit config matches for #{watch}: #{config}.")
     end
     FileUtils.rm_rf(config)
     self.run_cmd('service monit reload', true)
@@ -160,18 +160,18 @@ BOO
     return (not output == "")
   end
 
-  # This functions returns a list of running applications: the
+  # This function returns a list of running applications: the
   # dev_appservers needs to still be monitored by monit.
   # Returns:
-  #   A list of application:port
+  #   A list of application:port records.
   def self.running_appengines()
     output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
     appengines = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
     if appengines
-      Djinn.log_debug("Found these appengines running: #{appengines.gsub("\n", ' ')}.")
+      Djinn.log_debug("Found these appservers processes running: #{appengines.gsub("\n", ' ')}.")
       return appengines.split("\n")
     else
-      Djinn.log_debug("Found no appengines running.")
+      Djinn.log_debug("Found no appserver process running.")
       return []
     end
   end

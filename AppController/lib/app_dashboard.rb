@@ -8,10 +8,6 @@
 # methods that abstract away its configuration and deployment.
 module AppDashboard
 
-
-  SERVER_PORTS = [8000, 8001, 8002]
-
-
   # The port which nginx will use to send requests to haproxy
   PROXY_PORT = 8060
 
