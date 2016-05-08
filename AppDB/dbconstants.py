@@ -108,7 +108,6 @@ APPS_SCHEMA = [
   "num_entries",
   "tar_ball",
   "enabled",
-  "classes",
   "indexes" ]
 
 ###############################

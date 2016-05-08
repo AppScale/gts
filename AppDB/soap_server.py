@@ -159,7 +159,6 @@ class Apps:
     self.cksum_ = "0"
     self.num_entries_ = "0"
     self.enabled_ = "true"
-    self.classes_ = []
     self.indexes_ = "0"
     return
 
@@ -180,7 +179,6 @@ class Apps:
     appstring += "check_sum:" + str(self.cksum_) + "\n"
     appstring += "num_entries:" + str(self.num_entries_) + "\n"
     appstring += "enabled:" + str(self.enabled_) + "\n"
-    appstring += "classes:" + ':'.join(self.classes_) + "\n"
     appstring += "indexes:" + str(self.indexes_) + "\n"
     return appstring
 
@@ -209,7 +207,7 @@ class Apps:
     # order must match self.attributes
     # some entries must be converted to string format from arrays
     for ii in Apps.attributes_:
-      if ii == "admins_list" or ii == 'host' or ii == 'port' or ii == 'classes':
+      if ii == "admins_list" or ii == 'host' or ii == 'port':
         array.append(':'.join(getattr(self, ii + "_")))
       else:
         array.append(str(getattr(self, ii+ "_")))
@@ -236,10 +234,6 @@ class Apps:
     else:
       self.port_ = []
 
-    if self.classes_:
-      self.classes_ = self.classes_.split(':')
-    else:
-      self.classes_ = []
     return "true"
 
 def does_user_exist(username, secret):
@@ -591,38 +585,6 @@ def add_instance(appname, host, port, https_port, secret):
     return "false"
   return "true"
 
-def add_class(appname, classname, namespace, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  columns = ["classes"]
-  result = db.get_entity(APP_TABLE, appname, columns)
-  error = result[0]
-  if error not in ERROR_CODES or len(columns) != (len(result) - 1):
-    return "Error: Unable to get entity for app"
-
-  result = result[1:]
-
-  if result[0]:
-    classes = result[0].split(':')
-  else:
-    classes = []
-  for c in classes:
-    if c == classname:
-      # already in classes list
-      return "true"
-
-  classes += [str(classname+"___"+namespace)]
-  classes = ':'.join(classes)
-
-  result = db.put_entity(APP_TABLE, appname, columns, [classes])
-  if result[0] not in ERROR_CODES:
-    return "false: Unable to put entity for app"
-  return "true"
-
 def delete_app(appname, secret):
   global db
   global super_secret
@@ -632,26 +594,11 @@ def delete_app(appname, secret):
   result = db.get_entity(APP_TABLE, appname, ["owner"])
   if result[0] not in ERROR_CODES or len(result) == 1:
     return "false: unable to get entity for app"
-  # look up all the class tables of this app and delete their tables
-  result = db.get_entity(APP_TABLE, appname, ["classes"])
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false: unable to get classes for app"
-  result = result[1:]
-  if result[0]:
-    classes = result[0].split(':')
-  else:
-    classes = []
-  result = db.put_entity(APP_TABLE, appname, ["host", "port"], ["", ""])
+
+  result = db.put_entity(APP_TABLE, appname,
+                         ["host", "port", "num_entries"], ["", "", "0"])
   if result[0] not in ERROR_CODES:
     return "false: unable to delete instances"
-
-  for classname in classes:
-    table_name = appname + "___" + classname
-    db.delete_table(table_name)
-
-  result = db.put_entity(APP_TABLE, appname, ["classes", "num_entries"], ["", "0"])
-  if result[0] not in ERROR_CODES:
-    return "Error: unable to clear classes"
 
   # disabling the app, a type of soft delete
   return disable_app(appname, secret)
@@ -992,7 +939,6 @@ if __name__ == "__main__":
   #server.config.dumpSOAPIn = 1
 
   # Register soap functions.
-  server.registerFunction(add_class)
   server.registerFunction(add_instance)
   server.registerFunction(does_user_exist)
   server.registerFunction(does_app_exist)
