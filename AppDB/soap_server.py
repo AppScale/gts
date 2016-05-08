@@ -212,7 +212,7 @@ class Apps:
       if ii == "admins_list" or ii == 'host' or ii == 'port' or ii == 'classes':
         array.append(':'.join(getattr(self, ii + "_")))
       else:
-        array.append(str(getattr(self, ii+ "_")));
+        array.append(str(getattr(self, ii+ "_")))
 
     return array
 
