@@ -15,7 +15,7 @@ charge of creating configuration files for the process they want started.
 
 MONIT = "/usr/bin/monit"
 
-NUM_RETRIES = 10
+NUM_RETRIES = 5
 
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
@@ -41,7 +41,6 @@ def run_with_retry(args):
       return True
 
     retries_left -= 1
-    sleep_time *= 2
 
     logging.warning("Monit command {0} returned with status {1}, {2} retries " \
       "left.".format(args, return_status, retries_left))

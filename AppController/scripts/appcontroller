@@ -7,7 +7,7 @@
 # Default-Stop:      0 1 6
 # X-Interactive:     false
 # Short-Description: Init script for AppScale AppController.
-# Description:       Start/stop script for AppScale AppController. 
+# Description:       Start/stop script for AppScale AppController.
 ### END INIT INFO
 
 DESC="AppScale Controller"
@@ -32,7 +32,7 @@ do_start()
    rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile\
+   start-stop-daemon --start --background --pidfile $PIDFILE\
      --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
      "$DAEMON >> $LOG_FILE 2>&1"
    log_end_msg $?
@@ -41,12 +41,25 @@ do_start()
 do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-   start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   start-stop-daemon --stop --pidfile $PIDFILE --signal USR1
+   log_end_msg $?
+}
+
+do_force_stop()
+{
+   log_daemon_msg "Fore stopping system $DAEMON_NAME daemon"
+   ruby ${DIR}/terminate.rb
+   log_end_msg $?
+}
+
+do_stop_deployment()
+{
+   log_daemon_msg "Stopping AppScale deployment"
+   start-stop-daemon --stop --pidfile $PIDFILE --signal USR2
    log_end_msg $?
 }
 
 case "$1" in
- 
     start)
         if status_of_proc "$DAEMON_NAME" "$DAEMON" > /dev/null; then
                 echo "$DAEMON_NAME already running."
@@ -54,16 +67,20 @@ case "$1" in
         fi
         do_${1}
         ;;
-        
+
     stop)
         do_stop
         ;;
-        
+
+    stop-deployment)
+        do_stop_deployment
+        ;;
+
     restart|reload|force-reload)
         do_stop
         do_start
         ;;
- 
+
     status)
         status_of_proc "$DAEMON" "$DAEMON_NAME" && exit 0 || exit $?
         ;;
@@ -72,6 +89,5 @@ case "$1" in
         echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"
         exit 1
         ;;
- 
 esac
 exit 0

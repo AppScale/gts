@@ -35,6 +35,8 @@ class TestZKInterface < Test::Unit::TestCase
 
     # mocks for zookeeper
     zk = flexmock("zookeeper")
+    zk.should_receive(:connected?).and_return(false)
+    zk.should_receive(:close!)
 
     # mocks for file existance - they don't exist in this example
     zk.should_receive(:get).with(
@@ -79,6 +81,8 @@ class TestZKInterface < Test::Unit::TestCase
 
     # mocks for zookeeper
     zk = flexmock("zookeeper")
+    zk.should_receive(:connected?).and_return(false)
+    zk.should_receive(:close!)
 
     # let's say the app directory structure already exists
     zk.should_receive(:get).with(:path => ZKInterface::ROOT_APP_PATH).
@@ -170,6 +174,8 @@ class TestZKInterface < Test::Unit::TestCase
   def test_add_and_query_scale_up_requests
     # mocks for zookeeper
     zk = flexmock("zookeeper")
+    zk.should_receive(:connected?).and_return(false)
+    zk.should_receive(:close!)
 
     # presume that initially, there are no scaling requests, then after we add
     # one below, it is present

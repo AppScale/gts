@@ -66,7 +66,7 @@ module Nginx
   end
 
   def self.stop()
-    MonitInterface.stop(:nginx)
+    MonitInterface.stop(:nginx, false)
   end
 
   # Kills nginx if there was a failure when trying to start/reload.
@@ -326,6 +326,18 @@ CONFIG
   def self.remove_app(app_name)
     config_name = "#{app_name}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
+    Nginx.reload()
+  end
+
+  def self.remove_datastore()
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH,
+      "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}"))
+    Nginx.reload()
+  end
+
+  def self.remove_uaserver()
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH,
+      "#{UserAppClient::NAME}.#{CONFIG_EXTENSION}"))
     Nginx.reload()
   end
 

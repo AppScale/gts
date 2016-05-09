@@ -1,11 +1,11 @@
 #!/usr/bin/ruby -w
 
 $VERBOSE = nil
-# Imports within Ruby's standard libraries
-require 'soap/rpc/httpserver'
-require 'webrick/https'
+# Imports within Ruby's standard libraries.
 require 'logger'
 require 'soap/rpc/driver'
+require 'soap/rpc/httpserver'
+require 'webrick/https'
 require 'yaml'
 
 require 'net/http'
@@ -94,8 +94,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "add_routing_for_blob_server", "secret")
     add_method(@djinn, "remove_appserver_from_haproxy", "app_id", "ip", "port",
       "secret")
-    add_method(@djinn, "add_appserver_process", "app_id", "secret")
-    add_method(@djinn, "remove_appserver_process", "app_id", "port", "secret")
     add_method(@djinn, "run_groomer", "secret")
     add_method(@djinn, "get_property", "property_regex", "secret")
     add_method(@djinn, "set_property", "property_name", "property_value",
@@ -129,20 +127,30 @@ appscale_dir = "/etc/appscale/"
 
 secret = nil
 loop {
-  secret = HelperFunctions.get_secret(appscale_dir + "secret.key")
+  begin
+    secret = HelperFunctions.get_secret(appscale_dir + "secret.key")
+  rescue Errno::ENOENT
+    # Ignore the File doesn't exists exception.
+  end
+
   break unless secret.nil?
-  Djinn.log_debug("Still waiting for that secret key...")
+  puts("Still waiting for that secret key...")
   sleep(5)
 }
 
 server_cert = nil
 server_key = nil
 loop {
-  server_cert = HelperFunctions.get_cert(appscale_dir + "certs/mycert.pem")
-  server_key = HelperFunctions.get_key(appscale_dir + "certs/mykey.pem")
-  break if !server_cert.nil? && !server_key.nil?
-  Djinn.log_debug("Waiting on certs")
-  sleep(5)
+  begin
+    server_cert = HelperFunctions.get_cert(appscale_dir + "certs/mycert.pem")
+    server_key = HelperFunctions.get_key(appscale_dir + "certs/mykey.pem")
+    break if !server_cert.nil? && !server_key.nil?
+    puts("Waiting on certs")
+    sleep(5)
+  rescue Errno::ENOENT
+    puts "Certificate directory doesn't exists. Did you build appscale?"
+    exit 1
+  end
 }
 
 # Before we try to bind, make sure that another AppController hasn't already
@@ -165,11 +173,26 @@ server = DjinnServer.new(
   :SSLCertName => nil
 )
 
-trap('TERM') {
-  Djinn.log_debug("Received TERM signal: stopping node services.")
-  server.djinn.kill_sig_received = true
-  server.shutdown
-  server.djinn.kill(false, secret)
+# SIGUSR1 is used to signal the orderly shut down of this node.
+Signal.trap('SIGUSR1') {
+  puts("Received USR1 signal: stopping node services.")
+  response = server.djinn.kill(false, secret)
+  puts("Response to the kill command: #{response}")
+  if !response.start_with?('ERROR')
+    server.shutdown
+  end
+  exit 0
+}
+
+# SIGUSR2 is used to signal the orderly shut down of the deployment.
+Signal.trap('SIGUSR2') {
+  puts("Received URS2 signal: stopping the deployment.")
+  response = server.djinn.kill(true, secret)
+  puts("Response to the kill command: #{response}")
+  if !response.start_with?('ERROR')
+    server.shutdown
+  end
+  exit 0
 }
 
 new_thread = Thread.new { run_server(server) }

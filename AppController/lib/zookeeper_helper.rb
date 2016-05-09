@@ -104,6 +104,5 @@ def is_zookeeper_running?
 end
 
 def stop_zookeeper
-  Djinn.log_info("Stopping ZooKeeper")
   MonitInterface.stop(:zookeeper)
 end

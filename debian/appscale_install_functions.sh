@@ -281,7 +281,6 @@ postinstalltornado()
 
 postinstallhaproxy()
 {
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg /etc/haproxy/
     sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
 
     # AppScale starts/stop the service.
@@ -321,7 +320,6 @@ installphp54()
 
 postinstallnginx()
 {
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
 }

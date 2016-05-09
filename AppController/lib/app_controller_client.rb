@@ -70,6 +70,7 @@ class AppControllerClient
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
     @conn.add_method("set_apps", "app_names", "secret")
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
+    @conn.add_method("kill", "stop_deployment", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
     @conn.add_method("upload_app", "app", "secret")
@@ -81,8 +82,6 @@ class AppControllerClient
     @conn.add_method("add_role", "new_role", "secret")
     @conn.add_method("remove_role", "old_role", "secret")
     @conn.add_method("get_queues_in_use", "secret")
-    @conn.add_method("add_appserver_process", "app_id", "secret")
-    @conn.add_method("remove_appserver_process", "app_id", "port", "secret")
     @conn.add_method("set_node_read_only", "read_only", "secret")
   end
 
@@ -172,6 +171,10 @@ class AppControllerClient
     return status
   end
 
+  def kill(stop_deployment)
+    make_call(240, ABORT_ON_FAIL, "kill") { @conn.kill(stop_deployment, @secret) }
+  end
+
   def get_status()
     if !HelperFunctions.is_port_open?(@ip, 17443)
       raise FailedNodeException.new("Cannot talk to AppController at #{@ip}.")
@@ -234,18 +237,6 @@ class AppControllerClient
   def set_apps_to_restart(app_names)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
       @conn.set_apps_to_restart(app_names, @secret)
-    }
-  end
-
-  def add_appserver_process(app_id)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_process") {
-      @conn.add_appserver_process(app_id, @secret)
-    }
-  end
-
-  def remove_appserver_process(app_id, port)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_process") {
-      @conn.remove_appserver_process(app_id, port, @secret)
     }
   end
 
