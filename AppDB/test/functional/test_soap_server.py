@@ -167,10 +167,6 @@ ret = server.is_user_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.add_class("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.add_instance("xxx","xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -296,10 +292,6 @@ if ret != "false":
 ret = server.does_user_exist(user[0], super_secret)
 if ret != "false":
   print user[0]
-  err(helper_functions.lineno(), ret)
-
-ret = server.add_class(app[0], "xxx", "xxx", super_secret)
-if ret != "Error: Unable to get entity for app":
   err(helper_functions.lineno(), ret)
 
 ret = server.add_instance(app[0], "xxx", "xxx", super_secret)
@@ -599,26 +591,11 @@ if ret != "true":
 ret = server.get_app_data(app[0], super_secret)
 if user[0] not in ret or app[0] not in ret:
   err(helper_functions.lineno(), ret)
-####################
-# Add class to app
-####################
-appclass1 = helper_functions.random_string(10)
-ret = server.add_class(app[0], appclass1, "xxx", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-####################
-# Add class to app
-####################
-appclass2 = helper_functions.random_string(10)
-ret = server.add_class(app[0], appclass2, "xxx", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
 ###################
 # Get app data 
 ###################
 ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret \
-or appclass1 not in ret or appclass2 not in ret:
+if user[0] not in ret or app[0] not in ret:
   err(helper_functions.lineno(), ret)
 ####################
 # Remove an instance
