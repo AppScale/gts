@@ -49,9 +49,6 @@ require "zookeeper_helper"
 
 NO_OUTPUT = false
 
-# Path to the appscale-tools installation.
-APPSCALE_TOOLS_HOME = "/usr/local/appscale-tools/"
-
 # This lock makes it so that global variables related to apps are not updated
 # concurrently, preventing race conditions.
 APPS_LOCK = Monitor.new()
@@ -1076,8 +1073,8 @@ class Djinn
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
-      command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-        "'#{archived_file}' --email #{email} --keyname #{keyname} 2>&1"
+      command = "appscale-upload-app --file '#{archived_file}' " +
+        "--email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
       if output.include?("Your app can be reached at the following URL")
         result = "true"
