@@ -19,9 +19,9 @@ from backup_recovery_constants import PADDING_PERCENTAGE
 from backup_recovery_constants import SERVICE_STOP_RETRIES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-from cassandra import shut_down_cassandra
-from cassandra.cassandra_interface import NODE_TOOL
-from cassandra.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
+from cassandra_env import shut_down_cassandra
+from cassandra_env.cassandra_interface import NODE_TOOL
+from cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info

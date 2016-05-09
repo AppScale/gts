@@ -3,13 +3,11 @@
 import os
 import pycassa
 import sys
-import time
 
 import dbconstants
-import helper_functions
 import py_cassandra
 
-from cassandra import cassandra_interface
+from cassandra_env import cassandra_interface
 
 from pycassa import system_manager
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
@@ -76,12 +74,12 @@ def prime_cassandra(replication):
     0 on success, 1 on failure. Passed up as process exit value.
   """ 
   if int(replication) <= 0: 
-    raise AppScaleBadArg("Replication must be greater than zero")
+    raise dbconstants.AppScaleBadArg("Replication must be greater than zero")
 
   create_keyspaces(int(replication))
   print "Prime Cassandra database"
+  db = py_cassandra.DatastoreProxy()
   try:
-    db = py_cassandra.DatastoreProxy()
     db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
     db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
   # TODO: Figure out the exact exceptions we're trying to catch in the 

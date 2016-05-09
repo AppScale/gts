@@ -305,19 +305,13 @@ class AppDashboardHelper(object):
         AppScale deployment, or if it is running but does not have a port
         assigned to it.
     """
-    try:
-      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-      result = json.loads(app_data)
-      if result:
-        return [int(result['hosts'].values()[0]['http']),
-                int(result['hosts'].values()[0]['https'])]
-      else:
-        raise AppHelperException("Application {0} does not have a port number" \
-          " that it runs on.".format(appname))
-    except Exception as err:
-      logging.exception(err)
-      raise AppHelperException("Application {0} does not have a port number " \
-        "that it runs on.".format(appname))
+    app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
+    result = json.loads(app_data)
+    if not result or 'hosts' not in result or not result['hosts'].values():
+      raise AppHelperException('{} does not have a port number.'.
+                               format(appname))
+    return [int(result['hosts'].values()[0]['http']),
+            int(result['hosts'].values()[0]['https'])]
 
 
   def shell_check(self, argument):
@@ -426,16 +420,8 @@ class AppDashboardHelper(object):
     Returns:
       True if the app id has been registered, and False otherwise.
     """
-    try:
-      result = self.get_uaserver().does_app_exists(appname, GLOBAL_SECRET_KEY)
-      if search_data:
-        num_ports = int(search_data.group(1))
-        return num_ports > 0
-      else:
-        return False
-    except Exception as err:
-      logging.exception(err)
-      return False
+    result = self.get_uaserver().does_app_exist(appname, GLOBAL_SECRET_KEY)
+    return result.lower() == 'true'
 
 
   def is_user_logged_in(self):
