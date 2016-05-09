@@ -4663,7 +4663,7 @@ HOSTS
   # All nodes will compares the list of appservers they should be running,
   # with the list of appservers actually running, and make the necessary
   # adjustments. Effectively only login nodes and appengine nodes will run
-  # appserver (login nodes runs the dashboard).
+  # appservers (login nodes runs the dashboard).
   def check_running_apps()
     if my_node.is_login?
       APPS_LOCK.synchronize {
@@ -4707,7 +4707,7 @@ HOSTS
             end
             @app_names = @app_names + [app]
           rescue FailedNodeEsception
-            Djinn.log_warn("Couldn't check if app #{app} esists on #{db_private_ip}")
+            Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
           end
         }
         @app_names.uniq!
@@ -5163,7 +5163,7 @@ HOSTS
     # Let's make sure we have the minimum number of appservers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if @app_info_map[app_name]['appengine'].length < @num_appengines
-       Djinn.log_info("App #{app_name} doesn't have appservers.")
+       Djinn.log_info("App #{app_name} doesn't have enough appservers.")
        @last_decision[app_name] = 0
       return :scale_up
     end
@@ -5459,10 +5459,10 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      pid = Integer(app_manager.start_app(app, appengine_port,
+      pid = app_manager.start_app(app, appengine_port,
         get_load_balancer_ip(), app_language, xmpp_ip,
         HelperFunctions.get_app_env_vars(app),
-        Integer(@options['max_memory']), get_login.private_ip))
+        Integer(@options['max_memory']), get_login.private_ip)
     rescue FailedNodeException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
         "with AppManager: #{error.message}")
