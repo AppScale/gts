@@ -312,7 +312,7 @@ class DatastoreProxy(AppDBInterface):
                   gt_compare=gt_compare,
                   lt_compare=lt_compare,
                   column=ThriftColumn.COLUMN_NAME,
-                  limit=limit
+                  limit=len(column_names) * limit
                 )
     query = SimpleStatement(statement,
                             consistency_level=ConsistencyLevel.QUORUM)
