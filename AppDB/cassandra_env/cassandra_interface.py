@@ -3,6 +3,7 @@
 """
  Cassandra Interface for AppScale
 """
+import cassandra
 import logging
 import os
 import sys
@@ -105,7 +106,8 @@ class DatastoreProxy(AppDBInterface):
         results_dict[key][column] = value
 
       return results_dict
-    except Exception:
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during batch_put_entity'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
@@ -150,7 +152,8 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       self.session.execute(batch_insert)
-    except Exception:
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during batch_put_entity'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
@@ -184,7 +187,8 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       self.session.execute(query, parameters=parameters)
-    except Exception:
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during batch_delete'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
@@ -208,7 +212,8 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       self.session.execute(query)
-    except Exception:
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during delete_table'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
@@ -244,7 +249,8 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       self.session.execute(query)
-    except Exception:
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during create_table'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
@@ -340,7 +346,8 @@ class DatastoreProxy(AppDBInterface):
       if current_item:
         results_list.append({current_key: current_item})
       return results_list[offset:]
-    except Exception:
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during range_query'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
