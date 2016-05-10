@@ -98,7 +98,7 @@ class DatastoreProxy(AppDBInterface):
     try:
       results = self.session.execute(query, parameters=parameters)
 
-      results_dict = {}
+      results_dict = {row_key: {} for row_key in row_keys}
       for (key, column, value) in results:
         if key not in results_dict:
           results_dict[key] = {}
