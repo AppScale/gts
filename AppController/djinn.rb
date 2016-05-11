@@ -2809,13 +2809,13 @@ class Djinn
       return NO_HAPROXY_PRESENT
     end
 
-    Djinn.log_debug("Removing AppServer for app #{app_id} at #{ip}:#{port}")
+    Djinn.log_info("Removing AppServer for app #{app_id} at #{ip}:#{port}")
     if @app_info_map[app_id] and @app_info_map[app_id]['appengine']
       @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
-    else
-      Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
       HAProxy.update_app_config(my_node.private_ip, app_id,
         @app_info_map[app_id])
+    else
+      Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
     end
 
     return "OK"
@@ -5493,7 +5493,6 @@ HOSTS
   # Returns:
   #   A Boolean indicating the success of the operation.
   def remove_appserver_process(app_id, port)
-    app = app_id
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting appserver instance to free up unused resources")
 
@@ -5501,27 +5500,27 @@ HOSTS
     app_manager = AppManagerClient.new(my_node.private_ip)
 
     begin
-      app_is_enabled = uac.is_app_enabled?(app)
+      app_is_enabled = uac.is_app_enabled?(app_id)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer about " +
-        "application #{app}")
+        "application #{app_id}")
       return false
     end
-    Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
+    Djinn.log_debug("is app #{app_id} enabled? #{app_is_enabled}")
     if app_is_enabled == "false"
       return false
     end
 
     begin
-      result = app_manager.stop_app_instance(app, port)
+      result = app_manager.stop_app_instance(app_id, port)
     rescue FailedNodeException
       Djinn.log_error("Unable to talk to the UserAppServer " +
-        "stop instance on port #{port} for application #{app_name}.")
+        "stop instance on port #{port} for application #{app_id}.")
       result = false
     end
     if !result
       Djinn.log_error("Unable to stop instance on port #{port} " +
-        "application #{app_name}")
+        "application #{app_id}")
     end
 
     # Tell the AppDashboard that the AppServer has been killed.

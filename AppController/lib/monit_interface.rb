@@ -165,15 +165,14 @@ BOO
   # Returns:
   #   A list of application:port records.
   def self.running_appengines()
+    appengines = []
     output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
-    appengines = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
-    if appengines
-      Djinn.log_debug("Found these appservers processes running: #{appengines.gsub("\n", ' ')}.")
-      return appengines.split("\n")
-    else
-      Djinn.log_debug("Found no appserver process running.")
-      return []
-    end
+    appengines_raw = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
+    appengines_raw.split("\n").each{ |appengine|
+      appengines << appengine if !appengine.split(":")[1].nil?
+    }
+    Djinn.log_debug("Found these appservers processes running: #{appengines}.")
+    return appengines
   end
 
   private
