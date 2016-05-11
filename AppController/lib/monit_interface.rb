@@ -168,9 +168,12 @@ BOO
     appengines = []
     output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
     appengines_raw = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
-    appengines_raw.split("\n").each{ |appengine|
-      appengines << appengine if !appengine.split(":")[1].nil?
-    }
+    if appengines_raw
+      appengines_raw.split("\n").each{ |appengine|
+        appengines << appengine if !appengine.split(":")[1].nil?
+      }
+    end
+
     Djinn.log_debug("Found these appservers processes running: #{appengines}.")
     return appengines
   end
