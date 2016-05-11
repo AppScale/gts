@@ -4759,6 +4759,9 @@ HOSTS
     MonitInterface.running_appengines().each { |appengine|
       app, port = appengine.split(":")
 
+      # Nothing to do if we already account for this appserver.
+      next if my_apps.include?(appengine)
+
       # If the app needs to be started, but we have an appserver not
       # accounted for, we don't take action (ie we wait for headnode
       # state to settle).
@@ -4766,8 +4769,8 @@ HOSTS
         Djinn.log_debug("Ignoring request for #{app} since we have pending appservers.")
         to_start.delete(app)
       else
-        # Otherwise terminate the ones we cannot account for.
-        to_end << "#{appengine}" if !my_apps.include?(appengine)
+        # Otherwise terminate it.
+        to_end << appengine
       end
     }
     Djinn.log_debug("Appservers to start: #{to_start}.") if !to_start.empty?
