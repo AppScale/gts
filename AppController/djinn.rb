@@ -4733,6 +4733,7 @@ HOSTS
 
     to_end = []
     to_start = []
+    no_appservers = []
     my_apps = []
     @app_info_map.each { |app, info|
       next if not info['appengine']
@@ -4744,15 +4745,31 @@ HOSTS
 
         if Integer(port) < 0
           to_start << app
+          no_appservers << app
         elsif not MonitInterface.is_running?("#{app}-#{port}")
           Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
           to_end << "#{app}:#{port}"
         else
           my_apps << "#{app}:#{port}"
+          no_appservers.delete(app)
         end
       }
     }
     Djinn.log_debug("Running appservers on this node: #{my_apps}.") if !my_apps.empty?
+
+    # We want to give priorities to applications that have no appserver
+    # running.
+    to_start.each{ |app|
+      no_appservers.delete(app) if to_start.count(app) != no_appservers.count(app)
+    }
+
+    # We only do one operation at a time per app (start/stop) since
+    # those operations are expensive and we want to re-evalute the
+    # priority often.
+    to_start.uniq!
+    no_appservers.uniq!
+    to_end.uniq!
+    to_start = to_start - no_appservers
 
     # Check that all the appservers running are indeed known to the
     # head node.
@@ -4765,14 +4782,16 @@ HOSTS
       # If the app needs to be started, but we have an appserver not
       # accounted for, we don't take action (ie we wait for headnode
       # state to settle).
-      if to_start.include?(app)
+      if to_start.include?(app) or no_appservers.include?(app)
         Djinn.log_debug("Ignoring request for #{app} since we have pending appservers.")
         to_start.delete(app)
+        no_appservers.delete(app)
       else
         # Otherwise terminate it.
         to_end << appengine
       end
     }
+    Djinn.log_debug("First appserver to start: #{no_appservers}.") if !no_appservers.empty?
     Djinn.log_debug("Appservers to start: #{to_start}.") if !to_start.empty?
     Djinn.log_debug("Appservers to terminate: #{to_end}.") if !to_end.empty?
 
@@ -4780,6 +4799,11 @@ HOSTS
     # some time to start/stop apps, we do this in a thread.
     Thread.new {
       AMS_LOCK.synchronize {
+        no_appservers.each { |app|
+          Djinn.log_info("Starting appserver for app: #{app}.")
+          ret = add_appserver_process(app)
+          Djinn.log_debug("add_appserver_process returned: #{ret}.")
+        }
         to_start.each { |app|
           Djinn.log_info("Starting appserver for app: #{app}.")
           ret = add_appserver_process(app)
