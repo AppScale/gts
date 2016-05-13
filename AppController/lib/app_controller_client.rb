@@ -81,8 +81,6 @@ class AppControllerClient
     @conn.add_method("add_role", "new_role", "secret")
     @conn.add_method("remove_role", "old_role", "secret")
     @conn.add_method("get_queues_in_use", "secret")
-    @conn.add_method("add_appserver_process", "app_id", "secret")
-    @conn.add_method("remove_appserver_process", "app_id", "port", "secret")
     @conn.add_method("set_node_read_only", "read_only", "secret")
   end
 
@@ -234,18 +232,6 @@ class AppControllerClient
   def set_apps_to_restart(app_names)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
       @conn.set_apps_to_restart(app_names, @secret)
-    }
-  end
-
-  def add_appserver_process(app_id)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "add_appserver_process") {
-      @conn.add_appserver_process(app_id, @secret)
-    }
-  end
-
-  def remove_appserver_process(app_id, port)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_appserver_process") {
-      @conn.remove_appserver_process(app_id, port, @secret)
     }
   end
 
