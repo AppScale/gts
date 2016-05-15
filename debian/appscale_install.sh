@@ -55,6 +55,7 @@ case "$1" in
         increaseconnections
         installVersion
         installrequests
+        installpyopenssl
         postinstallrsyslog
         installpsutil
         buildgo

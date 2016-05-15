@@ -498,6 +498,14 @@ installrequests()
     fi
 }
 
+# pyOpenSSL is required for client SNI support on Python < 2.7.9.
+installpyopenssl()
+{
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper pyopenssl
+    fi
+}
+
 postinstallrsyslog()
 {
     # We need to enable remote logging capability. We have found 2
