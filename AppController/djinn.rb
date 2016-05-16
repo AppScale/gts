@@ -2560,7 +2560,7 @@ class Djinn
         ae_nodes << node.private_ip
       end
     }
-    return ae_nodes
+    return ae_nodes.shuffle
   end
 
   def get_load_balancer_ip()
@@ -5291,11 +5291,9 @@ HOSTS
     # All the available appengine servers.
     appservers_running = get_all_appengine_nodes()
 
-    # Add an AppServer on the machine with the lowest number of AppServers
-    # running, but only if it has enough resources to support another
-    # AppServer.
-    appserver_to_use = nil
-    lowest_load = nil
+    # Select an appengine machine if it has enough resources to support
+    # another AppServer for this app.
+    available_hosts = {}
     appservers_running.each { |host|
       @all_stats.each { |node|
         if node['private_ip'] == host
@@ -5305,13 +5303,7 @@ HOSTS
           if Float(node['free_memory']) > Integer(@options['max_memory']) + SAFE_MEM and
               Float(node['cpu']) < MAX_CPU_FOR_APPSERVERS and
               Float(node['load']) / Float(node['num_cpu']) < MAX_LOAD_AVG
-            # The host can run a new appserver. Let's check if it's a
-            # better candidate (we do use lowest cpu load for it).
-            if lowest_load == nil or
-                lowest_load > (Float(node['load']) / Float(node['num_cpu']))
-              appserver_to_use = host
-              lowest_load = Float(node['load']) / Float(node['num_cpu'])
-            end
+            available_hosts[host] = (Float(node['load']) / Float(node['num_cpu']))
           else
             Djinn.log_debug("#{host} is too busy: not using it to scale #{app_name}")
           end
@@ -5320,8 +5312,21 @@ HOSTS
       }
     }
 
-    # If we found a host, let's use it.
+    # Now let's prefer hosts that are not already running a copy of this
+    # app. Otherwise we select the host with the lowest load.
+    appserver_to_use = available_hosts.keys[0]
     if appserver_to_use != nil
+      available_hosts.each{ |host load|
+        appserver_to_use = host if available_hosts[appserver_to_use] > load
+      }
+      if @app_info_map[app_name]['appengine']
+        @app_info_mapinfo[app_name]['appengine'].each { |location|
+          host, port = location.split(":")
+          if available_hosts[host] == nil
+            appserver_to_use = host
+          end
+        }
+      }
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
