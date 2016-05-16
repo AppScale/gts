@@ -2560,7 +2560,7 @@ class Djinn
         ae_nodes << node.private_ip
       end
     }
-    return ae_nodes.shuffle
+    return ae_nodes
   end
 
   def get_load_balancer_ip()
@@ -5320,7 +5320,7 @@ HOSTS
         appserver_to_use = host if available_hosts[appserver_to_use] > load
       }
       if @app_info_map[app_name]['appengine']
-        @app_info_mapinfo[app_name]['appengine'].each { |location|
+        @app_info_map[app_name]['appengine'].each { |location|
           host, port = location.split(":")
           if available_hosts[host] == nil
             appserver_to_use = host
