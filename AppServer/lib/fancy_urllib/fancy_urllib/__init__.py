@@ -18,6 +18,10 @@ from urllib import splittype
 from urllib import splituser
 import urllib2
 
+from OpenSSL.SSL import Connection
+from OpenSSL.SSL import Context
+from OpenSSL.SSL import TLSv1_METHOD
+
 
 class InvalidCertificateException(httplib.HTTPException):
   """Raised when a certificate is provided with an invalid hostname."""
@@ -131,6 +135,26 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
         return [x[0][1] for x in cert["subject"]
                 if x[0][0].lower() == "commonname"]
 
+    def _cert_host_matches_hostname(self, cert_host, hostname):
+      """ Check if a certificate hostname matches a given hostname.
+
+      Returns:
+        bool: Whether or not the hostname is valid for the given cert_host.
+      """
+      # Wildcards are only valid when the * exists at the end of the last
+      # (left-most) label, and there are at least 3 labels in the expression.
+      if ("*." in cert_host and cert_host.count("*") == 1 and
+          cert_host.count(".") > 1 and "." in hostname):
+        left_expected, right_expected = cert_host.split("*.")
+        left_hostname, right_hostname = hostname.split(".", 1)
+        if (left_hostname.startswith(left_expected) and
+            right_expected == right_hostname):
+          return True
+      elif cert_host == hostname:
+        return True
+      else:
+        return False
+
     def _validate_certificate_hostname(self, cert, hostname):
       """Perform RFC2818/6125 validation against a cert and hostname.
 
@@ -140,20 +164,33 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
       Returns:
         bool: Whether or not the hostname is valid for this certificate.
       """
-      hosts = self._get_valid_hosts_for_cert(cert)
-      for host in hosts:
-        # Wildcards are only valid when the * exists at the end of the last
-        # (left-most) label, and there are at least 3 labels in the expression.
-        if ("*." in host and host.count("*") == 1 and
-            host.count(".") > 1 and "." in hostname):
-          left_expected, right_expected = host.split("*.")
-          left_hostname, right_hostname = hostname.split(".", 1)
-          if (left_hostname.startswith(left_expected) and
-              right_expected == right_hostname):
-            return True
-        elif host == hostname:
+      cert_hosts = self._get_valid_hosts_for_cert(cert)
+      for cert_host in cert_hosts:
+        if self._cert_host_matches_hostname(cert_host, hostname):
           return True
       return False
+
+    def _validate_certificate_hostname_pyopenssl(self):
+      """ Use pyOpenSSL check if the host's certifcate matches the hostname.
+
+      Python < 2.7.9 is not able to provide a server hostname for SNI, so this
+      is a fallback that opens an additional connection if the initial
+      validation failed.
+
+      Returns:
+        bool: Whether or not the hostname is valid on the certificate.
+      """
+      client = socket.socket()
+      client.connect((self.host, self.port))
+      client_ssl = Connection(Context(TLSv1_METHOD), client)
+      client_ssl.set_connect_state()
+      client_ssl.set_tlsext_host_name(self.host)
+      client_ssl.do_handshake()
+      cert = client_ssl.get_peer_certificate()
+      client_ssl.close()
+
+      common_name = cert.get_subject().commonName
+      return self._cert_host_matches_hostname(common_name, self.host)
 
     def connect(self):
       # TODO(frew): When we drop support for <2.6 (in the far distant future),
@@ -178,7 +215,8 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
         if self.cert_reqs & ssl.CERT_REQUIRED:
           cert = self.sock.getpeercert()
           hostname = self.host.split(":", 0)[0]
-          if not self._validate_certificate_hostname(cert, hostname):
+          if (not self._validate_certificate_hostname(cert, hostname) and
+              not self._validate_certificate_hostname_pyopenssl()):
             raise InvalidCertificateException(hostname, cert,
                                               "hostname mismatch")
       else:
