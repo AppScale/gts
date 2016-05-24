@@ -17,6 +17,13 @@ MONIT = "/usr/bin/monit"
 
 NUM_RETRIES = 10
 
+# Template used for creating monit coniguration files.
+TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
+                    "/templates/monit_template_for_upgrade.conf"
+
+# The directory used when storing a service's config file.
+MONIT_CONFIG_DIR = '/etc/monit/conf.d'
+
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).
@@ -127,3 +134,46 @@ def restart(watch):
 
   logging.info("Restarting watch {0}".format(watch))
   return run_with_retry([MONIT, 'restart', '-g', watch])
+
+def create_monit_config_file(watch, start_cmd, stop_cmd, ports, match_cmd,
+    env_vars={}, max_memory=500):
+  """ Reads in a template file for monit and fills it with the
+      correct configuration. The caller is responsible for deleting
+      the created file.
+
+  Args:
+    watch: A string which identifies this process with monit
+    start_cmd: The start command to start the process.
+    stop_cmd: The stop command to kill the process.
+    match_cmd: The command which matches the cassandra directory.
+    ports: A list of ports that are being watched.
+    env_vars: The environment variables used when starting the process.
+    max_memory: An int that names the maximum amount of memory that this process
+      is allowed to use (in megabytes) before monit should restart it.
+  Returns:
+    The name of the created configuration file.
+  Raises:
+    TypeError with bad argument types.
+  """
+  if not isinstance(watch, str): raise TypeError("Expected str")
+  if not isinstance(start_cmd, str): raise TypeError("Expected str")
+  if not isinstance(stop_cmd, str): raise TypeError("Expected str")
+  if not isinstance(ports, list): raise TypeError("Expected list")
+  if not isinstance(env_vars, dict): raise TypeError("Expected dict")
+
+  env = ""
+  for ii in env_vars:
+    env += "export " + str(ii) + "=\"" + str(env_vars[ii]) + "\" && "
+
+  # Convert ints to strings for template formatting
+  for index, ii in enumerate(ports): ports[index] = str(ii)
+  template = ""
+  for port in ports:
+    template = file_io.read(TEMPLATE_LOCATION)
+    template = template.format(watch, start_cmd, stop_cmd, port, match_cmd,
+      env, max_memory)
+
+    config_file = '{}/appscale-{}-{}.cfg'.format(MONIT_CONFIG_DIR, watch, port)
+    file_io.write(config_file, template)
+
+  return

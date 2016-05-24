@@ -118,7 +118,7 @@ class ZKTransaction:
   """
 
   # The number of times we should retry ZooKeeper operations, by default.
-  DEFAULT_NUM_RETRIES = 0
+  DEFAULT_NUM_RETRIES = 5
 
   # How long to wait before retrying an operation.
   ZK_RETRY_TIME = .5
