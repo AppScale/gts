@@ -8,8 +8,6 @@ public class ResourceLoader
     private final int             PROTOCOL_BUFFER_PORT      = 8888;
     private final String          DB_LOCATION_PROPERTY      = "DB_LOCATION";
     private static String         apphome                   = "/root/appscale";
-    private String                DEFAULT_KEY_STORE_PATH    = "/AppServer_Java/keystore.ImportKey";
-    private String                DEFAULT_KEYSTORE_PASSWORD = "importkey";
     private final static String   APPSCALE_HOME_PROPERTY    = "APPSCALE_HOME";
     private final String          HADOOP_PATH               = "/AppDB/hadoop-0.20.0";
     private final String          MEMCACHE_SERVER_IP_PATH   = "/.appscale/memcache_ips";
@@ -26,16 +24,6 @@ public class ResourceLoader
         }
         System.out.println("appscale home is: " + apphome);
         return res;
-    }
-
-    public String getKeyStorePath()
-    {
-        return apphome + DEFAULT_KEY_STORE_PATH;
-    }
-
-    public String getKetStorePwd()
-    {
-        return DEFAULT_KEYSTORE_PASSWORD;
     }
 
     public boolean getDatastoreSecurityMode()
