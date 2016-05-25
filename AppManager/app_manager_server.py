@@ -691,7 +691,6 @@ def create_java_start_cmd(app_name, port, load_balancer_host):
   # local FS and see what port it's running on. The value doesn't matter.
   cmd = [
     "cd " + constants.JAVA_APPSERVER + " &&",
-    "./genKeystore.sh &&",
     "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
     "--port=" + str(port),
     #this jvm flag allows javax.email to connect to the smtp server
