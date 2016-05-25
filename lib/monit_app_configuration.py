@@ -13,11 +13,13 @@ TEMPLATE_LOCATION_SYSLOG = os.path.join(os.path.dirname(__file__)) +\
 TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
                     "/templates/monit_template.conf"
 
+TEMPLATE_LOCATION_FOR_UPGRADE = os.path.join(os.path.dirname(__file__)) + \
+                    "/templates/monit_template_for_upgrade.conf"
 # The directory used when storing a service's config file.
 MONIT_CONFIG_DIR = '/etc/monit/conf.d'
 
 def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
-  max_memory=500, syslog_server="", host=None):
+  max_memory=500, syslog_server="", host=None, upgrade_flag=False, match_cmd=""):
   """ Reads in a template file for monit and fills it with the 
       correct configuration. The caller is responsible for deleting 
       the created file.
@@ -61,9 +63,14 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
       template = template.format(watch, start_cmd, stop_cmd, port, env,
         max_memory, syslog_server)
     else:
-      template = file_io.read(TEMPLATE_LOCATION)
-      template = template.format(watch, start_cmd, stop_cmd, port, env,
-        max_memory)
+      if upgrade_flag:
+        template = file_io.read(TEMPLATE_LOCATION_FOR_UPGRADE)
+        template = template.format(watch, start_cmd, stop_cmd, port, match_cmd,
+          env, max_memory)
+      else:
+        template = file_io.read(TEMPLATE_LOCATION)
+        template = template.format(watch, start_cmd, stop_cmd, port, env,
+          max_memory)
 
     if host:
       template += "  if failed host {} port {} then restart\n".\
