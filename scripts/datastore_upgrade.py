@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -28,8 +29,14 @@ CASSANDRA_EXECUTABLE = CASSANDRA_DIR + "/cassandra/bin/cassandra"
 
 PID_FILE = "/var/appscale/appscale-cassandra.pid"
 
+# The default port to connect to Cassandra.
+CASSANDRA_PORT = 9999
+
 # The default port to connect to ZooKeeper.
-ZK_PORT = ":2181"
+ZOOKEEPER_PORT = 2181
+
+# Default ZooKeeper port formatted with a colon.
+ZK_PORT_WITH_COLON = ":" + str(ZOOKEEPER_PORT)
 
 # The location on the local filesystem where we should store ZooKeeper data.
 ZK_DATA_LOCATION = "/opt/appscale/zookeeper"
@@ -39,29 +46,29 @@ _MAX_ENTITIES = 1000000
 
 def ensure_app_is_not_running():
   """ Ensures AppScale is not running as this is an offline script. """
-  print ("Ensure AppScale is not currently running...")
+  logging.info("Ensure AppScale is not currently running...")
   appscale_running = subprocess.call(['service', CONTROLLER_SERVICE, 'status']) == 0
   if appscale_running:
-    print ("AppScale is running, please shut it down and try again.")
-    exit(1)
+    logging.info("AppScale is running, please shut it down and try again.")
+    sys.exit(1)
 
 def start_cassandra():
   """ Creates a monit configuration file and prompts Monit to start Cassandra. """
-  print ("Starting Cassandra...")
+  logging.info("Starting Cassandra...")
   watch = "cassandra"
   start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
   stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
   monit_app_configuration.create_config_file(watch, start_cmd, stop_cmd,
-    ports=[9999], upgrade_flag=True, match_cmd=CASSANDRA_DIR)
+    ports=[CASSANDRA_PORT], upgrade_flag=True, match_cmd=CASSANDRA_DIR)
   if not monit_interface.start(watch):
-    print ("Unable to start Cassandra.")
-    exit(1)
+    logging.info("Unable to start Cassandra.")
+    sys.exit(1)
   else:
-    print ("Successfully started Cassandra.")
+    logging.info("Successfully started Cassandra.")
 
 def start_zookeeper():
   """ Creates a monit configuration file and prompts Monit to start ZooKeeper. """
-  print ("Starting ZooKeeper...")
+  logging.info("Starting ZooKeeper...")
   os.system("rm -rfv /var/lib/zookeeper")
   os.system("rm -rfv {}".format(ZK_DATA_LOCATION))
   zk_server = "zookeeper-server"
@@ -69,15 +76,15 @@ def start_zookeeper():
     zk_server = "zookeeper"
 
   if not os.path.isdir(ZK_DATA_LOCATION):
-    print ("Initializing ZooKeeper")
+    logging.info("Initializing ZooKeeper")
     os.system("/usr/sbin/service " + "zookeeper" + " stop")
     os.system("mkdir -pv " + ZK_DATA_LOCATION)
     os.system("chown -Rv zookeeper:zookeeper " + ZK_DATA_LOCATION)
 
   if zk_server == "zookeeper-server":
     if not os.system("/usr/sbin/service " + "zookeeper" + " init"):
-      print ("Failed to start zookeeper!")
-      exit(1)
+      logging.info("Failed to start zookeeper!")
+      sys.exit(1)
 
   os.system("ln -sfv /etc/zookeeper/conf/myid " + ZK_DATA_LOCATION + "/myid")
   watch = "zookeeper"
@@ -85,13 +92,13 @@ def start_zookeeper():
   stop_cmd = "/usr/sbin/service " + "zookeeper" + " stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
   monit_app_configuration.create_config_file(watch, start_cmd, stop_cmd,
-    ports=[2181], upgrade_flag=True, match_cmd=match_cmd)
+    ports=[ZOOKEEPER_PORT], upgrade_flag=True, match_cmd=match_cmd)
 
   if not monit_interface.start(watch):
-    print ("Unable to start ZooKeeper")
-    exit(1)
+    logging.info("Unable to start ZooKeeper")
+    sys.exit(1)
   else:
-    print ("Successfully started ZooKeeper")
+    logging.info("Successfully started ZooKeeper")
 
 def validate_and_update_entities(datastore, ds_distributed):
   """ Returns the SOAP server accessor to deal with application and users.
@@ -107,8 +114,8 @@ def validate_and_update_entities(datastore, ds_distributed):
     current_entities = datastore.range_query(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, "", "", _MAX_ENTITIES)
 
   except Exception as ex:
-    print ("Exception on range query: {}".format(str(ex)))
-    exit(1)
+    logging.info("Exception on range query: {}".format(str(ex)))
+    sys.exit(1)
 
   # Remove the tombstoned entities from the list.
   tombstoneless_entities = ds_distributed.remove_tombstoned_entities(current_entities)
@@ -134,10 +141,10 @@ def delete_tombstoned_entities_from_table(datastore, current_entities, validated
   invalid_entity_keys = compare_and_get_invalid_keys(current_entities, valid_entity_keys)
   try:
     datastore.batch_delete(APP_ENTITY_TABLE, invalid_entity_keys)
-    print ("Batch delete was successful")
+    logging.info("Batch delete was successful")
   except AppScaleDBConnectionError as error:
-    print("Exception on batch delete: {}".format(str(error)))
-    exit(1)
+    logging.info("Exception on batch delete: {}".format(str(error)))
+    sys.exit(1)
 
 def update_entities_table(datastore, entities, validated_entities):
   """ Updates the APP_ENTITY_TABLE with valid entities if any.
@@ -167,10 +174,10 @@ def update_entities_table(datastore, entities, validated_entities):
 
   try:
     datastore.batch_put_entity(APP_ENTITY_TABLE, row_keys_to_update, APP_ENTITY_SCHEMA, cell_values_to_update)
-    print("Batch put entities was successful")
+    logging.info("Batch put entities was successful")
   except  AppScaleDBConnectionError as error:
-    print("Exception on batch put entity: {}".format(str(error)))
-    exit(1)
+    logging.info("Exception on batch put entity: {}".format(str(error)))
+    sys.exit(1)
 
 def is_txn_id_same(entity, key, valid_entity):
   """ Compares if the transaction id is the same for the current and
@@ -237,7 +244,7 @@ def get_zk_locations_string(zk_location_ips):
   Returns:
     A string of ZooKeeper IP locations
   """
-  return (ZK_PORT + ",").join(zk_location_ips) + ZK_PORT
+  return (ZK_PORT_WITH_COLON + ",").join(zk_location_ips) + ZK_PORT_WITH_COLON
 
 def get_app_ids_from_entities(entities_without_tombstoned_values):
   """ Returns a list of app_ids stripped of the entity keys.
@@ -282,7 +289,7 @@ def get_datastore_distributed(datastore, zk_location_ips):
 if __name__ == "__main__":
   total = len(sys.argv)
   if not total > 1:
-    exit(1)
+    sys.exit(1)
 
   zk_location_ips = []
   for i in range(total):
@@ -290,6 +297,12 @@ if __name__ == "__main__":
     if i == 0:
       continue
     zk_location_ips.append(str(sys.argv[i]))
+
+  # Set up logging.
+  level = logging.INFO
+  logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
+    '%(lineno)s %(message)s ', level=level)
+  logging.info("Logging started for datastore upgrade script.")
 
   # This datastore upgrade script is to be run offline, so make sure
   # appscale is not up while running this script.
