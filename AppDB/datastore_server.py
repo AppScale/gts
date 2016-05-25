@@ -734,6 +734,8 @@ class DatastoreDistributed():
 
     self.logger.debug('Inserting {} entities with transaction hash {}'.
       format(len(entities), txn_hash))
+    if (len(entities)) == 1:
+      self.logger.debug('Entity: {}'.format(entities[0]))
     row_values = {}
     row_keys = []
 
@@ -1838,6 +1840,7 @@ class DatastoreDistributed():
       ZKTransactionException: If a lock was unable to get acquired.
     """ 
     keys = get_request.key_list()
+    self.logger.debug('Fetching {} entity keys'.format(len(keys)))
     txnid = 0
     if get_request.has_transaction():
       prefix = self.get_table_prefix(keys[0])
@@ -1856,6 +1859,8 @@ class DatastoreDistributed():
       if r in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[r]:
         group.mutable_entity().CopyFrom(
           entity_pb.EntityProto(results[r][dbconstants.APP_ENTITY_SCHEMA[0]]))
+        if len(keys) == 1:
+          self.logger.debug('Entity: {}'.format(group))
 
   def dynamic_delete(self, app_id, delete_request):
     """ Deletes a set of rows.
