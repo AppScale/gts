@@ -61,7 +61,7 @@ class DatastoreProxy(AppDBInterface):
     # In a one node deployment, the master is also written in the slaves file,
     # so we have to take out any duplicates.
     self.hosts = list(set(database_master + database_slaves))
-    self.cluster = Cluster(self.hosts)
+    self.cluster = Cluster(self.hosts, protocol_version=2)
     self.session = self.cluster.connect(KEYSPACE)
 
   def batch_get_entity(self, table_name, row_keys, column_names):
