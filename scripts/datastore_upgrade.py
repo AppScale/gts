@@ -50,8 +50,10 @@ LOG_PROGRESS_FREQUENCY = 30
 # Max sleep time for Cassandra and ZooKeeper to be up.
 SLEEP_TIME = 20
 
+# Monit watch name for Cassandra.
 CASSANDRA_WATCH_NAME = "cassandra"
 
+# Monit watch name for ZooKeeper.
 ZK_WATCH_NAME = "zookeeper"
 
 def ensure_app_is_not_running():
@@ -252,7 +254,7 @@ def get_zk_locations_string(zk_location_ips):
   Args:
     zk_location_ips: A list of ZooKeeper IP locations.
   Returns:
-    A string of ZooKeeper IP locations
+    A string of ZooKeeper IP locations.
   """
   return (ZK_PORT_WITH_COLON + ",").join(zk_location_ips) + ZK_PORT_WITH_COLON
 
