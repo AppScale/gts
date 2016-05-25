@@ -353,12 +353,7 @@ installcassandra()
         pipwrapper  thrift
     fi
     pipwrapper  pycassa
-
-    # A bug in cassandra-driver prevents us from installing from PyPI.
-    CASSANDRA_DRIVER_PACKAGE="cassandra-driver-3.3.0-appscale.tar.gz"
-    CASSANDRA_DRIVER_PACKAGE_MD5="0efe5a0c22708fa3a5e8f6a0f5977ee8"
-    cachepackage ${CASSANDRA_DRIVER_PACKAGE} ${CASSANDRA_DRIVER_PACKAGE_MD5}
-    pipwrapper "${PACKAGE_CACHE}/${CASSANDRA_DRIVER_PACKAGE}"
+    pipwrapper cassandra-driver
 
     JAMM_PACKAGE="jamm-0.2.2.jar"
     JAMM_PACKAGE_MD5="07829fab6b45af032e061b5708cfbb3b"
