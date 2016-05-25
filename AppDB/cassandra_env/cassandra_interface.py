@@ -108,7 +108,7 @@ class DatastoreProxy(AppDBInterface):
       return results_dict
     except (cassandra.Unavailable, cassandra.Timeout,
             cassandra.CoordinationFailure, cassandra.OperationTimedOut):
-      message = 'Exception during batch_put_entity'
+      message = 'Exception during batch_get_entity'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
