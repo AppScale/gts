@@ -283,7 +283,6 @@ fi
 
 # Let's source the profles so this image can be used right away.
 . /etc/profile.d/appscale.sh
-. /etc/profile.d/appscale-tools.sh
 
 echo "*****************************************"
 echo "AppScale and AppScale tools are installed"
