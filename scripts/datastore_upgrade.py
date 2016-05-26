@@ -73,10 +73,10 @@ def start_cassandra():
     ports=[CASSANDRA_PORT], upgrade_flag=True,
     match_cmd=cassandra_interface.CASSANDRA_INSTALL_DIR)
   if not monit_interface.start(CASSANDRA_WATCH_NAME):
-    logging.error("Unable to start Cassandra.")
+    logger.error("Monit was unable to start Cassandra.")
     sys.exit(1)
   else:
-    logging.info("Successfully started Cassandra.")
+    logger.info("Successfully started Cassandra.")
 
 def start_zookeeper():
   """ Creates a monit configuration file and prompts Monit to start ZooKeeper. """
@@ -98,7 +98,7 @@ def start_zookeeper():
   if zk_server == "zookeeper-server":
     zk_init = subprocess.call(['/usr/sbin/service', 'zookeeper', 'init']) == 0
     if not zk_init:
-      logging.error("Failed to start zookeeper!")
+      logger.error("Failed to start zookeeper.")
       sys.exit(1)
 
   start_cmd = "/usr/sbin/service " + "zookeeper" + " start"
@@ -108,10 +108,10 @@ def start_zookeeper():
     ports=[zk.DEFAULT_PORT], upgrade_flag=True, match_cmd=match_cmd)
 
   if not monit_interface.start(ZK_WATCH_NAME):
-    logging.error("Unable to start ZooKeeper")
+    logger.error("Monit was unable to start ZooKeeper.")
     sys.exit(1)
   else:
-    logging.info("Successfully started ZooKeeper")
+    logger.info("Successfully started ZooKeeper.")
 
 def validate_and_update_entities(datastore, ds_distributed):
   """ Validates entities in batches of BATCH_SIZE, deletes tombstoned
@@ -125,7 +125,7 @@ def validate_and_update_entities(datastore, ds_distributed):
   last_logged = time.time()
   while True:
     try:
-      logging.debug("Fetching {} entities".format(BATCH_SIZE))
+      logger.debug("Fetching {} entities".format(BATCH_SIZE))
       entities = get_entity_batch(last_key, datastore, BATCH_SIZE)
 
       if not entities:
@@ -138,12 +138,12 @@ def validate_and_update_entities(datastore, ds_distributed):
       entities_checked += len(entities)
 
       if time.time() > last_logged + LOG_PROGRESS_FREQUENCY:
-        logging.info("Checked {} entities".format(entities_checked))
+        logger.info("Checked {} entities".format(entities_checked))
         last_logged = time.time()
     except datastore_errors.Error as error:
-      logging.error("Error getting a batch of entities: {}".format(error))
+      logger.error("Error getting a batch of entities: {}".format(error))
     except AppScaleDBConnectionError as connection_error:
-      logging.error("Error getting a batch of entities: {}".format(connection_error))
+      logger.error("Error getting a batch of entities: {}".format(connection_error))
 
 def get_entity_batch(last_key, datastore, batch_size):
   """ Gets a batch of entities to operate on.
@@ -166,7 +166,7 @@ def process_entity(entity, datastore, ds_distributed):
   Returns:
     True on success, False otherwise.
   """
-  logging.debug("Process entity {}".format(str(entity)))
+  logger.debug("Process entity {}".format(str(entity)))
   key = entity.keys()[0]
   one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
@@ -203,10 +203,10 @@ def update_entity_in_table(key, validated_entity, datastore):
   try:
     datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA, cell_values_to_update)
   except AppScaleDBConnectionError as connection_error:
-    logging.error("Error updating key {0}: {1}".format(key, connection_error))
+    logger.error("Error updating key {0}: {1}".format(key, connection_error))
     return False
   except Exception as ex:
-    logging.exception("Unexpected exception {}".format(ex))
+    logger.exception("Unexpected exception while updating entity: {}".format(ex))
     return False
   return True
 
@@ -222,10 +222,10 @@ def delete_entity_from_table(key, datastore):
   try:
     datastore.batch_delete(APP_ENTITY_TABLE, [key])
   except AppScaleDBConnectionError as connection_error:
-    logging.error("Error deleting key {0}: {1}".format(key, connection_error))
+    logger.error("Error deleting key {0}: {1}".format(key, connection_error))
     return False
   except Exception as ex:
-    logging.exception("Unexpected exception {}".format(ex))
+    logger.exception("Unexpected exception {}".format(ex))
     return False
   return True
 
@@ -275,6 +275,12 @@ if __name__ == "__main__":
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=level)
   logging.info("Logging started for datastore upgrade script.")
+  logger = logging.getLogger('upgrade')
+  handler = logging.FileHandler('/var/log/appscale/upgrade.log')
+  formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+  handler.setFormatter(formatter)
+  logger.addHandler(handler)
+  logger.setLevel(logging.INFO)
 
   # This datastore upgrade script is to be run offline, so make sure
   # appscale is not up while running this script.
@@ -293,16 +299,25 @@ if __name__ == "__main__":
   # Loop through entities table, fetch valid entities from journal table
   # if necessary, delete tombstoned entities and updated invalid ones.
   validate_and_update_entities(datastore, ds_distributed)
+  logger.info("Updated invalid entities and deleted tombstoned entities.")
 
   # Close the connection to ZKTransaction.
   zookeeper.close()
+  logger.info("Closed the connection to ZKTransaction.")
+
+  # Drop the Journal table.
+  # datastore.delete_table(JOURNAL_TABLE)
+  logger.info("Successfully dropped the Journal Table.")
 
   # Stop Cassandra.
   if not monit_interface.stop(CASSANDRA_WATCH_NAME):
     logging.error("Unable to stop Cassandra.")
     sys.exit(1)
+  logger.info("Monit successfully stopped Cassandra.")
 
   # Stop ZooKeeper.
   if not monit_interface.stop(ZK_WATCH_NAME):
     logging.error("Unable to stop ZooKeeper.")
     sys.exit(1)
+  logger.info("Monit successfully stopped ZooKeeper.")
+  logger.info("Data upgrade status: SUCCESS")
