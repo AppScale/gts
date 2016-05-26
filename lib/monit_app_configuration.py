@@ -65,8 +65,8 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
     else:
       if upgrade_flag:
         template = file_io.read(TEMPLATE_LOCATION_FOR_UPGRADE)
-        template = template.format(watch, start_cmd, stop_cmd, port, match_cmd,
-          env, max_memory)
+        template = template.format(watch=watch, start=start_cmd, stop=stop_cmd,
+          port=port, match=match_cmd, env=env, memory=max_memory)
       else:
         template = file_io.read(TEMPLATE_LOCATION)
         template = template.format(watch, start_cmd, stop_cmd, port, env,
