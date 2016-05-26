@@ -11,6 +11,7 @@ import sys
 from dbconstants import AppScaleDBConnectionError
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
+from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
@@ -36,6 +37,43 @@ STANDARD_COL_FAM = "Standard1"
 
 # Cassandra watch name.
 CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
+
+
+class IdempotentRetryPolicy(RetryPolicy):
+  """ A policy used for retrying idempotent statements. """
+  def on_read_timeout(self, query, consistency, required_responses,
+                      received_responses, data_retrieved, retry_num):
+    """ This is called when a ReadTimeout occurs.
+
+    Args:
+      query: A statement that timed out.
+      consistency: The consistency level of the statement.
+      required_responses: The number of responses required.
+      received_responses: The number of responses received.
+      data_retrieved: Indicates whether any responses contained data.
+      retry_num: The number of times the statement has been tried.
+    """
+    if retry_num >= 5:
+      return self.RETHROW, None
+    else:
+      return self.RETRY, consistency
+
+  def on_write_timeout(self, query, consistency, write_type,
+                       required_responses, received_responses, retry_num):
+    """ This is called when a WriteTimeout occurs.
+
+    Args:
+      query: A statement that timed out.
+      consistency: The consistency level of the statement.
+      required_responses: The number of responses required.
+      received_responses: The number of responses received.
+      data_retrieved: Indicates whether any responses contained data.
+      retry_num: The number of times the statement has been tried.
+      """
+    if retry_num >= 5:
+      return self.RETHROW, None
+    else:
+      return self.RETRY, consistency
 
 
 class ThriftColumn(object):
@@ -93,7 +131,7 @@ class DatastoreProxy(AppDBInterface):
                   key=ThriftColumn.KEY,
                   column=ThriftColumn.COLUMN_NAME,
                 )
-    query = SimpleStatement(statement)
+    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
     parameters = (ValueSequence(row_keys_bytes), ValueSequence(column_names))
 
     try:
@@ -141,7 +179,7 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       ))
-    batch_insert = BatchStatement()
+    batch_insert = BatchStatement(retry_policy=IdempotentRetryPolicy)
 
     for row_key in row_keys:
       for column in column_names:
@@ -181,7 +219,7 @@ class DatastoreProxy(AppDBInterface):
         table=table_name,
         key=ThriftColumn.KEY
       )
-    query = SimpleStatement(statement)
+    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
     parameters = (ValueSequence(row_keys_bytes),)
 
     try:
@@ -206,7 +244,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
     statement = 'DROP TABLE "{table}"'.format(table=table_name)
-    query = SimpleStatement(statement)
+    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
 
     try:
       self.session.execute(query)
@@ -317,7 +355,7 @@ class DatastoreProxy(AppDBInterface):
                   column=ThriftColumn.COLUMN_NAME,
                   limit=len(column_names) * limit
                 )
-    query = SimpleStatement(statement)
+    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
     parameters = (bytearray(start_key), bytearray(end_key),
                   ValueSequence(column_names))
 
