@@ -39,7 +39,6 @@ case "$1" in
         installtornado
         installpycrypto 
         installflexmock
-        postinstalltornado
         installzookeeper
         postinstallzookeeper
         installcassandra
