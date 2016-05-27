@@ -22,7 +22,6 @@ from zkappscale import zktransaction as zk
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
-from google.appengine.datastore import entity_pb
 from google.appengine.api import datastore_errors
 
 # The location of the Cassandra binary on the local filesystem.
@@ -141,9 +140,13 @@ def validate_and_update_entities(datastore, ds_distributed):
         break
 
     except datastore_errors.Error as error:
-      logger.error("Error getting a batch of entities: {}".format(error))
-    except AppScaleDBConnectionError as connection_error:
-      logger.error("Error getting a batch of entities: {}".format(connection_error))
+      logger.error("Error getting and validating batch of entities: {}".format(error))
+      close_connections()
+      sys.exit(1)
+    except AppScaleDBConnectionError as conn_error:
+      logger.error("Error getting and validating batch of entities: {}".format(conn_error))
+      close_connections()
+      sys.exit(1)
 
 def get_entity_batch(last_key, datastore, batch_size):
   """ Gets a batch of entities to operate on.
@@ -191,43 +194,16 @@ def update_entity_in_table(key, validated_entity, datastore):
     validated_entity: A validated entity which needs to be updated in place of
     the current entity.
     datastore: A reference to the batch datastore interface.
-  Returns:
-    True: if updating entity was successful.
-    False: if an exception was encountered while updating the entity.
   """
-  cell_values_to_update = {}
-  cell_values_to_update[key] = {
-    APP_ENTITY_SCHEMA[0]: validated_entity[key][APP_ENTITY_SCHEMA[0]],
-    APP_ENTITY_SCHEMA[1]: validated_entity[key][APP_ENTITY_SCHEMA[1]]
-  }
-  try:
-    datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA, cell_values_to_update)
-  except AppScaleDBConnectionError as connection_error:
-    logger.error("Error updating key {0}: {1}".format(key, connection_error))
-    return False
-  except Exception as ex:
-    logger.exception("Unexpected exception while updating entity: {}".format(ex))
-    return False
-  return True
+  datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA, validated_entity[key])
 
 def delete_entity_from_table(key, datastore):
   """ Performs a hard delete on the APP_ENTITY_TABLE for the given row key.
   Args:
     key: A str representing the row key to delete from the table.
     datastore: A reference to the batch datastore interface.
-  Returns:
-    True: if deleting the entity was successful.
-    False: if an exception was encountered while deleting the entity.
   """
-  try:
-    datastore.batch_delete(APP_ENTITY_TABLE, [key])
-  except AppScaleDBConnectionError as connection_error:
-    logger.error("Error deleting key {0}: {1}".format(key, connection_error))
-    return False
-  except Exception as ex:
-    logger.exception("Unexpected exception {}".format(ex))
-    return False
-  return True
+  datastore.batch_delete(APP_ENTITY_TABLE, [key])
 
 def get_datastore():
   """ Returns a reference to the batch datastore interface. Validates where
@@ -257,6 +233,33 @@ def get_zk_locations_string(zk_location_ips):
     A string of ZooKeeper IP locations.
   """
   return (ZK_PORT_WITH_COLON + ",").join(zk_location_ips) + ZK_PORT_WITH_COLON
+
+def stop_cassandra():
+  """ Stops Cassandra. """
+  if not monit_interface.stop(CASSANDRA_WATCH_NAME):
+    logging.error("Unable to stop Cassandra.")
+    sys.exit(1)
+  logger.info("Monit successfully stopped Cassandra.")
+
+def stop_zookeeper():
+  """ Stops ZooKeeper."""
+  if not monit_interface.stop(ZK_WATCH_NAME):
+    logging.error("Unable to stop ZooKeeper.")
+    sys.exit(1)
+  logger.info("Monit successfully stopped ZooKeeper.")
+
+def close_zktransaction():
+  """ Closes the connection to ZKTransaction. """
+  zookeeper.close()
+  logger.info("Closed the connection to ZKTransaction.")
+
+def close_connections():
+  """ Close connections to Cassandra, ZooKeeper and ZKTransaction."""
+  # Close connection to ZKTransaction.
+  close_zktransaction()
+  # Stop Cassandra and ZooKeeper.
+  stop_cassandra()
+  stop_zookeeper()
 
 if __name__ == "__main__":
   args_length = len(sys.argv)
@@ -301,23 +304,10 @@ if __name__ == "__main__":
   validate_and_update_entities(datastore, ds_distributed)
   logger.info("Updated invalid entities and deleted tombstoned entities.")
 
-  # Close the connection to ZKTransaction.
-  zookeeper.close()
-  logger.info("Closed the connection to ZKTransaction.")
-
   # Drop the Journal table.
   # datastore.delete_table(JOURNAL_TABLE)
   logger.info("Successfully dropped the Journal Table.")
 
-  # Stop Cassandra.
-  if not monit_interface.stop(CASSANDRA_WATCH_NAME):
-    logging.error("Unable to stop Cassandra.")
-    sys.exit(1)
-  logger.info("Monit successfully stopped Cassandra.")
-
-  # Stop ZooKeeper.
-  if not monit_interface.stop(ZK_WATCH_NAME):
-    logging.error("Unable to stop ZooKeeper.")
-    sys.exit(1)
-  logger.info("Monit successfully stopped ZooKeeper.")
+  # Stop Cassandra & ZooKeeper and close connection to ZKTransaction.
+  close_connections()
   logger.info("Data upgrade status: SUCCESS")
