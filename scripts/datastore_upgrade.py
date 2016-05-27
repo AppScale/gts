@@ -15,6 +15,7 @@ import monit_app_configuration
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
 import datastore_server
+import entity_utils
 from cassandra_env import cassandra_interface
 from dbconstants import *
 from zkappscale import zktransaction as zk
@@ -81,8 +82,6 @@ def start_cassandra():
 def start_zookeeper():
   """ Creates a monit configuration file and prompts Monit to start ZooKeeper. """
   logging.info("Starting ZooKeeper...")
-  if os.path.exists("/var/lib/zookeeper"):
-    os.remove("/var/lib/zookeeper")
 
   zk_server = "zookeeper-server"
   zookeeper_status = subprocess.call(['service', 'zookeeper', 'status']) == 0
@@ -171,18 +170,18 @@ def process_entity(entity, datastore, ds_distributed):
   key = entity.keys()[0]
   one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
-  if one_entity == datastore_server.TOMBSTONE:
-    return delete_entity_from_table(key, datastore)
 
-  entity_proto = entity_pb.EntityProto(one_entity)
-  app_id = entity_proto.key().app()
+  app_id = entity_utils.get_prefix_from_entity_key(key)
   validated_entity = ds_distributed.validated_result(app_id, entity)
 
-  if not validated_entity:
-    return True
+  is_tombstone = validated_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE
+  if not validated_entity or is_tombstone:
+    return delete_entity_from_table(key, datastore)
 
-  if not (one_entity == validated_entity[key][APP_ENTITY_SCHEMA[0]] and version == validated_entity[key][APP_ENTITY_SCHEMA[1]]):
+  if not (one_entity == validated_entity[key][APP_ENTITY_SCHEMA[0]]
+      and version == validated_entity[key][APP_ENTITY_SCHEMA[1]]):
     return update_entity_in_table(key, validated_entity, datastore)
+
   return True
 
 def update_entity_in_table(key, validated_entity, datastore):

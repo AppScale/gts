@@ -17,13 +17,6 @@ MONIT = "/usr/bin/monit"
 
 NUM_RETRIES = 10
 
-# Template used for creating monit coniguration files.
-TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
-                    "/templates/monit_template_for_upgrade.conf"
-
-# The directory used when storing a service's config file.
-MONIT_CONFIG_DIR = '/etc/monit/conf.d'
-
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).
