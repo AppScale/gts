@@ -39,7 +39,6 @@ case "$1" in
         installtornado
         installpycrypto 
         installflexmock
-        postinstalltornado
         installzookeeper
         postinstallzookeeper
         installcassandra
@@ -55,6 +54,7 @@ case "$1" in
         increaseconnections
         installVersion
         installrequests
+        installpyopenssl
         postinstallrsyslog
         installpsutil
         buildgo

@@ -251,31 +251,13 @@ installappserverjava()
 
 installtornado()
 {
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper tornado
-        DISTP=/usr/local/lib/python2.7/dist-packages
-        if [ -z "$(find ${DISTP} -name tornado-*.egg*)" ]; then
-            echo "Fail to install python tornado. Please retry."
-            exit 1
-        fi
-        if [ -n "$DESTDIR" ]; then
-            mkdir -pv ${DESTDIR}${DISTP}
-            cp -rv ${DISTP}/tornado-*.egg* ${DESTDIR}${DISTP}
-        fi
-    fi
+    pipwrapper tornado
 }
 
 installflexmock()
 {
     if [ "$DIST" = "precise" ]; then
         pipwrapper flexmock
-    fi
-}
-
-postinstalltornado()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper tornado
     fi
 }
 
@@ -495,6 +477,14 @@ installrequests()
 {
     if [ "$DIST" = "precise" ]; then
         pipwrapper requests
+    fi
+}
+
+# pyOpenSSL is required for client SNI support on Python < 2.7.9.
+installpyopenssl()
+{
+    if [ "$DIST" = "precise" ]; then
+        pipwrapper pyopenssl
     fi
 }
 
