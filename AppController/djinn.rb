@@ -1716,7 +1716,6 @@ class Djinn
 
     # Begin by marking the apps that should be running.
     current_apps_uploaded = @apps_loaded
-    @app_names |= app_names
     Djinn.log_debug("Running apps: #{app_names.join(', ')}.")
 
     # Next, restart any apps that have new code uploaded.
@@ -1756,11 +1755,13 @@ class Djinn
       end
     end
 
+    APPS_LOCK.synchronize {
+      # Since we have application running, we don't need to display anymore
+      # 'none' as the list of running applications.
+      @app_names |= app_names
+      @app_names = @app_names - ["none"]
+    }
     Djinn.log_debug("Done updating apps!")
-
-    # Since we have application running, we don't need to display anymore
-    # 'none' as the list of running applications.
-    @app_names = @app_names - ["none"]
 
     return "OK"
   end
@@ -4675,7 +4676,7 @@ HOSTS
           Djinn.log_warn("Failed to get app listing: retrying.")
           retry
         end
-        Djinn.log_debug("Got these apps to check: #{app_list}.")
+        Djinn.log_debug("Apps to check: #{app_list}.") if !app_list.empty?
         app_list.each { |app|
           begin
             # If app is not enabled or if we already know of it, we skip it.
@@ -4689,7 +4690,7 @@ HOSTS
             # particular ports and language.
             result = uac.get_app_data(app)
             app_data = JSON.load(result)
-            Djinn.log_debug("Got app data for #{app}: #{app_data}")
+            Djinn.log_debug("#{app} has this data: #{app_data}")
 
             app_language = app_data['language']
             Djinn.log_info("Restoring app #{app} (language #{app_language})" +
@@ -4731,7 +4732,6 @@ HOSTS
       return
     end
 
-    to_end = []
     to_start = []
     no_appservers = []
     my_apps = []
@@ -4747,74 +4747,75 @@ HOSTS
           to_start << app
           no_appservers << app
         elsif not MonitInterface.is_running?("#{app}-#{port}")
-          Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
-          to_end << "#{app}:#{port}"
+          Djinn.log_debug("Didn't find the qppserver for #{app} at port #{port}.")
+          if @last_decision[app]
+            if Time.now.to_i - @last_decision[app] > APP_UPLOAD_TIMEOUT * RETRIES
+              Djinn.log_warn("Appserver for #{app} at port #{port} is not running.")
+              to_end << "#{app}:#{port}"
+            end
+          end
         else
           my_apps << "#{app}:#{port}"
-          no_appservers.delete(app)
         end
       }
     }
-    Djinn.log_debug("Running appservers on this node: #{my_apps}.") if !my_apps.empty?
-
-    # We want to give priorities to applications that have no appserver
-    # running.
-    to_start.each{ |app|
-      no_appservers.delete(app) if to_start.count(app) != no_appservers.count(app)
+    # Let's make sure we have the proper list of apps with no currently
+    # running appservers.
+    my_apps.each { |appserver|
+      app, port = appserver.split(":")
+      no_appservers.delete(app)
     }
-
-    # We only do one operation at a time per app (start/stop) since
-    # those operations are expensive and we want to re-evalute the
-    # priority often.
-    to_start.uniq!
-    no_appservers.uniq!
-    to_end.uniq!
-    to_start = to_start - no_appservers
+    Djinn.log_debug("Running appservers on this node: #{my_apps}.") if !my_apps.empty?
 
     # Check that all the appservers running are indeed known to the
     # head node.
+    to_end = []
     MonitInterface.running_appengines().each { |appengine|
-      app, port = appengine.split(":")
-
       # Nothing to do if we already account for this appserver.
       next if my_apps.include?(appengine)
 
       # If the app needs to be started, but we have an appserver not
       # accounted for, we don't take action (ie we wait for headnode
       # state to settle).
-      if to_start.include?(app) or no_appservers.include?(app)
+      app, port = appengine.split(":")
+      time_to_delete = true
+      if @last_decision[app]
+        if Time.now.to_i - @last_decision[app] < APP_UPLOAD_TIMEOUT * RETRIES
+          time_to_delete = false
+        end
+      end
+      if to_start.include?(app) and !time_to_delete
         Djinn.log_debug("Ignoring request for #{app} since we have pending appservers.")
         to_start.delete(app)
         no_appservers.delete(app)
       else
-        # Otherwise terminate it.
         to_end << appengine
       end
     }
-    Djinn.log_debug("First appserver to start: #{no_appservers}.") if !no_appservers.empty?
+    Djinn.log_debug("First appservers to start: #{no_appservers}.") if !no_appservers.empty?
     Djinn.log_debug("Appservers to start: #{to_start}.") if !to_start.empty?
     Djinn.log_debug("Appservers to terminate: #{to_end}.") if !to_end.empty?
 
     # Now we do the talking with the appmanagerserver. Since it may take
-    # some time to start/stop apps, we do this in a thread.
+    # some time to start/stop apps, we do this in a thread. We do one
+    # operation at a time since it is expensive and we want to
+    # re-evaluate.
     Thread.new {
       AMS_LOCK.synchronize {
-        no_appservers.each { |app|
-          Djinn.log_info("Starting appserver for app: #{app}.")
-          ret = add_appserver_process(app)
+        if !no_appservers[0].nil?
+          Djinn.log_info("Starting first appserver for app: #{no_appservers[0]}.")
+          ret = add_appserver_process(no_appservers[0])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
-        }
-        to_start.each { |app|
-          Djinn.log_info("Starting appserver for app: #{app}.")
-          ret = add_appserver_process(app)
+        elsif !to_start[0].nil?
+          Djinn.log_info("Starting appserver for app: #{to_start[0]}.")
+          ret = add_appserver_process(to_start[0])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
-        }
-        to_end.each { |appserver|
-          Djinn.log_info("Terminate the following appserver: #{appserver}.")
-          app, port = appserver.split(":")
+        elsif !to_end[0].nil?
+          Djinn.log_info("Terminate the following appserver: #{to_end[0]}.")
+          app, port = to_end[0].split(":")
           ret = remove_appserver_process(app, port)
           Djinn.log_debug("remove_appserver_process returned: #{ret}.")
-        }
+        end
       }
     }
   end
@@ -5316,7 +5317,7 @@ HOSTS
     # app. Otherwise we select the host with the lowest load.
     appserver_to_use = available_hosts.keys[0]
     if appserver_to_use != nil
-      available_hosts.each{ |host load|
+      available_hosts.each { |host, load|
         appserver_to_use = host if available_hosts[appserver_to_use] > load
       }
       if @app_info_map[app_name]['appengine']
@@ -5326,7 +5327,7 @@ HOSTS
             appserver_to_use = host
           end
         }
-      }
+      end
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
@@ -5452,10 +5453,6 @@ HOSTS
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
 
-    if not my_node.is_appengine?
-      Djinn.log_info("Not an appengine node: skipping start of appserver.")
-    end
-
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
     if !File.exists?(port_file)
@@ -5466,19 +5463,7 @@ HOSTS
     # TODO: What happens if the user updates their env vars between app
     # deploys?
 
-    # To ensure we don't have possible collisions, we start from a safe
-    # minimum appengine port.
-    port_offset = 0
-    @app_info_map.each { |app_id, info|
-      next if info['appengine'].nil?
-
-      info['appengine'].each { |location|
-        host, port = location.split(":")
-        port_offset += 1 if host == my_node.private_ip
-      }
-    }
-
-    appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT + port_offset)
+    appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
     if appengine_port < 0
       Djinn.log_error("Failed to get port for application #{app} on " +
         "#{@my_private_ip}")
@@ -5503,7 +5488,8 @@ HOSTS
     if pid < 0
       # Something may have gone wrong: inform the user and move on.
       Djinn.log_warn("Something went wrong starting appserver for" +
-        " #{app}: check logs and running processes.")
+        " #{app}: check logs and running processes as dupplicate" +
+        " ports may have been allocated.")
     end
     maybe_start_taskqueue_worker(app)
     Djinn.log_info("Done adding AppServer for #{app}.")
