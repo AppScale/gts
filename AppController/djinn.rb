@@ -5318,6 +5318,8 @@ HOSTS
         @app_info_map[app_name]['appengine'].each { |location|
           host, port = location.split(":")
           next if port <= 0
+          Djinn.log_debug("Prioritizing #{host} to run #{app_name} "
+              "since it has no running AppServers for it.")
           appserver_to_use = host if available_hosts[host] == nil
         }
       end
