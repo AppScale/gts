@@ -2675,6 +2675,9 @@ class Djinn
 
     if @app_info_map[app_id].nil? or @app_info_map[app_id]['appengine'].nil?
       return NOT_READY
+    elsif @app_info_map[app_id]['appengine'].include?("#{ip}:#{port}")
+      Djinn.log_warn("Already registered AppServer for app #{app_id} at #{ip}:#{port}.")
+      return INVALID_REQUEST
     end
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}.")
