@@ -5309,18 +5309,31 @@ HOSTS
 
     # Now let's prefer hosts that are not already running a copy of this
     # app. Otherwise we select the host with the lowest load.
-    appserver_to_use = available_hosts.keys[0]
-    if appserver_to_use != nil
-      available_hosts.each { |host, load|
-        appserver_to_use = host if available_hosts[appserver_to_use] > load
-      }
+    if available_hosts.keys[0] != nil
+      appserver_to_use = []
+      appengine_running = []
+
       if @app_info_map[app_name]['appengine']
         @app_info_map[app_name]['appengine'].each { |location|
           host, port = location.split(":")
-          next if port <= 0
-          Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
-              "since it has no running AppServers for it.")
-          appserver_to_use = host if available_hosts[host] == nil
+          appengine_running << host
+        }
+        Djinn.log_debug("These hosts are running #{app_name}: #{appengine_running}.")
+        available_hosts.each { |host, load|
+          if !appengine_running.include?(host)
+            Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
+                "since it has no running AppServers for it.")
+            appserver_to_use = host
+            break
+          end
+        }
+      end
+
+      # If we didn't find any unused host, we will pick the least loaded.
+      if appserver_to_use.empty?
+        appserver_to_use = available_hosts.keys[0]
+        available_hosts.each { |host, load|
+          appserver_to_use = host if available_hosts[appserver_to_use] > load
         }
       end
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
