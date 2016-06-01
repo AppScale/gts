@@ -94,7 +94,6 @@ def setup_db_config_files(master_ip, slave_ips, replication)
       contents.gsub!(/APPSCALE-LOCAL/, HelperFunctions.local_ip)
       contents.gsub!(/APPSCALE-MASTER/, master_ip)
       contents.gsub!(/APPSCALE-TOKEN/, "#{local_token}")
-      contents.gsub!(/REPLICATION/, "#{replication}")
       File.open(full_path_to_write, "w+") { |dest_file|
         dest_file.write(contents)
       }
