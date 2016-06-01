@@ -355,11 +355,6 @@ installcassandra()
     fi
     pipwrapper  pycassa
 
-    JAMM_PACKAGE="jamm-0.2.2.jar"
-    JAMM_PACKAGE_MD5="07829fab6b45af032e061b5708cfbb3b"
-    cachepackage ${JAMM_PACKAGE} ${JAMM_PACKAGE_MD5}
-    cp "${PACKAGE_CACHE}/${JAMM_PACKAGE}" ${CASSANDRA_DIR}/cassandra/lib
-
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
 }
