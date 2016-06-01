@@ -4735,6 +4735,7 @@ HOSTS
     to_start = []
     no_appservers = []
     my_apps = []
+    to_end = []
     @app_info_map.each { |app, info|
       next if not info['appengine']
 
@@ -4769,7 +4770,6 @@ HOSTS
 
     # Check that all the AppServers running are indeed known to the
     # head node.
-    to_end = []
     MonitInterface.running_appengines().each { |appengine|
       # Nothing to do if we already account for this AppServer.
       next if my_apps.include?(appengine)
