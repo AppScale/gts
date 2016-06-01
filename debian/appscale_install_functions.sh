@@ -342,8 +342,6 @@ installcassandra()
     mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
 
     chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
-    cp -v ${CASSANDRA_ENV}/templates/cassandra.in.sh\
-        ${CASSANDRA_DIR}/cassandra/bin
     cp -v ${CASSANDRA_ENV}/templates/cassandra-env.sh\
         ${CASSANDRA_DIR}/cassandra/conf
     mkdir -p /var/lib/cassandra
