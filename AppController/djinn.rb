@@ -1503,8 +1503,8 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.get_app_data(app_id)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app admin" +
-        "for the application #{app_id}.")
+      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app " +
+        "admin for the application #{app_id}.")
     end
   end
 
@@ -1719,7 +1719,7 @@ class Djinn
     Djinn.log_debug("Apps to restart are #{apps_to_restart}")
 
     # Next, check if the language of the application is correct.
-    apps_names.each{ |app|
+    app_names.each{ |app|
       if check_app_language(app) == INVALID_REQUEST
         apps_to_restart.delete(app)
         result = stop_app(app, @@secret)
