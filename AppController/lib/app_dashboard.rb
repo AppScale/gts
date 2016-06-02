@@ -41,20 +41,17 @@ module AppDashboard
   #     to be created and new apps to be uploaded.
   #   public_ip: This machine's public IP address or FQDN.
   #   private_ip: This machine's private IP address or FQDN.
+  #   persistent_storage: Where we store the application tarball.
   #   secret: A String that is used to authenticate this application with
   #     other AppScale services.
   # Returns:
   #   true if the AppDashboard was started successfully, and false otherwise.
-  def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
+  def self.start(login_ip, uaserver_ip, public_ip, private_ip,
+      persistent_storage, secret)
     # TODO: tell the tools to disallow uploading apps called 
     # APP_NAME, and have start_appengine to do the same.   
-    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
-
-    app_location = "/var/apps/#{APP_NAME}/app"
-    Djinn.log_run("mkdir -p #{app_location}")
-    Djinn.log_run("cp -r #{APPSCALE_HOME}/AppDashboard/* #{app_location}")
-    Djinn.log_run("mkdir -p /var/apps/#{APP_NAME}/log")
-    Djinn.log_run("touch /var/apps/#{APP_NAME}/log/server.log")
+    app_location = "#{persistent_storage}/apps/#{APP_NAME}.tar.gz"
+    Djinn.log_run("tar -czf #{app_location} -C #{APPSCALE_HOME}/AppDashboard .")
 
     # Tell the app what nginx port sits in front of it.
     port_file = "/etc/appscale/port-#{APP_NAME}.txt"

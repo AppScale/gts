@@ -4561,7 +4561,8 @@ HOSTS
       my_public = my_node.public_ip
       my_private = my_node.private_ip
 
-      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
+      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private,
+          PERSISTENT_MOUNT_POINT, @@secret)
       APPS_LOCK.synchronize {
         @app_info_map[AppDashboard::APP_NAME] = {
             'nginx' => AppDashboard::LISTEN_PORT,
