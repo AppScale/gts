@@ -158,11 +158,6 @@ class Djinn
   attr_accessor :done_loading
 
 
-  # The public IP address (or FQDN) that the UserAppServer can be found at,
-  # initally set to a dummy value to tell callers not to use it until a real
-  # value is set.
-  attr_accessor :userappserver_ip
-
 
   # The human-readable state that this AppController is in.
   attr_accessor :state
@@ -182,10 +177,6 @@ class Djinn
   # application.
   attr_accessor :num_appengines
 
-
-  # A boolean that indicates if we are done restoring state from a previously
-  # running AppScale deployment.
-  attr_accessor :restored
 
 
   # An Array that lists the CPU, disk, and memory usage of each machine in this
@@ -494,11 +485,20 @@ class Djinn
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
     'zone' => [ String, nil ]
-    }
+  }
 
-    # Template used for rsyslog configuration files.
-    RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
+  # Template used for rsyslog configuration files.
+  RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
 
+  # Instance variables that we need to restore from the head node.
+  DEPLOYMENT_STATE = [
+    "@app_info_map",
+    "@app_names",
+    "@apps_loaded",
+    "@nodes",
+    "@options",
+    "@last_decision"
+  ]
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -514,28 +514,19 @@ class Djinn
     @@log = Logger.new(STDOUT)
     @@log.level = Logger::INFO
 
-    @nodes = []
     @my_index = nil
     @my_public_ip = nil
     @my_private_ip = nil
-    @options = {}
-    @app_names = []
-    @apps_loaded = []
     @apps_to_restart = []
     @kill_sig_received = false
     @done_initializing = false
     @done_loading = false
-    @userappserver_ip = NOT_UP_YET
     @state = "AppController just started"
     @num_appengines = 1
-    @restored = false
     @all_stats = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
-    @app_info_map = {}
 
-    @scaling_in_progress = false
-    @last_decision = {}
     @initialized_apps = {}
     @total_req_rate = {}
     @current_req_rate = {}
@@ -549,6 +540,15 @@ class Djinn
 
     # This variable is used to keep track of the list of memcache servers.
     @memcache_contents = ""
+
+    # The following variables are restored from the headnode ie they are
+    # part of the common state of the running deployment.
+    @app_info_map = {}
+    @app_names = []
+    @apps_loaded = []
+    @nodes = []
+    @options = {}
+    @last_decision = {}
 
     # Make sure monit is started.
     MonitInterface.start_monit()
@@ -955,21 +955,6 @@ class Djinn
   end
 
 
-  # Validates and sets the list of applications that should be loaded on this
-  # node.
-  def set_apps(app_names, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
-    if app_names.class != Array
-      return "app names was not an Array but was a #{app_names.class}"
-    end
-
-    @app_names = app_names
-    return "App names is now #{@app_names.join(', ')}"
-  end
-
   # Gets the status of the current node in the AppScale deployment
   #
   # Args:
@@ -1195,10 +1180,10 @@ class Djinn
     # As of 2.5.0, db_locations is used by the tools to understand when
     # the AppController is setup and ready to go: we make sure here to
     # follow that rule.
-    if @userappserver_ip == NOT_UP_YET
-      stats['db_location'] = NOT_UP_YET
-    else
+    if @done_initializing
       stats['db_location'] = get_db_master.public_ip
+    else
+      stats['db_location'] = NOT_UP_YET
     end
 
     stats['apps'] = {}
@@ -2954,7 +2939,7 @@ class Djinn
         @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
       elsif k == "@my_public_ip"
         @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
-      elsif k != "@state_change_lock"
+      elsif DEPLOYMENT_STATE.include?(k)
         instance_variable_set(k, v)
       end
     }
@@ -3006,10 +2991,6 @@ class Djinn
     # used with the new one.
     old_public_ip = @my_public_ip
     old_private_ip = @my_private_ip
-
-    if @userappserver_ip == old_private_ip
-      @userappserver_ip = new_private_ip
-    end
 
     @nodes.each { |node|
       if node.public_ip == old_public_ip
@@ -3602,7 +3583,6 @@ class Djinn
     # We now wait for the essential services to go up.
     Djinn.log_info("Waiting for DB services ... ")
     threads.each { |t| t.join() }
-    @done_initializing = true
 
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
@@ -3615,7 +3595,7 @@ class Djinn
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
     end
-    @userappserver_ip = my_node.private_ip
+    @done_initializing = true
     Djinn.log_info("UserAppServer is ready.")
 
     # The services below depends directly or indirectly on the UAServer to
@@ -5379,8 +5359,12 @@ HOSTS
     error_msg = ""
 
     if remove_old
-      Djinn.log_info("Removing old application directory for app: #{app}.")
+      Djinn.log_info("Removing old application version for app: #{app}.")
       FileUtils.rm_rf(app_path) if !my_node.is_login?
+    end
+
+    if !File.exists?(app_path)
+      Djinn.log_info("Removing old application directory for app: #{app}.")
       FileUtils.rm_rf(app_dir)
     end
 

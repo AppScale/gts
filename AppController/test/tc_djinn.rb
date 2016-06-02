@@ -52,7 +52,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", "", @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.set_apps([], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.status(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_stats(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
@@ -212,21 +211,6 @@ class TestDjinn < Test::Unit::TestCase
     actual = djinn.set_parameters(one_node_info, credentials, app_names,
       @secret)
     assert_equal(expected, actual)
-  end
-
-  def test_set_apps
-    flexmock(Djinn).new_instances { |instance|
-      instance.should_receive(:valid_secret?).and_return(true)
-    }
-    djinn = Djinn.new
-
-    bad_app_list = "boo, foo"
-    expected_bad_result = "app names was not an Array but was a String"
-    assert_equal(expected_bad_result, djinn.set_apps(bad_app_list, @secret))
-
-    good_app_list = ["boo", "foo"]
-    expected_good_result = "App names is now boo, foo"
-    assert_equal(expected_good_result, djinn.set_apps(good_app_list, @secret))
   end
 
   def test_taskqueue_master
