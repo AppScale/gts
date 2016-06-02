@@ -1013,7 +1013,21 @@ class Djinn
         end
         stats_str << "        Number of AppServers: "
         if !@app_info_map[app_name]['appengine'].nil?
-          stats_str << "#{@app_info_map[app_name]['appengine'].length}\n"
+          running = 0
+          pending = 0
+          @app_info_map[app_name]['appengine'].each{ |location|
+             host, port = location.split(":")
+             if Integer(port) > 0
+               running += 1
+             else
+               pending += 1
+             end
+          }
+          stats_str << "#{running} running"
+          if pending > 0
+            stats_str << ", #{pending} pending"
+          end
+          stats_str << "\n"
         else
           stats_str << "Unknown\n"
         end
