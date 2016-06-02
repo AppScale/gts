@@ -1233,14 +1233,6 @@ class TestDjinn < Test::Unit::TestCase
     djinn.state = "AppController is taking it easy today"
     state_only = JSON.dump({'state' => djinn.state})
     assert_equal(state_only, djinn.get_property('state', @secret))
-
-    # Check that we can get the userappserver_ip.
-    djinn.userappserver_ip = "private-ip"
-    userappserver_ips = JSON.dump({
-      'userappserver_ip' => 'private-ip'
-    })
-    assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_ip',
-      @secret)['private-ip'])
   end
 
 
