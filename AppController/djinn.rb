@@ -4661,10 +4661,10 @@ HOSTS
   # load balancer, and marks the missing apps for start during the next
   # cycle.
   #
-  # All nodes will compares the list of appservers they should be running,
-  # with the list of appservers actually running, and make the necessary
+  # All nodes will compares the list of AppServers they should be running,
+  # with the list of AppServers actually running, and make the necessary
   # adjustments. Effectively only login nodes and appengine nodes will run
-  # appservers (login nodes runs the dashboard).
+  # AppServers (login nodes runs the dashboard).
   def check_running_apps()
     if my_node.is_login?
       APPS_LOCK.synchronize {
@@ -4724,7 +4724,7 @@ HOSTS
       }
     end
 
-    # From here on, we check that the running appservers match the
+    # From here on, we check that the running AppServers match the
     # headnode view.  Only one thread talking to the AppManagerServer at a
     # time.
     if AMS_LOCK.locked?
@@ -4761,7 +4761,7 @@ HOSTS
       }
     }
     # Let's make sure we have the proper list of apps with no currently
-    # running appservers.
+    # running AppServers.
     my_apps.each { |appserver|
       app, port = appserver.split(":")
       no_appservers.delete(app)
@@ -5182,7 +5182,7 @@ HOSTS
     total_req_in_queue = 0
     time_requests_were_seen = 0
 
-    # Let's make sure we have the minimum number of appservers running.
+    # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if @app_info_map[app_name]['appengine'].length < @num_appengines
        Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
