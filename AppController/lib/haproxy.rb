@@ -80,11 +80,6 @@ module HAProxy
    return output
   end
 
-  # The port that the load balancer will be listening on for the given app number
-  def self.app_listen_port(app_number)
-    START_PORT + app_number
-  end
-
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
@@ -186,8 +181,15 @@ module HAProxy
 
     servers = []
     app_info['appengine'].each_with_index { |location, index|
+      # Ignore not-yet started appservers.
+      host, port = location.split(":")
+      next if Integer(port) < 0
       servers << HAProxy.server_config(full_app_name, index, location)
     }
+    if servers.length <= 0
+      Djinn.log_warn("update_app_config called but no servers found.")
+      return
+    end
 
     config = "# Create a load balancer for the app #{app_name} \n"
     config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
