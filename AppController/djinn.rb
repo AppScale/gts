@@ -1023,7 +1023,11 @@ class Djinn
                pending += 1
              end
           }
-          stats_str << "#{running} running, #{pending} pending\n"
+          stats_str << "#{running} running"
+          if pending > 0
+            stats_str << ", #{pending} pending"
+          end
+          stats_str << "\n"
         else
           stats_str << "Unknown\n"
         end
