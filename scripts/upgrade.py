@@ -20,7 +20,7 @@ DATA_UPGRADE = 'Data Upgrade'
 JSON_FILE_EXTENTION = ".json"
 
 def is_data_upgrade_needed(version):
-  """ """
+  """Checks if for this version of AppScale datastore upgrade is needed."""
   if version == UPGRADE_NEEDED_VERSION:
     return True
   return False
