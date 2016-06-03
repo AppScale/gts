@@ -11,10 +11,13 @@ from dbconstants import *
 UPGRADE_NEEDED_VERSION = "3.0.0"
 
 # JSON file location to record the status of the processes.
-UPGRADE_JSON_FILE = '/etc/appscale/upgrade-status.json'
+UPGRADE_JSON_FILE = '/var/log/appscale/upgrade-status-'
 
 # Data upgrade status key
 DATA_UPGRADE = 'Data Upgrade'
+
+# .JSON file extention
+JSON_FILE_EXTENTION = ".json"
 
 def is_data_upgrade_needed(version):
   """ """
@@ -22,8 +25,9 @@ def is_data_upgrade_needed(version):
     return True
   return False
 
-def write_to_json_file(data):
-  with open(UPGRADE_JSON_FILE, 'w') as file:
+def write_to_json_file(data, timestamp):
+  upgrade_status_file = UPGRADE_JSON_FILE + timestamp + JSON_FILE_EXTENTION
+  with open(upgrade_status_file, 'w') as file:
     json.dump(data, file)
 
 if __name__ == "__main__":
@@ -33,11 +37,15 @@ if __name__ == "__main__":
 
   zk_location_ips = []
   available_version = ""
+  timestamp = ""
   for index in range(args_length):
     if index == 0:
       continue
     if index == 1:
       available_version = str(sys.argv[index])
+      continue
+    if index == 2:
+      timestamp = str(sys.argv[index])
       continue
   zk_location_ips.append(str(sys.argv[index]))
 
@@ -49,7 +57,4 @@ if __name__ == "__main__":
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
-  write_to_json_file(upgrade_status_dict)
-
-
-
+  write_to_json_file(upgrade_status_dict, timestamp)
