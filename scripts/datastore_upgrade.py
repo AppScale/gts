@@ -20,7 +20,6 @@ from cassandra_env import cassandra_interface
 from dbconstants import *
 from zkappscale import zktransaction as zk
 
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import datastore_errors
 
@@ -56,6 +55,30 @@ CASSANDRA_WATCH_NAME = "cassandra"
 # Monit watch name for ZooKeeper.
 ZK_WATCH_NAME = "zookeeper"
 
+# Datastore version from AppScale 3.0.0 onwards.
+VERSION_1 = "1.0"
+
+# Success status
+SUCCESS = 'Success'
+
+# Failed status for error encountered in a process.
+FAILURE = 'Failed'
+
+# Row key for DATASTORE_VERSION table.
+VERSION_INFO_KEY = "version_info"
+
+# Process keys for recording the status of the different steps
+# in the upgrade script.
+COMPLETION_STATUS = 'Completion Status'
+DELETE_JOURNAL_TABLE = 'Delete Journal Table'
+STORE_DATASTORE_VERSION = 'Store Datastore version'
+CLOSE_ZKTRANSACTION = 'Close ZKTransaction connection'
+STOP_ZOO_KEEPER = 'Stop ZooKeeper'
+STOP_CASSANDRA = 'Stop Cassandra'
+VALIDATE_ENTITIES = 'Validate Entities'
+START_ZOOKEEPER = 'Start ZooKeeper'
+START_CASSANDRA = 'Start Cassandra'
+
 def ensure_app_is_not_running():
   """ Ensures AppScale is not running as this is an offline script. """
   logging.info("Ensure AppScale is not currently running...")
@@ -64,8 +87,11 @@ def ensure_app_is_not_running():
     logging.info("AppScale is running, please shut it down and try again.")
     sys.exit(1)
 
-def start_cassandra():
-  """ Creates a monit configuration file and prompts Monit to start Cassandra. """
+def start_cassandra(status_dict):
+  """ Creates a monit configuration file and prompts Monit to start Cassandra.
+  Args:
+    status_dict: A dictionary to record the status of the executed process.
+  """
   logging.info("Starting Cassandra...")
   start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
   stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
@@ -73,15 +99,19 @@ def start_cassandra():
     ports=[CASSANDRA_PORT], upgrade_flag=True,
     match_cmd=cassandra_interface.CASSANDRA_INSTALL_DIR)
   if not monit_interface.start(CASSANDRA_WATCH_NAME):
-    logger.error("Monit was unable to start Cassandra.")
+    logging.error("Monit was unable to start Cassandra.")
+    status_dict[START_CASSANDRA] = FAILURE
     sys.exit(1)
   else:
-    logger.info("Successfully started Cassandra.")
+    logging.info("Successfully started Cassandra.")
+    status_dict[START_CASSANDRA] = SUCCESS
 
-def start_zookeeper():
-  """ Creates a monit configuration file and prompts Monit to start ZooKeeper. """
+def start_zookeeper(status_dict):
+  """ Creates a monit configuration file and prompts Monit to start ZooKeeper.
+  Args:
+    status_dict: A dictionary to record the status of the executed process.
+  """
   logging.info("Starting ZooKeeper...")
-
   zk_server = "zookeeper-server"
   zookeeper_status = subprocess.call(['service', 'zookeeper', 'status']) == 0
   if zookeeper_status:
@@ -96,7 +126,7 @@ def start_zookeeper():
   if zk_server == "zookeeper-server":
     zk_init = subprocess.call(['/usr/sbin/service', 'zookeeper', 'init']) == 0
     if not zk_init:
-      logger.error("Failed to start zookeeper.")
+      logging.error("Failed to start zookeeper.")
       sys.exit(1)
 
   start_cmd = "/usr/sbin/service " + "zookeeper" + " start"
@@ -106,24 +136,29 @@ def start_zookeeper():
     ports=[zk.DEFAULT_PORT], upgrade_flag=True, match_cmd=match_cmd)
 
   if not monit_interface.start(ZK_WATCH_NAME):
-    logger.error("Monit was unable to start ZooKeeper.")
+    logging.error("Monit was unable to start ZooKeeper.")
+    status_dict[START_ZOOKEEPER] = FAILURE
     sys.exit(1)
   else:
-    logger.info("Successfully started ZooKeeper.")
+    logging.info("Successfully started ZooKeeper.")
+    status_dict[START_ZOOKEEPER] = SUCCESS
 
-def validate_and_update_entities(datastore, ds_distributed):
+def validate_and_update_entities(datastore, ds_distributed, zookeeper, status_dict):
   """ Validates entities in batches of BATCH_SIZE, deletes tombstoned
   entities (if any) and updates invalid entities.
   Args:
     datastore: A reference to the batch datastore interface.
     ds_distributed: A reference to the distributed datastore.
+    zookeeper: A reference to ZKTransaction, which communicates with
+      ZooKeeper on the given host.
+    status_dict: A dictionary to record the status of the executed process.
   """
   last_key = ""
   entities_checked = 0
   last_logged = time.time()
   while True:
     try:
-      logger.debug("Fetching {} entities".format(BATCH_SIZE))
+      logging.debug("Fetching {} entities".format(BATCH_SIZE))
       entities = get_entity_batch(last_key, datastore, BATCH_SIZE)
 
       for entity in entities:
@@ -133,20 +168,22 @@ def validate_and_update_entities(datastore, ds_distributed):
       entities_checked += len(entities)
 
       if time.time() > last_logged + LOG_PROGRESS_FREQUENCY:
-        logger.info("Checked {} entities".format(entities_checked))
+        logging.info("Checked {} entities".format(entities_checked))
         last_logged = time.time()
 
       if len(entities) < BATCH_SIZE:
         break
 
     except datastore_errors.Error as error:
-      logger.error("Error getting and validating batch of entities: {}".format(error))
-      close_connections()
-      sys.exit(1)
+      logging.error("Error getting and validating batch of entities: {}".format(error))
+      status_dict[VALIDATE_ENTITIES] = str(error)
+      close_connections(zookeeper, status_dict)
+      return
     except AppScaleDBConnectionError as conn_error:
-      logger.error("Error getting and validating batch of entities: {}".format(conn_error))
-      close_connections()
-      sys.exit(1)
+      logging.error("Error getting and validating batch of entities: {}".format(conn_error))
+      status_dict[VALIDATE_ENTITIES] = str(conn_error)
+      close_connections(zookeeper, status_dict)
+      return
 
 def get_entity_batch(last_key, datastore, batch_size):
   """ Gets a batch of entities to operate on.
@@ -169,7 +206,7 @@ def process_entity(entity, datastore, ds_distributed):
   Returns:
     True on success, False otherwise.
   """
-  logger.debug("Process entity {}".format(str(entity)))
+  logging.debug("Process entity {}".format(str(entity)))
   key = entity.keys()[0]
   one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
@@ -234,32 +271,145 @@ def get_zk_locations_string(zk_location_ips):
   """
   return (ZK_PORT_WITH_COLON + ",").join(zk_location_ips) + ZK_PORT_WITH_COLON
 
-def stop_cassandra():
-  """ Stops Cassandra. """
+def stop_cassandra(status_dict):
+  """ Stops Cassandra.
+  Args:
+    status_dict: A dictionary to record the status of the executed process.
+  """
   if not monit_interface.stop(CASSANDRA_WATCH_NAME):
     logging.error("Unable to stop Cassandra.")
+    status_dict[STOP_CASSANDRA] = FAILURE
     sys.exit(1)
-  logger.info("Monit successfully stopped Cassandra.")
+  logging.info("Monit successfully stopped Cassandra.")
+  status_dict[STOP_CASSANDRA] = SUCCESS
 
-def stop_zookeeper():
-  """ Stops ZooKeeper."""
+def stop_zookeeper(status_dict):
+  """ Stops ZooKeeper.
+  Args:
+    status_dict: A dictionary to record the status of the executed process.
+  """
   if not monit_interface.stop(ZK_WATCH_NAME):
     logging.error("Unable to stop ZooKeeper.")
+    status_dict[STOP_ZOO_KEEPER] = FAILURE
     sys.exit(1)
-  logger.info("Monit successfully stopped ZooKeeper.")
+  logging.info("Monit successfully stopped ZooKeeper.")
+  status_dict[STOP_ZOO_KEEPER] = SUCCESS
 
-def close_zktransaction():
-  """ Closes the connection to ZKTransaction. """
+def close_zktransaction(zookeeper, status_dict):
+  """ Closes the connection to ZKTransaction.
+  Args:
+    zookeeper: A reference to ZKTransaction, which communicates with
+      ZooKeeper on the given host.
+    status_dict: A dictionary to record the status of the executed process.
+  """
   zookeeper.close()
-  logger.info("Closed the connection to ZKTransaction.")
+  logging.info("Closed the connection to ZKTransaction.")
+  status_dict[CLOSE_ZKTRANSACTION] = SUCCESS
 
-def close_connections():
-  """ Close connections to Cassandra, ZooKeeper and ZKTransaction."""
-  # Close connection to ZKTransaction.
-  close_zktransaction()
-  # Stop Cassandra and ZooKeeper.
-  stop_cassandra()
-  stop_zookeeper()
+def close_connections(zookeeper, status_dict):
+  """ Close connections to Cassandra, ZooKeeper and ZKTransaction.
+  Args:
+    zookeeper: A reference to ZKTransaction, which communicates with
+      ZooKeeper on the given host.
+    status_dict: A dictionary to record the status of the executed process.
+  """
+  close_zktransaction(zookeeper, status_dict)
+  stop_cassandra(status_dict)
+  stop_zookeeper(status_dict)
+
+def run_datastore_upgrade(zk_location_ips, status_dict):
+  """ Runs the data upgrade process of fetching, validating and updating data
+  within ZooKeeper & Cassandra.
+  Args:
+    zk_location_ips: A list of ZooKeeper IP locations.
+    status_dict: A dictionary to record the status of the executed process.
+  """
+  # This datastore upgrade script is to be run offline, so make sure
+  # appscale is not up while running this script.
+  ensure_app_is_not_running()
+
+  # Start Cassandra and ZooKeeper.
+  start_cassandra(status_dict)
+  start_zookeeper(status_dict)
+
+  # Sleep time for Cassandra and ZooKeeper to be started.
+  time.sleep(SLEEP_TIME)
+
+  datastore = get_datastore()
+  ds_distributed, zookeeper = get_datastore_distributed(datastore, zk_location_ips)
+
+  # Loop through entities table, fetch valid entities from journal table
+  # if necessary, delete tombstoned entities and updated invalid ones.
+  validate_and_update_entities(datastore, ds_distributed, zookeeper, status_dict)
+
+  # If validating and updating entities logged an error in the status dict,
+  # return from this script.
+  if VALIDATE_ENTITIES in status_dict:
+    return
+
+  status_dict[VALIDATE_ENTITIES] = SUCCESS
+  logging.info("Updated invalid entities and deleted tombstoned entities.")
+
+  # Create a new table if required to store App Entity data version.
+  store_data_version(datastore, zookeeper, status_dict)
+
+  # If storing the datastore version logged an error in the status dict,
+  # return from this script.
+  if STORE_DATASTORE_VERSION in status_dict:
+    return
+
+  status_dict[STORE_DATASTORE_VERSION] = SUCCESS
+  logging.info("Stored the Datastore version successfully.")
+
+  # Drop the JOURNAL_TABLE.
+  drop_journal_table(datastore, zookeeper, status_dict)
+
+  # If dropping the Journal Table logged an error in the status dict,
+  # return from this script.
+  if DELETE_JOURNAL_TABLE in status_dict:
+    return
+
+  status_dict[DELETE_JOURNAL_TABLE] = SUCCESS
+  logging.info("Deleted Journal Table sucessfully.")
+
+  # Stop Cassandra & ZooKeeper and close connection to ZKTransaction.
+  close_connections(zookeeper, status_dict)
+  status_dict[COMPLETION_STATUS] = SUCCESS
+
+def drop_journal_table(datastore, zookeeper, status_dict):
+  """ Drop JOURNAL_TABLE.
+  Args:
+    datastore: A reference to the batch datastore interface.
+    zookeeper: A reference to ZKTransaction, which communicates with
+      ZooKeeper on the given host.
+    status_dict: A dictionary to record the status of the executed process.
+  """
+  try:
+    datastore.delete_table(JOURNAL_TABLE)
+  except AppScaleDBConnectionError as conn_error:
+    logging.error("Error deleting the JOURNAL_TABLE: {}".format(conn_error))
+    status_dict[DELETE_JOURNAL_TABLE] = str(conn_error)
+    close_connections(zookeeper)
+    return
+
+def store_data_version(datastore, zookeeper, status_dict):
+  """ Create a new table if not already present and stores the datastore version
+  for the respective app_ids.
+  Args:
+    datastore: A reference to the batch datastore interface.
+  """
+  try:
+    datastore.create_table(DATASTORE_VERSION_TABLE, DATASTORE_VERSION_SCHEMA)
+    cell_values = {}
+    cell_values[VERSION_INFO_KEY] = {
+      DATASTORE_VERSION_SCHEMA[0]: VERSION_1
+    }
+    datastore.batch_put_entity(DATASTORE_VERSION_TABLE, [VERSION_INFO_KEY], DATASTORE_VERSION_SCHEMA, cell_values)
+  except AppScaleDBConnectionError as conn_error:
+    logging.error("Error getting and validating batch of entities: {}".format(conn_error))
+    status_dict[STORE_DATASTORE_VERSION] = str(conn_error)
+    close_connections(zookeeper, status_dict)
+    return
 
 if __name__ == "__main__":
   args_length = len(sys.argv)
@@ -278,36 +428,6 @@ if __name__ == "__main__":
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=level)
   logging.info("Logging started for datastore upgrade script.")
-  logger = logging.getLogger('upgrade')
-  handler = logging.FileHandler('/var/log/appscale/upgrade.log')
-  formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-  handler.setFormatter(formatter)
-  logger.addHandler(handler)
-  logger.setLevel(logging.INFO)
 
-  # This datastore upgrade script is to be run offline, so make sure
-  # appscale is not up while running this script.
-  ensure_app_is_not_running()
-
-  # Start Cassandra and ZooKeeper.
-  start_cassandra()
-  start_zookeeper()
-
-  # Sleep time for Cassandra and ZooKeeper to be started.
-  time.sleep(SLEEP_TIME)
-
-  datastore = get_datastore()
-  ds_distributed, zookeeper = get_datastore_distributed(datastore, zk_location_ips)
-
-  # Loop through entities table, fetch valid entities from journal table
-  # if necessary, delete tombstoned entities and updated invalid ones.
-  validate_and_update_entities(datastore, ds_distributed)
-  logger.info("Updated invalid entities and deleted tombstoned entities.")
-
-  # Drop the Journal table.
-  # datastore.delete_table(JOURNAL_TABLE)
-  logger.info("Successfully dropped the Journal Table.")
-
-  # Stop Cassandra & ZooKeeper and close connection to ZKTransaction.
-  close_connections()
-  logger.info("Data upgrade status: SUCCESS")
+  # Run the datastore upgrade process.
+  run_datastore_upgrade(zk_location_ips)
