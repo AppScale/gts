@@ -83,11 +83,6 @@ module HelperFunctions
     "CLOUD_EC2_ACCESS_KEY", "CLOUD_EC2_SECRET_KEY"]
 
 
-  # The first port that should be used to host Google App Engine applications
-  # that users have uploaded.
-  APP_START_PORT = 20000
-
-
   # A constant that indicates that SSL should be used when checking if a given
   # port is open.
   USE_SSL = true
@@ -139,6 +134,14 @@ module HelperFunctions
   # The proc file to use to read memory installed.
   PROC_MEM_FILE = "/proc/meminfo"
 
+
+  # Where we store the applications code.
+  APPLICATIONS_DIR = "/var/apps"
+
+
+  # Metadata service for Google and AWS
+  GCE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
+  AWS_METADATA="http://169.254.169.254/latest/meta-data/"
 
   def self.shell(cmd)
     return `#{cmd}`
@@ -444,7 +447,7 @@ module HelperFunctions
   end
 
   def self.setup_app(app_name, untar=true)
-    meta_dir = "/var/apps/#{app_name}"
+    meta_dir = self.get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
     tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
 
@@ -587,34 +590,6 @@ module HelperFunctions
     return actual_public, actual_private
   end
 
-  def self.get_public_ips(ips)
-    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
-    reported_public = []
-    reported_private = []
-    ips.each_index { |index|
-      if index % 2 == 0
-        reported_public << ips[index]
-      else
-        reported_private << ips[index]
-      end
-    }
-    
-    Djinn.log_debug("Reported Public IPs: [#{reported_public.join(', ')}]")
-    Djinn.log_debug("Reported Private IPs: [#{reported_private.join(', ')}]")
-    
-    public_ips = []
-    reported_public.each_index { |index|
-      if reported_public[index] != "0.0.0.0"
-        public_ips << reported_public[index]
-      elsif reported_private[index] != "0.0.0.0"
-        public_ips << reported_private[index]
-      end
-    }
-    
-    return public_ips.flatten
-  end
-
-  
   # Queries Amazon EC2's Spot Instance pricing history to see how much other
   # users have paid for the given instance type (assumed to be a Linux box),
   # so that we can place a bid that is similar to the average price. How
@@ -822,14 +797,6 @@ module HelperFunctions
     self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
   end
 
-  def self.terminate_all_vms(infrastructure, keyname)
-    self.log_obscured_env
-    desc_instances = `#{infrastructure}-describe-instances`
-    instances = desc_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten
-    self.shell(`#{infrastructure}-terminate-instances #{instances.join(' ')}`)
-  end
-
-
   def self.get_usage
     top_results = `top -n1 -d0 -b`
     usage = {}
@@ -853,11 +820,6 @@ module HelperFunctions
     usage['free_mem'] = ((100 - Integer(Float(usage['mem']).truncate())) * self.get_total_mem()) / 100
 
     return usage
-  end
-
-  # Determine the port that the given app should use
-  def self.application_port(app_number, index, num_of_servers)
-    APP_START_PORT + (app_number * num_of_servers) + index
   end
 
   def self.generate_location_config handler
@@ -914,7 +876,7 @@ module HelperFunctions
   end
 
   def self.get_app_path app_name
-    return "/var/apps/#{app_name}/"
+    return "#{APPLICATIONS_DIR}/#{app_name}/"
   end
 
   def self.get_cache_path app_name
@@ -958,7 +920,7 @@ module HelperFunctions
   # Returns:
   #  The absolute path of the appengine-web.xml configuration file.
   def self.get_appengine_web_xml(app)
-    return File.join(self.get_web_inf_dir("/var/apps/#{app}/app"), "/appengine-web.xml")
+    return File.join(self.get_web_inf_dir("#{get_app_path}/#{app}/app"), "/appengine-web.xml")
   end
 
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
@@ -1309,47 +1271,6 @@ module HelperFunctions
   end
 
 
-  # Takes the given array and eliminates all but the last n items in it.
-  # If the array has less than n items in it, we add on the given item
-  # to pad it back to n items.
-  #
-  # Args:
-  #   n: An Integer that indicates how many items should be in the returned
-  #     Array.
-  #   array: An Array of objects that we want to shorten to n items.
-  #   padding: The object that multiple copies of will be added to array if
-  #     array is less than n items long.
-  #
-  # Returns:
-  #   An Array containing the last n items of array.
-  def self.shorten_to_n_items(n, array, padding)
-    len = array.length
-    if len < n
-      array + [padding] * (n - len)
-    else
-      array[len-n..len-1]
-    end
-  end
-
-  def self.find_majority_item(array)
-    count = {}
-    array.each { |item|
-      count[item] = 0 if count[item].nil?
-      count[item] += 1
-    }
-
-    max_k = nil
-    max_v = 0
-    count.each { |k, v|
-      if v > max_v
-        max_k = k
-        max_v = v
-      end
-    }
-
-    return max_k
-  end
-
   # Finds the configuration file for the given Google App Engine application to
   # see if any environment variables should be set for it.
   #
@@ -1363,7 +1284,7 @@ module HelperFunctions
   #   AppScaleException: If the given application doesn't have a configuration
   #   file.
   def self.get_app_env_vars(app)
-    app_yaml_file = "/var/apps/#{app}/app/app.yaml"
+    app_yaml_file = "#{get_app_path}/#{app}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
@@ -1398,7 +1319,7 @@ module HelperFunctions
       return false
     end
     app = app.sub(GAE_PREFIX, '')    
-    app_yaml_file = "/var/apps/#{app}/app/app.yaml"
+    app_yaml_file = "#{get_app_path}/#{app}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
@@ -1468,49 +1389,27 @@ module HelperFunctions
   end
 
 
-  def self.write_local_appcontroller_state(state)
-    self.write_json_file(APPCONTROLLER_STATE_LOCATION, state)
-  end
-
-
-  # Gets the local state from a state file.
-  # 
+  # Contacts the Metadata Service running in Amazon Web Services, or
+  # Google Compute Engine or any other supported public cloud,  to
+  # determine the public FQDN associated with this virtual machine.
+  #
+  # This method should only be called when running in a cloud that
+  # provides an AWS-compatible Metadata Service (e.g., EC2 or Eucalyptus).
+  #
   # Returns:
-  # Json file if it exists, nil otherwise.
-  def self.get_local_appcontroller_state()
-    if File.exists?(APPCONTROLLER_STATE_LOCATION)
-      return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
-    else
-      return nil
+  #   A String containing the public IP that traffic can be sent to that
+  #   reaches this machine.
+  def self.get_public_ip_from_metadata_service()
+    aws_ip = `curl -L -s #{AWS_METADATA}/public-ipv4`
+    if !aws_ip.empty?
+      Djinn.log_debug("Detected AWS public ip: #{aws_ip}.")
+      return aws_ip
+    end
+    gce_ip = `curl -L -s #{GCE_METADATA}/network-interfaces/0/access-configs/0/external-ip`
+    if !gce_ip.empty?
+      Djinn.log_debug("Detected GCE public ip: #{gce_ip}.")
+      return gce_ip
     end
   end
-
-
-  # Contacts the Metadata Service running in Amazon Web Services to determine
-  # the public FQDN associated with this virtual machine.
-  #
-  # This method should only be called when running in a cloud that provides an
-  # AWS-compatible Metadata Service (e.g., EC2 or Eucalyptus).
-  #
-  # Returns:
-  #   A String containing the public FQDN that traffic can be sent to that
-  #   reaches this machine.
-  def self.get_public_ip_from_aws_metadata_service()
-    return `curl http://169.254.169.254/latest/meta-data/public-hostname`
-  end
-
-
-  # Contacts the Metadata Service running in Google Compute Engine to determine
-  # the public FQDN associated with this virtual machine.
-  #
-  # This method should only be called when running in Google Compute Engine.
-  #
-  # Returns:
-  #   A String containing the public FQDN that traffic can be sent to that
-  #   reaches this machine.
-  def self.get_public_ip_from_gce_metadata_service()
-    return `curl -L http://metadata/computeMetadata/v1beta1/instance/network-interfaces/0/access-configs/0/external-ip`
-  end
-
 
 end
