@@ -158,11 +158,6 @@ class Djinn
   attr_accessor :done_loading
 
 
-  # The public IP address (or FQDN) that the UserAppServer can be found at,
-  # initally set to a dummy value to tell callers not to use it until a real
-  # value is set.
-  attr_accessor :userappserver_ip
-
 
   # The human-readable state that this AppController is in.
   attr_accessor :state
@@ -182,10 +177,6 @@ class Djinn
   # application.
   attr_accessor :num_appengines
 
-
-  # A boolean that indicates if we are done restoring state from a previously
-  # running AppScale deployment.
-  attr_accessor :restored
 
 
   # An Array that lists the CPU, disk, and memory usage of each machine in this
@@ -494,11 +485,20 @@ class Djinn
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
     'zone' => [ String, nil ]
-    }
+  }
 
-    # Template used for rsyslog configuration files.
-    RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
+  # Template used for rsyslog configuration files.
+  RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
 
+  # Instance variables that we need to restore from the head node.
+  DEPLOYMENT_STATE = [
+    "@app_info_map",
+    "@app_names",
+    "@apps_loaded",
+    "@nodes",
+    "@options",
+    "@last_decision"
+  ]
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -514,28 +514,19 @@ class Djinn
     @@log = Logger.new(STDOUT)
     @@log.level = Logger::INFO
 
-    @nodes = []
     @my_index = nil
     @my_public_ip = nil
     @my_private_ip = nil
-    @options = {}
-    @app_names = []
-    @apps_loaded = []
     @apps_to_restart = []
     @kill_sig_received = false
     @done_initializing = false
     @done_loading = false
-    @userappserver_ip = NOT_UP_YET
     @state = "AppController just started"
     @num_appengines = 1
-    @restored = false
     @all_stats = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
-    @app_info_map = {}
 
-    @scaling_in_progress = false
-    @last_decision = {}
     @initialized_apps = {}
     @total_req_rate = {}
     @current_req_rate = {}
@@ -549,6 +540,15 @@ class Djinn
 
     # This variable is used to keep track of the list of memcache servers.
     @memcache_contents = ""
+
+    # The following variables are restored from the headnode ie they are
+    # part of the common state of the running deployment.
+    @app_info_map = {}
+    @app_names = []
+    @apps_loaded = []
+    @nodes = []
+    @options = {}
+    @last_decision = {}
 
     # Make sure monit is started.
     MonitInterface.start_monit()
@@ -955,21 +955,6 @@ class Djinn
   end
 
 
-  # Validates and sets the list of applications that should be loaded on this
-  # node.
-  def set_apps(app_names, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
-
-    if app_names.class != Array
-      return "app names was not an Array but was a #{app_names.class}"
-    end
-
-    @app_names = app_names
-    return "App names is now #{@app_names.join(', ')}"
-  end
-
   # Gets the status of the current node in the AppScale deployment
   #
   # Args:
@@ -1209,10 +1194,10 @@ class Djinn
     # As of 2.5.0, db_locations is used by the tools to understand when
     # the AppController is setup and ready to go: we make sure here to
     # follow that rule.
-    if @userappserver_ip == NOT_UP_YET
-      stats['db_location'] = NOT_UP_YET
-    else
+    if @done_initializing
       stats['db_location'] = get_db_master.public_ip
+    else
+      stats['db_location'] = NOT_UP_YET
     end
 
     stats['apps'] = {}
@@ -1518,8 +1503,8 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.get_app_data(app_id)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app admin" +
-        "for the application #{app_id}.")
+      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app " +
+        "admin for the application #{app_id}.")
     end
   end
 
@@ -1729,9 +1714,20 @@ class Djinn
     current_apps_uploaded = @apps_loaded
     Djinn.log_debug("Running apps: #{app_names.join(', ')}.")
 
-    # Next, restart any apps that have new code uploaded.
+    # Get a list of the apps we need to restart.
     apps_to_restart = current_apps_uploaded & app_names
     Djinn.log_debug("Apps to restart are #{apps_to_restart}")
+
+    # Next, check if the language of the application is correct.
+    app_names.each{ |app|
+      if check_app_language(app) == INVALID_REQUEST
+        apps_to_restart.delete(app)
+        result = stop_app(app, @@secret)
+        Djinn.log_error("Disabling app #{app} because of invalid language.")
+      end
+    }
+
+    # Next, restart any apps that have new code uploaded.
     if !apps_to_restart.empty?
       apps_to_restart.each { |appid|
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
@@ -2972,7 +2968,7 @@ class Djinn
         @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
       elsif k == "@my_public_ip"
         @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
-      elsif k != "@state_change_lock"
+      elsif DEPLOYMENT_STATE.include?(k)
         instance_variable_set(k, v)
       end
     }
@@ -3024,10 +3020,6 @@ class Djinn
     # used with the new one.
     old_public_ip = @my_public_ip
     old_private_ip = @my_private_ip
-
-    if @userappserver_ip == old_private_ip
-      @userappserver_ip = new_private_ip
-    end
 
     @nodes.each { |node|
       if node.public_ip == old_public_ip
@@ -3620,7 +3612,6 @@ class Djinn
     # We now wait for the essential services to go up.
     Djinn.log_info("Waiting for DB services ... ")
     threads.each { |t| t.join() }
-    @done_initializing = true
 
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
@@ -3633,7 +3624,7 @@ class Djinn
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
     end
-    @userappserver_ip = my_node.private_ip
+    @done_initializing = true
     Djinn.log_info("UserAppServer is ready.")
 
     # The services below depends directly or indirectly on the UAServer to
@@ -4599,7 +4590,8 @@ HOSTS
       my_public = my_node.public_ip
       my_private = my_node.private_ip
 
-      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
+      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private,
+          PERSISTENT_MOUNT_POINT, @@secret)
       APPS_LOCK.synchronize {
         @app_info_map[AppDashboard::APP_NAME] = {
             'nginx' => AppDashboard::LISTEN_PORT,
@@ -4658,14 +4650,25 @@ HOSTS
     # setup_appengine_application.
     apps = @apps_to_restart
     apps.each { |app_name|
-      if !my_node.is_login?  # This node has the new app - don't erase it here.
-        Djinn.log_info("Removing old version of app #{app_name}")
-        Djinn.log_run("rm -fv #{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
-      end
-      Djinn.log_info("About to restart app #{app_name}")
+      Djinn.log_info("Got #{app_name} to restart (if applicable).")
+      setup_app_dir(app_name, true)
+
       APPS_LOCK.synchronize {
-        setup_appengine_application(app_name, "restart")
-        maybe_reload_taskqueue_worker(app_name)
+        if my_node.is_appengine?
+          app_manager = AppManagerClient.new(my_node.private_ip)
+          # TODO: What happens if the user updates their env vars between app
+          # deploys?
+          Djinn.log_info("Restarting AppServers hosting old version of #{app_name}.")
+          begin
+            result = app_manager.restart_app_instances_for_app(app_name,
+              @app_info_map[app_name]['language'])
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to restart app #{app_name}.")
+          end
+          maybe_reload_taskqueue_worker(app_name)
+        end
+        @apps_to_restart.delete(app_name)
+        Djinn.log_info("Done restarting #{app_name}.")
       }
     }
   end
@@ -4732,7 +4735,7 @@ HOSTS
 
         apps_to_load = @app_names - @apps_loaded - ["none"]
         apps_to_load.each { |app|
-          setup_appengine_application(app, "new")
+          setup_appengine_application(app)
           maybe_start_taskqueue_worker(app)
         }
       }
@@ -4834,33 +4837,19 @@ HOSTS
     }
   end
 
-  # Performs all of the preprocessing needed to start an App Engine application
-  # on this node. This method then starts the actual app by calling the AppManager.
-  #
-  # Args:
-  #   app: A String containing the appid for the app to start.
-  #   state: A String containing the application state, which will trigger
-  #     the appropriate actions. It can be:
-  #     new: if the application to start has never run on this node
-  #       before, and false if it has (e.g., we're loading new code for
-  #       this app);
-  #     restart: if the application needs to be restarted (ie relocated or
-  #       updated);
-  def setup_appengine_application(app, state)
-    case state
-    when "new"
-      @state = "Setting up AppServers for #{app}"
-    when "restart"
-      @state = "Restarting AppServers for #{app}"
-    else
-      Djinn.log_warn("Invalid state request (#{state}) for #{app}")
-      return
-    end
-    Djinn.log_debug("setup_appengine_application: got a call for #{app} action #{state}.")
-
-    # Let's get the application language.
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+  # This functions check the language of the application both in what we
+  # recorded in the metadata and in app_info_map.
+  # Returns:
+  #   language: returns python27, java, php or go depending on the
+  #       language of the app, or INVALID_REQUEST in case there is a
+  #       discrepancy between the language recorded in the project and the
+  #       one in the uploaded application.
+  def check_app_language(app)
     app_language = ""
+
+    # Let's get the application language as we have in the metadata (this
+    # will be the latest from the user).
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
     loop {
       begin
         result = uac.get_app_data(app)
@@ -4879,30 +4868,42 @@ HOSTS
       Kernel.sleep(SMALL_WAIT)
     }
 
+    # If the language of the application changed, we disable the app since
+    # it may cause some datastore corruption. User will have to create a
+    # new ID.
+    if !@app_info_map[app].nil?
+      if @app_info_map[app]['language'] and @app_info_map[app]['language'] != app_language
+        Djinn.log_warn("Application #{app} changed language!")
+        return INVALID_REQUEST
+      end
+    end
+
+    return app_language
+  end
+
+  # Performs all of the preprocessing needed to start an App Engine application
+  # on this node. This method then starts the actual app by calling the AppManager.
+  #
+  # Args:
+  #   app: A String containing the appid for the app to start.
+  def setup_appengine_application(app)
+    @state = "Setting up AppServers for #{app}"
+    Djinn.log_debug("setup_appengine_application: got a new app #{app}.")
+
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
     # Let's create an entry for the application if we don't already have it.
-    if @app_info_map[app].nil?
-      @app_info_map[app] = {}
+    @app_info_map[app] = {} if @app_info_map[app].nil?
+    @app_info_map[app]['language'] = check_app_language(app)
+    if @app_info_map[app]['language'] == INVALID_REQUEST
+      # We shoulnd't be here at all!
+      Djinn.log_error("Failed to get language for #{app}!")
+      stop_app(app, @@secret)
+      return
     end
 
-    # If the language of the application changed, we disable the app since
-    # it may cause some datastore corruption. User will have to create a
-    # new ID.
-    if @app_info_map[app]['language'] and @app_info_map[app]['language'] != app_language
-      Djinn.log_error("Application #{app} changed language! Disabling it.")
-      begin
-        result = uac.delete_app(app)
-        Djinn.log_debug("delete_app returned #{result}.")
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to UAServer while disabling #{app}.")
-      end
-    else
-      @app_info_map[app]['language'] = app_language
-    end
-
-    # Get already assigned ports, or otherwise assign ports to the
+    # Use already assigned ports, or otherwise assign new ports to the
     # application.
     if @app_info_map[app]['nginx'].nil?
       @app_info_map[app]['nginx'] = find_lowest_free_port(
@@ -4937,7 +4938,7 @@ HOSTS
     # case of a new start we need to ensure we can unpack the tarball, and
     # in the case of a restart, we need to remove the old unpacked source
     # code, and use the new one.
-    setup_app_dir(app, state == "new")
+    setup_app_dir(app, true)
 
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
@@ -4982,41 +4983,20 @@ HOSTS
     end
 
     if my_node.is_shadow?
-      CronHelper.update_cron(my_public, nginx_port, app_language, app)
+      CronHelper.update_cron(my_public, nginx_port,
+          @app_info_map[app]['language'], app)
       begin
-        start_xmpp_for_app(app, nginx_port, app_language)
+        start_xmpp_for_app(app, nginx_port, @app_info_map[app]['language'])
       rescue FailedNodeException
         Djinn.log_warn("Failed to start xmpp for application #{app}")
       end
-    end
-
-    if my_node.is_appengine?
-      app_manager = AppManagerClient.new(my_node.private_ip)
-      # TODO: What happens if the user updates their env vars between app
-      # deploys?
-      if state == "restart"
-        Djinn.log_info("Restarting AppServers hosting old version of #{app}")
-        begin
-          result = app_manager.restart_app_instances_for_app(app,
-            @app_info_map[app]['language'])
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to restart app #{app}")
-        end
-      end
-
-      Djinn.log_info("Done setting AppServer for #{app}")
     end
 
     if @app_names.include?("none")
       @apps_loaded = @apps_loaded - ["none"]
       @app_names = @app_names - ["none"]
     end
-
-    if state == "new"
-      @apps_loaded << app
-    else
-      @apps_to_restart.delete(app)
-    end
+    @apps_loaded << app
   end
 
 
@@ -5410,8 +5390,18 @@ HOSTS
     error_msg = ""
 
     if remove_old
-      Djinn.log_info("Removing old application directory for app: #{app}.")
-      FileUtils.rm_rf(app_path) if !my_node.is_login?
+      Djinn.log_info("Removing old application version for app: #{app}.")
+      if !my_node.is_login?
+        FileUtils.rm_rf(app_path)
+      else
+        # Force the login node to refresh the applicaiton directory.
+        FileUtils.rm_rf(app_dir)
+      end
+    end
+
+    # Let's make sure we have a copy of the tarball of the application. If
+    # not, we will get the latest version from another node.
+    if !File.exists?(app_path)
       FileUtils.rm_rf(app_dir)
     end
 
