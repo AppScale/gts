@@ -4888,7 +4888,7 @@ HOSTS
   #   app: A String containing the appid for the app to start.
   def setup_appengine_application(app)
     @state = "Setting up AppServers for #{app}"
-    Djinn.log_debug("setup_appengine_application: got a call for #{app} action #{state}.")
+    Djinn.log_debug("setup_appengine_application: got a new app #{app}.")
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
@@ -4938,7 +4938,7 @@ HOSTS
     # case of a new start we need to ensure we can unpack the tarball, and
     # in the case of a restart, we need to remove the old unpacked source
     # code, and use the new one.
-    setup_app_dir(app, state == "new")
+    setup_app_dir(app, true)
 
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
