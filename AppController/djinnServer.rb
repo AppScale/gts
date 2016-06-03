@@ -68,7 +68,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "kill", "stop_deployment", "secret")
     add_method(@djinn, "set_parameters", "djinn_locations",
       "database_credentials", "app_names", "secret")
-    add_method(@djinn, "set_apps", "app_names", "secret")
     add_method(@djinn, "status", "secret")
     add_method(@djinn, "get_stats", "secret")
     add_method(@djinn, "get_stats_json", "secret")
