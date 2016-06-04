@@ -1315,7 +1315,7 @@ module HelperFunctions
   # Returns:
   #   Boolean true if the app is thread safe. Boolean false if it is not.
   def self.get_app_thread_safe(app)
-    if app != "appscaledashboard" and app.start_with?(GAE_PREFIX) == false
+    if app != AppDashboard::APP_NAME and app.start_with?(GAE_PREFIX) == false
       return false
     end
     app = app.sub(GAE_PREFIX, '')    

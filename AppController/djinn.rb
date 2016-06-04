@@ -1544,7 +1544,7 @@ class Djinn
     app_name.gsub!(/[^\w\d\-]/, "")
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
-    Djinn.log_run("rm -rf #{HelperFunctions.get_app_path}/#{app_name}")
+    Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app_name)}")
     CronHelper.clear_app_crontab(app_name)
 
     # app shutdown process can take more than 30 seconds
@@ -2640,7 +2640,7 @@ class Djinn
       }
 
       # Next, tar.gz it up in the dashboard app so that users can download it.
-      dashboard_log_location = "#{HelperFunctions.get_app_path}/appscaledashboard/app/static/download-logs/#{uuid}.tar.gz"
+      dashboard_log_location = "#{HelperFunctions.get_app_path(AppDashboard::APP_NAME)}/app/static/download-logs/#{uuid}.tar.gz"
       Djinn.log_info("Done gathering logs - placing logs at " +
         dashboard_log_location)
       Djinn.log_run("tar -czf #{dashboard_log_location} #{local_log_dir}")
@@ -5399,7 +5399,7 @@ HOSTS
   #   app       : the application name to setup
   #   remove_old: boolean to force a re-setup of the app from the tarball
   def setup_app_dir(app, remove_old=false)
-    app_dir = "#{HelperFunctions.get_app_path}/#{app}/app"
+    app_dir = "#{HelperFunctions.get_app_path(app)}/app"
     app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
     error_msg = ""
 
