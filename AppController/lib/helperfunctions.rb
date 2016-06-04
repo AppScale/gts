@@ -140,8 +140,8 @@ module HelperFunctions
 
 
   # Metadata service for Google and AWS
-  GCE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
-  AWS_METADATA="http://169.254.169.254/latest/meta-data/"
+  GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance/"
+  AWS_METADATA = "http://169.254.169.254/latest/meta-data/"
 
   def self.shell(cmd)
     return `#{cmd}`
@@ -875,16 +875,16 @@ module HelperFunctions
     return result
   end
 
-  def self.get_app_path app_name
+  def self.get_app_path(app_name)
     return "#{APPLICATIONS_DIR}/#{app_name}/"
   end
 
-  def self.get_cache_path app_name
+  def self.get_cache_path(app_name)
     return File.join(get_app_path(app_name),"cache")
   end
 
   # The directory where the applications tarball will be extracted to
-  def self.get_untar_dir app_name
+  def self.get_untar_dir(app_name)
     return File.join(get_app_path(app_name),"app")
   end
 
@@ -1284,7 +1284,7 @@ module HelperFunctions
   #   AppScaleException: If the given application doesn't have a configuration
   #   file.
   def self.get_app_env_vars(app)
-    app_yaml_file = "#{get_app_path}/#{app}/app/app.yaml"
+    app_yaml_file = "#{self.get_app_path(app)}/#{app}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
@@ -1319,7 +1319,7 @@ module HelperFunctions
       return false
     end
     app = app.sub(GAE_PREFIX, '')    
-    app_yaml_file = "#{get_app_path}/#{app}/app/app.yaml"
+    app_yaml_file = "#{self.get_app_path(app)}/#{app}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
