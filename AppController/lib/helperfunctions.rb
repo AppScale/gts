@@ -447,7 +447,7 @@ module HelperFunctions
   end
 
   def self.setup_app(app_name, untar=true)
-    meta_dir = self.get_app_path(app_name)
+    meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
     tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
 
@@ -920,7 +920,7 @@ module HelperFunctions
   # Returns:
   #  The absolute path of the appengine-web.xml configuration file.
   def self.get_appengine_web_xml(app)
-    return File.join(self.get_web_inf_dir("#{get_app_path}/#{app}/app"), "/appengine-web.xml")
+    return File.join(self.get_web_inf_dir("#{get_app_path(app)}/#{app}/app"), "/appengine-web.xml")
   end
 
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
@@ -1284,7 +1284,7 @@ module HelperFunctions
   #   AppScaleException: If the given application doesn't have a configuration
   #   file.
   def self.get_app_env_vars(app)
-    app_yaml_file = "#{self.get_app_path(app)}/#{app}/app/app.yaml"
+    app_yaml_file = "#{get_app_path(app)}/#{app}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
@@ -1319,7 +1319,7 @@ module HelperFunctions
       return false
     end
     app = app.sub(GAE_PREFIX, '')    
-    app_yaml_file = "#{self.get_app_path(app)}/#{app}/app/app.yaml"
+    app_yaml_file = "#{get_app_path(app)}/#{app}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
