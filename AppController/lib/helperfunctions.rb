@@ -876,7 +876,7 @@ module HelperFunctions
   end
 
   def self.get_app_path(app_name)
-    return "#{APPLICATIONS_DIR}/#{app_name}/"
+    return "#{APPLICATIONS_DIR}/#{app_name}"
   end
 
   def self.get_cache_path(app_name)
