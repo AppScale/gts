@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import sys
+import yaml
 
 import datastore_upgrade
 
@@ -32,10 +34,9 @@ def write_to_json_file(data, timestamp):
 
 if __name__ == "__main__":
   args_length = len(sys.argv)
-  if args_length < 3:
+  if args_length != 8:
     sys.exit(1)
 
-  zk_location_ips = []
   available_version = ""
   timestamp = ""
   for index in range(args_length):
@@ -45,15 +46,25 @@ if __name__ == "__main__":
       available_version = str(sys.argv[index])
       continue
     if index == 2:
+      keyname = str(sys.argv[index])
+      continue
+    if index == 3:
       timestamp = str(sys.argv[index])
       continue
-  zk_location_ips.append(str(sys.argv[index]))
+    if (str(sys.argv[index]) == ("--zookeeper")):
+      zk_ips = str(sys.argv[index+1])
+    if (str(sys.argv[index]) == ("--database")):
+      db_ips = str(sys.argv[index+1])
+
+  list_zk_ips = yaml.load(zk_ips)
+  list_db_ips = yaml.load(db_ips)
 
   upgrade_status_dict = {}
   # Run datastore upgrade script if required.
   if is_data_upgrade_needed(available_version):
     data_upgrade_status = {}
-    datastore_upgrade.run_datastore_upgrade(zk_location_ips, data_upgrade_status)
+    datastore_upgrade.run_datastore_upgrade(list_zk_ips, list_db_ips,
+      data_upgrade_status, keyname)
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
