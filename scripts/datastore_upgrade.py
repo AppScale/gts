@@ -7,8 +7,9 @@ import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import appscale_info
-from constants import CONTROLLER_SERVICE
 from constants import APPSCALE_HOME
+from constants import CONTROLLER_SERVICE
+
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
@@ -44,7 +45,7 @@ ZK_WATCH_NAME = "zookeeper"
 # Datastore version from AppScale 3.0.0 onwards.
 VERSION_1 = "1.0"
 
-# Success status
+# Success status.
 SUCCESS = 'Success'
 
 # Failed status for error encountered in a process.
@@ -99,7 +100,7 @@ def start_cassandra(status_dict, db_ips, keyname):
     status_dict[start_cassandra_ip] = SUCCESS
 
 def start_zookeeper(status_dict, zk_ips, keyname):
-  """ Creates a monit configuration file and prompts Monit to start Cassandra.
+  """ Creates a monit configuration file and prompts Monit to start ZooKeeper.
     Args:
       status_dict: A dictionary to record the status of the executed process.
       zk_ips: A list of zookeeper node IPs to start ZooKeeper on.
@@ -212,6 +213,9 @@ def process_entity(entity, datastore, ds_distributed):
     ds_distributed: A reference to the distributed datastore.
   Returns:
     True on success, False otherwise.
+  Raises:
+    AppScaleDBConnectionError: If the operation could not be performed due to
+       an error with Cassandra.
   """
   logging.debug("Process entity {}".format(str(entity)))
   key = entity.keys()[0]
@@ -238,6 +242,9 @@ def update_entity_in_table(key, validated_entity, datastore):
     validated_entity: A validated entity which needs to be updated in place of
     the current entity.
     datastore: A reference to the batch datastore interface.
+  Raises:
+    AppScaleDBConnectionError: If the batch_put could not be performed due to
+      an error with Cassandra.
   """
   datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA, validated_entity[key])
 
@@ -246,6 +253,9 @@ def delete_entity_from_table(key, datastore):
   Args:
     key: A str representing the row key to delete from the table.
     datastore: A reference to the batch datastore interface.
+  Raises:
+    AppScaleDBConnectionError: If the batch_delete could not be performed due to
+      an error with Cassandra.
   """
   datastore.batch_delete(APP_ENTITY_TABLE, [key])
 
@@ -264,7 +274,7 @@ def stop_cassandra(db_ips, status_dict, keyname):
     if not cmd_status == 0:
       logging.error("Monit was unable to stop Cassandra.")
       status_dict[stop_cassandra_ip] = FAILURE
-      sys.exit(1)
+      continue
     logging.info("Successfully stopped Cassandra.")
     status_dict[stop_cassandra_ip] = SUCCESS
 
@@ -283,7 +293,7 @@ def stop_zookeeper(zk_ips, status_dict, keyname):
     if not cmd_status == 0:
       logging.error("Monit was unable to stop ZooKeeper.")
       status_dict[stop_zookeeper_ip] = FAILURE
-      sys.exit(1)
+      continue
     logging.info("Successfully stopped ZooKeeper.")
     status_dict[stop_zookeeper_ip] = SUCCESS
 
@@ -325,14 +335,14 @@ def store_data_version(datastore, zookeeper, db_ips, zk_ips, status_dict, keynam
     keyname: A string containing the deployment's keyname.
   """
   try:
-    datastore.create_table(DATASTORE_VERSION_TABLE, DATASTORE_VERSION_SCHEMA)
+    datastore.create_table(DATASTORE_METADATA_TABLE, DATASTORE_METADATA_SCHEMA)
     cell_values = {}
     cell_values[VERSION_INFO_KEY] = {
-      DATASTORE_VERSION_SCHEMA[0]: VERSION_1
+      DATASTORE_METADATA_SCHEMA[0]: VERSION_1
     }
     time.sleep(5)
-    datastore.batch_put_entity(DATASTORE_VERSION_TABLE, [VERSION_INFO_KEY],
-      DATASTORE_VERSION_SCHEMA, cell_values)
+    datastore.batch_put_entity(DATASTORE_METADATA_TABLE, [VERSION_INFO_KEY],
+      DATASTORE_METADATA_SCHEMA, cell_values)
   except AppScaleDBConnectionError as conn_error:
     logging.error("Error storing the datastore version: {}".format(conn_error))
     status_dict[STORE_DATASTORE_VERSION] = str(conn_error)
