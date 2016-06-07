@@ -120,7 +120,7 @@ def start_zookeeper(status_dict, zk_ips, keyname):
 
 def get_datastore():
   """ Returns a reference to the batch datastore interface. Validates where
-  the <datastore>_interface.py is and adds that path to the system path.
+  the <database>_interface.py is and adds that path to the system path.
   """
   db_info = appscale_info.get_db_info()
   db_type = db_info[':table']
