@@ -1889,6 +1889,7 @@ class Djinn
     # statistics to the log.
     last_print = Time.now.to_i
 
+    check_health = nil
     while !@kill_sig_received do
       write_database_info()
       update_firewall()
@@ -1916,10 +1917,21 @@ class Djinn
       backup_appcontroller_state() if my_node.is_shadow?
 
       # The following is the core of the duty cycle: start new apps,
-      # restart apps, terminate non-responsive appserver, and autoscale.
-      starts_new_apps_or_appservers() if my_node.is_login?
+      # restart apps, terminate non-responsive AppServer, and autoscale.
+      if my_node.is_login?
+        if check_health.nil?
+          check_health = Thread.new {
+            check_nodes_health()
+          }
+        elsif !check_health.alive?
+          check_health.join()
+          check_health = nil
+        end
+        starts_new_apps_or_appservers()
+        scale_appservers_within_nodes()
+        scale_appservers_across_nodes()
+      end
       check_running_apps()
-      check_nodes_health()
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -2681,7 +2693,7 @@ class Djinn
 
     Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}.")
 
-    # Find and remove an entry for this appserver node and app.
+    # Find and remove an entry for this AppServer node and app.
     APPS_LOCK.synchronize {
       match = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
       if match
@@ -4684,11 +4696,6 @@ HOSTS
         maybe_start_taskqueue_worker(app)
       }
     }
-
-    # And now let's check if we need to scale up/down appservers or
-    # nodes.
-    scale_appservers_within_nodes()
-    scale_appservers_across_nodes()
   end
 
 
@@ -5097,10 +5104,12 @@ HOSTS
           to_terminate[app] << location if node_ip == host
         }
       }
-      to_terminate.each { |app, appservers|
-        appservers.each { |appserver|
-          Djinn.log_warn("Removing AppServer of app #{app} at #{appserver}.")
-          @app_info_map[app]['appengine'].delete(appserver)
+      APPS_LOCK.synchronize {
+        to_terminate.each { |app, appservers|
+          appservers.each { |appserver|
+            Djinn.log_warn("Removing AppServer of app #{app} at #{appserver}.")
+            @app_info_map[app]['appengine'].delete(appserver)
+          }
         }
       }
     }
@@ -5482,7 +5491,7 @@ HOSTS
   #   secret: A String that is used to authenticate the caller.
   #
   # Returns:
-  #   A Boolean to indicate if the appserver was successfully started.
+  #   A Boolean to indicate if the AppServer was successfully started.
   def add_appserver_process(app)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
