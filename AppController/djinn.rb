@@ -281,14 +281,6 @@ class Djinn
   BAD_INPUT_MSG = JSON.dump({'success' => false, 'message' => 'bad input'})
 
 
-  # The message to display to users if they try to add nodes to a one node
-  # deployment, which currently is not supported.
-  CANT_SCALE_FROM_ONE_NODE = JSON.dump({
-    'success' => false,
-    'message' => "can't scale up from a one node deployment"
-  })
-
-
   # The message that we display to the user if they want to scale up services
   # in an Xen/KVM deployment but don't have enough open nodes to do so.
   NOT_ENOUGH_OPEN_NODES = JSON.dump({'success' => false,
@@ -1925,12 +1917,9 @@ class Djinn
 
       # The following is the core of the duty cycle: start new apps,
       # restart apps, terminate non-responsive appserver, and autoscale.
+      starts_new_apps_or_appservers() if my_node.is_login?
       check_running_apps()
-      restart_appengine()
-      if my_node.is_login?
-        scale_appservers_within_nodes()
-        scale_appservers_across_nodes()
-      end
+      check_nodes_health()
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -3305,12 +3294,6 @@ class Djinn
             "roles on this node")
           roles_to_start.each { |role|
             Djinn.log_info("Starting role #{role}")
-
-            # When starting the App Engine role, we need to make sure that we load
-            # all the App Engine apps on this machine.
-            if role == "appengine"
-              @apps_loaded = []
-            end
             send("start_#{role}".to_sym)
           }
         end
@@ -4640,110 +4623,82 @@ HOSTS
     ea.generate(language)
   end
 
-  # Examine the list of applications to restart, or the applications that
-  # should be running, and respectively restart or start them.
-  def restart_appengine()
-    @state = "Preparing to restart AppEngine apps if needed."
-    Djinn.log_debug(@state)
-
-    # Use a copy of @apps_to_restart here since we delete from it in
-    # setup_appengine_application.
-    apps = @apps_to_restart
-    apps.each { |app_name|
-      Djinn.log_info("Got #{app_name} to restart (if applicable).")
-      setup_app_dir(app_name, true)
-
-      APPS_LOCK.synchronize {
-        if my_node.is_appengine?
-          app_manager = AppManagerClient.new(my_node.private_ip)
-          # TODO: What happens if the user updates their env vars between app
-          # deploys?
-          Djinn.log_info("Restarting AppServers hosting old version of #{app_name}.")
-          begin
-            result = app_manager.restart_app_instances_for_app(app_name,
-              @app_info_map[app_name]['language'])
-          rescue FailedNodeException
-            Djinn.log_warn("Failed to restart app #{app_name}.")
-          end
-          maybe_reload_taskqueue_worker(app_name)
-        end
-        @apps_to_restart.delete(app_name)
-        Djinn.log_info("Done restarting #{app_name}.")
-      }
-    }
-  end
 
   # Login nodes will compares the list of applications that should be
   # running according to the UserAppServer with the list we have on the
   # load balancer, and marks the missing apps for start during the next
   # cycle.
-  #
+  def starts_new_apps_or_appservers()
+    APPS_LOCK.synchronize {
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      Djinn.log_debug("Checking applications that should be running.")
+      begin
+        app_list = uac.get_all_apps()
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to get app listing: retrying.")
+        retry
+      end
+      Djinn.log_debug("Apps to check: #{app_list}.") if !app_list.empty?
+      app_list.each { |app|
+        begin
+          # If app is not enabled or if we already know of it, we skip it.
+          next if @app_names.include?(app)
+          next if !uac.is_app_enabled?(app)
+
+          # If we don't have a record for this app, we start it.
+          Djinn.log_info("Adding #{app} to running apps.")
+
+          # We query the UserAppServer looking for application data, in
+          # particular ports and language.
+          result = uac.get_app_data(app)
+          app_data = JSON.load(result)
+          Djinn.log_debug("#{app} metadata: #{app_data}")
+
+          app_language = app_data['language']
+          Djinn.log_info("Restoring app #{app} (language #{app_language})" +
+            " with ports #{app_data['hosts']}.")
+
+          @app_info_map[app] = {} if @app_info_map[app].nil?
+          @app_info_map[app]['language'] = app_language if app_language
+          if app_data['hosts'].values[0]
+            if app_data['hosts'].values[0]['http']
+              @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+            end
+            if app_data['hosts'].values[0]['https']
+              @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+            end
+          end
+          @app_names = @app_names + [app]
+        rescue FailedNodeEsception
+          Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
+        end
+      }
+      @app_names.uniq!
+
+      # And now starts applications.
+      @state = "Preparing to run AppEngine apps if needed."
+
+      apps_to_load = @app_names - @apps_loaded - ["none"]
+      apps_to_load.each { |app|
+        setup_appengine_application(app)
+        maybe_start_taskqueue_worker(app)
+      }
+    }
+
+    # And now let's check if we need to scale up/down appservers or
+    # nodes.
+    scale_appservers_within_nodes()
+    scale_appservers_across_nodes()
+  end
+
+
   # All nodes will compares the list of AppServers they should be running,
   # with the list of AppServers actually running, and make the necessary
   # adjustments. Effectively only login nodes and appengine nodes will run
   # AppServers (login nodes runs the dashboard).
   def check_running_apps()
-    if my_node.is_login?
-      APPS_LOCK.synchronize {
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        Djinn.log_debug("Checking applications that should be running.")
-        begin
-          app_list = uac.get_all_apps()
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to get app listing: retrying.")
-          retry
-        end
-        Djinn.log_debug("Apps to check: #{app_list}.") if !app_list.empty?
-        app_list.each { |app|
-          begin
-            # If app is not enabled or if we already know of it, we skip it.
-            next if @app_names.include?(app)
-            next if !uac.is_app_enabled?(app)
-
-            # If we don't have a record for this app, we start it.
-            Djinn.log_info("Adding #{app} to running apps.")
-
-            # We query the UserAppServer looking for application data, in
-            # particular ports and language.
-            result = uac.get_app_data(app)
-            app_data = JSON.load(result)
-            Djinn.log_debug("#{app} metadata: #{app_data}")
-
-            app_language = app_data['language']
-            Djinn.log_info("Restoring app #{app} (language #{app_language})" +
-              " with ports #{app_data['hosts']}.")
-
-            @app_info_map[app] = {} if @app_info_map[app].nil?
-            @app_info_map[app]['language'] = app_language if app_language
-            if app_data['hosts'].values[0]
-              if app_data['hosts'].values[0]['http']
-                @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
-              end
-              if app_data['hosts'].values[0]['https']
-                @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
-              end
-            end
-            @app_names = @app_names + [app]
-          rescue FailedNodeEsception
-            Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
-          end
-        }
-        @app_names.uniq!
-
-        # And now starts applications.
-        @state = "Preparing to run AppEngine apps if needed."
-
-        apps_to_load = @app_names - @apps_loaded - ["none"]
-        apps_to_load.each { |app|
-          setup_appengine_application(app)
-          maybe_start_taskqueue_worker(app)
-        }
-      }
-    end
-
-    # From here on, we check that the running AppServers match the
-    # headnode view.  Only one thread talking to the AppManagerServer at a
-    # time.
+    # The running AppServers on this node must match the headnode view.
+    # Only one thread talking to the AppManagerServer at a time.
     if AMS_LOCK.locked?
       Djinn.log_debug("Another thread already working with appmanager.")
       return
@@ -4819,6 +4774,32 @@ HOSTS
     # re-evaluate.
     Thread.new {
       AMS_LOCK.synchronize {
+        Djinn.log_debug("Checking if any app need to be restarted."))
+
+        # We restart application first if needed.
+        APPS_LOCK.synchronize {
+          @apps_to_restart.each { |app_name|
+            Djinn.log_info("Got #{app_name} to restart (if applicable).")
+            setup_app_dir(app_name, true)
+
+            app_manager = AppManagerClient.new(my_node.private_ip)
+            # TODO: What happens if the user updates their env vars between app
+            # deploys?
+            Djinn.log_info("Restarting AppServers hosting old version of #{app_name}.")
+            begin
+              result = app_manager.restart_app_instances_for_app(app_name,
+                @app_info_map[app_name]['language'])
+            rescue FailedNodeException
+              Djinn.log_warn("Failed to restart app #{app_name}.")
+            end
+            maybe_reload_taskqueue_worker(app_name)
+
+            @apps_to_restart.delete(app_name)
+          }
+          Djinn.log_info("Done restarting #{app_name}.")
+        }
+
+        # We then start or terminate AppServers as needed.
         if !no_appservers[0].nil?
           Djinn.log_info("Starting first AppServer for app: #{no_appservers[0]}.")
           ret = add_appserver_process(no_appservers[0])
@@ -4992,10 +4973,7 @@ HOSTS
       end
     end
 
-    if @app_names.include?("none")
-      @apps_loaded = @apps_loaded - ["none"]
-      @app_names = @app_names - ["none"]
-    end
+    @apps_loaded -= ["none"]
     @apps_loaded << app
   end
 
@@ -5067,6 +5045,66 @@ HOSTS
     return -1
   end
 
+  # This function checks if any node is to be considered down, and take
+  # appropriate actions. For example, if an appengine node is considered
+  # down, the AppServers running on it, must be considered lost.
+  def check_nodes_health()
+    if @all_stats.empty?
+      Djinn.log_debug("Cannot access node health since I don't have stats.")
+      return
+    end
+
+    @nodes.each { |node|
+      node_ip = node['private_ip']
+      next if node_ip == my_node.private_ip
+      healthy = false
+
+      @all_stats.each{ |stats|
+        if stats['private_ip'] == node_ip
+          healthy = true
+          break
+        end
+      }
+      next if healthy
+
+      # Here we try to talk to the AC directly: if we get any response we
+      # considered the node up and running, otherwise we considered it
+      # crashed and we take actions.
+      Djinn.log_debug("Node at #{node_ip} is not in @all_stats!")
+      acc = AppControllerClient.new(node_ip, @@secret)
+      tries = RETRIES
+      begin
+        if acc.is_done_initializing? == true
+          Djinn.log_debug("The node at #{node_ip} is initialized.")
+          next
+        end
+      rescue FailedNodeException => except
+        tries -= 1
+        if tries > 0
+          Djinn.log_debug("node at #{node_ip} not responding: retrying.")
+          retry
+        end
+      end
+
+      Djinn.log_warn("Node at #{node_ip} is not responsive.")
+      to_terminate = {}
+      @app_info_map.each { |app, info|
+        next if not info['appengine']
+        to_terminate[app] = []
+
+        info['appengine'].each { |location|
+          host, port = location.split(":")
+          to_terminate[app] << location if node_ip == host
+        }
+      }
+      to_terminate.each { |app, appservers|
+        appservers.each { |appserver|
+          Djinn.log_warn("Removing AppServer of app #{app} at #{appserver}.")
+          @app_info_map[app]['appengine'].delete(appserver)
+        }
+      }
+    }
+  end
 
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
@@ -5896,10 +5934,6 @@ HOSTS
       return BAD_SECRET_MSG
     end
 
-    # Get default AppController stats.
-    controller_stats = get_stats(secret)
-    Djinn.log_debug("Controller stats: #{controller_stats}")
-
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = imc.get_system_stats()
@@ -5907,44 +5941,51 @@ HOSTS
 
     # Combine all useful stats and return.
     all_stats = system_stats
-    if my_node.is_login?
-      all_stats["apps"] = {}
-      if !app_info_map.nil?
-        controller_stats["apps"].each { |app_name, enabled|
-          # Get HAProxy requests.
-          Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-          if app_name != "none"
-            total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-            # Create the apps hash with useful information containing HAProxy stats.
-            begin
-              if collection_time == :no_backend
-                appservers = 0
-                total_reqs = 0
-                reqs_enqueued = 0
-              else
-                appservers = @app_info_map[app_name]["appengine"].length
-              end
+    all_stats["apps"] = {}
+    if my_node.is_login? and !app_info_map.nil?
+      @apps_loaded.each { |app_name|
+        next if app_name == "none"
 
-              all_stats["apps"][app_name] = {
-                "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
-                "appservers" => appservers,
-                "http" => @app_info_map[app_name]["nginx"],
-                "https" => @app_info_map[app_name]["nginx_https"],
-                "total_reqs" => total_reqs,
-                "reqs_enqueued" => reqs_enqueued
-              }
-            rescue => exception
-              backtrace = exception.backtrace.join("\n")
-              message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-              Djinn.log_warn("Unable to get application stats: #{message}")
-            end
+        # Get HAProxy requests.
+        Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
+        total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+        # Create the apps hash with useful information containing HAProxy stats.
+        begin
+          appservers = 0
+          pending = 0
+          if collection_time == :no_backend
+            total_reqs = 0
+            reqs_enqueued = 0
+          else
+            @app_info_map[app_name]['appengine'].each{ |location|
+              host, port = location.split(":")
+              if Integer(port) > 0
+                appservers += 1
+              else
+                pending += 1
+              end
+            }
           end
-        }
-      end
+          all_stats["apps"][app_name] = {
+            "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
+            "appservers" => appservers,
+            "pending_appservers" => pending,
+            "http" => @app_info_map[app_name]["nginx"],
+            "https" => @app_info_map[app_name]["nginx_https"],
+            "total_reqs" => total_reqs,
+            "reqs_enqueued" => reqs_enqueued
+          }
+        rescue => exception
+          backtrace = exception.backtrace.join("\n")
+          message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+          Djinn.log_warn("Unable to get application stats: #{message}")
+        end
+      }
     end
-    all_stats["public_ip"] = controller_stats["ip"]
-    all_stats["private_ip"] = controller_stats["private_ip"]
-    all_stats["roles"] = controller_stats["roles"]
+
+    all_stats["public_ip"] = my_node.public_ip
+    all_stats["private_ip"] = my_node.private_ip
+    all_stats["roles"] = my_node.jobs or ["none"]
     Djinn.log_debug("All stats: #{all_stats}")
 
     return JSON.dump(all_stats)
