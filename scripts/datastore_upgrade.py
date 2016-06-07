@@ -24,9 +24,6 @@ from google.appengine.api import datastore_errors
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
 from utils import utils
 
-# Default ZooKeeper port formatted with a colon.
-ZK_PORT_WITH_COLON = ":" + str(zk.DEFAULT_PORT)
-
 # The number of entities retrieved in a datastore request.
 BATCH_SIZE = 100
 
@@ -95,7 +92,7 @@ def start_cassandra(status_dict, db_ips, keyname):
     if not cmd_status == 0:
       logging.error("Monit was unable to start Cassandra.")
       status_dict[start_cassandra_ip] = FAILURE
-      sys.exit(1)
+      continue
     logging.info("Successfully started Cassandra.")
     status_dict[start_cassandra_ip] = SUCCESS
 
@@ -114,7 +111,7 @@ def start_zookeeper(status_dict, zk_ips, keyname):
     if not cmd_status == 0:
       logging.error("Monit was unable to start ZooKeeper.")
       status_dict[start_zookeeper_ip] = FAILURE
-      sys.exit(1)
+      continue
     logging.info("Successfully started ZooKeeper.")
     status_dict[start_zookeeper_ip] = SUCCESS
 
@@ -145,7 +142,7 @@ def get_zk_locations_string(zk_location_ips):
   Returns:
     A string of ZooKeeper IP locations.
   """
-  return (ZK_PORT_WITH_COLON + ",").join(zk_location_ips) + ZK_PORT_WITH_COLON
+  return (":" + str(zk.DEFAULT_PORT) + ",").join(zk_location_ips) + ":" + str(zk.DEFAULT_PORT)
 
 def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
   zk_ips, status_dict, keyname):
@@ -368,6 +365,17 @@ def drop_journal_table(datastore, zookeeper,db_ips, zk_ips, status_dict, keyname
     close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname)
     return
 
+def all_services_started(status_dict):
+  """ Loops through the values of the status dictionary to check the status
+  of ZooKeeper and Cassandra started on their nodes.
+  Args:
+    status_dict: A dictionary to record the status of the executed process.
+  """
+  for value in status_dict.values():
+    if value == FAILURE:
+      return False
+  return True
+
 def run_datastore_upgrade(zk_ips, db_ips, status_dict, keyname):
   """ Runs the data upgrade process of fetching, validating and updating data
   within ZooKeeper & Cassandra.
@@ -384,6 +392,11 @@ def run_datastore_upgrade(zk_ips, db_ips, status_dict, keyname):
   # Start Cassandra and ZooKeeper.
   start_cassandra(status_dict, db_ips, keyname)
   start_zookeeper(status_dict, zk_ips, keyname)
+
+  if not all_services_started(status_dict):
+    stop_cassandra(db_ips, status_dict, keyname)
+    stop_zookeeper(zk_ips,status_dict, keyname)
+    return
 
   # Sleep time for Cassandra and ZooKeeper to be started.
   time.sleep(SLEEP_TIME)
