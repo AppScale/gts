@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#
+
 import logging
 import os
 import sys
@@ -12,6 +12,8 @@ from constants import APPSCALE_HOME
 from zkappscale import zktransaction as zk
 import monit_app_configuration
 import monit_interface
+
+import datastore_upgrade
 
 # The location of the Cassandra binary on the local filesystem.
 CASSANDRA_EXECUTABLE = cassandra_interface.CASSANDRA_INSTALL_DIR \
@@ -35,16 +37,16 @@ def start_service(service_name):
 
   watch_name = ""
   if service_name == "cassandra":
-    start_cmd = CASSANDRA_EXECUTABLE + " start -p" + PID_FILE
+    start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
     stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
-    watch_name = CASSANDRA_WATCH_NAME
+    watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
     ports = [CASSANDRA_PORT]
     match_cmd = cassandra_interface.CASSANDRA_INSTALL_DIR
 
   if service_name == "zookeeper":
     start_cmd = "/usr/sbin/service " + "zookeeper" + " start"
     stop_cmd = "/usr/sbin/service " + "zookeeper" + " stop"
-    watch_name = ZK_WATCH_NAME
+    watch_name = datastore_upgrade.ZK_WATCH_NAME
     match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     ports = [zk.DEFAULT_PORT]
 
@@ -64,5 +66,3 @@ if __name__ == "__main__":
 
   service_name = (str(sys.argv[1]))
   start_service(service_name)
-
-

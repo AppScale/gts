@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#
+
 import logging
 import os
 import sys
@@ -22,5 +22,3 @@ if __name__ == "__main__":
 
   service_name = (str(sys.argv[1]))
   stop_service(service_name)
-
-

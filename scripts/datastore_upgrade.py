@@ -1,4 +1,5 @@
-import json
+""" This script performs a data upgrade. """
+
 import logging
 import os
 import subprocess
@@ -417,7 +418,7 @@ def run_datastore_upgrade(zk_ips, db_ips, status_dict, keyname):
   status_dict[VALIDATE_ENTITIES] = SUCCESS
   logging.info("Updated invalid entities and deleted tombstoned entities.")
 
-  # Create a new table if required to store App Entity data version.
+  # Create a new table if required to store data version.
   store_data_version(datastore, zookeeper, db_ips, zk_ips, status_dict, keyname)
 
   # If storing the datastore version logged an error in the status dict,

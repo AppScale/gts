@@ -1,5 +1,6 @@
+""" This script checks and performs an upgrade (if any) is needed for this deployment. """
+
 import json
-import logging
 import os
 import sys
 import yaml
@@ -15,19 +16,31 @@ UPGRADE_NEEDED_VERSION = "3.0.0"
 # JSON file location to record the status of the processes.
 UPGRADE_JSON_FILE = '/var/log/appscale/upgrade-status-'
 
-# Data upgrade status key
+# Data upgrade status key.
 DATA_UPGRADE = 'Data Upgrade'
 
-# .JSON file extention
+# .JSON file extention.
 JSON_FILE_EXTENTION = ".json"
 
 def is_data_upgrade_needed(version):
-  """Checks if for this version of AppScale datastore upgrade is needed."""
+  """Checks if for this version of AppScale datastore upgrade is needed.
+  Args:
+    version: The latest version available to upgrade to.
+  Returns: True, if given version matches the one for which data upgrade is needed.
+    False, otherwise.
+  """
   if version == UPGRADE_NEEDED_VERSION:
     return True
   return False
 
 def write_to_json_file(data, timestamp):
+  """ Writes the dictionary containing the status of operations performed
+  during the upgrade process into a JSON file.
+  Args:
+    data: A dictionary containing status of upgrade operations performed.
+    timestamp: The timestamp passed from the tools to append to the upgrade
+    status log file.
+  """
   upgrade_status_file = UPGRADE_JSON_FILE + timestamp + JSON_FILE_EXTENTION
   with open(upgrade_status_file, 'w') as file:
     json.dump(data, file)
