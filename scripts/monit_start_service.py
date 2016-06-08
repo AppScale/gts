@@ -26,12 +26,6 @@ PID_FILE = "/var/appscale/appscale-cassandra.pid"
 # The default port to connect to Cassandra.
 CASSANDRA_PORT = 9999
 
-# Monit watch name for Cassandra.
-CASSANDRA_WATCH_NAME = "cassandra"
-
-# Monit watch name for ZooKeeper.
-ZK_WATCH_NAME = "zookeeper"
-
 def start_service(service_name):
   logging.info("Starting " + service_name)
 
