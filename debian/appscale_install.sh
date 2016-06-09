@@ -1,3 +1,6 @@
+set -u
+set -e
+
 cd `dirname $0`/..
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
