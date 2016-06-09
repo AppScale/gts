@@ -238,20 +238,19 @@ installjavajdk()
 
 installappserverjava()
 {
+    JAVA_SDK_DIR="${APPSCALE_HOME}/AppServer_Java"
+
     JAVA_SDK_PACKAGE="appengine-java-sdk-1.8.4.zip"
     JAVA_SDK_PACKAGE_MD5="f5750b0c836870a3089096fd537a1272"
     cachepackage ${JAVA_SDK_PACKAGE} ${JAVA_SDK_PACKAGE_MD5}
-    unzip "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" \
-      -d ${APPSCALE_HOME}/AppServer_Java
+    unzip "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" -d ${JAVA_SDK_DIR}
 
     # Compile source file.
-    cd ${APPSCALE_HOME}/AppServer_Java
-    ant install
-    ant clean-build
+    (cd ${JAVA_SDK_DIR} && ant install && ant clean-build)
 
     if [ -n "$DESTDIR" ]; then
         # Delete unnecessary files.
-        rm -rfv src lib
+        rm -rf ${JAVA_SDK_DIR}/src ${JAVA_SDK_DIR}/lib
     fi
 }
 
