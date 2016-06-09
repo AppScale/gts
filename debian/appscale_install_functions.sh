@@ -11,12 +11,12 @@ if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=/opt/appscale
 fi
 
-if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
+if [ -z "${APPSCALE_PACKAGE_MIRROR-}" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
 export UNAME_MACHINE=$(uname -m)
-if [ -z "$JAVA_HOME_DIRECTORY" ]; then
+if [ -z "${JAVA_HOME_DIRECTORY-}" ]; then
     if [ "$UNAME_MACHINE" = "x86_64" ]; then
         export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
     elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then

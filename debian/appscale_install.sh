@@ -6,7 +6,11 @@ if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
 fi
 
-DESTDIR=$2
+if [ -z "${2-}" ]; then
+    DESTDIR=""
+else
+    DESTDIR=$2
+fi
 APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
 CURL_OPTS="-s"
 
