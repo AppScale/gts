@@ -244,6 +244,12 @@ if [ -d appscale/.appscale/certs ]; then
 
 
         # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
+        if [ "$FORCE_UPGRADE" = "Y" ]; then
+                echo "It is a force upgrade, so a git stash will be performed."
+                (cd appscale; git stash save -u)
+                (cd appscale-tools; git stash save -u)
+        fi
+
         if [ -n "${GIT_TAG}" ]; then
                 (cd appscale; git checkout "$GIT_TAG")
                 (cd appscale-tools; git checkout "$GIT_TAG")

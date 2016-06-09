@@ -28,7 +28,6 @@ CASSANDRA_PORT = 9999
 
 def start_service(service_name):
   logging.info("Starting " + service_name)
-
   watch_name = ""
   if service_name == "cassandra":
     start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
@@ -49,9 +48,10 @@ def start_service(service_name):
 
   if not monit_interface.start(watch_name):
     logging.error("Monit was unable to start " + service_name)
-    sys.exit(1)
+    return 1
   else:
     logging.info("Successfully started " + service_name)
+    return 0
 
 if __name__ == "__main__":
   args_length = len(sys.argv)

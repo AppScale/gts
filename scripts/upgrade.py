@@ -47,7 +47,7 @@ def write_to_json_file(data, timestamp):
 
 if __name__ == "__main__":
   args_length = len(sys.argv)
-  if args_length != 8:
+  if args_length != 10:
     sys.exit(1)
 
   available_version = ""
@@ -64,19 +64,22 @@ if __name__ == "__main__":
     if index == 3:
       timestamp = str(sys.argv[index])
       continue
+    if (str(sys.argv[index]) == ("--master")):
+      master_ip_arg = str(sys.argv[index+1])
     if (str(sys.argv[index]) == ("--zookeeper")):
-      zk_ips = str(sys.argv[index+1])
+      zk_ips_arg = str(sys.argv[index+1])
     if (str(sys.argv[index]) == ("--database")):
-      db_ips = str(sys.argv[index+1])
+      db_ips_arg = str(sys.argv[index+1])
 
-  list_zk_ips = yaml.load(zk_ips)
-  list_db_ips = yaml.load(db_ips)
+  zk_ips = yaml.load(zk_ips_arg)
+  db_ips = yaml.load(db_ips_arg)
+  master_ip = yaml.load(master_ip_arg)
 
   upgrade_status_dict = {}
   # Run datastore upgrade script if required.
   if is_data_upgrade_needed(available_version):
     data_upgrade_status = {}
-    datastore_upgrade.run_datastore_upgrade(list_zk_ips, list_db_ips,
+    datastore_upgrade.run_datastore_upgrade(zk_ips, db_ips, master_ip,
       data_upgrade_status, keyname)
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
 
