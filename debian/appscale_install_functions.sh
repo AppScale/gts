@@ -490,6 +490,11 @@ installrequests()
 installpyopenssl()
 {
     if [ "$DIST" = "precise" ]; then
+        # A pyOpenSSL dependency (cryptography) requires distribute. After that
+        # is upgraded, setuptools and pkg_resources need to be reinstalled.
+        pipwrapper distribute
+        apt-get install --reinstall python-setuptools
+        apt-get install --reinstall python-pkg-resources
         pipwrapper pyopenssl
     fi
 }
