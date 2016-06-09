@@ -299,11 +299,10 @@ installphp54()
 {
     # In Precise we have a too old version of php. We need at least 5.4.
     if [ "$DIST" = "precise" ]; then
-        add-apt-repository -y ppa:ondrej/php5-oldstable
+        LC_ALL=C.UTF-8 add-apt-repository ppa:ondrej/php
         apt-get update
-        # We need to pull also php5-cgi to ensure apache2 won't be pulled
-        # in.
-        apt-get install --force-yes -y php5-cgi php5
+        # php5-cgi is needed to ensure apache2 won't be installed.
+        apt-get install --force-yes -y php5-cgi php5.5
     fi
 }
 
