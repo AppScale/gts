@@ -57,6 +57,7 @@ case "$1" in
         installpyopenssl
         postinstallrsyslog
         installpsutil
+        installapiclient
         buildgo
         ;;
 esac

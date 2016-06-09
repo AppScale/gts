@@ -547,6 +547,12 @@ installpsutil()
     esac
 }
 
+installapiclient()
+{
+    # The InfrastructureManager requires the Google API client.
+    pipwrapper google-api-python-client
+}
+
 buildgo()
 {
     GOROOT_DIR=${APPSCALE_HOME_RUNTIME}/AppServer/goroot
