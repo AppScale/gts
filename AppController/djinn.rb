@@ -2822,13 +2822,18 @@ class Djinn
     end
 
     Djinn.log_info("Removing AppServer for app #{app_id} at #{ip}:#{port}")
-    if @app_info_map[app_id] and @app_info_map[app_id]['appengine']
-      @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
-      HAProxy.update_app_config(my_node.private_ip, app_id,
-        @app_info_map[app_id])
-    else
-      Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
-    end
+    APPS_LOCK.synchronize {
+      if @app_info_map[app_id] and @app_info_map[app_id]['appengine']
+        @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
+        HAProxy.update_app_config(my_node.private_ip, app_id,
+          @app_info_map[app_id])
+      else
+        Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
+      end
+    }
+
+    # Tell the AppDashboard that the AppServer has been killed.
+    delete_instance_from_dashboard(app, "#{ip}:#{port}")
 
     return "OK"
   end
@@ -5118,12 +5123,11 @@ HOSTS
           to_terminate[app] << location if node_ip == host
         }
       }
-      APPS_LOCK.synchronize {
-        to_terminate.each { |app, appservers|
-          appservers.each { |appserver|
-            Djinn.log_warn("Removing AppServer of app #{app} at #{appserver}.")
-            @app_info_map[app]['appengine'].delete(appserver)
-          }
+
+      to_terminate.each { |app, appservers|
+        appservers.each { |appserver|
+          host, port = appserver.split(":")
+          remove_appserver_from_haproxy(app, host, port, @@secret)
         }
       }
     }
@@ -5610,9 +5614,6 @@ HOSTS
       Djinn.log_error("Unable to stop instance on port #{port} " +
         "application #{app_id}")
     end
-
-    # Tell the AppDashboard that the AppServer has been killed.
-    delete_instance_from_dashboard(app, "#{my_node.private_ip}:#{port}")
 
     return true
   end
