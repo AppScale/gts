@@ -1,6 +1,5 @@
 #!/usr/bin/ruby -w
 
-
 # As we can't rely on DNS in AppScale, we have an app, called the
 # AppDashboard, that provides a single place to route users to their
 # applications. It also provides authentication for users as an
@@ -48,6 +47,17 @@ module AppDashboard
   #   true if the AppDashboard was started successfully, and false otherwise.
   def self.start(login_ip, uaserver_ip, public_ip, private_ip,
       persistent_storage, secret)
+
+    # Pass the secret key and our public IP address (needed to connect to the
+    # AppController) to the app.
+    Djinn.log_run("cp #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py /tmp/secret_key.py")
+    Djinn.log_run("cp #{APPSCALE_HOME}/AppDashboard/lib/local_host.py /tmp/local_host.py")
+    Djinn.log_run("cp #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py /tmp/uaserver_host.py")
+
+    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
+    Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
+    Djinn.log_run("echo \"UA_SERVER_IP = '#{uaserver_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
+
     # TODO: tell the tools to disallow uploading apps called 
     # APP_NAME, and have start_appengine to do the same.   
     app_location = "#{persistent_storage}/apps/#{APP_NAME}.tar.gz"
@@ -57,11 +67,10 @@ module AppDashboard
     port_file = "/etc/appscale/port-#{APP_NAME}.txt"
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
-    # Pass the secret key and our public IP address (needed to connect to the
-    # AppController) to the app.
-    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
-    Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{app_location}/lib/local_host.py")
-    Djinn.log_run("echo \"UA_SERVER_IP = '#{uaserver_ip}'\" > #{app_location}/lib/uaserver_host.py")
+    # Restore repo template files.
+    Djinn.log_run("mv /tmp/secret_key.py #{APPSCALE_HOME}/AppDashboard/lib/")
+    Djinn.log_run("mv /tmp/local_host.py #{APPSCALE_HOME}/AppDashboard/lib/")
+    Djinn.log_run("mv /tmp/uaserver_host.py #{APPSCALE_HOME}/AppDashboard/lib/")
     Djinn.log_debug("Done setting dashboard.")
 
     return true
