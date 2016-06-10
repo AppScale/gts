@@ -2833,7 +2833,7 @@ class Djinn
     }
 
     # Tell the AppDashboard that the AppServer has been killed.
-    delete_instance_from_dashboard(app, "#{ip}:#{port}")
+    delete_instance_from_dashboard(app_id, "#{ip}:#{port}")
 
     return "OK"
   end
@@ -4800,7 +4800,7 @@ HOSTS
     # re-evaluate.
     Thread.new {
       AMS_LOCK.synchronize {
-        Djinn.log_debug("Checking if any app need to be restarted."))
+        Djinn.log_debug("Checking if any app need to be restarted.")
 
         # We restart application first if needed.
         APPS_LOCK.synchronize {
@@ -4821,8 +4821,8 @@ HOSTS
             maybe_reload_taskqueue_worker(app_name)
 
             @apps_to_restart.delete(app_name)
+            Djinn.log_info("Done restarting #{app_name}.")
           }
-          Djinn.log_info("Done restarting #{app_name}.")
         }
 
         # We then start or terminate AppServers as needed.
@@ -5081,7 +5081,7 @@ HOSTS
     end
 
     @nodes.each { |node|
-      node_ip = node['private_ip']
+      node_ip = node.private_ip
       next if node_ip == my_node.private_ip
       healthy = false
 
