@@ -1536,7 +1536,7 @@ class Djinn
     app_name.gsub!(/[^\w\d\-]/, "")
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
-    Djinn.log_run("rm -rf /var/apps/#{app_name}")
+    Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app_name)}")
     CronHelper.clear_app_crontab(app_name)
 
     # app shutdown process can take more than 30 seconds
@@ -2641,7 +2641,7 @@ class Djinn
       }
 
       # Next, tar.gz it up in the dashboard app so that users can download it.
-      dashboard_log_location = "/var/apps/appscaledashboard/app/static/download-logs/#{uuid}.tar.gz"
+      dashboard_log_location = "#{HelperFunctions.get_app_path(AppDashboard::APP_NAME)}/app/static/download-logs/#{uuid}.tar.gz"
       Djinn.log_info("Done gathering logs - placing logs at " +
         dashboard_log_location)
       Djinn.log_run("tar -czf #{dashboard_log_location} #{local_log_dir}")
@@ -2914,7 +2914,6 @@ class Djinn
 
     Djinn.log_debug("backup_appcontroller_state:"+state.to_s)
 
-    HelperFunctions.write_local_appcontroller_state(state)
     begin
       ZKInterface.write_appcontroller_state(state)
     rescue FailedZooKeeperOperationException => e
@@ -3009,10 +3008,8 @@ class Djinn
     # Next, find out this machine's public IP address. In a cloud deployment, we
     # have to rely on the metadata server, while in a cluster deployment, it's
     # the same as the private IP.
-    if ["ec2", "euca"].include?(@options['infrastructure'])
-      new_public_ip = HelperFunctions.get_public_ip_from_aws_metadata_service()
-    elsif @options['infrastructure'] == "gce"
-      new_public_ip = HelperFunctions.get_public_ip_from_gce_metadata_service()
+    if ["ec2", "euca", "gce"].include?(@options['infrastructure'])
+      new_public_ip = HelperFunctions.get_public_ip_from_metadata_service()
     else
       new_public_ip = new_private_ip
     end
@@ -3490,7 +3487,9 @@ class Djinn
 
 
   # Searches through @nodes to try to find out which node is ours. Strictly
-  # speaking, we assume that our node is identifiable by private IP.
+  # speaking, we assume that our node is identifiable by private IP, but
+  # we also check our public IPs (for AWS and GCE) in case the user got it
+  # wrong.
   def find_me_in_locations()
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips()
@@ -3510,6 +3509,21 @@ class Djinn
         end
       }
     }
+
+    # We haven't found our ip in the nodes layout: let's try to give
+    # better debugging info to the user.
+    public_ip = HelperFunctions.get_public_ip_from_metadata_service()
+    @nodes.each { |node|
+      if node.private_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
+            "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
+      end
+      if node.public_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
+            "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+      end
+    }
+
     HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " +
       "My local IPs are: #{all_local_ips.join(', ')}")
   end
@@ -5432,7 +5446,7 @@ HOSTS
   #   app       : the application name to setup
   #   remove_old: boolean to force a re-setup of the app from the tarball
   def setup_app_dir(app, remove_old=false)
-    app_dir = "/var/apps/#{app}/app"
+    app_dir = "#{HelperFunctions.get_app_path(app)}/app"
     app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
     error_msg = ""
 
