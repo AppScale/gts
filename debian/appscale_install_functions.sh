@@ -299,11 +299,10 @@ installphp54()
 {
     # In Precise we have a too old version of php. We need at least 5.4.
     if [ "$DIST" = "precise" ]; then
-        add-apt-repository -y ppa:ondrej/php5-oldstable
+        LC_ALL=C.UTF-8 add-apt-repository ppa:ondrej/php
         apt-get update
-        # We need to pull also php5-cgi to ensure apache2 won't be pulled
-        # in.
-        apt-get install --force-yes -y php5-cgi php5
+        # php5-cgi is needed to ensure apache2 won't be installed.
+        apt-get install --force-yes -y php5-cgi php5.5
     fi
 }
 
@@ -490,6 +489,11 @@ installrequests()
 installpyopenssl()
 {
     if [ "$DIST" = "precise" ]; then
+        # A pyOpenSSL dependency (cryptography) requires distribute. After that
+        # is upgraded, setuptools and pkg_resources need to be reinstalled.
+        pipwrapper distribute
+        apt-get install --reinstall python-setuptools
+        apt-get install --reinstall python-pkg-resources
         pipwrapper pyopenssl
     fi
 }
@@ -540,6 +544,12 @@ installpsutil()
     case ${DIST} in
         precise|wheezy) pipwrapper psutil ;;
     esac
+}
+
+installapiclient()
+{
+    # The InfrastructureManager requires the Google API client.
+    pipwrapper google-api-python-client
 }
 
 buildgo()
