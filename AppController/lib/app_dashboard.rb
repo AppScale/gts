@@ -50,10 +50,6 @@ module AppDashboard
 
     # Pass the secret key and our public IP address (needed to connect to the
     # AppController) to the app.
-    Djinn.log_run("cp #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py /tmp/secret_key.py")
-    Djinn.log_run("cp #{APPSCALE_HOME}/AppDashboard/lib/local_host.py /tmp/local_host.py")
-    Djinn.log_run("cp #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py /tmp/uaserver_host.py")
-
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
     Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
     Djinn.log_run("echo \"UA_SERVER_IP = '#{uaserver_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
@@ -67,10 +63,11 @@ module AppDashboard
     port_file = "/etc/appscale/port-#{APP_NAME}.txt"
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
-    # Restore repo template files.
-    Djinn.log_run("mv /tmp/secret_key.py #{APPSCALE_HOME}/AppDashboard/lib/")
-    Djinn.log_run("mv /tmp/local_host.py #{APPSCALE_HOME}/AppDashboard/lib/")
-    Djinn.log_run("mv /tmp/uaserver_host.py #{APPSCALE_HOME}/AppDashboard/lib/")
+    # Restore repo template values.
+    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
+    Djinn.log_run("echo \"MY_PUBLIC_IP = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
+    Djinn.log_run("echo \"UA_SERVER_IP = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
+
     Djinn.log_debug("Done setting dashboard.")
 
     return true
