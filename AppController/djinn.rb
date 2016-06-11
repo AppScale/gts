@@ -1917,7 +1917,7 @@ class Djinn
       backup_appcontroller_state() if my_node.is_shadow?
 
       # The following is the core of the duty cycle: start new apps,
-      # restart apps, terminate non-responsive AppServer, and autoscale.
+      # restart apps, terminate non-responsive AppServers, and autoscale.
       if my_node.is_login?
         if check_health.nil?
           check_health = Thread.new {
@@ -4718,12 +4718,12 @@ HOSTS
   end
 
 
-  # All nodes will compares the list of AppServers they should be running,
+  # All nodes will compare the list of AppServers they should be running,
   # with the list of AppServers actually running, and make the necessary
-  # adjustments. Effectively only login nodes and appengine nodes will run
-  # AppServers (login nodes runs the dashboard).
+  # adjustments. Effectively only login node and appengine nodes will run
+  # AppServers (login node runs the dashboard).
   def check_running_apps()
-    # The running AppServers on this node must match the headnode view.
+    # The running AppServers on this node must match the login node view.
     # Only one thread talking to the AppManagerServer at a time.
     if AMS_LOCK.locked?
       Djinn.log_debug("Another thread already working with appmanager.")
@@ -4802,7 +4802,7 @@ HOSTS
       AMS_LOCK.synchronize {
         Djinn.log_debug("Checking if any app need to be restarted.")
 
-        # We restart application first if needed.
+        # We restart applications first if needed.
         APPS_LOCK.synchronize {
           @apps_to_restart.each { |app_name|
             Djinn.log_info("Got #{app_name} to restart (if applicable).")
@@ -5073,10 +5073,10 @@ HOSTS
 
   # This function checks if any node is to be considered down, and take
   # appropriate actions. For example, if an appengine node is considered
-  # down, the AppServers running on it, must be considered lost.
+  # down, the AppServers running on it must be considered lost.
   def check_nodes_health()
     if @all_stats.empty?
-      Djinn.log_debug("Cannot access node health since I don't have stats.")
+      Djinn.log_debug("Cannot check health since I don't have stats.")
       return
     end
 
@@ -5092,11 +5092,11 @@ HOSTS
         end
       }
       next if healthy
-
-      # Here we try to talk to the AC directly: if we get any response we
-      # considered the node up and running, otherwise we considered it
-      # crashed and we take actions.
       Djinn.log_debug("Node at #{node_ip} is not in @all_stats!")
+
+      # We want to give the benefit of the doubt of the node presumed
+      # crashed: we try to talk to the AC directly to confirm if the node
+      # is effectively dead.
       acc = AppControllerClient.new(node_ip, @@secret)
       tries = RETRIES
       begin
