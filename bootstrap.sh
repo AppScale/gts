@@ -3,6 +3,8 @@
 # Simple script to install AppScale and tools from the master branch
 # Author: AppScale Team <support@appscale.com>
 
+exec &>>/var/log/appscale/bootstrap.log
+
 set -e
 
 # Defaults values for repositories and branches.
