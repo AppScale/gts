@@ -102,6 +102,7 @@ class DatastoreProxy(AppDBInterface):
     self.cluster = Cluster(self.hosts, protocol_version=2)
     self.session = self.cluster.connect(KEYSPACE)
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
+    self.retry_policy = IdempotentRetryPolicy()
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
@@ -131,7 +132,7 @@ class DatastoreProxy(AppDBInterface):
                   key=ThriftColumn.KEY,
                   column=ThriftColumn.COLUMN_NAME,
                 )
-    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
+    query = SimpleStatement(statement, retry_policy=self.retry_policy)
     parameters = (ValueSequence(row_keys_bytes), ValueSequence(column_names))
 
     try:
@@ -179,7 +180,7 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       ))
-    batch_insert = BatchStatement(retry_policy=IdempotentRetryPolicy)
+    batch_insert = BatchStatement(retry_policy=self.retry_policy)
 
     for row_key in row_keys:
       for column in column_names:
@@ -219,7 +220,7 @@ class DatastoreProxy(AppDBInterface):
         table=table_name,
         key=ThriftColumn.KEY
       )
-    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
+    query = SimpleStatement(statement, retry_policy=self.retry_policy)
     parameters = (ValueSequence(row_keys_bytes),)
 
     try:
@@ -244,7 +245,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
     statement = 'DROP TABLE "{table}"'.format(table=table_name)
-    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
+    query = SimpleStatement(statement, retry_policy=self.retry_policy)
 
     try:
       self.session.execute(query)
@@ -355,7 +356,7 @@ class DatastoreProxy(AppDBInterface):
                   column=ThriftColumn.COLUMN_NAME,
                   limit=len(column_names) * limit
                 )
-    query = SimpleStatement(statement, retry_policy=IdempotentRetryPolicy)
+    query = SimpleStatement(statement, retry_policy=self.retry_policy)
     parameters = (bytearray(start_key), bytearray(end_key),
                   ValueSequence(column_names))
 
