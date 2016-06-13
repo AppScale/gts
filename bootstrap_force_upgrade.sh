@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
         usage
 done
 
-echo "Copying database files needed from /etc/appscale to a temporary location /root/database-temp"
+echo "Copying database files needed from /etc/appscale to a temporary location /root/database-temp."
 mkdir -p /root/database-temp
 cp -r /etc/appscale/. /root/database-temp
 cd /root/database-temp ; rm -r 2.8.0; rm -r certs; rm environment.yaml; rm home; rm VERSION
@@ -50,7 +50,7 @@ get_local_token() {
                 index=0
                 declare -i index
                 if [ "$line" = "$LOCAL_IP" ]; then
-                        LOCAL_TOKEN="Expression TBD"
+                        LOCAL_TOKEN=""
                 fi
                 index=index+1
         done
@@ -59,6 +59,7 @@ get_local_token() {
 get_local_token
 
 cd /root/appscale/; cd AppDB/cassandra_env/templates/
+echo "Looping through cassandra_env template files, and replacing the required variables with their values."
 
 for file in *
 do
@@ -70,6 +71,7 @@ do
 
 done
 
+echo "Copying the changed template files to the /cassandra/conf folder."
 cd; cp /root/appscale/AppDB/cassandra_env/templates/* /opt/cassandra/cassandra/conf/
 
 exit 0
