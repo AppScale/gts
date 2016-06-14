@@ -2304,7 +2304,7 @@ class Djinn
         # already have info about the open nodes we want to use
         new_nodes = Djinn.convert_location_array_to_class(new_nodes_info,
           @options['keyname'])
-        vms_to_use << new_nodes
+        vms_to_use << convert_fqdns_to_ips(new_nodes)
         vms_to_use.flatten!
       end
     }
@@ -2341,6 +2341,7 @@ class Djinn
   def add_nodes(node_info)
     keyname = @options['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
+    new_nodes = convert_fqdns_to_ips(new_nodes)
 
     # Since an external thread can modify @nodes, let's put a lock around
     # it to prevent race conditions.
@@ -3930,6 +3931,7 @@ class Djinn
 
     keyname = @options['keyname']
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
+    appengine_info = convert_fqdns_to_ips(appengine_info)
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
       @nodes.uniq!
