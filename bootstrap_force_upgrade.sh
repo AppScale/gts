@@ -19,59 +19,34 @@ while [ $# -gt 0 ]; do
         usage
 done
 
-echo "Copying database files needed from /etc/appscale to a temporary location /root/database-temp."
-mkdir -p /root/database-temp
-cp -r /etc/appscale/. /root/database-temp
-cd /root/database-temp ; rm -r 2.8.0; rm -r certs; rm environment.yaml; rm home; rm VERSION
+echo "Copying database files needed from /etc/appscale to a temporary directory before running bootstrap script."
+TEMPDIR=`mktemp -d`
+echo $TEMPDIR
+cp -r /etc/appscale/. $TEMPDIR
+(cd $TEMPDIR; rm -r 2.8.0; rm -r certs; rm environment.yaml; rm home; rm VERSION)
 
-echo "Running the bootstrap script with a --force-upgrade"
+echo "Running the bootstrap script with a --force-upgrade."
 
-(cd; cd appscale; bash bootstrap.sh --force-upgrade)
+(cd ~/appscale; bash bootstrap.sh --force-upgrade)
 if [ $? -gt 0 ]; then
         echo "Running bootstrap script failed!"
         exit 1
 fi
 
 echo "Coping database files back from the temporary location to /etc/appscale."
-cd; cp -r /root/database-temp/. /etc/appscale
+(cp -r $TEMPDIR/* /etc/appscale/)
 
 MASTER_IP=$( cat /etc/appscale/masters )
-
+# Local token is not needed currently for this upgrade process so empty token is passed.
 LOCAL_TOKEN=""
-SLAVES_IPS_LENGTH=$( cat /etc/appscale/slaves | wc -l )
 
-get_local_token() {
-        if [ "$MASTER_IP" = "$LOCAL_IP" ]; then
-                return
-        fi
+echo "Running python script to set up Cassandra config files."
+(python ~/appscale/scripts/setup_cassandra_config_files.py --local-ip $LOCAL_IP --master-ip $MASTER_IP --local-token $LOCAL_TOKEN --replication 1 --jmx-port 7070)
+if [ $? -gt 0 ]; then
+        echo "Python script to set up Cassandra config files failed!"
+        exit 1
+fi
 
-        cat /etc/appscale/slaves | while read line
-        do
-                index=0
-                declare -i index
-                if [ "$line" = "$LOCAL_IP" ]; then
-                        LOCAL_TOKEN=""
-                fi
-                index=index+1
-        done
-}
-
-get_local_token
-
-cd /root/appscale/; cd AppDB/cassandra_env/templates/
-echo "Looping through cassandra_env template files, and replacing the required variables with their values."
-
-for file in *
-do
-        (sed -i "s/APPSCALE-LOCAL/${LOCAL_IP}/g" $file)
-        (sed -i "s/APPSCALE-MASTER/${MASTER_IP}/g" $file)
-        (sed -i "s/APPSCALE-TOKEN/${LOCAL_TOKEN}/g" $file)
-        (sed -i "s/REPLICATION/1/g" $file)
-        (sed -i "s/APPSCALE-JMX-PORT/7070/g" $file)
-
-done
-
-echo "Copying the changed template files to the /cassandra/conf folder."
-cd; cp /root/appscale/AppDB/cassandra_env/templates/* /opt/cassandra/cassandra/conf/
-
+rm -rf $TEMPDIR
+echo "Completed Bootstrap process and restored the database files needed for the upgrade script."
 exit 0
