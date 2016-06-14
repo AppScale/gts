@@ -52,7 +52,7 @@ def usage():
 
 if __name__ == "__main__":
   args_length = len(sys.argv)
-  if args_length != 10:
+  if args_length < 10:
     usage()
     sys.exit(1)
 
