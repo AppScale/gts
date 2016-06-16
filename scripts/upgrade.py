@@ -55,9 +55,9 @@ def init_parser():
   """
   parser = argparse.ArgumentParser(
     description='Checks if any upgrade is required and runs the script for the process.')
-  parser.add_argument('version', type=str, help="available upgrade version")
-  parser.add_argument('keyname', type=str, help="keyname")
-  parser.add_argument('timestamp', type=str, help="timestamp to attach to the status file")
+  parser.add_argument('version', type=str, help='available upgrade version')
+  parser.add_argument('keyname', type=str, help='keyname')
+  parser.add_argument('timestamp', type=str, help='timestamp to attach to the status file')
   parser.add_argument('--master', required=True, help='master node IP')
   parser.add_argument('--zookeeper', required=True, help='zookeeper node IPs')
   parser.add_argument('--database', required=True, help='database node IPs')
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
 
   if not upgrade_status_dict.keys():
-    upgrade_status_dict = {LATEST_VERSION: 'AppScale is currently at its latest version'}
+    upgrade_status_dict = {'Status': 'Not executed', 'Message':'AppScale is currently at its latest version'}
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
   write_to_json_file(upgrade_status_dict, args.timestamp)
