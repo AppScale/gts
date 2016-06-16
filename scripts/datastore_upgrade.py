@@ -57,15 +57,15 @@ VERSION_INFO_KEY = "version_info"
 
 # Process keys for recording the status of the different steps
 # in the upgrade script.
-COMPLETION_STATUS = 'Completion Status'
-DELETE_JOURNAL_TABLE = 'Delete Journal Table'
-STORE_DATASTORE_VERSION = 'Store Datastore version'
-CLOSE_ZKTRANSACTION = 'Close ZKTransaction connection'
-STOP_ZOO_KEEPER = 'Stop ZooKeeper'
-STOP_CASSANDRA = 'Stop Cassandra'
-VALIDATE_ENTITIES = 'Validate Entities'
-START_ZOOKEEPER = 'Start ZooKeeper'
-START_CASSANDRA = 'Start Cassandra'
+COMPLETION_STATUS = 'Completion-Status'
+DELETE_JOURNAL_TABLE = 'Delete-Journal-Table'
+STORE_DATASTORE_VERSION = 'Store-Datastore-version'
+CLOSE_ZKTRANSACTION = 'Close-ZKTransaction-connection'
+STOP_ZOO_KEEPER = 'Stop-ZooKeeper'
+STOP_CASSANDRA = 'Stop-Cassandra'
+VALIDATE_ENTITIES = 'Validate-Entities'
+START_ZOOKEEPER = 'Start-ZooKeeper'
+START_CASSANDRA = 'Start-Cassandra'
 
 # The monit script to start the given service.
 START_SERVICE_SCRIPT = "python " + APPSCALE_HOME + "/scripts/monit_start_service.py "
@@ -97,7 +97,7 @@ def start_cassandra(status_dict, db_ips, master_ip, keyname):
       start_service_cmd = START_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
       cmd_status = utils.ssh(ip, keyname, start_service_cmd)
 
-    start_cassandra_ip = START_CASSANDRA + ":" + ip
+    start_cassandra_ip = START_CASSANDRA + "@" + ip
     if not cmd_status == 0:
       logging.error("Monit was unable to start Cassandra.")
       status_dict[start_cassandra_ip] = FAILURE
@@ -121,7 +121,7 @@ def start_zookeeper(status_dict, zk_ips, master_ip, keyname):
       start_service_cmd = START_SERVICE_SCRIPT + ZK_WATCH_NAME
       cmd_status = utils.ssh(ip, keyname, start_service_cmd)
 
-    start_zookeeper_ip = START_ZOOKEEPER + ":" + ip
+    start_zookeeper_ip = START_ZOOKEEPER + "@" + ip
     if not cmd_status == 0:
       logging.error("Monit was unable to start ZooKeeper.")
       status_dict[start_zookeeper_ip] = FAILURE
@@ -287,7 +287,7 @@ def stop_cassandra(db_ips, master_ip, status_dict, keyname):
       stop_service_cmd = STOP_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
       cmd_status = utils.ssh(ip, keyname, stop_service_cmd)
 
-    stop_cassandra_ip = STOP_CASSANDRA + ":" + ip
+    stop_cassandra_ip = STOP_CASSANDRA + "@" + ip
     if not cmd_status == 0:
       logging.error("Monit was unable to stop Cassandra.")
       status_dict[stop_cassandra_ip] = FAILURE
@@ -311,7 +311,7 @@ def stop_zookeeper(zk_ips, master_ip, status_dict, keyname):
       stop_service_cmd = STOP_SERVICE_SCRIPT + ZK_WATCH_NAME
       cmd_status = utils.ssh(ip, keyname, stop_service_cmd)
 
-    stop_zookeeper_ip = STOP_ZOO_KEEPER + ":" + ip
+    stop_zookeeper_ip = STOP_ZOO_KEEPER + "@" + ip
     if not cmd_status == 0:
       logging.error("Monit was unable to stop ZooKeeper.")
       status_dict[stop_zookeeper_ip] = FAILURE

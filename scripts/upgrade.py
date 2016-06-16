@@ -8,6 +8,8 @@ import yaml
 
 import datastore_upgrade
 
+LATEST_VERSION = 'Latest-version'
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 from dbconstants import *
 
@@ -18,7 +20,7 @@ UPGRADE_NEEDED_VERSION = "3.0.0"
 UPGRADE_JSON_FILE = '/var/log/appscale/upgrade-status-'
 
 # Data upgrade status key.
-DATA_UPGRADE = 'Data Upgrade'
+DATA_UPGRADE = 'Data-Upgrade'
 
 # .JSON file extention.
 JSON_FILE_EXTENTION = ".json"
@@ -77,6 +79,9 @@ if __name__ == "__main__":
     datastore_upgrade.run_datastore_upgrade(zk_ips, db_ips, master_ip,
       data_upgrade_status, args.keyname)
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
+
+  if not upgrade_status_dict.keys():
+    upgrade_status_dict = {LATEST_VERSION: 'AppScale is currently at its latest version'}
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
   write_to_json_file(upgrade_status_dict, args.timestamp)
