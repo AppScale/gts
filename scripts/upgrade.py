@@ -1,5 +1,6 @@
 """ This script checks and performs an upgrade (if any) is needed for this deployment. """
 
+import argparse
 import json
 import os
 import sys
@@ -45,43 +46,37 @@ def write_to_json_file(data, timestamp):
   with open(upgrade_status_file, 'w') as file:
     json.dump(data, file)
 
+def init_parser():
+  """ Initializes the command line argument parser.
+    Returns:
+      A parser object.
+  """
+  parser = argparse.ArgumentParser(
+    description='Checks if any upgrade is required and runs the script for the process.')
+  parser.add_argument('version', type=str, help="available upgrade version")
+  parser.add_argument('keyname', type=str, help="keyname")
+  parser.add_argument('timestamp', type=str, help="timestamp to attach to the status file")
+  parser.add_argument('--master', required=True, help='master node IP')
+  parser.add_argument('--zookeeper', required=True, help='zookeeper node IPs')
+  parser.add_argument('--database', required=True, help='database node IPs')
+  return parser
+
 if __name__ == "__main__":
-  args_length = len(sys.argv)
-  if args_length != 10:
-    sys.exit(1)
 
-  available_version = ""
-  timestamp = ""
-  for index in range(args_length):
-    if index == 0:
-      continue
-    if index == 1:
-      available_version = str(sys.argv[index])
-      continue
-    if index == 2:
-      keyname = str(sys.argv[index])
-      continue
-    if index == 3:
-      timestamp = str(sys.argv[index])
-      continue
-    if (str(sys.argv[index]) == ("--master")):
-      master_ip_arg = str(sys.argv[index+1])
-    if (str(sys.argv[index]) == ("--zookeeper")):
-      zk_ips_arg = str(sys.argv[index+1])
-    if (str(sys.argv[index]) == ("--database")):
-      db_ips_arg = str(sys.argv[index+1])
+  parser = init_parser()
+  args = parser.parse_args()
 
-  zk_ips = yaml.load(zk_ips_arg)
-  db_ips = yaml.load(db_ips_arg)
-  master_ip = yaml.load(master_ip_arg)
+  zk_ips = yaml.load(args.zookeeper)
+  db_ips = yaml.load(args.database)
+  master_ip = yaml.load(args.master)
 
   upgrade_status_dict = {}
   # Run datastore upgrade script if required.
-  if is_data_upgrade_needed(available_version):
+  if is_data_upgrade_needed(args.version):
     data_upgrade_status = {}
     datastore_upgrade.run_datastore_upgrade(zk_ips, db_ips, master_ip,
-      data_upgrade_status, keyname)
+      data_upgrade_status, args.keyname)
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
-  write_to_json_file(upgrade_status_dict, timestamp)
+  write_to_json_file(upgrade_status_dict, args.timestamp)

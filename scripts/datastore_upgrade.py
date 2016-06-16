@@ -35,7 +35,7 @@ BATCH_SIZE = 100
 LOG_PROGRESS_FREQUENCY = 30
 
 # Max sleep time for Cassandra and ZooKeeper to be up.
-SLEEP_TIME = 20
+SLEEP_TIME = 30
 
 # Monit watch name for Cassandra.
 CASSANDRA_WATCH_NAME = "cassandra"
@@ -421,13 +421,14 @@ def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
   start_cassandra(status_dict, db_ips, master_ip, keyname)
   start_zookeeper(status_dict, zk_ips, master_ip, keyname)
 
-  if not all_services_started(status_dict):
-    stop_cassandra(db_ips, status_dict, keyname)
-    stop_zookeeper(zk_ips,status_dict, keyname)
-    return
 
   # Sleep time for Cassandra and ZooKeeper to be started.
   time.sleep(SLEEP_TIME)
+
+  if not all_services_started(status_dict):
+    stop_cassandra(db_ips, master_ip, status_dict, keyname)
+    stop_zookeeper(zk_ips, master_ip, status_dict, keyname)
+    return
 
   datastore = get_datastore()
   ds_distributed, zookeeper = get_datastore_distributed(datastore, zk_ips)
