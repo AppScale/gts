@@ -274,11 +274,24 @@ if [ -d appscale/.appscale/certs ]; then
                     echo "Re-run the upgrade command from the tools."
                     exit 1
                 fi
-                set -e
         else
                 (cd appscale; git pull)
                 (cd appscale-tools; git pull)
         fi
+
+        if [ "$STASH" = "Y" ]; then
+                (cd appscale; git stash apply)
+                if [ $? -gt 0 ]; then
+                    echo "Error while re-applying stash on appscale repo."
+                    exit 1
+                fi
+                (cd appscale-tools; git stash apply)
+                if [ $? -gt 0 ]; then
+                    echo "Error while re-applying stash on appscale-tools repo."
+                    exit 1
+                fi
+        fi
+        set -e
 fi
 
 echo -n "Building AppScale..."
