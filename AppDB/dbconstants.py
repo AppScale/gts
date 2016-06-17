@@ -33,6 +33,7 @@ APP_ID_TABLE = "APP_IDS__"
 APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
 METADATA_TABLE = "METADATA__"
+DATASTORE_METADATA_TABLE = "DATASTORE_METADATA__"
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
@@ -109,6 +110,9 @@ APPS_SCHEMA = [
   "tar_ball",
   "enabled",
   "indexes" ]
+
+DATASTORE_METADATA_SCHEMA = [
+  "version"]
 
 ###############################
 # Generic Datastore Exceptions

@@ -222,7 +222,7 @@ class DatastoreProxy(AppDBInterface):
       pass
     except Exception, ex:
       logging.exception(ex)
-      raise AppScaleDBConnectionError("Exception on delete_table: %s" % str(ex))
+      raise AppScaleDBConnectionError("Exception on create_table: %s" % str(ex))
     
   def range_query(self, 
                   table_name, 
