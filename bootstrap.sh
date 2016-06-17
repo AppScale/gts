@@ -251,13 +251,13 @@ if [ -d appscale/.appscale/certs ]; then
                 (cd appscale; git checkout "$GIT_TAG")
                 if [ $? -gt 0 ]; then
                     echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
-                    echo "e.g.: git stash; git checkout <AppScale-version>
+                    echo "e.g.: git stash; git checkout <AppScale-version>"
                     exit 1
                 fi
                 (cd appscale-tools; git checkout "$GIT_TAG")
                 if [ $? -gt 0 ]; then
                     echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
-                    echo "e.g.: git stash; git checkout <AppScale-version>
+                    echo "e.g.: git stash; git checkout <AppScale-version>"
                     exit 1
                 fi
         else

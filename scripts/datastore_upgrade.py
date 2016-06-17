@@ -18,6 +18,7 @@ import datastore_server
 import entity_utils
 from dbconstants import *
 from zkappscale import zktransaction as zk
+from cassandra_env import cassandra_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import datastore_errors
@@ -424,6 +425,12 @@ def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
 
   # Sleep time for Cassandra and ZooKeeper to be started.
   time.sleep(SLEEP_TIME)
+
+  while subprocess.call([cassandra_interface.NODE_TOOL, 'status']) !=0:
+    time.sleep(10)
+
+  while subprocess.call(['/usr/share/zookeeper/bin/zkServer.sh', 'status']) !=0:
+    time.sleep(10)
 
   if not all_services_started(status_dict):
     stop_cassandra(db_ips, master_ip, status_dict, keyname)
