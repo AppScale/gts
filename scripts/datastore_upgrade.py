@@ -422,10 +422,7 @@ def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
   start_cassandra(status_dict, db_ips, master_ip, keyname)
   start_zookeeper(status_dict, zk_ips, master_ip, keyname)
 
-
   # Sleep time for Cassandra and ZooKeeper to be started.
-  time.sleep(SLEEP_TIME)
-
   while subprocess.call([cassandra_interface.NODE_TOOL, 'status']) !=0:
     time.sleep(10)
 
