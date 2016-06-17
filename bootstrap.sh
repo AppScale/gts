@@ -26,7 +26,6 @@ usage() {
         echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
         echo "   --force-upgrade          Force upgrade even if some check fails."
         echo "   --tag <git-tag>          Use git tag (ie 2.2.0) or 'last' to use the latest release or 'dev' for HEAD"
-        echo "   --stash                  Runs the bootstrap after stashing local unsaved changes"
         echo "   -t                       Run unit tests"
         exit 1
 }
@@ -95,11 +94,6 @@ while [ $# -gt 0 ]; do
         fi
         if [ "${1}" = "-t" ]; then 
                 UNIT_TEST="Y"
-                shift
-                continue
-        fi
-        if [ "${1}" = "--stash" ]; then
-                STASH="Y"
                 shift
                 continue
         fi
@@ -252,46 +246,25 @@ if [ -d appscale/.appscale/certs ]; then
 
 
         # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
-        if [ "$STASH" = "Y" ]; then
-                echo "It is a force upgrade, so a git stash will be performed."
-                (cd appscale; git stash save -u)
-                (cd appscale-tools; git stash save -u)
-        fi
-
         if [ -n "${GIT_TAG}" ]; then
                 set +e
                 (cd appscale; git checkout "$GIT_TAG")
                 if [ $? -gt 0 ]; then
-                    echo "Please stash your local unsaved changes."
-                    echo "Checkout the tag of the AppScale repository you are currently using".
-                    echo "Re-run the upgrade command from the tools."
+                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
+                    echo "e.g.: git stash; git checkout <AppScale-version>
                     exit 1
                 fi
                 (cd appscale-tools; git checkout "$GIT_TAG")
                 if [ $? -gt 0 ]; then
-                    echo "Please stash your local unsaved changes."
-                    echo "Checkout the tag of the AppScale repository you are currently using".
-                    echo "Re-run the upgrade command from the tools."
+                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
+                    echo "e.g.: git stash; git checkout <AppScale-version>
                     exit 1
                 fi
         else
                 (cd appscale; git pull)
                 (cd appscale-tools; git pull)
+                set -e
         fi
-
-        if [ "$STASH" = "Y" ]; then
-                (cd appscale; git stash apply)
-                if [ $? -gt 0 ]; then
-                    echo "Error while re-applying stash on appscale repo."
-                    exit 1
-                fi
-                (cd appscale-tools; git stash apply)
-                if [ $? -gt 0 ]; then
-                    echo "Error while re-applying stash on appscale-tools repo."
-                    exit 1
-                fi
-        fi
-        set -e
 fi
 
 echo -n "Building AppScale..."

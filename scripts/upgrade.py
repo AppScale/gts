@@ -2,16 +2,9 @@
 
 import argparse
 import json
-import os
-import sys
 import yaml
 
 import datastore_upgrade
-
-LATEST_VERSION = 'Latest-version'
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-from dbconstants import *
 
 # Version for which Datastore upgrade is needed.
 UPGRADE_NEEDED_VERSION = "3.0.0"

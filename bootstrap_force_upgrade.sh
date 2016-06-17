@@ -16,12 +16,6 @@ while [ $# -gt 0 ]; do
                 shift
                 continue
         fi
-        if [ "${1}" = "--stash" ]; then
-                STASH="Y"
-                shift
-                continue
-        fi
-        usage
 done
 
 echo "Copying database files needed from /etc/appscale to a temporary directory before running bootstrap script."
@@ -30,20 +24,11 @@ echo $TEMPDIR
 cp -r /etc/appscale/. $TEMPDIR
 (cd $TEMPDIR; rm -r 2.8.0; rm -r certs; rm environment.yaml; rm home; rm VERSION)
 
-echo "Running the bootstrap script with a --force-upgrade."
-
-if [ "$STASH" = "Y" ]; then
-        (cd ~/appscale; bash bootstrap.sh --stash)
-        if [ $? -gt 0 ]; then
-                echo "Running bootstrap script with --stash failed!"
-                exit 1
-        fi
-else
-        (cd ~/appscale; bash bootstrap.sh)
-        if [ $? -gt 0 ]; then
-                echo "Running bootstrap script failed!"
-                exit 1
-        fi
+echo "Running the bootstrap script"
+(cd ~/appscale; bash bootstrap.sh)
+if [ $? -gt 0 ]; then
+        echo "Running bootstrap script failed!"
+        exit 1
 fi
 
 echo "Coping database files back from the temporary location to /etc/appscale."
