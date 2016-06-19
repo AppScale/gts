@@ -2000,6 +2000,8 @@ class Djinn
     if File.exists?(location)
       begin
         ZKInterface.add_app_entry(appname, my_node.public_ip, location)
+        uac = UserAppClient.new(my_node.private_ip, @@secret)
+        uac.enable_app(appname)
         result = "Found #{appname} in zookeeper."
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
