@@ -52,7 +52,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", "", @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.set_apps([], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.status(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_stats(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
@@ -212,21 +211,6 @@ class TestDjinn < Test::Unit::TestCase
     actual = djinn.set_parameters(one_node_info, credentials, app_names,
       @secret)
     assert_equal(expected, actual)
-  end
-
-  def test_set_apps
-    flexmock(Djinn).new_instances { |instance|
-      instance.should_receive(:valid_secret?).and_return(true)
-    }
-    djinn = Djinn.new
-
-    bad_app_list = "boo, foo"
-    expected_bad_result = "app names was not an Array but was a String"
-    assert_equal(expected_bad_result, djinn.set_apps(bad_app_list, @secret))
-
-    good_app_list = ["boo", "foo"]
-    expected_good_result = "App names is now boo, foo"
-    assert_equal(expected_good_result, djinn.set_apps(good_app_list, @secret))
   end
 
   def test_taskqueue_master
@@ -1249,14 +1233,6 @@ class TestDjinn < Test::Unit::TestCase
     djinn.state = "AppController is taking it easy today"
     state_only = JSON.dump({'state' => djinn.state})
     assert_equal(state_only, djinn.get_property('state', @secret))
-
-    # Check that we can get the userappserver_ip.
-    djinn.userappserver_ip = "private-ip"
-    userappserver_ips = JSON.dump({
-      'userappserver_ip' => 'private-ip'
-    })
-    assert_equal(userappserver_ips['private-ip'], djinn.get_property('userappserver_ip',
-      @secret)['private-ip'])
   end
 
 

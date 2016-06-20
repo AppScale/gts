@@ -28,6 +28,11 @@ CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 # A directory containing Cassandra-related scripts and libraries.
 CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra_env"
 
+# The location of the setup cassandra config files script.
+SETUP_CASSANDRA_CONFIG_SCRIPT = "python ~/appscale/scripts/setup_cassandra_config_files.py"
+
+# The default port over which Cassandra will be available for JMX connections
+JMX_PORT = "7070"
 
 # Determines if a UserAppServer should run on this machine.
 #
@@ -80,27 +85,11 @@ end
 #     FQDN or IP address of a machine hosting a Database Slave role.
 #   replication: The desired level of replication.
 def setup_db_config_files(master_ip, slave_ips, replication)
-  source_dir = "#{CASSANDRA_ENV_DIR}/templates"
-  dest_dir = "#{CASSANDRA_DIR}/cassandra/conf"
-
   local_token = get_local_token(master_ip, slave_ips)
-
-  files_to_config = Djinn.log_run("ls #{source_dir}").split
-  files_to_config.each{ |filename|
-    full_path_to_read = File.join(source_dir, filename)
-    full_path_to_write = File.join(dest_dir, filename)
-    File.open(full_path_to_read) { |source_file|
-      contents = source_file.read
-      contents.gsub!(/APPSCALE-LOCAL/, HelperFunctions.local_ip)
-      contents.gsub!(/APPSCALE-MASTER/, master_ip)
-      contents.gsub!(/APPSCALE-TOKEN/, "#{local_token}")
-      contents.gsub!(/REPLICATION/, "#{replication}")
-      contents.gsub!(/APPSCALE-JMX-PORT/, "7070")              
-      File.open(full_path_to_write, "w+") { |dest_file|
-        dest_file.write(contents)
-      }
-    }
-  }
+  local_ip = HelperFunctions.local_ip
+  Djinn.log_run("#{SETUP_CASSANDRA_CONFIG_SCRIPT} --local-ip #{local_ip} " +
+    "--master-ip #{master_ip} --local-token #{local_token} --replication #{replication} " +
+    "--jmx-port #{JMX_PORT}")
 end
 
 

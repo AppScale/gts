@@ -127,3 +127,4 @@ def restart(watch):
 
   logging.info("Restarting watch {0}".format(watch))
   return run_with_retry([MONIT, 'restart', '-g', watch])
+

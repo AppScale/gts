@@ -292,7 +292,7 @@ class DatastoreProxy(AppDBInterface):
       raise AppScaleDBConnectionError(message)
 
   def range_query(self,
-                  table_name, 
+                  table_name,
                   column_names, 
                   start_key, 
                   end_key, 

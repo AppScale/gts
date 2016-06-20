@@ -10,6 +10,7 @@
 # ssh -i <key> ubuntu@<public IP> 'curl -Lo - fast-start.appscale.com|sudo -i sh'
 #
 
+PATH="${PATH}:/usr/local/bin"
 ADMIN_EMAIL=""
 ADMIN_PASSWD=""
 PROVIDER=""
