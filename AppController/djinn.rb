@@ -3613,8 +3613,7 @@ class Djinn
           start_db_slave(@options['clear_datastore'].downcase == "true")
         end
         # Let's make sure cassandra is up.
-        HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-          THRIFT_PORT)
+        sleep(1) until system('/opt/cassandra/cassandra/bin/nodetool status')
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
         @state = "Starting up SOAP Server and Datastore Server"

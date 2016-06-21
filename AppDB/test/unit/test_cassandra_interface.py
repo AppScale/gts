@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan
 
-import pycassa
-import os 
+import os
 import sys
 import unittest
 
+from cassandra.cluster import Cluster
+from cassandra.query import BatchStatement
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra_env"))
@@ -14,45 +15,14 @@ import cassandra_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))  
 import file_io
 
-class FakeCassClient():
-  """ Fake cassandra client class for mocking """
-  def __init__(self):
-    return
-  def multiget_slice(self, rk, path, slice_predicate, consistency):
-    return {}
-
-class FakePool():
-  """ Fake cassandra connection pool for mocking """
-  def get(self):
-    return FakeCassClient()
-  def return_conn(self, client):
-    return 
-
-class FakeColumnFamily():
-  """ Fake column family class for mocking """
-  def __init__(self):
-    return
-  def batch_insert(self, multi_map, write_consistency_level=''):
-    return
-  def get_range(self, start='', finish='', columns='', row_count='', 
-                read_consistency_level=''):
-    return {}
-
-class FakeSystemManager():
-  """ Fake system manager class for mocking """
-  def __init__(self):
-    return
-  def drop_column_family(self, keyspace, table_name):
-    return
-
 class TestCassandra(unittest.TestCase):
   def testConstructor(self):
     flexmock(file_io) \
         .should_receive('read') \
         .and_return('127.0.0.1')
 
-    flexmock(pycassa).should_receive("ConnectionPool") \
-        .and_return(FakePool())
+    flexmock(Cluster).should_receive('connect').\
+        and_return(flexmock(execute=lambda x: None))
 
     db = cassandra_interface.DatastoreProxy()
 
@@ -61,8 +31,8 @@ class TestCassandra(unittest.TestCase):
         .should_receive('read') \
         .and_return('127.0.0.1')
 
-    flexmock(pycassa).should_receive("ConnectionPool") \
-        .and_return(FakePool())
+    flexmock(Cluster).should_receive('connect').\
+        and_return(flexmock(execute=lambda x, **y: []))
 
     db = cassandra_interface.DatastoreProxy()
 
@@ -74,9 +44,10 @@ class TestCassandra(unittest.TestCase):
         .should_receive('read') \
         .and_return('127.0.0.1')
 
-    flexmock(pycassa) \
-        .should_receive("ColumnFamily") \
-        .and_return(FakeColumnFamily())
+    session = flexmock(prepare=lambda x: '', execute=lambda x: None)
+    flexmock(BatchStatement).should_receive('add')
+    flexmock(Cluster).should_receive('connect').\
+        and_return(session)
 
     db = cassandra_interface.DatastoreProxy()
 
@@ -88,9 +59,8 @@ class TestCassandra(unittest.TestCase):
         .should_receive('read') \
         .and_return('127.0.0.1')
 
-    flexmock(pycassa.system_manager) \
-        .should_receive("SystemManager") \
-        .and_return(FakeSystemManager())
+    flexmock(Cluster).should_receive('connect').\
+        and_return(flexmock(execute=lambda x: None))
 
     db = cassandra_interface.DatastoreProxy()
 
@@ -102,13 +72,12 @@ class TestCassandra(unittest.TestCase):
         .should_receive('read') \
         .and_return('127.0.0.1')
 
-    flexmock(pycassa) \
-        .should_receive("ColumnFamily") \
-        .and_return(FakeColumnFamily())
+    flexmock(Cluster).should_receive('connect').\
+        and_return(flexmock(execute=lambda x, **y: []))
 
     db = cassandra_interface.DatastoreProxy()
 
-    assert [] == db.range_query("table", [], "start", "end", 0)
+    self.assertListEqual([], db.range_query("table", [], "start", "end", 0))
 
 if __name__ == "__main__":
   unittest.main()    

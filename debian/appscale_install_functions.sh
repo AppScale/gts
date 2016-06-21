@@ -329,7 +329,6 @@ installsolr()
 installcassandra()
 {
     CASSANDRA_VER=2.0.7
-    PYCASSA_VER=1.9.1
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
     CASSANDRA_PACKAGE_MD5="1894c5103d12a2be14a2c44bfa2363cc"
@@ -358,6 +357,7 @@ installcassandra()
         pipwrapper  thrift
     fi
     pipwrapper  pycassa
+    pipwrapper cassandra-driver
 
     JAMM_PACKAGE="jamm-0.2.2.jar"
     JAMM_PACKAGE_MD5="07829fab6b45af032e061b5708cfbb3b"

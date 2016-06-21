@@ -2,22 +2,14 @@
 Cassandra Interface for AppScale
 """
 
-import base64   
-import os
 import pycassa
 import sys
-import time
 import string
 
 from dbconstants import *
 from dbinterface import *
 from pycassa.system_manager import *
 from pycassa.cassandra.ttypes import NotFoundException
-
-from thrift import Thrift
-from thrift.transport import TSocket
-from thrift.transport import TTransport
-from thrift.protocol import TBinaryProtocol
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
