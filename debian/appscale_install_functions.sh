@@ -345,8 +345,6 @@ installcassandra()
     mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
 
     chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
-    cp -v ${CASSANDRA_ENV}/templates/cassandra.in.sh\
-        ${CASSANDRA_DIR}/cassandra/bin
     cp -v ${CASSANDRA_ENV}/templates/cassandra-env.sh\
         ${CASSANDRA_DIR}/cassandra/conf
     mkdir -p /var/lib/cassandra
@@ -358,11 +356,6 @@ installcassandra()
     fi
     pipwrapper  pycassa
     pipwrapper cassandra-driver
-
-    JAMM_PACKAGE="jamm-0.2.2.jar"
-    JAMM_PACKAGE_MD5="07829fab6b45af032e061b5708cfbb3b"
-    cachepackage ${JAMM_PACKAGE} ${JAMM_PACKAGE_MD5}
-    cp "${PACKAGE_CACHE}/${JAMM_PACKAGE}" ${CASSANDRA_DIR}/cassandra/lib
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
