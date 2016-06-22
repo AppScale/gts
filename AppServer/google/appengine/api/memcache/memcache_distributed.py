@@ -201,7 +201,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     if request.direction() == MemcacheIncrementRequest.INCREMENT:
       new_value += request.delta()
     elif request.direction() == MemcacheIncrementRequest.DECREMENT:
-      new_value -= request.delta()
+      new_value = max(new_value-request.delta(), 0)
 
     new_stored_value = cPickle.dumps([flags, cas_id + 1, str(new_value)])
     try:
