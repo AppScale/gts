@@ -4,7 +4,6 @@
 import imp
 import os
 import sys
-from dbconstants import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import constants 

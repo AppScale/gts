@@ -3,10 +3,8 @@
   <property name="src" location="src" />
   <property name="build" location="build" />
   <property name="gae_version" value="1.8.4" />
-  <property name="gae_url" value="http://googleappengine.googlecode.com/files/appengine-java-sdk-${gae_version}.zip" />
   <property name="gae_org" location="appengine-java-sdk-${gae_version}" />
   <property name="gae_dist" location="appengine-java-sdk-repacked" />
-  <available property="sdk.exists" file="appengine-java-sdk-${gae_version}/README" />
 
   <path id="gae.classpath">
     <fileset dir="${gae_dist}/lib">
@@ -29,13 +27,7 @@
     <delete dir="${gae_org}" />
   </target>
 
-  <target name="extract-sdk" unless="sdk.exists">
-    <get src="${gae_url}" dest="appengine-java-sdk.zip" verbose="false" />
-    <unzip src="appengine-java-sdk.zip" dest="." />
-    <delete file="appengine-java-sdk.zip" />
-  </target>
-
-  <target name="repack-sdk" depends="extract-sdk">
+  <target name="repack-sdk">
     <mkdir dir="${gae_dist}" />
     <copy todir="${gae_dist}" overwrite="true">
       <fileset dir="${gae_org}">

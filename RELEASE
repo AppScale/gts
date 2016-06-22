@@ -5,6 +5,20 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
 
+AppScale version 2.9.0, released June, 2016
+Highlights of features/bugs in this release:
+- Added an upgrade mechanism to make future platform upgrades easier
+- Gave ZooKeeper more responsibility for keeping track of configuration state
+- Fixed the "Delete App" functionality in the dashboard
+- Fixed a bug that regenerated nginx files needlessly
+- Adjusted the placement logic of new AppServers to improve fault tolerance
+- Improved AppController stability
+- Fixed certificate verification in some cases when a server uses SNI
+- Included more AppServer information in the output of 'appscale status'
+- Provided a more useful error message for invalid node layouts
+- Moved the Cassandra installation directory outside of the Git repository
+- Added logging to the UAServer
+
 AppScale version 2.8.0, released May, 2016
 Highlights of features/bugs in this release:
 - Alternative install for zookeeper was removed

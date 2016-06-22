@@ -158,7 +158,7 @@ class Apps:
     self.last_time_updated_date_ = str(self.creation_date_)
     self.cksum_ = "0"
     self.num_entries_ = "0"
-    self.enabled_ = "true"
+    self.enabled_ = "false"
     self.indexes_ = "0"
     return
 

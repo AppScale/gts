@@ -1,6 +1,5 @@
 #!/usr/bin/ruby -w
 
-
 # As we can't rely on DNS in AppScale, we have an app, called the
 # AppDashboard, that provides a single place to route users to their
 # applications. It also provides authentication for users as an
@@ -41,30 +40,34 @@ module AppDashboard
   #     to be created and new apps to be uploaded.
   #   public_ip: This machine's public IP address or FQDN.
   #   private_ip: This machine's private IP address or FQDN.
+  #   persistent_storage: Where we store the application tarball.
   #   secret: A String that is used to authenticate this application with
   #     other AppScale services.
   # Returns:
   #   true if the AppDashboard was started successfully, and false otherwise.
-  def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
+  def self.start(login_ip, uaserver_ip, public_ip, private_ip,
+      persistent_storage, secret)
+
+    # Pass the secret key and our public IP address (needed to connect to the
+    # AppController) to the app.
+    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
+    Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
+    Djinn.log_run("echo \"UA_SERVER_IP = '#{uaserver_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
+
     # TODO: tell the tools to disallow uploading apps called 
     # APP_NAME, and have start_appengine to do the same.   
-    app_manager = AppManagerClient.new(HelperFunctions.local_ip())
-
-    app_location = "/var/apps/#{APP_NAME}/app"
-    Djinn.log_run("mkdir -p #{app_location}")
-    Djinn.log_run("cp -r #{APPSCALE_HOME}/AppDashboard/* #{app_location}")
-    Djinn.log_run("mkdir -p /var/apps/#{APP_NAME}/log")
-    Djinn.log_run("touch /var/apps/#{APP_NAME}/log/server.log")
+    app_location = "#{persistent_storage}/apps/#{APP_NAME}.tar.gz"
+    Djinn.log_run("tar -czf #{app_location} -C #{APPSCALE_HOME}/AppDashboard .")
 
     # Tell the app what nginx port sits in front of it.
     port_file = "/etc/appscale/port-#{APP_NAME}.txt"
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
-    # Pass the secret key and our public IP address (needed to connect to the
-    # AppController) to the app.
-    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
-    Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{app_location}/lib/local_host.py")
-    Djinn.log_run("echo \"UA_SERVER_IP = '#{uaserver_ip}'\" > #{app_location}/lib/uaserver_host.py")
+    # Restore repo template values.
+    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
+    Djinn.log_run("echo \"MY_PUBLIC_IP = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
+    Djinn.log_run("echo \"UA_SERVER_IP = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
+
     Djinn.log_debug("Done setting dashboard.")
 
     return true

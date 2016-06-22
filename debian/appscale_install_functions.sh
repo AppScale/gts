@@ -11,12 +11,12 @@ if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=/opt/appscale
 fi
 
-if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
+if [ -z "${APPSCALE_PACKAGE_MIRROR-}" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
 export UNAME_MACHINE=$(uname -m)
-if [ -z "$JAVA_HOME_DIRECTORY" ]; then
+if [ -z "${JAVA_HOME_DIRECTORY-}" ]; then
     if [ "$UNAME_MACHINE" = "x86_64" ]; then
         export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
     elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then
@@ -238,14 +238,19 @@ installjavajdk()
 
 installappserverjava()
 {
+    JAVA_SDK_DIR="${APPSCALE_HOME}/AppServer_Java"
+
+    JAVA_SDK_PACKAGE="appengine-java-sdk-1.8.4.zip"
+    JAVA_SDK_PACKAGE_MD5="f5750b0c836870a3089096fd537a1272"
+    cachepackage ${JAVA_SDK_PACKAGE} ${JAVA_SDK_PACKAGE_MD5}
+    unzip "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" -d ${JAVA_SDK_DIR}
+
     # Compile source file.
-    cd ${APPSCALE_HOME}/AppServer_Java
-    ant install
-    ant clean-build
+    (cd ${JAVA_SDK_DIR} && ant install && ant clean-build)
 
     if [ -n "$DESTDIR" ]; then
         # Delete unnecessary files.
-        rm -rfv src lib
+        rm -rf ${JAVA_SDK_DIR}/src ${JAVA_SDK_DIR}/lib
     fi
 }
 
@@ -293,11 +298,10 @@ installphp54()
 {
     # In Precise we have a too old version of php. We need at least 5.4.
     if [ "$DIST" = "precise" ]; then
-        add-apt-repository -y ppa:ondrej/php5-oldstable
+        LC_ALL=C.UTF-8 add-apt-repository ppa:ondrej/php
         apt-get update
-        # We need to pull also php5-cgi to ensure apache2 won't be pulled
-        # in.
-        apt-get install --force-yes -y php5-cgi php5
+        # php5-cgi is needed to ensure apache2 won't be installed.
+        apt-get install --force-yes -y php5-cgi php5.5
     fi
 }
 
@@ -325,7 +329,6 @@ installsolr()
 installcassandra()
 {
     CASSANDRA_VER=2.0.7
-    PYCASSA_VER=1.9.1
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
     CASSANDRA_PACKAGE_MD5="1894c5103d12a2be14a2c44bfa2363cc"
@@ -352,6 +355,7 @@ installcassandra()
         pipwrapper  thrift
     fi
     pipwrapper  pycassa
+    pipwrapper cassandra-driver
 
     # Create separate log directory.
     mkdir -pv /var/log/appscale/cassandra
@@ -477,6 +481,11 @@ installrequests()
 installpyopenssl()
 {
     if [ "$DIST" = "precise" ]; then
+        # A pyOpenSSL dependency (cryptography) requires distribute. After that
+        # is upgraded, setuptools and pkg_resources need to be reinstalled.
+        pipwrapper distribute
+        apt-get install --reinstall python-setuptools
+        apt-get install --reinstall python-pkg-resources
         pipwrapper pyopenssl
     fi
 }
@@ -527,6 +536,12 @@ installpsutil()
     case ${DIST} in
         precise|wheezy) pipwrapper psutil ;;
     esac
+}
+
+installapiclient()
+{
+    # The InfrastructureManager requires the Google API client.
+    pipwrapper google-api-python-client
 }
 
 buildgo()

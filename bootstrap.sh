@@ -3,6 +3,8 @@
 # Simple script to install AppScale and tools from the master branch
 # Author: AppScale Team <support@appscale.com>
 
+exec &>>/var/log/appscale/bootstrap.log
+
 set -e
 
 # Defaults values for repositories and branches.
@@ -245,11 +247,23 @@ if [ -d appscale/.appscale/certs ]; then
 
         # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
         if [ -n "${GIT_TAG}" ]; then
+                set +e
                 (cd appscale; git checkout "$GIT_TAG")
+                if [ $? -gt 0 ]; then
+                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
+                    echo "e.g.: git stash; git checkout <AppScale-version>"
+                    exit 1
+                fi
                 (cd appscale-tools; git checkout "$GIT_TAG")
+                if [ $? -gt 0 ]; then
+                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
+                    echo "e.g.: git stash; git checkout <AppScale-version>"
+                    exit 1
+                fi
         else
                 (cd appscale; git pull)
                 (cd appscale-tools; git pull)
+                set -e
         fi
 fi
 

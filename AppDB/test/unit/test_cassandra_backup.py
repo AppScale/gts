@@ -55,20 +55,25 @@ class TestCassandraBackup(unittest.TestCase):
       keyname, re.compile('.*snapshot$'))
 
     flexmock(utils).should_receive('ssh').with_args(db_ips[0], keyname,
-      re.compile('.*du -s.*')).and_return('200 file1\n500 file2\n')
+      re.compile('.*du -s.*'), method=subprocess.check_output).\
+      and_return('200 file1\n500 file2\n')
     flexmock(utils).should_receive('ssh').with_args(db_ips[1], keyname,
-      re.compile('.*du -s.*')).and_return('900 file1\n100 file2\n')
+      re.compile('.*du -s.*'), method=subprocess.check_output).\
+      and_return('900 file1\n100 file2\n')
 
     # Assume first DB machine does not have enough space.
     flexmock(utils).should_receive('ssh').with_args(db_ips[0], keyname,
-      re.compile('^df .*')).and_return('headers\ndisk blocks used 100 etc')
+      re.compile('^df .*'), method=subprocess.check_output).\
+      and_return('headers\ndisk blocks used 100 etc')
     self.assertRaises(backup_exceptions.BRException,
       cassandra_backup.backup_data, path, keyname)
 
     flexmock(utils).should_receive('ssh').with_args(db_ips[0], keyname,
-      re.compile('^df .*')).and_return('headers\ndisk blocks used 2000 etc')
+      re.compile('^df .*'), method=subprocess.check_output).\
+      and_return('headers\ndisk blocks used 2000 etc')
     flexmock(utils).should_receive('ssh').with_args(db_ips[1], keyname,
-      re.compile('^df .*')).and_return('headers\ndisk blocks used 3000 etc')
+      re.compile('^df .*'), method=subprocess.check_output).\
+      and_return('headers\ndisk blocks used 3000 etc')
 
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
       keyname, re.compile('.*tar --transform.*'))
@@ -82,10 +87,11 @@ class TestCassandraBackup(unittest.TestCase):
     flexmock(appscale_info).should_receive('get_db_ips').and_return(db_ips)
 
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, 'ls {}'.format(path)).and_return(0)
+      keyname, 'ls {}'.format(path), method=subprocess.call).and_return(0)
 
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, 'monit summary').and_return('summary output')
+      keyname, 'monit summary', method=subprocess.check_output).\
+      and_return('summary output')
     flexmock(utils).should_receive('monit_status').and_return('Not monitored')
 
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
