@@ -39,7 +39,8 @@ MASTER_IP=$( cat /etc/appscale/masters )
 LOCAL_TOKEN=""
 
 echo "Running python script to set up Cassandra config files."
-(python ~/appscale/scripts/setup_cassandra_config_files.py --local-ip $LOCAL_IP --master-ip $MASTER_IP --local-token $LOCAL_TOKEN --replication 1 --jmx-port 7070)
+~/appscale/scripts/setup_cassandra_config_files.py --local-ip $LOCAL_IP \
+  --master-ip $MASTER_IP --local-token $LOCAL_TOKEN
 if [ $? -gt 0 ]; then
         echo "Python script to set up Cassandra config files failed!"
         exit 1
