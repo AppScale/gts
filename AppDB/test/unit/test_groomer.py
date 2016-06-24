@@ -183,8 +183,6 @@ class TestGroomer(unittest.TestCase):
     flexmock(entity_utils)
     entity_utils.should_receive(
       "get_root_key_from_entity_key").and_return("key")
-    entity_utils.should_receive(
-      "get_prefix_from_entity_key").and_return("app/ns")
 
     dsg.db_access = FakeDatastore()
 

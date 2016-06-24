@@ -103,8 +103,6 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
     fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
-    flexmock(entity_utils).\
-      should_receive('get_prefix_from_entity_key').and_return('app_prefix')
 
     # Test with valid entity.
     zookeeper.should_receive('is_blacklisted').and_return(False)
@@ -117,8 +115,6 @@ class TestBackup(unittest.TestCase):
     # Test with exception tossed.
     zookeeper.should_receive('is_blacklisted').and_raise(ZKTransactionException)
     flexmock(time).should_receive('sleep').and_return()
-    flexmock(entity_utils).\
-      should_receive('get_prefix_from_entity_key').and_return('app_prefix')
     fake_backup.verify_entity('key', 'txn_id')
 
   def test_dump_entity(self):
@@ -132,8 +128,6 @@ class TestBackup(unittest.TestCase):
       "cassandra", False, []))
 
     flexmock(re).should_receive('match').at_least().times(2).and_return(None)
-    flexmock(entity_utils).\
-      should_receive('get_prefix_from_entity_key').and_return('app_prefix')
     flexmock(entity_utils).\
       should_receive('get_root_key_from_entity_key').and_return('root_key')
     fake_backup.zoo_keeper.should_receive('get_transaction_id').\

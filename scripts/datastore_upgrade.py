@@ -18,6 +18,8 @@ import datastore_server
 import entity_utils
 from dbconstants import *
 from zkappscale import zktransaction as zk
+import dbconstants
+
 from cassandra_env import cassandra_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
@@ -235,7 +237,7 @@ def process_entity(entity, datastore, ds_distributed):
   one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
 
-  app_id = entity_utils.get_prefix_from_entity_key(key)
+  app_id = key.split(dbconstants.KEY_DELIMITER)[0]
   validated_entity = ds_distributed.validated_result(app_id, entity)
 
   is_tombstone = validated_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE
