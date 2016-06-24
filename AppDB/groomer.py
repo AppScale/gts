@@ -773,7 +773,6 @@ class DatastoreGroomer(threading.Thread):
         valid_id = self.zoo_keeper.get_valid_transaction_id(
           app_id, version, key)
         # Insert the entity along with regular indexes and composites.
-        ds_distributed = self.register_db_accessor(app_prefix)
         bad_key = datastore_server.DatastoreDistributed.get_journal_key(key,
           version)
         good_key = datastore_server.DatastoreDistributed.get_journal_key(key,
@@ -813,7 +812,6 @@ class DatastoreGroomer(threading.Thread):
           # TODO
           #self.db_access.batch_delete_entities(...)
           pass
-        del ds_distributed
       else:
         success = False
     except zk.ZKTransactionException, zk_exception:
