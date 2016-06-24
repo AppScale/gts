@@ -15,10 +15,14 @@ from constants import CONTROLLER_SERVICE
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
 import datastore_server
-import entity_utils
-from dbconstants import *
-from zkappscale import zktransaction as zk
+import dbconstants
+
+from dbconstants import APP_ENTITY_SCHEMA
+from dbconstants import APP_ENTITY_TABLE
+from dbconstants import DATASTORE_METADATA_SCHEMA
+from dbconstants import DATASTORE_METADATA_TABLE
 from cassandra_env import cassandra_interface
+from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import datastore_errors
@@ -200,7 +204,7 @@ def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
       status_dict[VALIDATE_ENTITIES] = str(error)
       close_connections(zookeeper, db_ips, zk_ips, master_ip, status_dict, keyname)
       return
-    except AppScaleDBConnectionError as conn_error:
+    except dbconstants.AppScaleDBConnectionError as conn_error:
       logging.error("Error getting and validating batch of entities: {}".format(conn_error))
       status_dict[VALIDATE_ENTITIES] = str(conn_error)
       close_connections(zookeeper, db_ips, zk_ips, master_ip, status_dict, keyname)
@@ -235,7 +239,7 @@ def process_entity(entity, datastore, ds_distributed):
   one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
 
-  app_id = entity_utils.get_prefix_from_entity_key(key)
+  app_id = key.split(dbconstants.KEY_DELIMITER)[0]
   validated_entity = ds_distributed.validated_result(app_id, entity)
 
   is_tombstone = validated_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE
@@ -368,7 +372,7 @@ def store_data_version(datastore, zookeeper, db_ips, zk_ips, master_ip, status_d
     time.sleep(5)
     datastore.batch_put_entity(DATASTORE_METADATA_TABLE, [VERSION_INFO_KEY],
       DATASTORE_METADATA_SCHEMA, cell_values)
-  except AppScaleDBConnectionError as conn_error:
+  except dbconstants.AppScaleDBConnectionError as conn_error:
     logging.error("Error storing the datastore version: {}".format(conn_error))
     status_dict[STORE_DATASTORE_VERSION] = str(conn_error)
     close_connections(zookeeper, db_ips, zk_ips, master_ip, status_dict, keyname)
@@ -387,8 +391,8 @@ def drop_journal_table(datastore, zookeeper,db_ips, zk_ips, master_ip, status_di
     keyname: A string containing the deployment's keyname.
   """
   try:
-    datastore.delete_table(JOURNAL_TABLE)
-  except AppScaleDBConnectionError as conn_error:
+    datastore.delete_table(dbconstants.JOURNAL_TABLE)
+  except dbconstants.AppScaleDBConnectionError as conn_error:
     logging.error("Error deleting the JOURNAL_TABLE: {}".format(conn_error))
     status_dict[DELETE_JOURNAL_TABLE] = str(conn_error)
     close_connections(zookeeper, db_ips, zk_ips, master_ip, status_dict, keyname)

@@ -206,9 +206,9 @@ class DatastoreBackup(multiprocessing.Process):
     Returns:
       True on success, False otherwise.
     """
-    app_prefix = entity_utils.get_prefix_from_entity_key(key)
+    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
     try:
-      if self.zoo_keeper.is_blacklisted(app_prefix, txn_id):
+      if self.zoo_keeper.is_blacklisted(app_id, txn_id):
         logging.warn("Found a blacklisted item for version {0} on key {1}".\
           format(txn_id, key))
         return False
@@ -286,15 +286,15 @@ class DatastoreBackup(multiprocessing.Process):
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     if one_entity == datastore_server.TOMBSTONE:
       return False
-    app_prefix = entity_utils.get_prefix_from_entity_key(key)
+    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
     root_key = entity_utils.get_root_key_from_entity_key(key)
 
     success = True
     while True:
       # Acquire lock.
-      txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+      txn_id = self.zoo_keeper.get_transaction_id(app_id)
       try:
-        if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
+        if self.zoo_keeper.acquire_lock(app_id, txn_id, root_key):
           version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
           if not self.verify_entity(key, version):
             # Fetch from the journal.
@@ -328,13 +328,13 @@ class DatastoreBackup(multiprocessing.Process):
         success = False
       finally:
         if not success:
-          if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
+          if not self.zoo_keeper.notify_failed_transaction(app_id, txn_id):
             logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
-              .format(app_prefix, txn_id))
+              .format(app_id, txn_id))
           logging.error("Failed to backup entity. Retrying shortly...")
 
         try:
-          self.zoo_keeper.release_lock(app_prefix, txn_id)
+          self.zoo_keeper.release_lock(app_id, txn_id)
         except zk.ZKTransactionException, zk_exception:
           logging.error(
             "Zookeeper exception {0} while releasing entity lock.".

@@ -38,14 +38,6 @@ class TestEntityUtils(unittest.TestCase):
     self.assertEquals("hi/\x01", entity_utils.\
       get_root_key_from_entity_key("hi/\x01otherstuff\x01moar"))
 
-  def test_get_prefix_from_entity(self):
-    self.assertEquals("hi\x00bye", entity_utils.\
-      get_prefix_from_entity_key("hi\x00bye\x00some\x00other\x00stuff"))
-
-    # Test empty namespace (very common).
-    self.assertEquals("hi\x00", entity_utils.\
-      get_prefix_from_entity_key("hi\x00\x00some\x00other\x00stuff"))
-
   def test_get_kind_from_entity(self):
     self.assertEquals("some", entity_utils.\
       get_kind_from_entity_key("hi\x00bye\x00some\x00other\x00stuff"))
