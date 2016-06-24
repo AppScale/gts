@@ -22,17 +22,6 @@ def get_root_key_from_entity_key(key):
   tokens = key.split(KIND_SEPARATOR)
   return tokens[0] + KIND_SEPARATOR
 
-def get_prefix_from_entity_key(entity_key):
-  """ Extracts the prefix from a key to the entity table.
-
-  Args:
-    entity_key: A str representing a row key to the entity table.
-  Returns:
-    A str representing the app prefix (app_id and namespace).
-  """
-  tokens = entity_key.split(KEY_DELIMITER)
-  return tokens[0] + KEY_DELIMITER + tokens[1]
-
 def get_kind_from_entity_key(entity_key):
   """ Extracts the kind from a key to the entity table.
 
