@@ -34,6 +34,7 @@ APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
 METADATA_TABLE = "METADATA__"
 DATASTORE_METADATA_TABLE = "DATASTORE_METADATA__"
+SCHEMA_TABLE = '__key__'
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
@@ -113,6 +114,9 @@ APPS_SCHEMA = [
 
 DATASTORE_METADATA_SCHEMA = [
   "version"]
+
+# All schema information for the keyspace is stored in the schema table.
+SCHEMA_TABLE_SCHEMA = ['schema']
 
 ###############################
 # Generic Datastore Exceptions

@@ -1,102 +1,105 @@
 """
 Cassandra Interface for AppScale
 """
-
-import pycassa
+import cassandra
+import os
 import sys
-import string
 
-from dbconstants import *
-from dbinterface import *
-from pycassa.system_manager import *
-from pycassa.cassandra.ttypes import NotFoundException
+from dbinterface import AppDBInterface
+from dbconstants import SCHEMA_TABLE
+from dbconstants import SCHEMA_TABLE_SCHEMA
+from cassandra.cluster import BatchStatement
+from cassandra.cluster import Cluster
+from cassandra.cluster import SimpleStatement
+from cassandra.query import ConsistencyLevel
+from cassandra.query import ValueSequence
+from cassandra_env.cassandra_interface import IdempotentRetryPolicy
+from cassandra_env.cassandra_interface import KEYSPACE
+from cassandra_env.cassandra_interface import ThriftColumn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
 import file_io
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA
-# Store all schema information in a special table
-# If a table does not show up in this table, try a range query 
-# to discover it's schema
-SCHEMA_TABLE = "__key__"
-SCHEMA_TABLE_SCHEMA = ['schema']
-MAIN_TABLE = "Keyspace1"
 
 PERSISTENT_CONNECTION = False
 PROFILING = False
 
-DEFAULT_HOST = "localhost"
-DEFAULT_PORT = 9160
-
-#CONSISTENCY_ZERO = 0 # don't use this for reads
-CONSISTENCY_ONE = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
-CONSISTENCY_QUORUM = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-#CONSISTENCY_ALL = 5 # don't use this for reads (next version may fix this)
-
 MAX_ROW_COUNT = 10000000
-table_cache = {}
 class DatastoreProxy(AppDBInterface):
   def __init__(self):
-    self.host = file_io.read(constants.APPSCALE_HOME + '/.appscale/my_private_ip')
-    self.port = DEFAULT_PORT
-    self.pool = pycassa.ConnectionPool(keyspace='Keyspace1', 
-                           server_list=[self.host+":"+str(self.port)], 
-                           prefill=False)
-    sys = SystemManager(self.host + ":" + str(DEFAULT_PORT))
-    try: 
-      sys.create_column_family('Keyspace1', 
-                               SCHEMA_TABLE, 
-                               comparator_type=UTF8_TYPE)
-    except Exception, e:
-      print "Exception creating column family: %s"%str(e)
-      pass
-
+    db_master = file_io.read(constants.MASTERS_FILE_LOC).split()
+    db_slaves = file_io.read(constants.SLAVES_FILE_LOC).split()
+    hosts = list(set(db_master + db_slaves))
+    cluster = Cluster(hosts, protocol_version=2)
+    self.session = cluster.connect(keyspace=KEYSPACE)
+    self.session.default_consistency_level = ConsistencyLevel.QUORUM
+    self.retry_policy = IdempotentRetryPolicy()
 
   def get_entity(self, table_name, row_key, column_names):
     error = [ERROR_DEFAULT]
     list = error
-    row_key = table_name + '/' + row_key
+    row_key = bytearray('/'.join([table_name, row_key]))
+    statement = """
+      SELECT * FROM "{table}"
+      WHERE {key} = %(key)s
+      AND {column} IN %(columns)s
+    """.format(table=table_name,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME)
+    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    parameters = {'key': row_key,
+                  'columns': ValueSequence(column_names)}
     try:
-      cf = pycassa.ColumnFamily(self.pool, 
-                                string.replace(table_name, '-','a'))
-      result = cf.get(row_key, columns=column_names)
-      # Order entities by column_names 
-      for column in column_names:
-        list.append(result[column])
-    except NotFoundException: 
-      list[0] += "Not found"
-      return list
-    except Exception, ex:
-      list[0]+=("Exception: %s"%ex)
+      results = self.session.execute(query, parameters)
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      list[0] += 'Unable to fetch entity'
       return list
 
-    if len(list) == 1:
-      list[0] += "Not found"
+    results_dict = {}
+    for (_, column, value) in results:
+      results_dict[column] = value
+
+    if not results_dict:
+      list[0] += 'Not found'
+      return list
+
+    for column in column_names:
+      list.append(results_dict[column])
     return list
 
   def put_entity(self, table_name, row_key, column_names, cell_values):
     error = [ERROR_DEFAULT]
     list = error
 
-    # The first time a table is seen
-    if table_name not in table_cache:
-      self.create_table(table_name, column_names)
+    row_key = bytearray('/'.join([table_name, row_key]))
+    values = {}
+    for index, column in enumerate(column_names):
+      values[column] = cell_values[index]
 
-    row_key = table_name + '/' + row_key
-    cell_dict = {}
-    for index, ii in enumerate(column_names):
-      cell_dict[ii] = cell_values[index]
+    statement = """
+      INSERT INTO "{table}" ({key}, {column}, {value})
+      VALUES (%(key)s, %(column)s, %(value)s)
+    """.format(table=table_name,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+    batch = BatchStatement(retry_policy=self.retry_policy)
+    for column in column_names:
+      parameters = {'key': row_key,
+                   'column': column,
+                   'value': bytearray(values[column])}
+      batch.add(statement, parameters)
 
     try:
-      # cannot have "-" in the column name
-      cf = pycassa.ColumnFamily(self.pool, string.replace(table_name, '-','a'))
-    except NotFoundException:
-      print "Unable to find column family for table %s"%table_name
-      list[0]+=("Exception: Column family not found for table %s"%table_name)
+      self.session.execute(batch)
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      list[0] += 'Unable to insert entity'
       return list
 
-    cf.insert(row_key, cell_dict)
     list.append("0")
     return list
 
@@ -105,52 +108,59 @@ class DatastoreProxy(AppDBInterface):
 
 
   def get_table(self, table_name, column_names):
-    error = [ERROR_DEFAULT]  
-    result = error
-    keyslices = []
-    start_key = table_name + "/"
-    end_key = table_name + '/~'
-    try: 
-      cf = pycassa.ColumnFamily(self.pool, string.replace(table_name, '-','a'))
-      keyslices = cf.get_range(columns=column_names, 
-                              start=start_key, 
-                              finish=end_key)
-      keyslices = list(keyslices)
-    except pycassa.NotFoundException, ex:
-      return result
-    except Exception, ex:
-      result[0] += "Exception: " + str(ex)
-      return result
-    # keyslices format is [key:(column1:val,col2:val2), key2...]
-    for ii, entry in enumerate(keyslices):
-      orddic = entry[1]
-      ordering_dict = {}
-      for col in orddic:
-        val = orddic[col]
-        ordering_dict[col] = val
-        
-      if len(ordering_dict) == 0:
-        continue
+    response = [ERROR_DEFAULT]
+
+    statement = 'SELECT * FROM "{table}"'.format(table=table_name)
+    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+
+    try:
+      results = self.session.execute(query)
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      response[0] += 'Unable to fetch table contents'
+      return response
+
+    results_list = []
+    current_item = {}
+    current_key = None
+    for (key, column, value) in results:
+      if key != current_key:
+        if current_item:
+          results_list.append({current_key: current_item})
+        current_item = {}
+        current_key = key
+
+      current_item[column] = value
+    if current_item:
+      results_list.append({current_key: current_item})
+
+    for result in results_list:
       for column in column_names:
         try:
-          result.append(ordering_dict[column])
-        except:
-          result[0] += "Key error, get_table did not return the correct schema"
-    return result
+          response.append(result[column])
+        except KeyError:
+          response[0] += 'Table contents did not match schema'
+          return response
+
+    return response
 
   def delete_row(self, table_name, row_key):
-    error = [ERROR_DEFAULT]
-    ret = error
-    row_key = table_name + '/' + row_key
-    try: 
-      cf = pycassa.ColumnFamily(self.pool, string.replace(table_name, '-','a'))
-      # Result is a column type which has name, value, timestamp
-      cf.remove(row_key)
-    except Exception, ex:
-      ret[0]+=("Exception: %s"%ex)
-      return ret 
-    ret.append("0")
-    return ret
+    response = [ERROR_DEFAULT]
+    row_key = bytearray('/'.join([table_name, row_key]))
+
+    statement = 'DELETE FROM "{table}" WHERE {key} = %s'.format(
+      table=table_name, key=ThriftColumn.KEY)
+    delete = SimpleStatement(statement, retry_policy=self.retry_policy)
+
+    try:
+      self.session.execute(delete, (row_key,))
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      response[0] += 'Unable to delete row'
+      return response
+
+    response.append('0')
+    return response
 
   def get_schema(self, table_name):
     error = [ERROR_DEFAULT]
