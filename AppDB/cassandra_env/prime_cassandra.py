@@ -1,104 +1,114 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+""" Create Cassandra keyspace and initial tables. """
 
+import argparse
+import dbconstants
+import logging
 import os
-import pycassa
 import sys
 
-import dbconstants
-import py_cassandra
+from cassandra.cluster import Cluster
+from cassandra_env.cassandra_interface import KEYSPACE
+from cassandra_env.cassandra_interface import ThriftColumn
 
-from cassandra_env import cassandra_interface
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib/'))
+from constants import LOG_FORMAT
+from constants import MASTERS_FILE_LOC
+from constants import SLAVES_FILE_LOC
 
-from pycassa import system_manager
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
-import file_io
 
-def create_keyspaces(replication):
-  """ 
-  Creates keyspace which AppScale uses for storing application 
-  and user data
+def define_ua_schema(session):
+  """ Populate the schema table for the UAServer.
 
   Args:
-    replication: Replication factor for Cassandra
-  Raises:
-    AppScaleBadArg: When args are bad
+    session: A cassandra-driver session.
   """
-  if int(replication) <= 0: 
-    raise dbconstants.AppScaleBadArg("Replication must be greater than zero")
+  uaserver_tables = [
+    {'name': dbconstants.APPS_TABLE, 'schema': dbconstants.APPS_SCHEMA},
+    {'name': dbconstants.USERS_TABLE, 'schema': dbconstants.USERS_SCHEMA}
+  ]
+  for table in uaserver_tables:
+    key = bytearray('/'.join([dbconstants.SCHEMA_TABLE, table['name']]))
+    columns = bytearray(':'.join(table['schema']))
+    define_schema = """
+        INSERT INTO "{table}" ({key}, {column}, {value})
+        VALUES (%(key)s, %(column)s, %(value)s)
+      """.format(table=dbconstants.SCHEMA_TABLE,
+                 key=ThriftColumn.KEY,
+                 column=ThriftColumn.COLUMN_NAME,
+                 value=ThriftColumn.VALUE)
+    values = {'key': key,
+              'column': dbconstants.SCHEMA_TABLE_SCHEMA[0],
+              'value': columns}
+    session.execute(define_schema, values)
 
-  print "Creating Cassandra Key Spaces" 
-
-  # TODO use shared library to get constants
-  host = file_io.read('/etc/appscale/my_private_ip')
-
-  sysman = system_manager.SystemManager(host + ":" +\
-              str(cassandra_interface.CASS_DEFAULT_PORT))
-
-  try:
-    sysman.create_keyspace(cassandra_interface.KEYSPACE, 
-                      pycassa.SIMPLE_STRATEGY, 
-                      {'replication_factor':str(replication)})
-
-    # This column family is for testing for functional testing
-    sysman.create_column_family(cassandra_interface.KEYSPACE, 
-                           cassandra_interface.STANDARD_COL_FAM, 
-                           comparator_type=system_manager.UTF8_TYPE)
-
-    for table_name in dbconstants.INITIAL_TABLES:
-      sysman.create_column_family(cassandra_interface.KEYSPACE, 
-                               table_name,
-                               comparator_type=system_manager.UTF8_TYPE)
-  
-    sysman.close()
-  # TODO: Figure out the exact exceptions we're trying to catch in the 
-  # case where we are doing data persistance
-  except Exception, e:
-    sysman.close()
-    # TODO: Figure out the exact exceptions we're trying to catch in the 
-    print "Received an exception of type " + str(e.__class__) +\
-          " with message: " + str(e)
-
-  print "CASSANDRA SETUP SUCCESSFUL"
-  return True
 
 def prime_cassandra(replication):
-  """
-  Create required tables for AppScale
+  """ Create Cassandra keyspace and initial tables.
 
   Args:
-    replication: Replication factor of data
+    replication: An integer specifying the replication factor for the keyspace.
   Raises:
-    AppScaleBadArg if replication factor is not greater than 0
-    Cassandra specific exceptions upon failure
-  Returns:
-    0 on success, 1 on failure. Passed up as process exit value.
-  """ 
-  if int(replication) <= 0: 
-    raise dbconstants.AppScaleBadArg("Replication must be greater than zero")
+    AppScaleBadArg if replication factor is not greater than 0.
+    TypeError if replication is not an integer.
+  """
+  if not isinstance(replication, int):
+    raise TypeError('replication must be an integer')
 
-  create_keyspaces(int(replication))
-  print "Prime Cassandra database"
-  db = py_cassandra.DatastoreProxy()
-  try:
-    db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
-    db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
-  # TODO: Figure out the exact exceptions we're trying to catch in the 
-  # case where we are doing data persistance
-  except Exception, e:
-    print "Received an exception of type " + str(e.__class__) +\
-          " with message: " + str(e)
+  if int(replication) <= 0:
+    raise dbconstants.AppScaleBadArg('Replication must be greater than zero')
 
-  if len(db.get_schema(dbconstants.USERS_TABLE)) > 1 and \
-     len(db.get_schema(dbconstants.APPS_TABLE)) > 1:
-    print "CREATE TABLE SUCCESS FOR USER AND APPS"
-    print "USERS:",db.get_schema(dbconstants.USERS_TABLE)
-    print "APPS:",db.get_schema(dbconstants.APPS_TABLE)
-    return 0
-  else: 
-    print str(db.get_schema(dbconstants.USERS_TABLE))
-    print str(db.get_schema(dbconstants.APPS_TABLE))
-    print "FAILED TO CREATE TABLE FOR USER AND APPS"
-    return 1
+  with open(MASTERS_FILE_LOC) as masters_file:
+    db_master = masters_file.read().split()
+
+  with open(SLAVES_FILE_LOC) as slaves_file:
+    db_slaves = slaves_file.read().split()
+
+  hosts = list(set(db_master + db_slaves))
+  cluster = Cluster(hosts, protocol_version=2)
+  session = cluster.connect()
+
+  create_keyspace = """
+    CREATE KEYSPACE IF NOT EXISTS "{keyspace}"
+    WITH REPLICATION = %(replication)s
+  """.format(keyspace=KEYSPACE)
+  keyspace_replication = {'class': 'SimpleStrategy',
+                          'replication_factor': replication}
+  session.execute(create_keyspace, {'replication': keyspace_replication})
+  session.set_keyspace(KEYSPACE)
+
+  for table in dbconstants.INITIAL_TABLES:
+    create_table = """
+      CREATE TABLE IF NOT EXISTS "{table}" (
+        {key} blob,
+        {column} text,
+        {value} blob,
+        PRIMARY KEY ({key}, {column})
+      ) WITH COMPACT STORAGE
+    """.format(table=table,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+    session.execute(create_table)
+
+  first_entity = session.execute(
+    'SELECT * FROM "{}" LIMIT 1'.format(dbconstants.APP_ENTITY_TABLE))
+  existing_entities = len(list(first_entity)) == 1
+
+  define_ua_schema(session)
+
+  if existing_entities:
+    logging.info('The necessary keyspace and tables are present.')
+  else:
+    logging.info('Successfully created initial keyspace and tables.')
+
 
 if __name__ == "__main__":
-  sys.exit(prime_cassandra(sys.argv[1]))
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument('replication', type=int,
+                      help='The replication factor for the keyspace')
+  args = parser.parse_args()
+
+  prime_cassandra(args.replication)
