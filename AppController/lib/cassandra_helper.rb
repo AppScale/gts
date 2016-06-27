@@ -5,12 +5,6 @@ require 'helperfunctions'
 require 'monit_interface'
 
 
-# A Fixnum that indicates which port the Thrift service binds to, by default.
-# Note that this class does not dictate what port it binds to - change this
-# constant and the template file that dictates to change this port.
-THRIFT_PORT = 9160
-
-
 # A String that indicates where we write the process ID that Cassandra runs
 # on at this machine.
 PID_FILE = "/var/appscale/appscale-cassandra.pid"
@@ -112,9 +106,6 @@ end
 def start_db_slave(clear_datastore)
   @state = "Waiting for Cassandra to come up"
   Djinn.log_info("Starting up Cassandra as slave")
-
-  HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, THRIFT_PORT)
-  Kernel.sleep(5)
   start_cassandra(clear_datastore)
 end
 
@@ -137,8 +128,7 @@ def start_cassandra(clear_datastore)
   match_cmd = "/opt/cassandra"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     match_cmd=match_cmd)
-  HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip,
-    THRIFT_PORT)
+  sleep(1) until system('/opt/cassandra/cassandra/bin/nodetool status')
 end
 
 # Kills Cassandra on this machine.

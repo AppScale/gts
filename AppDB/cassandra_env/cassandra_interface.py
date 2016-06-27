@@ -26,9 +26,6 @@ CASSANDRA_INSTALL_DIR = '/opt/cassandra'
 # Full path for the nodetool binary.
 NODE_TOOL = '{}/cassandra/bin/nodetool'.format(CASSANDRA_INSTALL_DIR)
 
-# This is the default cassandra connection port
-CASS_DEFAULT_PORT = 9160
-
 # The keyspace used for all tables
 KEYSPACE = "Keyspace1"
 

@@ -223,13 +223,6 @@ EOF
     chmod +x $LOGROTATE_HOURLY
 }
 
-installthrift()
-{
-    case ${DIST} in
-        precise|wheezy) pipwrapper thrift ;;
-    esac
-}
-
 installjavajdk()
 {
     # This makes jdk-7 the default JVM.
@@ -351,10 +344,6 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper  thrift
-    fi
-    pipwrapper  pycassa
     pipwrapper cassandra-driver
 
     # Create separate log directory.
