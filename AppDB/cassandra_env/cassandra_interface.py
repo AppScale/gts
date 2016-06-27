@@ -32,9 +32,6 @@ CASS_DEFAULT_PORT = 9160
 # The keyspace used for all tables
 KEYSPACE = "Keyspace1"
 
-# The standard column family used for tables
-STANDARD_COL_FAM = "Standard1"
-
 # Cassandra watch name.
 CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
 
