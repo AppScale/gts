@@ -62,7 +62,7 @@ def fetch_and_delete_entities(database, table, schema, first_key, entities_only=
 
   last_key = first_key + '\0' + TERMINATING_STRING
 
-  logging.warn("Deleting application data in the range: {0} - {1}".
+  logging.debug("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))
 
   db = appscale_datastore_batch.DatastoreFactory.getDatastore(database)
@@ -72,7 +72,7 @@ def fetch_and_delete_entities(database, table, schema, first_key, entities_only=
     return
 
   # Loop through the datastore tables and delete data.
-  logging.warn("Deleting data from {0}".format(table))
+  logging.info("Deleting data from {0}".format(table))
 
   start_inclusive = True
   while True:
@@ -80,11 +80,10 @@ def fetch_and_delete_entities(database, table, schema, first_key, entities_only=
       entities = get_entities(table, schema, db, start_inclusive, first_key=first_key,
         last_key=last_key)
       if not entities:
-        logging.warn("No entities found for {}".format(table))
+        logging.info("No entities found for {}".format(table))
         break
 
       delete_all(entities, table, db)
-      logging.warn("Fetched Entities Length {}".format(len(entities)))
 
       first_key = entities[-1].keys()[0]
       start_inclusive = False
