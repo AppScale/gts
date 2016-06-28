@@ -47,7 +47,7 @@ def delete_all(entities, table, db):
     db.batch_delete(table, ii.keys())
   logging.info("Deleted {0} entities".format(len(entities)))
 
-def main(database, first_key, entities_only=False):
+def fetch_and_delete_entities(database, table, schema, first_key, entities_only=False):
   """ Deletes all data from datastore.
 
   Args:
@@ -60,50 +60,37 @@ def main(database, first_key, entities_only=False):
   logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
     '%(lineno)s %(message)s ', level=logging.INFO)
 
-  # Tables to delete from.
-  tables_to_schemas = {
-    APP_ENTITY_TABLE: APP_ENTITY_SCHEMA,
-    ASC_PROPERTY_TABLE: PROPERTY_SCHEMA,
-    DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
-    COMPOSITE_TABLE: COMPOSITE_SCHEMA,
-    APP_KIND_TABLE: APP_KIND_SCHEMA,
-    JOURNAL_TABLE: JOURNAL_SCHEMA,
-    METADATA_TABLE: METADATA_SCHEMA
-  }
-
-  # Set the last key.
   last_key = first_key + '\0' + TERMINATING_STRING
+
   logging.debug("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))
 
   db = appscale_datastore_batch.DatastoreFactory.getDatastore(database)
 
   # Do not delete metadata, just entities.
-  if entities_only:
-    tables_to_schemas = {k:v for k,v in tables_to_schemas.iteritems()
-      if not k == METADATA_TABLE}
+  if entities_only and table == METADATA_TABLE:
+    return
 
   # Loop through the datastore tables and delete data.
-  for table, schema in tables_to_schemas.items():
-    logging.debug("Deleting data from {0}".format(table))
+  logging.info("Deleting data from {0}".format(table))
 
-    start_inclusive = True
-    while True:
-      try:
-        entities = get_entities(table, schema, db,
-          start_inclusive, first_key=first_key, last_key=last_key)
-        if not entities:
-          break
+  start_inclusive = True
+  while True:
+    try:
+      entities = get_entities(table, schema, db, start_inclusive, first_key=first_key,
+        last_key=last_key)
+      if not entities:
+        logging.info("No entities found for {}".format(table))
+        break
 
-        delete_all(entities, table, db)
+      delete_all(entities, table, db)
 
-        first_key = entities[-1].keys()[0]
-        start_inclusive = False
-      except AppScaleDBConnectionError, connection_error:
-        logging.error("ERROR while deleting data from {0}.".
-          format(connection_error))
-        logging.error(connection_error.message)
-        time.sleep(_BACKOFF_TIMEOUT)
+      first_key = entities[-1].keys()[0]
+      start_inclusive = False
+    except AppScaleDBConnectionError, connection_error:
+      logging.error("ERROR while deleting data from {0}.".format(connection_error))
+      logging.error(connection_error.message)
+      time.sleep(_BACKOFF_TIMEOUT)
 
 if __name__ == "__main__":
   database = "cassandra"
@@ -111,14 +98,24 @@ if __name__ == "__main__":
   last_key = ""
 
   if len(sys.argv) < 2:
-    print "usage: ./delete_all_record.py db_type [app_id]"
+    print "usage: ./delete_all_records.py db_type [app_id]"
   else:
     database = sys.argv[1]
     if len(sys.argv) == 3:
       first_key = sys.argv[2]
 
   try:
-    main(database, first_key, False)
+    tables_to_schemas = {
+      APP_ENTITY_TABLE: APP_ENTITY_SCHEMA,
+      ASC_PROPERTY_TABLE: PROPERTY_SCHEMA,
+      DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
+      COMPOSITE_TABLE: COMPOSITE_SCHEMA,
+      APP_KIND_TABLE: APP_KIND_SCHEMA,
+      JOURNAL_TABLE: JOURNAL_SCHEMA,
+      METADATA_TABLE: METADATA_SCHEMA
+    }
+    for table, schema in tables_to_schemas.items():
+      fetch_and_delete_entities(database, table, schema, first_key, False)
   except:
     raise
 
