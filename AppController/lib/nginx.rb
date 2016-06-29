@@ -25,16 +25,16 @@ module Nginx
 
   CONFIG_EXTENSION = "conf"
 
-  MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
-
   # The path on the local filesystem where the nginx binary can be found.
   NGINX_BIN = "/usr/sbin/nginx"
 
   # Nginx AppScale log directory.
-  NGINX_LOG_PATH = "/var/log/nginx/appscale/"
+  NGINX_LOG_PATH = "/var/log/nginx/appscale-"
 
   # Nginx top configuration directory.
-  NGINX_PATH = "/etc/nginx/"
+  NGINX_PATH = "/etc/nginx"
+
+  MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
 
   # Nginx sites-enabled path.
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
@@ -142,7 +142,7 @@ module Nginx
     if language == "java"
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
-      proxy_pass h          ttp://gae_#{app_name}_blobstore;
+      proxy_pass            http://gae_#{app_name}_blobstore;
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -219,7 +219,7 @@ server {
     #access_log #{NGINX_LOG_PATH}/#{app_name}.access.log upstream;
     #error_log  /dev/null crit;
     access_log  off;
-    error_log   #{NGINX_LOG_PATH}/#{app_name}.error.log;
+    error_log   #{NGINX_LOG_PATH}#{app_name}.error.log;
 
     ignore_invalid_headers off;
     rewrite_log off;
@@ -258,10 +258,10 @@ server {
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/#{app_name}.access.log upstream;
+    #access_log #{NGINX_LOG_PATH}#{app_name}.access.log upstream;
     #error_log  /dev/null crit;
     access_log  off;
-    error_log   #{NGINX_LOG_PATH}/#{app_name}.error.log;
+    error_log   #{NGINX_LOG_PATH}#{app_name}.error.log;
 
     ignore_invalid_headers off;
     rewrite_log off;
@@ -354,8 +354,8 @@ server {
     root   /root/appscale/AppDB/;
 
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/datastore_server.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/datastore_server.error.log;
+    #access_log #{NGINX_LOG_PATH}datastore_server.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}datastore_server.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
@@ -387,8 +387,8 @@ server {
     root /root/appscale/AppDB/public;
 
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/datastore_server_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/datastore_server_encrypt.error.log;
+    #access_log #{NGINX_LOG_PATH}datastore_server_encrypt.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}datastore_server_encrypt.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
@@ -444,8 +444,8 @@ server {
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
     root        /root/appscale/AppDB/public;
-    #access_log #{NGINX_LOG_PATH}/datastore_server_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/datastore_server_encrypt.error.log;
+    #access_log #{NGINX_LOG_PATH}datastore_server_encrypt.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}datastore_server_encrypt.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
