@@ -57,7 +57,6 @@ module TerminateHelper
     `rm -rf /tmp/*started`
 
     # Delete stored data.
-    `rm -rf /var/appscale/cassandra`
     `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/apps`
