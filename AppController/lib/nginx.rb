@@ -21,22 +21,23 @@ require 'user_app_client'
 # configures and deploys nginx within AppScale.
 module Nginx
 
+  CHANNELSERVER_PORT = 5280
+
+  CONFIG_EXTENSION = "conf"
+
+  MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
 
   # The path on the local filesystem where the nginx binary can be found.
   NGINX_BIN = "/usr/sbin/nginx"
 
+  # Nginx AppScale log directory.
+  NGINX_LOG_PATH = "/var/log/nginx/appscale/"
 
+  # Nginx top configuration directory.
   NGINX_PATH = "/etc/nginx/"
 
-
+  # Nginx sites-enabled path.
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
-
-
-  CONFIG_EXTENSION = "conf"
-
-
-  MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
-
 
   # These ports are the one visible from outside, ie the ones that we
   # attach to running applications. Default is to have a maximum of 21
@@ -44,14 +45,9 @@ module Nginx
   START_PORT = 8080
   END_PORT = 8100
 
-
   # This is the start port of SSL connections to applications. Where an
   # app would have the set of ports (8080, 3700), (8081, 3701), and so on.
-  SSL_PORT_OFFSET = 3700 
-
-
-  CHANNELSERVER_PORT = 5280
-
+  SSL_PORT_OFFSET = 3700
 
   def self.start()
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
@@ -146,11 +142,11 @@ module Nginx
     if language == "java"
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
-      proxy_pass http://gae_#{app_name}_blobstore;
-      client_max_body_size 2G;
+      proxy_pass h          ttp://gae_#{app_name}_blobstore;
       proxy_connect_timeout 600;
-      client_body_timeout 600;
-      proxy_read_timeout 600;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
+      client_max_body_size  2G;
     }
 JAVA_BLOBSTORE_REDIRECTION
     end
@@ -160,17 +156,17 @@ JAVA_BLOBSTORE_REDIRECTION
     else
       secure_default_location = <<DEFAULT_CONFIG
 location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header  X-Forwarded-Proto $scheme;
-      proxy_set_header  X-Forwarded-Ssl $ssl;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_ssl_#{app_name};
-      client_max_body_size 2G;
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      X-Forwarded-Proto $scheme;
+      proxy_set_header      X-Forwarded-Ssl $ssl;
+      proxy_set_header      Host $http_host;
+      proxy_redirect        off;
+      proxy_pass            http://gae_ssl_#{app_name};
       proxy_connect_timeout 600;
-      client_body_timeout 600;
-      proxy_read_timeout 600;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
+      client_max_body_size  2G;
     }
 DEFAULT_CONFIG
     end
@@ -180,17 +176,17 @@ DEFAULT_CONFIG
     else
       non_secure_default_location = <<DEFAULT_CONFIG
 location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header  X-Forwarded-Proto $scheme;
-      proxy_set_header  X-Forwarded-Ssl $ssl;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      X-Forwarded-Proto $scheme;
+      proxy_set_header      X-Forwarded-Ssl $ssl;
+      proxy_set_header      Host $http_host;
+      proxy_redirect        off;
+      proxy_pass            http://gae_#{app_name};
       proxy_connect_timeout 600;
-      client_body_timeout 600;
-      proxy_read_timeout 600;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
+      client_max_body_size  2G;
     }
 DEFAULT_CONFIG
     end
@@ -215,16 +211,17 @@ map $scheme $ssl {
 }
 
 server {
-    listen #{http_port};
+    listen      #{http_port};
     server_name #{my_public_ip}-#{app_name};
+
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
-    error_log  /var/log/nginx/#{app_name}.error.log;
-    access_log off;
-    #error_log /dev/null crit;
-    ignore_invalid_headers off;
+    #access_log #{NGINX_LOG_PATH}/#{app_name}.access.log upstream;
+    #error_log  /dev/null crit;
+    access_log  off;
+    error_log   #{NGINX_LOG_PATH}/#{app_name}.error.log;
 
+    ignore_invalid_headers off;
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
@@ -239,21 +236,20 @@ server {
     #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
-      proxy_buffering off;
-      tcp_nodelay on;
-      keepalive_timeout 600;
+      proxy_buffering    off;
+      tcp_nodelay        on;
+      keepalive_timeout  600;
+      proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
-      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
-
 }
 
 server {
-    listen #{https_port};
+    listen      #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate     #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
     # If they come here using HTTP, bounce them to the correct scheme.
@@ -262,15 +258,16 @@ server {
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
-    error_log  /var/log/nginx/#{app_name}.error.log;
-    access_log off;
-    #error_log /dev/null crit;
-    ignore_invalid_headers off;
+    #access_log #{NGINX_LOG_PATH}/#{app_name}.access.log upstream;
+    #error_log  /dev/null crit;
+    access_log  off;
+    error_log   #{NGINX_LOG_PATH}/#{app_name}.error.log;
 
+    ignore_invalid_headers off;
     rewrite_log off;
-    error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
+
+    error_page 404 = /404.html;
 
     #{never_secure_locations}
     #{secure_static_locations}
@@ -279,14 +276,12 @@ server {
     #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
-      proxy_buffering off;
-      tcp_nodelay on;
-      keepalive_timeout 600;
+      proxy_buffering    off;
+      tcp_nodelay        on;
+      keepalive_timeout  600;
+      proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
-      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
-
-
 }
 CONFIG
 
@@ -356,69 +351,68 @@ CONFIG
     
 server {
     listen #{DatastoreServer::LISTEN_PORT_NO_SSL};
-    root /root/appscale/AppDB/;
-    # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/datastore_server.access.log upstream;
-    #error_log  /var/log/nginx/datastore_server.error.log;
-    access_log off;
-    error_log /dev/null crit;
-    ignore_invalid_headers off;
+    root   /root/appscale/AppDB/;
 
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log #{NGINX_LOG_PATH}/datastore_server.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/datastore_server.error.log;
+    access_log  off;
+    error_log   /dev/null crit;
+
+    ignore_invalid_headers off;
     rewrite_log off;
+
     error_page 404 = /404.html;
 
-
-
     location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_next_upstream     error timeout invalid_header http_500;
-      proxy_pass http://#{DatastoreServer::NAME};
-      client_max_body_size 30M;
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      Host $http_host;
+      proxy_redirect        off;
+      proxy_next_upstream   error timeout invalid_header http_500;
+      proxy_pass            http://#{DatastoreServer::NAME};
       proxy_connect_timeout 5;
-      client_body_timeout 600;
-      proxy_read_timeout 600;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
+      client_max_body_size  30M;
     }
-
 }
 
 server {
     listen #{DatastoreServer::LISTEN_PORT_WITH_SSL};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate     #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    root /root/appscale/AppDB/public;
+
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log #{NGINX_LOG_PATH}/datastore_server_encrypt.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/datastore_server_encrypt.error.log;
+    access_log  off;
+    error_log   /dev/null crit;
+
+    ignore_invalid_headers off;
+    rewrite_log off;
 
     # If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
-    root /root/appscale/AppDB/public;
-    #access_log  /var/log/nginx/datastore_server_encrypt.access.log upstream;
-    #error_log  /var/log/nginx/datastore_server_encrypt.error.log;
-    access_log off;
-    error_log  /dev/null crit;
-    ignore_invalid_headers off;
-
-    rewrite_log off;
     error_page 502 /502.html;
 
     location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-
-      client_body_timeout 600;
-      proxy_read_timeout 600;
-      proxy_next_upstream     error timeout invalid_header http_500;
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      Host $http_host;
+      proxy_redirect        off;
+      proxy_next_upstream   error timeout invalid_header http_500;
+      proxy_pass            http://#{DatastoreServer::NAME};
       proxy_connect_timeout 5;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
       #Increase file size so larger applications can be uploaded
-      client_max_body_size 30M;
-      # go to proxy
-      proxy_pass http://#{DatastoreServer::NAME};
+      client_max_body_size  30M;
     }
 }
 CONFIG
@@ -446,37 +440,36 @@ server {
     listen #{UserAppClient::SSL_SERVER_PORT};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate     #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+
+    root        /root/appscale/AppDB/public;
+    #access_log #{NGINX_LOG_PATH}/datastore_server_encrypt.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/datastore_server_encrypt.error.log;
+    access_log  off;
+    error_log   /dev/null crit;
+
+    ignore_invalid_headers off;
+    rewrite_log off;
 
     # If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
-    root /root/appscale/AppDB/public;
-    #access_log  /var/log/nginx/datastore_server_encrypt.access.log upstream;
-    #error_log  /var/log/nginx/datastore_server_encrypt.error.log;
-    access_log off;
-    error_log  /dev/null crit;
-    ignore_invalid_headers off;
-
-    rewrite_log off;
     error_page 502 /502.html;
 
     location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
-      proxy_redirect off;
-
-      client_body_timeout 600;
-      proxy_read_timeout 600;
-      proxy_next_upstream     error timeout invalid_header http_500;
+      proxy_redirect  off;
+      proxy_next_upstream error timeout invalid_header http_500;
+      proxy_pass            http://uaserver;
       proxy_connect_timeout 5;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
       #Increase file size so larger applications can be uploaded
-      client_max_body_size 30M;
-      # go to proxy
-      proxy_pass http://uaserver;
+      client_max_body_size  30M;
     }
 }
 CONFIG
@@ -490,34 +483,32 @@ CONFIG
   def self.initialize_config
     config = <<CONFIG
 user www-data;
-worker_processes  1;
+worker_processes 1;
 
-error_log  /var/log/nginx/error.log;
-pid        /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+pid       /run/nginx.pid;
 
 events {
-    worker_connections  30000;
+    worker_connections 30000;
 }
 
 http {
     include       #{NGINX_PATH}/mime.types;
     default_type  application/octet-stream;
-
-    access_log  /var/log/nginx/access.log;
+    access_log    /var/log/nginx/access.log;
 
     log_format upstream '$remote_addr - - [$time_local] "$request" status $status '
                         'upstream $upstream_response_time request $request_time '
                         '[for $host via $upstream_addr]';
 
-    sendfile        on;
-    #tcp_nopush     on;
+    sendfile    on;
+    #tcp_nopush on;
 
-    #keepalive_timeout  0;
     keepalive_timeout  600;
     tcp_nodelay        on;
     server_names_hash_bucket_size 128;
-    types_hash_max_size 2048;
-    gzip  on;
+    types_hash_max_size           2048;
+    gzip on;
 
     include #{NGINX_PATH}/sites-enabled/*;
 }
