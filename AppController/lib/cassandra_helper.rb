@@ -31,6 +31,10 @@ SETUP_CONFIG_SCRIPT = "#{APPSCALE_HOME}/scripts/setup_cassandra_config_files.py"
 NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
 
 
+# The location of the script that creates the initial tables.
+PRIME_SCRIPT = "#{CASSANDRA_ENV_DIR}/prime_cassandra.py"
+
+
 # Determines if a UserAppServer should run on this machine.
 #
 # Args:
@@ -113,6 +117,8 @@ def start_db_slave(clear_datastore, replication)
   @state = "Waiting for Cassandra to come up"
   Djinn.log_info("Starting up Cassandra as slave")
   start_cassandra(clear_datastore, replication)
+  Djinn.log_info('Ensuring necessary Cassandra tables are present')
+  sleep(1) until system("#{PRIME_SCRIPT} --check")
 end
 
 
@@ -143,6 +149,7 @@ def start_cassandra(clear_datastore, replication)
     output.split("\n").each{ |line|
       nodes_ready += 1 if line.start_with?('UN')
     }
+    Djinn.log_debug("#{nodes_ready} nodes are up. #{replication} are needed.")
     break if nodes_ready >= replication
     sleep(1)
   end

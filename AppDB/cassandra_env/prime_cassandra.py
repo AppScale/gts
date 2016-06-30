@@ -98,12 +98,31 @@ def prime_cassandra(replication):
     logging.info('Successfully created initial keyspace and tables.')
 
 
+def primed():
+  """ Check if the required keyspace and tables are present.
+
+  Returns a boolean indicating that Cassandra has been primed.
+  """
+  hosts = appscale_info.get_db_ips()
+  # Cassandra 2.0 only supports up to Protocol Version 2.
+  cluster = Cluster(hosts, protocol_version=2)
+  cluster.connect()
+  metadata = cluster.metadata
+  return dbconstants.SCHEMA_TABLE in metadata.keyspaces[KEYSPACE].tables
+
+
 if __name__ == "__main__":
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('replication', type=int,
-                      help='The replication factor for the keyspace')
+  group = parser.add_mutually_exclusive_group(required=True)
+  group.add_argument('--replication', type=int,
+                     help='The replication factor for the keyspace')
+  group.add_argument('--check', action='store_true',
+                     help='Check if the required tables are present')
   args = parser.parse_args()
 
-  prime_cassandra(args.replication)
+  if args.check:
+    assert primed()
+  else:
+    prime_cassandra(args.replication)

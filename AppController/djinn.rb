@@ -3728,13 +3728,10 @@ class Djinn
   def prime_database()
     table = @options['table']
     prime_script = "#{APPSCALE_HOME}/AppDB/#{table}_env/prime_#{table}.py"
+    replication = Integer(@options['replication'])
     retries = 10
     loop {
-      Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
-        "LOCAL_DB_IP='localhost' #{PYTHON27} #{prime_script} " +
-        "#{@options['replication']}; echo $? > #{Dir.tmpdir}/retval")
-      retval = `cat #{Dir.tmpdir}/retval`.to_i
-      return if retval.zero?
+      return if system("#{prime_script} --replication #{replication}")
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
       Kernel.sleep(SMALL_WAIT)
       retries -= 1
