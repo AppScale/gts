@@ -22,8 +22,14 @@ CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 # A directory containing Cassandra-related scripts and libraries.
 CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra_env"
 
+
 # The location of the script that sets up Cassandra's config files.
 SETUP_CONFIG_SCRIPT = "#{APPSCALE_HOME}/scripts/setup_cassandra_config_files.py"
+
+
+# The location of the nodetool binary.
+NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
+
 
 # Determines if a UserAppServer should run on this machine.
 #
@@ -90,10 +96,10 @@ end
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
-def start_db_master(clear_datastore)
+def start_db_master(clear_datastore, replication)
   @state = "Starting up Cassandra on the head node"
   Djinn.log_info("Starting up Cassandra as master")
-  start_cassandra(clear_datastore)
+  start_cassandra(clear_datastore, replication)
 end
 
 
@@ -103,10 +109,10 @@ end
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
-def start_db_slave(clear_datastore)
+def start_db_slave(clear_datastore, replication)
   @state = "Waiting for Cassandra to come up"
   Djinn.log_info("Starting up Cassandra as slave")
-  start_cassandra(clear_datastore)
+  start_cassandra(clear_datastore, replication)
 end
 
 
@@ -114,7 +120,7 @@ end
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
-def start_cassandra(clear_datastore)
+def start_cassandra(clear_datastore, replication)
   Djinn.log_run("pkill ThriftBroker")
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
@@ -128,7 +134,18 @@ def start_cassandra(clear_datastore)
   match_cmd = "/opt/cassandra"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
     match_cmd=match_cmd)
-  sleep(1) until system('/opt/cassandra/cassandra/bin/nodetool status')
+
+  # Ensure enough Cassandra nodes are available.
+  sleep(1) until system("#{NODETOOL} status")
+  while true
+    output = `"#{NODETOOL}" status`
+    nodes_ready = 0
+    output.split("\n").each{ |line|
+      nodes_ready += 1 if line.start_with?('UN')
+    }
+    break if nodes_ready >= replication
+    sleep(1)
+  end
 end
 
 # Kills Cassandra on this machine.

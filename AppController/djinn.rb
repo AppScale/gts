@@ -3606,14 +3606,14 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
+        clear_datastore = @options['clear_datastore'].downcase == "true"
+        replication = Integer(@options['replication'])
         if my_node.is_db_master?
-          start_db_master(@options['clear_datastore'].downcase == "true")
+          start_db_master(clear_datastore, replication)
           prime_database
         else
-          start_db_slave(@options['clear_datastore'].downcase == "true")
+          start_db_slave(clear_datastore, replication)
         end
-        # Let's make sure cassandra is up.
-        sleep(1) until system('/opt/cassandra/cassandra/bin/nodetool status')
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
         @state = "Starting up SOAP Server and Datastore Server"
