@@ -53,7 +53,7 @@ def prime_cassandra(replication):
     TypeError if replication is not an integer.
   """
   if not isinstance(replication, int):
-    raise TypeError('replication must be an integer')
+    raise TypeError('Replication must be an integer')
 
   if int(replication) <= 0:
     raise dbconstants.AppScaleBadArg('Replication must be greater than zero')
