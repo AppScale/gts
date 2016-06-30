@@ -12,9 +12,9 @@ from cassandra_env.cassandra_interface import KEYSPACE
 from cassandra_env.cassandra_interface import ThriftColumn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib/'))
+import appscale_info
+
 from constants import LOG_FORMAT
-from constants import MASTERS_FILE_LOC
-from constants import SLAVES_FILE_LOC
 
 
 def define_ua_schema(session):
@@ -58,13 +58,8 @@ def prime_cassandra(replication):
   if int(replication) <= 0:
     raise dbconstants.AppScaleBadArg('Replication must be greater than zero')
 
-  with open(MASTERS_FILE_LOC) as masters_file:
-    db_master = masters_file.read().split()
-
-  with open(SLAVES_FILE_LOC) as slaves_file:
-    db_slaves = slaves_file.read().split()
-
-  hosts = list(set(db_master + db_slaves))
+  hosts = appscale_info.get_db_ips()
+  # Cassandra 2.0 only supports up to Protocol Version 2.
   cluster = Cluster(hosts, protocol_version=2)
   session = cluster.connect()
 

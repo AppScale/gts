@@ -18,8 +18,7 @@ from cassandra_env.cassandra_interface import KEYSPACE
 from cassandra_env.cassandra_interface import ThriftColumn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
-import constants
-import file_io
+import appscale_info
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA
 
@@ -29,9 +28,8 @@ PROFILING = False
 MAX_ROW_COUNT = 10000000
 class DatastoreProxy(AppDBInterface):
   def __init__(self):
-    db_master = file_io.read(constants.MASTERS_FILE_LOC).split()
-    db_slaves = file_io.read(constants.SLAVES_FILE_LOC).split()
-    hosts = list(set(db_master + db_slaves))
+    hosts = appscale_info.get_db_ips()
+    # Cassandra 2.0 only supports up to Protocol Version 2.
     cluster = Cluster(hosts, protocol_version=2)
     self.session = cluster.connect(keyspace=KEYSPACE)
     self.session.default_consistency_level = ConsistencyLevel.QUORUM

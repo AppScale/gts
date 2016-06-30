@@ -18,7 +18,7 @@ from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
-import file_io
+import appscale_info
 
 # The directory Cassandra is installed to.
 CASSANDRA_INSTALL_DIR = '/opt/cassandra'
@@ -85,14 +85,8 @@ class DatastoreProxy(AppDBInterface):
     """
     Constructor.
     """
-
-    # Allow the client to choose any database node to connect to.
-    database_master = file_io.read('/etc/appscale/masters').split()
-    database_slaves = file_io.read('/etc/appscale/slaves').split()
-
-    # In a one node deployment, the master is also written in the slaves file,
-    # so we have to take out any duplicates.
-    self.hosts = list(set(database_master + database_slaves))
+    self.hosts = appscale_info.get_db_ips()
+    # Cassandra 2.0 only supports up to Protocol Version 2.
     self.cluster = Cluster(self.hosts, protocol_version=2)
     self.session = self.cluster.connect(KEYSPACE)
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
