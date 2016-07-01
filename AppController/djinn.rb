@@ -4609,6 +4609,7 @@ HOSTS
 
       AppDashboard.start(login_ip, uaserver_ip, my_public, my_private,
           PERSISTENT_MOUNT_POINT, @@secret)
+      setup_app_dir(AppDashboard::APP_NAME, true)
       APPS_LOCK.synchronize {
         @app_info_map[AppDashboard::APP_NAME] = {
             'nginx' => AppDashboard::LISTEN_PORT,
