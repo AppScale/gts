@@ -285,7 +285,7 @@ installgems()
     # ZK 1.0 breaks our existing code - upgrade later.
     gem install zookeeper
     sleep 1
-    gem install json ${GEMOPT}
+    gem install json ${GEMOPT} -v 1.8.3
     sleep 1
     gem install soap4r-ruby1.9 ${GEMOPT}
     gem install httparty ${GEMOPT}
