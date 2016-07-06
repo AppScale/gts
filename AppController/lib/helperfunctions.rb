@@ -875,6 +875,14 @@ module HelperFunctions
     return result
   end
 
+  def self.get_apps_loaded()
+    apps =[]
+    Dir["#{APPLICATIONS_DIR}/*"].each{ |app|
+      apps << File.basename(app)
+    }
+    return apps
+  end
+
   def self.get_app_path(app_name)
     return "#{APPLICATIONS_DIR}/#{app_name}"
   end
