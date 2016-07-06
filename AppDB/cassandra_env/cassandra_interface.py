@@ -258,7 +258,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
-    statement = 'CREATE TABLE {table} ('\
+    statement = 'CREATE TABLE "{table}" ('\
         '{key} blob,'\
         '{column} text,'\
         '{value} blob,'\
