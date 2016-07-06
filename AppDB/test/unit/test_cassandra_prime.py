@@ -1,82 +1,34 @@
-#!/usr/bin/env python
-# Programmer: Navraj Chohan
+#!/usr/bin/env python2
 
-import dbconstants
-import pycassa
-import os 
+import os
 import sys
 import unittest
 
+from cassandra.cluster import Cluster
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra_env"))
-import prime_cassandra
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
+import dbconstants
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import file_io 
+from cassandra_env import prime_cassandra
 
-class FakeCassClient():
-  """ Fake cassandra client class for mocking """
-  def __init__(self):
-    return
-  def multiget_slice(self, rk, path, slice_predicate, consistency):
-    return {}
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
+import appscale_info
 
-class FakePool():
-  """ Fake cassandra connection pool for mocking """
-  def get(self):
-    return FakeCassClient()
-  def return_conn(self, client):
-    return 
-
-class FakeColumnFamily():
-  """ Fake column family class for mocking """
-  def __init__(self):
-    return
-  def batch_insert(self, multi_map):
-    return
-  def get_range(self, start='', finish='', columns='', row_count='', 
-                read_consistency_level=''):
-    return {}
-
-class FakeSystemManager():
-  """ Fake system manager class for mocking """
-  def __init__(self):
-    return
-  def drop_column_family(self, keyspace, table_name):
-    return
-  def drop_keyspace(self, keyspace):
-    return
-  def create_keyspace(self, keyspace, strategy, rep_factor):
-    return
-  def create_column_family(self, keysapce, col_fam, 
-                           comparator_type=pycassa.system_manager.UTF8_TYPE):
-    return
-  def close(self):
-    return
 
 class TestCassandraPrimer(unittest.TestCase):
-  def test_primer(self):
-    flexmock(file_io) \
-        .should_receive('read') \
-        .and_return('127.0.0.1')
+  def test_define_ua_schema(self):
+    session = flexmock(execute=lambda statement, values: None)
+    prime_cassandra.define_ua_schema(session)
 
-    flexmock(pycassa.system_manager).should_receive("SystemManager") \
-        .and_return(FakeSystemManager())
-    
-    assert prime_cassandra.create_keyspaces(1)
- 
-  def test_bad_arg(self):
-    flexmock(file_io) \
-       .should_receive('read') \
-       .and_return('127.0.0.1')
+  def test_prime_cassandra(self):
+    self.assertRaises(TypeError, prime_cassandra.prime_cassandra, '1')
+    self.assertRaises(
+        dbconstants.AppScaleBadArg, prime_cassandra.prime_cassandra, 0)
 
-    flexmock(pycassa.system_manager).should_receive("SystemManager") \
-       .and_return(FakeSystemManager())
-   
-    #prime_cassandra.create_keyspaces(-1)
-    self.assertRaises(dbconstants.AppScaleBadArg, 
-                    prime_cassandra.create_keyspaces, -1)
+    flexmock(appscale_info).should_receive('get_db_ips').\
+      and_return(['127.0.0.1'])
 
-if __name__ == "__main__":
-  unittest.main()    
+    session = flexmock(execute=lambda: None, set_keyspace=lambda: None)
+    flexmock(Cluster).should_receive('connect').and_return(session)
+    flexmock(prime_cassandra).should_receive('define_ua_schema')

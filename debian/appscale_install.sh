@@ -42,7 +42,6 @@ case "$1" in
         installjavajdk
         installphp54
         installappserverjava
-        installthrift
         installtornado
         installpycrypto 
         installflexmock

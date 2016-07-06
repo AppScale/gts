@@ -223,13 +223,6 @@ EOF
     chmod +x $LOGROTATE_HOURLY
 }
 
-installthrift()
-{
-    case ${DIST} in
-        precise|wheezy) pipwrapper thrift ;;
-    esac
-}
-
 installjavajdk()
 {
     # This makes jdk-7 the default JVM.
@@ -285,7 +278,7 @@ installgems()
     # ZK 1.0 breaks our existing code - upgrade later.
     gem install zookeeper
     sleep 1
-    gem install json ${GEMOPT}
+    gem install json ${GEMOPT} -v 1.8.3
     sleep 1
     gem install soap4r-ruby1.9 ${GEMOPT}
     gem install httparty ${GEMOPT}
@@ -351,10 +344,6 @@ installcassandra()
     # TODO only grant the cassandra user access.
     chmod 777 /var/lib/cassandra
 
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper  thrift
-    fi
-    pipwrapper  pycassa
     pipwrapper cassandra-driver
 
     # Create separate log directory.

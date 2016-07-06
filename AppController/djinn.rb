@@ -3513,14 +3513,14 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
+        clear_datastore = @options['clear_datastore'].downcase == "true"
+        replication = Integer(@options['replication'])
         if my_node.is_db_master?
-          start_db_master(@options['clear_datastore'].downcase == "true")
+          start_db_master(clear_datastore, replication)
           prime_database
         else
-          start_db_slave(@options['clear_datastore'].downcase == "true")
+          start_db_slave(clear_datastore, replication)
         end
-        # Let's make sure cassandra is up.
-        sleep(1) until system('/opt/cassandra/cassandra/bin/nodetool status')
 
         # Always colocate the Datastore Server and UserAppServer (soap_server).
         @state = "Starting up SOAP Server and Datastore Server"
@@ -3635,13 +3635,10 @@ class Djinn
   def prime_database()
     table = @options['table']
     prime_script = "#{APPSCALE_HOME}/AppDB/#{table}_env/prime_#{table}.py"
+    replication = Integer(@options['replication'])
     retries = 10
     loop {
-      Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
-        "LOCAL_DB_IP='localhost' #{PYTHON27} #{prime_script} " +
-        "#{@options['replication']}; echo $? > #{Dir.tmpdir}/retval")
-      retval = `cat #{Dir.tmpdir}/retval`.to_i
-      return if retval.zero?
+      return if system("#{prime_script} --replication #{replication}")
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
       Kernel.sleep(SMALL_WAIT)
       retries -= 1
@@ -4542,6 +4539,7 @@ HOSTS
 
       AppDashboard.start(login_ip, uaserver_ip, my_public, my_private,
           PERSISTENT_MOUNT_POINT, @@secret)
+      setup_app_dir(AppDashboard::APP_NAME, true)
       APPS_LOCK.synchronize {
         @app_info_map[AppDashboard::APP_NAME] = {
             'nginx' => AppDashboard::LISTEN_PORT,

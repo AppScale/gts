@@ -1127,8 +1127,9 @@ class DatastoreDistributed():
       app_id: A string representing the application identifier.
       index: A entity_pb.CompositeIndex object.
     """
+    self.logger.info('Deleting composite index:\n{}'.format(index))
     index_keys = []
-    composite_id = index.id() 
+    composite_id = index.id()
     index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
                                       index_keys, 
