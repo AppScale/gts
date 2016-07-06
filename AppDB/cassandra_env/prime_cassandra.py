@@ -101,7 +101,8 @@ def prime_cassandra(replication):
 def primed():
   """ Check if the required keyspace and tables are present.
 
-  Returns a boolean indicating that Cassandra has been primed.
+  Returns:
+    A boolean indicating that Cassandra has been primed.
   """
   hosts = appscale_info.get_db_ips()
   # Cassandra 2.0 only supports up to Protocol Version 2.
