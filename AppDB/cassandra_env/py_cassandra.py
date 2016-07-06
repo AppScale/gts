@@ -5,9 +5,9 @@ import cassandra
 import os
 import sys
 
-from dbinterface import AppDBInterface
 from dbconstants import SCHEMA_TABLE
 from dbconstants import SCHEMA_TABLE_SCHEMA
+from dbinterface import AppDBInterface
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
