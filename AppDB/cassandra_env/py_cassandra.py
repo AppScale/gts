@@ -4,6 +4,7 @@ Cassandra Interface for AppScale
 import cassandra
 import os
 import sys
+import time
 
 from dbconstants import SCHEMA_TABLE
 from dbconstants import SCHEMA_TABLE_SCHEMA
@@ -14,6 +15,7 @@ from cassandra.cluster import SimpleStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import ValueSequence
 from cassandra_env.cassandra_interface import IdempotentRetryPolicy
+from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
 from cassandra_env.cassandra_interface import KEYSPACE
 from cassandra_env.cassandra_interface import ThriftColumn
 
@@ -29,9 +31,20 @@ MAX_ROW_COUNT = 10000000
 class DatastoreProxy(AppDBInterface):
   def __init__(self):
     hosts = appscale_info.get_db_ips()
-    # Cassandra 2.0 only supports up to Protocol Version 2.
-    cluster = Cluster(hosts, protocol_version=2)
-    self.session = cluster.connect(keyspace=KEYSPACE)
+
+    remaining_retries = INITIAL_CONNECT_RETRIES
+    while True:
+      try:
+        # Cassandra 2.0 only supports up to Protocol Version 2.
+        cluster = Cluster(hosts, protocol_version=2)
+        self.session = cluster.connect(keyspace=KEYSPACE)
+        break
+      except cassandra.cluster.NoHostAvailable as connection_error:
+        remaining_retries -= 1
+        if remaining_retries < 0:
+          raise connection_error
+        time.sleep(3)
+
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
     self.retry_policy = IdempotentRetryPolicy()
 
