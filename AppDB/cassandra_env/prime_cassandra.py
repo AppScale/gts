@@ -3,11 +3,14 @@
 
 import argparse
 import dbconstants
+import cassandra
 import logging
 import os
 import sys
+import time
 
 from cassandra.cluster import Cluster
+from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
 from cassandra_env.cassandra_interface import KEYSPACE
 from cassandra_env.cassandra_interface import ThriftColumn
 
@@ -59,9 +62,20 @@ def prime_cassandra(replication):
     raise dbconstants.AppScaleBadArg('Replication must be greater than zero')
 
   hosts = appscale_info.get_db_ips()
-  # Cassandra 2.0 only supports up to Protocol Version 2.
-  cluster = Cluster(hosts, protocol_version=2)
-  session = cluster.connect()
+
+  session = None
+  remaining_retries = INITIAL_CONNECT_RETRIES
+  while True:
+    try:
+      # Cassandra 2.0 only supports up to Protocol Version 2.
+      cluster = Cluster(hosts, protocol_version=2)
+      session = cluster.connect()
+      break
+    except cassandra.cluster.NoHostAvailable as connection_error:
+      remaining_retries -= 1
+      if remaining_retries < 0:
+        raise connection_error
+      time.sleep(3)
 
   create_keyspace = """
     CREATE KEYSPACE IF NOT EXISTS "{keyspace}"
@@ -105,9 +119,21 @@ def primed():
     A boolean indicating that Cassandra has been primed.
   """
   hosts = appscale_info.get_db_ips()
-  # Cassandra 2.0 only supports up to Protocol Version 2.
-  cluster = Cluster(hosts, protocol_version=2)
-  cluster.connect()
+
+  cluster = None
+  remaining_retries = INITIAL_CONNECT_RETRIES
+  while True:
+    try:
+      # Cassandra 2.0 only supports up to Protocol Version 2.
+      cluster = Cluster(hosts, protocol_version=2)
+      cluster.connect()
+      break
+    except cassandra.cluster.NoHostAvailable as connection_error:
+      remaining_retries -= 1
+      if remaining_retries < 0:
+        raise connection_error
+      time.sleep(3)
+
   metadata = cluster.metadata
   return dbconstants.SCHEMA_TABLE in metadata.keyspaces[KEYSPACE].tables
 
