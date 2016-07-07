@@ -7,6 +7,7 @@ import cassandra
 import logging
 import os
 import sys
+import time
 
 from dbconstants import AppScaleDBConnectionError
 from dbinterface import AppDBInterface
@@ -31,6 +32,9 @@ KEYSPACE = "Keyspace1"
 
 # Cassandra watch name.
 CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
+
+# The number of times to retry connecting to Cassandra.
+INITIAL_CONNECT_RETRIES = 20
 
 
 class IdempotentRetryPolicy(RetryPolicy):
@@ -86,9 +90,20 @@ class DatastoreProxy(AppDBInterface):
     Constructor.
     """
     self.hosts = appscale_info.get_db_ips()
-    # Cassandra 2.0 only supports up to Protocol Version 2.
-    self.cluster = Cluster(self.hosts, protocol_version=2)
-    self.session = self.cluster.connect(KEYSPACE)
+
+    remaining_retries = INITIAL_CONNECT_RETRIES
+    while True:
+      try:
+        # Cassandra 2.0 only supports up to Protocol Version 2.
+        self.cluster = Cluster(self.hosts, protocol_version=2)
+        self.session = self.cluster.connect(KEYSPACE)
+        break
+      except cassandra.cluster.NoHostAvailable as connection_error:
+        remaining_retries -= 1
+        if remaining_retries < 0:
+          raise connection_error
+        time.sleep(3)
+
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
     self.retry_policy = IdempotentRetryPolicy()
 
