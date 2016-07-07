@@ -1092,7 +1092,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1125,7 +1125,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1158,7 +1158,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1191,7 +1191,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 

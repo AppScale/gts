@@ -5473,7 +5473,7 @@ HOSTS
         get_load_balancer_ip(), app_language, xmpp_ip,
         HelperFunctions.get_app_env_vars(app),
         Integer(@options['max_memory']), get_login.private_ip)
-    rescue FailedNodeException, ArgumentError => error
+    rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
         "with AppManager: #{error.message}")
       pid = -1
