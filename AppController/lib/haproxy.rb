@@ -200,7 +200,8 @@ module HAProxy
       "#{full_app_name}.#{CONFIG_EXTENSION}")
 
     # Let's reload and overwrite only if something changed.
-    current = File.read(config_path)
+    current = ""
+    current = File.read(config_path) if File.exists?(config_path)
     if Digest::MD5.hexdigest(current) != Digest::MD5.hexdigest(config)
       File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
       HAProxy.regenerate_config()
