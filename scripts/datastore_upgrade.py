@@ -5,12 +5,14 @@ import os
 import subprocess
 import sys
 import time
+import yaml
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import appscale_info
 from constants import APPSCALE_HOME
 from constants import CONTROLLER_SERVICE
-
+from constants import DB_INFO_LOC
+from constants import MASTERS_FILE_LOC
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
@@ -409,6 +411,32 @@ def all_services_started(status_dict):
       return False
   return True
 
+def ensure_cassandra_nodes_match_replication(keyname):
+  # Get the database master IP.
+  with open(MASTERS_FILE_LOC) as masters_file:
+    master_ip = masters_file.read().strip()
+
+  command = cassandra_interface.NODE_TOOL + " " + 'status'
+  key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
+  ssh_cmd = ['ssh', '-i', key_file, master_ip, command]
+  cmd_output = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
+
+  nodes_ready = 0
+  # Get the replication factor from the database_info.yaml file.
+  with open(DB_INFO_LOC) as db_info_file:
+    db_info = yaml.load(db_info_file)
+  replication = db_info[':replication']
+
+  while True:
+    for line in cmd_output.stdout:
+      if line.startswith('UN'):
+        nodes_ready += 1
+
+    logging.info("{0} nodes are up. {1} are needed.".format(nodes_ready, replication))
+    if nodes_ready >= int(replication):
+      break
+    time.sleep(5)
+
 def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
   """ Runs the data upgrade process of fetching, validating and updating data
   within ZooKeeper & Cassandra.
@@ -424,6 +452,10 @@ def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
 
   # Start Cassandra and ZooKeeper.
   start_cassandra(status_dict, db_ips, master_ip, keyname)
+
+  # Ensure enough Cassandra nodes are available.
+  ensure_cassandra_nodes_match_replication(keyname)
+
   start_zookeeper(status_dict, zk_ips, master_ip, keyname)
 
   if not all_services_started(status_dict):
