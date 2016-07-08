@@ -11,7 +11,6 @@ import appscale_info
 from constants import APPSCALE_HOME
 from constants import CONTROLLER_SERVICE
 
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
 import datastore_server
@@ -38,9 +37,6 @@ BATCH_SIZE = 100
 
 # Log progress every time this many seconds have passed.
 LOG_PROGRESS_FREQUENCY = 30
-
-# Max sleep time for Cassandra and ZooKeeper to be up.
-SLEEP_TIME = 30
 
 # Monit watch name for Cassandra.
 CASSANDRA_WATCH_NAME = "cassandra"
@@ -409,6 +405,32 @@ def all_services_started(status_dict):
       return False
   return True
 
+def ensure_cassandra_nodes_match_replication(keyname):
+  """ Waits until enough Cassandra nodes are up to match the required
+  replication factor.
+  Args:
+    keyname: A string containing the deployment's keyname.
+  """
+  command = cassandra_interface.NODE_TOOL + " " + 'status'
+  key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
+  ssh_cmd = ['ssh', '-i', key_file, appscale_info.get_db_master_ip(), command]
+  cmd_output = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
+
+  nodes_ready = 0
+  # Get the replication factor from the database_info.yaml file.
+  db_info = appscale_info.get_db_info()
+  replication = db_info[':replication']
+
+  while True:
+    for line in cmd_output.stdout:
+      if line.startswith('UN'):
+        nodes_ready += 1
+
+    logging.info("{0} nodes are up. {1} are needed.".format(nodes_ready, replication))
+    if nodes_ready >= int(replication):
+      break
+    time.sleep(1)
+
 def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
   """ Runs the data upgrade process of fetching, validating and updating data
   within ZooKeeper & Cassandra.
@@ -424,14 +446,11 @@ def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
 
   # Start Cassandra and ZooKeeper.
   start_cassandra(status_dict, db_ips, master_ip, keyname)
+
+  # Ensure enough Cassandra nodes are available.
+  ensure_cassandra_nodes_match_replication(keyname)
+
   start_zookeeper(status_dict, zk_ips, master_ip, keyname)
-
-  # Sleep time for Cassandra and ZooKeeper to be started.
-  while subprocess.call([cassandra_interface.NODE_TOOL, 'status']) !=0:
-    time.sleep(10)
-
-  while subprocess.call(['/usr/share/zookeeper/bin/zkServer.sh', 'status']) !=0:
-    time.sleep(10)
 
   if not all_services_started(status_dict):
     stop_cassandra(db_ips, master_ip, status_dict, keyname)
