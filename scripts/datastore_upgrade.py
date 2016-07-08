@@ -29,9 +29,6 @@ from google.appengine.api import datastore_errors
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
 from utils import utils
 
-import monit_start_service
-import monit_stop_service
-
 # The number of entities retrieved in a datastore request.
 BATCH_SIZE = 100
 
@@ -74,6 +71,10 @@ START_SERVICE_SCRIPT = "python " + APPSCALE_HOME + "/scripts/monit_start_service
 # The monit script to stop the given service.
 STOP_SERVICE_SCRIPT = "python " + APPSCALE_HOME + "/scripts/monit_stop_service.py "
 
+# The location of the script that initializes Cassandra config files.
+SETUP_CASSANDRA_SCRIPT = os.path.join(APPSCALE_HOME, 'scripts',
+                                      'setup_cassandra_config_files.py')
+
 def ensure_app_is_not_running():
   """ Ensures AppScale is not running as this is an offline script. """
   logging.info("Ensure AppScale is not currently running...")
@@ -82,19 +83,30 @@ def ensure_app_is_not_running():
     logging.info("AppScale is running, please shut it down and try again.")
     sys.exit(1)
 
-def start_cassandra(status_dict, db_ips, keyname):
+def start_cassandra(status_dict, db_ips, db_master, keyname):
   """ Creates a monit configuration file and prompts Monit to start Cassandra.
   Args:
     status_dict: A dictionary to record the status of the executed process.
     db_ips: A list of database node IPs to start Cassandra on.
+    db_master: The IP address of the DB master.
     keyname: A string containing the deployment's keyname.
   """
   logging.info("Starting Cassandra...")
   for ip in db_ips:
+    start_cassandra_ip = START_CASSANDRA + "@" + ip
+
+    init_config = '{script} --local-ip {ip} --master-ip {db_master}'.format(
+      script=SETUP_CASSANDRA_SCRIPT, ip=ip, db_master=db_master)
+    try:
+      utils.ssh(ip, keyname, init_config)
+    except subprocess.CalledProcessError:
+      logging.error('Unable to configure Cassandra on {}'.format(ip))
+      status_dict[start_cassandra_ip] = FAILURE
+      continue
+
     start_service_cmd = START_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
     cmd_status = utils.ssh(ip, keyname, start_service_cmd)
 
-    start_cassandra_ip = START_CASSANDRA + "@" + ip
     if not cmd_status == 0:
       logging.error("Monit was unable to start Cassandra.")
       status_dict[start_cassandra_ip] = FAILURE
@@ -415,12 +427,13 @@ def ensure_cassandra_nodes_match_replication(keyname):
       break
     time.sleep(1)
 
-def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
+def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
   """ Runs the data upgrade process of fetching, validating and updating data
   within ZooKeeper & Cassandra.
   Args:
     zk_ips: A list of ZooKeeper node IPs.
     db_ips: A list of database node IPs.
+    db_master: The IP address of the DB master.
     status_dict: A dictionary to record the status of the executed process.
     keyname: A string containing the deployment's keyname.
   """
@@ -429,7 +442,7 @@ def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
   ensure_app_is_not_running()
 
   # Start Cassandra and ZooKeeper.
-  start_cassandra(status_dict, db_ips, keyname)
+  start_cassandra(status_dict, db_ips, db_master, keyname)
 
   # Ensure enough Cassandra nodes are available.
   ensure_cassandra_nodes_match_replication(keyname)
