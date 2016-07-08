@@ -186,6 +186,9 @@ def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
       logging.debug("Fetching {} entities".format(BATCH_SIZE))
       entities = get_entity_batch(last_key, datastore, BATCH_SIZE)
 
+      if not entities:
+        break
+
       for entity in entities:
         process_entity(entity, datastore, ds_distributed)
 
@@ -195,9 +198,6 @@ def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
       if time.time() > last_logged + LOG_PROGRESS_FREQUENCY:
         logging.info("Checked {} entities".format(entities_checked))
         last_logged = time.time()
-
-      if len(entities) < BATCH_SIZE:
-        break
 
     except datastore_errors.Error as error:
       logging.error("Error getting and validating batch of entities: {}".format(error))
