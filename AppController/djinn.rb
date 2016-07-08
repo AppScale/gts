@@ -1866,7 +1866,7 @@ class Djinn
       check_stopped_app()
 
       # Login nodes may need to check/update nginx/haproxy.
-      regenerate_routing_config() if my_node.is_login?
+      regenerate_routing_config() if my_node.is_load_balancer?
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -2639,10 +2639,7 @@ class Djinn
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
   def add_routing_for_blob_server(secret)
     return BAD_SECRET_MSG if !valid_secret?(secret)
-
-    unless my_node.is_login?
-      return NO_HAPROXY_PRESENT
-    end
+    return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
     servers = []
@@ -3035,7 +3032,7 @@ class Djinn
         # database, depending on the verbosity and the deployment.
         if @options['controller_logs_to_dashboard'].downcase == "true"
           begin
-            url = URI.parse("https://#{get_login.public_ip}:" +
+            url = URI.parse("https://#{get_load_balancer_ip()}:" +
               "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
             http = Net::HTTP.new(url.host, url.port)
             http.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -3072,7 +3069,7 @@ class Djinn
       }
 
       begin
-        url = URI.parse("https://#{get_login.public_ip}:" +
+        url = URI.parse("https://#{get_load_balancer_ip()}:" +
           "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
@@ -3112,7 +3109,7 @@ class Djinn
         'port' => Integer(port)
       }]
 
-      url = URI.parse("https://#{get_login.public_ip}:" +
+      url = URI.parse("https://#{get_load_balancer_ip()}:" +
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
@@ -3514,7 +3511,7 @@ class Djinn
       }
     end
 
-    if my_node.is_login?
+    if my_node.is_load_balancer?
       threads << Thread.new {
         start_ejabberd()
       }
@@ -3556,7 +3553,7 @@ class Djinn
     # Leader node starts additional services.
     if my_node.is_shadow?
       update_node_info_cache()
-      start_app_dashboard(get_login.public_ip, my_node.private_ip)
+      start_app_dashboard()
       start_hermes()
       TaskQueue.start_flower(@options['flower_password'])
     end
@@ -4296,10 +4293,10 @@ HOSTS
     # As per trusty's version of haproxy, we need to have a listening
     # socket for the daemon to start: we do use the uaserver to configured
     # a default route.
-    configure_uaserver
+    configure_uaserver()
 
     # Volume is mounted, let's finish the configuration of static files.
-    if my_node.is_login? and not my_node.is_appengine?
+    if my_node.is_shadow? and not my_node.is_appengine?
       write_app_logrotate()
       Djinn.log_info("Copying logrotate script for centralized app logs")
     end
@@ -4463,11 +4460,7 @@ HOSTS
 
   # Start the AppDashboard web service which allows users to login,
   # upload and remove apps, and view the status of the AppScale deployment.
-  #
-  # Args:
-  #  login_ip: A string wth the ip of the login node.
-  #  uaserver_ip: A string with the ip of the UserAppServer.
-  def start_app_dashboard(login_ip, uaserver_ip)
+  def start_app_dashboard()
     @state = "Starting AppDashboard"
     Djinn.log_info("Starting AppDashboard")
 
@@ -4475,7 +4468,7 @@ HOSTS
       my_public = my_node.public_ip
       my_private = my_node.private_ip
 
-      AppDashboard.start(login_ip, uaserver_ip, my_public, my_private,
+      AppDashboard.start(my_public, my_private,
           PERSISTENT_MOUNT_POINT, @@secret)
       setup_app_dir(AppDashboard::APP_NAME, true)
       APPS_LOCK.synchronize {
@@ -4490,7 +4483,7 @@ HOSTS
       }
 
       Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
-      CronHelper.update_cron(login_ip, AppDashboard::LISTEN_PORT,
+      CronHelper.update_cron(get_load_balancer_ip(), AppDashboard::LISTEN_PORT,
         AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
     }
   end
@@ -4604,7 +4597,7 @@ HOSTS
       Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       APPS_LOCK.synchronize {
-        if my_node.is_login?
+        if my_node.is_load_balancer?
           stop_xmpp_for_app(app)
           Nginx.remove_app(app)
           HAProxy.remove_app(app)
@@ -4868,7 +4861,7 @@ HOSTS
     proxy_port = @app_info_map[app]['haproxy']
 
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
-    if my_node.is_login?
+    if my_node.is_shadow?
       HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
       Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
         "https port #{https_port}, and haproxy port #{proxy_port}")

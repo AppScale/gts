@@ -34,10 +34,6 @@ module AppDashboard
   # instances we start here.
   #
   # Args:
-  #   login_ip: The hostname where nginx runs, serving a full proxy to Google
-  #     App Engine applications hosted in this AppScale deployment.
-  #   uaserver_ip: The hostname where the UserAppServer runs, enabling new users
-  #     to be created and new apps to be uploaded.
   #   public_ip: This machine's public IP address or FQDN.
   #   private_ip: This machine's private IP address or FQDN.
   #   persistent_storage: Where we store the application tarball.
@@ -45,14 +41,13 @@ module AppDashboard
   #     other AppScale services.
   # Returns:
   #   true if the AppDashboard was started successfully, and false otherwise.
-  def self.start(login_ip, uaserver_ip, public_ip, private_ip,
-      persistent_storage, secret)
+  def self.start(public_ip, private_ip, persistent_storage, secret)
 
     # Pass the secret key and our public IP address (needed to connect to the
     # AppController) to the app.
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
     Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
-    Djinn.log_run("echo \"UA_SERVER_IP = '#{uaserver_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
+    Djinn.log_run("echo \"UA_SERVER_IP = '#{private_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
 
     # TODO: tell the tools to disallow uploading apps called 
     # APP_NAME, and have start_appengine to do the same.   
