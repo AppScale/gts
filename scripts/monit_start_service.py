@@ -71,7 +71,7 @@ def start_service(service_name):
 def sleep_until_service_is_up(service_command):
   """ Sleeps until the service is actually up after Monit has started it.
     Args:
-      service_name: The name of the service to start.
+      service_command: The command to check the status of the service.
     """
   while subprocess.call([service_command, 'status']) != 0:
     time.sleep(10)
