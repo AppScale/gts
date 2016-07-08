@@ -29,7 +29,7 @@ PID_FILE = "/var/appscale/appscale-cassandra.pid"
 CASSANDRA_PORT = 9999
 
 def start_service(service_name):
-  """ Creates a monit configuration file and prompts Monit to start Cassandra.
+  """ Creates a monit configuration file and prompts Monit to start service.
   Args:
     service_name: The name of the service to start.
   """
