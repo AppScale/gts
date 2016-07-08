@@ -4164,6 +4164,22 @@ HOSTS
         "port #{http_port}, https port #{https_port}, and haproxy port " +
         "#{proxy_port}.")
 
+      # Let's see if we already have any appserver running for this
+      # application.
+      running = false
+      if !@app_info_map[app]['appengine'].nil?
+        @app_info_map[app]['appengine'].each { |location|
+          host, port = location.split(":")
+          next if Integer(port) < 0
+          running = true
+          break
+        }
+      end
+      if !running
+        Djinn.log_debug("Skipping routing for #{app} since no appserver is running.")
+        next
+      end
+
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
       rescue => e
@@ -4188,7 +4204,7 @@ HOSTS
               "to user_app_server")
           end
         rescue FailedNodeException
-          Djinn.log_warn("Didn't add instance to UserAppServer for #{app}.")
+          Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
         end
       end
     }
