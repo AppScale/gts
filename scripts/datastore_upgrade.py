@@ -236,18 +236,21 @@ def process_entity(entity, datastore, ds_distributed):
   """
   logging.debug("Process entity {}".format(str(entity)))
   key = entity.keys()[0]
-  one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
+  entity_data = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
 
   app_id = key.split(dbconstants.KEY_DELIMITER)[0]
   validated_entity = ds_distributed.validated_result(app_id, entity)
 
-  is_tombstone = validated_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE
-  if not validated_entity or is_tombstone:
+  if key not in validated_entity:
     return delete_entity_from_table(key, datastore)
 
-  if not (one_entity == validated_entity[key][APP_ENTITY_SCHEMA[0]]
-      and version == validated_entity[key][APP_ENTITY_SCHEMA[1]]):
+  valid_entity_data = validated_entity[key][APP_ENTITY_SCHEMA[0]]
+  valid_entity_version = validated_entity[key][APP_ENTITY_SCHEMA[1]]
+  if valid_entity_data == datastore_server.TOMBSTONE:
+    return delete_entity_from_table(key, datastore)
+
+  if valid_entity_data != entity_data or valid_entity_version != version:
     return update_entity_in_table(key, validated_entity, datastore)
 
   return True
