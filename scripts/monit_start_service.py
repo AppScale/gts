@@ -35,12 +35,14 @@ def start_service(service_name):
   """
   logging.info("Starting " + service_name)
   watch_name = ""
+  service_command = ""
   if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
     start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
     stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
     watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
     ports = [CASSANDRA_PORT]
     match_cmd = cassandra_interface.CASSANDRA_INSTALL_DIR
+    service_command = cassandra_interface.NODE_TOOL
 
   if service_name == datastore_upgrade.ZK_WATCH_NAME:
     zk_server="zookeeper-server"
@@ -53,6 +55,7 @@ def start_service(service_name):
     watch_name = datastore_upgrade.ZK_WATCH_NAME
     match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     ports = [zk.DEFAULT_PORT]
+    service_command = '/usr/share/zookeeper/bin/zkServer.sh'
 
   monit_app_configuration.create_config_file(watch_name, start_cmd, stop_cmd,
     ports, upgrade_flag=True, match_cmd=match_cmd)
@@ -61,22 +64,17 @@ def start_service(service_name):
     logging.error("Monit was unable to start " + service_name)
     return 1
   else:
-    sleep_until_service_is_up(service_name)
+    sleep_until_service_is_up(service_command)
     logging.info("Successfully started " + service_name)
     return 0
 
-def sleep_until_service_is_up(service_name):
+def sleep_until_service_is_up(service_command):
   """ Sleeps until the service is actually up after Monit has started it.
     Args:
       service_name: The name of the service to start.
     """
-  if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
-    while subprocess.call([cassandra_interface.NODE_TOOL, 'status']) != 0:
-      time.sleep(10)
-
-  if service_name == datastore_upgrade.ZK_WATCH_NAME:
-    while subprocess.call(['/usr/share/zookeeper/bin/zkServer.sh', 'status']) != 0:
-      time.sleep(10)
+  while subprocess.call([service_command, 'status']) != 0:
+    time.sleep(10)
 
 if __name__ == "__main__":
   args_length = len(sys.argv)
