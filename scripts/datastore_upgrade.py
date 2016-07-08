@@ -182,6 +182,9 @@ def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
       logging.debug("Fetching {} entities".format(BATCH_SIZE))
       entities = get_entity_batch(last_key, datastore, BATCH_SIZE)
 
+      if not entities:
+        break
+
       for entity in entities:
         process_entity(entity, datastore, ds_distributed)
 
@@ -191,9 +194,6 @@ def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
       if time.time() > last_logged + LOG_PROGRESS_FREQUENCY:
         logging.info("Checked {} entities".format(entities_checked))
         last_logged = time.time()
-
-      if len(entities) < BATCH_SIZE:
-        break
 
     except datastore_errors.Error as error:
       logging.error("Error getting and validating batch of entities: {}".format(error))
@@ -232,18 +232,21 @@ def process_entity(entity, datastore, ds_distributed):
   """
   logging.debug("Process entity {}".format(str(entity)))
   key = entity.keys()[0]
-  one_entity = entity[key][APP_ENTITY_SCHEMA[0]]
+  entity_data = entity[key][APP_ENTITY_SCHEMA[0]]
   version = entity[key][APP_ENTITY_SCHEMA[1]]
 
   app_id = key.split(dbconstants.KEY_DELIMITER)[0]
   validated_entity = ds_distributed.validated_result(app_id, entity)
 
-  is_tombstone = validated_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE
-  if not validated_entity or is_tombstone:
+  if key not in validated_entity:
     return delete_entity_from_table(key, datastore)
 
-  if not (one_entity == validated_entity[key][APP_ENTITY_SCHEMA[0]]
-      and version == validated_entity[key][APP_ENTITY_SCHEMA[1]]):
+  valid_entity_data = validated_entity[key][APP_ENTITY_SCHEMA[0]]
+  valid_entity_version = validated_entity[key][APP_ENTITY_SCHEMA[1]]
+  if valid_entity_data == datastore_server.TOMBSTONE:
+    return delete_entity_from_table(key, datastore)
+
+  if valid_entity_data != entity_data or valid_entity_version != version:
     return update_entity_in_table(key, validated_entity, datastore)
 
   return True
@@ -259,7 +262,8 @@ def update_entity_in_table(key, validated_entity, datastore):
     AppScaleDBConnectionError: If the batch_put could not be performed due to
       an error with Cassandra.
   """
-  datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA, validated_entity[key])
+  datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
+                             {key: validated_entity[key]})
 
 def delete_entity_from_table(key, datastore):
   """ Performs a hard delete on the APP_ENTITY_TABLE for the given row key.

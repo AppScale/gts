@@ -8,6 +8,7 @@ given (Put, Get, Delete, Query, etc).
 """
 import array
 import __builtin__
+import copy
 import getopt
 import itertools
 import json
@@ -1688,9 +1689,9 @@ class DatastoreDistributed():
     # Get all the valid versions of journal entries if needed.
     for index, dict_entry in enumerate(db_results):
       row_key = dict_entry.keys()[0]
-      current_version = \
-          long(dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
-      trans_id = self.zookeeper.get_valid_transaction_id(\
+      current_version = long(
+        dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
+      trans_id = self.zookeeper.get_valid_transaction_id(
         app_id, current_version, row_key)
       if current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
@@ -1706,11 +1707,11 @@ class DatastoreDistributed():
     if not journal_result_map: 
       return db_results
 
-
+    validated_results = copy.deepcopy(db_results)
     for journal_key in journal_result_map:
       index, row_key, trans_id = journal_result_map[journal_key]
       if dbconstants.JOURNAL_SCHEMA[0] in journal_entities[journal_key]:
-        db_results[index][row_key] = {
+        validated_results[index][row_key] = {
           dbconstants.APP_ENTITY_SCHEMA[0]: 
             journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
           dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
@@ -1719,8 +1720,8 @@ class DatastoreDistributed():
         # There was no previous journal because the first put on this 
         # row was apart of a bad transaction, hence we set this key to 
         # be empty.
-        db_results[index][row_key] = {}
-    return db_results
+        validated_results[index][row_key] = {}
+    return validated_results
 
 
   def validated_dict_result(self, app_id, db_results, current_ongoing_txn=0):
@@ -1742,9 +1743,9 @@ class DatastoreDistributed():
     for row_key in db_results:
       if dbconstants.APP_ENTITY_SCHEMA[1] not in db_results[row_key]:
         continue
-      current_version = long(db_results[row_key] \
-        [dbconstants.APP_ENTITY_SCHEMA[1]])
-      trans_id = self.zookeeper.get_valid_transaction_id( \
+      current_version = long(
+        db_results[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
+      trans_id = self.zookeeper.get_valid_transaction_id(
         app_id, current_version, row_key)
       if current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
@@ -1758,21 +1759,23 @@ class DatastoreDistributed():
 
     journal_entities = self.datastore_batch.batch_get_entity(
       dbconstants.JOURNAL_TABLE, journal_keys, dbconstants.JOURNAL_SCHEMA)
+
+    validated_results = copy.deepcopy(db_results)
     for journal_key in journal_result_map:
       row_key, trans_id = journal_result_map[journal_key]
       if trans_id == 0:
         # Zero id's are entities which do not yet exist.
-        del db_results[row_key]
+        del validated_results[row_key]
       else:
         if dbconstants.JOURNAL_SCHEMA[0] not in journal_entities[journal_key]:
-          del db_results[row_key]
+          del validated_results[row_key]
         else:
-          db_results[row_key] = {
+          validated_results[row_key] = {
             dbconstants.APP_ENTITY_SCHEMA[0]: 
               journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
             dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
           }
-    return db_results
+    return validated_results
 
   def remove_tombstoned_entities(self, result):
     """ Removed any keys which have tombstoned entities.
