@@ -223,7 +223,8 @@ def ssh(ip_address, keyname, cmd, method=subprocess.check_call):
     The output of the function defined by method.
   """
   key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
-  ssh_cmd = ['ssh', '-i', key_file, ip_address, cmd]
+  ssh_cmd = ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
+             ip_address, cmd]
   return method(ssh_cmd)
 
 
