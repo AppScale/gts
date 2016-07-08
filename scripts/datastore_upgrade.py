@@ -435,7 +435,7 @@ def ensure_cassandra_nodes_match_replication(keyname):
     logging.info("{0} nodes are up. {1} are needed.".format(nodes_ready, replication))
     if nodes_ready >= int(replication):
       break
-    time.sleep(5)
+    time.sleep(1)
 
 def run_datastore_upgrade(zk_ips, db_ips, master_ip, status_dict, keyname):
   """ Runs the data upgrade process of fetching, validating and updating data
