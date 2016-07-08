@@ -119,6 +119,15 @@ class DatastoreProxy(AppDBInterface):
 
 
   def get_table(self, table_name, column_names):
+    """ Fetch a list of values for the given columns in a table.
+
+    Args:
+      table_name: A string containing the name of the table.
+      column_names: A list of column names to retrieve values for.
+    Returns:
+      A list containing a status marker followed by the values.
+      Note: The response does not contain any row keys or column names.
+    """
     response = [ERROR_DEFAULT]
 
     statement = 'SELECT * FROM "{table}"'.format(table=table_name)
@@ -146,9 +155,10 @@ class DatastoreProxy(AppDBInterface):
       results_list.append({current_key: current_item})
 
     for result in results_list:
+      result_columns = result.values()[0]
       for column in column_names:
         try:
-          response.append(result[column])
+          response.append(result_columns[column])
         except KeyError:
           response[0] += 'Table contents did not match schema'
           return response
