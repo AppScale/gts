@@ -5,14 +5,11 @@ import os
 import subprocess
 import sys
 import time
-import yaml
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import appscale_info
 from constants import APPSCALE_HOME
 from constants import CONTROLLER_SERVICE
-from constants import DB_INFO_LOC
-from constants import MASTERS_FILE_LOC
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
@@ -40,9 +37,6 @@ BATCH_SIZE = 100
 
 # Log progress every time this many seconds have passed.
 LOG_PROGRESS_FREQUENCY = 30
-
-# Max sleep time for Cassandra and ZooKeeper to be up.
-SLEEP_TIME = 30
 
 # Monit watch name for Cassandra.
 CASSANDRA_WATCH_NAME = "cassandra"
@@ -412,19 +406,19 @@ def all_services_started(status_dict):
   return True
 
 def ensure_cassandra_nodes_match_replication(keyname):
-  # Get the database master IP.
-  with open(MASTERS_FILE_LOC) as masters_file:
-    master_ip = masters_file.read().strip()
-
+  """ Waits until enough Cassandra nodes are up to match the required
+  replication factor.
+  Args:
+    keyname: A string containing the deployment's keyname.
+  """
   command = cassandra_interface.NODE_TOOL + " " + 'status'
   key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
-  ssh_cmd = ['ssh', '-i', key_file, master_ip, command]
+  ssh_cmd = ['ssh', '-i', key_file, appscale_info.get_db_master_ip(), command]
   cmd_output = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
 
   nodes_ready = 0
   # Get the replication factor from the database_info.yaml file.
-  with open(DB_INFO_LOC) as db_info_file:
-    db_info = yaml.load(db_info_file)
+  db_info = appscale_info.get_db_info()
   replication = db_info[':replication']
 
   while True:

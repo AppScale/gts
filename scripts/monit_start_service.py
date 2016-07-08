@@ -28,24 +28,21 @@ PID_FILE = "/var/appscale/appscale-cassandra.pid"
 # The default port to connect to Cassandra.
 CASSANDRA_PORT = 9999
 
-# The service name for monit to start Cassandra.
-CASSANDRA_SERVICE_NAME = "cassandra"
-
-# The service name for monit to start Zookeeper.
-ZK_SERVICE_NAME = "zookeeper"
-
 def start_service(service_name):
+  """ Creates a monit configuration file and prompts Monit to start Cassandra.
+  Args:
+    service_name: The name of the service to start.
+  """
   logging.info("Starting " + service_name)
   watch_name = ""
-  if service_name == CASSANDRA_SERVICE_NAME:
+  if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
     start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
     stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
     watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
     ports = [CASSANDRA_PORT]
     match_cmd = cassandra_interface.CASSANDRA_INSTALL_DIR
 
-  if service_name == ZK_SERVICE_NAME:
-
+  if service_name == datastore_upgrade.ZK_WATCH_NAME:
     zk_server="zookeeper-server"
     command = 'service --status-all|grep zookeeper$'
     if subprocess.call(command, shell=True) == 0:
@@ -69,11 +66,15 @@ def start_service(service_name):
     return 0
 
 def sleep_until_service_is_up(service_name):
-  if service_name == CASSANDRA_SERVICE_NAME:
+  """ Sleeps until the service is actually up after Monit has started it.
+    Args:
+      service_name: The name of the service to start.
+    """
+  if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
     while subprocess.call([cassandra_interface.NODE_TOOL, 'status']) != 0:
       time.sleep(10)
 
-  if service_name == ZK_SERVICE_NAME:
+  if service_name == datastore_upgrade.ZK_WATCH_NAME:
     while subprocess.call(['/usr/share/zookeeper/bin/zkServer.sh', 'status']) != 0:
       time.sleep(10)
 
