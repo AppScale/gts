@@ -154,7 +154,8 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-  def batch_put_entity(self, table_name, row_keys, column_names, cell_values):
+  def batch_put_entity(self, table_name, row_keys, column_names, cell_values,
+                       ttl=None):
     """
     Allows callers to store multiple rows with a single call. A row can 
     have multiple columns and values with them. We refer to each row as 
@@ -165,6 +166,7 @@ class DatastoreProxy(AppDBInterface):
       row_keys: A list of keys to store on
       column_names: A list of columns to mutate
       cell_values: A dict of key/value pairs
+      ttl: The number of seconds to keep the row.
     Raises:
       TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the batch_put could not be performed due to
@@ -175,14 +177,19 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(row_keys, list): raise TypeError("Expected a list")
     if not isinstance(cell_values, dict): raise TypeError("Expected a dic")
 
-    statement = self.session.prepare(
-      'INSERT INTO "{table}" ({key}, {column}, {value}) '\
-      'VALUES (?, ?, ?)'.format(
-        table=table_name,
-        key=ThriftColumn.KEY,
-        column=ThriftColumn.COLUMN_NAME,
-        value=ThriftColumn.VALUE
-      ))
+    insert_str = """
+      INSERT INTO "{table}" ({key}, {column}, {value})
+      VALUES (?, ?, ?)
+    """.format(table=table_name,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+
+    if ttl is not None:
+      insert_str += 'USING TTL {}'.format(ttl)
+
+    statement = self.session.prepare(insert_str)
+
     batch_insert = BatchStatement(retry_policy=self.retry_policy)
 
     for row_key in row_keys:
