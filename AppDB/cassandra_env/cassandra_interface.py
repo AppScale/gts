@@ -333,15 +333,18 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       An ordered list of dictionaries of key=>columns/values
     """
-
-    if not isinstance(table_name, str): raise TypeError("Expected a str")
-    if not isinstance(column_names, list): raise TypeError("Expected a list")
-    if not isinstance(start_key, str): raise TypeError("Expected a str")
-    if not isinstance(end_key, str): raise TypeError("Expected a str")
-    if not isinstance(limit, int) and not isinstance(limit, long): 
-      raise TypeError("Expected an int or long")
-    if not isinstance(offset, int) and not isinstance(offset, long): 
-      raise TypeError("Expected an int or long")
+    if not isinstance(table_name, str):
+      raise TypeError('table_name must be a string')
+    if not isinstance(column_names, list):
+      raise TypeError('column_names must be a list')
+    if not isinstance(start_key, str):
+      raise TypeError('start_key must be a string')
+    if not isinstance(end_key, str):
+      raise TypeError('end_key must be a string')
+    if not isinstance(limit, (int, long)):
+      raise TypeError('limit must be int or long')
+    if not isinstance(offset, (int, long)):
+      raise TypeError('offset must be int or long')
 
     if start_inclusive:
       gt_compare = '>='
