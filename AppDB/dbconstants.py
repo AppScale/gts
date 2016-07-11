@@ -121,6 +121,13 @@ DATASTORE_METADATA_SCHEMA = [
 # All schema information for the keyspace is stored in the schema table.
 SCHEMA_TABLE_SCHEMA = ['schema']
 
+
+# Possible values in the 'action' column of the transaction table.
+class TxnActions(object):
+  DELETE = '0'
+  PUT = '1'
+
+
 ###############################
 # Generic Datastore Exceptions
 ###############################

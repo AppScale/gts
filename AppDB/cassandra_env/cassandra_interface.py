@@ -10,6 +10,7 @@ import sys
 import time
 
 from dbconstants import AppScaleDBConnectionError
+from dbconstants import TxnActions
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
@@ -204,6 +205,71 @@ class DatastoreProxy(AppDBInterface):
     except (cassandra.Unavailable, cassandra.Timeout,
             cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during batch_put_entity'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def prepare_insert(self, table):
+    """ Prepare an insert statement.
+    Args:
+      table: A string containing the table name.
+    Returns:
+      A PreparedStatement object.
+    """
+    statement = """
+      INSERT INTO "{table}" ({key}, {column}, {value})
+      VALUES (?, ?, ?)
+    """.format(table=table,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+    return self.session.prepare(statement)
+
+  def prepare_delete(self, table):
+    """ Prepare a delete statement.
+    Args:
+      table: A string containing the table name.
+    Returns:
+      A PreparedStatement object.
+    """
+    statement = """
+      DELETE FROM "{table}" WHERE {key} = ?
+    """.format(table=table,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+    return self.session.prepare(statement)
+
+  def batch_mutate(self, mutations):
+    """ Insert or delete multiple rows across tables in an atomic statement.
+    Args:
+      mutations: A list of dictionaries representing mutations.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+    prepared_statements = {'insert': {}, 'delete': {}}
+    for mutation in mutations:
+      table = mutation['table']
+      if mutation['operation'] == TxnActions.PUT:
+        if table not in prepared_statements['insert']:
+          prepared_statements['insert'][table] = self.prepare_insert(table)
+        values = mutation['values']
+        for column in values:
+          batch.add(
+            prepared_statements['insert'][table],
+            (bytearray(mutation['key']), column, bytearray(values[column]))
+          )
+      elif mutation['operation'] == TxnActions.DELETE:
+        if table not in prepared_statements['delete']:
+          prepared_statements['delete'][table] = self.prepare_delete(table)
+        batch.add(
+          prepared_statements['delete'][table],
+          (bytearray(mutation['key']),)
+        )
+
+    try:
+      self.session.execute(batch)
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      message = 'Exception during batch_mutate'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
       
