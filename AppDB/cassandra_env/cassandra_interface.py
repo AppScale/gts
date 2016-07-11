@@ -341,8 +341,8 @@ class DatastoreProxy(AppDBInterface):
       raise TypeError('start_key must be a string')
     if not isinstance(end_key, str):
       raise TypeError('end_key must be a string')
-    if not isinstance(limit, (int, long)):
-      raise TypeError('limit must be int or long')
+    if not isinstance(limit, (int, long)) and limit is not None:
+      raise TypeError('limit must be int, long, or NoneType')
     if not isinstance(offset, (int, long)):
       raise TypeError('offset must be int or long')
 
@@ -356,19 +356,24 @@ class DatastoreProxy(AppDBInterface):
     else:
       lt_compare = '<'
 
-    statement = 'SELECT * FROM "{table}" WHERE '\
-                'token({key}) {gt_compare} %s AND '\
-                'token({key}) {lt_compare} %s AND '\
-                '{column} IN %s '\
-                'LIMIT {limit} '\
-                'ALLOW FILTERING'.format(
-                  table=table_name,
-                  key=ThriftColumn.KEY,
-                  gt_compare=gt_compare,
-                  lt_compare=lt_compare,
-                  column=ThriftColumn.COLUMN_NAME,
-                  limit=len(column_names) * limit
-                )
+    query_limit = ''
+    if limit is not None:
+      query_limit = 'LIMIT {}'.format(len(column_names) * limit)
+
+    statement = """
+      SELECT * FROM "{table}" WHERE
+      token({key}) {gt_compare} %s AND
+      token({key}) {lt_compare} %s AND
+      {column} IN %s
+      {limit}
+      ALLOW FILTERING
+    """.format(table=table_name,
+               key=ThriftColumn.KEY,
+               gt_compare=gt_compare,
+               lt_compare=lt_compare,
+               column=ThriftColumn.COLUMN_NAME,
+               limit=query_limit)
+
     query = SimpleStatement(statement, retry_policy=self.retry_policy)
     parameters = (bytearray(start_key), bytearray(end_key),
                   ValueSequence(column_names))
