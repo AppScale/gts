@@ -23,7 +23,7 @@ if __name__ == "__main__":
                       help='The private IP address of this machine.')
   parser.add_argument('--master-ip',
                       help='The private IP address of the database master.')
-  parser.add_argument('--local-token',
+  parser.add_argument('--local-token', default='',
                       help='The initial Cassandra token.')
   args = parser.parse_args()
 
