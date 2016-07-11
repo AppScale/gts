@@ -2,12 +2,8 @@
 
 import argparse
 import json
-import yaml
 
 import datastore_upgrade
-
-# Version for which Datastore upgrade is needed.
-UPGRADE_NEEDED_VERSION = "3.0.0"
 
 # JSON file location to record the status of the processes.
 UPGRADE_JSON_FILE = '/var/log/appscale/upgrade-status-'
@@ -18,15 +14,12 @@ DATA_UPGRADE = 'Data-Upgrade'
 # .JSON file extention.
 JSON_FILE_EXTENTION = ".json"
 
-def is_data_upgrade_needed(version):
+def is_data_upgrade_needed():
   """Checks if for this version of AppScale datastore upgrade is needed.
-  Args:
-    version: The latest version available to upgrade to.
-  Returns: True, if given version matches the one for which data upgrade is needed.
-    False, otherwise.
+
+  Returns:
+    A boolean indicating whether or not a data upgrade is required.
   """
-  if version == UPGRADE_NEEDED_VERSION:
-    return True
   return False
 
 def write_to_json_file(data, timestamp):
@@ -48,12 +41,14 @@ def init_parser():
   """
   parser = argparse.ArgumentParser(
     description='Checks if any upgrade is required and runs the script for the process.')
-  parser.add_argument('version', type=str, help='available upgrade version')
-  parser.add_argument('keyname', type=str, help='keyname')
-  parser.add_argument('timestamp', type=str, help='timestamp to attach to the status file')
-  parser.add_argument('--master', required=True, help='master node IP')
-  parser.add_argument('--zookeeper', required=True, help='zookeeper node IPs')
-  parser.add_argument('--database', required=True, help='database node IPs')
+  parser.add_argument('--keyname', help='The deployment keyname')
+  parser.add_argument('--log-postfix', help='An identifier for the status log')
+  parser.add_argument('--db-master', required=True,
+                      help='The IP address of the DB master')
+  parser.add_argument('--zookeeper', nargs='+',
+                      help='A list of ZooKeeper IP addresses')
+  parser.add_argument('--database', nargs='+',
+                      help='A list of DB IP addresses')
   return parser
 
 if __name__ == "__main__":
@@ -61,20 +56,17 @@ if __name__ == "__main__":
   parser = init_parser()
   args = parser.parse_args()
 
-  zk_ips = yaml.load(args.zookeeper)
-  db_ips = yaml.load(args.database)
-  master_ip = yaml.load(args.master)
-
   upgrade_status_dict = {}
   # Run datastore upgrade script if required.
-  if is_data_upgrade_needed(args.version):
+  if is_data_upgrade_needed():
     data_upgrade_status = {}
-    datastore_upgrade.run_datastore_upgrade(zk_ips, db_ips, master_ip,
-      data_upgrade_status, args.keyname)
+    datastore_upgrade.run_datastore_upgrade(
+      args.zookeeper, args.database, args.db_master, data_upgrade_status,
+      args.keyname)
     upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
 
   if not upgrade_status_dict.keys():
     upgrade_status_dict = {'Status': 'Not executed', 'Message':'AppScale is currently at its latest version'}
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
-  write_to_json_file(upgrade_status_dict, args.timestamp)
+  write_to_json_file(upgrade_status_dict, args.log_postfix)
