@@ -9,8 +9,8 @@ from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra_env"))
-import cassandra_interface
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
+from cassandra_env import cassandra_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))  
 import file_io
@@ -78,6 +78,16 @@ class TestCassandra(unittest.TestCase):
     db = cassandra_interface.DatastoreProxy()
 
     self.assertListEqual([], db.range_query("table", [], "start", "end", 0))
+
+  def test_batch_mutate(self):
+    flexmock(file_io).should_receive('read').and_return('127.0.0.1')
+
+    flexmock(Cluster).should_receive('connect').\
+      and_return(flexmock(execute=lambda x, **y: []))
+
+    db = cassandra_interface.DatastoreProxy()
+
+    db.batch_mutate([])
 
 if __name__ == "__main__":
   unittest.main()    
