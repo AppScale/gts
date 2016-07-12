@@ -1913,6 +1913,9 @@ class DatastoreDistributed():
       prop_name: Property name of the filter.
       order: Sort order the query requires.
       last_result: Last result encoded in cursor.
+    Raises:
+      AppScaleDBError if unable to retrieve original entity or original entity
+        no longer has the requested property.
     """
     e = last_result
     path = str(self.__encode_index_pb(e.key().path()))
@@ -1929,19 +1932,25 @@ class DatastoreDistributed():
 
       ret = self.remove_tombstoned_entities(ret)
 
-      if APP_ENTITY_SCHEMA[0] in ret[last_result_key]:
-        ent = entity_pb.EntityProto(ret[last_result_key][APP_ENTITY_SCHEMA[0]])
-        plist = ent.property_list() 
+      if APP_ENTITY_SCHEMA[0] not in ret[last_result_key]:
+        message = '{} not found in {}'.format(
+          last_result_key, dbconstants.APP_ENTITY_TABLE)
+        raise dbconstants.AppScaleDBError(message)
 
+      ent = entity_pb.EntityProto(ret[last_result_key][APP_ENTITY_SCHEMA[0]])
+      plist = ent.property_list()
+
+    val = None
     for p in plist:
       if p.name() == prop_name:
+        val = str(self.__encode_index_pb(p.value()))
         break
-    val = str(self.__encode_index_pb(p.value()))
+    if val is None:
+      raise dbconstants.AppScaleDBError('{} not in entity'.format(prop_name))
 
     if order == datastore_pb.Query_Order.DESCENDING:
       val = helper_functions.reverse_lex(val)        
-    params = [prefix, self.get_entity_kind(e), p.name(), val, 
-      str(self.__encode_index_pb(e.key().path()))]
+    params = [prefix, self.get_entity_kind(e), prop_name, val, path]
     return self.get_index_key_from_params(params)
 
   def is_zigzag_merge_join(self, query, filter_info, order_info):
