@@ -675,23 +675,6 @@ class Djinn
     proxy_port = @app_info_map[appid]['haproxy']
     my_private = my_node.private_ip
     my_public = my_node.public_ip
-    login_ip = get_login.private_ip
-
-    static_handlers = HelperFunctions.parse_static_data(appid)
-    Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-      my_private, proxy_port, static_handlers, login_ip,
-      @app_info_map[appid]['language'])
-
-    Djinn.log_debug("Done writing new nginx config files!")
-    Nginx.reload()
-
-    # Same for any cron jobs the user has set up.
-    # TODO: We do this on the login node, but the cron jobs are initially
-    # set up on the shadow node. In all supported cases, these are the same
-    # node, but there may be an issue if they are on different nodes in
-    # the future.
-    CronHelper.update_cron(my_public, http_port,
-      @app_info_map[appid]['language'], appid)
 
     # Finally, the AppServer takes in the port to send Task Queue tasks to
     # from a file. Update the file and restart the AppServers so they see
@@ -1538,7 +1521,6 @@ class Djinn
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
     Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app_name)}")
-    CronHelper.clear_app_crontab(app_name)
 
     # Since stopping an application can take some time, we do it in a
     # thread.
@@ -1831,7 +1813,7 @@ class Djinn
       write_zookeeper_locations()
 
       # This call will block if we cannot reach a zookeeper node, but will
-      # be very fast if we have an available connection. The function set
+      # be very fast if we have an available connection. The function sets
       # the state in case we are looking for a zookeeper server.
       pick_zookeeper(@zookeeper_data)
 
@@ -1839,7 +1821,7 @@ class Djinn
 
       # The following is the core of the duty cycle: start new apps,
       # restart apps, terminate non-responsive AppServers, and autoscale.
-      # Every other node syncs its state with the login's node state.
+      # Every other node syncs its state with the login node state.
       if my_node.is_shadow?
         flush_log_buffer()
         send_instance_info_to_dashboard()
@@ -2281,7 +2263,7 @@ class Djinn
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
     Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
-    CronHelper.clear_app_crontabs
+    CronHelper.clear_app_crontabs()
   end
 
 
@@ -4164,7 +4146,7 @@ HOSTS
         "port #{http_port}, https port #{https_port}, and haproxy port " +
         "#{proxy_port}.")
 
-      # Let's see if we already have any appserver running for this
+      # Let's see if we already have any AppServer running for this
       # application.
       running = false
       if !@app_info_map[app]['appengine'].nil?
@@ -4497,10 +4479,6 @@ HOSTS
             'language' => AppDashboard::APP_LANGUAGE
         }
       }
-
-      Djinn.log_info("Starting cron service for #{AppDashboard::APP_NAME}")
-      CronHelper.update_cron(get_load_balancer_ip(), AppDashboard::LISTEN_PORT,
-        AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
     }
   end
 
@@ -4599,9 +4577,9 @@ HOSTS
   end
 
   # This function compares the applications that should be running with
-  # the one we have setup, and remove the stopped applications.
+  # the ones we have setup, and removes the stopped applications.
   def check_stopped_app()
-    HelperFunctions.get_apps_loaded().each{ |app|
+    HelperFunctions.get_loaded_apps().each{ |app|
       next if @app_names.include?(app)
       next if RESERVED_APPS.include?(app)
 
@@ -4634,9 +4612,9 @@ HOSTS
 
           begin
             ZKInterface.remove_app_entry(app, my_node.public_ip)
-          rescue FailedZooKeeperOperationException => e
+          rescue FailedZooKeeperOperationException => except
             Djinn.log_warn("(stop_app) got exception talking to " +
-              "zookeeper: #{e.message}.")
+              "zookeeper: #{except.message}.")
           end
         end
       }
@@ -4655,12 +4633,23 @@ HOSTS
       return
     end
 
+    # Only the shadow runs the application cron jobs.
+    CronHelper.clear_app_crontabs() unless my_node.is_shadow?
+
     to_start = []
     no_appservers = []
     my_apps = []
     to_end = []
     @app_info_map.each { |app, info|
       next if not info['appengine']
+
+      # Update the cron job for the app on the shadow.
+      if my_node.is_shadow?
+        if !@app_info_map[app]['nginx'].nil? and !@app_info_map[app]['language'].nil?
+          CronHelper.update_cron(get_load_balancer_ip(),
+              @app_info_map[app]['nginx'], @app_info_map[app]['language'], app)
+        end
+      end
 
       Djinn.log_debug("Checking #{app} with appengine #{info}.")
       info['appengine'].each { |location|
@@ -4915,8 +4904,6 @@ HOSTS
     end
 
     if my_node.is_shadow?
-      CronHelper.update_cron(my_public, nginx_port,
-          @app_info_map[app]['language'], app)
       begin
         start_xmpp_for_app(app, nginx_port, @app_info_map[app]['language'])
       rescue FailedNodeException

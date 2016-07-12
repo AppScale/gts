@@ -1,3 +1,4 @@
+require 'digest'
 require 'rexml/document'
 require 'helperfunctions'
 require 'uri'
@@ -35,7 +36,7 @@ module CronHelper
     app_crontab = NO_EMAIL_CRON + "\n"
 
     if lang == "python27" or lang == "go" or lang == "php"
-      cron_file = "/var/apps/#{app}/app/cron.yaml"
+      cron_file = "#{HelperFunctions::APPLICATIONS_DIR}/#{app}/app/cron.yaml"
 
       begin
         yaml_file = YAML.load_file(cron_file)
@@ -194,9 +195,16 @@ CRON
   #   crontab: A String that contains the entirety of the crontab.
   #   app: A String that names the appid of this application.
   def self.write_app_crontab(crontab, app)
-    Djinn.log_info("Writing crontab for [#{app}]:\n#{crontab}")
     app_cron_file = "/etc/cron.d/appscale-#{app}"
-    File.open(app_cron_file, 'w') { | file| file.write(crontab) }
+    current = ""
+    current = File.read(app_cron_file) if File.exists?(app_cron_file)
+    if Digest::MD5.hexdigest(current) != Digest::MD5.hexdigest(crontab)
+      File.open(app_cron_file, 'w') { | file| file.write(crontab) }
+      Djinn.log_info("Written crontab for #{app}.")
+      Djinn.log_debug("Crontab for #{app}:\n#{crontab}")
+    else
+      Djinn.log_debug("No need to write crontab for #{app}.")
+    end
   end
 
 
@@ -359,7 +367,7 @@ CRON
       cron << " root curl -sSH \"X-Appengine-Cron:true\" "\
               "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
               "-L \"http://#{ip}:#{port}#{url}\" "\
-              "2>&1 >> /var/apps/#{app}/log/cron.log"
+              "2>&1 >> #{HelperFunctions::APPLICATIONS_DIR}/#{app}/log/cron.log"
     }
 
     valid_cron_lines = []

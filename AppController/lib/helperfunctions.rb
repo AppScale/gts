@@ -875,7 +875,7 @@ module HelperFunctions
     return result
   end
 
-  def self.get_apps_loaded()
+  def self.get_loaded_apps()
     apps =[]
     Dir["#{APPLICATIONS_DIR}/*"].each{ |app|
       apps << File.basename(app)
