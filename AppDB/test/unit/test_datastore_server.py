@@ -66,11 +66,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(None, None)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    dd.validate_key(key.key()) 
-
-  def test_get_index_key(self):
-    dd = DatastoreDistributed(None, None)
-    dd.get_index_key("a","b","c","d")  == "a\x00b\x00c\x00d"
+    dd.validate_key(key.key())
 
   def test_get_table_prefix(self):
     db_batch = flexmock()
@@ -824,13 +820,6 @@ class TestDatastoreServer(unittest.TestCase):
     flexmock(dd).should_receive("__apply_filters").and_return([])
     flexmock(query).should_receive("limit").and_return(1)
     self.assertEquals(dd.zigzag_merge_join(query, filter_info, []), None)
-
-  def test_get_meta_data_key(self):
-    dd = DatastoreDistributed(None, None)
-    item = Item(key_name="Bob", name="Bob", _app="hello")
-    key = db.model_to_protobuf(item)
-    self.assertEquals(str(dd.get_meta_data_key("howdy", "doody", "what")), 
-      "howdy{0}doody{0}what".format(KEY_DELIMITER))
 
 if __name__ == "__main__":
   unittest.main()    

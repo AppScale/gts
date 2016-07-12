@@ -391,8 +391,7 @@ class DatastoreDistributed():
     Returns:
         A str, the key for entity table.
     """
-    return buffer("{0}{1}{2}".format(prefix, self._NAMESPACE_SEPARATOR,
-      self.__encode_index_pb(pb)))
+    return self._SEPARATOR.join([prefix, str(self.__encode_index_pb(pb))])
 
   def get_kind_key(self, prefix, key_path):
     """ Returns a key for the kind table.
@@ -478,21 +477,6 @@ class DatastoreDistributed():
       return buffer(_encode_path(pb))
 
   @staticmethod
-  def get_meta_data_key(app_id, kind, postfix):
-    """ Builds a key for the metadata table.
- 
-    Args:
-      app_id: A string representing the application identifier.
-      kind: A string representing the type the key is pointing to.
-      postfix: A unique identifier for the given key.
-    Returns:
-      A string which can be used as a key to the metadata table.
-    """
-    return "{0}{3}{1}{3}{2}".format(app_id, kind, postfix, 
-      dbconstants.KEY_DELIMITER)
-
-
-  @staticmethod
   def validate_app_id(app_id):
     """ Verify that this is the stub for app_id.
 
@@ -526,21 +510,6 @@ class DatastoreDistributed():
             'Each key path element should have id or name but not both: {0}' \
             .format(key))
 
-  @staticmethod
-  def get_index_key(app_id, name_space, kind, index_name):
-    """ Returns key string for storing namespaces.
-
-    Args:
-      app_id: The app ID.
-      name_space: The per-app namespace name.
-      kind: The per-app kind name.
-      index_name: The per-app index name.
-    Returns:
-      Key string for storing namespaces.
-    """
-    return "{0}{4}{1}{5}{2}{5}{3}".format(app_id, name_space, kind, index_name, 
-      DatastoreDistributed._NAMESPACE_SEPARATOR, dbconstants.KEY_DELIMITER)
-
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
 
@@ -556,10 +525,9 @@ class DatastoreDistributed():
       app_id = clean_app_id(data.app())
       data = (app_id, data.name_space())
 
-    prefix = "{0}{2}{1}".format(data[0], data[1], 
-      self._SEPARATOR).replace('"', '""')
-
-    return prefix
+    app_id = str(data[0])
+    namespace = str(data[1])
+    return self._SEPARATOR.join([app_id, namespace]).replace('"', '""')
 
   @staticmethod
   def get_index_key_from_params(params):
@@ -1105,8 +1073,8 @@ class DatastoreDistributed():
     Returns: 
        Returns a list of encoded entity_pb.CompositeIndex objects.
     """
-    start_key = self.get_meta_data_key(app_id, "index", "")
-    end_key = self.get_meta_data_key(app_id, "index", self._TERM_STRING)
+    start_key = self._SEPARATOR.join([app_id, 'index', ''])
+    end_key = self._SEPARATOR.join([app_id, 'index', self._TERM_STRING])
     result = self.datastore_batch.range_query(dbconstants.METADATA_TABLE,
                                                 dbconstants.METADATA_SCHEMA,
                                                 start_key,
@@ -1130,8 +1098,8 @@ class DatastoreDistributed():
     """
     self.logger.info('Deleting composite index:\n{}'.format(index))
     index_keys = []
-    composite_id = index.id()
-    index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
+    composite_id = str(index.id())
+    index_keys.append(self._SEPARATOR.join([app_id, 'index', composite_id]))
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
                                       index_keys, 
                                       column_names=dbconstants.METADATA_TABLE)
@@ -1149,7 +1117,7 @@ class DatastoreDistributed():
     rand = int(str(int(time.time())) + str(random.randint(0, 999999)))
     index.set_id(rand)
     encoded_entity = index.Encode()
-    row_key = self.get_meta_data_key(app_id, "index", rand)
+    row_key = self._SEPARATOR.join([app_id, 'index', str(rand)])
     row_keys = [row_key]
     row_values = {}
     row_values[row_key] = {dbconstants.METADATA_SCHEMA[0]: encoded_entity}
@@ -1822,7 +1790,7 @@ class DatastoreDistributed():
       self.validate_app_id(key.app())
       index_key = str(self.__encode_index_pb(key.path()))
       prefix = self.get_table_prefix(key)
-      row_keys.append("{0}{2}{1}".format(prefix, index_key, self._SEPARATOR))
+      row_keys.append(self._SEPARATOR.join([prefix, index_key]))
     result = self.datastore_batch.batch_get_entity(
                        dbconstants.APP_ENTITY_TABLE, 
                        row_keys, 
@@ -1956,23 +1924,23 @@ class DatastoreDistributed():
       last_result: Last result encoded in cursor.
     """
     e = last_result
+    path = str(self.__encode_index_pb(e.key().path()))
+    last_result_key = self._SEPARATOR.join([prefix, path])
     if not prop_name and not order:
-      return "{0}{2}{1}".format(prefix, 
-        self.__encode_index_pb(e.key().path()), self._SEPARATOR)
+      return last_result_key
     if e.property_list():
       plist = e.property_list()
     else:   
       # Fetch the entity from the datastore in order to get the property
       # values.
-      rkey = "{0}{2}{1}".format(prefix, 
-        self.__encode_index_pb(e.key().path()), self._SEPARATOR)
-      ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-        [rkey], dbconstants.APP_ENTITY_SCHEMA)
+      ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE,
+        [last_result_key], dbconstants.APP_ENTITY_SCHEMA)
 
       ret = self.remove_tombstoned_entities(ret)
 
-      if dbconstants.APP_ENTITY_SCHEMA[0] in ret[rkey]:
-        ent = entity_pb.EntityProto(ret[rkey][dbconstants.APP_ENTITY_SCHEMA[0]])
+      if dbconstants.APP_ENTITY_SCHEMA[0] in ret[last_result_key]:
+        ent = entity_pb.EntityProto(
+          ret[last_result_key][dbconstants.APP_ENTITY_SCHEMA[0]])
         plist = ent.property_list() 
 
     for p in plist:
