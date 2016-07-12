@@ -156,8 +156,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("range_query").and_return({})
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
-    dd.should_receive("get_meta_data_key").and_return("somekey").twice()
-    
+
     self.assertEquals(dd.get_indices("appid"), [])
 
   def test_delete_composite_index_metadata(self):
@@ -165,8 +164,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_delete").and_return(None)
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
-    dd.should_receive("get_meta_data_key").and_return("somekey")
-    composite_index = entity_pb.CompositeIndex() 
+    composite_index = entity_pb.CompositeIndex()
     composite_index.set_id(1)
     dd.delete_composite_index_metadata("appid", composite_index)
 
@@ -175,7 +173,6 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
-    dd.should_receive("get_meta_data_key").and_return("somekey")
     index = entity_pb.CompositeIndex()
     index.set_app_id("appid")
     index.set_state(2)
