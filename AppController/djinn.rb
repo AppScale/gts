@@ -4139,6 +4139,15 @@ HOSTS
     apps_to_check.each { |app|
       next if app == "none"
 
+      # We may be setting the application up, so we need to check we are
+      if @app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
+          @app_info_map[app]['nginx_https'].nil? or
+          @app_info_map[app]['haproxy'].nil? or
+          @app_info_map[app]['appengine'].nil?
+        Djinn.log_debug("Skipping routing for #{app} since it is not yet running.")
+        next
+      end
+
       http_port = @app_info_map[app]['nginx']
       https_port = @app_info_map[app]['nginx_https']
       proxy_port = @app_info_map[app]['haproxy']
@@ -4149,14 +4158,12 @@ HOSTS
       # Let's see if we already have any AppServer running for this
       # application.
       running = false
-      if !@app_info_map[app]['appengine'].nil?
-        @app_info_map[app]['appengine'].each { |location|
-          host, port = location.split(":")
-          next if Integer(port) < 0
-          running = true
-          break
-        }
-      end
+      @app_info_map[app]['appengine'].each { |location|
+        host, port = location.split(":")
+        next if Integer(port) < 0
+        running = true
+        break
+      }
       if !running
         Djinn.log_debug("Skipping routing for #{app} since no appserver is running.")
         next
@@ -4164,10 +4171,10 @@ HOSTS
 
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
-      rescue => e
+      rescue => except
         # This specific exception may be a JSON parse error.
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-          "Exception of #{e.class} with message #{e.message}"
+          "Exception of #{except.class} with message #{except.message}"
         place_error_app(app, error_msg, @app_info_map[app]['language'])
         static_handlers = []
       end
