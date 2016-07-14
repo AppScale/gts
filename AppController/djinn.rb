@@ -620,6 +620,8 @@ class Djinn
   #   reason why the relocation failed in all other cases.
   def relocate_app(appid, http_port, https_port, secret)
     return BAD_SECRET_MSG if !valid_secret?(secret)
+    Djinn.log_debug("Received relocate_app for #{appid} for " +
+        " http port #{http_port} and https port #{https_port}.")
 
     if !my_node.is_shadow?
       # We need to send the call to the shadow.
@@ -633,9 +635,20 @@ class Djinn
       end
     end
 
-    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
-    http_port = Integer(http_port)
-    https_port = Integer(https_port)
+    # Some sanity check on parameter and app.
+    begin
+      http_port = Integer(http_port)
+      https_port = Integer(https_port)
+    rescue ArgumentError
+      Djinn.log_warn("relocate_app received invalid port values.")
+      return INVALID_REQUEST
+    end
+    if @app_info_map[appid].nil? or @app_info_map[appid]['nginx'].nil? or
+        @app_info_map[appid]['nginx_https'].nil? or
+        @app_info_map[appid]['haproxy'].nil?
+      Djinn.log_warn("Received relocate request for non running app #{appid}.")
+      return INVALID_REQUEST
+    end
 
     # First, only let users relocate apps to ports that the firewall has open
     # for App Engine apps.
@@ -2577,7 +2590,7 @@ class Djinn
     if !my_node.is_shadow?
        # We need to send the call to the shadow.
        Djinn.log_debug("Sending routing call for #{app_id} to shadow.")
-       acc = AppControllerCLinet.new(get_shadow.private_ip, @@secret)
+       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
        begin
          return acc.add_routing_for_appserver(app_id, ip, port)
        rescue FailedNodeException => except
@@ -2658,7 +2671,7 @@ class Djinn
 
     if !my_node.is_shadow?
        Djinn.log_debug("Sending remote_appserver_from_haproxy call for #{app_id} to shadow.")
-       acc = AppControllerCLinet.new(get_shadow.private_ip, @@secret)
+       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
        begin
          return acc.remove_appserver_from_haproxy(app_id, ip, port)
        rescue FailedNodeException => except
@@ -4540,7 +4553,13 @@ HOSTS
         begin
           # If app is not enabled or if we already know of it, we skip it.
           next if @app_names.include?(app)
-          next if !uac.is_app_enabled?(app)
+          begin
+            next if !uac.is_app_enabled?(app)
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to talk to the UserAppServer about " +
+              "application #{app}")
+            next
+          end
 
           # If we don't have a record for this app, we start it.
           Djinn.log_info("Adding #{app} to running apps.")
@@ -4586,9 +4605,25 @@ HOSTS
   # This function compares the applications that should be running with
   # the ones we have setup, and removes the stopped applications.
   def check_stopped_app()
-    HelperFunctions.get_loaded_apps().each{ |app|
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    Djinn.log_debug("Checking applications that have been stopped.")
+    begin
+      app_list = uac.get_all_apps()
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to get app listing: retrying.")
+      retry
+    end
+    app_list += HelperFunctions.get_loaded_apps()
+    app_list.each{ |app|
       next if @app_names.include?(app)
       next if RESERVED_APPS.include?(app)
+      begin
+        next if uac.is_app_enabled?(app)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to talk to the UserAppServer about " +
+          "application #{app}")
+        next
+      end
 
       Djinn.log_info("#{app} is no longer running: removing old states.")
       Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
