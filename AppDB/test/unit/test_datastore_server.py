@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-from flexmock import flexmock
 import os
 import sys
 import unittest
+
+from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
 from google.appengine.api import api_base_pb
@@ -16,19 +17,22 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import dbconstants
 
 from datastore_server import DatastoreDistributed
-from datastore_server import ID_KEY_LENGTH
 from datastore_server import TOMBSTONE
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import JOURNAL_SCHEMA
 from zkappscale.zktransaction import ZKTransactionException
 
+
 class Item(db.Model):
   name = db.StringProperty(required = True)
+
 
 class TestDatastoreServer(unittest.TestCase):
   """
   A set of test cases for the datastore server (datastore server v2)
   """
+  BASIC_ENTITY = ['guestbook', 'Greeting', 'foo', 'content', 'hello world']
+
   def get_zookeeper(self):
     zookeeper = flexmock()
     zookeeper.should_receive("acquire_lock").and_return(True)
@@ -821,22 +825,17 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEquals(dd.zigzag_merge_join(query, filter_info, []), None)
 
   def test_index_deletions(self):
-    app_id = 'guestbook'
-    kind = 'Greeting'
-    entity_name = 'foo'
-    prop_name = 'content'
-    prop_value = 'hello world'
-    old_entity = self.get_new_entity_proto(
-      app_id, kind, entity_name, prop_name, prop_value)
+    old_entity = self.get_new_entity_proto(*self.BASIC_ENTITY)
 
     # No deletions should occur when the entity doesn't change.
     dd = DatastoreDistributed(None, None)
     self.assertListEqual([], dd.index_deletions(old_entity, old_entity))
 
     # When a property changes, the previous index entries should be deleted.
-    prop_value = 'updated content'
-    new_entity = self.get_new_entity_proto(
-      app_id, kind, entity_name, prop_name, prop_value)
+    new_entity = entity_pb.EntityProto()
+    new_entity.MergeFrom(old_entity)
+    new_entity.property_list()[0].value().set_stringvalue('updated content')
+
     deletions = dd.index_deletions(old_entity, new_entity)
     self.assertEqual(len(deletions), 2)
     self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
@@ -876,13 +875,7 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEqual(len(deletions), 2)
 
   def test_deletions_for_entity(self):
-    app_id = 'guestbook'
-    kind = 'Greeting'
-    entity_name = 'foo'
-    prop_name = 'content'
-    prop_value = 'hello world'
-    entity = self.get_new_entity_proto(
-      app_id, kind, entity_name, prop_name, prop_value)
+    entity = self.get_new_entity_proto(*self.BASIC_ENTITY)
 
     # Deleting an entity with one property should remove four entries.
     dd = DatastoreDistributed(None, None)
@@ -922,14 +915,8 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEqual(deletions[6]['table'], dbconstants.APP_KIND_TABLE)
 
   def test_mutations_for_entity(self):
-    app_id = 'guestbook'
-    kind = 'Greeting'
-    entity_name = 'foo'
-    prop_name = 'content'
-    prop_value = 'hello world'
+    entity = self.get_new_entity_proto(*self.BASIC_ENTITY)
     txn = 1
-    entity = self.get_new_entity_proto(
-      app_id, kind, entity_name, prop_name, prop_value)
 
     # Adding an entity with one property should add four entries.
     dd = DatastoreDistributed(None, None)
@@ -942,9 +929,9 @@ class TestDatastoreServer(unittest.TestCase):
 
     # Updating an entity with one property should delete two entries and add
     # four more.
-    prop_value = 'updated content'
-    new_entity = self.get_new_entity_proto(
-      app_id, kind, entity_name, prop_name, prop_value)
+    new_entity = entity_pb.EntityProto()
+    new_entity.MergeFrom(entity)
+    new_entity.property_list()[0].value().set_stringvalue('updated content')
     mutations = dd.mutations_for_entity(entity, txn, new_entity)
     self.assertEqual(len(mutations), 6)
     self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
@@ -1002,12 +989,7 @@ class TestDatastoreServer(unittest.TestCase):
   def test_apply_txn_changes(self):
     app = 'guestbook'
     txn = 1
-    kind = 'Greeting'
-    entity_name = 'foo'
-    prop_name = 'content'
-    prop_value = 'hello world'
-    entity = self.get_new_entity_proto(
-      app, kind, entity_name, prop_name, prop_value)
+    entity = self.get_new_entity_proto(app, *self.BASIC_ENTITY[1:])
 
     db_batch = flexmock()
     db_batch.should_receive('range_query').and_return([{
