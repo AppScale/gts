@@ -13,12 +13,9 @@ import os
 import socket
 import sys
 import time
- 
-import taskqueue_server
-import tq_lib
 
+import tq_lib
 from tq_config import TaskQueueConfig
-from tq_lib import TASK_STATES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
@@ -28,14 +25,12 @@ import monit_app_configuration
 import monit_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
-from google.appengine.runtime import apiproxy_errors
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
-from google.appengine.api import datastore
-from google.appengine.ext import db
-
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.ext import db
+from google.appengine.runtime import apiproxy_errors
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
@@ -352,7 +347,7 @@ class DistributedTaskQueue():
       TaskQueueFetchQueueStatsResponse()
     for queue in request.queue_name_list():
       stats_response = response.add_queuestats()
-      count = TaskName.all().filter("state =", TASK_STATES.QUEUED).\
+      count = TaskName.all().filter("state =", tq_lib.TASK_STATES.QUEUED).\
         filter("queue =", queue).filter("app_id =", app_id).count()
       stats_response.set_num_tasks(count)
       stats_response.set_oldest_eta_usec(-1)

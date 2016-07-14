@@ -8,7 +8,6 @@
 """
 import datetime
 import httplib
-import os
 import sys
 import yaml
 
@@ -30,16 +29,6 @@ from urlparse import urlparse
 from tq_config import TaskQueueConfig
 from tq_lib import TASK_STATES
 from distributed_tq import TaskName
-
-import appscale_info
-import constants
-
-from google.appengine.runtime import apiproxy_errors
-from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import datastore_errors
-from google.appengine.api import datastore_distributed
-from google.appengine.api import datastore
-from google.appengine.ext import db
 
 
 sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
