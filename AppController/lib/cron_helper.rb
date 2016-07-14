@@ -1,4 +1,4 @@
-require 'digest'
+require 'digest/sha1'
 require 'rexml/document'
 require 'helperfunctions'
 require 'uri'
@@ -198,7 +198,7 @@ CRON
     app_cron_file = "/etc/cron.d/appscale-#{app}"
     current = ""
     current = File.read(app_cron_file) if File.exists?(app_cron_file)
-    if Digest::MD5.hexdigest(current) != Digest::MD5.hexdigest(crontab)
+    if current != crontab
       File.open(app_cron_file, 'w') { | file| file.write(crontab) }
       Djinn.log_info("Written crontab for #{app}.")
       Djinn.log_debug("Crontab for #{app}:\n#{crontab}")
