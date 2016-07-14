@@ -696,7 +696,6 @@ class DistributedTaskQueue():
     secret_hash = hashlib.sha1(request.app_id() + '/' + \
                       secret).hexdigest()
     headers['X-AppEngine-Fake-Is-Admin'] = secret_hash
-    #headers['X-AppEngine-Development-Payload'] = secret_hash
     headers['X-AppEngine-QueueName'] = request.queue_name()
     headers['X-AppEngine-TaskName'] = request.task_name()
     headers['X-AppEngine-TaskRetryCount'] = '0'

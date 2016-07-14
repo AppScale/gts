@@ -45,11 +45,4 @@ celery.config_from_object('CELERY_CONFIGURATION')
 
 logger = get_task_logger(__name__)
 
-master_db_ip = appscale_info.get_db_master_ip()
-connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
-ds_distrib = datastore_distributed.DatastoreDistributed(
-  "appscaledashboard", connection_str, require_indexes=False)
-apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
-os.environ['APPLICATION_ID'] = "appscaledashboard"
-
 # This template header and tasks can be found in appscale/AppTaskQueue/templates
