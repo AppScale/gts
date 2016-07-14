@@ -96,7 +96,7 @@ class DistributedTaskQueue():
   # The default maximum number to retry task, where 0 or None is unlimited.
   DEFAULT_MAX_RETRIES = 0
 
-  # The default amount of minimum/max time we wait before retrying 
+  # The default amount of min/max time we wait before retrying
   # a task in seconds.
   DEFAULT_MIN_BACKOFF = 1
   DEFAULT_MAX_BACKOFF = 3600.0

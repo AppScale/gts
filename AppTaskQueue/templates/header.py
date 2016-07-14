@@ -1,6 +1,6 @@
-""" Implements a the task queue worker and routing. This is just
+""" Implements a task queue worker and routing. This is just
     a template and not the actual script which is run. Actual scripts 
-    can be found in /etc/appscale/celery/scripts.
+    can be found in /etc/appscale/celery/workers.
 
     Find and replace the following:
     APP_ID: Set this to the current application ID.
