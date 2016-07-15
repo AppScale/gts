@@ -41,17 +41,11 @@ CASSANDRA_WATCH_NAME = "cassandra"
 # Monit watch name for ZooKeeper.
 ZK_WATCH_NAME = "zookeeper"
 
-# Datastore version from AppScale 3.0.0 onwards.
-VERSION_1 = "1.0"
-
 # Success status.
 SUCCESS = 'Success'
 
 # Failed status for error encountered in a process.
 FAILURE = 'Failed'
-
-# Row key for DATASTORE_VERSION table.
-VERSION_INFO_KEY = "version_info"
 
 # Process keys for recording the status of the different steps
 # in the upgrade script.
