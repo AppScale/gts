@@ -323,7 +323,7 @@ class DatastoreProxy(AppDBInterface):
     """
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
-    statement = 'DROP TABLE "{table}"'.format(table=table_name)
+    statement = 'DROP TABLE IF EXISTS "{table}"'.format(table=table_name)
     query = SimpleStatement(statement, retry_policy=self.retry_policy)
 
     try:
@@ -336,7 +336,7 @@ class DatastoreProxy(AppDBInterface):
 
   def create_table(self, table_name, column_names):
     """ 
-    Creates a table as a column family
+    Creates a table if it doesn't already exist.
     
     Args:
       table_name: The column family name
@@ -349,7 +349,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
-    statement = 'CREATE TABLE "{table}" ('\
+    statement = 'CREATE TABLE IF NOT EXISTS "{table}" ('\
         '{key} blob,'\
         '{column} text,'\
         '{value} blob,'\
