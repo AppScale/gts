@@ -28,6 +28,9 @@ import appscale_datastore_batch
 import dbconstants
 import helper_functions
 
+from dbconstants import APP_ENTITY_SCHEMA
+from dbconstants import TRANSACTIONS_SCHEMA
+from dbconstants import TxnActions
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKBadRequest
 from zkappscale.zktransaction import ZKInternalException
@@ -391,8 +394,7 @@ class DatastoreDistributed():
     Returns:
         A str, the key for entity table.
     """
-    return buffer("{0}{1}{2}".format(prefix, self._NAMESPACE_SEPARATOR,
-      self.__encode_index_pb(pb)))
+    return self._SEPARATOR.join([prefix, str(self.__encode_index_pb(pb))])
 
   def get_kind_key(self, prefix, key_path):
     """ Returns a key for the kind table.
@@ -478,21 +480,6 @@ class DatastoreDistributed():
       return buffer(_encode_path(pb))
 
   @staticmethod
-  def get_meta_data_key(app_id, kind, postfix):
-    """ Builds a key for the metadata table.
- 
-    Args:
-      app_id: A string representing the application identifier.
-      kind: A string representing the type the key is pointing to.
-      postfix: A unique identifier for the given key.
-    Returns:
-      A string which can be used as a key to the metadata table.
-    """
-    return "{0}{3}{1}{3}{2}".format(app_id, kind, postfix, 
-      dbconstants.KEY_DELIMITER)
-
-
-  @staticmethod
   def validate_app_id(app_id):
     """ Verify that this is the stub for app_id.
 
@@ -526,21 +513,6 @@ class DatastoreDistributed():
             'Each key path element should have id or name but not both: {0}' \
             .format(key))
 
-  @staticmethod
-  def get_index_key(app_id, name_space, kind, index_name):
-    """ Returns key string for storing namespaces.
-
-    Args:
-      app_id: The app ID.
-      name_space: The per-app namespace name.
-      kind: The per-app kind name.
-      index_name: The per-app index name.
-    Returns:
-      Key string for storing namespaces.
-    """
-    return "{0}{4}{1}{5}{2}{5}{3}".format(app_id, name_space, kind, index_name, 
-      DatastoreDistributed._NAMESPACE_SEPARATOR, dbconstants.KEY_DELIMITER)
-
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
 
@@ -550,16 +522,16 @@ class DatastoreDistributed():
       A valid table prefix.
     """
     if isinstance(data, entity_pb.EntityProto):
-      data = data.key()
-
-    if not isinstance(data, tuple):
+      app_id = clean_app_id(data.key().app())
+      namespace = data.key().name_space()
+    elif isinstance(data, tuple):
+      app_id = data[0]
+      namespace = data[1]
+    else:
       app_id = clean_app_id(data.app())
-      data = (app_id, data.name_space())
+      namespace = data.name_space()
 
-    prefix = "{0}{2}{1}".format(data[0], data[1], 
-      self._SEPARATOR).replace('"', '""')
-
-    return prefix
+    return self._SEPARATOR.join([app_id, namespace])
 
   @staticmethod
   def get_index_key_from_params(params):
@@ -754,9 +726,8 @@ class DatastoreDistributed():
         root_key = self.get_root_key_from_entity_key(str(ii[0]))
         try:
           txn_id = txn_hash[root_key]
-          row_values[str(ii[0])] = \
-            {dbconstants.APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
-            dbconstants.APP_ENTITY_SCHEMA[1]:str(txn_id)} #txnid
+          row_values[str(ii[0])] = {APP_ENTITY_SCHEMA[0]: str(ii[1]),
+                                    APP_ENTITY_SCHEMA[1]: str(txn_id)}
         except KeyError, key_error:
           self.logger.error('Unable to find {} in {}'.
             format(root_key, txn_hash))
@@ -774,7 +745,7 @@ class DatastoreDistributed():
     # TODO do these in ||                        
     self.datastore_batch.batch_put_entity(dbconstants.APP_ENTITY_TABLE, 
                                           row_keys, 
-                                          dbconstants.APP_ENTITY_SCHEMA, 
+                                          APP_ENTITY_SCHEMA,
                                           row_values)    
 
     self.update_journal(row_keys, row_values, txn_hash)
@@ -1105,8 +1076,8 @@ class DatastoreDistributed():
     Returns: 
        Returns a list of encoded entity_pb.CompositeIndex objects.
     """
-    start_key = self.get_meta_data_key(app_id, "index", "")
-    end_key = self.get_meta_data_key(app_id, "index", self._TERM_STRING)
+    start_key = self._SEPARATOR.join([app_id, 'index', ''])
+    end_key = self._SEPARATOR.join([app_id, 'index', self._TERM_STRING])
     result = self.datastore_batch.range_query(dbconstants.METADATA_TABLE,
                                                 dbconstants.METADATA_SCHEMA,
                                                 start_key,
@@ -1130,8 +1101,8 @@ class DatastoreDistributed():
     """
     self.logger.info('Deleting composite index:\n{}'.format(index))
     index_keys = []
-    composite_id = index.id()
-    index_keys.append(self.get_meta_data_key(app_id, "index", composite_id))
+    composite_id = str(index.id())
+    index_keys.append(self._SEPARATOR.join([app_id, 'index', composite_id]))
     self.datastore_batch.batch_delete(dbconstants.METADATA_TABLE,
                                       index_keys, 
                                       column_names=dbconstants.METADATA_TABLE)
@@ -1149,7 +1120,7 @@ class DatastoreDistributed():
     rand = int(str(int(time.time())) + str(random.randint(0, 999999)))
     index.set_id(rand)
     encoded_entity = index.Encode()
-    row_key = self.get_meta_data_key(app_id, "index", rand)
+    row_key = self._SEPARATOR.join([app_id, 'index', str(rand)])
     row_keys = [row_key]
     row_values = {}
     row_values[row_key] = {dbconstants.METADATA_SCHEMA[0]: encoded_entity}
@@ -1314,7 +1285,7 @@ class DatastoreDistributed():
 
     # Must fetch the entities to get the keys of indexes before deleting.
     ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-      row_keys, dbconstants.APP_ENTITY_SCHEMA)
+      row_keys, APP_ENTITY_SCHEMA)
 
     self.register_old_entities(ret, txn_hash, app_id)
 
@@ -1322,26 +1293,22 @@ class DatastoreDistributed():
       row_values = {}
       for rk in row_keys:
         root_key = self.get_root_key_from_entity_key(rk)
-        row_values[rk] = {dbconstants.APP_ENTITY_SCHEMA[0]:
-                                TOMBSTONE, 
-                          dbconstants.APP_ENTITY_SCHEMA[1]:
-                                str(txn_hash[root_key])
-                         }
+        row_values[rk] = {APP_ENTITY_SCHEMA[0]: TOMBSTONE,
+                          APP_ENTITY_SCHEMA[1]: str(txn_hash[root_key])}
       #TODO do these in ||
-      self.datastore_batch.batch_put_entity(dbconstants.APP_ENTITY_TABLE, 
-                                          row_keys, 
-                                          dbconstants.APP_ENTITY_SCHEMA, 
-                                          row_values)    
+      self.datastore_batch.batch_put_entity(dbconstants.APP_ENTITY_TABLE,
+                                            row_keys,
+                                            APP_ENTITY_SCHEMA,
+                                            row_values)
       self.update_journal(row_keys, row_values, txn_hash)
 
     entities = []
     for row_key in ret:
       # Entities may not exist if this is the first put.
-      if dbconstants.APP_ENTITY_SCHEMA[0] in ret[row_key] and \
-           not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]]. \
-           startswith(TOMBSTONE):
+      if (APP_ENTITY_SCHEMA[0] in ret[row_key] and
+          not ret[row_key][APP_ENTITY_SCHEMA[0]].startswith(TOMBSTONE)):
         ent = entity_pb.EntityProto()
-        ent.ParseFromString(ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]])
+        ent.ParseFromString(ret[row_key][APP_ENTITY_SCHEMA[0]])
         entities.append(ent)
 
     # Delete associated indexes.
@@ -1365,8 +1332,7 @@ class DatastoreDistributed():
       journal_key = self.get_journal_key(row_key, txn_hash[root_key])
       journal_keys.append(journal_key)
       column = dbconstants.JOURNAL_SCHEMA[0]
-      value = row_values[row_key] \
-              [dbconstants.APP_ENTITY_SCHEMA[0]] # encoded entity
+      value = row_values[row_key][APP_ENTITY_SCHEMA[0]]  # encoded entity
       journal_values[journal_key] = {column: value}
 
     self.datastore_batch.batch_put_entity(dbconstants.JOURNAL_TABLE,
@@ -1386,9 +1352,8 @@ class DatastoreDistributed():
       ZKTransactionException: If we are unable to register a key/entity.
     """
     for row_key in old_entities:
-      if dbconstants.APP_ENTITY_SCHEMA[1] in old_entities[row_key]:
-        prev_version = long(old_entities[row_key] \
-            [dbconstants.APP_ENTITY_SCHEMA[1]])
+      if APP_ENTITY_SCHEMA[1] in old_entities[row_key]:
+        prev_version = long(old_entities[row_key][APP_ENTITY_SCHEMA[1]])
         # Validate and get the correct version for each key.
         root_key = self.get_root_key_from_entity_key(row_key)
         valid_prev_version = self.zookeeper.get_valid_transaction_id(
@@ -1689,8 +1654,7 @@ class DatastoreDistributed():
     # Get all the valid versions of journal entries if needed.
     for index, dict_entry in enumerate(db_results):
       row_key = dict_entry.keys()[0]
-      current_version = long(
-        dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
+      current_version = long(dict_entry[row_key][APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id(
         app_id, current_version, row_key)
       if current_version != trans_id:
@@ -1712,9 +1676,9 @@ class DatastoreDistributed():
       index, row_key, trans_id = journal_result_map[journal_key]
       if dbconstants.JOURNAL_SCHEMA[0] in journal_entities[journal_key]:
         validated_results[index][row_key] = {
-          dbconstants.APP_ENTITY_SCHEMA[0]: 
-            journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
-          dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
+          APP_ENTITY_SCHEMA[0]:
+            journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]],
+          APP_ENTITY_SCHEMA[1]: str(trans_id)
         }
       else:
         # There was no previous journal because the first put on this 
@@ -1741,10 +1705,9 @@ class DatastoreDistributed():
     journal_keys = []
     delete_keys = []
     for row_key in db_results:
-      if dbconstants.APP_ENTITY_SCHEMA[1] not in db_results[row_key]:
+      if APP_ENTITY_SCHEMA[1] not in db_results[row_key]:
         continue
-      current_version = long(
-        db_results[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
+      current_version = long(db_results[row_key][APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id(
         app_id, current_version, row_key)
       if current_version != trans_id:
@@ -1771,9 +1734,9 @@ class DatastoreDistributed():
           del validated_results[row_key]
         else:
           validated_results[row_key] = {
-            dbconstants.APP_ENTITY_SCHEMA[0]: 
+            APP_ENTITY_SCHEMA[0]:
               journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
-            dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
+            APP_ENTITY_SCHEMA[1]: str(trans_id)
           }
     return validated_results
 
@@ -1788,21 +1751,19 @@ class DatastoreDistributed():
     if isinstance(result, dict):
       final_result = {}
       for item in result:
-        if dbconstants.APP_ENTITY_SCHEMA[0] not in result[item]:
+        if APP_ENTITY_SCHEMA[0] not in result[item]:
           continue
-        if not result[item][dbconstants.APP_ENTITY_SCHEMA[0]]. \
-          startswith(TOMBSTONE):
+        if not result[item][APP_ENTITY_SCHEMA[0]].startswith(TOMBSTONE):
           final_result[item] = result[item]
       return final_result
     elif isinstance(result, list):
       final_result = []
       for item in result:
         key = item.keys()[0]
-        if dbconstants.APP_ENTITY_SCHEMA[0] not in item[key]:
+        if APP_ENTITY_SCHEMA[0] not in item[key]:
           continue
         # Skip over any tombstoned items.
-        if not item[key][dbconstants.APP_ENTITY_SCHEMA[0]].\
-          startswith(TOMBSTONE):
+        if not item[key][APP_ENTITY_SCHEMA[0]].startswith(TOMBSTONE):
           final_result.append(item)
       return final_result
     else: 
@@ -1822,11 +1783,9 @@ class DatastoreDistributed():
       self.validate_app_id(key.app())
       index_key = str(self.__encode_index_pb(key.path()))
       prefix = self.get_table_prefix(key)
-      row_keys.append("{0}{2}{1}".format(prefix, index_key, self._SEPARATOR))
+      row_keys.append(self._SEPARATOR.join([prefix, index_key]))
     result = self.datastore_batch.batch_get_entity(
-                       dbconstants.APP_ENTITY_TABLE, 
-                       row_keys, 
-                       dbconstants.APP_ENTITY_SCHEMA) 
+      dbconstants.APP_ENTITY_TABLE, row_keys, APP_ENTITY_SCHEMA)
     if len(key_list) != 0:
       result = self.validated_result(clean_app_id(key_list[0].app()), 
                   result, current_ongoing_txn=current_txnid)
@@ -1860,9 +1819,9 @@ class DatastoreDistributed():
     results, row_keys = self.fetch_keys(keys, current_txnid=txnid)
     for r in row_keys:
       group = get_response.add_entity() 
-      if r in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[r]:
+      if r in results and APP_ENTITY_SCHEMA[0] in results[r]:
         group.mutable_entity().CopyFrom(
-          entity_pb.EntityProto(results[r][dbconstants.APP_ENTITY_SCHEMA[0]]))
+          entity_pb.EntityProto(results[r][APP_ENTITY_SCHEMA[0]]))
         if len(keys) == 1:
           self.logger.debug('Entity: {}'.format(group))
 
@@ -1954,36 +1913,44 @@ class DatastoreDistributed():
       prop_name: Property name of the filter.
       order: Sort order the query requires.
       last_result: Last result encoded in cursor.
+    Raises:
+      AppScaleDBError if unable to retrieve original entity or original entity
+        no longer has the requested property.
     """
     e = last_result
+    path = str(self.__encode_index_pb(e.key().path()))
+    last_result_key = self._SEPARATOR.join([prefix, path])
     if not prop_name and not order:
-      return "{0}{2}{1}".format(prefix, 
-        self.__encode_index_pb(e.key().path()), self._SEPARATOR)
+      return last_result_key
     if e.property_list():
       plist = e.property_list()
     else:   
       # Fetch the entity from the datastore in order to get the property
       # values.
-      rkey = "{0}{2}{1}".format(prefix, 
-        self.__encode_index_pb(e.key().path()), self._SEPARATOR)
-      ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-        [rkey], dbconstants.APP_ENTITY_SCHEMA)
+      ret = self.datastore_batch.batch_get_entity(
+        dbconstants.APP_ENTITY_TABLE, [last_result_key], APP_ENTITY_SCHEMA)
 
       ret = self.remove_tombstoned_entities(ret)
 
-      if dbconstants.APP_ENTITY_SCHEMA[0] in ret[rkey]:
-        ent = entity_pb.EntityProto(ret[rkey][dbconstants.APP_ENTITY_SCHEMA[0]])
-        plist = ent.property_list() 
+      if APP_ENTITY_SCHEMA[0] not in ret[last_result_key]:
+        message = '{} not found in {}'.format(
+          last_result_key, dbconstants.APP_ENTITY_TABLE)
+        raise dbconstants.AppScaleDBError(message)
 
+      ent = entity_pb.EntityProto(ret[last_result_key][APP_ENTITY_SCHEMA[0]])
+      plist = ent.property_list()
+
+    val = None
     for p in plist:
       if p.name() == prop_name:
+        val = str(self.__encode_index_pb(p.value()))
         break
-    val = str(self.__encode_index_pb(p.value()))
+    if val is None:
+      raise dbconstants.AppScaleDBError('{} not in entity'.format(prop_name))
 
     if order == datastore_pb.Query_Order.DESCENDING:
       val = helper_functions.reverse_lex(val)        
-    params = [prefix, self.get_entity_kind(e), p.name(), val, 
-      str(self.__encode_index_pb(e.key().path()))]
+    params = [prefix, self.get_entity_kind(e), prop_name, val, path]
     return self.get_index_key_from_params(params)
 
   def is_zigzag_merge_join(self, query, filter_info, order_info):
@@ -2031,14 +1998,13 @@ class DatastoreDistributed():
       A list of entities.
     """
     result = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+      dbconstants.APP_ENTITY_TABLE, rowkeys, APP_ENTITY_SCHEMA)
     result = self.validated_result(app_id, result)
     result = self.remove_tombstoned_entities(result)
     entities = []
-    keys = result.keys()
     for key in rowkeys:
-      if key in result and dbconstants.APP_ENTITY_SCHEMA[0] in result[key]:
-        entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
+      if key in result and APP_ENTITY_SCHEMA[0] in result[key]:
+        entities.append(result[key][APP_ENTITY_SCHEMA[0]])
     return entities 
 
   def __extract_rowkeys_from_refs(self, refs):
@@ -2098,15 +2064,15 @@ class DatastoreDistributed():
       A dictionary of validated entities.
     """
     results = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+      dbconstants.APP_ENTITY_TABLE, rowkeys, APP_ENTITY_SCHEMA)
 
     results = self.validated_result(app_id, results)
     results = self.remove_tombstoned_entities(results)
 
     clean_results = {}
     for key in rowkeys:
-      if key in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[key]:
-        clean_results[key] = results[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+      if key in results and APP_ENTITY_SCHEMA[0] in results[key]:
+        clean_results[key] = results[key][APP_ENTITY_SCHEMA[0]]
 
     return clean_results
 
@@ -2184,7 +2150,7 @@ class DatastoreDistributed():
     results = []    
     for index, entity in enumerate(kv):
       key = keys[index]
-      entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+      entity = entity[key][APP_ENTITY_SCHEMA[0]]
       results.append(entity)
 
     return results
@@ -2350,14 +2316,16 @@ class DatastoreDistributed():
     """
     final_result = []
     while 1: 
-      result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
-                                               dbconstants.APP_ENTITY_SCHEMA,
-                                               startrow, 
-                                               endrow, 
-                                               limit, 
-                                               offset=0, 
-                                               start_inclusive=start_inclusive,
-                                               end_inclusive=end_inclusive)
+      result = self.datastore_batch.range_query(
+        dbconstants.APP_ENTITY_TABLE,
+        APP_ENTITY_SCHEMA,
+        startrow,
+        endrow,
+        limit,
+        offset=0,
+        start_inclusive=start_inclusive,
+        end_inclusive=end_inclusive)
+
       prev_len = len(result)
       last_result = None
       if result:
@@ -4067,6 +4035,233 @@ class DatastoreDistributed():
       A long representing a unique transaction ID.
     """
     return self.zookeeper.get_transaction_id(app_id, is_xg)
+
+  def index_deletions(self, old_entity, new_entity, composite_indices=()):
+    """ Get a list of index deletions needed for updating an entity.
+
+    Args:
+      old_entity: An entity object.
+      new_entity: An entity object.
+      composite_indices: A list or tuple of composite indices.
+    Returns:
+      A list of dictionaries representing mutation operations.
+    """
+    deletions = []
+    prefix = self.get_table_prefix(old_entity)
+    kind = self.get_entity_kind(old_entity.key())
+    entity_key = str(self.__encode_index_pb(old_entity.key().path()))
+
+    new_props = {}
+    for prop in new_entity.property_list():
+      if prop.name() not in new_props:
+        new_props[prop.name()] = []
+      new_props[prop.name()].append(prop)
+
+    changed_props = {}
+    for prop in old_entity.property_list():
+      if prop.name() in new_props and prop in new_props[prop.name()]:
+        continue
+
+      if prop.name() not in changed_props:
+        changed_props[prop.name()] = []
+      changed_props[prop.name()].append(prop)
+
+      value = str(self.__encode_index_pb(prop.value()))
+      key = self._SEPARATOR.join(
+        [prefix, kind, prop.name(), value, entity_key])
+      deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
+                        'key': key,
+                        'operation': TxnActions.DELETE})
+
+      reverse_key = self._SEPARATOR.join(
+        [prefix, kind, prop.name(), helper_functions.reverse_lex(value),
+         entity_key])
+      deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
+                        'key': reverse_key,
+                        'operation': TxnActions.DELETE})
+
+    changed_prop_names = set(changed_props.keys())
+    for index in composite_indices:
+      if index.definition().entity_type() != kind:
+        continue
+
+      index_props = set(prop.name() for prop
+                        in index.definition().property_list())
+      if index_props.isdisjoint(changed_prop_names):
+        continue
+
+      old_entries = set(self.get_composite_index_keys(index, old_entity))
+      new_entries = set(self.get_composite_index_keys(index, new_entity))
+      for entry in (old_entries - new_entries):
+        deletions.append({'table': dbconstants.COMPOSITE_TABLE,
+                          'key': entry,
+                          'operation': TxnActions.DELETE})
+
+    return deletions
+
+  def deletions_for_entity(self, entity, composite_indices=()):
+    """ Get a list of deletions needed across tables for deleting an entity.
+
+    Args:
+      entity: An entity object.
+      composite_indices: A list or tuple of composite indices.
+    Returns:
+      A list of dictionaries representing mutation operations.
+    """
+    deletions = []
+    prefix = self.get_table_prefix(entity)
+
+    asc_rows = self.get_index_kv_from_tuple([(prefix, entity)])
+    for entry in asc_rows:
+      deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
+                        'key': entry[0],
+                        'operation': TxnActions.DELETE})
+
+    dsc_rows = self.get_index_kv_from_tuple([(prefix, entity)], reverse=True)
+    for entry in dsc_rows:
+      deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
+                        'key': entry[0],
+                        'operation': TxnActions.DELETE})
+
+    for key in self.get_composite_indexes_rows([entity], composite_indices):
+      deletions.append({'table': dbconstants.COMPOSITE_TABLE,
+                        'key': key,
+                        'operation': TxnActions.DELETE})
+
+    entity_key = self.get_entity_key(prefix, entity.key().path())
+    deletions.append({'table': dbconstants.APP_ENTITY_TABLE,
+                      'key': entity_key,
+                      'operation': TxnActions.DELETE})
+
+    kind_key = self.get_kind_key(prefix, entity.key().path())
+    deletions.append({'table': dbconstants.APP_KIND_TABLE,
+                      'key': kind_key,
+                      'operation': TxnActions.DELETE})
+
+    return deletions
+
+  def mutations_for_entity(self, entity, txn, current_value=None,
+                           composite_indices=()):
+    """ Get a list of mutations needed across tables for an entity change.
+
+    Args:
+      entity: An entity object.
+      txn: A transaction ID handler.
+      current_value: The entity object currently stored.
+      composite_indices: A list of composite indices for the entity kind.
+    Returns:
+      A list of dictionaries representing mutations.
+    """
+    mutations = []
+    if current_value is not None:
+      mutations.extend(
+        self.index_deletions(current_value, entity, composite_indices))
+
+    prefix = self.get_table_prefix(entity)
+    entity_key = self.get_entity_key(prefix, entity.key().path())
+    entity_value = {APP_ENTITY_SCHEMA[0]: entity.Encode(),
+                    APP_ENTITY_SCHEMA[1]: str(txn)}
+    mutations.append({'table': dbconstants.APP_ENTITY_TABLE,
+                      'key': entity_key,
+                      'operation': TxnActions.PUT,
+                      'values': entity_value})
+
+    reference_value = {'reference': entity_key}
+
+    kind_key = self.get_kind_key(prefix, entity.key().path())
+    mutations.append({'table': dbconstants.APP_KIND_TABLE,
+                      'key': kind_key,
+                      'operation': TxnActions.PUT,
+                      'values': reference_value})
+
+    asc_rows = self.get_index_kv_from_tuple([(prefix, entity)])
+    for entry in asc_rows:
+      mutations.append({'table': dbconstants.ASC_PROPERTY_TABLE,
+                        'key': entry[0],
+                        'operation': TxnActions.PUT,
+                        'values': reference_value})
+
+    dsc_rows = self.get_index_kv_from_tuple([(prefix, entity)], reverse=True)
+    for entry in dsc_rows:
+      mutations.append({'table': dbconstants.DSC_PROPERTY_TABLE,
+                        'key': entry[0],
+                        'operation': TxnActions.PUT,
+                        'values': reference_value})
+
+    for key in self.get_composite_indexes_rows([entity], composite_indices):
+      mutations.append({'table': dbconstants.COMPOSITE_TABLE,
+                        'key': key,
+                        'operation': TxnActions.PUT,
+                        'values': reference_value})
+
+    return mutations
+
+  def apply_txn_changes(self, app, txn):
+    """ Apply all operations in transaction table in a single batch.
+
+    Args:
+      app: A string containing an application ID.
+      txn: A transaction ID handler.
+    """
+    padded_txn = str(txn).zfill(ID_KEY_LENGTH)
+    start_key = '{app}{sep}{txn}{sep}'.format(
+      app=app, sep=self._SEPARATOR, txn=padded_txn)
+    end_key = '{start_key}{term}'.format(
+      start_key=start_key, term=self._TERM_STRING)
+
+    txn_rows = self.datastore_batch.range_query(
+      dbconstants.TRANSACTIONS_TABLE,
+      TRANSACTIONS_SCHEMA,
+      start_key,
+      end_key,
+      limit=None
+    )
+    composite_indices = [entity_pb.CompositeIndex(index)
+                         for index in self.get_indices(app)]
+
+    # Fetch current values so we can remove old indices.
+    txn_dict = {}
+    entity_keys = []
+    for row in txn_rows:
+      txn_action = row.values()[0]
+      operation = txn_action[TRANSACTIONS_SCHEMA[0]]
+      txn_key = row.keys()[0]
+
+      if operation == TxnActions.DELETE:
+        entity_key = txn_action[TRANSACTIONS_SCHEMA[1]]
+        entity_keys.append(entity_key)
+        txn_dict[txn_key] = {'key': entity_key}
+      elif operation == TxnActions.PUT:
+        entity = entity_pb.EntityProto(txn_action[TRANSACTIONS_SCHEMA[1]])
+        prefix = self.get_table_prefix(entity)
+        entity_key = self.get_entity_key(prefix, entity.key().path())
+        txn_dict[txn_key] = {'entity': entity, 'key': entity_key}
+        entity_keys.append(entity_key)
+
+    current_values = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
+
+    batch = []
+    for row in txn_rows:
+      txn_action = row.values()[0]
+      operation = txn_action[TRANSACTIONS_SCHEMA[0]]
+      txn_key = row.keys()[0]
+      entity_key = txn_dict[txn_key]['key']
+
+      current_value = None
+      if current_values[entity_key]:
+        current_value = entity_pb.EntityProto(
+          current_values[entity_key][APP_ENTITY_SCHEMA[0]])
+
+      if operation == TxnActions.DELETE and current_value is not None:
+        batch.extend(
+          self.deletions_for_entity(current_value, composite_indices))
+      elif operation == TxnActions.PUT:
+        entity = txn_dict[txn_key]['entity']
+        batch.extend(self.mutations_for_entity(entity, txn, current_value,
+                                               composite_indices))
+
+    self.datastore_batch.batch_mutate(batch)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-from flexmock import flexmock
 import os
 import sys
 import unittest
+
+from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
 from google.appengine.api import api_base_pb
@@ -12,21 +13,26 @@ from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+import dbconstants
+
 from datastore_server import DatastoreDistributed
 from datastore_server import TOMBSTONE
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import JOURNAL_SCHEMA
-from dbconstants import KEY_DELIMITER
 from zkappscale.zktransaction import ZKTransactionException
+
 
 class Item(db.Model):
   name = db.StringProperty(required = True)
+
 
 class TestDatastoreServer(unittest.TestCase):
   """
   A set of test cases for the datastore server (datastore server v2)
   """
+  BASIC_ENTITY = ['guestbook', 'Greeting', 'foo', 'content', 'hello world']
+
   def get_zookeeper(self):
     zookeeper = flexmock()
     zookeeper.should_receive("acquire_lock").and_return(True)
@@ -66,11 +72,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(None, None)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    dd.validate_key(key.key()) 
-
-  def test_get_index_key(self):
-    dd = DatastoreDistributed(None, None)
-    dd.get_index_key("a","b","c","d")  == "a\x00b\x00c\x00d"
+    dd.validate_key(key.key())
 
   def test_get_table_prefix(self):
     db_batch = flexmock()
@@ -158,8 +160,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("range_query").and_return({})
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
-    dd.should_receive("get_meta_data_key").and_return("somekey").twice()
-    
+
     self.assertEquals(dd.get_indices("appid"), [])
 
   def test_delete_composite_index_metadata(self):
@@ -167,8 +168,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_delete").and_return(None)
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
-    dd.should_receive("get_meta_data_key").and_return("somekey")
-    composite_index = entity_pb.CompositeIndex() 
+    composite_index = entity_pb.CompositeIndex()
     composite_index.set_id(1)
     dd.delete_composite_index_metadata("appid", composite_index)
 
@@ -177,7 +177,6 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd = flexmock(dd)
-    dd.should_receive("get_meta_data_key").and_return("somekey")
     index = entity_pb.CompositeIndex()
     index.set_app_id("appid")
     index.set_state(2)
@@ -825,12 +824,188 @@ class TestDatastoreServer(unittest.TestCase):
     flexmock(query).should_receive("limit").and_return(1)
     self.assertEquals(dd.zigzag_merge_join(query, filter_info, []), None)
 
-  def test_get_meta_data_key(self):
+  def test_index_deletions(self):
+    old_entity = self.get_new_entity_proto(*self.BASIC_ENTITY)
+
+    # No deletions should occur when the entity doesn't change.
     dd = DatastoreDistributed(None, None)
-    item = Item(key_name="Bob", name="Bob", _app="hello")
-    key = db.model_to_protobuf(item)
-    self.assertEquals(str(dd.get_meta_data_key("howdy", "doody", "what")), 
-      "howdy{0}doody{0}what".format(KEY_DELIMITER))
+    self.assertListEqual([], dd.index_deletions(old_entity, old_entity))
+
+    # When a property changes, the previous index entries should be deleted.
+    new_entity = entity_pb.EntityProto()
+    new_entity.MergeFrom(old_entity)
+    new_entity.property_list()[0].value().set_stringvalue('updated content')
+
+    deletions = dd.index_deletions(old_entity, new_entity)
+    self.assertEqual(len(deletions), 2)
+    self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(deletions[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
+
+    prop = old_entity.add_property()
+    prop.set_name('author')
+    value = prop.mutable_value()
+    value.set_stringvalue('author1')
+
+    prop = new_entity.add_property()
+    prop.set_name('author')
+    value = prop.mutable_value()
+    value.set_stringvalue('author1')
+
+    # When given an index, an entry should be removed from the composite table.
+    composite_index = entity_pb.CompositeIndex()
+    composite_index.set_id(123)
+    composite_index.set_app_id('guestbook')
+    definition = composite_index.mutable_definition()
+    definition.set_entity_type('Greeting')
+    prop1 = definition.add_property()
+    prop1.set_name('content')
+    prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
+    prop2 = definition.add_property()
+    prop2.set_name('author')
+    prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
+    deletions = dd.index_deletions(old_entity, new_entity, (composite_index,))
+    self.assertEqual(len(deletions), 3)
+    self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(deletions[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(deletions[2]['table'], dbconstants.COMPOSITE_TABLE)
+
+    # No composite deletions should occur when the entity type differs.
+    definition.set_entity_type('TestEntity')
+    deletions = dd.index_deletions(old_entity, new_entity, (composite_index,))
+    self.assertEqual(len(deletions), 2)
+
+  def test_deletions_for_entity(self):
+    entity = self.get_new_entity_proto(*self.BASIC_ENTITY)
+
+    # Deleting an entity with one property should remove four entries.
+    dd = DatastoreDistributed(None, None)
+    deletions = dd.deletions_for_entity(entity)
+    self.assertEqual(len(deletions), 4)
+    self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(deletions[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(deletions[2]['table'], dbconstants.APP_ENTITY_TABLE)
+    self.assertEqual(deletions[3]['table'], dbconstants.APP_KIND_TABLE)
+
+    prop = entity.add_property()
+    prop.set_name('author')
+    value = prop.mutable_value()
+    value.set_stringvalue('author1')
+
+    # Deleting an entity with two properties and one composite index should
+    # remove seven entries.
+    composite_index = entity_pb.CompositeIndex()
+    composite_index.set_id(123)
+    composite_index.set_app_id('guestbook')
+    definition = composite_index.mutable_definition()
+    definition.set_entity_type('Greeting')
+    prop1 = definition.add_property()
+    prop1.set_name('content')
+    prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
+    prop2 = definition.add_property()
+    prop2.set_name('author')
+    prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
+    deletions = dd.deletions_for_entity(entity, (composite_index,))
+    self.assertEqual(len(deletions), 7)
+    self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(deletions[1]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(deletions[2]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(deletions[3]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(deletions[4]['table'], dbconstants.COMPOSITE_TABLE)
+    self.assertEqual(deletions[5]['table'], dbconstants.APP_ENTITY_TABLE)
+    self.assertEqual(deletions[6]['table'], dbconstants.APP_KIND_TABLE)
+
+  def test_mutations_for_entity(self):
+    entity = self.get_new_entity_proto(*self.BASIC_ENTITY)
+    txn = 1
+
+    # Adding an entity with one property should add four entries.
+    dd = DatastoreDistributed(None, None)
+    mutations = dd.mutations_for_entity(entity, txn)
+    self.assertEqual(len(mutations), 4)
+    self.assertEqual(mutations[0]['table'], dbconstants.APP_ENTITY_TABLE)
+    self.assertEqual(mutations[1]['table'], dbconstants.APP_KIND_TABLE)
+    self.assertEqual(mutations[2]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(mutations[3]['table'], dbconstants.DSC_PROPERTY_TABLE)
+
+    # Updating an entity with one property should delete two entries and add
+    # four more.
+    new_entity = entity_pb.EntityProto()
+    new_entity.MergeFrom(entity)
+    new_entity.property_list()[0].value().set_stringvalue('updated content')
+    mutations = dd.mutations_for_entity(entity, txn, new_entity)
+    self.assertEqual(len(mutations), 6)
+    self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(mutations[0]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(mutations[1]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[2]['table'], dbconstants.APP_ENTITY_TABLE)
+    self.assertEqual(mutations[3]['table'], dbconstants.APP_KIND_TABLE)
+    self.assertEqual(mutations[4]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(mutations[5]['table'], dbconstants.DSC_PROPERTY_TABLE)
+
+    prop = entity.add_property()
+    prop.set_name('author')
+    prop.set_multiple(0)
+    value = prop.mutable_value()
+    value.set_stringvalue('author1')
+
+    prop = new_entity.add_property()
+    prop.set_name('author')
+    prop.set_multiple(0)
+    value = prop.mutable_value()
+    value.set_stringvalue('author1')
+
+    # Updating one property of an entity with two properties and one composite
+    # index should remove three entries and add seven more.
+    composite_index = entity_pb.CompositeIndex()
+    composite_index.set_id(123)
+    composite_index.set_app_id('guestbook')
+    definition = composite_index.mutable_definition()
+    definition.set_entity_type('Greeting')
+    prop1 = definition.add_property()
+    prop1.set_name('content')
+    prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
+    prop2 = definition.add_property()
+    prop2.set_name('author')
+    prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
+
+    mutations = dd.mutations_for_entity(entity, txn, new_entity,
+                                        (composite_index,))
+    self.assertEqual(len(mutations), 10)
+    self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(mutations[0]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(mutations[1]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[2]['table'], dbconstants.COMPOSITE_TABLE)
+    self.assertEqual(mutations[2]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[3]['table'], dbconstants.APP_ENTITY_TABLE)
+    self.assertEqual(mutations[4]['table'], dbconstants.APP_KIND_TABLE)
+    self.assertEqual(mutations[5]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(mutations[6]['table'], dbconstants.ASC_PROPERTY_TABLE)
+    self.assertEqual(mutations[7]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(mutations[8]['table'], dbconstants.DSC_PROPERTY_TABLE)
+    self.assertEqual(mutations[9]['table'], dbconstants.COMPOSITE_TABLE)
+
+  def test_apply_txn_changes(self):
+    app = 'guestbook'
+    txn = 1
+    entity = self.get_new_entity_proto(app, *self.BASIC_ENTITY[1:])
+
+    db_batch = flexmock()
+    db_batch.should_receive('range_query').and_return([{
+      'txn_entity_1': {'operation': dbconstants.TxnActions.PUT,
+                       'operand': entity.Encode()}
+    }])
+
+    flexmock(DatastoreDistributed).should_receive('get_indices').and_return([])
+
+    dd = DatastoreDistributed(db_batch, None)
+    prefix = dd.get_table_prefix(entity)
+    entity_key = dd.get_entity_key(prefix, entity.key().path())
+    db_batch.should_receive('batch_get_entity').and_return({entity_key: {}})
+    db_batch.should_receive('batch_mutate')
+
+    dd.apply_txn_changes(app, txn)
 
 if __name__ == "__main__":
   unittest.main()    

@@ -345,10 +345,9 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True if the application has composites. False otherwise.
     """
-    start_key = datastore_server.DatastoreDistributed.get_meta_data_key(
-      app_id, "index", "")
-    end_key = datastore_server.DatastoreDistributed.get_meta_data_key(
-      app_id, "index", dbconstants.TERMINATING_STRING)
+    start_key = dbconstants.KEY_DELIMITER.join([app_id, 'index', ''])
+    end_key = dbconstants.KEY_DELIMITER.join(
+      [app_id, 'index', dbconstants.TERMINATING_STRING])
 
     results = self.db_access.range_query(dbconstants.METADATA_TABLE,
       dbconstants.METADATA_TABLE, start_key, end_key,

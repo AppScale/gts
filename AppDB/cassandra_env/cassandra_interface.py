@@ -10,6 +10,7 @@ import sys
 import time
 
 from dbconstants import AppScaleDBConnectionError
+from dbconstants import TxnActions
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
@@ -154,7 +155,8 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-  def batch_put_entity(self, table_name, row_keys, column_names, cell_values):
+  def batch_put_entity(self, table_name, row_keys, column_names, cell_values,
+                       ttl=None):
     """
     Allows callers to store multiple rows with a single call. A row can 
     have multiple columns and values with them. We refer to each row as 
@@ -165,6 +167,7 @@ class DatastoreProxy(AppDBInterface):
       row_keys: A list of keys to store on
       column_names: A list of columns to mutate
       cell_values: A dict of key/value pairs
+      ttl: The number of seconds to keep the row.
     Raises:
       TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the batch_put could not be performed due to
@@ -175,14 +178,19 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(row_keys, list): raise TypeError("Expected a list")
     if not isinstance(cell_values, dict): raise TypeError("Expected a dic")
 
-    statement = self.session.prepare(
-      'INSERT INTO "{table}" ({key}, {column}, {value}) '\
-      'VALUES (?, ?, ?)'.format(
-        table=table_name,
-        key=ThriftColumn.KEY,
-        column=ThriftColumn.COLUMN_NAME,
-        value=ThriftColumn.VALUE
-      ))
+    insert_str = """
+      INSERT INTO "{table}" ({key}, {column}, {value})
+      VALUES (?, ?, ?)
+    """.format(table=table_name,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+
+    if ttl is not None:
+      insert_str += 'USING TTL {}'.format(ttl)
+
+    statement = self.session.prepare(insert_str)
+
     batch_insert = BatchStatement(retry_policy=self.retry_policy)
 
     for row_key in row_keys:
@@ -197,6 +205,74 @@ class DatastoreProxy(AppDBInterface):
     except (cassandra.Unavailable, cassandra.Timeout,
             cassandra.CoordinationFailure, cassandra.OperationTimedOut):
       message = 'Exception during batch_put_entity'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def prepare_insert(self, table):
+    """ Prepare an insert statement.
+
+    Args:
+      table: A string containing the table name.
+    Returns:
+      A PreparedStatement object.
+    """
+    statement = """
+      INSERT INTO "{table}" ({key}, {column}, {value})
+      VALUES (?, ?, ?)
+    """.format(table=table,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+    return self.session.prepare(statement)
+
+  def prepare_delete(self, table):
+    """ Prepare a delete statement.
+
+    Args:
+      table: A string containing the table name.
+    Returns:
+      A PreparedStatement object.
+    """
+    statement = """
+      DELETE FROM "{table}" WHERE {key} = ?
+    """.format(table=table,
+               key=ThriftColumn.KEY,
+               column=ThriftColumn.COLUMN_NAME,
+               value=ThriftColumn.VALUE)
+    return self.session.prepare(statement)
+
+  def batch_mutate(self, mutations):
+    """ Insert or delete multiple rows across tables in an atomic statement.
+
+    Args:
+      mutations: A list of dictionaries representing mutations.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+    prepared_statements = {'insert': {}, 'delete': {}}
+    for mutation in mutations:
+      table = mutation['table']
+      if mutation['operation'] == TxnActions.PUT:
+        if table not in prepared_statements['insert']:
+          prepared_statements['insert'][table] = self.prepare_insert(table)
+        values = mutation['values']
+        for column in values:
+          batch.add(
+            prepared_statements['insert'][table],
+            (bytearray(mutation['key']), column, bytearray(values[column]))
+          )
+      elif mutation['operation'] == TxnActions.DELETE:
+        if table not in prepared_statements['delete']:
+          prepared_statements['delete'][table] = self.prepare_delete(table)
+        batch.add(
+          prepared_statements['delete'][table],
+          (bytearray(mutation['key']),)
+        )
+
+    try:
+      self.session.execute(batch)
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      message = 'Exception during batch_mutate'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
       
@@ -326,15 +402,18 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       An ordered list of dictionaries of key=>columns/values
     """
-
-    if not isinstance(table_name, str): raise TypeError("Expected a str")
-    if not isinstance(column_names, list): raise TypeError("Expected a list")
-    if not isinstance(start_key, str): raise TypeError("Expected a str")
-    if not isinstance(end_key, str): raise TypeError("Expected a str")
-    if not isinstance(limit, int) and not isinstance(limit, long): 
-      raise TypeError("Expected an int or long")
-    if not isinstance(offset, int) and not isinstance(offset, long): 
-      raise TypeError("Expected an int or long")
+    if not isinstance(table_name, str):
+      raise TypeError('table_name must be a string')
+    if not isinstance(column_names, list):
+      raise TypeError('column_names must be a list')
+    if not isinstance(start_key, str):
+      raise TypeError('start_key must be a string')
+    if not isinstance(end_key, str):
+      raise TypeError('end_key must be a string')
+    if not isinstance(limit, (int, long)) and limit is not None:
+      raise TypeError('limit must be int, long, or NoneType')
+    if not isinstance(offset, (int, long)):
+      raise TypeError('offset must be int or long')
 
     if start_inclusive:
       gt_compare = '>='
@@ -346,19 +425,24 @@ class DatastoreProxy(AppDBInterface):
     else:
       lt_compare = '<'
 
-    statement = 'SELECT * FROM "{table}" WHERE '\
-                'token({key}) {gt_compare} %s AND '\
-                'token({key}) {lt_compare} %s AND '\
-                '{column} IN %s '\
-                'LIMIT {limit} '\
-                'ALLOW FILTERING'.format(
-                  table=table_name,
-                  key=ThriftColumn.KEY,
-                  gt_compare=gt_compare,
-                  lt_compare=lt_compare,
-                  column=ThriftColumn.COLUMN_NAME,
-                  limit=len(column_names) * limit
-                )
+    query_limit = ''
+    if limit is not None:
+      query_limit = 'LIMIT {}'.format(len(column_names) * limit)
+
+    statement = """
+      SELECT * FROM "{table}" WHERE
+      token({key}) {gt_compare} %s AND
+      token({key}) {lt_compare} %s AND
+      {column} IN %s
+      {limit}
+      ALLOW FILTERING
+    """.format(table=table_name,
+               key=ThriftColumn.KEY,
+               gt_compare=gt_compare,
+               lt_compare=lt_compare,
+               column=ThriftColumn.COLUMN_NAME,
+               limit=query_limit)
+
     query = SimpleStatement(statement, retry_policy=self.retry_policy)
     parameters = (bytearray(start_key), bytearray(end_key),
                   ValueSequence(column_names))
