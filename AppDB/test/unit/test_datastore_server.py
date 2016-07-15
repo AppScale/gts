@@ -104,34 +104,6 @@ class TestDatastoreServer(unittest.TestCase):
       ['a\x00b\x00Item\x00name\x00\x9aSally\x01\x01\x00Item:Sally\x01', 
       'a\x00b\x00Item:Sally\x01']))
 
-  def test_delete_composite_indexes(self):
-    db_batch = flexmock()
-    db_batch.should_receive("batch_delete").and_return(None)
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    dd = flexmock(dd)
-    dd.should_receive("get_composite_index_key").and_return("somekey")
-    dd.should_receive("get_entity_kind").and_return("kind")
-    item1 = self.get_new_entity_proto("appid" , "kind", "ent_name", "prop1", "propvalue", ns="")
-    item2= self.get_new_entity_proto("appid" , "kind", "ent_name1", "prop1", "propvalue", ns="")
-    composite_index = entity_pb.CompositeIndex()
-    composite_index.set_id(123)
-    composite_index.set_app_id("appid")
-
-    definition = composite_index.mutable_definition()
-    definition.set_entity_type("kind")
-    dd.delete_composite_indexes([item1, item2], [composite_index])
-
-  def test_delete_index_entries(self):
-    db_batch = flexmock()
-    db_batch.should_receive("batch_delete").and_return(None)
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    item1 = Item(key_name="Bob", name="Bob", _app="hello")
-    item2 = Item(key_name="Sally", name="Sally", _app="hello")
-    key1 = db.model_to_protobuf(item1)
-    key2 = db.model_to_protobuf(item2)
-    dd.delete_index_entries([key1,key2])
-
   def test_get_composite_index_key(self):
     db_batch = flexmock()
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
@@ -467,31 +439,6 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEquals({'test\x00blah\x00test_kind:bob\x01': 2, 'test\x00blah\x00test_kind:nancy\x01': 1}, 
                       dd.acquire_locks_for_nontrans("test", entity_list))
 
-  def test_register_old_entities(self):
-    zookeeper = flexmock()
-    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(True)
-    db_batch = flexmock()
-    dd = DatastoreDistributed(db_batch, zookeeper) 
-    dd.register_old_entities({'x\x01x\x01':{APP_ENTITY_SCHEMA[0]: 'entity_string',
-                                     APP_ENTITY_SCHEMA[1]: '1'}}, 
-                             {'x\x01': 1}, 'test')
-
-  def test_update_journal(self):
-    PREFIX = 'x\x01'
-    zookeeper = flexmock()
-    db_batch = flexmock()
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
-    db_batch.should_receive("batch_delete").and_return(None)
-
-    dd = DatastoreDistributed(db_batch, zookeeper) 
-    row_keys = ['a\x01a\x01']
-    row_values = {'a\x01a\x01':{APP_ENTITY_SCHEMA[0]: 'entity_string',
-                         APP_ENTITY_SCHEMA[1]: '1'}}
-    txn_hash = {'a\x01': 1}
-    dd.update_journal(row_keys, row_values, txn_hash)
-
   def test_delete_entities(self):
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
                                               "prop1val", ns="blah")
@@ -542,15 +489,6 @@ class TestDatastoreServer(unittest.TestCase):
                                               "prop2val", ns="blah")
     self.assertEquals("test\x00blah\x00test_kind:nancy\x01", 
       dd.get_root_key_from_entity_key(entity_proto1.key()))
-
-  def test_remove_tombstoned_entities(self):
-    zookeeper = flexmock()
-    db_batch = flexmock()
-    dd = DatastoreDistributed(db_batch, zookeeper) 
-    self.assertEquals({}, dd.remove_tombstoned_entities({'key': {APP_ENTITY_SCHEMA[0]:TOMBSTONE}}))
-    self.assertEquals({"key2": {APP_ENTITY_SCHEMA[0]:"blah"}}, 
-                      dd.remove_tombstoned_entities({'key': {APP_ENTITY_SCHEMA[0]:TOMBSTONE}, 
-                                                     'key2': {APP_ENTITY_SCHEMA[0]:"blah"}}))
 
   def test_dynamic_get(self):
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
