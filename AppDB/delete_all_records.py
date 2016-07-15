@@ -111,8 +111,8 @@ if __name__ == "__main__":
       DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
       COMPOSITE_TABLE: COMPOSITE_SCHEMA,
       APP_KIND_TABLE: APP_KIND_SCHEMA,
-      JOURNAL_TABLE: JOURNAL_SCHEMA,
-      METADATA_TABLE: METADATA_SCHEMA
+      METADATA_TABLE: METADATA_SCHEMA,
+      TRANSACTIONS_TABLE: TRANSACTIONS_SCHEMA
     }
     for table, schema in tables_to_schemas.items():
       fetch_and_delete_entities(database, table, schema, first_key, False)

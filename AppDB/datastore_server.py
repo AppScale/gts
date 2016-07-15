@@ -315,6 +315,9 @@ class DatastoreDistributed():
   # The number of entities to fetch at a time when updating indices.
   BATCH_SIZE = 100
 
+  # The maximum number of seconds a transaction can take.
+  MAX_TXN_DURATION = 60
+
   def __init__(self, datastore_batch, zookeeper=None, log_level=logging.INFO):
     """
        Constructor.
@@ -631,6 +634,39 @@ class DatastoreDistributed():
 
     return row_keys
 
+  def put_entities_txn(self, entities, txn_hash, app):
+    """ Updates the transaction table.
+
+    Args:
+      entities: A list of entity objects.
+      txn_hash: A mapping of root keys to transaction IDs.
+      app: A string containing the application ID.
+    """
+    self.logger.debug('Inserting {} entities in transaction with hash {}'.
+                      format(len(entities), txn_hash))
+    txn_values = {}
+    txn_keys = []
+
+    for entity in entities:
+      namespace = entity.key().name_space()
+      path = entity.key().path()
+      root_key = self.get_root_key(app, namespace, path.element_list())
+      txn = str(txn_hash[root_key]).zfill(ID_KEY_LENGTH)
+      encoded_path = str(self.__encode_index_pb(path))
+      key = self._SEPARATOR.join([app, txn, namespace, encoded_path])
+      txn_keys.append(key)
+      txn_values[key] = {TRANSACTIONS_SCHEMA[0]: TxnActions.PUT,
+                         TRANSACTIONS_SCHEMA[1]: entity.Encode(),
+                         TRANSACTIONS_SCHEMA[2]: ''}
+
+    self.datastore_batch.batch_put_entity(
+      dbconstants.TRANSACTIONS_TABLE,
+      txn_keys,
+      TRANSACTIONS_SCHEMA,
+      txn_values,
+      ttl=self.MAX_TXN_DURATION * 2
+    )
+
   def delete_composite_indexes(self, entities, composite_indexes):
     """ Deletes the composite indexes in the DB for the given entities.
 
@@ -747,8 +783,6 @@ class DatastoreDistributed():
                                           row_keys, 
                                           APP_ENTITY_SCHEMA,
                                           row_values)    
-
-    self.update_journal(row_keys, row_values, txn_hash)
 
     self.datastore_batch.batch_put_entity(dbconstants.APP_KIND_TABLE,
                                           kind_row_keys,
@@ -1220,100 +1254,101 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app_id, entities, txn_hash, composite_indexes=None):
+  def put_entities(self, entities, txn_hash, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
-      app_id: The application ID.
       entities: List of entities.
       txn_hash: A mapping of root keys to transaction IDs.
-      composite_indexes: A list of entity_pb.CompositeIndex.
+      composite_indexes: A list or tuple of CompositeIndex objects.
     """
-    sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
-    for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
-      keys = [e.key() for e in entities]
-      # Delete the old entities and indexes. 
-      self.delete_entities(app_id, keys, txn_hash, soft_delete=False, 
-        composite_indexes=composite_indexes)
+    self.logger.debug('Inserting {} entities with transaction hash {}'.
+                      format(len(entities), txn_hash))
+    entity_keys = []
+    for entity in entities:
+      prefix = self.get_table_prefix(entity)
+      entity_keys.append(self.get_entity_key(prefix, entity.key().path()))
 
-      # Insert the new entities and indexes.
-      self.insert_entities(entities, txn_hash)
-      self.insert_index_entries(entities)
-      self.insert_composite_indexes(entities, composite_indexes)
+    current_values = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
-  def delete_entities(self, app_id, keys, txn_hash, soft_delete=False, 
-    composite_indexes=[]):
+    batch = []
+    for entity in entities:
+      prefix = self.get_table_prefix(entity)
+      entity_key = self.get_entity_key(prefix, entity.key().path())
+      root_key = self.get_root_key_from_entity_key(entity_key)
+      txn = txn_hash[root_key]
+
+      current_value = None
+      if current_values[entity_key]:
+        current_value = entity_pb.EntityProto(
+          current_values[entity_key][APP_ENTITY_SCHEMA[0]])
+
+      batch.extend(self.mutations_for_entity(entity, txn, current_value,
+                                             composite_indexes))
+
+    self.datastore_batch.batch_mutate(batch)
+
+  def delete_entities(self, keys, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
 
     Args:
-      app_id: The application ID.
-      keys: list of keys to be deleted.
-      txn_hash: A mapping of root keys to transaction IDs.
-      soft_delete: Boolean if we should soft delete entities.
-                   Default is to not delete entities from the 
-                   entity table (neither soft or hard). 
-      composite_indexes: A list of CompositeIndex objects. 
+      keys: A list of keys to be deleted.
+      composite_indexes: A list or tuple of CompositeIndex objects.
     """
-    def row_generator(key_list):
-      """ Generates a ruple of keys and encoded entities. """
-      for prefix, k in key_list:
-        yield (self.get_entity_key(prefix, k.path()),
-               buffer(k.Encode()))
-
-    def kind_row_generator(key_list):
-      """ Generates key/values for the kind table. """
-      for prefix, k in key_list:
-        # Yield a tuple of kind key and a reference to entity table.
-        yield (self.get_kind_key(prefix, k.path()),
-               self.get_entity_key(prefix, k.path()))
- 
-    row_keys = []
-    kind_keys = []
-
-    entities = sorted((self.get_table_prefix(x), x) for x in keys)
-
-    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = tuple(row_generator(group))
-      new_row_keys = [str(ii[0]) for ii in group_rows]
-      row_keys += new_row_keys
-
-    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = tuple(kind_row_generator(group))
-      new_row_keys = [str(ii[0]) for ii in group_rows]
-      kind_keys += new_row_keys
+    entity_keys = []
+    for key in keys:
+      prefix = self.get_table_prefix(key)
+      entity_keys.append(self.get_entity_key(prefix, key.path()))
 
     # Must fetch the entities to get the keys of indexes before deleting.
-    ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-      row_keys, APP_ENTITY_SCHEMA)
+    current_values = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
-    self.register_old_entities(ret, txn_hash, app_id)
+    batch = []
+    for key in entity_keys:
+      if not current_values[key]:
+        continue
 
-    if soft_delete:
-      row_values = {}
-      for rk in row_keys:
-        root_key = self.get_root_key_from_entity_key(rk)
-        row_values[rk] = {APP_ENTITY_SCHEMA[0]: TOMBSTONE,
-                          APP_ENTITY_SCHEMA[1]: str(txn_hash[root_key])}
-      #TODO do these in ||
-      self.datastore_batch.batch_put_entity(dbconstants.APP_ENTITY_TABLE,
-                                            row_keys,
-                                            APP_ENTITY_SCHEMA,
-                                            row_values)
-      self.update_journal(row_keys, row_values, txn_hash)
+      current_value = entity_pb.EntityProto(
+        current_values[key][APP_ENTITY_SCHEMA[0]])
+      batch.extend(self.deletions_for_entity(current_value, composite_indexes))
 
-    entities = []
-    for row_key in ret:
-      # Entities may not exist if this is the first put.
-      if (APP_ENTITY_SCHEMA[0] in ret[row_key] and
-          not ret[row_key][APP_ENTITY_SCHEMA[0]].startswith(TOMBSTONE)):
-        ent = entity_pb.EntityProto()
-        ent.ParseFromString(ret[row_key][APP_ENTITY_SCHEMA[0]])
-        entities.append(ent)
+    self.datastore_batch.batch_mutate(batch)
 
-    # Delete associated indexes.
-    if composite_indexes:
-      self.delete_composite_indexes(entities, composite_indexes)
+  def delete_entities_txn(self, app, keys, txn_hash):
+    """ Updates the transaction table with entities to delete.
+
+    Args:
+      app: A string containing the application ID.
+      keys: A list of keys.
+      txn_hash: A mapping of root keys to transaction IDs.
+    """
+    txn_values = {}
+    txn_keys = []
+    for key in keys:
+      namespace = key.name_space()
+      path = key.path()
+      root_key = self.get_root_key(app, namespace, path.element_list())
+      txn = str(txn_hash[root_key]).zfill(ID_KEY_LENGTH)
+      encoded_path = str(self.__encode_index_pb(path))
+      txn_key = self._SEPARATOR.join([app, txn, namespace, encoded_path])
+      txn_keys.append(txn_key)
+
+      prefix = self.get_table_prefix(key)
+      entity_key = self.get_entity_key(prefix, key.path())
+      txn_values[txn_key] = {TRANSACTIONS_SCHEMA[0]: TxnActions.DELETE,
+                             TRANSACTIONS_SCHEMA[1]: entity_key,
+                             TRANSACTIONS_SCHEMA[2]: ''}
+
+    self.datastore_batch.batch_put_entity(
+      dbconstants.TRANSACTIONS_TABLE,
+      txn_keys,
+      TRANSACTIONS_SCHEMA,
+      txn_values,
+      ttl=self.MAX_TXN_DURATION * 2
+    )
 
   def update_journal(self, row_keys, row_values, txn_hash):
     """ Save new versions of entities to the journal.
@@ -1415,15 +1450,16 @@ class DatastoreDistributed():
     txn_hash = {}
     try:
       if put_request.has_transaction():
-        txn_hash = self.acquire_locks_for_trans(entities, 
-                        put_request.transaction().handle())
+        txn_hash = self.acquire_locks_for_trans(
+          entities, put_request.transaction().handle())
+        self.put_entities_txn(entities, txn_hash, app_id)
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
-          retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
-      self.put_entities(app_id, entities, txn_hash, 
-        composite_indexes=put_request.composite_index_list())
-      if not put_request.has_transaction():
+          retries=self.NON_TRANS_LOCK_RETRY_COUNT)
+        self.put_entities(entities, txn_hash,
+                          put_request.composite_index_list())
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
+
       put_response.key_list().extend([e.key() for e in entities])
     except ZKTransactionException, zkte:
       for root_key in txn_hash:
@@ -1785,12 +1821,10 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(key)
       row_keys.append(self._SEPARATOR.join([prefix, index_key]))
     result = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, row_keys, APP_ENTITY_SCHEMA)
-    if len(key_list) != 0:
-      result = self.validated_result(clean_app_id(key_list[0].app()), 
-                  result, current_ongoing_txn=current_txnid)
-    result = self.remove_tombstoned_entities(result)
-    return (result, row_keys)
+      dbconstants.APP_ENTITY_TABLE,
+      row_keys,
+      APP_ENTITY_SCHEMA)
+    return result, row_keys
 
   def dynamic_get(self, app_id, get_request, get_response):
     """ Fetch keys from the datastore.
@@ -1865,11 +1899,18 @@ class DatastoreDistributed():
       for index in composite_indexes:
         if index.definition().entity_type() in ent_kinds:
           filtered_indexes.append(index)
- 
-    self.delete_entities(app_id, delete_request.key_list(), txn_hash, 
-      composite_indexes=filtered_indexes, soft_delete=True)
 
-    if not delete_request.has_transaction():
+    if delete_request.has_transaction():
+      self.delete_entities_txn(
+        app_id,
+        delete_request.key_list(),
+        txn_hash
+      )
+    else:
+      self.delete_entities(
+        delete_request.key_list(),
+        composite_indexes=filtered_indexes
+      )
       self.release_locks_for_nontrans(app_id, keys, txn_hash)
  
   def generate_filter_info(self, filters):
@@ -1929,8 +1970,6 @@ class DatastoreDistributed():
       # values.
       ret = self.datastore_batch.batch_get_entity(
         dbconstants.APP_ENTITY_TABLE, [last_result_key], APP_ENTITY_SCHEMA)
-
-      ret = self.remove_tombstoned_entities(ret)
 
       if APP_ENTITY_SCHEMA[0] not in ret[last_result_key]:
         message = '{} not found in {}'.format(
@@ -1999,8 +2038,6 @@ class DatastoreDistributed():
     """
     result = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, rowkeys, APP_ENTITY_SCHEMA)
-    result = self.validated_result(app_id, result)
-    result = self.remove_tombstoned_entities(result)
     entities = []
     for key in rowkeys:
       if key in result and APP_ENTITY_SCHEMA[0] in result[key]:
@@ -2065,9 +2102,6 @@ class DatastoreDistributed():
     """
     results = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, rowkeys, APP_ENTITY_SCHEMA)
-
-    results = self.validated_result(app_id, results)
-    results = self.remove_tombstoned_entities(results)
 
     clean_results = {}
     for key in rowkeys:
@@ -2332,11 +2366,6 @@ class DatastoreDistributed():
         last_result = result[-1].keys()[0]
       else: 
         break
-
-      result = self.validated_result(clean_app_id(query.app()), result, 
-                                     current_ongoing_txn=txn_id)
-
-      result = self.remove_tombstoned_entities(result)
 
       final_result += result
 
@@ -4281,6 +4310,14 @@ class DatastoreDistributed():
         format(transaction_pb))
       return (commitres_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
+
+    try:
+      self.apply_txn_changes(app_id, txn_id)
+    except dbconstants.AppScaleDBConnectionError:
+      logger.exception('DB connection error during {}'.
+                       format(http_request_data))
+      return (commitres_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              'Datastore connection error on Commit request.')
 
     try:
       self.zookeeper.release_lock(app_id, txn_id)

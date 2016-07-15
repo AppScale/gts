@@ -467,8 +467,6 @@ class DatastoreGroomer(threading.Thread):
     entities = {}
     for app in entities_by_app:
       app_entities = entities_by_app[app]
-      app_entities = self.ds_access.validated_result(app, app_entities)
-      app_entities = self.ds_access.remove_tombstoned_entities(app_entities)
       for key in keys:
         if key not in app_entities:
           continue

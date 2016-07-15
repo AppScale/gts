@@ -47,7 +47,8 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   METADATA_TABLE,
                   USERS_TABLE,
                   APPS_TABLE,
-                  SCHEMA_TABLE]
+                  SCHEMA_TABLE,
+                  TRANSACTIONS_TABLE]
 
 ###########################################
 # DB schemas for version 1 of the datastore
