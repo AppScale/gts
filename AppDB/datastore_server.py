@@ -4038,6 +4038,7 @@ class DatastoreDistributed():
 
   def index_deletions(self, old_entity, new_entity, composite_indices=()):
     """ Get a list of index deletions needed for updating an entity.
+
     Args:
       old_entity: An entity object.
       new_entity: An entity object.
@@ -4100,6 +4101,7 @@ class DatastoreDistributed():
 
   def deletions_for_entity(self, entity, composite_indices=()):
     """ Get a list of deletions needed across tables for deleting an entity.
+
     Args:
       entity: An entity object.
       composite_indices: A list or tuple of composite indices.
@@ -4141,6 +4143,7 @@ class DatastoreDistributed():
   def mutations_for_entity(self, entity, txn, current_value=None,
                            composite_indices=()):
     """ Get a list of mutations needed across tables for an entity change.
+
     Args:
       entity: An entity object.
       txn: A transaction ID handler.
@@ -4195,8 +4198,10 @@ class DatastoreDistributed():
 
   def apply_txn_changes(self, app, txn):
     """ Apply all operations in transaction table in a single batch.
-    app: A string containing an application ID.
-    txn: A transaction ID handler.
+
+    Args:
+      app: A string containing an application ID.
+      txn: A transaction ID handler.
     """
     padded_txn = str(txn).zfill(ID_KEY_LENGTH)
     start_key = '{app}{sep}{txn}{sep}'.format(

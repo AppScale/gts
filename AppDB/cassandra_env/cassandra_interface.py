@@ -210,6 +210,7 @@ class DatastoreProxy(AppDBInterface):
 
   def prepare_insert(self, table):
     """ Prepare an insert statement.
+
     Args:
       table: A string containing the table name.
     Returns:
@@ -226,6 +227,7 @@ class DatastoreProxy(AppDBInterface):
 
   def prepare_delete(self, table):
     """ Prepare a delete statement.
+
     Args:
       table: A string containing the table name.
     Returns:
@@ -241,6 +243,7 @@ class DatastoreProxy(AppDBInterface):
 
   def batch_mutate(self, mutations):
     """ Insert or delete multiple rows across tables in an atomic statement.
+
     Args:
       mutations: A list of dictionaries representing mutations.
     """
