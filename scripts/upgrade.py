@@ -31,8 +31,9 @@ def write_to_json_file(data, timestamp):
     status log file.
   """
   upgrade_status_file = UPGRADE_JSON_FILE + timestamp + JSON_FILE_EXTENTION
-  with open(upgrade_status_file, 'w') as file:
-    json.dump(data, file)
+  with open(upgrade_status_file, 'w') as status_file:
+    json.dump(data, status_file)
+
 
 def init_parser():
   """ Initializes the command line argument parser.
