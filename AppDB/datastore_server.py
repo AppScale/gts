@@ -531,7 +531,7 @@ class DatastoreDistributed():
       app_id = clean_app_id(data.app())
       namespace = data.name_space()
 
-    return self._SEPARATOR.join([app_id, namespace]).replace('"', '""')
+    return self._SEPARATOR.join([app_id, namespace])
 
   @staticmethod
   def get_index_key_from_params(params):
