@@ -270,50 +270,7 @@ class DatastoreGroomer(threading.Thread):
       # This may take some time on the initial run, but subsequent runs should
       # be quick given a low dashboard data timeout.
       self.remove_deprecated_dashboard_data(model_type)
-    return 
-
-  def clean_journal_entries(self, txn_id, key):
-    """ Remove journal entries that are no longer needed. Assumes
-    transaction numbers are only increasing.
-
-    Args:
-      txn_id: An int of the transaction number to delete up to.
-      key: A str, the entity table key for which we are deleting.
-    Returns:
-      True on success, False otherwise.
-    """
-    if txn_id == 0:
-      return True
-    start_row = datastore_server.DatastoreDistributed.get_journal_key(key, 0)
-    end_row = datastore_server.DatastoreDistributed.get_journal_key(key,
-      int(txn_id) - 1)
-    last_key = start_row
-
-    keys_to_delete = []
-    while True:
-      try:
-        results = self.db_access.range_query(dbconstants.JOURNAL_TABLE,
-          dbconstants.JOURNAL_SCHEMA, last_key, end_row, self.BATCH_SIZE,
-          start_inclusive=False, end_inclusive=True)
-        if len(results) == 0:
-          return True
-        keys_to_delete = []
-        for item in results:
-          keys_to_delete.append(item.keys()[0])
-        self.db_access.batch_delete(dbconstants.JOURNAL_TABLE,
-            keys_to_delete)
-        self.journal_entries_cleaned += len(keys_to_delete)
-      except dbconstants.AppScaleDBConnectionError, db_error:
-        logging.error("Error hard deleting keys {0} --> {1}".format(
-          keys_to_delete, db_error))
-        logging.error("Backing off!")
-        time.sleep(self.DB_ERROR_PERIOD)
-        return False
-      except Exception, exception:
-        logging.error("Caught unexcepted exception {0}".format(exception))
-        logging.error("Backing off!")
-        time.sleep(self.DB_ERROR_PERIOD)
-        return False
+    return
 
   def hard_delete_row(self, row_key):
     """ Does a hard delete on a given row key to the entity
@@ -750,181 +707,6 @@ class DatastoreGroomer(threading.Thread):
     self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
       row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
 
-  def fix_badlisted_entity(self, key, version):
-    """ Places the correct entity given the current one is from a blacklisted
-    transaction.
-
-    Args:
-      key: The key to the entity table.
-      version: The bad version of the entity.
-    Returns:
-      True on success, False otherwise.
-    """
-    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
-    root_key = entity_utils.get_root_key_from_entity_key(key)
-    # TODO watch out for the race condition of doing a GET then a PUT.
-
-    try:
-      txn_id = self.zoo_keeper.get_transaction_id(app_id)
-      if self.zoo_keeper.acquire_lock(app_id, txn_id, root_key):
-        valid_id = self.zoo_keeper.get_valid_transaction_id(
-          app_id, version, key)
-        # Insert the entity along with regular indexes and composites.
-        bad_key = datastore_server.DatastoreDistributed.get_journal_key(key,
-          version)
-        good_key = datastore_server.DatastoreDistributed.get_journal_key(key,
-          valid_id)
-
-        # Fetch the journal and replace the bad entity.
-        good_entry = entity_utils.fetch_journal_entry(self.db_access, good_key)
-        bad_entry = entity_utils.fetch_journal_entry(self.db_access, bad_key)
-
-        # Get the kind to lookup composite indexes.
-        kind = None
-        if good_entry:
-          kind = datastore_server.DatastoreDistributed.get_entity_kind(
-            good_entry.key())
-        elif bad_entry:
-          kind = datastore_server.DatastoreDistributed.get_entity_kind(
-            bad_entry.key())
-
-        # Fetch latest composites for this entity
-        composites = self.get_composite_indexes(app_id, kind)
-
-        # Remove previous regular indexes and composites if it's not a
-        # TOMBSTONE.
-        if bad_entry:
-          self.delete_indexes(bad_entry)
-          self.delete_composite_indexes(bad_entry, composites)
-
-        # Overwrite the entity table with the correct version.
-        # Insert into entity table, regular indexes, and composites.
-        if good_entry:
-          # TODO
-          #self.db_access.batch_put_entities(...)
-          #self.insert_indexes(good_entry)
-          #self.insert_composite_indexes(good_entry, composites)
-          pass
-        else:
-          # TODO
-          #self.db_access.batch_delete_entities(...)
-          pass
-      else:
-        success = False
-    except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}".format(zk_exception))
-      success = False
-    except zk.ZKInternalException, zk_exception:
-      logging.error("Caught exception {0}".format(zk_exception))
-      success = False
-    except dbconstants.AppScaleDBConnectionError, db_exception:
-      logging.error("Caught exception {0}".format(db_exception))
-      success = False
-    finally:
-      if not success:
-        if not self.zoo_keeper.notify_failed_transaction(app_id, txn_id):
-          logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
-            .format(app_id, txn_id))
-      try:
-        self.zoo_keeper.release_lock(app_id, txn_id)
-      except zk.ZKTransactionException, zk_exception:
-        # There was an exception releasing the lock, but
-        # the replacement has already happened.
-        pass
-      except zk.ZKInternalException, zk_exception:
-        pass
-
-    return True
-
-  def process_tombstone(self, key, entity, version):
-    """ Processes any entities which have been soft deleted.
-        Does an actual delete to reclaim disk space.
-
-    Args:
-      key: The key to the entity table.
-      entity: The entity in string serialized form.
-      version: The version of the entity in the datastore.
-    Returns:
-      True if a hard delete occurred, False otherwise.
-    """
-    success = False
-    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
-    root_key = entity_utils.get_root_key_from_entity_key(key)
-
-    try:
-      if self.zoo_keeper.is_blacklisted(app_id, version):
-        logging.error("Found a blacklisted item for version {0} on key {1}".\
-          format(version, key))
-        return True
-        #TODO actually fix the badlisted entity
-        return self.fix_badlisted_entity(key, version)
-    except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}.\nBacking off!".format(zk_exception))
-      time.sleep(self.DB_ERROR_PERIOD)
-      return False
-    except zk.ZKInternalException, zk_exception:
-      logging.error("Caught exception {0}.\nBacking off!".format(zk_exception))
-      time.sleep(self.DB_ERROR_PERIOD)
-      return False
-
-    txn_id = 0
-    try:
-      txn_id = self.zoo_keeper.get_transaction_id(app_id)
-    except zk.ZKTransactionException, zk_exception:
-      logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("Backing off!")
-      time.sleep(self.DB_ERROR_PERIOD)
-      return False
-    except zk.ZKInternalException, zk_exception:
-      logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("Backing off!")
-      time.sleep(self.DB_ERROR_PERIOD)
-      return False
-
-    try:
-      if self.zoo_keeper.acquire_lock(app_id, txn_id, root_key):
-        success = self.hard_delete_row(key)
-        if success:
-          # Increment the txn ID by one because we want to delete this current
-          # entry as well.
-          success = self.clean_journal_entries(txn_id + 1, key)
-      else:
-        success = False
-    except zk.ZKTransactionException, zk_exception:
-      logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("Backing off!")
-      time.sleep(self.DB_ERROR_PERIOD)
-      success = False
-    except zk.ZKInternalException, zk_exception:
-      logging.error("Exception tossed: {0}".format(zk_exception))
-      logging.error("Backing off!")
-      time.sleep(self.DB_ERROR_PERIOD)
-      success = False
-    finally:
-      if not success:
-        try:
-          if not self.zoo_keeper.notify_failed_transaction(app_id, txn_id):
-            logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
-              .format(app_id, txn_id))
-          self.zoo_keeper.release_lock(app_id, txn_id)
-        except zk.ZKTransactionException, zk_exception:
-          logging.error("Caught exception: {0}\nIgnoring...".format(
-            zk_exception))
-          # There was an exception releasing the lock, but
-          # the hard delete has already happened.
-        except zk.ZKInternalException, zk_exception:
-          logging.error("Caught exception: {0}\nIgnoring...".format(
-            zk_exception))
-    if success:
-      try:
-        self.zoo_keeper.release_lock(app_id, txn_id)
-      except Exception, exception:
-        logging.error("Unable to release lock: {0}".format(exception))
-      self.num_deletes += 1
-
-    logging.debug("Deleting tombstone for key {0}: {1}".format(key, success))
-    return success
-
   def initialize_kind(self, app_id, kind):
     """ Puts a kind into the statistics object if
         it does not already exist.
@@ -1005,39 +787,6 @@ class DatastoreGroomer(threading.Thread):
     #TODO implement
     return True
 
-  def verify_entity(self, entity, key, txn_id):
-    """ Verify that the entity is not blacklisted. Clean up old journal
-    entries if it is valid.
-
-    Args:
-      entity: The entity to verify.
-      key: The key to the entity table.
-      txn_id: An int, a transaction ID.
-    Returns:
-      True on success, False otherwise.
-    """
-    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
-    try:
-      if not self.zoo_keeper.is_blacklisted(app_id, txn_id):
-        self.clean_journal_entries(txn_id, key)
-      else:
-        logging.error("Found a blacklisted item for version {0} on key {1}".\
-          format(txn_id, key))
-        return True
-        #TODO fix the badlisted entity.
-        return self.fix_badlisted_entity(key, txn_id)
-    except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}, backing off!".format(zk_exception))
-      time.sleep(self.DB_ERROR_PERIOD)
-      return True
-    except zk.ZKInternalException, zk_exception:
-      logging.error("Caught exception: {0}, backing off!".format(
-      zk_exception))
-      time.sleep(self.DB_ERROR_PERIOD)
-      return True
-
-    return True
-
   def process_entity(self, entity):
     """ Processes an entity by updating statistics, indexes, and removes
         tombstones.
@@ -1050,15 +799,11 @@ class DatastoreGroomer(threading.Thread):
     logging.debug("Process entity {0}".format(str(entity)))
     key = entity.keys()[0]
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
-    version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
 
     logging.debug("Entity value: {0}".format(entity))
-    if one_entity == datastore_server.TOMBSTONE:
-      return self.process_tombstone(key, one_entity, version)
 
     ent_proto = entity_pb.EntityProto()
     ent_proto.ParseFromString(one_entity)
-    self.verify_entity(ent_proto, key, version)
     self.process_statistics(key, ent_proto, len(one_entity))
 
     return True

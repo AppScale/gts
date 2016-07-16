@@ -17,6 +17,7 @@ import datastore_server
 import dbconstants
 
 from cassandra_env import cassandra_interface
+from datastore_server import ID_KEY_LENGTH
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import APP_ENTITY_TABLE
 from zkappscale import zktransaction as zk
@@ -134,16 +135,14 @@ def get_datastore():
   datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
   return datastore_batch
 
-def get_datastore_distributed(datastore, zk_location_ips):
-  """ Returns a reference to the distributed datastore.
+def get_zookeeper(zk_location_ips):
+  """ Returns a handler for making ZooKeeper operations.
   Args:
-    datastore: A reference to the batch datastore interface.
     zk_location_ips: A list of ZooKeeper location ips.
   """
   zookeeper_locations = get_zk_locations_string(zk_location_ips)
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
-  datastore_distributed = datastore_server.DatastoreDistributed(datastore, zookeeper=zookeeper)
-  return datastore_distributed, zookeeper
+  return zookeeper
 
 def get_zk_locations_string(zk_location_ips):
   """ Generates a ZooKeeper IP locations string.
@@ -154,13 +153,12 @@ def get_zk_locations_string(zk_location_ips):
   """
   return (":" + str(zk.DEFAULT_PORT) + ",").join(zk_location_ips) + ":" + str(zk.DEFAULT_PORT)
 
-def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
-  zk_ips, status_dict, keyname):
+def validate_and_update_entities(datastore, zookeeper, db_ips, zk_ips,
+                                 status_dict, keyname):
   """ Validates entities in batches of BATCH_SIZE, deletes tombstoned
   entities (if any) and updates invalid entities.
   Args:
     datastore: A reference to the batch datastore interface.
-    ds_distributed: A reference to the distributed datastore.
     zookeeper: A reference to ZKTransaction, which communicates with
       ZooKeeper on the given host.
     db_ips: A list of database node IPs to stop Cassandra on, in case of error.
@@ -180,7 +178,7 @@ def validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
         break
 
       for entity in entities:
-        process_entity(entity, datastore, ds_distributed)
+        process_entity(entity, datastore, zookeeper)
 
       last_key = entities[-1].keys()[0]
       entities_checked += len(entities)
@@ -212,38 +210,68 @@ def get_entity_batch(last_key, datastore, batch_size):
   return datastore.range_query(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, last_key,
     "", batch_size, start_inclusive=False)
 
-def process_entity(entity, datastore, ds_distributed):
+def validate_row(app_id, row, zookeeper, db_access):
+  """ Fetch the valid version of a given entity.
+
+  Args:
+    app_id: A string containing the application ID.
+    row: A dictionary containing a row from the entities table.
+    zookeeper: A handler for making ZooKeeper operations.
+    db_access: A handler for making database operations.
+  Returns:
+    An dictionary with a valid entity row or None.
+  """
+  # If there is no transaction ID for the record, assume it is valid.
+  if APP_ENTITY_SCHEMA[1] not in row:
+    return row
+
+  row_key = row.keys()[0]
+  row_txn = long(row[APP_ENTITY_SCHEMA[1]])
+  valid_txn = zookeeper.get_valid_transaction_id(app_id, row_txn, row_key)
+
+  # If the transaction ID is valid, the entity is valid.
+  if row_txn == valid_txn:
+    return row
+
+  # A transaction ID of 0 indicates that the entity doesn't exist yet.
+  if valid_txn == 0:
+    return None
+
+  padded_version = str(valid_txn).zfill(ID_KEY_LENGTH)
+  journal_key = dbconstants.KEY_DELIMITER.join([row_key, padded_version])
+  journal_results = db_access.batch_get_entity(
+    dbconstants.JOURNAL_TABLE, [journal_key], dbconstants.JOURNAL_SCHEMA)
+  journal_row = journal_results[journal_key]
+
+  if dbconstants.JOURNAL_SCHEMA[0] not in journal_row:
+    return None
+
+  valid_entity = journal_row[dbconstants.JOURNAL_SCHEMA[0]]
+  return {row_key: {APP_ENTITY_SCHEMA[0]: valid_entity,
+                    APP_ENTITY_SCHEMA[1]: str(valid_txn)}}
+
+def process_entity(entity, datastore, zookeeper):
   """ Processes an entity by updating it if necessary and removing tombstones.
   Args:
     entity: The entity to process.
     datastore: A reference to the batch datastore interface.
-    ds_distributed: A reference to the distributed datastore.
-  Returns:
-    True on success, False otherwise.
+    zookeeper: A handler for making ZooKeeper operations.
   Raises:
     AppScaleDBConnectionError: If the operation could not be performed due to
        an error with Cassandra.
   """
   logging.debug("Process entity {}".format(str(entity)))
   key = entity.keys()[0]
-  entity_data = entity[key][APP_ENTITY_SCHEMA[0]]
-  version = entity[key][APP_ENTITY_SCHEMA[1]]
 
   app_id = key.split(dbconstants.KEY_DELIMITER)[0]
-  validated_entity = ds_distributed.validated_result(app_id, entity)
+  valid_entity = validate_row(app_id, entity, zookeeper, datastore)
 
-  if key not in validated_entity:
+  if (valid_entity is None or
+      valid_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE):
     return delete_entity_from_table(key, datastore)
 
-  valid_entity_data = validated_entity[key][APP_ENTITY_SCHEMA[0]]
-  valid_entity_version = validated_entity[key][APP_ENTITY_SCHEMA[1]]
-  if valid_entity_data == datastore_server.TOMBSTONE:
-    return delete_entity_from_table(key, datastore)
-
-  if valid_entity_data != entity_data or valid_entity_version != version:
-    return update_entity_in_table(key, validated_entity, datastore)
-
-  return True
+  if valid_entity != entity:
+    return update_entity_in_table(key, valid_entity, datastore)
 
 def update_entity_in_table(key, validated_entity, datastore):
   """ Updates the APP_ENTITY_TABLE with the valid entity.
@@ -257,7 +285,7 @@ def update_entity_in_table(key, validated_entity, datastore):
       an error with Cassandra.
   """
   datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
-                             {key: validated_entity[key]})
+                             validated_entity)
 
 def delete_entity_from_table(key, datastore):
   """ Performs a hard delete on the APP_ENTITY_TABLE for the given row key.
@@ -424,12 +452,12 @@ def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
     return
 
   datastore = get_datastore()
-  ds_distributed, zookeeper = get_datastore_distributed(datastore, zk_ips)
+  zookeeper = get_zookeeper(zk_ips)
 
   # Loop through entities table, fetch valid entities from journal table
   # if necessary, delete tombstoned entities and updated invalid ones.
-  validate_and_update_entities(datastore, ds_distributed, zookeeper, db_ips,
-    zk_ips, status_dict, keyname)
+  validate_and_update_entities(datastore, zookeeper, db_ips, zk_ips,
+                               status_dict, keyname)
 
   # If validating and updating entities logged an error in the status dict,
   # return from this script.
