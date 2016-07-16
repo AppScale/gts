@@ -16,11 +16,9 @@ import appscale_datastore_batch
 import datastore_server
 import dbconstants
 
+from cassandra_env import cassandra_interface
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import APP_ENTITY_TABLE
-from dbconstants import DATASTORE_METADATA_SCHEMA
-from dbconstants import DATASTORE_METADATA_TABLE
-from cassandra_env import cassandra_interface
 from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
@@ -77,36 +75,35 @@ def ensure_app_is_not_running():
     logging.info("AppScale is running, please shut it down and try again.")
     sys.exit(1)
 
-def start_cassandra(status_dict, db_ips, db_master, keyname):
+def start_cassandra(db_ips, db_master, keyname):
   """ Creates a monit configuration file and prompts Monit to start Cassandra.
   Args:
-    status_dict: A dictionary to record the status of the executed process.
     db_ips: A list of database node IPs to start Cassandra on.
     db_master: The IP address of the DB master.
     keyname: A string containing the deployment's keyname.
+  Raises:
+    AppScaleDBError if unable to start Cassandra.
   """
   logging.info("Starting Cassandra...")
   for ip in db_ips:
-    start_cassandra_ip = START_CASSANDRA + "@" + ip
-
     init_config = '{script} --local-ip {ip} --master-ip {db_master}'.format(
       script=SETUP_CASSANDRA_SCRIPT, ip=ip, db_master=db_master)
     try:
       utils.ssh(ip, keyname, init_config)
     except subprocess.CalledProcessError:
-      logging.error('Unable to configure Cassandra on {}'.format(ip))
-      status_dict[start_cassandra_ip] = FAILURE
-      continue
+      message = 'Unable to configure Cassandra on {}'.format(ip)
+      logging.exception(message)
+      raise dbconstants.AppScaleDBError(message)
 
-    start_service_cmd = START_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
-    cmd_status = utils.ssh(ip, keyname, start_service_cmd)
+    try:
+      start_service_cmd = START_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
+      utils.ssh(ip, keyname, start_service_cmd)
+    except subprocess.CalledProcessError:
+      message = 'Unable to start Cassandra on {}'.format(ip)
+      logging.exception(message)
+      raise dbconstants.AppScaleDBError(message)
 
-    if not cmd_status == 0:
-      logging.error("Monit was unable to start Cassandra.")
-      status_dict[start_cassandra_ip] = FAILURE
-      continue
     logging.info("Successfully started Cassandra.")
-    status_dict[start_cassandra_ip] = SUCCESS
 
 def start_zookeeper(status_dict, zk_ips, keyname):
   """ Creates a monit configuration file and prompts Monit to start ZooKeeper.
@@ -338,33 +335,6 @@ def close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname):
   stop_cassandra(db_ips, status_dict, keyname)
   stop_zookeeper(zk_ips, status_dict, keyname)
 
-def store_data_version(datastore, zookeeper, db_ips, zk_ips, status_dict, keyname):
-  """ Create a new table if not already present and stores the datastore version
-  for the respective app_ids.
-  Args:
-    datastore: A reference to the batch datastore interface.
-    zookeeper: A reference to ZKTransaction, which communicates with
-      ZooKeeper on the given host.
-    db_ips: A list of database node IPs to stop Cassandra on, in case of error.
-    zk_ips: A list of zookeeper node IPs to stop ZooKeeper on, in case of error.
-    status_dict: A dictionary to record the status of the executed process.
-    keyname: A string containing the deployment's keyname.
-  """
-  try:
-    datastore.create_table(DATASTORE_METADATA_TABLE, DATASTORE_METADATA_SCHEMA)
-    cell_values = {}
-    cell_values[VERSION_INFO_KEY] = {
-      DATASTORE_METADATA_SCHEMA[0]: VERSION_1
-    }
-    time.sleep(5)
-    datastore.batch_put_entity(DATASTORE_METADATA_TABLE, [VERSION_INFO_KEY],
-      DATASTORE_METADATA_SCHEMA, cell_values)
-  except dbconstants.AppScaleDBConnectionError as conn_error:
-    logging.error("Error storing the datastore version: {}".format(conn_error))
-    status_dict[STORE_DATASTORE_VERSION] = str(conn_error)
-    close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname)
-    return
-
 def drop_journal_table(datastore, zookeeper,db_ips, zk_ips, status_dict, keyname):
   """ Drop JOURNAL_TABLE.
   Args:
@@ -436,7 +406,12 @@ def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
   ensure_app_is_not_running()
 
   # Start Cassandra and ZooKeeper.
-  start_cassandra(status_dict, db_ips, db_master, keyname)
+  try:
+    start_cassandra(db_ips, db_master, keyname)
+    status_dict[START_CASSANDRA] = SUCCESS
+  except dbconstants.AppScaleDBError:
+    status_dict[START_CASSANDRA] = FAILURE
+    return
 
   # Ensure enough Cassandra nodes are available.
   ensure_cassandra_nodes_match_replication(keyname)
@@ -464,17 +439,16 @@ def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
   status_dict[VALIDATE_ENTITIES] = SUCCESS
   logging.info("Updated invalid entities and deleted tombstoned entities.")
 
-  # Create a new table if required to store data version.
-  store_data_version(datastore, zookeeper, db_ips, zk_ips, status_dict,
-                     keyname)
-
-  # If storing the datastore version logged an error in the status dict,
-  # return from this script.
-  if STORE_DATASTORE_VERSION in status_dict:
+  # Update the data version.
+  try:
+    datastore.set_metadata(cassandra_interface.VERSION_INFO_KEY,
+                           str(cassandra_interface.DATA_VERSION))
+    status_dict[STORE_DATASTORE_VERSION] = SUCCESS
+    logging.info('Stored the data version successfully.')
+  except dbconstants.AppScaleDBConnectionError as db_error:
+    status_dict[STORE_DATASTORE_VERSION] = db_error.message
+    close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname)
     return
-
-  status_dict[STORE_DATASTORE_VERSION] = SUCCESS
-  logging.info("Stored the Datastore version successfully.")
 
   # Drop the JOURNAL_TABLE.
   drop_journal_table(datastore, zookeeper, db_ips, zk_ips, status_dict,
@@ -491,4 +465,3 @@ def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
   # Stop Cassandra & ZooKeeper and close connection to ZKTransaction.
   close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname)
   status_dict[COMPLETION_STATUS] = SUCCESS
-

@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 
 import datastore_upgrade
 
@@ -14,13 +15,24 @@ DATA_UPGRADE = 'Data-Upgrade'
 # .JSON file extention.
 JSON_FILE_EXTENTION = ".json"
 
-def is_data_upgrade_needed():
+
+def is_data_upgrade_needed(db_ips, db_master, keyname):
   """Checks if for this version of AppScale datastore upgrade is needed.
 
   Returns:
     A boolean indicating whether or not a data upgrade is required.
   """
-  return False
+  try:
+    datastore_upgrade.start_cassandra(db_ips, db_master, keyname)
+
+    # Ensure enough Cassandra nodes are available.
+    datastore_upgrade.ensure_cassandra_nodes_match_replication(keyname)
+
+    datastore = datastore_upgrade.get_datastore()
+    return not datastore.latest_data_version()
+  finally:
+    datastore_upgrade.stop_cassandra(db_ips, {}, keyname)
+
 
 def write_to_json_file(data, timestamp):
   """ Writes the dictionary containing the status of operations performed
@@ -52,22 +64,28 @@ def init_parser():
                       help='A list of DB IP addresses')
   return parser
 
+
 if __name__ == "__main__":
 
   parser = init_parser()
   args = parser.parse_args()
 
-  upgrade_status_dict = {}
-  # Run datastore upgrade script if required.
-  if is_data_upgrade_needed():
-    data_upgrade_status = {}
-    datastore_upgrade.run_datastore_upgrade(
-      args.zookeeper, args.database, args.db_master, data_upgrade_status,
-      args.keyname)
-    upgrade_status_dict[DATA_UPGRADE] = data_upgrade_status
+  try:
+    if not is_data_upgrade_needed(args.database, args.db_master, args.keyname):
+      status = {'Status': 'Not executed',
+                'Message': 'AppScale is currently at its latest version'}
+      write_to_json_file(status, args.log_postfix)
+      sys.exit()
+  except Exception as error:
+    status = {'Status': 'Not executed', 'Message': error.message}
+    write_to_json_file(status, args.log_postfix)
+    sys.exit()
 
-  if not upgrade_status_dict.keys():
-    upgrade_status_dict = {'Status': 'Not executed', 'Message':'AppScale is currently at its latest version'}
+  # Run datastore upgrade script if required.
+  data_upgrade_status = {}
+  datastore_upgrade.run_datastore_upgrade(
+    args.zookeeper, args.database, args.db_master, data_upgrade_status,
+    args.keyname)
 
   # Write the upgrade status dictionary to the upgrade-status.json file.
-  write_to_json_file(upgrade_status_dict, args.log_postfix)
+  write_to_json_file({DATA_UPGRADE: data_upgrade_status}, args.log_postfix)
