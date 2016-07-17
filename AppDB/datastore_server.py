@@ -330,6 +330,8 @@ class DatastoreDistributed():
     self.logger = logging.getLogger(class_name)
     self.logger.setLevel(log_level)
 
+    assert datastore_batch.valid_data_version()
+
     self.logger.info('Starting {}'.format(class_name))
 
     # datastore accessor used by this class to do datastore operations.

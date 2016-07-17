@@ -38,8 +38,8 @@ CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
 # The number of times to retry connecting to Cassandra.
 INITIAL_CONNECT_RETRIES = 20
 
-# The version of the data layout in Cassandra.
-DATA_VERSION = 1.0
+# The data layout version that the datastore expects.
+EXPECTED_DATA_VERSION = 1.0
 
 # The metadata key for the data layout version.
 VERSION_INFO_KEY = 'version'
@@ -545,13 +545,13 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-  def latest_data_version(self):
-    """ Checks whether or not the data layout is up-to-date.
+  def valid_data_version(self):
+    """ Checks whether or not the data layout can be used.
 
     Returns:
       A boolean.
     """
     self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
                       dbconstants.DATASTORE_METADATA_SCHEMA)
-    data_version = self.get_metadata(VERSION_INFO_KEY)
-    return data_version is not None and float(data_version) >= DATA_VERSION
+    version = self.get_metadata(VERSION_INFO_KEY)
+    return version is not None and float(version) == EXPECTED_DATA_VERSION

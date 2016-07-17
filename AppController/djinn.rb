@@ -3615,6 +3615,12 @@ class Djinn
           start_db_slave(clear_datastore, replication)
         end
 
+        layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
+        unless system("#{layout_script} --db-type cassandra")
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        end
+
         # Always colocate the Datastore Server and UserAppServer (soap_server).
         @state = "Starting up SOAP Server and Datastore Server"
         start_datastore_server()

@@ -29,7 +29,7 @@ def is_data_upgrade_needed(db_ips, db_master, keyname):
     datastore_upgrade.ensure_cassandra_nodes_match_replication(keyname)
 
     datastore = datastore_upgrade.get_datastore()
-    return not datastore.latest_data_version()
+    return not datastore.valid_data_version()
   finally:
     datastore_upgrade.stop_cassandra(db_ips, {}, keyname)
 

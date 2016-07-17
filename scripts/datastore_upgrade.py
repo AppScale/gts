@@ -470,7 +470,7 @@ def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
   # Update the data version.
   try:
     datastore.set_metadata(cassandra_interface.VERSION_INFO_KEY,
-                           str(cassandra_interface.DATA_VERSION))
+                           str(cassandra_interface.EXPECTED_DATA_VERSION))
     status_dict[STORE_DATASTORE_VERSION] = SUCCESS
     logging.info('Stored the data version successfully.')
   except dbconstants.AppScaleDBConnectionError as db_error:
