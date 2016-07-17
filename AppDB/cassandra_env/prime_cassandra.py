@@ -4,6 +4,7 @@
 import argparse
 import dbconstants
 import cassandra
+import cassandra_interface
 import logging
 import os
 import sys
@@ -18,6 +19,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib/'))
 import appscale_info
 
 from constants import LOG_FORMAT
+
+# The data layout version to set after removing the journal table.
+POST_JOURNAL_VERSION = 1.0
 
 
 def define_ua_schema(session):
@@ -109,6 +113,19 @@ def prime_cassandra(replication):
   if existing_entities:
     logging.info('The necessary keyspace and tables are present.')
   else:
+    statement = """
+        INSERT INTO "{table}" ({key}, {column}, {value})
+        VALUES (%(key)s, %(column)s, %(value)s)
+    """.format(
+      table=dbconstants.DATASTORE_METADATA_TABLE,
+      key=ThriftColumn.KEY,
+      column=ThriftColumn.COLUMN_NAME,
+      value=ThriftColumn.VALUE
+    )
+    parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
+                  'column': cassandra_interface.VERSION_INFO_KEY,
+                  'value': bytearray(str(POST_JOURNAL_VERSION))}
+    session.execute(statement, parameters)
     logging.info('Successfully created initial keyspace and tables.')
 
 

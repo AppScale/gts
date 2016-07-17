@@ -47,6 +47,7 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   USERS_TABLE,
                   APPS_TABLE,
                   SCHEMA_TABLE,
+                  DATASTORE_METADATA_TABLE,
                   TRANSACTIONS_TABLE]
 
 ###########################################
