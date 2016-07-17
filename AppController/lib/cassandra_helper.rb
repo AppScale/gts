@@ -118,7 +118,7 @@ def start_db_slave(clear_datastore, replication)
   Djinn.log_info("Starting up Cassandra as slave")
   start_cassandra(clear_datastore, replication)
   Djinn.log_info('Ensuring necessary Cassandra tables are present')
-  sleep(1) until system("#{PRIME_SCRIPT} --check")
+  sleep(3) until system("#{PRIME_SCRIPT} --check")
 end
 
 

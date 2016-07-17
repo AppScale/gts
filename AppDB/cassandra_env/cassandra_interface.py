@@ -44,6 +44,9 @@ EXPECTED_DATA_VERSION = 1.0
 # The metadata key for the data layout version.
 VERSION_INFO_KEY = 'version'
 
+# The metadata key indicating that the database has been primed.
+PRIMED_KEY = 'primed'
+
 
 class IdempotentRetryPolicy(RetryPolicy):
   """ A policy used for retrying idempotent statements. """
@@ -544,6 +547,10 @@ class DatastoreProxy(AppDBInterface):
       message = 'Unable to set datastore metadata for {}'.format(key)
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
+    except cassandra.InvalidRequest:
+      self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
+                        dbconstants.DATASTORE_METADATA_SCHEMA)
+      self.session.execute(statement, parameters)
 
   def valid_data_version(self):
     """ Checks whether or not the data layout can be used.
@@ -551,7 +558,9 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A boolean.
     """
-    self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
-                      dbconstants.DATASTORE_METADATA_SCHEMA)
-    version = self.get_metadata(VERSION_INFO_KEY)
+    try:
+      version = self.get_metadata(VERSION_INFO_KEY)
+    except cassandra.InvalidRequest:
+      return False
+
     return version is not None and float(version) == EXPECTED_DATA_VERSION

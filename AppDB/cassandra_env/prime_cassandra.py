@@ -10,6 +10,7 @@ import os
 import sys
 import time
 
+from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
 from cassandra_env.cassandra_interface import KEYSPACE
@@ -80,6 +81,7 @@ def prime_cassandra(replication):
       if remaining_retries < 0:
         raise connection_error
       time.sleep(3)
+  session.default_consistency_level = ConsistencyLevel.QUORUM
 
   create_keyspace = """
     CREATE KEYSPACE IF NOT EXISTS "{keyspace}"
@@ -110,23 +112,28 @@ def prime_cassandra(replication):
 
   define_ua_schema(session)
 
-  if existing_entities:
-    logging.info('The necessary keyspace and tables are present.')
-  else:
-    statement = """
-        INSERT INTO "{table}" ({key}, {column}, {value})
-        VALUES (%(key)s, %(column)s, %(value)s)
-    """.format(
-      table=dbconstants.DATASTORE_METADATA_TABLE,
-      key=ThriftColumn.KEY,
-      column=ThriftColumn.COLUMN_NAME,
-      value=ThriftColumn.VALUE
-    )
+  metadata_insert = """
+    INSERT INTO "{table}" ({key}, {column}, {value})
+    VALUES (%(key)s, %(column)s, %(value)s)
+  """.format(
+    table=dbconstants.DATASTORE_METADATA_TABLE,
+    key=ThriftColumn.KEY,
+    column=ThriftColumn.COLUMN_NAME,
+    value=ThriftColumn.VALUE
+  )
+
+  if not existing_entities:
     parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
                   'column': cassandra_interface.VERSION_INFO_KEY,
                   'value': bytearray(str(POST_JOURNAL_VERSION))}
-    session.execute(statement, parameters)
-    logging.info('Successfully created initial keyspace and tables.')
+    session.execute(metadata_insert, parameters)
+
+  # Indicate that the database has been successfully primed.
+  parameters = {'key': bytearray(cassandra_interface.PRIMED_KEY),
+                'column': cassandra_interface.PRIMED_KEY,
+                'value': bytearray('true')}
+  session.execute(metadata_insert, parameters)
+  logging.info('Cassandra is primed.')
 
 
 def primed():
@@ -135,24 +142,11 @@ def primed():
   Returns:
     A boolean indicating that Cassandra has been primed.
   """
-  hosts = appscale_info.get_db_ips()
-
-  cluster = None
-  remaining_retries = INITIAL_CONNECT_RETRIES
-  while True:
-    try:
-      # Cassandra 2.0 only supports up to Protocol Version 2.
-      cluster = Cluster(hosts, protocol_version=2)
-      cluster.connect()
-      break
-    except cassandra.cluster.NoHostAvailable as connection_error:
-      remaining_retries -= 1
-      if remaining_retries < 0:
-        raise connection_error
-      time.sleep(3)
-
-  metadata = cluster.metadata
-  return dbconstants.SCHEMA_TABLE in metadata.keyspaces[KEYSPACE].tables
+  try:
+    db_access = cassandra_interface.DatastoreProxy()
+  except cassandra.InvalidRequest:
+    return False
+  return db_access.get_metadata(cassandra_interface.PRIMED_KEY) == 'true'
 
 
 if __name__ == "__main__":
