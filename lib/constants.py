@@ -95,3 +95,6 @@ SERVICES_DIR = '/etc/init.d'
 
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'
+
+# The default log directory for AppScale services.
+LOG_DIR = os.path.join('/var', 'log', 'appscale')

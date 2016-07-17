@@ -1,5 +1,6 @@
 """ This script performs a data upgrade. """
 
+import json
 import logging
 import os
 import subprocess
@@ -10,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import appscale_info
 from constants import APPSCALE_HOME
 from constants import CONTROLLER_SERVICE
+from constants import LOG_DIR
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
@@ -68,6 +70,39 @@ STOP_SERVICE_SCRIPT = "python " + APPSCALE_HOME + "/scripts/monit_stop_service.p
 SETUP_CASSANDRA_SCRIPT = os.path.join(APPSCALE_HOME, 'scripts',
                                       'setup_cassandra_config_files.py')
 
+# JSON file location to record the status of the processes.
+STATUS_FILE = os.path.join(LOG_DIR, 'upgrade-status-{postfix}.json')
+
+
+def is_data_upgrade_needed(db_ips, db_master, keyname):
+  """Checks if for this version of AppScale datastore upgrade is needed.
+
+  Returns:
+    A boolean indicating whether or not a data upgrade is required.
+  """
+  try:
+    start_cassandra(db_ips, db_master, keyname)
+
+    # Ensure enough Cassandra nodes are available.
+    ensure_cassandra_nodes_match_replication(keyname)
+
+    datastore = get_datastore()
+    return not datastore.valid_data_version()
+  finally:
+    stop_cassandra(db_ips, {}, keyname)
+
+
+def write_to_json_file(data, timestamp):
+  """ Writes the dictionary containing the status of operations performed
+  during the upgrade process into a JSON file.
+  Args:
+    data: A dictionary containing status of upgrade operations performed.
+    timestamp: The timestamp passed from the tools to append to the upgrade
+    status log file.
+  """
+  with open(STATUS_FILE.format(timestamp), 'w') as status_file:
+    json.dump(data, status_file)
+
 def ensure_app_is_not_running():
   """ Ensures AppScale is not running as this is an offline script. """
   logging.info("Ensure AppScale is not currently running...")
@@ -75,6 +110,7 @@ def ensure_app_is_not_running():
   if appscale_running:
     logging.info("AppScale is running, please shut it down and try again.")
     sys.exit(1)
+
 
 def start_cassandra(db_ips, db_master, keyname):
   """ Creates a monit configuration file and prompts Monit to start Cassandra.
@@ -106,6 +142,7 @@ def start_cassandra(db_ips, db_master, keyname):
 
     logging.info("Successfully started Cassandra.")
 
+
 def start_zookeeper(status_dict, zk_ips, keyname):
   """ Creates a monit configuration file and prompts Monit to start ZooKeeper.
     Args:
@@ -126,6 +163,7 @@ def start_zookeeper(status_dict, zk_ips, keyname):
     logging.info("Successfully started ZooKeeper.")
     status_dict[start_zookeeper_ip] = SUCCESS
 
+
 def get_datastore():
   """ Returns a reference to the batch datastore interface. Validates where
   the <database>_interface.py is and adds that path to the system path.
@@ -134,6 +172,7 @@ def get_datastore():
   db_type = db_info[':table']
   datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
   return datastore_batch
+
 
 def get_zookeeper(zk_location_ips):
   """ Returns a handler for making ZooKeeper operations.
@@ -144,6 +183,7 @@ def get_zookeeper(zk_location_ips):
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
   return zookeeper
 
+
 def get_zk_locations_string(zk_location_ips):
   """ Generates a ZooKeeper IP locations string.
   Args:
@@ -152,6 +192,7 @@ def get_zk_locations_string(zk_location_ips):
     A string of ZooKeeper IP locations.
   """
   return (":" + str(zk.DEFAULT_PORT) + ",").join(zk_location_ips) + ":" + str(zk.DEFAULT_PORT)
+
 
 def validate_and_update_entities(datastore, zookeeper, db_ips, zk_ips,
                                  status_dict, keyname):
@@ -198,6 +239,7 @@ def validate_and_update_entities(datastore, zookeeper, db_ips, zk_ips,
       close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname)
       return
 
+
 def get_entity_batch(last_key, datastore, batch_size):
   """ Gets a batch of entities to operate on.
   Args:
@@ -209,6 +251,7 @@ def get_entity_batch(last_key, datastore, batch_size):
   """
   return datastore.range_query(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, last_key,
     "", batch_size, start_inclusive=False)
+
 
 def validate_row(app_id, row, zookeeper, db_access):
   """ Fetch the valid version of a given entity.
@@ -252,6 +295,7 @@ def validate_row(app_id, row, zookeeper, db_access):
   return {row_key: {APP_ENTITY_SCHEMA[0]: valid_entity,
                     APP_ENTITY_SCHEMA[1]: str(valid_txn)}}
 
+
 def process_entity(entity, datastore, zookeeper):
   """ Processes an entity by updating it if necessary and removing tombstones.
   Args:
@@ -275,6 +319,7 @@ def process_entity(entity, datastore, zookeeper):
   if valid_entity != entity:
     return update_entity_in_table(key, valid_entity, datastore)
 
+
 def update_entity_in_table(key, validated_entity, datastore):
   """ Updates the APP_ENTITY_TABLE with the valid entity.
   Args:
@@ -289,6 +334,7 @@ def update_entity_in_table(key, validated_entity, datastore):
   datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
                              validated_entity)
 
+
 def delete_entity_from_table(key, datastore):
   """ Performs a hard delete on the APP_ENTITY_TABLE for the given row key.
   Args:
@@ -299,6 +345,7 @@ def delete_entity_from_table(key, datastore):
       an error with Cassandra.
   """
   datastore.batch_delete(APP_ENTITY_TABLE, [key])
+
 
 def stop_cassandra(db_ips, status_dict, keyname):
   """ Stops Cassandra.
@@ -320,6 +367,7 @@ def stop_cassandra(db_ips, status_dict, keyname):
     logging.info("Successfully stopped Cassandra.")
     status_dict[stop_cassandra_ip] = SUCCESS
 
+
 def stop_zookeeper(zk_ips, status_dict, keyname):
   """ Stops ZooKeeper.
   Args:
@@ -340,6 +388,7 @@ def stop_zookeeper(zk_ips, status_dict, keyname):
     logging.info("Successfully stopped ZooKeeper.")
     status_dict[stop_zookeeper_ip] = SUCCESS
 
+
 def close_zktransaction(zookeeper, status_dict):
   """ Closes the connection to ZKTransaction.
   Args:
@@ -350,6 +399,7 @@ def close_zktransaction(zookeeper, status_dict):
   zookeeper.close()
   logging.info("Closed the connection to ZKTransaction.")
   status_dict[CLOSE_ZKTRANSACTION] = SUCCESS
+
 
 def close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname):
   """ Close connections to Cassandra, ZooKeeper and ZKTransaction.
@@ -364,6 +414,7 @@ def close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname):
   close_zktransaction(zookeeper, status_dict)
   stop_cassandra(db_ips, status_dict, keyname)
   stop_zookeeper(zk_ips, status_dict, keyname)
+
 
 def drop_journal_table(datastore, zookeeper,db_ips, zk_ips, status_dict, keyname):
   """ Drop JOURNAL_TABLE.
@@ -384,6 +435,7 @@ def drop_journal_table(datastore, zookeeper,db_ips, zk_ips, status_dict, keyname
     close_connections(zookeeper, db_ips, zk_ips, status_dict, keyname)
     return
 
+
 def all_services_started(status_dict):
   """ Loops through the values of the status dictionary to check the status
   of ZooKeeper and Cassandra started on their nodes.
@@ -394,6 +446,7 @@ def all_services_started(status_dict):
     if value == FAILURE:
       return False
   return True
+
 
 def ensure_cassandra_nodes_match_replication(keyname):
   """ Waits until enough Cassandra nodes are up to match the required
@@ -420,6 +473,7 @@ def ensure_cassandra_nodes_match_replication(keyname):
     if nodes_ready >= int(replication):
       break
     time.sleep(1)
+
 
 def run_datastore_upgrade(zk_ips, db_ips, db_master, status_dict, keyname):
   """ Runs the data upgrade process of fetching, validating and updating data
