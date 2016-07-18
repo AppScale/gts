@@ -1,9 +1,10 @@
-""" Helper functions for taskqueue library. """
+""" Helper functions for TaskQueue library. """
+
 import datetime
 import os
+import random
 import string
 import sys
-import random
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -28,17 +29,17 @@ class TASK_STATES:
   EXPIRED = "expired"
 
 def _sec_to_usec(t_sec):
-  """ Converts a time in seconds since the epoch to usec since the epoch.
+  """ Converts a time in seconds to usec since the epoch.
 
   Args:
-    t_sec: Time in seconds since the unix epoch
+    t_sec: Time in seconds since the unix epoch.
   Returns:
     An integer containing the number of usec since the unix epoch.
   """
   return int(t_sec * 1e6)
 
 def _usec_to_sec(t_sec):
-  """ Converts a time in usec since the epoch to seconds since the epoch.
+  """ Converts a time in usec to seconds since the epoch.
 
   Args:
     t_sec: Time in usec since the unix epoch.
@@ -52,7 +53,7 @@ def verify_task_queue_add_request(app_id, request, now):
   TaskQueueAddRequest specifies a valid eta and a valid queue.
 
   Args:
-    app_id: The application identifier.
+    app_id: The application ID.
     request: The taskqueue_service_pb.TaskQueueAddRequest to validate.
     now: A datetime.datetime object containing the current time in UTC.
 
@@ -89,18 +90,18 @@ def _get_random_string():
     A random string.
   """
   return ''.join(random.choice(string.ascii_uppercase + string.digits) \
-                    for x in range(RAND_LENGTH_SIZE))
+                               for _ in range(RAND_LENGTH_SIZE))
 
 def choose_task_name(app_name, queue_name, user_chosen=None):
   """ Creates a task name that the system can use to address tasks from
-  different apps and queues.
+  different apps and queues. Uses either a user specified or a random postfix.
  
   Args:
-    app_name: The application name.
-    queue_name: The queue 
-    user_chosen: A string name the user selected for their applicaiton.
+    app_name: The application ID.
+    queue_name: The queue name.
+    user_chosen: A string name the user selected for the task.
   Returns:
-    A randomized string representing a task name.
+    A string representing a task name.
   """
   if not user_chosen:
     user_chosen = _get_random_string() 

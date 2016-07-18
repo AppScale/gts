@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-""" 
-A service for handling TaskQueue request from application servers.
-It uses RabbitMQ and celery to handle tasks.
-"""
+""" A service for handling TaskQueue request from application servers.
+It uses RabbitMQ and Celery to handle tasks. """
 
 import datetime
 import hashlib
@@ -54,7 +52,7 @@ class TaskName(db.Model):
     return cls.STORED_KIND_NAME
 
 def setup_env():
-  """ Sets required environment variables for GAE datastore library """
+  """ Sets required environment variables for GAE datastore library. """
   os.environ['AUTH_DOMAIN'] = "appscale.com"
   os.environ['USER_EMAIL'] = ""
   os.environ['USER_NICKNAME'] = ""
@@ -69,11 +67,10 @@ class DistributedTaskQueue():
   # Required stop worker name tags.
   STOP_WORKERS_TAGS = ['app_id']
 
-  # Autoscale argument for max/min amounds of concurrent for a 
-  # celery worker.
+  # Autoscale argument for max/min concurrency for a celery worker.
   MIN_MAX_CONCURRENCY = "10,1"
 
-  # The location of where celery logs go
+  # The location of where celery logs go.
   LOG_DIR = "/var/log/appscale/celery_workers/"
 
   # The hard time limit of a running task in seconds, extra
@@ -87,17 +84,17 @@ class DistributedTaskQueue():
   # the same worker from being started if it is already running.
   PID_FILE_LOC = "/etc/appscale/"
 
-  # A port number given to God for the watch, but not actually used.
+  # A port number given to the monitoring service, but not actually used.
   CELERY_PORT = 9999
 
   # The longest a task is allowed to run in days.
   DEFAULT_EXPIRATION = 30
 
-  # The default maximum number to retry task, where 0 or None is unlimited.
+  # The default maximum number to retry a task, where 0 or None is unlimited.
   DEFAULT_MAX_RETRIES = 0
 
-  # The default amount of min/max time we wait before retrying
-  # a task in seconds.
+  # The default amount of min/max time we wait before retrying a task
+  # in seconds.
   DEFAULT_MIN_BACKOFF = 1
   DEFAULT_MAX_BACKOFF = 3600.0
 
@@ -137,7 +134,7 @@ class DistributedTaskQueue():
 
     Args: 
       json_request: A JSON string.
-      tags: The tags to validate if they are in the json.
+      tags: The tags to validate if they are in the JSON string.
     Returns:
       A dictionary dumped from the JSON string.
     """
@@ -190,10 +187,10 @@ class DistributedTaskQueue():
     application.
   
     Args:
-      app_id: The application identifier.
+      app_id: The application ID.
     Returns:
       A string which, if run, will kill celery workers for a given
-      application id.
+      application ID.
     """
     stop_command = "/usr/bin/python2 {0}/scripts/stop_service.py worker {1}" \
       .format(constants.APPSCALE_HOME, app_id)
@@ -204,7 +201,7 @@ class DistributedTaskQueue():
     a master and slave node.
  
     Args:
-      json_request: A JSON string with the application id.
+      json_request: A JSON string with the application ID.
     Returns:
       A JSON string with the error status and error reason.
     """
@@ -215,8 +212,8 @@ class DistributedTaskQueue():
       return json.dumps(request)
 
     app_id = self.__cleanse(request['app_id'])
-
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
+
     old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
     old_queue_dict = {}
     for queue in old_queues['queue']:
@@ -235,8 +232,7 @@ class DistributedTaskQueue():
     except Exception, exception:
       logging.error("******Unknown exception******")
       logging.exception(exception)
-      return json.dumps({"error": True, "reason": str(exception)}) 
- 
+      return json.dumps({"error": True, "reason": str(exception)})
 
     reload_queues = False
 
@@ -281,7 +277,6 @@ class DistributedTaskQueue():
       return json.dumps(request)
 
     app_id = self.__cleanse(request['app_id'])
-
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info.
@@ -445,23 +440,23 @@ class DistributedTaskQueue():
     """ Function for bulk adding tasks.
    
     Args:
-      request: taskqueue_service_pb.TaskQueueBulkAddRequest
-      response: taskqueue_service_pb.TaskQUeueBulkAddResponse
+      request: taskqueue_service_pb.TaskQueueBulkAddRequest.
+      response: taskqueue_service_pb.TaskQUeueBulkAddResponse.
     Raises:
-      apiproxy_error.ApplicationError
+      apiproxy_error.ApplicationError.
     """
     if request.add_request_size() == 0:
       return
    
     now = datetime.datetime.utcfromtimestamp(time.time())
 
-    # Assign names if needed and validate tasks
+    # Assign names if needed and validate tasks.
     error_found = False
     for add_request in request.add_request_list(): 
       task_result = response.add_taskresult()
       result = tq_lib.verify_task_queue_add_request(add_request.app_id(),
                                                     add_request, now)
-      # Tasks go from SKIPPED to OK once its run. If there are 
+      # Tasks go from SKIPPED to OK once they're run. If there are
       # any failures from other tasks then we pass this request 
       # back as skipped.
       if result == taskqueue_service_pb.TaskQueueServiceError.SKIPPED:
@@ -470,8 +465,8 @@ class DistributedTaskQueue():
           task_name = add_request.task_name()
            
         namespaced_name = tq_lib.choose_task_name(add_request.app_id(),
-                                              add_request.queue_name(),
-                                              user_chosen=task_name)
+                                                  add_request.queue_name(),
+                                                  user_chosen=task_name)
         add_request.set_task_name(namespaced_name)
         task_result.set_chosen_task_name(namespaced_name)
       else:
@@ -552,28 +547,28 @@ class DistributedTaskQueue():
     args = self.get_task_args(request)
     headers = self.get_task_headers(request)
     countdown = int(headers['X-AppEngine-TaskETA']) - \
-          int(datetime.datetime.now().strftime("%s"))
+                int(datetime.datetime.now().strftime("%s"))
     task_func = self.__get_task_function(request)
-    result = task_func.apply_async(kwargs={'headers':headers,
-                    'args':args},
-                    expires=args['expires'],
-                    acks_late=True,
-                    countdown=countdown,
-                    queue=TaskQueueConfig.get_celery_queue_name(
-                              request.app_id(), request.queue_name()),
-                    routing_key=TaskQueueConfig.get_celery_queue_name(
-                              request.app_id(), request.queue_name()))
+    result = task_func.apply_async(
+      kwargs={'headers':headers, 'args':args},
+      expires=args['expires'],
+      acks_late=True,
+      countdown=countdown,
+      queue=TaskQueueConfig.get_celery_queue_name(request.app_id(),
+                                                  request.queue_name()),
+      routing_key=TaskQueueConfig.get_celery_queue_name(request.app_id(),
+                                                        request.queue_name()))
 
   def __get_task_function(self, request):
-    """ Returns a function pointer to a celery task. Load the module for the
+    """ Returns a function pointer to a celery task. Loads the module for the
     app/queue.
-    
+
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
       A function pointer to a celery task.
     Raises:
-      taskqueue_service_pb.TaskQueueServiceError
+      taskqueue_service_pb.TaskQueueServiceError.
     """
     try:
       task_module = __import__(TaskQueueConfig.\
@@ -604,7 +599,7 @@ class DistributedTaskQueue():
     """ Gets the task args used when making a task web request.
   
     Args:
-      request: A taskqueue_service_pb.TaskQueueAddRequest
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
       A dictionary used by a task worker.
     """
@@ -705,7 +700,7 @@ class DistributedTaskQueue():
     """ Returns a datetime object of when a task should execute.
     
     Args:
-      request: A taskqueue_service_pb.TaskQueueAddRequest
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
       A datetime object for when the nearest time to run the 
      task is.
@@ -720,7 +715,7 @@ class DistributedTaskQueue():
     """ Returns a datetime object of when a task should expire.
     
     Args:
-      A taskqueue_service_pb.TaskQueueAddRequest
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
       A datetime object of when the task should expire. 
     """

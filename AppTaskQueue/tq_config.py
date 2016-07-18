@@ -9,9 +9,9 @@ import re
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
-from google.appengine.api import queueinfo
 from google.appengine.api import datastore
 from google.appengine.api import datastore_types
+from google.appengine.api import queueinfo
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
@@ -42,7 +42,7 @@ queue:
   # In Google App Engine it is unlimited so we use a high rate here.
   DEFAULT_RATE = "10000/s"
   
-  # The application id used for storing queue info.
+  # The application ID used for storing queue info.
   APPSCALE_QUEUES = "__appscale_queues__"
 
   # The property index for which we store the queue info.
@@ -67,17 +67,19 @@ queue:
   # Directory with the task templates.
   TEMPLATE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/templates/"
 
-
   # The location of a header of a queue worker script.
   HEADER_LOC = TEMPLATE_DIR + 'header.py'
   
   # The location of the task template code.
   TASK_LOC = TEMPLATE_DIR + 'task.py'
 
+  # The max length allowed for a queue name.
   MAX_QUEUE_NAME_LENGTH = 100
 
+  # A pattern for queue name validation.
   QUEUE_NAME_PATTERN = r'^[a-zA-Z0-9_]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
 
+  # A compiled regex object for queue name validation.
   QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
 
   # XML configs use "-" while yaml uses "_". These are the tags which 
@@ -97,7 +99,7 @@ queue:
 
     Args:
       broker: The broker to use.
-      app_id: Application id.
+      app_id: The application ID.
     """
     file_io.set_logging_format()
     self._broker = broker
@@ -145,8 +147,8 @@ queue:
       info = file_io.read(queue_file)
       logging.info("Found queue file for app {0}".format(app_id))
     except IOError:
-      logging.info("No queue file found for app {0}, using default queue" \
-        .format(app_id))
+      logging.info("No queue file found for app {0}, using default queue".
+        format(app_id))
       info = self.DEFAULT_QUEUE_YAML
       using_default = True
 
@@ -186,7 +188,7 @@ queue:
       A dictionary tree of the xml.
     """
     xml_dict = xmltodict.parse(xml_string)
-    # Now we convert it to look the same as the yaml dictionary
+    # Now we convert it to look the same as the yaml dictionary.
     converted = {'queue':[]}
     if isinstance(xml_dict['queue-entries']['queue'], list):
       all_queues = xml_dict['queue-entries']['queue']
@@ -218,9 +220,9 @@ queue:
   def get_file_queue_info(self):
     """ Retrieves the queues declared in the queue.yaml or queue.xml
     configuration.
-   
+
     Returns:
-      A dictionary representing the queues for this application.
+      A dictionary of queues.
     """
     return self._queue_info_file
 
@@ -228,7 +230,7 @@ queue:
     """ Retrieves the queues for this application configuration.
    
     Returns:
-      A dictionary representing the  
+      A dictionary of queues.
     """
     return self._queue_info_db
 
@@ -236,7 +238,7 @@ queue:
     """ Retrieves queue info from the database.
 
     Returns:
-      A dictionary representation of queues. 
+      A dictionary of queues.
     """
     queues_key = datastore.Key.from_path(self.QUEUE_KIND, 
                                          self._app_id,
@@ -245,9 +247,9 @@ queue:
     return json.loads(queues[self.QUEUE_INFO])
 
   def load_queues_from_db(self):
-    """ Gets the current queues stored in the datastore for the current
-    application and loads them into this class.
- 
+    """ Gets the queues stored in the datastore for the current application
+    and loads them into this class.
+
     Returns:
       A dictionary of queues. 
     """
@@ -255,10 +257,10 @@ queue:
     return self._queue_info_db
 
   def save_queues_to_db(self):
-    """ Stores file queue information into the datastore.
-     
+    """ Stores queue information from file into the datastore.
+
     Raises:
-      ValueError: If queue info has not been set. 
+      ValueError: If queue info has not been set.
     """
     if not self._queue_info_file:
       raise ValueError("Queue info must be set before saving the queues")
@@ -277,7 +279,7 @@ queue:
     Args:
       input_type: Whether to use the config file or the database queue info.
         Default: config file.
-    Returns: 
+    Returns:
       The full path of the worker script.
     """
     queue_info = self._queue_info_file
@@ -312,10 +314,10 @@ queue:
   
   @staticmethod
   def remove_config_files(app_id):
-    """ Removed celery worker and config files.
+    """ Removes Celery worker and config files.
    
     Args:
-      app_id: The application identifer.
+      app_id: The application ID.
     """
     worker_file = TaskQueueConfig.get_celery_worker_script_path(app_id)
     config_file = TaskQueueConfig.get_celery_configuration_path(app_id)
@@ -353,10 +355,10 @@ queue:
 
   @staticmethod
   def get_celery_worker_script_path(app_id):
-    """ Returns the full path of the worker script used for celery.
+    """ Returns the full path of the worker script used for Celery.
    
     Args:
-      app_id: The application identifier.
+      app_id: The application ID.
     Returns:
       A string of the full file name of the worker script.
     """
@@ -367,24 +369,22 @@ queue:
     """ Returns the python module name of the queue worker script.
    
     Args:
-      app_id: The application identifier.
+      app_id: The application ID.
     Returns:
       A string of the module name.
     """
     return "app___" + app_id 
 
-
   @staticmethod
   def get_celery_configuration_path(app_id):
-    """ Returns the full path of the configuration used for celery.
+    """ Returns the full path of the configuration used for Celery.
    
     Args:
-      app_id: The application identifier.
+      app_id: The application ID.
     Returns:
       A string of the full file name of the configuration file.
     """
     return TaskQueueConfig.CELERY_CONFIG_DIR + app_id + ".py"
-
 
   def create_celery_file(self, input_type):
     """ Creates the Celery configuration file describing queues and exchanges
@@ -469,7 +469,7 @@ CELERYD_PREFETCH_MULTIPLIER = 1
     Returns:
       A broker connection string.
     Raises:
-      NotImplementedError: If the broker is not implemented
+      NotImplementedError: If the broker is not implemented.
     """ 
     if broker == self.RABBITMQ:
       from brokers import rabbitmq
@@ -518,4 +518,3 @@ CELERYD_PREFETCH_MULTIPLIER = 1
       A string to reference the queue name in celery.
     """
     return app_id + "___" + queue_name
-

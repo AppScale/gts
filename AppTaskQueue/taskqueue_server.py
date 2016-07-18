@@ -1,8 +1,9 @@
 #!/usr/local/Python-2.7.3/python
 
 # See LICENSE file
-""" A tornado web service for handling TaskQueue requests from application
-servers."""
+""" A tornado web service for handling TaskQueue request from application
+servers. """
+
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -19,7 +20,7 @@ SERVER_PORT = 64839
 task_queue = None
 
 class StopWorkerHandler(tornado.web.RequestHandler):
-  """ Stops task queue workers for an app if they are running. """
+  """ Stops taskqueue workers for an app if they are running. """
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is the
@@ -40,7 +41,7 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     self.finish()
 
 class ReloadWorkerHandler(tornado.web.RequestHandler):
-  """ Reloads task queue workers for an app. """
+  """ Reloads taskqueue workers for an app. """
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is the
@@ -61,7 +62,7 @@ class ReloadWorkerHandler(tornado.web.RequestHandler):
     self.finish()
   
 class StartWorkerHandler(tornado.web.RequestHandler):
-  """ Starts task queue workers for an app if they are not running. """
+  """ Starts taskqueue workers for an app if they are not running. """
   @tornado.web.asynchronous
   def post(self):
     """ Function which handles POST requests. Data of the request is the
@@ -88,7 +89,7 @@ class MainHandler(tornado.web.RequestHandler):
     """ Function which handles unknown protocol buffers.
    
     Args:
-      app_id: Name of the application.
+      app_id: A string, the application ID.
       http_request_data: The encoded protocol buffer from the AppServer.
     Raise:
       NotImplementedError: This unknown type is not implemented.
