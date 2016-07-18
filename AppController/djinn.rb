@@ -3627,7 +3627,7 @@ class Djinn
     layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
     unless system("#{layout_script} --db-type cassandra")
       HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
+        'Unexpected data layout version. Please run "appscale upgrade".')
     end
 
     if my_node.is_db_master? or my_node.is_db_slave?
