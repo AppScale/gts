@@ -221,12 +221,14 @@ def validate_row(app_id, row, zookeeper, db_access):
   Returns:
     An dictionary with a valid entity row or None.
   """
+  row_key = row.keys()[0]
+  entity = row.values()[0]
+
   # If there is no transaction ID for the record, assume it is valid.
-  if APP_ENTITY_SCHEMA[1] not in row:
+  if APP_ENTITY_SCHEMA[1] not in entity:
     return row
 
-  row_key = row.keys()[0]
-  row_txn = long(row[APP_ENTITY_SCHEMA[1]])
+  row_txn = long(entity[APP_ENTITY_SCHEMA[1]])
   valid_txn = zookeeper.get_valid_transaction_id(app_id, row_txn, row_key)
 
   # If the transaction ID is valid, the entity is valid.
