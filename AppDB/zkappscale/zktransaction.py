@@ -1146,17 +1146,6 @@ class ZKTransaction:
 
     try:
       if lock_list:
-        # Add the transaction ID to the blacklist.
-        now = str(time.time())
-        blacklist_root = self.get_blacklist_root_path(app_id)
-
-        if not self.run_with_retry(self.handle.exists, blacklist_root):
-          self.handle.create(blacklist_root, value=DEFAULT_VAL,
-            acl=ZOO_ACL_OPEN, ephemeral=False, sequence=False, makepath=True)
-
-        self.handle.create_async(PATH_SEPARATOR.join([blacklist_root, 
-          str(txid)]), value=now, acl=ZOO_ACL_OPEN)
-
         children = []
         try:
           children = self.run_with_retry(self.handle.get_children, txpath)

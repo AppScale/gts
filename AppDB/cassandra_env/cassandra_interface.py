@@ -4,6 +4,7 @@
  Cassandra Interface for AppScale
 """
 import cassandra
+import dbconstants
 import logging
 import os
 import sys
@@ -36,6 +37,15 @@ CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
 
 # The number of times to retry connecting to Cassandra.
 INITIAL_CONNECT_RETRIES = 20
+
+# The data layout version that the datastore expects.
+EXPECTED_DATA_VERSION = 1.0
+
+# The metadata key for the data layout version.
+VERSION_INFO_KEY = 'version'
+
+# The metadata key indicating that the database has been primed.
+PRIMED_KEY = 'primed'
 
 
 class IdempotentRetryPolicy(RetryPolicy):
@@ -323,7 +333,7 @@ class DatastoreProxy(AppDBInterface):
     """
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
-    statement = 'DROP TABLE "{table}"'.format(table=table_name)
+    statement = 'DROP TABLE IF EXISTS "{table}"'.format(table=table_name)
     query = SimpleStatement(statement, retry_policy=self.retry_policy)
 
     try:
@@ -336,7 +346,7 @@ class DatastoreProxy(AppDBInterface):
 
   def create_table(self, table_name, column_names):
     """ 
-    Creates a table as a column family
+    Creates a table if it doesn't already exist.
     
     Args:
       table_name: The column family name
@@ -349,7 +359,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
-    statement = 'CREATE TABLE "{table}" ('\
+    statement = 'CREATE TABLE IF NOT EXISTS "{table}" ('\
         '{key} blob,'\
         '{column} text,'\
         '{value} blob,'\
@@ -473,3 +483,84 @@ class DatastoreProxy(AppDBInterface):
       message = 'Exception during range_query'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
+
+  def get_metadata(self, key):
+    """ Retrieve a value from the datastore metadata table.
+
+    Args:
+      key: A string containing the key to fetch.
+    Returns:
+      A string containing the value or None if the key is not present.
+    """
+    statement = """
+      SELECT {value} FROM "{table}"
+      WHERE {key} = %s
+      AND {column} = %s
+    """.format(
+      value=ThriftColumn.VALUE,
+      table=dbconstants.DATASTORE_METADATA_TABLE,
+      key=ThriftColumn.KEY,
+      column=ThriftColumn.COLUMN_NAME
+    )
+    try:
+      results = self.session.execute(statement, (bytearray(key), key))
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      message = 'Unable to fetch {} from datastore metadata'.format(key)
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+    try:
+      return results[0].value
+    except IndexError:
+      return None
+
+  def set_metadata(self, key, value):
+    """ Set a datastore metadata value.
+
+    Args:
+      key: A string containing the key to set.
+      value: A string containing the value to set.
+    """
+    if not isinstance(key, str):
+      raise TypeError('key should be a string')
+
+    if not isinstance(value, str):
+      raise TypeError('value should be a string')
+
+    statement = """
+      INSERT INTO "{table}" ({key}, {column}, {value})
+      VALUES (%(key)s, %(column)s, %(value)s)
+    """.format(
+      table=dbconstants.DATASTORE_METADATA_TABLE,
+      key=ThriftColumn.KEY,
+      column=ThriftColumn.COLUMN_NAME,
+      value=ThriftColumn.VALUE
+    )
+    parameters = {'key': bytearray(key),
+                  'column': key,
+                  'value': bytearray(value)}
+    try:
+      self.session.execute(statement, parameters)
+    except (cassandra.Unavailable, cassandra.Timeout,
+            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+      message = 'Unable to set datastore metadata for {}'.format(key)
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+    except cassandra.InvalidRequest:
+      self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
+                        dbconstants.DATASTORE_METADATA_SCHEMA)
+      self.session.execute(statement, parameters)
+
+  def valid_data_version(self):
+    """ Checks whether or not the data layout can be used.
+
+    Returns:
+      A boolean.
+    """
+    try:
+      version = self.get_metadata(VERSION_INFO_KEY)
+    except cassandra.InvalidRequest:
+      return False
+
+    return version is not None and float(version) == EXPECTED_DATA_VERSION

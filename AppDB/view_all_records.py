@@ -60,9 +60,6 @@ def main(argv):
   entities = get_entities(APP_KIND_TABLE, APP_KIND_SCHEMA, db)
   view_all(entities, APP_KIND_TABLE, db) 
 
-  entities = get_entities(JOURNAL_TABLE, JOURNAL_SCHEMA, db)
-  view_all(entities, JOURNAL_TABLE, db) 
-
   entities = get_entities(COMPOSITE_TABLE, COMPOSITE_SCHEMA, db)
   view_all(entities, COMPOSITE_TABLE, db) 
    
