@@ -8,6 +8,7 @@
 """
 import datetime
 import httplib
+import os
 import sys
 import yaml
 
@@ -23,13 +24,21 @@ def setup_environment():
 setup_environment()
 from celery import Celery
 from celery.utils.log import get_task_logger
-
 from urlparse import urlparse
+
+import appscale_info
+import constants
 
 from tq_config import TaskQueueConfig
 from tq_lib import TASK_STATES
 from distributed_tq import TaskName
 
+from google.appengine.runtime import apiproxy_errors
+from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import datastore_errors
+from google.appengine.api import datastore_distributed
+from google.appengine.api import datastore
+from google.appengine.ext import db
 
 sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
@@ -44,5 +53,12 @@ celery = Celery(module_name, broker=config.get_broker_string(),
 celery.config_from_object('CELERY_CONFIGURATION')
 
 logger = get_task_logger(__name__)
+
+master_db_ip = appscale_info.get_db_master_ip()
+connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
+ds_distrib = datastore_distributed.DatastoreDistributed(
+  "appscaledashboard", connection_str, require_indexes=False)
+apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
+os.environ['APPLICATION_ID'] = "appscaledashboard"
 
 # This template header and tasks can be found in appscale/AppTaskQueue/templates
