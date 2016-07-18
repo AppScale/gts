@@ -3614,26 +3614,31 @@ class Djinn
         else
           start_db_slave(clear_datastore, replication)
         end
-
-        layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
-        unless system("#{layout_script} --db-type cassandra")
-          HelperFunctions.log_and_crash(
-            'Unexpected data layout version. Please run "appscale upgrade".')
-        end
-
-        # Always colocate the Datastore Server and UserAppServer (soap_server).
-        @state = "Starting up SOAP Server and Datastore Server"
-        start_datastore_server()
-
-        # Start the UserAppServer and wait till it's ready.
-        start_soap_server()
-        Djinn.log_info("Done starting database services.")
       }
     end
 
     # We now wait for the essential services to go up.
     Djinn.log_info("Waiting for DB services ... ")
     threads.each { |t| t.join() }
+
+    Djinn.log_info('Ensuring necessary database tables are present')
+    sleep(3) until system("#{PRIME_SCRIPT} --check")
+
+    layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
+    unless system("#{layout_script} --db-type cassandra")
+      HelperFunctions.log_and_crash(
+          'Unexpected data layout version. Please run "appscale upgrade".')
+    end
+
+    if my_node.is_db_master? or my_node.is_db_slave?
+      # Always colocate the Datastore Server and UserAppServer (soap_server).
+      @state = "Starting up SOAP Server and Datastore Server"
+      start_datastore_server()
+
+      # Start the UserAppServer and wait till it's ready.
+      start_soap_server()
+      Djinn.log_info("Done starting database services.")
+    end
 
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
