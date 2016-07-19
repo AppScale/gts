@@ -1,15 +1,19 @@
 """ This script checks and performs an upgrade (if any) is needed for this deployment. """
 
 import argparse
+import logging
+import os
 import sys
 
 import datastore_upgrade
 
-from datastore_upgrade import is_data_upgrade_needed
+from datastore_upgrade import run_datastore_upgrade
+from datastore_upgrade import start_cassandra
+from datastore_upgrade import start_zookeeper
 from datastore_upgrade import write_to_json_file
 
-# Data upgrade status key.
-DATA_UPGRADE = 'Data-Upgrade'
+sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
+from constants import LOG_FORMAT
 
 
 def init_parser():
@@ -31,25 +35,39 @@ def init_parser():
 
 
 if __name__ == "__main__":
-
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   parser = init_parser()
   args = parser.parse_args()
+  status = {'status': 'inProgress', 'message': 'Starting services'}
+  write_to_json_file(status, args.log_postfix)
 
+  db_access = None
+  zookeeper = None
   try:
-    if not is_data_upgrade_needed(args.database, args.db_master, args.keyname):
-      status = {'Status': 'Not executed',
-                'Message': 'AppScale is currently at its latest version'}
-      write_to_json_file(status, args.log_postfix)
+    start_cassandra(args.database, args.db_master, args.keyname)
+    start_zookeeper(args.zookeeper, args.keyname)
+    datastore_upgrade.ensure_cassandra_nodes_match_replication(args.keyname)
+    db_access = datastore_upgrade.get_datastore()
+
+    # Exit early if a data layout upgrade is not needed.
+    if db_access.valid_data_version():
+      status = {'status': 'complete', 'message': 'The data layout is valid'}
       sys.exit()
+
+    zookeeper = datastore_upgrade.get_zookeeper(args.zookeeper)
+    run_datastore_upgrade(db_access, zookeeper, args.keyname, args.log_postfix)
+    status = {'status': 'complete', 'message': 'Data layout upgrade complete'}
   except Exception as error:
-    status = {'Status': 'Not executed', 'Message': error.message}
-    write_to_json_file(status, args.log_postfix)
+    status = {'status': 'error', 'message': error.message}
     sys.exit()
+  finally:
+    # Always write the result of the upgrade and clean up.
+    write_to_json_file(status, args.log_postfix)
 
-  data_upgrade_status = {}
-  datastore_upgrade.run_datastore_upgrade(
-    args.zookeeper, args.database, args.db_master, data_upgrade_status,
-    args.keyname)
+    if zookeeper is not None:
+      zookeeper.close()
+    if db_access is not None:
+      db_access.close()
 
-  # Write the upgrade status dictionary to the upgrade-status.json file.
-  write_to_json_file({DATA_UPGRADE: data_upgrade_status}, args.log_postfix)
+    datastore_upgrade.stop_cassandra(args.database, args.keyname)
+    datastore_upgrade.stop_zookeeper(args.zookeeper, args.keyname)
