@@ -180,7 +180,7 @@ def get_zookeeper(zk_location_ips):
     zk_location_ips: A list of ZooKeeper location ips.
   """
   zookeeper_locations = get_zk_locations_string(zk_location_ips)
-  zookeeper = zk.ZKTransaction(host=zookeeper_locations)
+  zookeeper = zk.ZKTransaction(host=zookeeper_locations, start_gc=False)
   return zookeeper
 
 
