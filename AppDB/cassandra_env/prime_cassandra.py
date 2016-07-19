@@ -72,8 +72,8 @@ def prime_cassandra(replication):
   remaining_retries = INITIAL_CONNECT_RETRIES
   while True:
     try:
-      # Cassandra 2.0 only supports up to Protocol Version 2.
-      cluster = Cluster(hosts, protocol_version=2)
+      # Cassandra 2.1 only supports up to Protocol Version 3.
+      cluster = Cluster(hosts, protocol_version=3)
       session = cluster.connect()
       break
     except cassandra.cluster.NoHostAvailable as connection_error:
