@@ -13,12 +13,9 @@ import os
 import socket
 import sys
 import time
- 
-import taskqueue_server
-import tq_lib
 
+import tq_lib
 from tq_config import TaskQueueConfig
-from tq_lib import TASK_STATES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
@@ -28,14 +25,12 @@ import monit_app_configuration
 import monit_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
-from google.appengine.runtime import apiproxy_errors
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
-from google.appengine.api import datastore
-from google.appengine.ext import db
-
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.ext import db
+from google.appengine.runtime import apiproxy_errors
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
@@ -101,7 +96,7 @@ class DistributedTaskQueue():
   # The default maximum number to retry task, where 0 or None is unlimited.
   DEFAULT_MAX_RETRIES = 0
 
-  # The default amount of minimum/max time we wait before retrying 
+  # The default amount of min/max time we wait before retrying
   # a task in seconds.
   DEFAULT_MIN_BACKOFF = 1
   DEFAULT_MAX_BACKOFF = 3600.0
@@ -138,8 +133,7 @@ class DistributedTaskQueue():
     self.__force_reload = False
 
   def __parse_json_and_validate_tags(self, json_request, tags):
-    """ Parses JSON and validates that it contains the 
-        proper tags.
+    """ Parses JSON and validates that it contains the proper tags.
 
     Args: 
       json_request: A JSON string.
@@ -162,17 +156,16 @@ class DistributedTaskQueue():
     return json_response
 
   def stop_worker(self, json_request):
-    """ Stops the monit watch for queues of an application on the current
-        node.
+    """ Stops the monit watch for queues of an application on the current node.
    
     Args:
-      json_request: A JSON string with the queue name for which we're 
-                    stopping its queues.
+      json_request: A JSON string with the queue name for which we're
+        stopping its queues.
     Returns:
       A JSON string with the result.
     """
-    request = self.__parse_json_and_validate_tags(json_request,  
-                                         self.STOP_WORKERS_TAGS)
+    request = self.__parse_json_and_validate_tags(
+      json_request, self.STOP_WORKERS_TAGS)
     logging.info("Stopping worker: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
@@ -193,22 +186,22 @@ class DistributedTaskQueue():
     return json.dumps(result)
     
   def get_worker_stop_command(self, app_id):
-    """ Returns the command to run to stop celery workers for
-        a given application.
+    """ Returns the command to run to stop celery workers for a given
+    application.
   
     Args:
       app_id: The application identifier.
     Returns:
-      A string which, if run, will kill celery workers for a 
-      given application id.
+      A string which, if run, will kill celery workers for a given
+      application id.
     """
     stop_command = "/usr/bin/python2 {0}/scripts/stop_service.py worker {1}" \
       .format(constants.APPSCALE_HOME, app_id)
     return stop_command
 
   def reload_worker(self, json_request):
-    """ Reloads taskqueue workers as needed.
-        A worker can be started on both a master and slave node.
+    """ Reloads taskqueue workers as needed. A worker can be started on both
+    a master and slave node.
  
     Args:
       json_request: A JSON string with the application id.
@@ -273,8 +266,8 @@ class DistributedTaskQueue():
     return json.dumps(json_response)
 
   def start_worker(self, json_request):
-    """ Starts taskqueue workers if they are not already running.
-        A worker can be started on both a master and slave node.
+    """ Starts taskqueue workers if they are not already running. A worker
+    can be started on both a master and slave node.
  
     Args:
       json_request: A JSON string with the application id.
@@ -352,7 +345,7 @@ class DistributedTaskQueue():
       TaskQueueFetchQueueStatsResponse()
     for queue in request.queue_name_list():
       stats_response = response.add_queuestats()
-      count = TaskName.all().filter("state =", TASK_STATES.QUEUED).\
+      count = TaskName.all().filter("state =", tq_lib.TASK_STATES.QUEUED).\
         filter("queue =", queue).filter("app_id =", app_id).count()
       stats_response.set_num_tasks(count)
       stats_response.set_oldest_eta_usec(-1)
@@ -572,8 +565,8 @@ class DistributedTaskQueue():
                               request.app_id(), request.queue_name()))
 
   def __get_task_function(self, request):
-    """ Returns a function pointer to a celery task.
-        Load the module for the app/queue.
+    """ Returns a function pointer to a celery task. Load the module for the
+    app/queue.
     
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
@@ -701,7 +694,6 @@ class DistributedTaskQueue():
     secret_hash = hashlib.sha1(request.app_id() + '/' + \
                       secret).hexdigest()
     headers['X-AppEngine-Fake-Is-Admin'] = secret_hash
-    #headers['X-AppEngine-Development-Payload'] = secret_hash
     headers['X-AppEngine-QueueName'] = request.queue_name()
     headers['X-AppEngine-TaskName'] = request.task_name()
     headers['X-AppEngine-TaskRetryCount'] = '0'
@@ -710,8 +702,7 @@ class DistributedTaskQueue():
     return headers
 
   def __when_to_run(self, request):
-    """ Returns a datetime object of when a task should 
-        execute.
+    """ Returns a datetime object of when a task should execute.
     
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest
@@ -726,8 +717,7 @@ class DistributedTaskQueue():
       return datetime.datetime.now() 
 
   def __when_to_expire(self, request):
-    """ Returns a datetime object of when a task should 
-        expire.
+    """ Returns a datetime object of when a task should expire.
     
     Args:
       A taskqueue_service_pb.TaskQueueAddRequest
@@ -880,8 +870,8 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def __cleanse(self, str_input):
-    """ Removes any questionable characters which might be apart of 
-        a remote attack.
+    """ Removes any questionable characters which might be apart of a remote
+    attack.
    
     Args:
       str_input: The string to cleanse.

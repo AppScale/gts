@@ -1,17 +1,12 @@
-""" 
-    AppScale TaskQueue configuration class. It deals with the configuration
-    file given with an application 'queue.yaml' or 'queue.xml'.
-    When a previous version was deployed, the older configuration from the database
-"""
+""" AppScale TaskQueue configuration class. It deals with the configuration
+file given with an application 'queue.yaml' or 'queue.xml'. When a previous
+version was deployed, the older configuration from the database. """
 
 import json
 import logging
 import os
 import re
-import sys 
-import urllib2
-
-import xml.etree.ElementTree as et
+import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import queueinfo
@@ -114,8 +109,9 @@ queue:
     file_io.mkdir(self.CELERY_WORKER_DIR)
 
   def get_queue_file_location(self, app_id):
-    """ Gets the location of the queue.yaml or queue.xml file
-        of a given application.
+    """ Gets the location of the queue.yaml or queue.xml file of a given
+    application.
+
     Args:
       app_id: The application ID.
     Returns:
@@ -132,8 +128,8 @@ queue:
       return ""
 
   def load_queues_from_file(self, app_id):
-    """ Parses the queue.yaml or queue.xml file of an application
-        and loads it into the class.
+    """ Parses the queue.yaml or queue.xml file of an application and loads
+    it into the class.
    
     Args:
       app_id: The application ID.
@@ -153,7 +149,6 @@ queue:
         .format(app_id))
       info = self.DEFAULT_QUEUE_YAML
       using_default = True
-    queue_info = ""
 
     #TODO handle bad xml/yaml files.
     if queue_file.endswith('yaml') or using_default:
@@ -182,8 +177,8 @@ queue:
     return queue_info 
 
   def parse_queue_xml(self, xml_string):
-    """ Turns an xml string into a dictionary tree using the 
-        same format at the yaml conversion.
+    """ Turns an xml string into a dictionary tree using the same format at
+    the yaml conversion.
 
     Args:
       xml: A string contents in XML format.
@@ -221,8 +216,8 @@ queue:
     return converted
 
   def get_file_queue_info(self):
-    """ Retrives the queues declared in the queue.yaml or queue.xml
-        configuration. 
+    """ Retrieves the queues declared in the queue.yaml or queue.xml
+    configuration.
    
     Returns:
       A dictionary representing the queues for this application.
@@ -230,7 +225,7 @@ queue:
     return self._queue_info_file
 
   def get_db_queue_info(self):
-    """ Retrives the queues for this application configuration. 
+    """ Retrieves the queues for this application configuration.
    
     Returns:
       A dictionary representing the  
@@ -238,7 +233,7 @@ queue:
     return self._queue_info_db
 
   def __get_queues_from_db(self):
-    """ Retrives queue info from the database. 
+    """ Retrieves queue info from the database.
 
     Returns:
       A dictionary representation of queues. 
@@ -250,8 +245,8 @@ queue:
     return json.loads(queues[self.QUEUE_INFO])
 
   def load_queues_from_db(self):
-    """ Gets the current queues stored in the datastore for 
-        the current application and loads them into this class. 
+    """ Gets the current queues stored in the datastore for the current
+    application and loads them into this class.
  
     Returns:
       A dictionary of queues. 
@@ -260,7 +255,7 @@ queue:
     return self._queue_info_db
 
   def save_queues_to_db(self):
-    """ Stores file queue information into the datastore. 
+    """ Stores file queue information into the datastore.
      
     Raises:
       ValueError: If queue info has not been set. 
@@ -276,12 +271,12 @@ queue:
     datastore.Put(entity)
 
   def create_celery_worker_scripts(self, input_type):
-    """ Creates the task worker python script. It uses
-        a configuration file for setup.
+    """ Creates the task worker python script. It uses a configuration file
+    for setup.
 
     Args:
-      input_type: Whether to use the config file or the 
-                  database queue info. Default: config file.
+      input_type: Whether to use the config file or the database queue info.
+        Default: config file.
     Returns: 
       The full path of the worker script.
     """
@@ -292,15 +287,23 @@ queue:
     header_template = file_io.read(self.HEADER_LOC)
     task_template = file_io.read(self.TASK_LOC)
     header_template = header_template.replace("APP_ID", self._app_id)
-    script = header_template.replace("CELERY_CONFIGURATION", 
-                                     self._app_id) + '\n'
+    script = header_template.replace("CELERY_CONFIGURATION", self._app_id) + \
+      '\n'
     for queue in queue_info['queue']:
       queue_name = queue['name']  
       # The queue name is used as a function name so replace invalid chars
       queue_name = queue_name.replace('-', '_')
       self.validate_queue_name(queue_name)
-      new_task = task_template.replace("QUEUE_NAME", 
-                     self.get_queue_function_name(queue_name))
+      new_task = task_template.\
+        replace("QUEUE_NAME", self.get_queue_function_name(queue_name))
+
+      # For tasks generated by mapreduce, or destined to be run by a module,
+      # the hostname may have a prefix that corresponds to a different
+      # subdomain.
+      # AppScale does not support that type of routing currently, so the main
+      # loadbalancer IP/hostname is used here for the execution of a task.
+      new_task = new_task.\
+        replace("PUBLIC_IP", "\"{}\"".format(self.get_public_ip()))
       script += new_task + '\n'
 
     worker_file = self.get_celery_worker_script_path(self._app_id)
@@ -321,8 +324,8 @@ queue:
 
   @staticmethod
   def get_queue_function_name(queue_name):
-    """ Returns the function name of a queue which is not the queue name 
-        for namespacing and collision reasons.
+    """ Returns the function name of a queue which is not the queue name for
+    namespacing and collision reasons.
 
     Args:
       queue_name: The name of a queue.
@@ -335,8 +338,8 @@ queue:
 
   @staticmethod
   def get_celery_annotation_name(app_id, queue_name):
-    """ Returns the annotation name for a celery configuration of 
-        a queue for a given application id.
+    """ Returns the annotation name for a celery configuration of a queue
+    for a given application id.
     
     Args:
       app_id: The application ID.
@@ -384,14 +387,13 @@ queue:
 
 
   def create_celery_file(self, input_type):
-    """ Creates the Celery configuration file describing 
-        queues and exchanges for an application. Uses either
-        the queue.yaml/queue.xml input or what was stored in the 
-        datastore to create the celery file. 
+    """ Creates the Celery configuration file describing queues and exchanges
+    for an application. Uses either the queue.yaml/queue.xml input or what
+    was stored in the datastore to create the celery file.
 
     Args:
-      input_type: Whether to use the config file or the 
-                  database queue info. Default: config file.
+      input_type: Whether to use the config file or the database queue info.
+        Default: config file.
     Returns:
       A string representing the full path location of the 
       configuration file.
@@ -484,6 +486,14 @@ CELERYD_PREFETCH_MULTIPLIER = 1
     """
     return self._broker_location
 
+  def get_public_ip(self):
+    """ Gets the public IP to which the task calls are routed.
+
+    Returns:
+      The primary loadbalancer IP/hostname.
+    """
+    return appscale_info.get_login_ip()
+
   def validate_queue_name(self, queue_name):
     """ Validates the queue name to make sure it can be used as a function name.
     
@@ -498,9 +508,8 @@ CELERYD_PREFETCH_MULTIPLIER = 1
 
   @staticmethod
   def get_celery_queue_name(app_id, queue_name):
-    """ Gets a usable queue name for celery to prevent
-        collisions where mulitple apps have the same name 
-        for a queue.
+    """ Gets a usable queue name for celery to prevent collisions where
+    mulitple apps have the same name for a queue.
     
     Args:
       app_id: The application ID.

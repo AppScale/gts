@@ -1,6 +1,6 @@
-""" Implements a the task queue worker and routing. This is just
+""" Implements a task queue worker and routing. This is just
     a template and not the actual script which is run. Actual scripts 
-    can be found in /etc/appscale/celery/scripts.
+    can be found in /etc/appscale/celery/workers.
 
     Find and replace the following:
     APP_ID: Set this to the current application ID.
@@ -24,15 +24,14 @@ def setup_environment():
 setup_environment()
 from celery import Celery
 from celery.utils.log import get_task_logger
-
 from urlparse import urlparse
+
+import appscale_info
+import constants
 
 from tq_config import TaskQueueConfig
 from tq_lib import TASK_STATES
 from distributed_tq import TaskName
-
-import appscale_info
-import constants
 
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.api import apiproxy_stub_map
@@ -40,7 +39,6 @@ from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
 from google.appengine.ext import db
-
 
 sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)

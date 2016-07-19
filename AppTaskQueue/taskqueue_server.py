@@ -1,9 +1,8 @@
 #!/usr/local/Python-2.7.3/python
 
 # See LICENSE file
-""" 
-A tornado web service for handling TaskQueue request from application servers.
-"""
+""" A tornado web service for handling TaskQueue requests from application
+servers."""
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -11,7 +10,6 @@ import tornado.web
 import distributed_tq
 
 from google.appengine.api.taskqueue import taskqueue_service_pb
-
 from google.appengine.ext.remote_api import remote_api_pb
 
 # Default port this service runs on.
@@ -24,9 +22,8 @@ class StopWorkerHandler(tornado.web.RequestHandler):
   """ Stops task queue workers for an app if they are running. """
   @tornado.web.asynchronous
   def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in a JSON string. 
-    """
+    """ Function which handles POST requests. Data of the request is the
+    request from the AppController in a JSON string. """
     global task_queue    
     request = self.request
     http_request_data = request.body
@@ -36,9 +33,8 @@ class StopWorkerHandler(tornado.web.RequestHandler):
 
   @tornado.web.asynchronous
   def get(self):
-    """ Handles get request for the web server. Returns the worker
-        status in json.
-    """
+    """ Handles get request for the web server. Returns the worker status in
+    JSON. """
     global task_queue    
     self.write('{"status":"up"}')
     self.finish()
@@ -47,9 +43,8 @@ class ReloadWorkerHandler(tornado.web.RequestHandler):
   """ Reloads task queue workers for an app. """
   @tornado.web.asynchronous
   def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in a JSON string. 
-    """
+    """ Function which handles POST requests. Data of the request is the
+    request from the AppController in a JSON string. """
     global task_queue    
     request = self.request
     http_request_data = request.body
@@ -59,9 +54,8 @@ class ReloadWorkerHandler(tornado.web.RequestHandler):
 
   @tornado.web.asynchronous
   def get(self):
-    """ Handles get request for the web server. Returns the worker
-        status in json.
-    """
+    """ Handles get request for the web server. Returns the worker status in
+    JSON. """
     global task_queue    
     self.write('{"status":"up"}')
     self.finish()
@@ -70,10 +64,9 @@ class StartWorkerHandler(tornado.web.RequestHandler):
   """ Starts task queue workers for an app if they are not running. """
   @tornado.web.asynchronous
   def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in a JSON string. 
-    """
-    global task_queue    
+    """ Function which handles POST requests. Data of the request is the
+    request from the AppController in a JSON string. """
+    global task_queue
     request = self.request
     http_request_data = request.body
     json_response = task_queue.start_worker(http_request_data)
@@ -82,18 +75,15 @@ class StartWorkerHandler(tornado.web.RequestHandler):
 
   @tornado.web.asynchronous
   def get(self):
-    """ Handles get request for the web server. Returns the worker
-        status in json.
-    """
-    global task_queue    
+    """ Handles get request for the web server. Returns the worker status in
+    JSON. """
+    global task_queue
     self.write('{"status":"up"}')
     self.finish()
  
 class MainHandler(tornado.web.RequestHandler):
-  """
-  Defines what to do when the webserver receieves different 
-  types of HTTP requests.
-  """
+  """ Defines what to do when the webserver receives different types of HTTP
+  requests. """
   def unknown_request(self, app_id, http_request_data, pb_type):
     """ Function which handles unknown protocol buffers.
    
@@ -107,10 +97,8 @@ class MainHandler(tornado.web.RequestHandler):
 
   @tornado.web.asynchronous
   def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppServer in an encoded protocol buffer 
-        format.
-    """
+    """ Function which handles POST requests. Data of the request is the
+    request from the AppServer in an encoded protocol buffer format. """
     global task_queue    
     request = self.request
     http_request_data = request.body
@@ -129,17 +117,16 @@ class MainHandler(tornado.web.RequestHandler):
   @tornado.web.asynchronous
   def get(self):
     """ Handles get request for the web server. Returns that it is currently
-        up in json.
-    """
+    up in JSON. """
     global task_queue    
     self.write('{"status":"up"}')
     self.finish()
 
   def remote_request(self, app_id, http_request_data):
-    """ Receives a remote request to which it should give the correct 
-        response. The http_request_data holds an encoded protocol buffer
-        of a certain type. Each type has a particular response type. 
-    
+    """ Receives a remote request to which it should give the correct
+    response. The http_request_data holds an encoded protocol buffer of a
+    certain type. Each type has a particular response type.
+
     Args:
       app_id: The application ID that is sending this request.
       http_request_data: Encoded protocol buffer.
@@ -151,7 +138,6 @@ class MainHandler(tornado.web.RequestHandler):
     response = None
     errcode = 0
     errdetail = ""
-    apperror_pb = None
     method = ""
     http_request_data = ""
 
@@ -237,11 +223,11 @@ def main():
   global task_queue
   task_queue = distributed_tq.DistributedTaskQueue()
   tq_application = tornado.web.Application([
-    # Takes json from AppController 
+    # Takes JSON requests from AppController.
     (r"/startworker", StartWorkerHandler),
     (r"/stopworker", StopWorkerHandler),
     (r"/reloadworker", ReloadWorkerHandler),
-    # Takes protocol buffers from the AppServers
+    # Takes protocol buffers from the AppServers.
     (r"/*", MainHandler)
   ])
 
