@@ -457,14 +457,14 @@ def ensure_cassandra_nodes_match_replication(keyname):
   command = cassandra_interface.NODE_TOOL + " " + 'status'
   key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
   ssh_cmd = ['ssh', '-i', key_file, appscale_info.get_db_master_ip(), command]
-  cmd_output = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
 
-  nodes_ready = 0
   # Get the replication factor from the database_info.yaml file.
   db_info = appscale_info.get_db_info()
   replication = db_info[':replication']
 
   while True:
+    nodes_ready = 0
+    cmd_output = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
     for line in cmd_output.stdout:
       if line.startswith('UN'):
         nodes_ready += 1
