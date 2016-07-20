@@ -1664,7 +1664,7 @@ class Djinn
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
-          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+          ZKInterface.add_app_entry(appid, my_node.private_ip, location)
         rescue FailedZooKeeperOperationException => e
           Djinn.log_warn("(update) couldn't talk with zookeeper while " +
             "working on app #{appid} with #{e.message}.")
@@ -1925,7 +1925,7 @@ class Djinn
 
     if File.exists?(location)
       begin
-        ZKInterface.add_app_entry(appname, my_node.public_ip, location)
+        ZKInterface.add_app_entry(appname, my_node.private_ip, location)
         uac = UserAppClient.new(my_node.private_ip, @@secret)
         uac.enable_app(appname)
         result = "Found #{appname} in zookeeper."
@@ -4659,6 +4659,10 @@ HOSTS
               "zookeeper: #{except.message}.")
           end
         end
+
+        # Remove application directory and source.
+        FileUtils.rm_rf("#{HelperFunctions.get_app_path(app)}/app")
+        FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz")
       }
     }
   end
@@ -5815,8 +5819,9 @@ HOSTS
       end
     }
 
-    # Try 3 times on each node known to have this application
-    nodes_with_app.each { |node|
+    # Try 3 times on each node known to have this application. Make sure
+    # we pick a random order to not overload the same host.
+    nodes_with_app.shuffle.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
       tries = 3
@@ -5824,8 +5829,8 @@ HOSTS
         Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
         Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
         if File.exists?(app_path)
-          done_uploading(appname, app_path, @@secret)
-          Djinn.log_debug("Got a copy of #{appname} from #{ip}.")
+          result = done_uploading(appname, app_path, @@secret)
+          Djinn.log_debug("Got a copy of #{appname} from #{ip}: #{result}.")
           return true
         end
         Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
