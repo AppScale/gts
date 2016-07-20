@@ -28,7 +28,7 @@ class TASK_STATES:
   EXPIRED = "expired"
 
 def _sec_to_usec(t_sec):
-  """Converts a time in seconds since the epoch to usec since the epoch.
+  """ Converts a time in seconds since the epoch to usec since the epoch.
 
   Args:
     t_sec: Time in seconds since the unix epoch
@@ -38,7 +38,7 @@ def _sec_to_usec(t_sec):
   return int(t_sec * 1e6)
 
 def _usec_to_sec(t_sec):
-  """Converts a time in usec since the epoch to seconds since the epoch.
+  """ Converts a time in usec since the epoch to seconds since the epoch.
 
   Args:
     t_sec: Time in usec since the unix epoch.
@@ -48,9 +48,8 @@ def _usec_to_sec(t_sec):
   return t_sec / 1e6
 
 def verify_task_queue_add_request(app_id, request, now):
-  """Checks that a TaskQueueAddRequest is valid.
-
-  Checks that a TaskQueueAddRequest specifies a valid eta and a valid queue.
+  """ Checks that a TaskQueueAddRequest is valid. Checks that a
+  TaskQueueAddRequest specifies a valid eta and a valid queue.
 
   Args:
     app_id: The application identifier.
@@ -93,8 +92,8 @@ def _get_random_string():
                     for x in range(RAND_LENGTH_SIZE))
 
 def choose_task_name(app_name, queue_name, user_chosen=None):
-  """ Creates a task name that the system can use to address
-      tasks from different apps and queues.
+  """ Creates a task name that the system can use to address tasks from
+  different apps and queues.
  
   Args:
     app_name: The application name.

@@ -121,7 +121,6 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.should_receive('process_statistics')
-    dsg.should_receive('verify_entity')
     self.assertEquals(True,
       dsg.process_entity({'key':{dbconstants.APP_ENTITY_SCHEMA[0]:'ent',
       dbconstants.APP_ENTITY_SCHEMA[1]:'version'}}))
@@ -153,51 +152,6 @@ class TestGroomer(unittest.TestCase):
   def test_txn_blacklist_cleanup(self):
     #TODO 
     pass
-  
-  def test_process_tombstone(self):
-    zookeeper = flexmock()
-    zookeeper.should_receive("get_transaction_id").and_return(1)
-    zookeeper.should_receive("acquire_lock").and_return(True)
-    zookeeper.should_receive("release_lock").and_return(True)
-    zookeeper.should_receive("is_blacklisted").and_return(False)
-    zookeeper.should_receive("notify_failed_transaction").and_return(True)
-
-    flexmock(time)
-    time.should_receive('sleep').and_return()
-
-    flexmock(FakeDatastore)
-    FakeDatastore.should_receive("batch_delete")
- 
-    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    dsg = flexmock(dsg)
-    dsg.should_receive("hard_delete_row").and_return(True)
-
-    flexmock(entity_utils)
-    entity_utils.should_receive(
-      "get_root_key_from_entity_key").and_return("key")
-
-    dsg.db_access = FakeDatastore()
-
-    # Successful operation.
-    self.assertEquals(True, dsg.process_tombstone("key", "entity", "1"))
-
-    # Failure on release lock but delete was successful.
-    zookeeper.should_receive("release_lock").\
-      and_raise(ZKTransactionException('zk'))
-    self.assertEquals(True, dsg.process_tombstone("key", "entity", "1"))
-
-    # Hard delete failed.
-    dsg.should_receive("hard_delete_row").and_return(False)
-    self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
-
-    # Failed to acquire lock.
-    zookeeper.should_receive("acquire_lock").and_return(False)
-    self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
-  
-    # Failed to acquire lock with an exception.
-    zookeeper.should_receive("acquire_lock").\
-      and_raise(ZKTransactionException('zk'))
-    self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
 
   def test_stop(self):
     #TODO 
