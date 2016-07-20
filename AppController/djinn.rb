@@ -1664,7 +1664,7 @@ class Djinn
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
-          ZKInterface.add_app_entry(appid, my_node.private_ip, location)
+          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
         rescue FailedZooKeeperOperationException => e
           Djinn.log_warn("(update) couldn't talk with zookeeper while " +
             "working on app #{appid} with #{e.message}.")
@@ -1925,7 +1925,7 @@ class Djinn
 
     if File.exists?(location)
       begin
-        ZKInterface.add_app_entry(appname, my_node.private_ip, location)
+        ZKInterface.add_app_entry(appname, my_node.public_ip, location)
         uac = UserAppClient.new(my_node.private_ip, @@secret)
         uac.enable_app(appname)
         result = "Found #{appname} in zookeeper."
