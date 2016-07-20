@@ -118,6 +118,10 @@ class DatastoreProxy(AppDBInterface):
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
     self.retry_policy = IdempotentRetryPolicy()
 
+  def close(self):
+    """ Close all sessions and connections to Cassandra. """
+    self.cluster.shutdown()
+
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
     Takes in batches of keys and retrieves their corresponding rows.
