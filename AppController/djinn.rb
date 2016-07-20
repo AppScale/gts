@@ -4670,10 +4670,6 @@ HOSTS
               "zookeeper: #{except.message}.")
           end
         end
-
-        # Remove application directory and source.
-        FileUtils.rm_rf("#{HelperFunctions.get_app_path(app)}/app")
-        FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz")
       }
     }
   end
@@ -5832,7 +5828,7 @@ HOSTS
 
     # Try 3 times on each node known to have this application. Make sure
     # we pick a random order to not overload the same host.
-    nodes_with_app.shuffle.each { |node|
+    nodes_with_app.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
       tries = 3
