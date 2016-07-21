@@ -4714,7 +4714,7 @@ HOSTS
             end
           end
           @app_names = @app_names + [app]
-        rescue FailedNodeEsception
+        rescue FailedNodeException
           Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
         end
       }
