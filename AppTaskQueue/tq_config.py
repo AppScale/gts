@@ -141,7 +141,6 @@ queue:
       ValueError: If queue_file is unable to get loaded.
     """
     queue_file = self.get_queue_file_location(app_id)
-    info = ""
     using_default = False
     try:
       info = file_io.read(queue_file)

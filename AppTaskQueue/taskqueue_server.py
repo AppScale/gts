@@ -32,14 +32,6 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     self.write(json_response)
     self.finish()
 
-  @tornado.web.asynchronous
-  def get(self):
-    """ Handles get request for the web server. Returns the worker status in
-    JSON. """
-    global task_queue    
-    self.write('{"status":"up"}')
-    self.finish()
-
 class ReloadWorkerHandler(tornado.web.RequestHandler):
   """ Reloads taskqueue workers for an app. """
   @tornado.web.asynchronous
@@ -53,14 +45,6 @@ class ReloadWorkerHandler(tornado.web.RequestHandler):
     self.write(json_response)
     self.finish()
 
-  @tornado.web.asynchronous
-  def get(self):
-    """ Handles get request for the web server. Returns the worker status in
-    JSON. """
-    global task_queue    
-    self.write('{"status":"up"}')
-    self.finish()
-  
 class StartWorkerHandler(tornado.web.RequestHandler):
   """ Starts taskqueue workers for an app if they are not running. """
   @tornado.web.asynchronous
@@ -74,14 +58,6 @@ class StartWorkerHandler(tornado.web.RequestHandler):
     self.write(json_response)
     self.finish()
 
-  @tornado.web.asynchronous
-  def get(self):
-    """ Handles get request for the web server. Returns the worker status in
-    JSON. """
-    global task_queue
-    self.write('{"status":"up"}')
-    self.finish()
- 
 class MainHandler(tornado.web.RequestHandler):
   """ Defines what to do when the webserver receives different types of HTTP
   requests. """
