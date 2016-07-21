@@ -206,28 +206,6 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd.insert_composite_indexes([ent], [composite_index])
 
-  def test_insert_entities(self):
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version').and_return(True)
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    item1 = Item(key_name="Bob", name="Bob", _app="hello")
-    item2 = Item(key_name="Sally", name="Sally", _app="hello")
-    key1 = db.model_to_protobuf(item1)
-    key2 = db.model_to_protobuf(item2)
-    dd.insert_entities([key1,key2], {"hello\x00\x00Item:Sally\x01": 1, "hello\x00\x00Item:Bob\x01":1})
-
-  def test_insert_index_entries(self):
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version').and_return(True)
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    item1 = Item(key_name="Bob", name="Bob", _app="hello")
-    item2 = Item(key_name="Sally", name="Sally", _app="hello")
-    key1 = db.model_to_protobuf(item1)
-    key2 = db.model_to_protobuf(item2)
-    dd.insert_index_entries([key1,key2])
-
   def test_allocate_ids(self):
     PREFIX = "x"
     BATCH_SIZE = 1000
