@@ -1536,7 +1536,9 @@ class Djinn
     app_name.gsub!(/[^\w\d\-]/, "")
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
-    Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app_name)}")
+    # Prevent future deploys from using the old application code.
+    FileUtils.rm_rf("#{HelperFunctions.get_app_path(app_name)}")
+    FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
     CronHelper.clear_app_crontab(app_name)
 
     # app shutdown process can take more than 30 seconds
