@@ -1230,6 +1230,7 @@ class DatastoreDistributed():
           retries=self.NON_TRANS_LOCK_RETRY_COUNT)
         self.put_entities(entities, txn_hash,
                           put_request.composite_index_list())
+        self.logger.debug('Updated {} entities'.format(len(entities)))
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
 
       put_response.key_list().extend([e.key() for e in entities])
@@ -1465,6 +1466,7 @@ class DatastoreDistributed():
         raise zkte
    
     results, row_keys = self.fetch_keys(keys)
+    self.logger.debug('Returning {} results'.format(len(results)))
     for r in row_keys:
       group = get_response.add_entity() 
       if r in results and APP_ENTITY_SCHEMA[0] in results[r]:
@@ -1524,6 +1526,7 @@ class DatastoreDistributed():
         keys,
         composite_indexes=filtered_indexes
       )
+      self.logger.debug('Removed {} entities'.format(len(keys)))
       self.release_locks_for_nontrans(app_id, keys, txn_hash)
  
   def generate_filter_info(self, filters):
@@ -2234,7 +2237,9 @@ class DatastoreDistributed():
     if query.kind() == "__namespace__":
       entities = [self.default_namespace()] + entities
 
-    return entities[:limit]
+    results = entities[:limit]
+    self.logger.debug('Returning {} entities'.format(len(results)))
+    return results
 
   def remove_exists_filters(self, filter_info):
     """ Remove any filters that have EXISTS filters.
@@ -2415,7 +2420,9 @@ class DatastoreDistributed():
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
 
-    return entities[:limit]
+    results = entities[:limit]
+    self.logger.debug('Returning {} results'.format(len(results)))
+    return results
 
   def __apply_filters(self, 
                      filter_ops, 
@@ -2915,6 +2922,8 @@ class DatastoreDistributed():
       if start_key in result_list:
         force_exclusive = True
 
+    results = result_list[:limit]
+    self.logger.debug('Returning {} results'.format(len(results)))
     return result_list[:limit]
 
   def does_composite_index_exist(self, query):
@@ -3239,7 +3248,9 @@ class DatastoreDistributed():
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
 
-    return entities[:limit]
+    results = entities[:limit]
+    self.logger.debug('Returning {} results'.format(len(results)))
+    return results
 
   def __get_multiple_equality_filters(self, filter_list):
     """ Returns filters from the query that contain multiple equality
@@ -3963,8 +3974,8 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    self.logger.info('Doing a rollback on transaction {} for {}'.
-      format(txn, app_id))
+    self.logger.info(
+      'Doing a rollback on transaction {} for {}'.format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")
