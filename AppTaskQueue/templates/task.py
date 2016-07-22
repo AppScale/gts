@@ -55,6 +55,7 @@ def QUEUE_NAME(headers, args):
       logger.error("Task %s with id %s has expired with expiration date %s" % \
                    (args['task_name'], QUEUE_NAME.request.id, args['expires']))
       celery.control.revoke(QUEUE_NAME.request.id)
+      db.delete(item)
       return
 
     if QUEUE_NAME.request.retries >= args['max_retries'] and \
@@ -67,6 +68,7 @@ def QUEUE_NAME(headers, args):
       item.endtime = datetime.datetime.now()
       item.put()
       celery.control.revoke(QUEUE_NAME.request.id)
+      db.delete(item)
       return
 
     if url.scheme == 'http':
@@ -120,6 +122,7 @@ def QUEUE_NAME(headers, args):
       item.state = TASK_STATES.SUCCESS
       item.endtime = datetime.datetime.now()
       item.put()
+      db.delete(item)
       return response.status
     elif response.status == 302:
       redirect_url = response.getheader('Location')
