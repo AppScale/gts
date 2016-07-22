@@ -1885,6 +1885,7 @@ class Djinn
     write_zookeeper_locations()
     pick_zookeeper(@zookeeper_data)
     write_our_node_info()
+    backup_appcontroller_state() if my_node.is_shadow?
     wait_for_nodes_to_finish_loading(@nodes)
 
     # This variable is used to keep track of the last time we printed some
