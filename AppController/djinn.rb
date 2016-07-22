@@ -2909,13 +2909,10 @@ class Djinn
       v = instance_variable_get(k)
       if k.to_s == "@nodes"
         v = Djinn.convert_location_class_to_array(v)
-      elsif k == "@my_index" or k == "@api_status"
+      elsif k == "@my_index"
         # Don't back up @my_index - it's a node-specific pointer that
         # indicates which node is "our node" and thus should be regenerated
         # via find_me_in_locations.
-        # Also don't worry about @api_status - (used to be for deprecated
-        # API checker) it can take up a lot of space and can easily be
-        # regenerated with new data.
         next
       end
 
@@ -2962,6 +2959,11 @@ class Djinn
     Djinn.log_info("Reload State : #{json_state}")
 
     @@secret = json_state['@@secret']
+    # Is the state we are reading current?
+    if @@secret != HelperFunctions.get_secret()
+      Djinn.log_debug("State in zookeeper is not about this deployment.")
+      return false
+    end
     keyname = json_state['@options']['keyname']
 
     # Puts json_state.
