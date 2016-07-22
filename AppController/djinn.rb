@@ -4383,8 +4383,7 @@ HOSTS
         end
       }
 
-      Djinn.log_run("rm -rf #{PERSISTENT_MOUNT_POINT}")
-      Djinn.log_run("mkdir #{PERSISTENT_MOUNT_POINT}")
+      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}")
       mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
         "#{PERSISTENT_MOUNT_POINT} 2>&1")
       if mount_output.empty?
@@ -4395,7 +4394,7 @@ HOSTS
         # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
         # Make sure there is data present there and that it points to our
         # persistent disk.
-        if File.exists?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
+        if File.directory?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
           Djinn.log_run("rm -rf /var/lib/rabbitmq")
         else
           Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
