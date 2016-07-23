@@ -3609,12 +3609,14 @@ class Djinn
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
         clear_datastore = @options['clear_datastore'].downcase == "true"
-        replication = Integer(@options['replication'])
+        db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
+        needed_nodes = needed_for_quorum(db_nodes,
+                                         Integer(@options['replication']))
         if my_node.is_db_master?
-          start_db_master(clear_datastore, replication)
+          start_db_master(clear_datastore, needed_nodes)
           prime_database
         else
-          start_db_slave(clear_datastore, replication)
+          start_db_slave(clear_datastore, needed_nodes)
         end
       }
     end
@@ -3624,7 +3626,7 @@ class Djinn
     threads.each { |t| t.join() }
 
     Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(3) until system("#{PRIME_SCRIPT} --check")
+    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check")
 
     layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
     unless system("#{layout_script} --db-type cassandra")
