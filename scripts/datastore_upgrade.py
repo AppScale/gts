@@ -331,29 +331,30 @@ def stop_zookeeper(zk_ips, keyname):
       logging.error('Unable to stop ZooKeeper on {}'.format(ip))
 
 
-def ensure_cassandra_nodes_match_replication(keyname):
-  """ Waits until enough Cassandra nodes are up to match the required
-  replication factor.
+def wait_for_quorum(keyname, db_nodes, replication):
+  """ Waits until enough Cassandra nodes are up for a quorum.
+
   Args:
     keyname: A string containing the deployment's keyname.
+    db_nodes: An integer specifying the total number of DB nodes.
+    replication: An integer specifying the keyspace replication factor.
   """
   command = cassandra_interface.NODE_TOOL + " " + 'status'
   key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
   ssh_cmd = ['ssh', '-i', key_file, appscale_info.get_db_master_ip(), command]
 
-  # Get the replication factor from the database_info.yaml file.
-  db_info = appscale_info.get_db_info()
-  replication = db_info[':replication']
+  # Determine the number of nodes needed for a quorum.
+  if db_nodes < 1 or replication < 1:
+    raise dbconstants.AppScaleDBError('At least 1 database machine is needed.')
+  can_fail = math.ceil(replication/2.0 - 1)
+  needed = int(db_nodes - can_fail)
 
   while True:
-    nodes_ready = 0
-    cmd_output = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
-    for line in cmd_output.stdout:
-      if line.startswith('UN'):
-        nodes_ready += 1
-
-    logging.info("{0} nodes are up. {1} are needed.".format(nodes_ready, replication))
-    if nodes_ready >= int(replication):
+    output = subprocess.check_output(ssh_cmd)
+    nodes_ready = len(
+      [line for line in output.splitlines() if line.startswith('UN')])
+    logging.info('{} nodes are up. {} are needed.'.format(nodes_ready, needed))
+    if nodes_ready >= needed:
       break
     time.sleep(1)
 
