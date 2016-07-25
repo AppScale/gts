@@ -347,6 +347,9 @@ def wait_for_quorum(keyname, db_nodes, replication):
   # Determine the number of nodes needed for a quorum.
   if db_nodes < 1 or replication < 1:
     raise dbconstants.AppScaleDBError('At least 1 database machine is needed.')
+  if replication > db_nodes:
+    raise dbconstants.AppScaleDBError(
+      'The replication factor cannot exceed the number of database machines.')
   can_fail = math.ceil(replication/2.0 - 1)
   needed = int(db_nodes - can_fail)
 

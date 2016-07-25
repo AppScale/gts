@@ -174,6 +174,11 @@ def needed_for_quorum(total_nodes, replication)
   if total_nodes < 1 or replication < 1
     raise Exception('At least 1 database machine is needed.')
   end
+  if replication > total_nodes
+    raise Exception(
+      'The replication factor cannot exceed the number of database machines.')
+  end
+
   can_fail = (replication/2.0 - 1).ceil
   return total_nodes - can_fail
 end
