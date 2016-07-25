@@ -11,8 +11,8 @@ require 'timeout'
 # to properly execute (i.e., starting a process may take more than 2 minutes).
 MAX_TIME_OUT = 180
 
-# This is transitional glue code as we shift from ruby to python. The 
-# Taskqueue server is written in python and hence we use a REST client 
+# This is transitional glue code as we shift from ruby to python. The
+# TaskQueue server is written in python and hence we use a REST client
 # to communicate between the two services.
 class TaskQueueClient
 
@@ -49,8 +49,8 @@ class TaskQueueClient
             trace = e.backtrace.join("\n")
             Djinn.log_warn("Exception encountered while talking to " +
               "#{@ip}:#{SERVER_PORT}.\n#{trace}")
-            raise FailedNodeException.new("Exception #{e.class}:#{e.message} encountered " +
-              "while talking to #{@ip}:#{SERVER_PORT}.")
+            raise FailedNodeException.new("Exception #{e.class}:#{e.message} " +
+              "encountered while talking to #{@ip}:#{SERVER_PORT}.")
           end
         end
       }
@@ -76,7 +76,9 @@ class TaskQueueClient
     make_call(MAX_TIME_OUT, false, "start_worker"){
       url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/startworker")
       http = Net::HTTP.new(url.host, url.port)
-      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
+      response = http.post(url.path,
+                           json_config,
+                           {'Content-Type'=>'application/json'})
     }
     if response.nil?
       return {"error" => true, "reason" => "Unable to get a response"}
@@ -100,7 +102,9 @@ class TaskQueueClient
     make_call(MAX_TIME_OUT, false, "reload_worker"){
       url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/reloadworker")
       http = Net::HTTP.new(url.host, url.port)
-      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
+      response = http.post(url.path,
+                           json_config,
+                           {'Content-Type'=>'application/json'})
     }
     if response.nil?
       return {"error" => true, "reason" => "Unable to get a response"}
@@ -125,7 +129,9 @@ class TaskQueueClient
     make_call(MAX_TIME_OUT, false, "stop_worker"){
       url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/stopworker")
       http = Net::HTTP.new(url.host, url.port)
-      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
+      response = http.post(url.path,
+                           json_config,
+                           {'Content-Type'=>'application/json'})
     }
     if response.nil?
       return {"error" => true, "reason" => "Unable to get a response"}

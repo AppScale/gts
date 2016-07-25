@@ -652,83 +652,6 @@ class DatastoreDistributed():
       ttl=self.MAX_TXN_DURATION * 2
     )
 
-  def insert_entities(self, entities, txn_hash):
-    """Inserts or updates entities in the DB.
-
-    Args:      
-      entities: A list of entities to store.
-      txn_hash: A mapping of root keys to transaction IDs.
-    """
-    def row_generator(entities):
-      """ Generates keys and encoded entities for a list of entities. 
-
-      Args:
-        entities: A list of entity objects
-      """
-      for prefix, e in entities:
-        yield (self.get_entity_key(prefix, e.key().path()),
-          buffer(e.Encode()))
-
-    def kind_row_generator(entities):
-      """ Generates keys for the kind table and a reference key to the entity
-          table.
-
-      Args:
-        entities: A list of entitiy objects
-      """
-      for prefix, e in entities:
-        # yield a tuple of kind key and a reference to entity table
-        yield (self.get_kind_key(prefix, e.key().path()),
-          self.get_entity_key(prefix, e.key().path()))
-
-    self.logger.debug('Inserting {} entities with transaction hash {}'.
-      format(len(entities), txn_hash))
-    if (len(entities)) == 1:
-      self.logger.debug('Entity: {}'.format(entities[0]))
-    row_values = {}
-    row_keys = []
-
-    kind_row_keys = []
-    kind_row_values = {}
-
-    entities = sorted((self.get_table_prefix(x), x) for x in entities)
-
-    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = tuple(row_generator(group))
-      new_row_keys = [str(ii[0]) for ii in group_rows]
-      row_keys += new_row_keys
-
-      for ii in group_rows:
-        root_key = self.get_root_key_from_entity_key(str(ii[0]))
-        try:
-          txn_id = txn_hash[root_key]
-          row_values[str(ii[0])] = {APP_ENTITY_SCHEMA[0]: str(ii[1]),
-                                    APP_ENTITY_SCHEMA[1]: str(txn_id)}
-        except KeyError, key_error:
-          self.logger.error('Unable to find {} in {}'.
-            format(root_key, txn_hash))
-          raise key_error
-    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      kind_group_rows = tuple(kind_row_generator(group))
-      new_kind_keys = [str(ii[0]) for ii in kind_group_rows]
-      kind_row_keys += new_kind_keys
-
-      for ii in kind_group_rows:
-        kind_row_values[str(ii[0])] = \
-          {dbconstants.APP_KIND_SCHEMA[0]:str(ii[1])}
-
-
-    # TODO do these in ||
-    self.datastore_batch.batch_put_entity(dbconstants.APP_ENTITY_TABLE,
-                                          row_keys,
-                                          APP_ENTITY_SCHEMA,
-                                          row_values)
-
-    self.datastore_batch.batch_put_entity(dbconstants.APP_KIND_TABLE,
-                                          kind_row_keys,
-                                          dbconstants.APP_KIND_SCHEMA, 
-                                          kind_row_values) 
-
   @staticmethod
   def get_ancestor_paths_from_ent_key(ent_key):
     """ Get a list of key string for the ancestor portion of a composite key.
@@ -1004,43 +927,6 @@ class DatastoreDistributed():
                                           row_keys, 
                                           dbconstants.COMPOSITE_SCHEMA,
                                           row_values)
-     
-  def insert_index_entries(self, entities):
-    """ Inserts index entries for the supplied entities.
-
-    Args:
-      entities: A list of tuples of prefix and entities 
-                to create index entries for.
-    """
-    entities = sorted((self.get_table_prefix(x), x) for x in entities)
-
-    row_keys = []
-    rev_row_keys = []
-    row_values = {}
-    rev_row_values = {}
-
-    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = self.get_index_kv_from_tuple(group, False)
-      row_keys += [str(ii[0]) for ii in group_rows]
-      for ii in group_rows:
-        row_values[str(ii[0])] = {'reference': str(ii[1])}
- 
-    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      rev_group_rows = self.get_index_kv_from_tuple(group, True)
-      rev_row_keys += [str(ii[0]) for ii in rev_group_rows]
-      for ii in rev_group_rows:
-        rev_row_values[str(ii[0])] = {'reference': str(ii[1])}
-    
-    # TODO update all indexes in parallel
-    self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
-                          row_keys, 
-                          dbconstants.PROPERTY_SCHEMA, 
-                          row_values)
-
-    self.datastore_batch.batch_put_entity(dbconstants.DSC_PROPERTY_TABLE, 
-                          rev_row_keys,  
-                          dbconstants.PROPERTY_SCHEMA,
-                          rev_row_values)
 
   def get_indices(self, app_id):
     """ Gets the indices of the given application.
@@ -1344,6 +1230,7 @@ class DatastoreDistributed():
           retries=self.NON_TRANS_LOCK_RETRY_COUNT)
         self.put_entities(entities, txn_hash,
                           put_request.composite_index_list())
+        self.logger.debug('Updated {} entities'.format(len(entities)))
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
 
       put_response.key_list().extend([e.key() for e in entities])
@@ -1579,6 +1466,7 @@ class DatastoreDistributed():
         raise zkte
    
     results, row_keys = self.fetch_keys(keys)
+    self.logger.debug('Returning {} results'.format(len(results)))
     for r in row_keys:
       group = get_response.add_entity() 
       if r in results and APP_ENTITY_SCHEMA[0] in results[r]:
@@ -1594,7 +1482,6 @@ class DatastoreDistributed():
       app_id: The application ID.
       delete_request: Request with a list of keys.
     """
-    txn_hash = {}
     keys = delete_request.key_list()
     if not keys:
       return
@@ -1631,14 +1518,15 @@ class DatastoreDistributed():
     if delete_request.has_transaction():
       self.delete_entities_txn(
         app_id,
-        delete_request.key_list(),
+        keys,
         txn_hash
       )
     else:
       self.delete_entities(
-        delete_request.key_list(),
+        keys,
         composite_indexes=filtered_indexes
       )
+      self.logger.debug('Removed {} entities'.format(len(keys)))
       self.release_locks_for_nontrans(app_id, keys, txn_hash)
  
   def generate_filter_info(self, filters):
@@ -2267,8 +2155,6 @@ class DatastoreDistributed():
       if fi != "__key__":
         return None
     
-    order = None
-    prop_name = None
     if query.has_ancestor() and len(order_info) > 0:
       return self.ordered_ancestor_query(query, filter_info, order_info)
     if query.has_ancestor() and not query.has_kind():
@@ -2351,7 +2237,9 @@ class DatastoreDistributed():
     if query.kind() == "__namespace__":
       entities = [self.default_namespace()] + entities
 
-    return entities[:limit]
+    results = entities[:limit]
+    self.logger.debug('Returning {} entities'.format(len(results)))
+    return results
 
   def remove_exists_filters(self, filter_info):
     """ Remove any filters that have EXISTS filters.
@@ -2532,7 +2420,9 @@ class DatastoreDistributed():
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
 
-    return entities[:limit]
+    results = entities[:limit]
+    self.logger.debug('Returning {} results'.format(len(results)))
+    return results
 
   def __apply_filters(self, 
                      filter_ops, 
@@ -3032,6 +2922,8 @@ class DatastoreDistributed():
       if start_key in result_list:
         force_exclusive = True
 
+    results = result_list[:limit]
+    self.logger.debug('Returning {} results'.format(len(results)))
     return result_list[:limit]
 
   def does_composite_index_exist(self, query):
@@ -3356,7 +3248,9 @@ class DatastoreDistributed():
         raise dbconstants.AppScaleDBError(
           'An infinite loop was detected while fetching references.')
 
-    return entities[:limit]
+    results = entities[:limit]
+    self.logger.debug('Returning {} results'.format(len(results)))
+    return results
 
   def __get_multiple_equality_filters(self, filter_list):
     """ Returns filters from the query that contain multiple equality
@@ -4080,8 +3974,8 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    self.logger.info('Doing a rollback on transaction {} for {}'.
-      format(txn, app_id))
+    self.logger.info(
+      'Doing a rollback on transaction {} for {}'.format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")

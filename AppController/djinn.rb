@@ -4717,7 +4717,7 @@ HOSTS
             end
           end
           @app_names = @app_names + [app]
-        rescue FailedNodeEsception
+        rescue FailedNodeException
           Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
         end
       }
@@ -4823,7 +4823,7 @@ HOSTS
         APPS_LOCK.synchronize {
           @apps_to_restart.each { |app_name|
             Djinn.log_info("Got #{app_name} to restart (if applicable).")
-            setup_app_dir(app_name, true)
+            setup_appengine_application(app_name)
 
             app_manager = AppManagerClient.new(my_node.private_ip)
             # TODO: What happens if the user updates their env vars between app
