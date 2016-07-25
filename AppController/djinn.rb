@@ -635,7 +635,7 @@ class Djinn
       end
     end
 
-    # Some sanity check on parameter and app.
+    # Sanity checks on app ID and settings.
     begin
       http_port = Integer(http_port)
       https_port = Integer(https_port)
@@ -646,7 +646,7 @@ class Djinn
     if @app_info_map[appid].nil? or @app_info_map[appid]['nginx'].nil? or
         @app_info_map[appid]['nginx_https'].nil? or
         @app_info_map[appid]['haproxy'].nil?
-      Djinn.log_warn("Received relocate request for non running app #{appid}.")
+      Djinn.log_warn("Unable to relocate due to missing app settings for: #{appid}.")
       return INVALID_REQUEST
     end
 
@@ -4166,7 +4166,8 @@ HOSTS
     apps_to_check.each { |app|
       next if app == "none"
 
-      # We may be setting the application up, so we need to check we are
+      # Check that we have the application information needed to
+      # regenerate the routing configuration.
       if @app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
           @app_info_map[app]['nginx_https'].nil? or
           @app_info_map[app]['haproxy'].nil? or
@@ -4182,7 +4183,7 @@ HOSTS
         "port #{http_port}, https port #{https_port}, and haproxy port " +
         "#{proxy_port}.")
 
-      # Let's see if we already have any AppServer running for this
+      # Let's see if we already have any AppServers running for this
       # application.
       running = false
       @app_info_map[app]['appengine'].each { |location|
@@ -4209,7 +4210,7 @@ HOSTS
       HAProxy.update_app_config(my_private, app, @app_info_map[app])
 
       # If nginx config files have been updated, we communicate the app's
-      # ports to the UAS to make sure we have the latest info.
+      # ports to the UserAppServer to make sure we have the latest info.
       if Nginx.write_fullproxy_app_config(app, http_port, https_port,
           my_public, my_private, proxy_port, static_handlers, login_ip,
           @app_info_map[app]['language'])
@@ -5840,7 +5841,7 @@ HOSTS
         Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
         if File.exists?(app_path)
           result = done_uploading(appname, app_path, @@secret)
-          Djinn.log_debug("Got a copy of #{appname} from #{ip}: #{result}.")
+          Djinn.log_info("Got a copy of #{appname} from #{ip}: #{result}.")
           return true
         end
         Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")

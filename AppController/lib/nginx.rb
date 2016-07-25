@@ -103,7 +103,7 @@ module Nginx
 
   # Creates a Nginx config file for the provided app name on the load balancer.
   # Returns:
-  #   boolean : indicates if the nginx configuration has been written.
+  #   boolean: indicates if the nginx configuration has been written.
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
     my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
     language)
