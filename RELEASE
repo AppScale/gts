@@ -5,6 +5,40 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
 
+AppScale version 3.0.0, released July, 2016
+Highlights of features/bugs in this release:
+- Fixed bug with not capping negative numbers at 0 in Memcache API decr()
+- Switched to new clustering tool for RabbitMQ
+- Fixed bug with key namespaces in Zookeeper transactions
+- Locked down UserAppService external port as it's not needed anymore
+- Removed unused pycassa references
+- Modified dev/test script for deleting all data to run for a single app ID
+- Fixed bug in deploying the AppScale dashboard that was preventing login
+- Added RabbitMQ/Celery cleanup upon appscale clean
+- Specified JSON gem that works with supported version of Ruby
+- Added composite index deletion logging
+- Write datastore transaction data on commit
+- Upgraded to Cassandra 2.1.15
+- Added retry mechanism for connecting to Cassandra
+- Wait until Zookeeper and enough Cassandra nodes are up to perform upgrade
+- Fixed bug in entity validation during upgrade
+- Don't require user input during SSH
+- Initialize Cassandra config before database upgrade
+- Fixed bug in choosing a host for a push task URL hook
+- Log monit service errors
+- Log the upgrade progress
+- Remove app archive upon appscale remove/undeploy
+- Removed unused code in AppTaskQueue
+- Delete push tasks after completion/expiration
+- Use fixed version of wstools
+- Fixed bug with updating cron upon app redeploy
+- Added logging of datastore results in debug mode
+- Removed confusing error about non-existing dir during bootstrap
+- Use fixed version of httparty
+- Avoid unsafe disk operations on mount
+- Wait for at most 30 seconds for a monit operation
+- Wait for database quorum for all tokens on start 
+
 AppScale version 2.9.0, released June, 2016
 Highlights of features/bugs in this release:
 - Added an upgrade mechanism to make future platform upgrades easier
