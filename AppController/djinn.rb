@@ -3448,12 +3448,14 @@ class Djinn
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
         clear_datastore = @options['clear_datastore'].downcase == "true"
-        replication = Integer(@options['replication'])
+        db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
+        needed_nodes = needed_for_quorum(db_nodes,
+                                         Integer(@options['replication']))
         if my_node.is_db_master?
-          start_db_master(clear_datastore, replication)
+          start_db_master(clear_datastore, needed_nodes)
           prime_database
         else
-          start_db_slave(clear_datastore, replication)
+          start_db_slave(clear_datastore, needed_nodes)
         end
       }
     end
@@ -3463,7 +3465,7 @@ class Djinn
     threads.each { |t| t.join() }
 
     Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(3) until system("#{PRIME_SCRIPT} --check")
+    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check")
 
     layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
     unless system("#{layout_script} --db-type cassandra")
@@ -4271,8 +4273,7 @@ HOSTS
         end
       }
 
-      Djinn.log_run("rm -rf #{PERSISTENT_MOUNT_POINT}")
-      Djinn.log_run("mkdir #{PERSISTENT_MOUNT_POINT}")
+      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}")
       mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
         "#{PERSISTENT_MOUNT_POINT} 2>&1")
       if mount_output.empty?
@@ -4283,7 +4284,7 @@ HOSTS
         # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
         # Make sure there is data present there and that it points to our
         # persistent disk.
-        if File.exists?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
+        if File.directory?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
           Djinn.log_run("rm -rf /var/lib/rabbitmq")
         else
           Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
@@ -4600,7 +4601,7 @@ HOSTS
             end
           end
           @app_names = @app_names + [app]
-        rescue FailedNodeEsception
+        rescue FailedNodeException
           Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
         end
       }
@@ -4777,7 +4778,7 @@ HOSTS
         APPS_LOCK.synchronize {
           @apps_to_restart.each { |app_name|
             Djinn.log_info("Got #{app_name} to restart (if applicable).")
-            setup_app_dir(app_name, true)
+            setup_appengine_application(app_name)
 
             app_manager = AppManagerClient.new(my_node.private_ip)
             # TODO: What happens if the user updates their env vars between app
