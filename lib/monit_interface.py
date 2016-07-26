@@ -17,6 +17,8 @@ MONIT = "/usr/bin/monit"
 
 NUM_RETRIES = 10
 
+SMALL_WAIT = 3
+
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).
@@ -33,7 +35,6 @@ def run_with_retry(args):
     return False
 
   retries_left = NUM_RETRIES
-  sleep_time = 1
   while retries_left:
     return_status = subprocess.call(args)
     if return_status == 0:
@@ -41,11 +42,10 @@ def run_with_retry(args):
       return True
 
     retries_left -= 1
-    sleep_time *= 2
 
     logging.warning("Monit command {0} returned with status {1}, {2} retries " \
       "left.".format(args, return_status, retries_left))
-    time.sleep(sleep_time)
+    time.sleep(SMALL_WAIT)
 
   return False
 

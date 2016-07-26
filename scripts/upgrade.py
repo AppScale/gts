@@ -31,6 +31,8 @@ def init_parser():
                       help='A list of ZooKeeper IP addresses')
   parser.add_argument('--database', nargs='+',
                       help='A list of DB IP addresses')
+  parser.add_argument('--replication', type=int,
+                      help='The keyspace replication factor')
   return parser
 
 
@@ -46,7 +48,8 @@ if __name__ == "__main__":
   try:
     start_cassandra(args.database, args.db_master, args.keyname)
     start_zookeeper(args.zookeeper, args.keyname)
-    datastore_upgrade.ensure_cassandra_nodes_match_replication(args.keyname)
+    datastore_upgrade.wait_for_quorum(
+      args.keyname, len(args.database), args.replication)
     db_access = datastore_upgrade.get_datastore()
 
     # Exit early if a data layout upgrade is not needed.

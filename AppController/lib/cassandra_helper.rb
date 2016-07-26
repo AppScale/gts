@@ -84,7 +84,6 @@ end
 #     machine hosting the Database Master role.
 #   slave_ips: An Array of Strings, where each String corresponds to a private
 #     FQDN or IP address of a machine hosting a Database Slave role.
-#   replication: The desired level of replication.
 def setup_db_config_files(master_ip, slave_ips)
   local_token = get_local_token(master_ip, slave_ips)
   local_ip = HelperFunctions.local_ip
@@ -100,10 +99,11 @@ end
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
-def start_db_master(clear_datastore, replication)
+#   needed: The number of nodes required for quorum.
+def start_db_master(clear_datastore, needed)
   @state = "Starting up Cassandra on the head node"
   Djinn.log_info("Starting up Cassandra as master")
-  start_cassandra(clear_datastore, replication)
+  start_cassandra(clear_datastore, needed)
 end
 
 
@@ -113,10 +113,11 @@ end
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
-def start_db_slave(clear_datastore, replication)
+#   needed: The number of nodes required for quorum.
+def start_db_slave(clear_datastore, needed)
   @state = "Waiting for Cassandra to come up"
   Djinn.log_info("Starting up Cassandra as slave")
-  start_cassandra(clear_datastore, replication)
+  start_cassandra(clear_datastore, needed)
 end
 
 
@@ -124,7 +125,8 @@ end
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
-def start_cassandra(clear_datastore, replication)
+#   needed: The number of nodes required for quorum.
+def start_cassandra(clear_datastore, needed)
   Djinn.log_run("pkill ThriftBroker")
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
@@ -140,16 +142,16 @@ def start_cassandra(clear_datastore, replication)
     match_cmd=match_cmd)
 
   # Ensure enough Cassandra nodes are available.
-  sleep(1) until system("#{NODETOOL} status")
+  sleep(SMALL_WAIT) until system("#{NODETOOL} status")
   while true
     output = `"#{NODETOOL}" status`
     nodes_ready = 0
     output.split("\n").each{ |line|
       nodes_ready += 1 if line.start_with?('UN')
     }
-    Djinn.log_debug("#{nodes_ready} nodes are up. #{replication} are needed.")
-    break if nodes_ready >= replication
-    sleep(1)
+    Djinn.log_debug("#{nodes_ready} nodes are up. #{needed} are needed.")
+    break if nodes_ready >= needed
+    sleep(SMALL_WAIT)
   end
 end
 
@@ -164,4 +166,19 @@ end
 def stop_db_slave
   Djinn.log_info("Stopping Cassandra slave")
   MonitInterface.stop(:cassandra)
+end
+
+
+# Calculates the number of nodes needed for a quorum for every token.
+def needed_for_quorum(total_nodes, replication)
+  if total_nodes < 1 or replication < 1
+    raise Exception('At least 1 database machine is needed.')
+  end
+  if replication > total_nodes
+    raise Exception(
+      'The replication factor cannot exceed the number of database machines.')
+  end
+
+  can_fail = (replication/2.0 - 1).ceil
+  return total_nodes - can_fail
 end

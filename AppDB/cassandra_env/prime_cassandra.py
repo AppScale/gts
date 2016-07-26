@@ -104,6 +104,7 @@ def prime_cassandra(replication):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
+    logging.info('Trying to create {}'.format(table))
     session.execute(create_table)
 
   first_entity = session.execute(
