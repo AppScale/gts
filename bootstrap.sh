@@ -186,7 +186,8 @@ if [ -d appscale/.appscale/certs ]; then
 
         # We can pull a tag only if we are on the master branch.
         CURRENT_BRANCH="$(cd appscale; git branch --no-color | grep '^*' | cut -f 2 -d ' ')"
-        if [ "${CURRENT_BRANCH}" != "master" ]; then
+        if [ "${CURRENT_BRANCH}" != "master" ] && \
+           (cd appscale; git tag -l | grep $(git describe)) ; then
                 CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
                 if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
                         echo "AppScale is at the latest release already."
