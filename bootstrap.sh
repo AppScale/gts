@@ -190,7 +190,7 @@ if [ -d appscale/.appscale/certs ]; then
            (cd appscale; git tag -l | grep $(git describe)) ; then
                 CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
                 if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
-                        echo "AppScale is at the latest release already."
+                        echo "AppScale is already at the specified release."
                         exit 0
                 fi
         fi
