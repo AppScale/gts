@@ -3,6 +3,7 @@
 Distributed id and lock service for transaction support.
 """
 import logging
+import os
 import re
 import sys
 import threading
@@ -91,6 +92,10 @@ MAX_GROUPS_FOR_XG = 25
 
 # The separator value for the lock list when using XG transactions.
 LOCK_LIST_SEPARATOR = "!XG_LIST!"
+
+# The location of the ZooKeeper server script.
+ZK_SERVER_CMD = os.path.join('/usr', 'share', 'zookeeper', 'bin',
+                             'zkServer.sh')
 
 class ZKTransactionException(Exception):
   """ ZKTransactionException defines a custom exception class that should be
