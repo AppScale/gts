@@ -90,7 +90,7 @@ def start_cassandra(db_ips, db_master, keyname):
     AppScaleDBError if unable to start Cassandra.
   """
   logging.info("Starting Cassandra...")
-  nodes_with_tokens = set(db_ips) - set(db_master)
+  nodes_with_tokens = set(db_ips) - {db_master}
   for index, ip in enumerate(db_ips):
     init_config = '{script} --local-ip {ip} --master-ip {db_master}'.format(
       script=SETUP_CASSANDRA_SCRIPT, ip=ip, db_master=db_master)
