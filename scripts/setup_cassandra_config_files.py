@@ -27,9 +27,9 @@ if __name__ == "__main__":
                       help='The initial Cassandra token.')
   args = parser.parse_args()
 
-  num_tokens = 256
+  num_tokens = '256'
   if args.local_token:
-    num_tokens = 1
+    num_tokens = '1'
 
   replacements = {'APPSCALE-LOCAL': args.local_ip,
                   'APPSCALE-MASTER': args.master_ip,
