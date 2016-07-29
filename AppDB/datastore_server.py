@@ -8,7 +8,6 @@ given (Put, Get, Delete, Query, etc).
 """
 import array
 import __builtin__
-import copy
 import getopt
 import itertools
 import json
@@ -536,7 +535,7 @@ class DatastoreDistributed():
     if len(params) != 5 and len(params) != 4: 
       raise ValueError("Bad number of params")
 
-    if params[-1] == None:
+    if params[-1] is None:
       # strip off the last None item
       key = DatastoreDistributed._SEPARATOR.join(params[:-1]) + \
         DatastoreDistributed._SEPARATOR
@@ -1455,7 +1454,6 @@ class DatastoreDistributed():
     keys = get_request.key_list()
     self.logger.debug('Fetching {} entity keys'.format(len(keys)))
     if get_request.has_transaction():
-      prefix = self.get_table_prefix(keys[0])
       root_key = self.get_root_key_from_entity_key(keys[0])
       txnid = get_request.transaction().handle()
       try:
@@ -2168,7 +2166,7 @@ class DatastoreDistributed():
  
     startrow, endrow, start_inclusive, end_inclusive = \
       self.kind_query_range(query, filter_info, order_info)
-    if startrow == None or endrow == None:
+    if startrow is None or endrow is None:
       return None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
@@ -2598,12 +2596,10 @@ class DatastoreDistributed():
         if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
           value1 = filter_ops[0][1]
           value2 = filter_ops[1][1]
-          oper1 = filter_ops[0][0]
           oper2 = filter_ops[1][0]
         else:
           value1 = filter_ops[1][1]
           value2 = filter_ops[0][1]
-          oper1 = filter_ops[1][0]
           oper2 = filter_ops[0][0]
         # Checking to see if filters/values are correct bounds.
         # value1 and oper1 are the EQUALS filter values.
@@ -2630,15 +2626,16 @@ class DatastoreDistributed():
           params = [prefix, kind, property_name, value1 + \
             self._SEPARATOR + self._TERM_STRING]
           endrow = self.get_index_key_from_params(params)
-	
-        ret = self.datastore_batch.range_query(table_name,
-                                         column_names,
-                                         startrow,
-                                         endrow,
-                                         limit,
-                                         offset=0,
-                                         start_inclusive=start_inclusive,
-                                         end_inclusive=end_inclusive) 
+
+        ret = self.datastore_batch.range_query(
+          table_name,
+          column_names,
+          startrow,
+          endrow,
+          limit,
+          offset=0,
+          start_inclusive=start_inclusive,
+          end_inclusive=end_inclusive)
         return ret 
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
          filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
@@ -4423,7 +4420,6 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
-    reference = request.model_key()
 
     if READ_ONLY:
       logger.warning('Unable to allocate in read-only mode: {}'.
@@ -4647,7 +4643,7 @@ def main(argv):
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
           datastore API:" + db_type
-    exit(1)
+    sys.exit(1)
  
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
                                              getDatastore(db_type)
@@ -4672,7 +4668,7 @@ def main(argv):
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
       zookeeper.close()
-      exit(1)
+      sys.exit(1)
 
 if __name__ == '__main__':
   main(sys.argv[1:])

@@ -1,9 +1,7 @@
 """ This script dumps AppScale attributes on a user. """
 
-import M2Crypto
 import os
 import SOAPpy
-import string
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
@@ -27,6 +25,6 @@ if __name__ == "__main__":
   server = get_soap_accessor()
   if server.does_user_exist(email, secret) != "true":
     print "User does not exist."
-    exit(1)
+    sys.exit(1)
 
   print server.get_user_data(email, secret)
