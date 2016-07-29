@@ -27,9 +27,14 @@ if __name__ == "__main__":
                       help='The initial Cassandra token.')
   args = parser.parse_args()
 
+  num_tokens = '256'
+  if args.local_token:
+    num_tokens = '1'
+
   replacements = {'APPSCALE-LOCAL': args.local_ip,
                   'APPSCALE-MASTER': args.master_ip,
-                  'APPSCALE-TOKEN': args.local_token}
+                  'APPSCALE-TOKEN': args.local_token,
+                  'APPSCALE-NUM-TOKENS': num_tokens}
 
   for filename in os.listdir(CASSANDRA_TEMPLATES):
     source_file_path = os.path.join(CASSANDRA_TEMPLATES, filename)
