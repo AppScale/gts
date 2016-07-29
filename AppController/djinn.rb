@@ -4180,7 +4180,7 @@ class Djinn
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips)
+    setup_db_config_files(master_ip)
 
     update_hosts_info()
 
