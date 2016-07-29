@@ -116,7 +116,7 @@ def start_cassandra(db_ips, db_master, keyname):
   logging.info('Waiting for Cassandra to be ready')
   status_cmd = '{} status'.format(cassandra_interface.NODE_TOOL)
   while (utils.ssh(db_master, keyname, status_cmd,
-                     method=subprocess.call) != 0):
+                   method=subprocess.call) != 0):
     time.sleep(5)
 
   logging.info("Successfully started Cassandra.")
