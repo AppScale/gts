@@ -4647,7 +4647,7 @@ def main(argv):
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
           datastore API:" + db_type
-    exit(1)
+    sys.exit(1)
  
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
                                              getDatastore(db_type)
@@ -4672,7 +4672,7 @@ def main(argv):
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
       zookeeper.close()
-      exit(1)
+      sys.exit(1)
 
 if __name__ == '__main__':
   main(sys.argv[1:])

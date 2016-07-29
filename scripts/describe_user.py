@@ -27,6 +27,6 @@ if __name__ == "__main__":
   server = get_soap_accessor()
   if server.does_user_exist(email, secret) != "true":
     print "User does not exist."
-    exit(1)
+    sys.exit(1)
 
   print server.get_user_data(email, secret)

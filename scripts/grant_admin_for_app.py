@@ -33,7 +33,7 @@ if __name__ == "__main__":
   total = len(sys.argv)
   if total < 3:
     usage() 
-    exit(1)
+    sys.exit(1)
 
   email = sys.argv[1]
   app_id = sys.argv[2]
@@ -43,10 +43,10 @@ if __name__ == "__main__":
 
   if server.does_user_exist(email, secret) == "false":
     print "User does not exist."
-    exit(1)
+    sys.exit(1)
   if server.does_app_exist(app_id, secret) == "false":
     print "Application ID does not exist."
-    exit(1)
+    sys.exit(1)
   ret = server.add_admin_for_app(email, app_id, secret)
   if ret == "true":
     print "{0} granted admin access to {1}".format(email, app_id)

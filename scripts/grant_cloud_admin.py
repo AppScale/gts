@@ -32,8 +32,8 @@ def usage():
 if __name__ == "__main__":
   total = len(sys.argv)
   if total < 2:
-    usage() 
-    exit(1)
+    usage()
+    sys.exit(1)
 
   email = sys.argv[1]
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
   if server.does_user_exist(email, secret) == "false":
     print "User does not exist."
-    exit(1)
+    sys.exit(1)
 
   ret = server.set_cloud_admin_status(email, "true", secret)
   if ret == "true":
