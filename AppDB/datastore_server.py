@@ -536,7 +536,7 @@ class DatastoreDistributed():
     if len(params) != 5 and len(params) != 4: 
       raise ValueError("Bad number of params")
 
-    if params[-1] == None:
+    if params[-1] is None:
       # strip off the last None item
       key = DatastoreDistributed._SEPARATOR.join(params[:-1]) + \
         DatastoreDistributed._SEPARATOR
@@ -2168,7 +2168,7 @@ class DatastoreDistributed():
  
     startrow, endrow, start_inclusive, end_inclusive = \
       self.kind_query_range(query, filter_info, order_info)
-    if startrow == None or endrow == None:
+    if startrow is None or endrow is None:
       return None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():

@@ -184,7 +184,7 @@ def start_app(config):
     PID of process on success, -1 otherwise
   """
   config = convert_config_from_json(config)
-  if config == None:
+  if config is None:
     logging.error("Invalid configuration for application")
     return BAD_PID
 
