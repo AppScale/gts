@@ -63,9 +63,8 @@ def read_file(location, chomp=True):
   Raises:
     IOError   If the specified file does not exist
   """
-  file_handle = open(location, 'r')
-  contents = file_handle.read()
-  file_handle.close()
+  with open(location) as file_handle:
+    contents = file_handle.read()
   if chomp:
     return contents.rstrip('\n')
   else:
@@ -85,9 +84,8 @@ def write_key_file(location, content):
     location = [location]
   for entry in location:
     path = os.path.abspath(entry)
-    file_handle = open(path, 'w')
-    file_handle.write(content)
-    file_handle.close()
+    with open(path, 'w') as file_handle:
+      file_handle.write(content)
     os.chmod(path, 0600)
 
 
