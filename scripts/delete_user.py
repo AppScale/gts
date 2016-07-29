@@ -1,8 +1,6 @@
 """ This script deletes a user. """
 
-import M2Crypto
 import os
-import string
 import sys
 import SOAPpy
 

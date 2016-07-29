@@ -1,9 +1,7 @@
 """ This script dumps AppScale attributes on a user. """
 
-import M2Crypto
 import os
 import SOAPpy
-import string
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))

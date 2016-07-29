@@ -8,7 +8,6 @@ given (Put, Get, Delete, Query, etc).
 """
 import array
 import __builtin__
-import copy
 import getopt
 import itertools
 import json
@@ -1455,7 +1454,6 @@ class DatastoreDistributed():
     keys = get_request.key_list()
     self.logger.debug('Fetching {} entity keys'.format(len(keys)))
     if get_request.has_transaction():
-      prefix = self.get_table_prefix(keys[0])
       root_key = self.get_root_key_from_entity_key(keys[0])
       txnid = get_request.transaction().handle()
       try:
@@ -2598,12 +2596,10 @@ class DatastoreDistributed():
         if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
           value1 = filter_ops[0][1]
           value2 = filter_ops[1][1]
-          oper1 = filter_ops[0][0]
           oper2 = filter_ops[1][0]
         else:
           value1 = filter_ops[1][1]
           value2 = filter_ops[0][1]
-          oper1 = filter_ops[1][0]
           oper2 = filter_ops[0][0]
         # Checking to see if filters/values are correct bounds.
         # value1 and oper1 are the EQUALS filter values.
@@ -2630,15 +2626,16 @@ class DatastoreDistributed():
           params = [prefix, kind, property_name, value1 + \
             self._SEPARATOR + self._TERM_STRING]
           endrow = self.get_index_key_from_params(params)
-	
-        ret = self.datastore_batch.range_query(table_name,
-                                         column_names,
-                                         startrow,
-                                         endrow,
-                                         limit,
-                                         offset=0,
-                                         start_inclusive=start_inclusive,
-                                         end_inclusive=end_inclusive) 
+
+        ret = self.datastore_batch.range_query(
+          table_name,
+          column_names,
+          startrow,
+          endrow,
+          limit,
+          offset=0,
+          start_inclusive=start_inclusive,
+          end_inclusive=end_inclusive)
         return ret 
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
          filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
@@ -4423,7 +4420,6 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
-    reference = request.model_key()
 
     if READ_ONLY:
       logger.warning('Unable to allocate in read-only mode: {}'.
