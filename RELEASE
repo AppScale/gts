@@ -5,6 +5,7 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
 AppScale version 3.0.1, released July, 2016
+Highlights of features/bugs in this release:
 - Set num tokens without defining initial token to fix problem with restarts
 - Fixed bootstrap script to continue upgrade even when detached from HEAD
 - Ensure monit is running during an upgrade
