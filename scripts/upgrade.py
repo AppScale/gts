@@ -15,6 +15,10 @@ from datastore_upgrade import write_to_json_file
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import LOG_FORMAT
 
+sys.path.append\
+  (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
+from utils import utils
+
 
 def init_parser():
   """ Initializes the command line argument parser.
@@ -46,6 +50,11 @@ if __name__ == "__main__":
   db_access = None
   zookeeper = None
   try:
+    # Ensure monit is running.
+    relevant_ips = set(args.zookeeper) | set(args.database)
+    for ip in relevant_ips:
+      utils.ssh(ip, args.keyname, 'service monit start')
+
     start_cassandra(args.database, args.db_master, args.keyname)
     start_zookeeper(args.zookeeper, args.keyname)
     datastore_upgrade.wait_for_quorum(
