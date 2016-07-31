@@ -193,9 +193,7 @@ module TaskQueue
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
-    script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    Djinn.log_run("/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py #{script} /usr/bin/python2")
     MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
