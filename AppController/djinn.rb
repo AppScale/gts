@@ -1860,14 +1860,14 @@ class Djinn
     # From here on we have the basic local state that allows to operate.
     # In particular we know our roles, and the deployment layout. Let's
     # start attaching any permanent disk we may have associated with us.
-    mount_persistent_storage
+    mount_persistent_storage()
 
     # If we are the headnode, we may need to start/setup all other nodes.
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
       Djinn.log_info("Spawning/setting up other nodes.")
-      spawn_and_setup_appengine
+      spawn_and_setup_appengine()
     end
 
     # Initialize the current server and starts all the API and essential
@@ -2587,7 +2587,6 @@ class Djinn
   end
 
   def valid_secret?(secret)
-    @@secret = HelperFunctions.get_secret
     if secret != @@secret
       failed_match_msg = "Incoming secret [#{secret}] failed to match " + \
         " known secret [#{@@secret}]"
@@ -4416,8 +4415,10 @@ HOSTS
         "2>&1")
       Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
-      Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
-      Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
+      if not File.symlink?("/var/lib/rabbitmq")
+        Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
+        Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
+      end
     end
   end
 
