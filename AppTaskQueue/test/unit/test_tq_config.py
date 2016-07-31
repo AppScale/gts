@@ -81,8 +81,7 @@ class TestTaskQueueConfig(unittest.TestCase):
        .should_receive("write").and_return(None)
     flexmock(file_io) \
        .should_receive("mkdir").and_return(None)
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
+    TaskQueueConfig(TaskQueueConfig.RABBITMQ, 'myapp')
 
   def test_load_queues_from_file(self):
     flexmock(file_io) \

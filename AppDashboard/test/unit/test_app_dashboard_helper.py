@@ -38,8 +38,6 @@ class TestAppDashboardHelper(unittest.TestCase):
       'app2', 'app3'], flexmock(), flexmock()))
     self.assertFalse(AppDashboardHelper().update_cookie_app_list(['app1', 
       'app2'], flexmock(), flexmock()))
-	
-      
 
   def test_get_user_app_list(self):
     flexmock(AppDashboardHelper).should_receive('query_user_data') \

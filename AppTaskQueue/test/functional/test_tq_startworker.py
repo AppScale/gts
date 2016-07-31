@@ -26,7 +26,7 @@ queue:
     os.mkdir("/var/apps/test_app/app/")
   except OSError:
     pass
-  FILE = file_io.write(file_loc, config)
+  file_io.write(file_loc, config)
 
 # AppScale must already be running with RabbitMQ
 class TestTaskQueueServer(unittest.TestCase):

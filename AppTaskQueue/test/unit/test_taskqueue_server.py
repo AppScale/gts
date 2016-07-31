@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
+import os
+import sys
 import unittest
 
+from appscale.taskqueue.distributed_tq import DistributedTaskQueue
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
-from google.appengine.api import api_base_pb
 
 def mock_file_io():
   flexmock(file_io).should_receive("mkdir").and_return(None)
@@ -16,7 +16,6 @@ def mock_file_io():
      .should_receive("read").and_return("192.168.0.1")
   flexmock(file_io) \
      .should_receive("write").and_return(None)
-from appscale.taskqueue.distributed_tq import DistributedTaskQueue
 
 
 class TestDistributedTaskQueue(unittest.TestCase):
@@ -36,10 +35,6 @@ class TestDistributedTaskQueue(unittest.TestCase):
     dtq = DistributedTaskQueue()
 
   def test_query_and_own_tasks(self):
-    mock_file_io()
-    dtq = DistributedTaskQueue()
-
-  def test_bulk_add(self):
     mock_file_io()
     dtq = DistributedTaskQueue()
 
