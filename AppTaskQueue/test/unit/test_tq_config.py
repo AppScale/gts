@@ -3,7 +3,6 @@
 import os
 import sys
 import unittest
-import urllib2
 
 from flexmock import flexmock
 
@@ -13,7 +12,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
-from google.appengine.api import api_base_pb
 from google.appengine.api import datastore
 
 sample_queue_yaml = \

@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import os
-import sys
 import unittest
 
 from flexmock import flexmock

@@ -16,9 +16,6 @@ import file_io
 import monit_app_configuration
 import monit_interface
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
-from google.appengine.api import api_base_pb
-
 sample_queue_yaml = \
 """
 queue:
