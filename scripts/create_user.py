@@ -84,20 +84,20 @@ if __name__ == "__main__":
   total = len(sys.argv)
   if total != 2:
     usage() 
-    exit(1)
+    sys.exit(1)
 
   email = sys.argv[1]
 
   if not is_valid_email(email):
     print "Email address is invalid. Please try again."
-    exit(1)
+    sys.exit(1)
  
   new_password = random_password()
 
   server = get_soap_accessor()
   if does_user_exist(email, server):
     print "User already exists."
-    exit(1)
+    sys.exit(1)
 
   print "Creating user..."
   hash_password = hashlib.sha1(email + new_password).hexdigest()

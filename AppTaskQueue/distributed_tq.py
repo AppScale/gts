@@ -549,7 +549,7 @@ class DistributedTaskQueue():
     countdown = int(headers['X-AppEngine-TaskETA']) - \
                 int(datetime.datetime.now().strftime("%s"))
     task_func = self.__get_task_function(request)
-    result = task_func.apply_async(
+    task_func.apply_async(
       kwargs={'headers':headers, 'args':args},
       expires=args['expires'],
       acks_late=True,

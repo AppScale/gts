@@ -75,9 +75,8 @@ class InfrastructureManagerService:
     parent_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
     config_file = os.path.join(parent_dir, self.CONFIG_FILE)
     if os.path.exists(config_file):
-      file_handle = open(config_file, 'r')
-      params = json.load(file_handle)
-      file_handle.close()
+      with open(config_file) as file_handle:
+        params = json.load(file_handle)
       if params.has_key(PersistentStoreFactory.PARAM_STORE_TYPE):
         logging.info('Loading infrastructure manager configuration from ' +
                   config_file)

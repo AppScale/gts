@@ -294,7 +294,6 @@ class GCEAgent(BaseAgent):
     project_url = '{0}{1}'.format(self.GCE_URL, project_id)
     machine_type_url = '{0}/zones/{1}/machineTypes/{2}'.format(project_url,
       zone, instance_type)
-    zone_url = '{0}/zones/{1}'.format(project_url, zone)
     network_url = '{0}/global/networks/{1}'.format(project_url, group)
 
     public_key = utils.get_public_key(keyname)
@@ -351,7 +350,6 @@ class GCEAgent(BaseAgent):
     now = datetime.datetime.now()
 
     while now < end_time:
-      time_left = (end_time - now).seconds
       utils.log("Waiting for your instances to start...")
       instance_info = self.describe_instances(parameters)
       public_ips = instance_info[0]

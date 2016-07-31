@@ -413,8 +413,8 @@ class Solr():
         if field['name'] == "{0}_{1}".format(index.name, field_name):
           field_type = field['type']
       if field_type == "":
-        logging.warning("Unable to find type for {0}").format(
-          "{0}_{1}".format(index.name, field_name))
+        logging.warning(
+          'Unable to find type for {}_{}'.format(index.name, field_name))
       self.__add_field_value(new_value, doc[key], field_type)
 
   def __add_field_value(self, new_value, value, ftype):

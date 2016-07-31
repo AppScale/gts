@@ -27,6 +27,7 @@ from datastore_server import ID_KEY_LENGTH
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import APP_ENTITY_TABLE
 from zkappscale import zktransaction as zk
+from zkappscale.zktransaction import ZK_SERVER_CMD
 from zkappscale.zktransaction import ZKInternalException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
@@ -107,7 +108,13 @@ def start_cassandra(db_ips, db_master, keyname):
       logging.exception(message)
       raise dbconstants.AppScaleDBError(message)
 
-    logging.info("Successfully started Cassandra.")
+  logging.info('Waiting for Cassandra to be ready')
+  status_cmd = '{} status'.format(cassandra_interface.NODE_TOOL)
+  while (utils.ssh(db_master, keyname, status_cmd,
+                   method=subprocess.call) != 0):
+    time.sleep(5)
+
+  logging.info("Successfully started Cassandra.")
 
 
 def start_zookeeper(zk_ips, keyname):
@@ -126,7 +133,13 @@ def start_zookeeper(zk_ips, keyname):
       logging.exception(message)
       raise ZKInternalException(message)
 
-    logging.info("Successfully started ZooKeeper.")
+  logging.info('Waiting for ZooKeeper to be ready')
+  status_cmd = '{} status'.format(ZK_SERVER_CMD)
+  while (utils.ssh(zk_ips[0], keyname, status_cmd,
+                   method=subprocess.call) != 0):
+    time.sleep(5)
+
+  logging.info("Successfully started ZooKeeper.")
 
 
 def get_datastore():
@@ -269,10 +282,10 @@ def process_entity(entity, datastore, zookeeper):
 
   if (valid_entity is None or
       valid_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE):
-    return delete_entity_from_table(key, datastore)
+    delete_entity_from_table(key, datastore)
 
   if valid_entity != entity:
-    return update_entity_in_table(key, valid_entity, datastore)
+    update_entity_in_table(key, valid_entity, datastore)
 
 
 def update_entity_in_table(key, validated_entity, datastore):

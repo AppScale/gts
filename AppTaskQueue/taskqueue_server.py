@@ -4,6 +4,7 @@
 """ A tornado web service for handling TaskQueue request from application
 servers. """
 
+import sys
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -217,7 +218,7 @@ def main():
       tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
-      exit(1)
+      sys.exit(1)
 
 if __name__ == '__main__':
   main()

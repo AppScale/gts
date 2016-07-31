@@ -466,34 +466,6 @@ def commit_tar(app_name, tar, secret):
     return error
   return "true"
 
-def delete_all_users(secret):
-  global db
-  global super_secret
-  global user_schema
-  users = []
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  result = db.get_table(USER_TABLE, user_schema)
-  if result[0] not in ERROR_CODES:
-    return "false"
-
-  result = result[1:]
-  for ii in range(0, (len(result)/len(user_schema))):
-    partial = result[(ii * len(user_schema)): ((1 + ii) * len(user_schema))]
-    if len(partial) != len(user_schema):
-      pass
-    else:
-      u = Users("x", "x", "user")
-      u.unpackit(partial)
-      users.append(u)
-  ret = "true"
-  for ii in u:
-    result = db.delete_row(USER_TABLE, ii.email_)
-    if result[0] not in ERROR_CODES:
-      ret = "false"
-  return ret
-
 def delete_all_apps(secret):
   global db
   global super_secret
@@ -957,7 +929,6 @@ if __name__ == "__main__":
   server.registerFunction(commit_tar)
   server.registerFunction(commit_new_token)
   server.registerFunction(delete_instance)
-  server.registerFunction(delete_all_users)
   server.registerFunction(delete_all_apps)
   server.registerFunction(delete_user)
   server.registerFunction(delete_app)

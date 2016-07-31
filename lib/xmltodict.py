@@ -233,7 +233,7 @@ def _emit(key, value, content_handler,
 def unparse(item, output=None, encoding='utf-8', **kwargs):
     ((key, value),) = item.items()
     must_return = False
-    if output == None:
+    if output is None:
         output = StringIO()
         must_return = True
     content_handler = XMLGenerator(output, encoding)

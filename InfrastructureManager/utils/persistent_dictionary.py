@@ -156,9 +156,8 @@ class FileSystemBasedPersistentStore(PersistentStore):
     """
     self.lock.acquire()
     if os.path.exists(self.file_path):
-      file_handle = open(self.file_path, 'r')
-      dictionary = json.load(file_handle)
-      file_handle.close()
+      with open(self.file_path) as file_handle:
+        dictionary = json.load(file_handle)
       self.lock.release()
       return dictionary
     else:
@@ -170,7 +169,6 @@ class FileSystemBasedPersistentStore(PersistentStore):
     See parent class documentation
     """
     self.lock.acquire()
-    file_handle = open(self.file_path, 'w')
-    json.dump(dictionary, file_handle)
-    file_handle.close()
+    with open(self.file_path, 'w') as file_handle:
+      json.dump(dictionary, file_handle)
     self.lock.release()

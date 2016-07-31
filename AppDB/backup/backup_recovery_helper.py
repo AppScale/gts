@@ -264,7 +264,7 @@ def app_backup(storage, full_bucket_name=None):
       destination = '{0}/{1}'.format(APP_BACKUP_DIR_LOCATION, filename)
       try:
         shutil.copy(source, destination)
-      except:
+      except Exception:
         logging.error("Error while backing up '{0}'. ".format(source))
         delete_app_tars(APP_BACKUP_DIR_LOCATION)
         return False

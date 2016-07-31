@@ -23,13 +23,10 @@ if __name__ == "__main__":
                       help='The private IP address of this machine.')
   parser.add_argument('--master-ip',
                       help='The private IP address of the database master.')
-  parser.add_argument('--local-token', default='',
-                      help='The initial Cassandra token.')
   args = parser.parse_args()
 
   replacements = {'APPSCALE-LOCAL': args.local_ip,
-                  'APPSCALE-MASTER': args.master_ip,
-                  'APPSCALE-TOKEN': args.local_token}
+                  'APPSCALE-MASTER': args.master_ip}
 
   for filename in os.listdir(CASSANDRA_TEMPLATES):
     source_file_path = os.path.join(CASSANDRA_TEMPLATES, filename)

@@ -227,10 +227,6 @@ ret = server.delete_instance("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.delete_all_users("xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.delete_all_apps("xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)

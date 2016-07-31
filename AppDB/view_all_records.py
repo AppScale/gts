@@ -66,6 +66,11 @@ def main(argv):
   entities = get_entities(METADATA_TABLE, METADATA_SCHEMA, db)
   view_all(entities, METADATA_TABLE, db)
 
+  entities = get_entities(DATASTORE_METADATA_TABLE,
+                          DATASTORE_METADATA_SCHEMA,
+                          db)
+  view_all(entities, DATASTORE_METADATA_TABLE, db)
+
 if __name__ == "__main__":
   try:
     main(sys.argv)

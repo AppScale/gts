@@ -11,8 +11,6 @@
 # General-purpose Python libraries
 import httplib
 import logging
-import os
-import re
 import select
 import sys
 import urllib

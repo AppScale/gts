@@ -20,10 +20,9 @@ def read(file_name):
   Returns:
     String containing the contents of the file
   """
-  FILE = open(file_name, READ_ONLY)
-  contents = FILE.read()  
-  FILE.close()
-  return contents 
+  with open(file_name) as file_handle:
+    contents = file_handle.read()
+  return contents
 
 def write(file_name, contents):
   """ Opens and writes a file. Will truncate over existing files.
@@ -31,9 +30,8 @@ def write(file_name, contents):
   Args:
     file_name: The full path or relative path of the file to write to
   """
-  FILE = open(file_name, WRITE_ONLY)
-  FILE.write(contents)
-  FILE.close()
+  with open(file_name, WRITE_ONLY) as file_handle:
+    file_handle.write(contents)
 
 def delete(file_name):
   """ Deletes a given file. 
