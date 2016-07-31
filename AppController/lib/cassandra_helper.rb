@@ -51,45 +51,16 @@ def has_soap_server?(job)
 end
 
 
-# Calculates the token that should be set on this machine, which dictates how
-# data should be partitioned between machines.
-#
-# Args:
-#   master_ip: A String corresponding to the private FQDN or IP address of the
-#     machine hosting the Database Master role.
-#   slave_ips: An Array of Strings, where each String corresponds to a private
-#     FQDN or IP address of a machine hosting a Database Slave role.
-# Returns:
-#   A Fixnum that corresponds to the token that should be used on this machine's
-#   Cassandra configuration.
-def get_local_token(master_ip, slave_ips)
-  return if master_ip == HelperFunctions.local_ip
-
-  slave_ips.each_with_index { |ip, index|
-    # This token generation was taken from:
-    # http://www.datastax.com/docs/0.8/install/cluster_init#cluster-init
-    if ip == HelperFunctions.local_ip
-      # Add one to offset the master
-      return (index + 1)*(2**127)/(1 + slave_ips.length)
-    end
-  }
-end
-
-
 # Writes all the configuration files necessary to start Cassandra on this
 # machine.
 #
 # Args:
 #   master_ip: A String corresponding to the private FQDN or IP address of the
 #     machine hosting the Database Master role.
-#   slave_ips: An Array of Strings, where each String corresponds to a private
-#     FQDN or IP address of a machine hosting a Database Slave role.
-def setup_db_config_files(master_ip, slave_ips)
-  local_token = get_local_token(master_ip, slave_ips)
+def setup_db_config_files(master_ip)
   local_ip = HelperFunctions.local_ip
   setup_script = "#{SETUP_CONFIG_SCRIPT} --local-ip #{local_ip} "\
                  "--master-ip #{master_ip}"
-  setup_script << " --local-token #{local_token}" unless local_token.nil?
   Djinn.log_run(setup_script)
 end
 

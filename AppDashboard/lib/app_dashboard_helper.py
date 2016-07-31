@@ -870,7 +870,6 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
       return False
-    return True
 
 
   def remove_user_permissions(self, email, perm):
@@ -902,7 +901,6 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
       return False
-    return True
 
 
   def gather_logs(self):

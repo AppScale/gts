@@ -1,8 +1,6 @@
 """ This script deletes a user. """
 
-import M2Crypto
 import os
-import string
 import sys
 import SOAPpy
 
@@ -58,14 +56,14 @@ if __name__ == "__main__":
   total = len(sys.argv)
   if total != 2:
     usage() 
-    exit(1)
+    sys.exit(1)
 
   email = sys.argv[1]
 
   server = get_soap_accessor()
   if not does_user_exist(email, server):
     print "User does not exist."
-    exit(1)
+    sys.exit(1)
 
   print "Deleting user...",
   delete_user(server, email)
