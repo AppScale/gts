@@ -7,8 +7,7 @@ import urllib2
 
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from tq_config import TaskQueueConfig
+from appscale.taskqueue.tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
@@ -228,12 +227,16 @@ class TestTaskQueueConfig(unittest.TestCase):
        .should_receive("exists").and_return(True)
     queue_info = tqc.load_queues_from_file('app_id')
     queue_info = tqc.load_queues_from_db()
-    FILE1 = open(os.path.dirname(os.path.realpath(__file__)) + '/../../templates/header.py', 'r')
-    file1 = FILE1.read()
-    FILE1.close()
-    FILE2 = open(os.path.dirname(os.path.realpath(__file__)) + '/../../templates/task.py', 'r')
-    file2 = FILE2.read()
-    FILE2.close()
+
+    header_template = os.path.join(os.path.dirname(__file__), '../../appscale',
+                                   'taskqueue', 'templates', 'header.py')
+    with open(header_template) as header_template_file:
+      file1 = header_template_file.read()
+
+    task_template = os.path.join(os.path.dirname(__file__), '../../appscale',
+                                 'taskqueue', 'templates', 'task.py')
+    with open(task_template) as task_template_file:
+      file2 = task_template_file.read()
 
     flexmock(file_io).should_receive('write').and_return(None)
     flexmock(file_io).should_receive("read").and_return(file1).and_return(file2)

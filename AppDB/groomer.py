@@ -16,6 +16,7 @@ import dbconstants
 import datastore_server
 import entity_utils
 
+from appscale.taskqueue.distributed_tq import TaskName
 from zkappscale import zktransaction as zk
 
 from google.appengine.api import apiproxy_stub_map

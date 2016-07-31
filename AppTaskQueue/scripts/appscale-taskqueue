@@ -1,18 +1,24 @@
-#!/usr/local/Python-2.7.3/python
+#!/usr/bin/env python2
 
-# See LICENSE file
 """ A tornado web service for handling TaskQueue request from application
 servers. """
 
+import logging
 import sys
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import distributed_tq
+from appscale.taskqueue import distributed_tq
+from appscale.taskqueue.unpackaged import APPSCALE_LIB_DIR
+from appscale.taskqueue.unpackaged import APPSCALE_PYTHON_APPSERVER
 
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
+
+sys.path.append(APPSCALE_LIB_DIR)
+from constants import LOG_FORMAT
 
 # Default port this service runs on.
 SERVER_PORT = 64839
@@ -214,11 +220,12 @@ def main():
 
   while 1:
     try:
-      print "Starting TaskQueue server on port %d" % SERVER_PORT
+      logging.info('Starting TaskQueue server on port {}'.format(SERVER_PORT))
       tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
-      print "Server interrupted by user, terminating..."
+      logging.warning('Server interrupted by user, terminating...')
       sys.exit(1)
 
 if __name__ == '__main__':
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   main()
