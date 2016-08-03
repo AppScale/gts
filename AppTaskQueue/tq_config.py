@@ -291,12 +291,17 @@ queue:
     script = header_template.replace("CELERY_CONFIGURATION", self._app_id) + \
       '\n'
     for queue in queue_info['queue']:
-      queue_name = queue['name']  
-      # The queue name is used as a function name so replace invalid chars
+      if 'mode' in queue and queue['mode'] == "pull":
+        # Celery does not handle pull queues.
+        continue
+
+      queue_name = queue['name']
+      # The queue name is used as a function name so replace invalid chars.
       queue_name = queue_name.replace('-', '_')
       try:
         self.validate_queue_name(queue_name)
       except NameError as name_error:
+        # If queue name is invalid, print exception and skip.
         logging.exception(name_error)
         continue
 
@@ -409,15 +414,21 @@ queue:
     celery_annotations = []
     for queue in queue_info['queue']:
       if 'mode' in queue and queue['mode'] == "pull":
-        continue # celery does not handle pull queues
-      celery_queue_name = \
-        TaskQueueConfig.get_celery_queue_name(self._app_id, queue['name'])
+        # Celery does not handle pull queues.
+        continue
+
+      queue_name = queue['name']
+      # Check that the sanitized queue name is valid before configuring celery.
+      queue_name = queue_name.replace('-', '_')
       try:
-        self.validate_queue_name(celery_queue_name)
+        self.validate_queue_name(queue_name)
       except NameError as name_error:
+        # If queue name is invalid, print exception and skip.
         logging.exception(name_error)
         continue
 
+      celery_queue_name = \
+        TaskQueueConfig.get_celery_queue_name(self._app_id, queue['name'])
       celery_queues.append("Queue('" + celery_queue_name + \
          "', Exchange('" + self._app_id + \
          "'), routing_key='" + celery_queue_name  + "'),")
