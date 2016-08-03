@@ -12,12 +12,9 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import appscale_datastore_batch
-import appscale_info
 import datastore_server
-import delete_all_records
-import restore_data as restore
+from backup.scripts import restore_data as restore
 
-from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
 
 class FakeArgumentParser(object):

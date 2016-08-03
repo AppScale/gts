@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <raj@appscale.com>
-import json
 import os
 import socket
 import sys
 import unittest
 import urllib2
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api.taskqueue  import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
+
 
 # AppScale must already be running with RabbitMQ
 class TestTaskAddTask(unittest.TestCase):
