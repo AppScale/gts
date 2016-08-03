@@ -23,7 +23,7 @@ class AppManagerClient
   attr_reader :conn, :ip
 
   # The port that the AppManager binds to, by default.
-  SERVER_PORT = 49934
+  SERVER_PORT = 17445
 
   # Initialization function for AppManagerClient
   def initialize(ip)

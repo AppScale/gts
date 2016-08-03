@@ -541,3 +541,8 @@ buildgo()
     echo "Building ${GO_VERSION} ..."
     (cd ${GOROOT_DIR}/src && ./make.bash)
 }
+
+installtaskqueue()
+{
+    (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
+}

@@ -17,7 +17,6 @@ def setup_environment():
   FILE = open(ENVIRONMENT_FILE)
   env = yaml.load(FILE.read())
   APPSCALE_HOME = env["APPSCALE_HOME"]
-  sys.path.append(APPSCALE_HOME + "/AppTaskQueue")
   sys.path.append(APPSCALE_HOME + "/AppServer")
   sys.path.append(APPSCALE_HOME + "/lib")
 
@@ -29,9 +28,9 @@ from urlparse import urlparse
 import appscale_info
 import constants
 
-from tq_config import TaskQueueConfig
-from tq_lib import TASK_STATES
-from distributed_tq import TaskName
+from appscale.taskqueue.tq_config import TaskQueueConfig
+from appscale.taskqueue.tq_lib import TASK_STATES
+from appscale.taskqueue.distributed_tq import TaskName
 
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.api import apiproxy_stub_map

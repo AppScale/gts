@@ -49,7 +49,7 @@ DB_SERVER_PORT = 8888
 UA_SERVER_PORT = 4343
 
 # The port of the application manager soap server.
-APP_MANAGER_PORT = 49934
+APP_MANAGER_PORT = 17445
 
 # Python programs.
 PYTHON = "python"

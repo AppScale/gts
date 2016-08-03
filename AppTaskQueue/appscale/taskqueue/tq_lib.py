@@ -1,12 +1,13 @@
 """ Helper functions for TaskQueue library. """
 
 import datetime
-import os
 import random
 import string
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
+from unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
 
 # The longest you can delay a task.

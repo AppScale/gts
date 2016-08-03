@@ -64,7 +64,6 @@ Depends: appscale-tools,
          python-lxml
          python-m2crypto,
          python-memcache,
-         python-nose,
          python-numpy,
          python-openssl,
          python-pika,

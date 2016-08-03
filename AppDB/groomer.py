@@ -14,8 +14,8 @@ import time
 import appscale_datastore_batch
 import dbconstants
 import datastore_server
-import entity_utils
 
+from appscale.taskqueue.distributed_tq import TaskName
 from zkappscale import zktransaction as zk
 
 from google.appengine.api import apiproxy_stub_map
@@ -38,9 +38,6 @@ from app_dashboard_data import InstanceInfo
 from app_dashboard_data import ServerStatus
 from app_dashboard_data import RequestInfo
 from dashboard_logs import RequestLogLine
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
-from distributed_tq import TaskName
 
 
 class DatastoreGroomer(threading.Thread):
@@ -123,9 +120,6 @@ class DatastoreGroomer(threading.Thread):
       table_name: The database used (ie, cassandra)
       ds_path: The connection path to the datastore_server.
     """
-    log_format = logging.Formatter('%(asctime)s %(levelname)s %(filename)s: '
-      '%(lineno)s %(message)s')
-    logging.getLogger().handlers[0].setFormatter(log_format)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)

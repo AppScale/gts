@@ -11,18 +11,20 @@ import os
 import socket
 import sys
 import time
-
 import tq_lib
-from tq_config import TaskQueueConfig
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
+from tq_config import TaskQueueConfig
+from unpackaged import APPSCALE_LIB_DIR
+from unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 import constants
 import file_io
 import monit_app_configuration
 import monit_interface
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
@@ -109,7 +111,6 @@ class DistributedTaskQueue():
 
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
-    file_io.set_logging_format()
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)

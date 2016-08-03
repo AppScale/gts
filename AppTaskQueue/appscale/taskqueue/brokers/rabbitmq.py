@@ -1,9 +1,10 @@
 """ Constants and helper functions for the RabbitMQ broker. """
 
-import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+from ..unpackaged import APPSCALE_LIB_DIR
+
+sys.path.append(APPSCALE_LIB_DIR)
 import file_io
 
 # The FS location which contains the nearest RabbitMQ server
@@ -19,8 +20,6 @@ def get_connection_string():
   Returns:
     A string representing the location of RabbitMQ.
   """
-  from brokers import rabbitmq
   rabbitmq_ip = file_io.read(RABBITMQ_LOCATION_FILE)
   return 'amqp://guest:guest@' + rabbitmq_ip + ':' + \
          str(RABBITMQ_PORT) + '//'
-

@@ -6,8 +6,7 @@ import unittest
 
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from brokers import rabbitmq
+from appscale.taskqueue.brokers import rabbitmq
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io

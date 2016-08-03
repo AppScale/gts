@@ -5,19 +5,14 @@ import sys
 import os
 import unittest
 
-sys.path.append(os.path.join(os.path.expanduser("~"), "appscale/AppServer/"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+import app_dashboard_data
 from app_dashboard_data import AppDashboardData
 from app_dashboard_helper import AppDashboardHelper
 
-from app_dashboard_data import DashboardDataRoot
-from app_dashboard_data import ServerStatus
-from app_dashboard_data import AppStatus
-import app_dashboard_data
-
+sys.path.append(os.path.join(os.path.expanduser("~"), "appscale/AppServer/"))
 from google.appengine.ext import ndb
 from google.appengine.api import users
-
 
 
 class TestAppDashboardData(unittest.TestCase):

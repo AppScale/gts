@@ -1,22 +1,13 @@
 from flexmock import flexmock
-import logging
-import re
 import sys
 import os
 import unittest
 import urllib
 
-sys.path.append(os.path.join(os.path.expanduser("~"), "appscale/AppServer/"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
-from app_dashboard_data import AppDashboardData
 from app_dashboard_helper import AppDashboardHelper
 
-from app_dashboard_data import DashboardDataRoot
-from app_dashboard_data import ServerStatus
-from app_dashboard_data import AppStatus
-import app_dashboard_data
-
-from google.appengine.ext import ndb
+sys.path.append(os.path.join(os.path.expanduser("~"), "appscale/AppServer/"))
 from google.appengine.api import users
 
 
@@ -47,8 +38,6 @@ class TestAppDashboardHelper(unittest.TestCase):
       'app2', 'app3'], flexmock(), flexmock()))
     self.assertFalse(AppDashboardHelper().update_cookie_app_list(['app1', 
       'app2'], flexmock(), flexmock()))
-	
-      
 
   def test_get_user_app_list(self):
     flexmock(AppDashboardHelper).should_receive('query_user_data') \
