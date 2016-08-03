@@ -37,8 +37,7 @@ module TaskQueue
   # The location of the taskqueue server script. This service controls 
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = File.dirname(__FILE__) + "/../../AppTaskQueue" + \
-                            "taskqueue_server.py"
+  TASKQUEUE_SERVER_SCRIPT = '/usr/local/bin/appscale-taskqueue'
 
   # The longest we'll wait for RabbitMQ to come up in seconds.
   MAX_WAIT_FOR_RABBITMQ = 30
@@ -171,10 +170,9 @@ module TaskQueue
   # Starts the AppScale TaskQueue server.
   def self.start_taskqueue_server()
     Djinn.log_debug("Starting taskqueue_server on this node")
-    script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
-    start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{script} /usr/bin/python2"
+          "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
     env_vars = {}
     MonitInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT,
       env_vars)
@@ -193,9 +191,7 @@ module TaskQueue
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
-    script = "#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    Djinn.log_run("/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py #{script} /usr/bin/python2")
     MonitInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end

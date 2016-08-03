@@ -8,12 +8,16 @@ import os
 import re
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
+from brokers import rabbitmq
+from unpackaged import APPSCALE_LIB_DIR
+from unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import datastore
 from google.appengine.api import datastore_types
 from google.appengine.api import queueinfo
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 import file_io
 import xmltodict
@@ -65,13 +69,14 @@ queue:
   CELERY_STATE_DIR = '/opt/appscale/celery/'
 
   # Directory with the task templates.
-  TEMPLATE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/templates/"
+  TEMPLATE_DIR = os.path.join(
+    os.path.dirname(sys.modules['appscale.taskqueue'].__file__), 'templates')
 
   # The location of a header of a queue worker script.
-  HEADER_LOC = TEMPLATE_DIR + 'header.py'
+  HEADER_LOC = os.path.join(TEMPLATE_DIR, 'header.py')
   
   # The location of the task template code.
-  TASK_LOC = TEMPLATE_DIR + 'task.py'
+  TASK_LOC = os.path.join(TEMPLATE_DIR, 'task.py')
 
   # The max length allowed for a queue name.
   MAX_QUEUE_NAME_LENGTH = 100
@@ -471,7 +476,6 @@ CELERYD_PREFETCH_MULTIPLIER = 1
       NotImplementedError: If the broker is not implemented.
     """ 
     if broker == self.RABBITMQ:
-      from brokers import rabbitmq
       return rabbitmq.get_connection_string()
     else:
       raise NotImplementedError(
