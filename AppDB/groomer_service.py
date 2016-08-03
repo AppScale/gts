@@ -9,12 +9,13 @@ from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+from constants import LOG_FORMAT
 
 # Location to find the datastore service.
 LOCAL_DATASTORE = "localhost:8888"
 
 if __name__ == "__main__":
-  logging.basicConfig(level=logging.INFO)
+  logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
   logger = logging.getLogger(__name__)
   zookeeper_locations = appscale_info.get_zk_locations_string()
   gc_zookeeper = zk.ZKTransaction(host=zookeeper_locations, start_gc=False)

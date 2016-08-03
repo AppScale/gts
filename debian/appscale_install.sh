@@ -65,5 +65,6 @@ case "$1" in
         installpsutil
         installapiclient
         buildgo
+        installtaskqueue
         ;;
 esac
