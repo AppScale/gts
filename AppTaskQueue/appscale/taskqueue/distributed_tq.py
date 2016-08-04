@@ -296,7 +296,6 @@ class DistributedTaskQueue():
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
-               #"--autoscale=" + self.MIN_MAX_CONCURRENCY,
                "--hostname=%h." + app_id,
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,

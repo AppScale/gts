@@ -1,10 +1,8 @@
 """ AppScale TaskQueue configuration class. It deals with the configuration
 file given with an application 'queue.yaml' or 'queue.xml'. """
 
-import json
 import logging
 import os
-import re
 import sys
 
 from queue import InvalidQueueConfiguration
@@ -71,7 +69,6 @@ queue:
     Args:
       app_id: The application ID.
     """
-    file_io.set_logging_format()
     self._app_id = app_id
     file_io.mkdir(self.CELERY_CONFIG_DIR)
     file_io.mkdir(self.CELERY_WORKER_DIR)
