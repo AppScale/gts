@@ -215,7 +215,7 @@ class DistributedTaskQueue():
 
     app_id = self.__cleanse(request['app_id'])
 
-    cached_queues = self.__queue_info_cache[app_id].queues
+    cached_queues = self.__queue_info_cache[app_id]
     try:
       new_queues = TaskQueueConfig(app_id).queues
     except (ValueError, NameError) as config_error:
