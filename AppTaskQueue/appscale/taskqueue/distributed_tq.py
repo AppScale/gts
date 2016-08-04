@@ -13,6 +13,7 @@ import sys
 import time
 import tq_lib
 
+from queue import QueueTypes
 from tq_config import TaskQueueConfig
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -213,15 +214,8 @@ class DistributedTaskQueue():
       return json.dumps(request)
 
     app_id = self.__cleanse(request['app_id'])
-    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
-    old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
-    old_queue_dict = {}
-    for queue in old_queues['queue']:
-      old_queue_dict[queue['name']] = queue
-
-    new_queue_dict = {}
-    # Load the new queue info.
+    cached_queues = self.__queue_info_cache[app_id].queues
     try:
       new_queues  = config.load_queues_from_file(app_id)
       for queue in new_queues['queue']:
@@ -278,7 +272,6 @@ class DistributedTaskQueue():
       return json.dumps(request)
 
     app_id = self.__cleanse(request['app_id'])
-    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info.
     try:
@@ -623,37 +616,28 @@ class DistributedTaskQueue():
     args['max_doublings'] = self.DEFAULT_MAX_DOUBLINGS
 
     # Load queue info into cache.
-    if request.app_id() not in self.__queue_info_cache:
+    app_id = self.__cleanse(request.app_id())
+    queue_name = request.queue_name()
+    if app_id not in self.__queue_info_cache:
       try:
-        config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, request.app_id())
-        self.__queue_info_cache[request.app_id()] = \
-          config.load_queues_from_file(request.app_id())
-      except ValueError, value_error:
-        logging.error("Unable to load queues for app id {0} using defaults."\
-          .format(request.app_id()))
-      except NameError, name_error:
-        logging.error("Unable to load queues for app id {0} using defaults."\
-          .format(request.app_id()))
-      except Exception, exception:
-        logging.error("******Unknown exception******")
-        logging.exception(exception)
+        self.__queue_info_cache[app_id] = TaskQueueConfig(app_id).queues
+      except (ValueError, NameError):
+        logging.exception('Unable to load queues for {}. Using defaults.'\
+          .format(app_id))
+      except Exception:
+        logging.exception('Unknown exception')
   
     # Use queue defaults.
-    if request.app_id() in self.__queue_info_cache:
-      queue_list = self.__queue_info_cache[request.app_id()]['queue']
-      for queue in queue_list:
-        if queue.get('name') == request.queue_name():
-          if 'retry_parameters' in queue:
-            retry_params = queue['retry_parameters']
-            if 'task_retry_limit' in retry_params:
-              args['max_retries'] = retry_params['task_retry_limit']
-            if 'min_backoff_seconds' in retry_params:
-              args['min_backoff_sec'] = retry_params['min_backoff_seconds']
-            if 'max_backoff_seconds' in retry_params: 
-              args['max_backoff_sec'] = retry_params['max_backoff_seconds']
-            if 'max_doublings' in retry_params:
-              args['max_doublings'] = retry_params['max_doublings']
-          break
+    if (app_id in self.__queue_info_cache and
+        queue_name in self.__queue_info_cache[app_id]):
+      queue = self.__queue_info_cache[app_id][queue_name]
+      if queue.mode != QueueTypes.PUSH:
+        raise Exception('Only push queues are implemented')
+
+      args['max_retries'] = queue.task_retry_limit
+      args['min_backoff_sec'] = queue.min_backoff_seconds
+      args['max_backoff_sec'] = queue.max_backoff_seconds
+      args['max_doublings'] = queue.max_doublings
 
     # Override defaults.
     if request.has_retry_parameters():

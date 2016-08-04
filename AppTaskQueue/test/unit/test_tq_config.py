@@ -195,43 +195,17 @@ class TestTaskQueueConfig(unittest.TestCase):
       file2 = task_template_file.read()
 
     flexmock(file_io).should_receive('write').and_return(None)
-    flexmock(file_io).should_receive("read").and_return(file1).and_return(file2)
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_DB), TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE), TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
+    flexmock(file_io).should_receive("read").and_return(file1).\
+      and_return(file2)
+    self.assertEquals(tqc.create_celery_worker_scripts(),
+                      TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
 
-  def test_validate_queue_name(self):
-    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io).should_receive("write").and_return(None)
-    flexmock(file_io).should_receive("mkdir").and_return(None)
+  def test_queue_name_validation(self):
+    valid_names = ['hello', 'hello-hello']
+    invalid_names = ['hello_hello5354', 'hello$hello', 'hello@hello',
+                     'hello&hello', 'hello*hello']
+    for name in valid_names:
+      Queue({'name': name})
 
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    tqc.validate_queue_name("hello")
-    tqc.validate_queue_name("hello_hello5354")
-    try:
-      tqc.validate_queue_name("hello-hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello$hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello@hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello&hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello*hello")
-      raise
-    except NameError:
-      pass
-if __name__ == "__main__":
-  unittest.main()    
+    for name in invalid_names:
+      self.assertRaises(InvalidQueueConfiguration, Queue({'name': name}))
