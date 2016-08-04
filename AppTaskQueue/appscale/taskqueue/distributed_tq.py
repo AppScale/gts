@@ -247,7 +247,7 @@ class DistributedTaskQueue():
 
       if queue != cached_queues[name]:
         logging.info('Reloading queue for {}: {}'.format(app_id, name))
-        logging.info('Old: {}\nNew: {}'.format(cached_queues[name], queue))
+        logging.debug('Old: {}\nNew: {}'.format(cached_queues[name], queue))
         reload_workers = True
 
     if reload_workers:
