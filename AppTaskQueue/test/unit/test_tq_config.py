@@ -166,9 +166,9 @@ class TestTaskQueueConfig(unittest.TestCase):
                       TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
 
   def test_queue_name_validation(self):
-    valid_names = ['hello', 'hello-hello']
+    valid_names = ['hello', 'hello-hello', 'HELLO-world-1']
     invalid_names = ['hello_hello5354', 'hello$hello', 'hello@hello',
-                     'hello&hello', 'hello*hello']
+                     'hello&hello', 'hello*hello', 'a'*101]
     for name in valid_names:
       Queue({'name': name})
 
