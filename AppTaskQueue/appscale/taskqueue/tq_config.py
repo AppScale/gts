@@ -1,6 +1,5 @@
 """ AppScale TaskQueue configuration class. It deals with the configuration
-file given with an application 'queue.yaml' or 'queue.xml'. When a previous
-version was deployed, the older configuration from the database. """
+file given with an application 'queue.yaml' or 'queue.xml'. """
 
 import json
 import logging
@@ -13,8 +12,6 @@ from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api import datastore
-from google.appengine.api import datastore_types
 from google.appengine.api import queueinfo
 
 sys.path.append(APPSCALE_LIB_DIR)
@@ -24,9 +21,6 @@ import xmltodict
 
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """
-
-  # The kind name for storing Queue info.
-  QUEUE_KIND = "__queue__"
 
   # Enum code for broker to use.
   RABBITMQ = 0
@@ -45,19 +39,6 @@ queue:
   # The default rate for a queue if not specified in the queue.yaml. 
   # In Google App Engine it is unlimited so we use a high rate here.
   DEFAULT_RATE = "10000/s"
-  
-  # The application ID used for storing queue info.
-  APPSCALE_QUEUES = "__appscale_queues__"
-
-  # The property index for which we store the queue info.
-  QUEUE_INFO = "queueinfo"
-
-  # The property index for which we store app name.
-  APP_NAME = "appname"
-
-  # Queue info location codes.
-  QUEUE_INFO_DB = 0
-  QUEUE_INFO_FILE = 1 
 
   # Location of all celery configuration files.
   CELERY_CONFIG_DIR = '/etc/appscale/celery/configuration/'
@@ -110,8 +91,6 @@ queue:
     self._broker = broker
     self._broker_location = self.__broker_location(broker)
     self._app_id = app_id
-    self._queue_info_db = None
-    self._queue_info_file = None
     file_io.mkdir(self.CELERY_CONFIG_DIR)
     file_io.mkdir(self.CELERY_WORKER_DIR)
 
@@ -221,75 +200,13 @@ queue:
     logging.debug("XML queue info is {0}".format(converted))
     return converted
 
-  def get_file_queue_info(self):
-    """ Retrieves the queues declared in the queue.yaml or queue.xml
-    configuration.
-
-    Returns:
-      A dictionary of queues.
-    """
-    return self._queue_info_file
-
-  def get_db_queue_info(self):
-    """ Retrieves the queues for this application configuration.
-   
-    Returns:
-      A dictionary of queues.
-    """
-    return self._queue_info_db
-
-  def __get_queues_from_db(self):
-    """ Retrieves queue info from the database.
-
-    Returns:
-      A dictionary of queues.
-    """
-    queues_key = datastore.Key.from_path(self.QUEUE_KIND, 
-                                         self._app_id,
-                                         _app=self.APPSCALE_QUEUES)
-    queues = datastore.Get(queues_key) 
-    return json.loads(queues[self.QUEUE_INFO])
-
-  def load_queues_from_db(self):
-    """ Gets the queues stored in the datastore for the current application
-    and loads them into this class.
-
-    Returns:
-      A dictionary of queues. 
-    """
-    self._queue_info_db = self.__get_queues_from_db()
-    return self._queue_info_db
-
-  def save_queues_to_db(self):
-    """ Stores queue information from file into the datastore.
-
-    Raises:
-      ValueError: If queue info has not been set.
-    """
-    if not self._queue_info_file:
-      raise ValueError("Queue info must be set before saving the queues")
-    json_queues = json.dumps(self._queue_info_file)
-    entity = datastore.Entity(self.QUEUE_KIND, 
-                              name=self._app_id,
-                              _app=self.APPSCALE_QUEUES)
-    entity.update({self.QUEUE_INFO: datastore_types.Blob(json_queues),
-                   self.APP_NAME: datastore_types.ByteString(self._app_id)})
-    datastore.Put(entity)
-
-  def create_celery_worker_scripts(self, input_type):
+  def create_celery_worker_scripts(self):
     """ Creates the task worker python script. It uses a configuration file
     for setup.
 
-    Args:
-      input_type: Whether to use the config file or the database queue info.
-        Default: config file.
     Returns:
       The full path of the worker script.
     """
-    queue_info = self._queue_info_file
-    if input_type == self.QUEUE_INFO_DB:
-      queue_info = self._queue_info_db 
-
     header_template = file_io.read(self.HEADER_LOC)
     task_template = file_io.read(self.TASK_LOC)
     header_template = header_template.replace("APP_ID", self._app_id)
@@ -399,22 +316,14 @@ queue:
     """
     return TaskQueueConfig.CELERY_CONFIG_DIR + app_id + ".py"
 
-  def create_celery_file(self, input_type):
+  def create_celery_file(self):
     """ Creates the Celery configuration file describing queues and exchanges
-    for an application. Uses either the queue.yaml/queue.xml input or what
-    was stored in the datastore to create the celery file.
+    for an application. Uses the queue.yaml/queue.xml input.
 
-    Args:
-      input_type: Whether to use the config file or the database queue info.
-        Default: config file.
     Returns:
       A string representing the full path location of the 
       configuration file.
     """
-    queue_info = self._queue_info_file
-    if input_type == self.QUEUE_INFO_DB:
-      queue_info = self._queue_info_db 
- 
     celery_queues = []
     celery_annotations = []
     for queue in queue_info['queue']:
