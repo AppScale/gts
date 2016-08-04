@@ -217,41 +217,47 @@ class DistributedTaskQueue():
 
     cached_queues = self.__queue_info_cache[app_id].queues
     try:
-      new_queues  = config.load_queues_from_file(app_id)
-      for queue in new_queues['queue']:
-        new_queue_dict[queue['name']] = queue
-    except ValueError, value_error:
-      return json.dumps({"error": True, "reason": str(value_error)}) 
-    except NameError, name_error:
-      return json.dumps({"error": True, "reason": str(name_error)}) 
-    except Exception, exception:
-      logging.error("******Unknown exception******")
-      logging.exception(exception)
-      return json.dumps({"error": True, "reason": str(exception)})
+      new_queues = TaskQueueConfig(app_id).queues
+    except (ValueError, NameError) as config_error:
+      return json.dumps({'error': True, 'reason': config_error.message})
+    except Exception as config_error:
+      logging.exception('Unknown exception')
+      return json.dumps({'error': True, 'reason': config_error.message})
 
-    reload_queues = False
+    reload_workers = False
 
-    # Delete queues that no longer exist.
-    for queue_name in old_queue_dict.keys():
-      if queue_name not in new_queue_dict:
-        logging.info("Deleting {0} queue: {1}".format(app_id, queue_name))
-        reload_queues = True
+    # Stop workers for push queues that no longer exist.
+    for name, queue in cached_queues.iteritems():
+      if queue.mode != QueueTypes.PUSH:
+        continue
 
-    # Create any new queues.
-    for queue_name in new_queue_dict.keys():
-      if queue_name not in old_queue_dict.keys():
-        logging.info("Creating {0} queue: {1}".format(app_id, queue_name))
-        reload_queues = True
+      if name not in new_queues:
+        logging.info('Deleting queue for {}: {}'.format(app_id, name))
+        reload_workers = True
 
-    if reload_queues:
-      logging.info("Old {0} queues: {1}".format(app_id, old_queue_dict))
-      logging.info("New {0} queues: {1}".format(app_id, new_queue_dict))
+    # Create any new push queues and update ones that have changed.
+    for name, queue in new_queues.iteritems():
+      if queue.mode != QueueTypes.PUSH:
+        continue
+
+      if name not in cached_queues:
+        logging.info('Creating queue for {}: {}'.format(app_id, name))
+        reload_workers = True
+        continue
+
+      if queue != cached_queues[name]:
+        logging.info('Reloading queue for {}: {}'.format(app_id, name))
+        logging.info('Old: {}\nNew: {}'.format(cached_queues[name], queue))
+        reload_workers = True
+
+    if reload_workers:
       self.stop_worker(json_request)
       self.start_worker(json_request)
       self.__force_reload = True
     else:
-      logging.info("Not reloading queues")
-      self.__queue_info_cache[app_id] = new_queues
+      logging.info('Not reloading queues')
+
+    self.__queue_info_cache[app_id] = new_queues
 
     json_response = {'error': False}
     return json.dumps(json_response)
@@ -275,17 +281,15 @@ class DistributedTaskQueue():
 
     # Load the queue info.
     try:
-      self.__queue_info_cache[app_id] = config.load_queues_from_file(app_id)
-      config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
-      config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
-    except ValueError, value_error:
-      return json.dumps({"error": True, "reason": str(value_error)}) 
-    except NameError, name_error:
-      return json.dumps({"error": True, "reason": str(name_error)}) 
-    except Exception, exception:
-      logging.error("******Unknown exception******")
-      logging.exception(exception)
-      return json.dumps({"error": True, "reason": str(exception)}) 
+      config = TaskQueueConfig(app_id)
+      self.__queue_info_cache[app_id] = config.queues
+      config.create_celery_file()
+      config.create_celery_worker_scripts()
+    except (ValueError, NameError) as config_error:
+      return json.dumps({'error': True, 'reason': config_error.message})
+    except Exception as config_error:
+      logging.exception('Unknown exception')
+      return json.dumps({'error': True, 'reason': config_error.message})
    
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["/usr/local/bin/celery",
