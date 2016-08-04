@@ -7,7 +7,6 @@ import os
 import re
 import sys
 
-from brokers import rabbitmq
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
@@ -22,9 +21,6 @@ import xmltodict
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """
 
-  # Enum code for broker to use.
-  RABBITMQ = 0
- 
   # Max concurrency per worker.
   CELERY_CONCURRENCY = 10
 
@@ -80,16 +76,13 @@ queue:
   # Tags from queue.xml that are ignored.
   TAGS_TO_IGNORE = ['#text']
 
-  def __init__(self, broker, app_id):
+  def __init__(self, app_id):
     """ Configuration constructor. 
 
     Args:
-      broker: The broker to use.
       app_id: The application ID.
     """
     file_io.set_logging_format()
-    self._broker = broker
-    self._broker_location = self.__broker_location(broker)
     self._app_id = app_id
     file_io.mkdir(self.CELERY_CONFIG_DIR)
     file_io.mkdir(self.CELERY_WORKER_DIR)
@@ -394,30 +387,6 @@ CELERYD_PREFETCH_MULTIPLIER = 1
     config_file = self._app_id + ".py" 
     file_io.write(self.CELERY_CONFIG_DIR + config_file, config)
     return self.CELERY_CONFIG_DIR + config_file
-
-  def __broker_location(self, broker):
-    """ Gets the broker location connection string.
-    
-    Args:
-      broker: The broker enum value.
-    Returns:
-      A broker connection string.
-    Raises:
-      NotImplementedError: If the broker is not implemented.
-    """ 
-    if broker == self.RABBITMQ:
-      return rabbitmq.get_connection_string()
-    else:
-      raise NotImplementedError(
-              "The given broker of code %d is not implemented" % broker)
-
-  def get_broker_string(self):
-    """ Gets the broker connection string.
-
-    Returns:
-      A string which tells of the location of the configured broker.
-    """
-    return self._broker_location
 
   def get_public_ip(self):
     """ Gets the public IP to which the task calls are routed.
