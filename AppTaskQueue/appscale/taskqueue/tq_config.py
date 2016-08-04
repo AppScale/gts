@@ -28,8 +28,7 @@ class TaskQueueConfig():
   CELERY_CONCURRENCY = 10
 
   # The default YAML used if a queue.yaml or queue.xml is not supplied.
-  DEFAULT_QUEUE_YAML = \
-"""
+  DEFAULT_QUEUE_YAML = """
 queue:
 - name: default
   rate: 5/s
@@ -307,56 +306,33 @@ queue:
       configuration file.
     """
     celery_queues = []
-    celery_annotations = []
-    for queue in queue_info['queue']:
-      if 'mode' in queue and queue['mode'] == "pull":
-        # Celery does not handle pull queues.
+    annotations = []
+    for name, queue in self.queues.iteritems():
+      # Celery only handles push queues.
+      if queue.mode != QueueTypes.PUSH:
         continue
 
-      queue_name = queue['name']
-      # Check that the sanitized queue name is valid before configuring celery.
-      queue_name = queue_name.replace('-', '_')
-      try:
-        self.validate_queue_name(queue_name)
-      except NameError as name_error:
-        # If queue name is invalid, print exception and skip.
-        logging.exception(name_error)
-        continue
+      celery_name = TaskQueueConfig.get_celery_queue_name(
+        self._app_id, queue.name)
+      queue_str = "Queue('{name}', Exchange('{app}'), routing_key='{key}'),"\
+        .format(name=celery_name, app=self._app_id, key=celery_name)
+      celery_queues.append(queue_str)
 
-      celery_queue_name = \
-        TaskQueueConfig.get_celery_queue_name(self._app_id, queue['name'])
-      celery_queues.append("Queue('" + celery_queue_name + \
-         "', Exchange('" + self._app_id + \
-         "'), routing_key='" + celery_queue_name  + "'),")
+      annotation_name = TaskQueueConfig.get_celery_annotation_name(
+        self._app_id, queue.name)
+      annotation = "'{name}': {{'rate_limit': '{rate}'}},".format(
+        name=annotation_name, rate=queue.rate)
+      annotations.append(annotation)
 
-      rate_limit = self.DEFAULT_RATE
-      if 'rate' in queue:
-        rate_limit = queue['rate']
-
-      annotation_name = \
-        TaskQueueConfig.get_celery_annotation_name(self._app_id,
-                                                   queue['name'])
-      celery_annotations.append("'" + annotation_name + \
-         "': {'rate_limit': '" + rate_limit + "'},")
-
-    celery_queues = '\n'.join(celery_queues)
-    celery_annotations = '\n'.join(celery_annotations)
-    config = \
-"""
+    config = """
 from kombu import Exchange
 from kombu import Queue
 CELERY_QUEUES = (
-"""
-    config += celery_queues
-    config += \
-"""
+{queues}
 )
-CELERY_ANNOTATIONS = {
-"""
-    config += celery_annotations
-    config += \
-"""
-}
+CELERY_ANNOTATIONS = {{
+{annotations}
+}}
 # Everytime a task is enqueued a temporary queue is created to store
 # results into rabbitmq. This can be bad in a high enqueue environment
 # We use the following to make sure these temp queues are not created. 
@@ -372,8 +348,10 @@ CELERY_AMQP_TASK_RESULT_EXPIRES = 2678400
 # should be set to a higher value (64-128) for increased performance.
 # See: http://celery.readthedocs.org/en/latest/userguide/optimizing.html#worker-settings
 CELERYD_PREFETCH_MULTIPLIER = 1
-"""
-    config_file = self._app_id + ".py" 
+""".format(queues='\n'.join(celery_queues),
+           annotations='\n'.join(annotations))
+
+    config_file = self._app_id + ".py"
     file_io.write(self.CELERY_CONFIG_DIR + config_file, config)
     return self.CELERY_CONFIG_DIR + config_file
 
