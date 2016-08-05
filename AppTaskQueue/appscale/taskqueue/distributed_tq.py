@@ -13,6 +13,7 @@ import sys
 import time
 import tq_lib
 
+from queue import QueueTypes
 from tq_config import TaskQueueConfig
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -213,51 +214,50 @@ class DistributedTaskQueue():
       return json.dumps(request)
 
     app_id = self.__cleanse(request['app_id'])
-    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
-    old_queues = self.__queue_info_cache.get(app_id, {'queue': []})
-    old_queue_dict = {}
-    for queue in old_queues['queue']:
-      old_queue_dict[queue['name']] = queue
-
-    new_queue_dict = {}
-    # Load the new queue info.
+    cached_queues = self.__queue_info_cache[app_id]
     try:
-      new_queues  = config.load_queues_from_file(app_id)
-      for queue in new_queues['queue']:
-        new_queue_dict[queue['name']] = queue
-    except ValueError, value_error:
-      return json.dumps({"error": True, "reason": str(value_error)}) 
-    except NameError, name_error:
-      return json.dumps({"error": True, "reason": str(name_error)}) 
-    except Exception, exception:
-      logging.error("******Unknown exception******")
-      logging.exception(exception)
-      return json.dumps({"error": True, "reason": str(exception)})
+      new_queues = TaskQueueConfig(app_id).queues
+    except (ValueError, NameError) as config_error:
+      return json.dumps({'error': True, 'reason': config_error.message})
+    except Exception as config_error:
+      logging.exception('Unknown exception')
+      return json.dumps({'error': True, 'reason': config_error.message})
 
-    reload_queues = False
+    reload_workers = False
 
-    # Delete queues that no longer exist.
-    for queue_name in old_queue_dict.keys():
-      if queue_name not in new_queue_dict:
-        logging.info("Deleting {0} queue: {1}".format(app_id, queue_name))
-        reload_queues = True
+    # Stop workers for push queues that no longer exist.
+    for name, queue in cached_queues.iteritems():
+      if queue.mode != QueueTypes.PUSH:
+        continue
 
-    # Create any new queues.
-    for queue_name in new_queue_dict.keys():
-      if queue_name not in old_queue_dict.keys():
-        logging.info("Creating {0} queue: {1}".format(app_id, queue_name))
-        reload_queues = True
+      if name not in new_queues:
+        logging.info('Deleting queue for {}: {}'.format(app_id, name))
+        reload_workers = True
 
-    if reload_queues:
-      logging.info("Old {0} queues: {1}".format(app_id, old_queue_dict))
-      logging.info("New {0} queues: {1}".format(app_id, new_queue_dict))
+    # Create any new push queues and update ones that have changed.
+    for name, queue in new_queues.iteritems():
+      if queue.mode != QueueTypes.PUSH:
+        continue
+
+      if name not in cached_queues:
+        logging.info('Creating queue for {}: {}'.format(app_id, name))
+        reload_workers = True
+        continue
+
+      if queue != cached_queues[name]:
+        logging.info('Reloading queue for {}: {}'.format(app_id, name))
+        logging.debug('Old: {}\nNew: {}'.format(cached_queues[name], queue))
+        reload_workers = True
+
+    if reload_workers:
       self.stop_worker(json_request)
       self.start_worker(json_request)
       self.__force_reload = True
     else:
-      logging.info("Not reloading queues")
-      self.__queue_info_cache[app_id] = new_queues
+      logging.info('Not reloading queues')
+
+    self.__queue_info_cache[app_id] = new_queues
 
     json_response = {'error': False}
     return json.dumps(json_response)
@@ -278,28 +278,24 @@ class DistributedTaskQueue():
       return json.dumps(request)
 
     app_id = self.__cleanse(request['app_id'])
-    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info.
     try:
-      self.__queue_info_cache[app_id] = config.load_queues_from_file(app_id)
-      config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
-      config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
-    except ValueError, value_error:
-      return json.dumps({"error": True, "reason": str(value_error)}) 
-    except NameError, name_error:
-      return json.dumps({"error": True, "reason": str(name_error)}) 
-    except Exception, exception:
-      logging.error("******Unknown exception******")
-      logging.exception(exception)
-      return json.dumps({"error": True, "reason": str(exception)}) 
+      config = TaskQueueConfig(app_id)
+      self.__queue_info_cache[app_id] = config.queues
+      config.create_celery_file()
+      config.create_celery_worker_scripts()
+    except (ValueError, NameError) as config_error:
+      return json.dumps({'error': True, 'reason': config_error.message})
+    except Exception as config_error:
+      logging.exception('Unknown exception')
+      return json.dumps({'error': True, 'reason': config_error.message})
    
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["/usr/local/bin/celery",
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
-               #"--autoscale=" + self.MIN_MAX_CONCURRENCY,
                "--hostname=%h." + app_id,
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,
@@ -623,37 +619,28 @@ class DistributedTaskQueue():
     args['max_doublings'] = self.DEFAULT_MAX_DOUBLINGS
 
     # Load queue info into cache.
-    if request.app_id() not in self.__queue_info_cache:
+    app_id = self.__cleanse(request.app_id())
+    queue_name = request.queue_name()
+    if app_id not in self.__queue_info_cache:
       try:
-        config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, request.app_id())
-        self.__queue_info_cache[request.app_id()] = \
-          config.load_queues_from_file(request.app_id())
-      except ValueError, value_error:
-        logging.error("Unable to load queues for app id {0} using defaults."\
-          .format(request.app_id()))
-      except NameError, name_error:
-        logging.error("Unable to load queues for app id {0} using defaults."\
-          .format(request.app_id()))
-      except Exception, exception:
-        logging.error("******Unknown exception******")
-        logging.exception(exception)
+        self.__queue_info_cache[app_id] = TaskQueueConfig(app_id).queues
+      except (ValueError, NameError):
+        logging.exception('Unable to load queues for {}. Using defaults.'\
+          .format(app_id))
+      except Exception:
+        logging.exception('Unknown exception')
   
     # Use queue defaults.
-    if request.app_id() in self.__queue_info_cache:
-      queue_list = self.__queue_info_cache[request.app_id()]['queue']
-      for queue in queue_list:
-        if queue.get('name') == request.queue_name():
-          if 'retry_parameters' in queue:
-            retry_params = queue['retry_parameters']
-            if 'task_retry_limit' in retry_params:
-              args['max_retries'] = retry_params['task_retry_limit']
-            if 'min_backoff_seconds' in retry_params:
-              args['min_backoff_sec'] = retry_params['min_backoff_seconds']
-            if 'max_backoff_seconds' in retry_params: 
-              args['max_backoff_sec'] = retry_params['max_backoff_seconds']
-            if 'max_doublings' in retry_params:
-              args['max_doublings'] = retry_params['max_doublings']
-          break
+    if (app_id in self.__queue_info_cache and
+        queue_name in self.__queue_info_cache[app_id]):
+      queue = self.__queue_info_cache[app_id][queue_name]
+      if queue.mode != QueueTypes.PUSH:
+        raise Exception('Only push queues are implemented')
+
+      args['max_retries'] = queue.task_retry_limit
+      args['min_backoff_sec'] = queue.min_backoff_seconds
+      args['max_backoff_sec'] = queue.max_backoff_seconds
+      args['max_doublings'] = queue.max_doublings
 
     # Override defaults.
     if request.has_retry_parameters():

@@ -4,7 +4,6 @@ import json
 import os
 import sys
 import unittest
-import urllib2
 
 from flexmock import flexmock
 
@@ -32,6 +31,7 @@ queue:
   rate: 10/m
 """
 
+
 class FakeResponse():
   def __init__(self):
     pass
@@ -39,6 +39,7 @@ class FakeResponse():
     return 200
   def read(self):
     return '{"error":false}'
+
 
 class FakeConnection():
   def __init__(self, url):
@@ -54,59 +55,37 @@ class FakeConnection():
   def urlopen(self, request, values):
     return FakeResponse()
 
-class TestDistributedTaskQueue(unittest.TestCase):
 
+class TestDistributedTaskQueue(unittest.TestCase):
   def test_start_worker(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(TaskQueueConfig)\
-       .should_receive("create_celery_file").and_return("/some/file")
-    flexmock(TaskQueueConfig)\
-       .should_receive("create_celery_worker_scripts").and_return("/some/file")
-    flexmock(TaskQueueConfig)\
-       .should_receive("load_queues_from_file").and_return()
- 
-    dtq = DistributedTaskQueue()
-    dtq.start_worker("hi")
-    flexmock(urllib2)\
-       .should_receive("Request").and_return(FakeConnection('/some/url'))
-    
-    results =  {'192.168.0.1':{}, '129.168.0.2':{}, '184.46.65.89':{}}
-    self.assertEqual(dtq.start_worker("hi"), results)
- 
-  def test_start_worker(self):
-    flexmock(file_io).should_receive("mkdir").and_return(None)
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    flexmock(monit_app_configuration).should_receive('create_config_file').and_return('')
-    flexmock(monit_interface).should_receive('start') \
-       .and_return(False)
-    flexmock(TaskQueueConfig)\
-       .should_receive("load_queues_from_file").and_return()
-    flexmock(TaskQueueConfig)\
-       .should_receive("create_celery_worker_scripts").and_return()
-    flexmock(TaskQueueConfig)\
-       .should_receive("create_celery_file").and_return()
+    flexmock(file_io).should_receive("read")\
+      .and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    flexmock(monit_app_configuration).should_receive('create_config_file')\
+      .and_return('')
+    flexmock(monit_interface).should_receive('start').and_return(False)
+    flexmock(TaskQueueConfig).should_receive("load_queues_from_file")
+    flexmock(TaskQueueConfig).should_receive("create_celery_worker_scripts")
+    flexmock(TaskQueueConfig).should_receive("create_celery_file")
    
     dtq = DistributedTaskQueue() 
     json_request = {}
     json_request = json.dumps(json_request)
-    self.assertEquals(dtq.start_worker(json_request), 
-                 json.dumps({'error': True, 'reason': 'Missing app_id tag'}))
+    self.assertEquals(
+      dtq.start_worker(json_request),
+      json.dumps({'error': True, 'reason': 'Missing app_id tag'}))
 
     json_request = "fefwoinfwef=fwf23onr2or3"
     json_response = dtq.start_worker(json_request)
-    self.assertEquals(json_response, json.dumps({'error': True, 'reason': 'Badly formed JSON'}))
+    self.assertEquals(
+      json_response,
+      json.dumps({'error': True, 'reason': 'Badly formed JSON'}))
 
     json_request = {'app_id':'my-app'}
     json_request = json.dumps(json_request)
     assert 'true' in dtq.start_worker(json_request)
 
-    flexmock(monit_interface).should_receive('start') \
-       .and_return(True)
+    flexmock(monit_interface).should_receive('start').and_return(True)
   
     json_request = {'app_id':'my-app'}
     json_request = json.dumps(json_request)
@@ -114,20 +93,20 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
   def test_stop_worker(self):
     flexmock(os).should_receive("system").and_return(None)
-    flexmock(monit_interface).should_receive('stop') \
-       .and_return(False)
+    flexmock(monit_interface).should_receive('stop').and_return(False)
     flexmock(file_io).should_receive("delete").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    dtq = DistributedTaskQueue() 
-    json_request = {'app_id':'test_app'}
-    self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
-                      True)
-    flexmock(monit_interface).should_receive('stop') \
-       .and_return(True)
-    self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
-                      False)
+    flexmock(file_io).should_receive("read")\
+      .and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+
+    dtq = DistributedTaskQueue()
+    json_request = {'app_id': 'test_app'}
+    response = dtq.stop_worker(json.dumps(json_request))
+    self.assertTrue(json.loads(response)['error'])
+
+    flexmock(monit_interface).should_receive('stop').and_return(True)
+    response = dtq.stop_worker(json.dumps(json_request))
+    self.assertFalse(json.loads(response)['error'])
 
 if __name__ == "__main__":
   unittest.main()    
