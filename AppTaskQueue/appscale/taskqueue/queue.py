@@ -1,7 +1,17 @@
 import re
+import sys
+
+from task import InvalidTaskInfo
+from unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
 
 # A regex rule for validating queue names.
-QUEUE_NAME_RE = re.compile('^[a-zA-Z0-9-]{1,100}$')
+QUEUE_NAME_PATTERN = r'^[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
+
+# A compiled regex rule for validating queue names.
+QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
 
 # A regex rule for validating push queue rate.
 RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
