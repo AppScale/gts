@@ -23,7 +23,7 @@ AGE_LIMIT_REGEX = re.compile(r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])')
 DEFAULT_RATE = '5/s'
 
 # The default number of task retries for a queue.
-DEFAULT_RETRY_LIMIT = None
+DEFAULT_RETRY_LIMIT = 0
 
 # The queue default time limit for retrying a failed push task.
 DEFAULT_AGE_LIMIT = None
@@ -42,7 +42,7 @@ QUEUE_ATTRIBUTE_RULES = {
   'name': lambda name: QUEUE_NAME_RE.match(name),
   'mode': lambda mode: mode in (QueueTypes.PUSH, QueueTypes.PULL),
   'rate': lambda rate: RATE_REGEX.match(rate),
-  'task_retry_limit': lambda limit: limit is None or limit >= 0,
+  'task_retry_limit': lambda limit: limit >= 0,
   'task_age_limit': lambda limit: (limit is None or
                                    AGE_LIMIT_REGEX.match(limit)),
   'min_backoff_seconds': lambda seconds: seconds >= 0,
