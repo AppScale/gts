@@ -86,24 +86,28 @@ class TestTaskQueueConfig(unittest.TestCase):
     flexmock(file_io).should_receive("write").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
 
-    tqc = TaskQueueConfig('myapp')
+    app_id = 'myapp'
+    tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'default', 'rate': '5/s'},
                      {'name': 'foo', 'rate': '10/m'}]
-    expected_queues = {info['name']: Queue(info) for info in expected_info}
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
     flexmock(file_io).should_receive("read").and_raise(IOError)
-    tqc = TaskQueueConfig('myapp')
+    tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'default', 'rate': '5/s'}]
-    expected_queues = {info['name']: Queue(info) for info in expected_info}
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
     flexmock(file_io).should_receive("write").and_return(None)
-    tqc = TaskQueueConfig('myapp')
+    tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'foo', 'rate': '10/m'},
                      {'name': 'default', 'rate': '5/s'}]
-    expected_queues = {info['name']: Queue(info) for info in expected_info}
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
   def test_load_queues_from_xml_file(self):
@@ -113,7 +117,8 @@ class TestTaskQueueConfig(unittest.TestCase):
     flexmock(file_io).should_receive("write").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
 
-    tqc = TaskQueueConfig('myapp')
+    app_id = 'myapp'
+    tqc = TaskQueueConfig(app_id)
     expected_info = [
       {'max_concurrent_requests': '300',
        'rate': '100/s',
@@ -126,7 +131,8 @@ class TestTaskQueueConfig(unittest.TestCase):
        'name': 'mapreduce-workers',
        'retry_parameters': {'task_age_limit': '3d'}}
     ]
-    expected_queues = {info['name']: Queue(info) for info in expected_info}
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
   def test_create_celery_file(self):
@@ -166,11 +172,13 @@ class TestTaskQueueConfig(unittest.TestCase):
                       TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
 
   def test_queue_name_validation(self):
+    app_id = 'guestbook'
     valid_names = ['hello', 'hello-hello', 'HELLO-world-1']
     invalid_names = ['hello_hello5354', 'hello$hello', 'hello@hello',
                      'hello&hello', 'hello*hello', 'a'*101]
     for name in valid_names:
-      Queue({'name': name})
+      Queue({'name': name}, app_id)
 
     for name in invalid_names:
-      self.assertRaises(InvalidQueueConfiguration, Queue, {'name': name})
+      self.assertRaises(
+        InvalidQueueConfiguration, Queue, {'name': name}, app_id)

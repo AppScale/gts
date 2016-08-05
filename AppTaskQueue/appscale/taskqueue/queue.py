@@ -67,11 +67,13 @@ class Queue(object):
   OPTIONAL_ATTRS = ['rate', 'task_age_limit', 'min_backoff_seconds',
                     'max_backoff_seconds', 'max_doublings']
 
-  def __init__(self, queue_info):
+  def __init__(self, queue_info, app, db_access=None):
     """ Create a Queue object.
 
     Args:
       queue_info: A dictionary containing queue info.
+      app: A string containing the application ID.
+      db_access: A DatastoreProxy object.
     """
     if 'name' not in queue_info:
       raise InvalidQueueConfiguration(
@@ -111,6 +113,8 @@ class Queue(object):
           self.max_doublings = retry_params['max_doublings']
 
     self.validate_config()
+    self.db_access = db_access
+    self.app = app
 
   def validate_config(self):
     """ Ensures all of the Queue's attributes are valid.
@@ -138,6 +142,9 @@ class Queue(object):
     if not isinstance(other, self.__class__):
       return False
 
+    if self.app != other.app:
+      return False
+
     if self.name != other.name or self.mode != other.mode:
       return False
 
@@ -159,7 +166,8 @@ class Queue(object):
     Returns:
       A string representing the Queue.
     """
-    attributes = {'mode': self.mode,
+    attributes = {'app': self.app,
+                  'mode': self.mode,
                   'task_retry_limit': self.task_retry_limit}
     for attribute in self.OPTIONAL_ATTRS:
       if hasattr(self, attribute):
