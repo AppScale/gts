@@ -17,7 +17,6 @@ def setup_environment():
   FILE = open(ENVIRONMENT_FILE)
   env = yaml.load(FILE.read())
   APPSCALE_HOME = env["APPSCALE_HOME"]
-  sys.path.append(APPSCALE_HOME + "/AppTaskQueue")
   sys.path.append(APPSCALE_HOME + "/AppServer")
   sys.path.append(APPSCALE_HOME + "/lib")
 
@@ -29,9 +28,10 @@ from urlparse import urlparse
 import appscale_info
 import constants
 
-from tq_config import TaskQueueConfig
-from tq_lib import TASK_STATES
-from distributed_tq import TaskName
+from appscale.taskqueue.brokers import rabbitmq
+from appscale.taskqueue.distributed_tq import TaskName
+from appscale.taskqueue.tq_config import TaskQueueConfig
+from appscale.taskqueue.tq_lib import TASK_STATES
 
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.api import apiproxy_stub_map
@@ -45,10 +45,9 @@ sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
 app_id = 'APP_ID'
 
-config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 module_name = TaskQueueConfig.get_celery_worker_module_name(app_id)
-celery = Celery(module_name, broker=config.get_broker_string(),
-  backend='amqp://')
+celery = Celery(module_name, broker=rabbitmq.get_connection_string(),
+                backend='amqp://')
 
 celery.config_from_object('CELERY_CONFIGURATION')
 

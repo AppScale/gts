@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import httplib
 import json
 import os
 import socket
