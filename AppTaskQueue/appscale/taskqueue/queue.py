@@ -1,7 +1,6 @@
 import re
 import sys
 
-from task import InvalidTaskInfo
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
