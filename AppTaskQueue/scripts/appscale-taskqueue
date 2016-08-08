@@ -3,6 +3,7 @@
 """ A tornado web service for handling TaskQueue request from application
 servers. """
 
+import argparse
 import logging
 import sys
 import tornado.httpserver
@@ -140,6 +141,7 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       http_request_data = apirequest.request()
 
+    logging.debug('Method: {}'.format(method))
     if method == "FetchQueueStats":
       response, errcode, errdetail = task_queue.fetch_queue_stats(app_id,
                                                  http_request_data)
@@ -227,5 +229,14 @@ def main():
       sys.exit(1)
 
 if __name__ == '__main__':
-  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  parser = argparse.ArgumentParser(description='A taskqueue API server')
+  parser.add_argument('--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
+
+  log_level = logging.INFO
+  if args.verbose:
+    log_level = logging.DEBUG
+
+  logging.basicConfig(format=LOG_FORMAT, level=log_level)
   main()

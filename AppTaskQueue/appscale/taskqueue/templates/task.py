@@ -54,7 +54,7 @@ def QUEUE_NAME(headers, args):
       db.delete(item)
       return
 
-    if (args['max_retries'] is not None and args['max_retries'] != 0 and
+    if (args['max_retries'] != 0 and
         QUEUE_NAME.request.retries >= args['max_retries']):
       logger.error("Task %s with id %s has exceeded retries: %s" % (
                    args['task_name'], QUEUE_NAME.request.id,

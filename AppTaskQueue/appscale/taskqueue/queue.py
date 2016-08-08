@@ -1,7 +1,16 @@
 import re
+import sys
+
+from unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
 
 # A regex rule for validating queue names.
-QUEUE_NAME_RE = re.compile('^[a-zA-Z0-9-]{1,100}$')
+QUEUE_NAME_PATTERN = r'^[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
+
+# A compiled regex rule for validating queue names.
+QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
 
 # A regex rule for validating push queue rate.
 RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
@@ -13,7 +22,7 @@ AGE_LIMIT_REGEX = re.compile(r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])')
 DEFAULT_RATE = '5/s'
 
 # The default number of task retries for a queue.
-DEFAULT_RETRY_LIMIT = None
+DEFAULT_RETRY_LIMIT = 0
 
 # The queue default time limit for retrying a failed push task.
 DEFAULT_AGE_LIMIT = None
@@ -32,7 +41,7 @@ QUEUE_ATTRIBUTE_RULES = {
   'name': lambda name: QUEUE_NAME_RE.match(name),
   'mode': lambda mode: mode in (QueueTypes.PUSH, QueueTypes.PULL),
   'rate': lambda rate: RATE_REGEX.match(rate),
-  'task_retry_limit': lambda limit: limit is None or limit >= 0,
+  'task_retry_limit': lambda limit: limit >= 0,
   'task_age_limit': lambda limit: (limit is None or
                                    AGE_LIMIT_REGEX.match(limit)),
   'min_backoff_seconds': lambda seconds: seconds >= 0,
@@ -57,11 +66,13 @@ class Queue(object):
   OPTIONAL_ATTRS = ['rate', 'task_age_limit', 'min_backoff_seconds',
                     'max_backoff_seconds', 'max_doublings']
 
-  def __init__(self, queue_info):
+  def __init__(self, queue_info, app, db_access=None):
     """ Create a Queue object.
 
     Args:
       queue_info: A dictionary containing queue info.
+      app: A string containing the application ID.
+      db_access: A DatastoreProxy object.
     """
     if 'name' not in queue_info:
       raise InvalidQueueConfiguration(
@@ -101,6 +112,8 @@ class Queue(object):
           self.max_doublings = retry_params['max_doublings']
 
     self.validate_config()
+    self.db_access = db_access
+    self.app = app
 
   def validate_config(self):
     """ Ensures all of the Queue's attributes are valid.
@@ -128,6 +141,9 @@ class Queue(object):
     if not isinstance(other, self.__class__):
       return False
 
+    if self.app != other.app:
+      return False
+
     if self.name != other.name or self.mode != other.mode:
       return False
 
@@ -149,7 +165,8 @@ class Queue(object):
     Returns:
       A string representing the Queue.
     """
-    attributes = {'mode': self.mode,
+    attributes = {'app': self.app,
+                  'mode': self.mode,
                   'task_retry_limit': self.task_retry_limit}
     for attribute in self.OPTIONAL_ATTRS:
       if hasattr(self, attribute):

@@ -140,7 +140,7 @@ queue:
     queues = {}
     for queue in queue_info['queue']:
       try:
-        queues[queue['name']] = Queue(queue)
+        queues[queue['name']] = Queue(queue, self._app_id)
       except InvalidQueueConfiguration:
         logging.exception('Invalid queue configuration')
 
