@@ -75,9 +75,12 @@ public class AppScaleTaskQueueClient {
         request.setServiceName(SERVICE_NAME);
         request.setRequestAsBytes(addRequest.toByteArray());
         Response response = sendRequest(request);
+        if (response.hasApplicationError()) {
+            throw new ApiProxy.ApplicationException(response.getApplicationError().getCode(), "TaskQueue Add operation failed");
+        }
         TaskQueuePb.TaskQueueAddResponse addResponse = new TaskQueuePb.TaskQueueAddResponse();
         addResponse.parseFrom(response.getResponseAsBytes());
-        return addResponse;         
+        return addResponse;
     }
 
     private Response sendRequest(Request request) {
