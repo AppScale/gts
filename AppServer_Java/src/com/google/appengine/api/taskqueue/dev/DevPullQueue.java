@@ -37,53 +37,50 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 
+public class DevPullQueue extends DevQueue {
+    private Map<String, TaskQueuePb.TaskQueueAddRequest> taskMap = Collections.synchronizedMap(new HashMap<String, TaskQueuePb.TaskQueueAddRequest>());
+    private Clock clock;
+    private double oneSecondInMilli = 1000;
+    private double oneThousandSecondsInMilli = 1000000;
+    private final Scheduler scheduler;
+    private final String baseUrl;
+    private final LocalTaskQueueCallback callback;
+    /*
+     * AppScale - added AppScaleTaskQueueClient
+     */
+    private AppScaleTaskQueueClient client;
 
-public class DevPullQueue extends DevQueue
-{
-    private Map<String, TaskQueuePb.TaskQueueAddRequest> taskMap                   = Collections.synchronizedMap(new HashMap<String, TaskQueuePb.TaskQueueAddRequest>());
-    private Clock                                        clock;
-    private double                                       oneSecondInMilli          = 1000;
-    private double                                       oneThousandSecondsInMilli = 1000000;
 
     TaskQueuePb.TaskQueueMode.Mode getMode() {
         return TaskQueuePb.TaskQueueMode.Mode.PULL;
     }
 
-    DevPullQueue( QueueXml.Entry queueXmlEntry, Clock clock )
-    {
+    DevPullQueue(QueueXml.Entry queueXmlEntry, Scheduler scheduler, String baseUrl, Clock clock, LocalTaskQueueCallback callback, AppScaleTaskQueueClient client) {
         super(queueXmlEntry);
+        this.client = client;
+        this.scheduler = scheduler;
+        this.baseUrl = baseUrl;
         this.clock = clock;
+        this.callback = callback;
     }
 
-    synchronized TaskQueuePb.TaskQueueAddResponse add( TaskQueuePb.TaskQueueAddRequest addRequest )
-    {
-        if (addRequest.getMode() != TaskQueuePb.TaskQueueMode.Mode.PULL.getValue())
-        {
+    s
+
+    synchronized TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest) {
+        if (addRequest.getMode() != TaskQueuePb.TaskQueueMode.Mode.PULL.getValue()) {
             throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_QUEUE_MODE.getValue());
         }
-        if (!addRequest.getQueueName().equals(getQueueName()))
-        {
+        if (!addRequest.getQueueName().equals(getQueueName())) {
             throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_REQUEST.getValue());
         }
-        String taskName;
-        if ((addRequest.hasTaskName()) && (!addRequest.getTaskName().equals(""))) {
-            taskName = addRequest.getTaskName();
-        } else
-            taskName = genTaskName();
-        }
-        if (this.taskMap.containsKey(taskName))
-        {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_ALREADY_EXISTS.getValue());
-        }
-        this.taskMap.put(taskName, addRequest);
 
-        TaskQueuePb.TaskQueueAddResponse addResponse = new TaskQueuePb.TaskQueueAddResponse();
-        if ((!addRequest.hasTaskName()) || (addRequest.getTaskName().equals("")))
-        {
-            addRequest.setTaskName(taskName);
-            addResponse.setChosenTaskName(taskName);
-        }
-
+        /*
+         * AppScale - sending task to RabbitMQ instead of calling scheduleTask
+         * method
+         */
+        logger.log(Level.INFO,
+                "PullQueue: sending addRequest to TaskQueue server");
+        TaskQueuePb.TaskQueueAddResponse addResponse = client.add(addRequest);
         return addResponse;
     }
 
