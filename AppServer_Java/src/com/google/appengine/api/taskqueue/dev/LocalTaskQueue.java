@@ -162,7 +162,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
 
         this.queueXml = reader.readQueueXml();
 
-        logger.log(Level.INFO, "LocalTaskQueue is initialized");
         if (Boolean.valueOf((String) properties.get("task_queue.disable_auto_task_execution")).booleanValue()) {
             this.disableAutoTaskExecution = true;
             logger.log(Level.INFO, "Automatic task execution is disabled.");
