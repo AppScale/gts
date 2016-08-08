@@ -59,7 +59,7 @@ public class AppScaleTaskQueueClient {
         url = "http://" + host + ":" + port + "/";
         HttpHost localhost = new HttpHost(url);
         connManager.setMaxForRoute(new HttpRoute(localhost), MAX_CONNECTIONS_PER_ROUTE_LOCALHOST);
-        
+
         client = new DefaultHttpClient(connManager);
     }
 
