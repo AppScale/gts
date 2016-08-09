@@ -6,13 +6,12 @@ import unittest
 
 from flexmock import flexmock
 
+from appscale.taskqueue.queue import InvalidQueueConfiguration
+from appscale.taskqueue.queue import Queue
 from appscale.taskqueue.tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
-from google.appengine.api import datastore
 
 sample_queue_yaml = \
 """
@@ -75,155 +74,86 @@ class TestTaskQueueConfig(unittest.TestCase):
   A set of test cases for the taskqueue configuration module.
   """
   def test_constructor(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    TaskQueueConfig(TaskQueueConfig.RABBITMQ, 'myapp')
+    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml)
+    flexmock(file_io).should_receive("write").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
+    flexmock(TaskQueueConfig).should_receive('load_queues_from_file')
+    TaskQueueConfig('myapp')
 
   def test_load_queues_from_file(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml)
-    flexmock(file_io) \
-       .should_receive("exists").and_return(True)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    queue_info = tqc.load_queues_from_file('app_id')
-    self.assertEquals(queue_info, {'queue':[{'name': 'default',
-                                             'rate': '5/s'},
-                                            {'name': 'foo',
-                                              'rate': '10/m'}]})
+    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml)
+    flexmock(file_io).should_receive("exists").and_return(True)
+    flexmock(file_io).should_receive("write").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
 
-    flexmock(file_io) \
-       .should_receive("read").and_return('blah').and_raise(IOError)
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    queue_info = tqc.load_queues_from_file('app_id')
-    self.assertEquals(queue_info, {'queue':[{'name': 'default',
-                                             'rate': '5/s'}]})
+    app_id = 'myapp'
+    tqc = TaskQueueConfig(app_id)
+    expected_info = [{'name': 'default', 'rate': '5/s'},
+                     {'name': 'foo', 'rate': '10/m'}]
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
+    self.assertEquals(tqc.queues, expected_queues)
 
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    queue_info = tqc.load_queues_from_file('app_id')
-    self.assertEquals(queue_info, {'queue':[{'name': 'foo',
-                                             'rate': '10/m'},
-                                            {'name': 'default',
-                                             'rate': '5/s'},
-                                            ]})
+    flexmock(file_io).should_receive("read").and_raise(IOError)
+    tqc = TaskQueueConfig(app_id)
+    expected_info = [{'name': 'default', 'rate': '5/s'}]
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
+    self.assertEquals(tqc.queues, expected_queues)
+
+    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
+    flexmock(file_io).should_receive("write").and_return(None)
+    tqc = TaskQueueConfig(app_id)
+    expected_info = [{'name': 'foo', 'rate': '10/m'},
+                     {'name': 'default', 'rate': '5/s'}]
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
+    self.assertEquals(tqc.queues, expected_queues)
 
   def test_load_queues_from_xml_file(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_xml)
-    flexmock(file_io) \
-       .should_receive("exists").and_return(False).and_return(True)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    queue_info = tqc.load_queues_from_file('app_id')
-    self.assertEquals(queue_info, {'queue': [{'max_concurrent_requests': '300', 'rate': '100/s', 'bucket_size': '100', 'name': 'default', 'retry_parameters': {'task_age_limit': '3d'}}, {'max_concurrent_requests': '100', 'rate': '100/s', 'bucket_size': '100', 'name': 'mapreduce-workers', 'retry_parameters': {'task_age_limit': '3d'}}]})
+    flexmock(file_io).should_receive("read").and_return(sample_queue_xml)
+    flexmock(file_io).should_receive("exists").and_return(False)\
+      .and_return(True)
+    flexmock(file_io).should_receive("write").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
 
-  def test_load_queues_from_db(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    flexmock(datastore).should_receive("Get").\
-         and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    queue_info = tqc.load_queues_from_db()
-    self.assertEquals(queue_info, {'queue':[{'name': 'foo',
-                                             'rate': '10/m'},
-                                            ]})
-
-  def test_save_queues_to_db(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    flexmock(file_io) \
-       .should_receive('exists').and_return(True)
-    flexmock(datastore).should_receive("Put").\
-         and_return()
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    try:
-      queue_info = tqc.save_queues_to_db()
-      raise
-    except ValueError:
-      pass
-    queue_info = tqc.load_queues_from_file('app_id')
-    queue_info = tqc.save_queues_to_db()
-  
-  def test_load_queues(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io) \
-       .should_receive("exists").and_return(True)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    flexmock(datastore).should_receive("Get").\
-         and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    queue_info = tqc.load_queues_from_file('app_id')
-    queue_info = tqc.load_queues_from_db()
+    app_id = 'myapp'
+    tqc = TaskQueueConfig(app_id)
+    expected_info = [
+      {'max_concurrent_requests': '300',
+       'rate': '100/s',
+       'bucket_size': '100',
+       'name': 'default',
+       'retry_parameters': {'task_age_limit': '3d'}},
+      {'max_concurrent_requests': '100',
+       'rate': '100/s',
+       'bucket_size': '100',
+       'name': 'mapreduce-workers',
+       'retry_parameters': {'task_age_limit': '3d'}}
+    ]
+    expected_queues = {info['name']: Queue(info, app_id)
+                       for info in expected_info}
+    self.assertEquals(tqc.queues, expected_queues)
 
   def test_create_celery_file(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io) \
-       .should_receive("exists").and_return(True)
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-    flexmock(file_io) \
-       .should_receive("mkdir").and_return(None)
-    flexmock(datastore).should_receive("Get").\
-         and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
-    queue_info = tqc.load_queues_from_file('app_id')
-    queue_info = tqc.load_queues_from_db()
+    flexmock(file_io).should_receive("exists").and_return(True)
+    flexmock(file_io).should_receive("write").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
+
+    tqc = TaskQueueConfig('myapp')
 
     # making sure it does not throw an exception
-    self.assertEquals(tqc.create_celery_file(TaskQueueConfig.QUEUE_INFO_DB),
-                      TaskQueueConfig.CELERY_CONFIG_DIR + "myapp" + ".py")
-    self.assertEquals(tqc.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE),
+    self.assertEquals(tqc.create_celery_file(),
                       TaskQueueConfig.CELERY_CONFIG_DIR + "myapp" + ".py")
  
   def test_create_celery_worker_scripts(self):
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
     flexmock(file_io).should_receive("write").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
+    flexmock(file_io).should_receive("exists").and_return(True)
 
-    flexmock(datastore).should_receive("Get").\
-         and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    flexmock(file_io) \
-       .should_receive("exists").and_return(True)
-    queue_info = tqc.load_queues_from_file('app_id')
-    queue_info = tqc.load_queues_from_db()
+    tqc = TaskQueueConfig('myapp')
 
     header_template = os.path.join(os.path.dirname(__file__), '../../appscale',
                                    'taskqueue', 'templates', 'header.py')
@@ -236,45 +166,19 @@ class TestTaskQueueConfig(unittest.TestCase):
       file2 = task_template_file.read()
 
     flexmock(file_io).should_receive('write').and_return(None)
-    flexmock(file_io).should_receive("read").and_return(file1).and_return(file2)
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_DB), TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE), TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
+    flexmock(file_io).should_receive("read").and_return(file1).\
+      and_return(file2)
+    self.assertEquals(tqc.create_celery_worker_scripts(),
+                      TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
 
-  def test_validate_queue_name(self):
-    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io).should_receive("write").and_return(None)
-    flexmock(file_io).should_receive("mkdir").and_return(None)
+  def test_queue_name_validation(self):
+    app_id = 'guestbook'
+    valid_names = ['hello', 'hello-hello', 'HELLO-world-1']
+    invalid_names = ['hello_hello5354', 'hello$hello', 'hello@hello',
+                     'hello&hello', 'hello*hello', 'a'*101]
+    for name in valid_names:
+      Queue({'name': name}, app_id)
 
-    flexmock(datastore).should_receive("Get").\
-         and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
-    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                          'myapp')
-    tqc.validate_queue_name("hello")
-    tqc.validate_queue_name("hello_hello5354")
-    try:
-      tqc.validate_queue_name("hello-hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello$hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello@hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello&hello")
-      raise
-    except NameError:
-      pass
-    try:
-      tqc.validate_queue_name("hello*hello")
-      raise
-    except NameError:
-      pass
-if __name__ == "__main__":
-  unittest.main()    
+    for name in invalid_names:
+      self.assertRaises(
+        InvalidQueueConfiguration, Queue, {'name': name}, app_id)
