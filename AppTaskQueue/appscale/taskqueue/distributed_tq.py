@@ -15,6 +15,7 @@ import tq_lib
 
 from queue import QueueTypes
 from tq_config import TaskQueueConfig
+from unpackaged import APPSCALE_DATASTORE
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
@@ -32,6 +33,9 @@ from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
+
+sys.path.append(APPSCALE_DATASTORE)
+from cassandra_env.cassandra_interface import DatastoreProxy
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
@@ -171,6 +175,8 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
+    self.db_access = DatastoreProxy()
+
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False
 
@@ -263,7 +269,7 @@ class DistributedTaskQueue():
       cached_queues = self.__queue_info_cache[app_id]
 
     try:
-      new_queues = TaskQueueConfig(app_id).queues
+      new_queues = TaskQueueConfig(app_id, self.db_access).queues
     except (ValueError, NameError) as config_error:
       return json.dumps({'error': True, 'reason': config_error.message})
     except Exception as config_error:
@@ -327,7 +333,7 @@ class DistributedTaskQueue():
 
     # Load the queue info.
     try:
-      config = TaskQueueConfig(app_id)
+      config = TaskQueueConfig(app_id, self.db_access)
       self.__queue_info_cache[app_id] = config.queues
       config.create_celery_file()
       config.create_celery_worker_scripts()
@@ -669,7 +675,8 @@ class DistributedTaskQueue():
     queue_name = request.queue_name()
     if app_id not in self.__queue_info_cache:
       try:
-        self.__queue_info_cache[app_id] = TaskQueueConfig(app_id).queues
+        self.__queue_info_cache[app_id] = TaskQueueConfig(
+          app_id, self.db_access).queues
       except (ValueError, NameError):
         logging.exception('Unable to load queues for {}. Using defaults.'\
           .format(app_id))
