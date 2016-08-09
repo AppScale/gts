@@ -24,7 +24,7 @@ class ErrorApp
   def initialize(app_name, error_msg)
     @app_name = app_name
     @error_msg = error_msg
-    @dir_path = "/var/apps/#{app_name}/app/"
+    @dir_path = "#{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app/"
   end
 
   # High level for generating an error application.

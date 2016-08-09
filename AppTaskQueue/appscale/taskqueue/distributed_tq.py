@@ -479,8 +479,8 @@ class DistributedTaskQueue():
                                         response.taskresult_list()):
       try:  
         self.__enqueue_push_task(add_request)
-      except apiproxy_errors.ApplicationError, e:
-        task_result.set_result(e.application_error)
+      except apiproxy_errors.ApplicationError as error:
+        task_result.set_result(error.application_error)
       else:
         task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
 

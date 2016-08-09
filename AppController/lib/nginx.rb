@@ -101,7 +101,9 @@ module Nginx
     return ($?.to_i == 0)
   end
 
-  # Creates a Nginx config file for the provided app name on the load balancer
+  # Creates a Nginx config file for the provided app name on the load balancer.
+  # Returns:
+  #   boolean: indicates if the nginx configuration has been written.
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
     my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
     language)
@@ -214,7 +216,7 @@ server {
     listen      #{http_port};
     server_name #{my_public_ip}-#{app_name};
 
-    #root /var/apps/#{app_name}/app;
+    #root #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log #{NGINX_LOG_PATH}/#{app_name}.access.log upstream;
     #error_log  /dev/null crit;
@@ -224,7 +226,7 @@ server {
     ignore_invalid_headers off;
     rewrite_log off;
     error_page 404 = /404.html;
-    set $cache_dir /var/apps/#{app_name}/cache;
+    set $cache_dir #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/cache;
 
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
@@ -256,7 +258,7 @@ server {
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
-    #root /var/apps/#{app_name}/app;
+    #root #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log #{NGINX_LOG_PATH}#{app_name}.access.log upstream;
     #error_log  /dev/null crit;
@@ -265,7 +267,7 @@ server {
 
     ignore_invalid_headers off;
     rewrite_log off;
-    set $cache_dir /var/apps/#{app_name}/cache;
+    set $cache_dir #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/cache;
 
     error_page 404 = /404.html;
 
@@ -286,24 +288,17 @@ server {
 CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    return reload_nginx(config_path, app_name)
-  end
-
-  # This function checks if Nginx has already configured the specified
-  # application.
-  #
-  # Args:
-  #  app_name: The application to check for.
-  #
-  # Returns:
-  #  bool: true/false depending if the application is already configured.
-  def self.is_app_already_configured(app_name)
-    if app_name != nil
-      return File.exists?(File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}"))
+    # Let's reload and overwrite only if something changed.
+    current = ""
+    current = File.read(config_path) if File.exists?(config_path)
+    if current != config
+      File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+      reload_nginx(config_path, app_name)
+      return true
     end
 
+    Djinn.log_debug("No need to restart nginx: configuration didn't change.")
     return false
   end
 

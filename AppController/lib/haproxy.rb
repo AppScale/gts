@@ -197,9 +197,17 @@ module HAProxy
 
     config_path = File.join(SITES_ENABLED_PATH,
       "#{full_app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    HAProxy.regenerate_config()
+    # Let's reload and overwrite only if something changed.
+    current = ""
+    current = File.read(config_path) if File.exists?(config_path)
+    if current != config
+      File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+      HAProxy.regenerate_config()
+    end
+
+    Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
+    return true
   end
 
 
