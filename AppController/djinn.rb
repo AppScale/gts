@@ -4682,7 +4682,7 @@ HOSTS
 
       # Update the cron job for the app on the shadow.
       if my_node.is_shadow?
-        unless @app_info_map[app]['nginx'].nil? and !@app_info_map[app]['language'].nil?
+        if !@app_info_map[app]['nginx'].nil? and !@app_info_map[app]['language'].nil?
           CronHelper.update_cron(get_load_balancer_ip(),
             @app_info_map[app]['nginx'], @app_info_map[app]['language'], app)
         end
