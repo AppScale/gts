@@ -72,7 +72,6 @@ public class AppScaleRunTask extends Thread {
             logger.fine("The data to post: " + data);
 
             // Send data
-
             con.setDoOutput(true);
             wr = new OutputStreamWriter(con.getOutputStream());
             wr.write(data);
@@ -84,7 +83,6 @@ public class AppScaleRunTask extends Thread {
             while ((line = rd.readLine()) != null) {
                 System.out.println(line);
             }
-            // wr.close();
 
         } catch (MalformedURLException e) {
             e.printStackTrace();

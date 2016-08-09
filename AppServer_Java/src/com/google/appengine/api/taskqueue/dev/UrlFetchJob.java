@@ -6,15 +6,12 @@ import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest.Header;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest.RequestMethod;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueRetryParameters;
-// AppScale - imported URLFetchServicePb
 import com.google.appengine.api.urlfetch.URLFetchServicePb;
 import com.google.appengine.api.urlfetch.URLFetchServicePb.URLFetchRequest;
 import com.google.appengine.api.urlfetch.URLFetchServicePb.URLFetchRequest.Builder;
-// AppScale - removed imports colliding with URLFetchRequest
 import com.google.appengine.repackaged.com.google.protobuf.ByteString;
 import com.google.appengine.tools.development.Clock;
 import com.google.appengine.tools.development.LocalServerEnvironment;
-// AppScale - imported QueueXml
 import com.google.apphosting.utils.config.QueueXml;
 import com.google.apphosting.utils.config.QueueXml.Entry;
 

@@ -45,9 +45,6 @@ public class DevPullQueue extends DevQueue {
     private final Scheduler scheduler;
     private final String baseUrl;
     private final LocalTaskQueueCallback callback;
-    /*
-     * AppScale - added AppScaleTaskQueueClient
-     */
     private AppScaleTaskQueueClient client;
 
 

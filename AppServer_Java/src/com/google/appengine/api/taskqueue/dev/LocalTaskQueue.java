@@ -1,5 +1,27 @@
 package com.google.appengine.api.taskqueue.dev;
 
+import java.io.File;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.impl.StdSchedulerFactory;
+
 import com.google.appengine.api.taskqueue.InternalFailureException;
 import com.google.appengine.api.taskqueue.QueueConstants;
 import com.google.appengine.api.taskqueue.TaskQueuePb;
@@ -23,7 +45,6 @@ import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueQueryAndOwnTasksR
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueQueryAndOwnTasksResponse.Task;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueScannerQueueInfo;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueServiceError.ErrorCode;
-// AppScale - added import URLFetchServicePb
 import com.google.appengine.api.urlfetch.URLFetchServicePb;
 import com.google.appengine.api.urlfetch.URLFetchServicePb.URLFetchRequest;
 import com.google.appengine.api.urlfetch.URLFetchServicePb.URLFetchResponse;
@@ -41,29 +62,6 @@ import com.google.apphosting.utils.config.QueueXml;
 import com.google.apphosting.utils.config.QueueXml.Entry;
 import com.google.apphosting.utils.config.QueueXmlReader;
 
-import java.io.File;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-// AppScale - removed Map.Entry import
-import java.util.Random;
-import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.quartz.impl.StdSchedulerFactory;
-
 
 @ServiceProvider(LocalRpcService.class)
 public final class LocalTaskQueue extends AbstractLocalRpcService {
@@ -76,9 +74,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
     private final static long ONE_SECOND_IN_MILLIS = 1000;
     private final Map<String, DevQueue> queues;
     private final int tenMinutesInMillis = 600000;
-    /*
-     * AppScale - added taskNameGenerator field
-     */
     private final AtomicInteger taskNameGenerator;
     private QueueXml queueXml;
     private boolean disableAutoTaskExecution;
@@ -91,9 +86,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
 
     public LocalTaskQueue() {
         this.queues = Collections.synchronizedMap(new TreeMap());
-        /*
-         * AppScale - added taskNameGenerator instantiation
-         */
         this.taskNameGenerator = new AtomicInteger(0);
         this.disableAutoTaskExecution = false;
     }
@@ -110,9 +102,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
             }
             defaultConstructor.setAccessible(true);
             try {
-                /*
-                 * AppScale - added cast E below
-                 */
                 return (E) defaultConstructor.newInstance(new Object[0]);
             } catch (InvocationTargetException g) {
                 throw new RuntimeException(g);
@@ -149,7 +138,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
         this.clock = context.getClock();
 
         final String queueXmlPath = (String) properties.get("task_queue.queue_xml_path");
-        // AppScale - removed duplicate reader declaration
         QueueXmlReader reader;
         if (queueXmlPath != null) {
             reader = new QueueXmlReader(this.localServerEnvironment.getAppDir().getPath()) {
@@ -164,7 +152,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
 
         if (Boolean.valueOf((String) properties.get("task_queue.disable_auto_task_execution")).booleanValue()) {
             this.disableAutoTaskExecution = true;
-            logger.log(Level.INFO, "Automatic task execution is disabled.");
+            logger.log(Level.INFO, "Automatic task execution is disabled");
         }
 
         this.fetchService = new LocalURLFetchService();
@@ -385,9 +373,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
             TaskQueuePb.TaskQueueServiceError.ErrorCode error = validateAddRequest(addRequest);
             if (error == TaskQueuePb.TaskQueueServiceError.ErrorCode.OK) {
                 if ((!addRequest.hasTaskName()) || (addRequest.getTaskName().equals(""))) {
-                    /*
-                     * AppScale - accessed genTaskName non-statically
-                     */
                     addRequest = addRequest.setTaskName(queue.genTaskName());
                     chosenNames.put(taskResult, addRequest.getTaskName());
                 }
@@ -465,9 +450,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
         List results = pullQueue.queryAndOwnTasks(request.getLeaseSeconds(), request.getMaxTasks(), request.isGroupByTag(), request.getTagAsBytes());
 
         TaskQueuePb.TaskQueueQueryAndOwnTasksResponse response = new TaskQueuePb.TaskQueueQueryAndOwnTasksResponse();
-        /*
-         * AppScale - added cast to results
-         */
         for (TaskQueuePb.TaskQueueAddRequest task : (List<TaskQueuePb.TaskQueueAddRequest>) results) {
             TaskQueuePb.TaskQueueQueryAndOwnTasksResponse.Task responseTask = response.addTask();
             responseTask.setTaskName(task.getTaskName());
@@ -538,9 +520,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
         return Double.valueOf(30.0D);
     }
 
-    /*
-     * AppScale - added private runAppScaleTask method
-     */
     private void runAppScaleTask(final TaskQueueAddRequest addRequest) {
         AccessController.doPrivileged(new PrivilegedAction<Object>() {
             public Object run() {

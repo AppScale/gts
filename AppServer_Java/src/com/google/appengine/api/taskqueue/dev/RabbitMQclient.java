@@ -81,9 +81,7 @@ public class RabbitMQclient {
         return this.publishChannel;
     }
 
-    public void enqueueTask(String payload)
-    //public void enqueueTask( String queueName, String payload )
-    {
+    public void enqueueTask(String payload) {
         try {
             this.publishChannel.basicPublish(this.exchangeName, RabbitMQclient.queueName, new AMQP.BasicProperties.Builder().deliveryMode(2).build(), payload.getBytes());
         } catch (IOException e) {

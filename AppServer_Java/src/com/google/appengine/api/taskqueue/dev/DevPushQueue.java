@@ -40,9 +40,6 @@ class DevPushQueue extends DevQueue {
     private final String baseUrl;
     private final Clock clock;
     private final LocalTaskQueueCallback callback;
-    /*
-     * AppScale - added AppScaleTaskQueueClient
-     */
     private AppScaleTaskQueueClient client;
 
     TaskQueuePb.TaskQueueMode.Mode getMode() {
@@ -50,9 +47,6 @@ class DevPushQueue extends DevQueue {
     }
 
     DevPushQueue(QueueXml.Entry queueXmlEntry, Scheduler scheduler, String baseUrl, Clock clock, LocalTaskQueueCallback callback, AppScaleTaskQueueClient client) {
-        /*
-         * AppScale - added AppScaleTaskQueueClient to constructor args
-         */
         super(queueXmlEntry);
         this.client = client;
         this.scheduler = scheduler;

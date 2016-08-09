@@ -26,9 +26,6 @@ abstract class DevQueue {
 
     DevQueue(QueueXml.Entry queueXmlEntry, AtomicInteger taskNameGeneratorIn) {
         this.queueXmlEntry = queueXmlEntry;
-        /*
-         * AppScale - setting taskNameGenerator
-         */
         taskNameGenerator = taskNameGeneratorIn;
     }
 
