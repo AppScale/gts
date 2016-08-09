@@ -31,14 +31,6 @@ import org.quartz.Trigger;
 
 public class UrlFetchJob implements Job {
     private static final Logger logger = Logger.getLogger(UrlFetchJob.class.getName());
-    static final String X_GOOGLE_DEV_APPSERVER_SKIPADMINCHECK = "X-Google-DevAppserver-SkipAdminCheck";
-    static final String X_APPENGINE_QUEUE_NAME = "X-AppEngine-QueueName";
-    static final String X_APPENGINE_TASK_NAME = "X-AppEngine-TaskName";
-    static final String X_APPENGINE_TASK_RETRY_COUNT = "X-AppEngine-TaskRetryCount";
-    static final String X_APPENGINE_TASK_EXECUTION_COUNT = "X-AppEngine-TaskExecutionCount";
-    static final String X_APPENGINE_TASK_ETA = "X-AppEngine-TaskETA";
-    static final String X_APPENGINE_SERVER_NAME = "X-AppEngine-ServerName";
-    static final String X_APPENGINE_TASK_PREVIOUS_RESPONSE = "X-AppEngine-TaskPreviousResponse";
     private static LocalServerEnvironment localServerEnvironment;
     private static Clock clock;
 
