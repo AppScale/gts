@@ -1092,7 +1092,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1102,6 +1102,12 @@ class TestDjinn < Test::Unit::TestCase
     my_node = DjinnJobData.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
+      'myapp' => {
+        'nginx' => 8081,
+        'nginx_https' => 4381,
+        'haproxy' => 10001,
+        'appengine' => ["1.2.3.4:20001"]
+      },
       'another-app' => {
         'nginx' => 80,
         'nginx_https' => 443,
@@ -1125,7 +1131,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1135,6 +1141,12 @@ class TestDjinn < Test::Unit::TestCase
     my_node = DjinnJobData.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
+      'myapp' => {
+        'nginx' => 8081,
+        'nginx_https' => 4381,
+        'haproxy' => 10001,
+        'appengine' => ["1.2.3.4:20001"]
+      },
       'another-app' => {
         'nginx' => 80,
         'nginx_https' => 443,
@@ -1158,7 +1170,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1168,6 +1180,12 @@ class TestDjinn < Test::Unit::TestCase
     my_node = DjinnJobData.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
+      'myapp' => {
+        'nginx' => 8081,
+        'nginx_https' => 4381,
+        'haproxy' => 10001,
+        'appengine' => ["1.2.3.4:20001"]
+      },
       'another-app' => {
         'nginx' => 80,
         'nginx_https' => 443,
@@ -1191,7 +1209,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["login"],
+      "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -1201,6 +1219,12 @@ class TestDjinn < Test::Unit::TestCase
     my_node = DjinnJobData.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
+      'myapp' => {
+        'nginx' => 8081,
+        'nginx_https' => 4381,
+        'haproxy' => 10001,
+        'appengine' => ["1.2.3.4:20000"]
+      },
       'another-app' => {
         'nginx' => 80,
         'nginx_https' => 443,

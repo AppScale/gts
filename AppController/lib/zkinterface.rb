@@ -509,38 +509,6 @@ class ZKInterface
   end
 
 
-  # Returns an Array of Hashes that correspond to the App Engine applications
-  # hosted on the given ip address. Each hash contains the application's name,
-  # the IP address (which should be the same as the given IP), and the nginx
-  # port that the app is hosted on.
-  def self.get_app_instances_for_ip(ip)
-    app_instance_file = "#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}"
-    if !self.exists?(app_instance_file)
-      return []
-    end
-
-    json_instances = self.get(app_instance_file)
-    return JSON.load(json_instances)
-  end
-
-
-  # Adds an entry to ZooKeeper for the given IP, storing information about the
-  # Google App engine application it is hosting that can be used to update the
-  # AppDashboard should that node fail.
-  def self.add_app_instance(app_name, ip, port)
-    app_instance_file = "#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}"
-    if self.exists?(app_instance_file)
-      json_instances = self.get(app_instance_file)
-      instances = JSON.load(json_instances)
-    else
-      instances = []
-    end
-
-    instances << {'app_name' => app_name, 'ip' => ip, 'port' => port}
-    self.set(app_instance_file, JSON.dump(instances), NOT_EPHEMERAL)
-  end
-
-
   def self.get_job_data_for_ip(ip)
     return JSON.load(self.get("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data"))
   end
