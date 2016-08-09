@@ -35,6 +35,49 @@ from google.appengine.runtime import apiproxy_errors
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
+
+def create_pull_queue_tables(session):
+  """ Create the required tables for pull queues.
+
+  Args:
+    session: A cassandra-driver session.
+  """
+  logging.info('Trying to create pull_queue_tasks')
+  create_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_tasks (
+      app text,
+      queue text,
+      id text,
+      payload text,
+      enqueued timestamp,
+      lease_expires timestamp,
+      retry_count int,
+      tag text,
+      PRIMARY KEY ((app, queue, id))
+    )
+  """
+  session.execute(create_table)
+
+  logging.info('Trying to create pull_queue_tasks_index')
+  create_index_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_tasks_index (
+      app text,
+      queue text,
+      eta timestamp,
+      id text,
+      tag text,
+      PRIMARY KEY ((app, queue, eta), id)
+    )
+  """
+  session.execute(create_index_table)
+
+  logging.info('Trying to create index on pull_queue_tasks_index')
+  create_index = """
+    CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
+  """
+  session.execute(create_index)
+
+
 class TaskName(db.Model):
   """ A datastore model for tracking task names in order to prevent
   tasks with the same name from being enqueued repeatedly.

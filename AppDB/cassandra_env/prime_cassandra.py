@@ -10,6 +10,7 @@ import os
 import sys
 import time
 
+from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
@@ -106,6 +107,8 @@ def prime_cassandra(replication):
                value=ThriftColumn.VALUE)
     logging.info('Trying to create {}'.format(table))
     session.execute(create_table)
+
+  create_pull_queue_tables(session)
 
   first_entity = session.execute(
     'SELECT * FROM "{}" LIMIT 1'.format(dbconstants.APP_ENTITY_TABLE))
