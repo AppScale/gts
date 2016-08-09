@@ -180,6 +180,23 @@ class DistributedTaskQueue():
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False
 
+  def get_queue(self, app, queue):
+    """ Fetches a Queue object.
+
+    Returns:
+      A Queue object or None.
+    """
+    cache = self.__queue_info_cache
+    if app in cache and queue in cache[app]:
+      return cache[app][queue]
+
+    config = TaskQueueConfig(app, self.db_access)
+    self.__queue_info_cache[app] = config.queues
+    if queue in config.queues:
+      return config.queues[queue]
+    else:
+      return None
+
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the proper tags.
 
