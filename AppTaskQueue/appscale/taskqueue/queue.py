@@ -552,3 +552,16 @@ class Queue(object):
     attr_str = ', '.join('{}={}'.format(attr, val)
                          for attr, val in attributes.iteritems())
     return '<Queue {}: {}>'.format(self.name, attr_str)
+
+  def to_json(self):
+    """ Generate a JSON representation of the queue.
+
+    Returns:
+      A string in JSON format representing the queue.
+    """
+    queue = {
+      'kind': 'taskqueues#taskqueue',
+      'id': self.name,
+      'maxLeases': self.task_retry_limit
+    }
+    return json.dumps(queue)
