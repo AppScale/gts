@@ -201,7 +201,7 @@ CRON
     if current != crontab
       File.open(app_cron_file, 'w') { | file| file.write(crontab) }
       Djinn.log_info("Written crontab for #{app}.")
-      Djinn.log_debug("Crontab for #{app}:\n#{crontab}")
+      Djinn.log_debug("Crontab for #{app}:\n#{crontab}.")
     else
       Djinn.log_debug("No need to write crontab for #{app}.")
     end

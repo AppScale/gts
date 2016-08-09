@@ -621,16 +621,16 @@ class Djinn
   def relocate_app(appid, http_port, https_port, secret)
     return BAD_SECRET_MSG if !valid_secret?(secret)
     Djinn.log_debug("Received relocate_app for #{appid} for " +
-        " http port #{http_port} and https port #{https_port}.")
+        "http port #{http_port} and https port #{https_port}.")
 
     if !my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug("Sending relocate_app call for #{appid} to shadow.")
+      Djinn.log_debug("Sending relocate_app for #{appid} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.relocate_app(appid, http_port, https_port)
       rescue FailedNodeException => except
-        Djinn.log_warn("Failed to forward relocate_app call to shadow (#{get_shadow}).")
+        Djinn.log_warn("Failed to forward relocate_app call to #{get_shadow}.")
         return NOT_READY
       end
     end
@@ -744,6 +744,7 @@ class Djinn
     rescue Errno::ENOENT
       # On appscale down, terminate may delete our secret key before we
       # can check it here.
+      Djinn.log_debug("kill(): didn't find secret file. Continuing.")
     end
     @kill_sig_received = true
 
@@ -4174,7 +4175,7 @@ HOSTS
           @app_info_map[app]['nginx_https'].nil? or
           @app_info_map[app]['haproxy'].nil? or
           @app_info_map[app]['appengine'].nil?
-        Djinn.log_debug("Skipping routing for #{app} since it is not yet running.")
+        Djinn.log_debug("Skipping routing for #{app} until all parameters are set.")
         next
       end
 
@@ -4573,7 +4574,7 @@ HOSTS
             next if !uac.is_app_enabled?(app)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to the UserAppServer about " +
-              "application #{app}")
+              "application #{app}.")
             next
           end
 
@@ -4637,7 +4638,7 @@ HOSTS
         next if uac.is_app_enabled?(app)
       rescue FailedNodeException
         Djinn.log_warn("Failed to talk to the UserAppServer about " +
-          "application #{app}")
+          "application #{app}.")
         next
       end
 
@@ -4705,7 +4706,7 @@ HOSTS
       if my_node.is_shadow?
         if !@app_info_map[app]['nginx'].nil? and !@app_info_map[app]['language'].nil?
           CronHelper.update_cron(get_load_balancer_ip(),
-              @app_info_map[app]['nginx'], @app_info_map[app]['language'], app)
+            @app_info_map[app]['nginx'], @app_info_map[app]['language'], app)
         end
       end
 
