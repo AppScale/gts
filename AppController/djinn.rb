@@ -4777,7 +4777,7 @@ HOSTS
         }
 
         # We then start or terminate AppServers as needed.
-        unless no_appservers[0].nil?
+        if !no_appservers[0].nil?
           Djinn.log_info("Starting first AppServer for app: #{no_appservers[0]}.")
           ret = add_appserver_process(no_appservers[0])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
