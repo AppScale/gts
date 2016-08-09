@@ -571,9 +571,7 @@ class Djinn
   # A SOAP-exposed method that callers can use to get information about what
   # roles each node in the AppScale deployment are running.
   def get_role_info(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     all_nodes = []
     @nodes.each { |node|
@@ -595,9 +593,7 @@ class Djinn
   #   can be authenticated, a JSON-dumped Hash containing information about
   #   applications on this machine is returned.
   def get_app_info_map(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     return JSON.dump(@app_info_map)
   end
@@ -619,9 +615,7 @@ class Djinn
   #   "OK" if the relocation occurred successfully, and a String containing the
   #   reason why the relocation failed in all other cases.
   def relocate_app(appid, http_port, https_port, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Only the login node runs relocate.
     if not my_node.is_login?
@@ -739,9 +733,7 @@ class Djinn
   #   A String indicating that the termination has started, or the reason why it
   #   failed.
   def kill(stop_deployment, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     @kill_sig_received = true
 
     Djinn.log_info("Received a stop request.")
@@ -777,9 +769,7 @@ class Djinn
   # begin configuring and deploying services on a given node (and if it is the
   # first Djinn, starting up the other Djinns).
   def set_parameters(djinn_locations, database_credentials, app_names, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if djinn_locations.class != String
       msg = "Error: djinn_locations wasn't a String, but was a " +
@@ -955,9 +945,7 @@ class Djinn
   #   A string with the current node's status
   #
   def status(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     stats = get_stats(secret)
 
@@ -1039,9 +1027,7 @@ class Djinn
   #   successfully, and a reservation ID that can be used with
   #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_app(archived_file, file_suffix, email, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     reservation_id = HelperFunctions.get_random_alphanumeric()
     @app_upload_reservations[reservation_id] = {'status' => 'starting'}
@@ -1089,9 +1075,7 @@ class Djinn
   #   caller attempts to authenticate with an invalid secret, BAD_SECRET_MSG is
   #   returned.
   def get_app_upload_status(reservation_id, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if @app_upload_reservations[reservation_id]['status']
       return @app_upload_reservations[reservation_id]['status']
@@ -1107,9 +1091,7 @@ class Djinn
   # Returns:
   #   A JSON string with the statistics of the nodes.
   def get_stats_json(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     return JSON.dump(@all_stats)
   end
@@ -1159,9 +1141,7 @@ class Djinn
   # Returns:
   #   A Hash with the statistics of this node.
   def get_stats(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     usage = HelperFunctions.get_usage()
     mem = sprintf("%3.2f", usage['mem'])
@@ -1210,9 +1190,7 @@ class Djinn
   #   'OK' if the groomer was invoked, and BAD_SECRET_MSG if the user failed to
   #   authenticate correctly.
   def run_groomer(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Thread.new {
       run_groomer_command = "#{PYTHON27} #{APPSCALE_HOME}/AppDB/groomer.py"
@@ -1242,9 +1220,7 @@ class Djinn
   #   A JSON-dumped Hash mapping each instance variable matching the given regex
   #   to the value it is bound to.
   def get_property(property_regex, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     properties = {}
     instance_variables.each { |name|
@@ -1278,9 +1254,7 @@ class Djinn
   #     - KEY_NOT_FOUND if there is no instance variable with the given name.
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("Attempting to set @#{property_name} to #{property_value}")
 
@@ -1300,9 +1274,7 @@ class Djinn
   # Returns:
   #   A boolean indicating whether the deployment ID has been set or not.
   def deployment_id_exists(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     return ZKInterface.exists?(DEPLOYMENT_ID_PATH)
   end
@@ -1311,9 +1283,7 @@ class Djinn
   # Returns:
   #   A string that contains the deployment ID.
   def get_deployment_id(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       return ZKInterface.get(DEPLOYMENT_ID_PATH)
@@ -1328,9 +1298,7 @@ class Djinn
   # Args:
   #   id: A string that contains the deployment ID.
   def set_deployment_id(secret, id)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
@@ -1346,9 +1314,7 @@ class Djinn
   #   read_only: A string that indicates whether to turn read-only mode on or
   #     off.
   def set_node_read_only(read_only, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
     read_only = read_only == 'true'
 
@@ -1367,9 +1333,7 @@ class Djinn
   #   read_only: A string that indicates whether to turn read-only mode on or
   #     off.
   def set_read_only(read_only, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
 
     @nodes.each { | node |
@@ -1391,9 +1355,7 @@ class Djinn
   # Returns:
   #   A boolean indicating whether or not the user application exists.
   def does_app_exist(appname, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1410,9 +1372,7 @@ class Djinn
   #   username: The email address for the user whose password will be changed.
   #   password: The SHA1-hashed password that will be set as the user's password.
   def reset_password(username, password, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1428,9 +1388,7 @@ class Djinn
   # Args:
   #   username: The email address registered as username for the user's application.
   def does_user_exist(username, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1449,9 +1407,7 @@ class Djinn
   #   account_type: A str that indicates if this account can be logged into
   #     by XMPP users.
   def create_user(username, password, account_type, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1467,9 +1423,7 @@ class Djinn
   # Args:
   #   username: The e-mail address that should be given administrative authorizations.
   def set_admin_role(username, is_cloud_admin, capabilities, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1487,9 +1441,7 @@ class Djinn
   #  Returns:
   #    A JSON-encoded string containing the application metadata.
   def get_app_data(app_id, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1509,9 +1461,7 @@ class Djinn
   #   app_language: The runtime (Python 2.5/2.7, Java, or Go) that the app
   #     runs over.
   def reserve_app_id(username, app_id, app_language, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1529,9 +1479,7 @@ class Djinn
   #   secret: Shared key for authentication
   #
   def stop_app(app_name, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     app_name.gsub!(/[^\w\d\-]/, "")
     Djinn.log_info("Shutting down app named [#{app_name}]")
@@ -1689,9 +1637,7 @@ class Djinn
   end
 
   def update(app_names, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Few sanity checks before acting.
     if not my_node.is_login?
@@ -1778,9 +1724,7 @@ class Djinn
   #   A String indicating that the SOAP call succeeded, or the reason why it
   #   did not.
   def set_apps_to_restart(apps_to_restart, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     APPS_LOCK.synchronize {
       @apps_to_restart += apps_to_restart
@@ -1792,9 +1736,7 @@ class Djinn
   end
 
   def get_all_public_ips(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     public_ips = []
     @nodes.each { |node|
@@ -1804,9 +1746,7 @@ class Djinn
   end
 
   def job_start(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
 
@@ -1977,9 +1917,7 @@ class Djinn
 
 
   def get_online_users_list(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     online_users = []
 
@@ -1995,9 +1933,7 @@ class Djinn
   end
 
   def done_uploading(appname, location, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if File.exists?(location)
       begin
@@ -2019,9 +1955,7 @@ class Djinn
   end
 
   def is_app_running(appname, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     hosters = ZKInterface.get_app_hosters(appname, @options['keyname'])
     hosters_w_appengine = []
@@ -2036,9 +1970,7 @@ class Djinn
 
 
   def add_role(new_role, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # new roles may run indefinitely in the background, so don't block
     # on them - just fire and forget
@@ -2062,9 +1994,7 @@ class Djinn
   end
 
   def remove_role(old_role, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     my_node.remove_roles(old_role)
     stop_roles = old_role.split(":")
@@ -2094,9 +2024,7 @@ class Djinn
   #   Otherwise, returns a Hash that maps IP addresses to the roles that
   #     will be hosted on them (the inverse of ips_hash).
   def start_roles_on_nodes(ips_hash, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     ips_hash = JSON.load(ips_hash)
     if ips_hash.class != Hash
@@ -2231,9 +2159,7 @@ class Djinn
   # combination of the two. 'nodes_needed' should be an Array, where each
   # item is an Array of the roles to start on each node.
   def start_new_roles_on_nodes(nodes_needed, instance_type, secret)
-     if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if nodes_needed.class != Array
       Djinn.log_error("Was expecting nodes_needed to be an Array, not " +
@@ -2626,9 +2552,7 @@ class Djinn
   # Args:
   #   secret: A String password that is used to authenticate SOAP callers.
   def gather_logs(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     uuid = HelperFunctions.get_random_alphanumeric()
     Djinn.log_info("Generated uuid #{uuid} for request to gather logs.")
@@ -2681,9 +2605,7 @@ class Djinn
   #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
   #     it and nginx yet. Callers should retry at a later time.
   def add_routing_for_appserver(app_id, ip, port, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if !my_node.is_login?
       return NO_HAPROXY_PRESENT
@@ -2818,9 +2740,7 @@ class Djinn
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
   #     remove AppServers from HAProxy config files).
   def remove_appserver_from_haproxy(app_id, ip, port, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if !my_node.is_login?
       return NO_HAPROXY_PRESENT
@@ -5969,9 +5889,7 @@ HOSTS
   #   A hash in string format containing system and platform stats for this
   #     node.
   def get_all_stats(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
