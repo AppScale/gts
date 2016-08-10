@@ -4697,13 +4697,8 @@ HOSTS
           to_start << app
           no_appservers << app
         elsif not MonitInterface.is_running?("#{app}-#{port}")
-          Djinn.log_debug("Didn't find the AppServer for #{app} at port #{port}.")
-          if @last_decision[app]
-            if Time.now.to_i - @last_decision[app] > APP_UPLOAD_TIMEOUT * RETRIES
-              Djinn.log_warn("AppServer for #{app} at port #{port} is not running.")
-              to_end << "#{app}:#{port}"
-            end
-          end
+          Djinn.log_warn("Didn't find the AppServer for #{app} at port #{port}.")
+          to_end << "#{app}:#{port}"
         else
           my_apps << "#{app}:#{port}"
         end
