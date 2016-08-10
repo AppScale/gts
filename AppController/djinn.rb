@@ -575,7 +575,7 @@ class Djinn
   # A SOAP-exposed method that callers can use to get information about what
   # roles each node in the AppScale deployment are running.
   def get_role_info(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     all_nodes = []
     @nodes.each { |node|
@@ -597,7 +597,7 @@ class Djinn
   #   can be authenticated, a JSON-dumped Hash containing information about
   #   applications on this machine is returned.
   def get_app_info_map(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     return JSON.dump(@app_info_map)
   end
@@ -619,11 +619,11 @@ class Djinn
   #   "OK" if the relocation occurred successfully, and a String containing the
   #   reason why the relocation failed in all other cases.
   def relocate_app(appid, http_port, https_port, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     Djinn.log_debug("Received relocate_app for #{appid} for " +
         "http port #{http_port} and https port #{https_port}.")
 
-    if !my_node.is_shadow?
+    unless my_node.is_shadow?
       # We need to send the call to the shadow.
       Djinn.log_debug("Sending relocate_app for #{appid} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
@@ -699,7 +699,7 @@ class Djinn
       # Notify the UAServer about the new ports.
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       success = uac.add_instance(appid, my_public, http_port, https_port)
-      if !success
+      unless success
         Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
         return
       end
@@ -740,7 +740,7 @@ class Djinn
   #   failed.
   def kill(stop_deployment, secret)
     begin
-      return BAD_SECRET_MSG if !valid_secret?(secret)
+      return BAD_SECRET_MSG unless valid_secret?(secret)
     rescue Errno::ENOENT
       # On appscale down, terminate may delete our secret key before we
       # can check it here.
@@ -781,9 +781,7 @@ class Djinn
   # begin configuring and deploying services on a given node (and if it is the
   # first Djinn, starting up the other Djinns).
   def set_parameters(djinn_locations, database_credentials, app_names, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if djinn_locations.class != String
       msg = "Error: djinn_locations wasn't a String, but was a " +
@@ -819,7 +817,7 @@ class Djinn
     end
 
     possible_credentials = Hash[*database_credentials]
-    if !valid_format_for_credentials(possible_credentials)
+    unless valid_format_for_credentials(possible_credentials)
       return "Error: Credential format wrong"
     end
 
@@ -959,9 +957,7 @@ class Djinn
   #   A string with the current node's status
   #
   def status(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     stats = get_stats(secret)
 
@@ -983,17 +979,17 @@ class Djinn
       stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
 
       stats['apps'].each { |app_name, is_loaded|
-        next if !is_loaded
+        next unless is_loaded
         next if app_name == "none"
         stats_str << "    Information for application: #{app_name}\n"
         stats_str << "        Language            : "
-        if !@app_info_map[app_name]['language'].nil?
+        unless @app_info_map[app_name]['language'].nil?
           stats_str << "#{@app_info_map[app_name]['language']}\n"
         else
           stats_str << "Unknown\n"
         end
         stats_str << "        Number of AppServers: "
-        if !@app_info_map[app_name]['appengine'].nil?
+        unless @app_info_map[app_name]['appengine'].nil?
           running = 0
           pending = 0
           @app_info_map[app_name]['appengine'].each{ |location|
@@ -1013,13 +1009,13 @@ class Djinn
           stats_str << "Unknown\n"
         end
         stats_str << "        HTTP port           : "
-        if !@app_info_map[app_name]['nginx'].nil?
+        unless @app_info_map[app_name]['nginx'].nil?
           stats_str << "#{@app_info_map[app_name]['nginx']}\n"
         else
           stats_str << "Unknown\n"
         end
         stats_str << "        HTTPS port          : "
-        if !@app_info_map[app_name]['nginx_https'].nil?
+        unless @app_info_map[app_name]['nginx_https'].nil?
           stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
         else
           stats_str << "Unknown\n"
@@ -1043,11 +1039,9 @@ class Djinn
   #   successfully, and a reservation ID that can be used with
   #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_app(archived_file, file_suffix, email, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if !my_node.is_shadow?
+    unless my_node.is_shadow?
       Djinn.log_debug("Sending upload_app call to shadow.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
@@ -1064,7 +1058,7 @@ class Djinn
     Djinn.log_debug("Received a request to upload app at #{archived_file}, with suffix #{file_suffix}, with admin user #{email}.")
 
     Thread.new {
-      if !archived_file.match(/#{file_suffix}$/)
+      unless archived_file.match(/#{file_suffix}$/)
         archived_file_old = archived_file
         archived_file = "#{archived_file_old}.#{file_suffix}"
         Djinn.log_debug("Renaming #{archived_file_old} to #{archived_file}")
@@ -1104,9 +1098,7 @@ class Djinn
   #   caller attempts to authenticate with an invalid secret, BAD_SECRET_MSG is
   #   returned.
   def get_app_upload_status(reservation_id, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if @app_upload_reservations[reservation_id]['status']
       return @app_upload_reservations[reservation_id]['status']
@@ -1122,9 +1114,7 @@ class Djinn
   # Returns:
   #   A JSON string with the statistics of the nodes.
   def get_stats_json(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     return JSON.dump(@all_stats)
   end
@@ -1174,9 +1164,7 @@ class Djinn
   # Returns:
   #   A Hash with the statistics of this node.
   def get_stats(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     usage = HelperFunctions.get_usage()
     mem = sprintf("%3.2f", usage['mem'])
@@ -1225,9 +1213,7 @@ class Djinn
   #   'OK' if the groomer was invoked, and BAD_SECRET_MSG if the user failed to
   #   authenticate correctly.
   def run_groomer(secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Thread.new {
       run_groomer_command = "#{PYTHON27} #{APPSCALE_HOME}/AppDB/groomer.py"
@@ -1257,9 +1243,7 @@ class Djinn
   #   A JSON-dumped Hash mapping each instance variable matching the given regex
   #   to the value it is bound to.
   def get_property(property_regex, secret)
-    if !valid_secret?(secret)
-      return BAD_SECRET_MSG
-    end
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     properties = {}
     instance_variables.each { |name|
@@ -1293,7 +1277,7 @@ class Djinn
   #     - KEY_NOT_FOUND if there is no instance variable with the given name.
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("Attempting to set @#{property_name} to #{property_value}")
 
@@ -1313,7 +1297,7 @@ class Djinn
   # Returns:
   #   A boolean indicating whether the deployment ID has been set or not.
   def deployment_id_exists(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     return ZKInterface.exists?(DEPLOYMENT_ID_PATH)
   end
@@ -1322,7 +1306,7 @@ class Djinn
   # Returns:
   #   A string that contains the deployment ID.
   def get_deployment_id(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       return ZKInterface.get(DEPLOYMENT_ID_PATH)
@@ -1337,7 +1321,7 @@ class Djinn
   # Args:
   #   id: A string that contains the deployment ID.
   def set_deployment_id(secret, id)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
@@ -1353,7 +1337,7 @@ class Djinn
   #   read_only: A string that indicates whether to turn read-only mode on or
   #     off.
   def set_node_read_only(read_only, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
     read_only = read_only == 'true'
 
@@ -1372,7 +1356,7 @@ class Djinn
   #   read_only: A string that indicates whether to turn read-only mode on or
   #     off.
   def set_read_only(read_only, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
 
     @nodes.each { | node |
@@ -1394,7 +1378,7 @@ class Djinn
   # Returns:
   #   A boolean indicating whether or not the user application exists.
   def does_app_exist(appname, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1411,7 +1395,7 @@ class Djinn
   #   username: The email address for the user whose password will be changed.
   #   password: The SHA1-hashed password that will be set as the user's password.
   def reset_password(username, password, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1427,7 +1411,7 @@ class Djinn
   # Args:
   #   username: The email address registered as username for the user's application.
   def does_user_exist(username, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1446,7 +1430,7 @@ class Djinn
   #   account_type: A str that indicates if this account can be logged into
   #     by XMPP users.
   def create_user(username, password, account_type, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1462,7 +1446,7 @@ class Djinn
   # Args:
   #   username: The e-mail address that should be given administrative authorizations.
   def set_admin_role(username, is_cloud_admin, capabilities, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1480,7 +1464,7 @@ class Djinn
   #  Returns:
   #    A JSON-encoded string containing the application metadata.
   def get_app_data(app_id, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1500,7 +1484,7 @@ class Djinn
   #   app_language: The runtime (Python 2.5/2.7, Java, or Go) that the app
   #     runs over.
   def reserve_app_id(username, app_id, app_language, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1518,9 +1502,9 @@ class Djinn
   #   secret: Shared key for authentication
   #
   def stop_app(app_name, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if !my_node.is_shadow?
+    unless my_node.is_shadow?
       Djinn.log_debug("Sending stop_app call for #{app_name} to shadow.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
@@ -1557,9 +1541,7 @@ class Djinn
 
       # If this node has any information about AppServers for this app,
       # clear that information out.
-      if !@app_info_map[app_name].nil?
-        @app_info_map.delete(app_name)
-      end
+      @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
 
       @apps_loaded = @apps_loaded - [app_name]
       @app_names = @app_names - [app_name]
@@ -1626,10 +1608,10 @@ class Djinn
   end
 
   def update(app_names, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Few sanity checks before acting.
-    if !my_node.is_shadow?
+    unless my_node.is_shadow?
        Djinn.log_debug("Sending update call for #{app_names} to shadow.")
        acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
        begin
@@ -1663,7 +1645,7 @@ class Djinn
     }
 
     # Next, restart any apps that have new code uploaded.
-    if !apps_to_restart.empty?
+    unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
@@ -1715,7 +1697,7 @@ class Djinn
   #   A String indicating that the SOAP call succeeded, or the reason why it
   #   did not.
   def set_apps_to_restart(apps_to_restart, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     APPS_LOCK.synchronize {
       @apps_to_restart += apps_to_restart
@@ -1727,7 +1709,7 @@ class Djinn
   end
 
   def get_all_public_ips(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     public_ips = []
     @nodes.each { |node|
@@ -1737,7 +1719,7 @@ class Djinn
   end
 
   def job_start(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
 
@@ -1779,7 +1761,7 @@ class Djinn
     # the options for this deployment. It's either a save state from a
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
-    if !restore_appcontroller_state()
+    unless restore_appcontroller_state()
       erase_old_data()
       wait_for_data()
     end
@@ -1909,7 +1891,7 @@ class Djinn
 
 
   def get_online_users_list(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     online_users = []
 
@@ -1925,7 +1907,7 @@ class Djinn
   end
 
   def done_uploading(appname, location, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if File.exists?(location)
       begin
@@ -1947,7 +1929,7 @@ class Djinn
   end
 
   def is_app_running(appname, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     hosters = ZKInterface.get_app_hosters(appname, @options['keyname'])
     hosters_w_appengine = []
@@ -1962,7 +1944,7 @@ class Djinn
 
 
   def add_role(new_role, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # new roles may run indefinitely in the background, so don't block
     # on them - just fire and forget
@@ -1986,7 +1968,7 @@ class Djinn
   end
 
   def remove_role(old_role, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     my_node.remove_roles(old_role)
     stop_roles = old_role.split(":")
@@ -2016,7 +1998,7 @@ class Djinn
   #   Otherwise, returns a Hash that maps IP addresses to the roles that
   #     will be hosted on them (the inverse of ips_hash).
   def start_roles_on_nodes(ips_hash, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     ips_hash = JSON.load(ips_hash)
     if ips_hash.class != Hash
@@ -2143,7 +2125,7 @@ class Djinn
   # combination of the two. 'nodes_needed' should be an Array, where each
   # item is an Array of the roles to start on each node.
   def start_new_roles_on_nodes(nodes_needed, instance_type, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if nodes_needed.class != Array
       Djinn.log_error("Was expecting nodes_needed to be an Array, not " +
@@ -2536,7 +2518,7 @@ class Djinn
   # Args:
   #   secret: A String password that is used to authenticate SOAP callers.
   def gather_logs(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     uuid = HelperFunctions.get_random_alphanumeric()
     Djinn.log_info("Generated uuid #{uuid} for request to gather logs.")
@@ -2589,9 +2571,9 @@ class Djinn
   #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
   #     it and nginx yet. Callers should retry at a later time.
   def add_routing_for_appserver(app_id, ip, port, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if !my_node.is_shadow?
+    unless my_node.is_shadow?
        # We need to send the call to the shadow.
        Djinn.log_debug("Sending routing call for #{app_id} to shadow.")
        acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
@@ -2637,7 +2619,7 @@ class Djinn
   #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
   def add_routing_for_blob_server(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
     return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
@@ -2671,9 +2653,9 @@ class Djinn
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
   #     remove AppServers from HAProxy config files).
   def remove_appserver_from_haproxy(app_id, ip, port, secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if !my_node.is_shadow?
+    unless my_node.is_shadow?
        Djinn.log_debug("Sending remote_appserver_from_haproxy call for #{app_id} to shadow.")
        acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
        begin
@@ -2745,9 +2727,7 @@ class Djinn
   def update_firewall()
     all_ips = []
     @nodes.each { |node|
-      if !all_ips.include? node.private_ip
-        all_ips << node.private_ip
-      end
+      (all_ips << node.private_ip) unless all_ips.include? node.private_ip
     }
     all_ips << "\n"
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips.join("\n"))
@@ -2801,7 +2781,7 @@ class Djinn
     Djinn.log_info("Restoring AppController state")
     json_state=""
 
-    if !File.exists?(ZK_LOCATIONS_FILE)
+    unless File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exist: not restoring data.")
       return false
     end
@@ -2814,7 +2794,7 @@ class Djinn
         json_state = ""
         Kernel.sleep(SMALL_WAIT)
       end
-      break if !json_state.empty?
+      break unless json_state.empty?
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
@@ -2845,7 +2825,7 @@ class Djinn
     # Check to see if our IP address has changed. If so, we need to update all
     # of our internal state to use the new public and private IP anywhere the
     # old ones were present.
-    if !HelperFunctions.get_all_local_ips().include?(@my_private_ip)
+    unless HelperFunctions.get_all_local_ips().include?(@my_private_ip)
       Djinn.log_info("IP changed old private:#{@my_private_ip} public:#{@my_public_ip}.")
       update_state_with_new_local_ip()
       Djinn.log_info("IP changed new private:#{@my_private_ip} public:#{@my_public_ip}.")
@@ -2902,7 +2882,7 @@ class Djinn
       @options['hostname'] = new_public_ip
     end
 
-    if !is_cloud?
+    unless is_cloud?
       nodes = JSON.load(@options['ips'])
       nodes.each { |node|
         if node['ip'] == old_private_ip
@@ -2950,7 +2930,7 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        if !zookeeper_data['locations'].include? node.private_ip
+        unless zookeeper_data['locations'].include? node.private_ip
           zookeeper_data['locations'] << node.private_ip
         end
       end
@@ -3170,7 +3150,7 @@ class Djinn
         ZKInterface.set_done_loading(my_node.public_ip, false)
 
         roles_to_start = new_roles - old_roles
-        if !roles_to_start.empty?
+        unless roles_to_start.empty?
           Djinn.log_info("Need to start [#{roles_to_start.join(', ')}] " +
             "roles on this node")
           roles_to_start.each { |role|
@@ -3180,7 +3160,7 @@ class Djinn
         end
 
         roles_to_stop = old_roles - new_roles
-        if !roles_to_stop.empty?
+        unless roles_to_stop.empty?
           Djinn.log_info("Need to stop [#{roles_to_stop.join(', ')}] " +
             "roles on this node")
           roles_to_stop.each { |role|
@@ -3384,9 +3364,7 @@ class Djinn
   def valid_format_for_credentials(possible_credentials)
     required_fields = ["table", "hostname", "ips", "keyname"]
     required_fields.each { |field|
-      if !possible_credentials[field]
-        return false
-      end
+      return false unless possible_credentials[field]
     }
 
     return true
@@ -3986,7 +3964,7 @@ class Djinn
 
     @nodes.each { |node|
       master_ip = node.private_ip if node.jobs.include?("db_master")
-      if !slave_ips.include? node.private_ip
+      unless slave_ips.include? node.private_ip
         slave_ips << node.private_ip if node.jobs.include?("db_slave")
       end
     }
@@ -4195,7 +4173,7 @@ HOSTS
         running = true
         break
       }
-      if !running
+      unless running
         Djinn.log_debug("Skipping routing for #{app} since no appserver is running.")
         next
       end
@@ -4565,13 +4543,13 @@ HOSTS
         Djinn.log_warn("Failed to get app listing: retrying.")
         retry
       end
-      Djinn.log_debug("Apps to check: #{app_list}.") if !app_list.empty?
+      Djinn.log_debug("Apps to check: #{app_list}.") unless app_list.empty?
       app_list.each { |app|
         begin
           # If app is not enabled or if we already know of it, we skip it.
           next if @app_names.include?(app)
           begin
-            next if !uac.is_app_enabled?(app)
+            next unless uac.is_app_enabled?(app)
           rescue FailedNodeException
             Djinn.log_warn("Failed to talk to the UserAppServer about " +
               "application #{app}.")
@@ -4737,7 +4715,7 @@ HOSTS
       app, port = appserver.split(":")
       no_appservers.delete(app)
     }
-    Djinn.log_debug("Running AppServers on this node: #{my_apps}.") if !my_apps.empty?
+    Djinn.log_debug("Running AppServers on this node: #{my_apps}.") unless my_apps.empty?
 
     # Check that all the AppServers running are indeed known to the
     # head node.
@@ -4763,9 +4741,9 @@ HOSTS
         to_end << appengine
       end
     }
-    Djinn.log_debug("First AppServers to start: #{no_appservers}.") if !no_appservers.empty?
-    Djinn.log_debug("AppServers to start: #{to_start}.") if !to_start.empty?
-    Djinn.log_debug("AppServers to terminate: #{to_end}.") if !to_end.empty?
+    Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
+    Djinn.log_debug("AppServers to start: #{to_start}.") unless to_start.empty?
+    Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
 
     # Now we do the talking with the appmanagerserver. Since it may take
     # some time to start/stop apps, we do this in a thread. We do one
@@ -4851,7 +4829,7 @@ HOSTS
     # If the language of the application changed, we disable the app since
     # it may cause some datastore corruption. User will have to create a
     # new ID.
-    if !@app_info_map[app].nil?
+    unless @app_info_map[app].nil?
       if @app_info_map[app]['language'] and @app_info_map[app]['language'] != app_language
         Djinn.log_warn("Application #{app} changed language!")
         return INVALID_REQUEST
@@ -5027,7 +5005,7 @@ HOSTS
       }
 
       # Check if the port is really available.
-      if !in_use
+      unless in_use
         actually_available = Djinn.log_run("lsof -i:#{possibly_free_port} -sTCP:LISTEN")
         if actually_available.empty?
           Djinn.log_debug("Port #{possibly_free_port} is available for use.")
@@ -5144,11 +5122,7 @@ HOSTS
     @current_req_rate[app_name] = 0
     @total_req_rate[app_name] = 0
     @last_sampling_time[app_name] = Time.now.to_i
-
-    if !@last_decision.has_key?(app_name)
-      @last_decision[app_name] = 0
-    end
-
+    (@last_decision[app_name] = 0) unless @last_decision.has_key?(app_name)
     @initialized_apps[app_name] = true
   end
 
@@ -5350,7 +5324,7 @@ HOSTS
         }
         Djinn.log_debug("These hosts are running #{app_name}: #{appengine_running}.")
         available_hosts.each { |host, load|
-          if !appengine_running.include?(host)
+          unless appengine_running.include?(host)
             Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
                 "since it has no running AppServers for it.")
             appserver_to_use = host
@@ -5427,7 +5401,7 @@ HOSTS
 
     if remove_old
       Djinn.log_info("Removing old application version for app: #{app}.")
-      if !my_node.is_shadow?
+      unless my_node.is_shadow?
         FileUtils.rm_rf(app_path)
       else
         # Force the shadow node to refresh the application directory.
@@ -5437,11 +5411,9 @@ HOSTS
 
     # Let's make sure we have a copy of the tarball of the application. If
     # not, we will get the latest version from another node.
-    if !File.exists?(app_path)
-      FileUtils.rm_rf(app_dir)
-    end
+    FileUtils.rm_rf(app_dir) unless File.exists?(app_path)
 
-    if !File.directory?(app_dir)
+    unless File.directory?(app_dir)
       Djinn.log_info("App untar directory created from scratch.")
       FileUtils.mkdir_p(app_dir)
 
@@ -5451,7 +5423,7 @@ HOSTS
         # since the following code assumes it is present. If it is not there
         # (which can happen if the scp fails on a large app), throw up a dummy
         # app.
-        if !HelperFunctions.app_has_config_file?(app_path)
+        unless HelperFunctions.app_has_config_file?(app_path)
           error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
         else
           # Application is good: let's set it up.
@@ -5464,7 +5436,7 @@ HOSTS
       end
     end
 
-    if !error_msg.empty?
+    unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
       place_error_app(app, error_msg, @app_info_map[app]['language'])
       @app_info_map[app]['language'] = "python27"
@@ -5503,7 +5475,7 @@ HOSTS
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
-    if !File.exists?(port_file)
+    unless File.exists?(port_file)
       Djinn.log_info("Waiting for port file for app #{app}.")
       return false
     end
@@ -5581,7 +5553,7 @@ HOSTS
         "stop instance on port #{port} for application #{app_id}.")
       result = false
     end
-    if !result
+    unless result
       Djinn.log_error("Unable to stop instance on port #{port} " +
         "application #{app_id}")
     end
@@ -5636,7 +5608,7 @@ HOSTS
 
   def scale_appservers_across_nodes()
     # Only the shadow makes scaling decisions.
-    return if !my_node.is_shadow?
+    return unless my_node.is_shadow?
 
     # TODO: Do we need to get the apps lock here?
     Djinn.log_debug("Seeing if we need to spawn new AppServer nodes")
@@ -5704,7 +5676,7 @@ HOSTS
   #   removed from this AppScale deployment.
   def examine_scale_down_requests(all_scaling_votes)
     # First, only scale down in cloud environments.
-    if !is_cloud?
+    unless is_cloud?
       Djinn.log_debug("Not scaling down VMs, because we aren't in a cloud.")
       return 0
     end
@@ -5737,7 +5709,7 @@ HOSTS
       end
     }
 
-    if !scale_down_threshold_reached
+    unless scale_down_threshold_reached
       Djinn.log_debug("Not scaling down VMs right now, as not enough nodes have " +
         "requested it.")
       return 0
@@ -5821,7 +5793,7 @@ HOSTS
     retries_left = 10
     loop {
       nodes_with_app = ZKInterface.get_app_hosters(appname, @options['keyname'])
-      break if !nodes_with_app.empty?
+      break unless nodes_with_app.empty?
       Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
         "have a copy of app #{appname}")
       Kernel.sleep(SMALL_WAIT)
@@ -5925,7 +5897,7 @@ HOSTS
   #   A hash in string format containing system and platform stats for this
   #     node.
   def get_all_stats(secret)
-    return BAD_SECRET_MSG if !valid_secret?(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
