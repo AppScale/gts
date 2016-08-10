@@ -117,7 +117,7 @@ class RESTLease(RequestHandler):
       self.write('groupByTag must be a boolean.')
       return
 
-    tag = self.get_argument('groupByTag', None)
+    tag = self.get_argument('tag', None)
 
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:

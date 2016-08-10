@@ -420,7 +420,7 @@ class Queue(object):
 
     return task
 
-  def _query_available_tasks(self, num_tasks, group_by_tag, tag):
+  def _query_available_tasks(self, num_tasks, group_by_tag=False, tag=None):
     """ Query the index table for available tasks.
 
     Args:
@@ -476,6 +476,8 @@ class Queue(object):
     Returns:
       A list of Task objects.
     """
+    logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
+                  format(num_tasks, lease_seconds, group_by_tag, tag))
     new_eta = datetime.datetime.now() + datetime.timedelta(0, lease_seconds)
     indices_seen = set()
 
