@@ -49,27 +49,15 @@ require "zookeeper_helper"
 
 NO_OUTPUT = false
 
+
 # This lock makes it so that global variables related to apps are not updated
 # concurrently, preventing race conditions.
 APPS_LOCK = Monitor.new()
 
+
 # This lock is to ensure that only one thread is trying to start/stop
 # applications.
 AMS_LOCK = Mutex.new()
-
-# A HTTP client that assumes that responses returned are JSON, and automatically
-# loads them, returning the result. Raises a NoMethodError if the host/URL is
-# down or otherwise unreachable.
-class JSONClient
-  include HTTParty
-
-  # Assume the response is JSON and load it accordingly.
-  parser(
-    Proc.new do |body, format|
-      JSON.load(body)
-    end
-  )
-end
 
 
 # The string that should be returned to the caller if they call a publicly
@@ -811,7 +799,7 @@ class Djinn
     # hash tables, so we need to make sure that every key maps to a value
     # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
     # so we need to make sure that the array has an even number of elements
-    if database_credentials.length % 2 != 0
+    if database_credentials.length.odd?
       msg = "Error: DB Credentials wasn't of even length: Len = " + \
         "#{database_credentials.length}"
       Djinn.log_error(msg)
@@ -823,7 +811,6 @@ class Djinn
       return "Error: Credential format wrong"
     end
 
-    keyname = possible_credentials["keyname"]
     @options = possible_credentials
     @app_names = app_names
 
@@ -905,7 +892,7 @@ class Djinn
 
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
-    PARAMETERS_AND_CLASS.each { |key, key_type, val|
+    PARAMETERS_AND_CLASS.each { |key, _, val|
       if @options[key]
         # The parameter 'key' is defined, no need to do anything.
         next
@@ -976,8 +963,8 @@ class Djinn
 
     if my_node.is_shadow?
       app_names = []
-      stats['apps'].each { |k, v|
-        app_names << k
+      stats['apps'].each { |key, _|
+        app_names << key
       }
 
       stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
@@ -997,7 +984,7 @@ class Djinn
           running = 0
           pending = 0
           @app_info_map[app_name]['appengine'].each{ |location|
-             host, port = location.split(":")
+             _, port = location.split(":")
              if Integer(port) > 0
                running += 1
              else
@@ -1072,7 +1059,6 @@ class Djinn
       end
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
-      keyname = @options['keyname']
       command = "appscale-upload-app --file '#{archived_file}' " +
         "--email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
@@ -1162,6 +1148,8 @@ class Djinn
   # Returns:
   #   A JSON string with the database information.
   def get_database_information(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
     tree = { :table => @options['table'], :replication => @options['replication'],
       :keyname => @options['keyname'] }
     return JSON.dump(tree)
@@ -1270,6 +1258,7 @@ class Djinn
           properties[name_without_at_sign] = value
         end
       rescue RegexpError
+        Djinn.log_warn("get_property: got invalid regex (#{property_regex}).")
       end
     }
 
@@ -1657,8 +1646,8 @@ class Djinn
     app_names.each{ |app|
       if check_app_language(app) == INVALID_REQUEST
         apps_to_restart.delete(app)
-        result = stop_app(app, @@secret)
-        Djinn.log_error("Disabling app #{app} because of invalid language.")
+        stop_app(app, @@secret)
+        Djinn.log_error("#{app} language doens't match our record: disabling it.")
       end
     }
 
@@ -2075,10 +2064,9 @@ class Djinn
     Djinn.log_info("Starting new roles in cloud with following info: " +
       "#{ips_to_roles.inspect}")
 
-    keyname = @options['keyname']
     num_of_vms = ips_to_roles.keys.length
     roles = ips_to_roles.values
-    disks = Array.new(size=num_of_vms, obj=nil)  # no persistent disks
+    disks = Array.new(num_of_vms, nil)  # no persistent disks
     Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
     imc = InfrastructureManagerClient.new(@@secret)
 
@@ -2120,7 +2108,6 @@ class Djinn
       "#{ips_to_roles.inspect}")
 
     nodes_info = []
-    keyname = @options['keyname']
     ips_to_roles.each { |ip, roles|
       Djinn.log_info("Will add roles #{roles.join(', ')} to new " +
         "node at IP address #{ip}")
@@ -2157,9 +2144,7 @@ class Djinn
 
     vms_to_use = []
     ZKInterface.lock_and_run {
-      num_of_vms_needed = nodes_needed.length
-
-      @nodes.each_with_index { |node, index|
+      @nodes.each { |node|
         if node.is_open?
           Djinn.log_info("Will use node #{node} to run new roles")
           node.jobs = nodes_needed[vms_to_use.length]
@@ -2197,7 +2182,7 @@ class Djinn
           end
         end
 
-        disks = Array.new(size=vms_to_spawn, obj=nil)  # no persistent disks
+        disks = Array.new(vms_to_spawn, nil)  # no persistent disks
 
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
@@ -2254,7 +2239,6 @@ class Djinn
   #     about a node to add to the current AppScale deployment (e.g.,
   #     IP addresses, roles to run).
   def add_nodes(node_info)
-    keyname = @options['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
     new_nodes = convert_fqdns_to_ips(new_nodes)
 
@@ -2508,7 +2492,6 @@ class Djinn
   def get_public_ip(private_ip)
     return private_ip unless is_cloud?
 
-    keyname = @options['keyname']
     infrastructure = @options['infrastructure']
 
     Djinn.log_debug("Looking for #{private_ip}")
@@ -2731,7 +2714,6 @@ class Djinn
   def write_database_info()
     table = @options['table']
     replication = @options['replication']
-    keyname = @options['keyname']
 
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
@@ -2821,7 +2803,6 @@ class Djinn
     Djinn.log_info("Reload State : #{json_state}")
 
     @@secret = json_state['@@secret']
-    keyname = json_state['@options']['keyname']
 
     # Puts json_state.
     json_state.each { |k, v|
@@ -3782,7 +3763,6 @@ class Djinn
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
-    keyname = @options['keyname']
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     appengine_info = convert_fqdns_to_ips(appengine_info)
     @state_change_lock.synchronize {
@@ -4871,7 +4851,6 @@ HOSTS
     Djinn.log_debug("setup_appengine_application: got a new app #{app}.")
 
     my_public = my_node.public_ip
-    my_private = my_node.private_ip
 
     # Let's create an entry for the application if we don't already have it.
     @app_info_map[app] = {} if @app_info_map[app].nil?
@@ -5075,7 +5054,7 @@ HOSTS
           Djinn.log_debug("The node at #{node_ip} is initialized.")
           next
         end
-      rescue FailedNodeException => except
+      rescue FailedNodeException
         tries -= 1
         if tries > 0
           Djinn.log_debug("node at #{node_ip} not responding: retrying.")
