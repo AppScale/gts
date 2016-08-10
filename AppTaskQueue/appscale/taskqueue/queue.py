@@ -144,6 +144,8 @@ class Queue(object):
 
     Args:
       task: A Task object.
+    Raises:
+      InvalidTaskInfo if the task ID already exists in the queue.
     """
     # This method is only supported for pull queues right now.
     if self.mode != QueueTypes.PULL:
@@ -161,6 +163,7 @@ class Queue(object):
         %(app)s, %(queue)s, %(id)s, %(payload)s,
         dateof(now()), %(lease_expires)s, 0, %(tag)s
       )
+      IF NOT EXISTS
     """, retry_policy=self.db_access.retry_policy)
     parameters = {
       'app': self.app,
@@ -179,7 +182,9 @@ class Queue(object):
     except AttributeError:
       parameters['lease_expires'] = 0
 
-    self.db_access.session.execute(insert_task, parameters)
+    result = self.db_access.session.execute(insert_task, parameters)[0]
+    if not result.applied:
+      raise InvalidTaskInfo('Task name already taken: {}'.format(task.id))
 
     # Retrieve the date values that Cassandra generated.
     select_task = """
