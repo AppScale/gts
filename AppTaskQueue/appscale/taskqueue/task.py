@@ -1,5 +1,4 @@
 import datetime
-import json
 import random
 import re
 import string
@@ -97,11 +96,11 @@ class Task(object):
                          for attr, val in attributes.iteritems())
     return '<Task: {}>'.format(attr_str)
 
-  def to_json(self):
-    """ Generate a JSON representation of the task.
+  def json_safe_dict(self):
+    """ Generate a JSON-safe dictionary representation of the task.
 
     Returns:
-      A string in JSON format representing the task.
+      A JSON-safe dictionary representing the task.
     """
     task = {
       'kind': 'taskqueues#task',
@@ -117,4 +116,5 @@ class Task(object):
         if isinstance(value, datetime.datetime):
           value = long((value - epoch).total_seconds() * 1000000)
         task[attribute] = value
-    return json.dumps(task)
+
+    return task

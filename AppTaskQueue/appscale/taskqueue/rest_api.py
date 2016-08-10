@@ -1,4 +1,5 @@
 """ Handlers for implementing v1beta2 of the taskqueue REST API. """
+import json
 import sys
 import tornado.escape
 
@@ -78,7 +79,7 @@ class RESTTasks(RequestHandler):
       return
 
     queue.add_task(task)
-    self.write(task.to_json())
+    self.write(json.dumps(task.json_safe_dict()))
 
 
 class RESTLease(RequestHandler):
@@ -124,7 +125,13 @@ class RESTLease(RequestHandler):
       self.write('Queue not found.')
       return
 
-    queue.lease_tasks(tasks, lease_seconds, group_by_tag, tag)
+    tasks = queue.lease_tasks(tasks, lease_seconds, group_by_tag, tag)
+    task_list = {
+      'kind': 'taskqueues#tasks',
+      'items': [task.json_safe_dict() for task in tasks]
+    }
+    self.write(json.dumps(task_list))
+
 
 class RESTTask(RequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks/([a-zA-Z0-9_-]+)'.format(REST_PREFIX)
@@ -150,7 +157,7 @@ class RESTTask(RequestHandler):
       return
 
     task = queue.get_task(task)
-    self.write(task.to_json())
+    self.write(json.dumps(task.json_safe_dict()))
 
   def post(self, project, queue, task):
     """ Update the duration of a task lease.
