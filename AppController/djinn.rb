@@ -813,6 +813,7 @@ class Djinn
 
     @options = possible_credentials
     @app_names = app_names
+    keyname = possible_credentials["keyname"]
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
