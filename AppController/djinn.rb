@@ -2727,7 +2727,7 @@ class Djinn
   def update_firewall()
     all_ips = []
     @nodes.each { |node|
-      all_ips << node.private_ip unless all_ips.include? node.private_ip
+      (all_ips << node.private_ip) unless all_ips.include? node.private_ip
     }
     all_ips << "\n"
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips.join("\n"))
@@ -5122,7 +5122,7 @@ HOSTS
     @current_req_rate[app_name] = 0
     @total_req_rate[app_name] = 0
     @last_sampling_time[app_name] = Time.now.to_i
-    @last_decision[app_name] = 0 unless @last_decision.has_key?(app_name)
+    (@last_decision[app_name] = 0) unless @last_decision.has_key?(app_name)
     @initialized_apps[app_name] = true
   end
 
