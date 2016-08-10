@@ -4,6 +4,7 @@ import sys
 import tornado.escape
 
 from queue import QueueTypes
+from task import InvalidTaskInfo
 from task import Task
 from tornado.web import MissingArgumentError
 from tornado.web import RequestHandler
@@ -78,7 +79,14 @@ class RESTTasks(RequestHandler):
       self.write('Queue not found.')
       return
 
-    queue.add_task(task)
+    try:
+      queue.add_task(task)
+    except InvalidTaskInfo as insert_error:
+      self.set_status(HTTPCodes.BAD_REQUEST)
+      response = {'error': {'code': HTTPCodes.BAD_REQUEST,
+                            'message': insert_error.message}}
+      self.write(json.dumps(response))
+
     self.write(json.dumps(task.json_safe_dict()))
 
 
