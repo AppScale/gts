@@ -15,6 +15,7 @@ import tq_lib
 
 from queue import QueueTypes
 from tq_config import TaskQueueConfig
+from unpackaged import APPSCALE_DATASTORE
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
@@ -33,7 +34,53 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
 
+sys.path.append(APPSCALE_DATASTORE)
+from cassandra_env.cassandra_interface import DatastoreProxy
+
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
+
+
+def create_pull_queue_tables(session):
+  """ Create the required tables for pull queues.
+
+  Args:
+    session: A cassandra-driver session.
+  """
+  logging.info('Trying to create pull_queue_tasks')
+  create_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_tasks (
+      app text,
+      queue text,
+      id text,
+      payload text,
+      enqueued timestamp,
+      lease_expires timestamp,
+      retry_count int,
+      tag text,
+      PRIMARY KEY ((app, queue, id))
+    )
+  """
+  session.execute(create_table)
+
+  logging.info('Trying to create pull_queue_tasks_index')
+  create_index_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_tasks_index (
+      app text,
+      queue text,
+      eta timestamp,
+      id text,
+      tag text,
+      PRIMARY KEY ((app, queue, eta), id)
+    )
+  """
+  session.execute(create_index_table)
+
+  logging.info('Trying to create index on pull_queue_tasks_index')
+  create_index = """
+    CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
+  """
+  session.execute(create_index)
+
 
 class TaskName(db.Model):
   """ A datastore model for tracking task names in order to prevent
@@ -128,8 +175,30 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
+    self.db_access = DatastoreProxy()
+
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False
+
+  def get_queue(self, app, queue):
+    """ Fetches a Queue object.
+
+    Args:
+      app: A string containing the application ID.
+      queue: A string specifying the name of the queue.
+    Returns:
+      A Queue object or None.
+    """
+    cache = self.__queue_info_cache
+    if app in cache and queue in cache[app]:
+      return cache[app][queue]
+
+    config = TaskQueueConfig(app, self.db_access)
+    self.__queue_info_cache[app] = config.queues
+    if queue in config.queues:
+      return config.queues[queue]
+    else:
+      return None
 
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the proper tags.
@@ -220,7 +289,7 @@ class DistributedTaskQueue():
       cached_queues = self.__queue_info_cache[app_id]
 
     try:
-      new_queues = TaskQueueConfig(app_id).queues
+      new_queues = TaskQueueConfig(app_id, self.db_access).queues
     except (ValueError, NameError) as config_error:
       return json.dumps({'error': True, 'reason': config_error.message})
     except Exception as config_error:
@@ -284,7 +353,7 @@ class DistributedTaskQueue():
 
     # Load the queue info.
     try:
-      config = TaskQueueConfig(app_id)
+      config = TaskQueueConfig(app_id, self.db_access)
       self.__queue_info_cache[app_id] = config.queues
       config.create_celery_file()
       config.create_celery_worker_scripts()
@@ -626,7 +695,8 @@ class DistributedTaskQueue():
     queue_name = request.queue_name()
     if app_id not in self.__queue_info_cache:
       try:
-        self.__queue_info_cache[app_id] = TaskQueueConfig(app_id).queues
+        self.__queue_info_cache[app_id] = TaskQueueConfig(
+          app_id, self.db_access).queues
       except (ValueError, NameError):
         logging.exception('Unable to load queues for {}. Using defaults.'\
           .format(app_id))

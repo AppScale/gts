@@ -11,6 +11,10 @@ import tornado.ioloop
 import tornado.web
 
 from appscale.taskqueue import distributed_tq
+from appscale.taskqueue.rest_api import RESTLease
+from appscale.taskqueue.rest_api import RESTQueue
+from appscale.taskqueue.rest_api import RESTTask
+from appscale.taskqueue.rest_api import RESTTasks
 from appscale.taskqueue.unpackaged import APPSCALE_LIB_DIR
 from appscale.taskqueue.unpackaged import APPSCALE_PYTHON_APPSERVER
 
@@ -208,14 +212,24 @@ def main():
   """ Main function which initializes and starts the tornado server. """
   global task_queue
   task_queue = distributed_tq.DistributedTaskQueue()
-  tq_application = tornado.web.Application([
+  handlers = [
     # Takes JSON requests from AppController.
     (r"/startworker", StartWorkerHandler),
     (r"/stopworker", StopWorkerHandler),
     (r"/reloadworker", ReloadWorkerHandler),
     # Takes protocol buffers from the AppServers.
     (r"/*", MainHandler)
+  ]
+
+  # Provides compatibility with the v1beta2 REST API.
+  handlers.extend([
+    (RESTQueue.PATH, RESTQueue, {'queue_handler': task_queue}),
+    (RESTTasks.PATH, RESTTasks, {'queue_handler': task_queue}),
+    (RESTLease.PATH, RESTLease, {'queue_handler': task_queue}),
+    (RESTTask.PATH, RESTTask, {'queue_handler': task_queue})
   ])
+
+  tq_application = tornado.web.Application(handlers)
 
   server = tornado.httpserver.HTTPServer(tq_application)
   server.listen(SERVER_PORT)

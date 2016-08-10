@@ -63,15 +63,17 @@ queue:
   # Tags from queue.xml that are ignored.
   TAGS_TO_IGNORE = ['#text']
 
-  def __init__(self, app_id):
+  def __init__(self, app_id, db_access=None):
     """ Configuration constructor. 
 
     Args:
       app_id: The application ID.
+      db_access: A DatastoreProxy object.
     """
     self._app_id = app_id
     file_io.mkdir(self.CELERY_CONFIG_DIR)
     file_io.mkdir(self.CELERY_WORKER_DIR)
+    self.db_access = db_access
     self.queues = self.load_queues_from_file()
 
   def get_queue_file_location(self, app_id):
@@ -140,7 +142,7 @@ queue:
     queues = {}
     for queue in queue_info['queue']:
       try:
-        queues[queue['name']] = Queue(queue, self._app_id)
+        queues[queue['name']] = Queue(queue, self._app_id, self.db_access)
       except InvalidQueueConfiguration:
         logging.exception('Invalid queue configuration')
 
