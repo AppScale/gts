@@ -51,7 +51,7 @@ class RESTTasks(RequestHandler):
     self.queue_handler = queue_handler
 
   def get(self, project, queue):
-    """ List all non-deleted task in a queue, whether or not they are
+    """ List all non-deleted tasks in a queue, whether or not they are
     currently leased, up to a maximum of 100.
 
     Args:

@@ -183,6 +183,9 @@ class DistributedTaskQueue():
   def get_queue(self, app, queue):
     """ Fetches a Queue object.
 
+    Args:
+      app: A string containing the application ID.
+      queue: A string specifying the name of the queue.
     Returns:
       A Queue object or None.
     """

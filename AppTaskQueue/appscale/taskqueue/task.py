@@ -70,6 +70,11 @@ class Task(object):
     self.validate_info()
 
   def validate_info(self):
+    """ Make sure the existing attributes are valid.
+
+    Raises:
+      InvalidTaskInfo if one of the attribute fails validation.
+    """
     for attribute, rule in QUEUE_ATTRIBUTE_RULES.iteritems():
       try:
         value = getattr(self, attribute)
@@ -84,7 +89,8 @@ class Task(object):
     """ Generates a string representation of the task.
 
     Returns:
-      A string representing the task. """
+      A string representing the task.
+    """
     attributes = {'id': self.id,
                   'payload': self.payload}
     attr_str = ', '.join('{}={}'.format(attr, val)

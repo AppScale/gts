@@ -199,7 +199,7 @@ class Queue(object):
     else:
       eta = task.leaseTimestamp
 
-    # Create an index entry the the task can be queried by ETA. This can't be
+    # Create an index entry so the task can be queried by ETA. This can't be
     # done in a batch because the payload from the previous insert can be up
     # to 1MB, and Cassandra does not approve of large batches.
     insert_index = SimpleStatement("""
