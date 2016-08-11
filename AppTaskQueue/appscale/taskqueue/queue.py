@@ -197,13 +197,6 @@ class Queue(object):
     task.enqueueTimestamp = response.enqueued
     task.leaseTimestamp = response.lease_expires
 
-    # If ETA was not defined, use the current time.
-    epoch = datetime.datetime.utcfromtimestamp(0)
-    if task.leaseTimestamp == epoch:
-      eta = task.enqueueTimestamp
-    else:
-      eta = task.leaseTimestamp
-
     # Create an index entry so the task can be queried by ETA. This can't be
     # done in a batch because the payload from the previous insert can be up
     # to 1MB, and Cassandra does not approve of large batches.
@@ -214,7 +207,7 @@ class Queue(object):
     parameters = {
       'app': self.app,
       'queue': self.name,
-      'eta': eta,
+      'eta': task.get_eta(),
       'id': task.id
     }
     try:
@@ -289,7 +282,7 @@ class Queue(object):
     parameters = {
       'app': self.app,
       'queue': self.name,
-      'eta': eta,
+      'eta': task.get_eta(),
       'id': task.id
     }
     batch_delete.add(delete_task_index, parameters=parameters)

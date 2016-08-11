@@ -84,6 +84,21 @@ class Task(object):
         raise InvalidTaskInfo(
           'Invalid task info: {}={}'.format(attribute, value))
 
+  def get_eta(self):
+    """ Returns the ETA for a task.
+
+    Raises:
+      InvalidTaskInfo if
+    """
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    if hasattr(self, 'leaseTimestamp') and self.leaseTimestamp != epoch:
+      return self.leaseTimestamp
+
+    try:
+      return self.enqueueTimestamp
+    except AttributeError:
+      raise InvalidTaskInfo('No ETA info for {}'.format(self))
+
   def __repr__(self):
     """ Generates a string representation of the task.
 
