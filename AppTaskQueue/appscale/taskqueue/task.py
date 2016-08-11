@@ -103,7 +103,7 @@ class Task(object):
     """ Returns the ETA for a task.
 
     Raises:
-      InvalidTaskInfo if
+      InvalidTaskInfo if ETA information is not set.
     """
     epoch = datetime.datetime.utcfromtimestamp(0)
     if hasattr(self, 'leaseTimestamp') and self.leaseTimestamp != epoch:
@@ -118,7 +118,7 @@ class Task(object):
     """ Checks whether or not a task has expired.
 
     Args:
-      max_retries: An integers specifying the queue's task retry limit.
+      max_retries: An integer specifying the queue's task retry limit.
     Returns:
       A boolean indicating whether or not the task has expired.
     """
