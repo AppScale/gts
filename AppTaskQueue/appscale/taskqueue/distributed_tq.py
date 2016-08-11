@@ -70,14 +70,24 @@ def create_pull_queue_tables(session):
       eta timestamp,
       id text,
       tag text,
+      tag_exists boolean,
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
   session.execute(create_index_table)
 
-  logging.info('Trying to create index on pull_queue_tasks_index')
+  logging.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
+  """
+  session.execute(create_index)
+
+  # This additional index is needed for groupByTag=true,tag=None queries
+  # because Cassandra can only do '=' queries on secondary indices.
+  logging.info('Trying to create pull_queue_tag_exists index')
+  create_index = """
+    CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
+    ON pull_queue_tasks_index (tag_exists);
   """
   session.execute(create_index)
 

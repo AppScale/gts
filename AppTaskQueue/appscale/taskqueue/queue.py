@@ -208,8 +208,8 @@ class Queue(object):
     # done in a batch because the payload from the previous insert can be up
     # to 1MB, and Cassandra does not approve of large batches.
     insert_index = SimpleStatement("""
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag)
-      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
+      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
+      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
     """, retry_policy=self.db_access.retry_policy)
     parameters = {
       'app': self.app,
@@ -223,6 +223,7 @@ class Queue(object):
       # Insert an empty string for null values so that Cassandra can query for
       # tasks where tag is not null.
       parameters['tag'] = ''
+    parameters['tag_exists'] = parameters['tag'] != ''
     self.db_access.session.execute(insert_index, parameters)
 
   def get_task(self, task):
@@ -330,8 +331,8 @@ class Queue(object):
     update_index.add(delete_old_index, parameters)
 
     create_new_index = SimpleStatement("""
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag)
-      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
+      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
+      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
     """)
     parameters = {
       'app': self.app,
@@ -343,6 +344,7 @@ class Queue(object):
       parameters['tag'] = task.tag
     except AttributeError:
       parameters['tag'] = ''
+    parameters['tag_exists'] = parameters['tag'] != ''
     update_index.add(create_new_index, parameters)
 
     self.db_access.session.execute(update_index)
@@ -441,7 +443,9 @@ class Queue(object):
       # If not specified, the tag is assumed to be that of the oldest task.
       if tag is None:
         get_earliest_tag = """
-          SELECT tag FROM pull_queue_tasks_index WHERE tag > '' LIMIT 1
+          SELECT tag FROM pull_queue_tasks_index
+          WHERE tag_exists = true
+          LIMIT 1
         """
         try:
           tag = self.db_access.session.execute(get_earliest_tag)[0].tag
