@@ -194,7 +194,7 @@ class Queue(object):
     if self.mode != QueueTypes.PULL:
       return
 
-    if not hasattr(task, 'payload'):
+    if not hasattr(task, 'payloadBase64'):
       raise InvalidTaskInfo('Tasks require a payload.')
 
     insert_task = SimpleStatement("""
