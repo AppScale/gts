@@ -4149,32 +4149,32 @@ HOSTS
 
       # Check that we have the application information needed to
       # regenerate the routing configuration.
-      if @app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
+      running = false
+      unless @app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
           @app_info_map[app]['nginx_https'].nil? or
           @app_info_map[app]['haproxy'].nil? or
           @app_info_map[app]['appengine'].nil?
-        Djinn.log_debug("Skipping routing for #{app} until all parameters are set.")
-        next
+        http_port = @app_info_map[app]['nginx']
+        https_port = @app_info_map[app]['nginx_https']
+        proxy_port = @app_info_map[app]['haproxy']
+        Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
+          "port #{http_port}, https port #{https_port}, and haproxy port " +
+          "#{proxy_port}.")
+
+        # Let's see if we already have any AppServers running for this
+        # application.
+        @app_info_map[app]['appengine'].each { |location|
+          host, port = location.split(":")
+          next if Integer(port) < 0
+          running = true
+          break
+        }
       end
 
-      http_port = @app_info_map[app]['nginx']
-      https_port = @app_info_map[app]['nginx_https']
-      proxy_port = @app_info_map[app]['haproxy']
-      Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
-        "port #{http_port}, https port #{https_port}, and haproxy port " +
-        "#{proxy_port}.")
-
-      # Let's see if we already have any AppServers running for this
-      # application.
-      running = false
-      @app_info_map[app]['appengine'].each { |location|
-        host, port = location.split(":")
-        next if Integer(port) < 0
-        running = true
-        break
-      }
       unless running
-        Djinn.log_debug("Skipping routing for #{app} since no appserver is running.")
+        Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
+        Nginx.remove_app(app)
+        HAProxy.remove_app(app)
         next
       end
 
