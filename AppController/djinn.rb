@@ -4697,13 +4697,8 @@ HOSTS
           to_start << app
           no_appservers << app
         elsif not MonitInterface.is_running?("#{app}-#{port}")
-          Djinn.log_debug("Didn't find the AppServer for #{app} at port #{port}.")
-          if @last_decision[app]
-            if Time.now.to_i - @last_decision[app] > APP_UPLOAD_TIMEOUT * RETRIES
-              Djinn.log_warn("AppServer for #{app} at port #{port} is not running.")
-              to_end << "#{app}:#{port}"
-            end
-          end
+          Djinn.log_warn("Didn't find the AppServer for #{app} at port #{port}.")
+          to_end << "#{app}:#{port}"
         else
           my_apps << "#{app}:#{port}"
         end
@@ -5440,6 +5435,10 @@ HOSTS
       # Something went wrong: place the error applcation instead.
       place_error_app(app, error_msg, @app_info_map[app]['language'])
       @app_info_map[app]['language'] = "python27"
+    else
+      # Make sure we advertize that this node is hosting the app code.
+      result = done_uploading(app, app_path, @@secret)
+      Djinn.log_info("This node is now hosting #{app} source (#{result}).")
     end
   end
 
@@ -5814,8 +5813,7 @@ HOSTS
         Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
         Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
         if File.exists?(app_path)
-          result = done_uploading(appname, app_path, @@secret)
-          Djinn.log_info("Got a copy of #{appname} from #{ip}: #{result}.")
+          Djinn.log_info("Got a copy of #{appname} from #{ip}.")
           return true
         end
         Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
