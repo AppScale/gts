@@ -294,10 +294,36 @@ class Queue(object):
 
     Args:
       task: A Task object.
+
+  def _resolve_task(self, index):
+    """ Cleans up expired tasks and indices.
+
+    Args:
       index: An index result.
     """
-    # Not implemented yet.
-    pass
+    select_task = """
+      SELECT enqueued, lease_expires, retry_count
+      FROM pull_queue_tasks
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+    """
+    parameters = {'app': self.app, 'queue': self.name, 'id': index.id}
+    try:
+      task_result = self.db_access.session.execute(select_task, parameters)[0]
+    except IndexError:
+      self._delete_index(index.eta, index.id)
+      return
+
+    task_info = {
+      'id': index.id,
+      'queueName': self.name,
+      'enqueueTimestamp': task_result.enqueued,
+      'leaseTimestamp': task_result.lease_expires,
+      'retry_count': task_result.retry_count
+    }
+    task = Task(task_info)
+
+    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
+      self._delete_task_and_index(task)
 
   def _update_index(self, old_index, task):
     """ Updates the index table after leasing a task.
@@ -500,7 +526,7 @@ class Queue(object):
           # likely that either the index is invalid or that the task has
           # exceeded its retry_count.
           if result.id in indices_seen:
-            self._resolve_task(task, result)
+            self._resolve_task(result)
           indices_seen.add(result.id)
           continue
 
