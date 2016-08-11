@@ -501,6 +501,21 @@ class Queue(object):
 
     return task
 
+  def _get_earliest_tag(self):
+    """ Get the tag with the earliest ETA.
+
+    Returns:
+      A string containing a tag or None.
+    """
+    get_earliest_tag = """
+      SELECT tag FROM pull_queue_tasks_index WHERE tag_exists = true LIMIT 1
+    """
+    try:
+      tag = self.db_access.session.execute(get_earliest_tag)[0].tag
+    except IndexError:
+      return None
+    return tag
+
   def _query_available_tasks(self, num_tasks, group_by_tag=False, tag=None):
     """ Query the index table for available tasks.
 
@@ -514,18 +529,6 @@ class Queue(object):
       A list of results from the index table.
     """
     if group_by_tag:
-      # If not specified, the tag is assumed to be that of the oldest task.
-      if tag is None:
-        get_earliest_tag = """
-          SELECT tag FROM pull_queue_tasks_index
-          WHERE tag_exists = true
-          LIMIT 1
-        """
-        try:
-          tag = self.db_access.session.execute(get_earliest_tag)[0].tag
-        except IndexError:
-          return []
-
       query_tasks = """
         SELECT eta, id FROM pull_queue_tasks_index
         WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
@@ -562,11 +565,16 @@ class Queue(object):
     logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                   format(num_tasks, lease_seconds, group_by_tag, tag))
     new_eta = datetime.datetime.now() + datetime.timedelta(0, lease_seconds)
-    indices_seen = set()
+    # If not specified, the tag is assumed to be that of the oldest task.
+    if group_by_tag and tag is None:
+      tag = self._get_earliest_tag()
+      if tag is None:
+        return []
 
     # Fetch available tasks and try to lease them until the requested number
     # has been leased or until the index has been exhausted.
     leased = []
+    indices_seen = set()
     while True:
       results = self._query_available_tasks(num_tasks, group_by_tag, tag)
       # If there are no more available tasks, return whatever has been leased.
