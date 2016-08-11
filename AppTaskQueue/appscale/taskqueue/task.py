@@ -125,7 +125,7 @@ class Task(object):
     if self.retry_count <= max_retries:
       return False
 
-    if self.leaseTimestamp < datetime.datetime.now():
+    if self.leaseTimestamp >= datetime.datetime.now():
       return False
 
     return True

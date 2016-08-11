@@ -302,8 +302,9 @@ class Queue(object):
 
     retrieved_task = Task(task_info)
 
-    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
-      self._delete_task_and_index(task)
+    if (self.task_retry_limit != 0 and
+        retrieved_task.expired(self.task_retry_limit)):
+      self._delete_task_and_index(retrieved_task)
       return None
 
     return retrieved_task
