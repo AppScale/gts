@@ -139,6 +139,49 @@ class Queue(object):
           .format(queue=self.name, param=attribute, value=value)
         raise InvalidQueueConfiguration(message)
 
+  def list_tasks(self, limit=100):
+    """ List all non-deleted tasks in the queue.
+
+    Args:
+      limit: An integer specifying the maximum number of tasks to list.
+    Returns:
+      A list of Task objects.
+    """
+    session = self.db_access.session
+
+    tasks = []
+    start_date = datetime.datetime.utcfromtimestamp(0)
+    while True:
+      query_tasks = """
+        SELECT eta, id FROM pull_queue_tasks_index
+        WHERE token(app, queue, eta) > token(%(app)s, %(queue)s, %(eta)s)
+        LIMIT {limit}
+      """.format(limit=limit)
+      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date}
+      results = [result for result in session.execute(query_tasks, parameters)]
+
+      if not results:
+        break
+
+      satisfied_request = False
+      for result in results:
+        task = self.get_task(Task({'id': result.id}), omit_payload=True)
+        if task is None:
+          self._delete_index(result.eta, result.id)
+          continue
+
+        tasks.append(task)
+        if len(tasks) >= limit:
+          satisfied_request = True
+          break
+      if satisfied_request:
+        break
+
+      # Update the cursor.
+      start_date = results[-1].eta
+
+    return tasks
+
   def add_task(self, task):
     """ Adds a task to the queue.
 

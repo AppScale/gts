@@ -60,8 +60,18 @@ class RESTTasks(RequestHandler):
       project: A string containing an application ID.
       queue: A string containing a queue name.
     """
-    self.set_status(HTTPCodes.NOT_IMPLEMENTED)
-    self.write('Not implemented')
+    queue = self.queue_handler.get_queue(project, queue)
+    if queue is None:
+      self.set_status(HTTPCodes.NOT_FOUND)
+      self.write('Queue not found.')
+      return
+
+    tasks = queue.list_tasks()
+    task_list = {
+      'kind': 'taskqueues#tasks',
+      'items': [task.json_safe_dict() for task in tasks]
+    }
+    self.write(json.dumps(task_list))
 
   def post(self, project, queue):
     """ Insert a task into an existing queue.
