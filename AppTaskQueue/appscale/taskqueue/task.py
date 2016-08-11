@@ -25,6 +25,21 @@ QUEUE_ATTRIBUTE_RULES = {
 }
 
 
+def parse_timestamp(timestamp):
+  """ Parses timestamps used for creating tasks.
+
+  Args:
+    timestamp: Either a datetime object or an integer specifying the number
+      of microseconds since the epoch.
+  Returns:
+    A datetime object.
+  """
+  if isinstance(timestamp, datetime.datetime):
+    return timestamp
+  else:
+    return datetime.datetime.utcfromtimestamp(int(timestamp) / 1000000.0)
+
+
 class InvalidTaskInfo(Exception):
   pass
 
@@ -61,27 +76,12 @@ class Task(object):
       self.retry_count = task_info['retry_count']
 
     if 'leaseTimestamp' in task_info:
-      self.leaseTimestamp = self._parse_timestamp(task_info['leaseTimestamp'])
+      self.leaseTimestamp = parse_timestamp(task_info['leaseTimestamp'])
 
     if 'enqueueTimestamp' in task_info:
-      self.enqueueTimestamp = self._parse_timestamp(
-        task_info['enqueueTimestamp'])
+      self.enqueueTimestamp = parse_timestamp(task_info['enqueueTimestamp'])
 
     self.validate_info()
-
-  def _parse_timestamp(self, timestamp):
-    """ Parses timestamps used for creating tasks.
-
-    Args:
-      timestamp: Either a datetime object or an integer specifying the number
-        of microseconds since the epoch.
-    Returns:
-      A datetime object.
-    """
-    if isinstance(timestamp, datetime.datetime):
-      return timestamp
-    else:
-      return datetime.datetime.utcfromtimestamp(int(timestamp) / 1000000.0)
 
   def validate_info(self):
     """ Make sure the existing attributes are valid.
