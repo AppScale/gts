@@ -136,11 +136,7 @@ class Task(object):
     Returns:
       A string representing the task.
     """
-    attributes = {'id': self.id,
-                  'payload': self.payload}
-    attr_str = ', '.join('{}={}'.format(attr, val)
-                         for attr, val in attributes.iteritems())
-    return '<Task: {}>'.format(attr_str)
+    return '<Task: {}>'.format(self.id)
 
   def json_safe_dict(self):
     """ Generate a JSON-safe dictionary representation of the task.

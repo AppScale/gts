@@ -219,50 +219,58 @@ class Queue(object):
     parameters['tag_exists'] = parameters['tag'] != ''
     self.db_access.session.execute(insert_index, parameters)
 
-  def get_task(self, task):
+  def get_task(self, task, omit_payload=False):
     """ Gets a task from the queue.
 
     Args:
       task: A Task object.
+      omit_payload: A boolean indicating that the payload should not be
+        fetched.
+    Returns:
+      A task object or None.
     """
+    payload = 'payload,'
+    if omit_payload:
+      payload = ''
     select_task = """
-      SELECT payload, enqueued, lease_expires, retry_count, tag
+      SELECT {payload} enqueued, lease_expires, retry_count, tag
       FROM pull_queue_tasks
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """
+    """.format(payload=payload)
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
-    response = self.db_access.session.execute(select_task, parameters)[0]
-    task.payload = response.payload
-    task.enqueueTimestamp = response.enqueued
-    task.leaseTimestamp = response.lease_expires
-    task.retry_count = response.retry_count
-    task.tag = response.tag
-    return task
+    try:
+      response = self.db_access.session.execute(select_task, parameters)[0]
+    except IndexError:
+      return None
 
-  def delete_task(self, task):
-    """ Deletes a task from the queue.
+    task_info = {
+      'id': task.id,
+      'queueName': self.name,
+      'enqueueTimestamp': response.enqueued,
+      'leaseTimestamp': response.lease_expires,
+      'retry_count': response.retry_count,
+    }
+
+    if response.tag is not None:
+      task_info['tag'] = response.tag
+
+    if not omit_payload:
+      task_info['payloadBase64'] = response.payload
+
+    retrieved_task = Task(task_info)
+
+    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
+      self._delete_task_and_index(task)
+      return None
+
+    return retrieved_task
+
+  def _delete_task_and_index(self, task):
+    """ Deletes a task and its index atomically.
 
     Args:
       task: A Task object.
     """
-    # Retrieve the task so that the index can also be deleted.
-    select_task = """
-      SELECT enqueued, lease_expires FROM pull_queue_tasks
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """
-    parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
-    try:
-      result = self.db_access.session.execute(select_task, parameters)[0]
-    except IndexError:
-      # If the task does not exist, it does not need to be deleted.
-      return
-
-    epoch = datetime.datetime.utcfromtimestamp(0)
-    if result.lease_expires == epoch:
-      eta = result.enqueued
-    else:
-      eta = result.lease_expires
-
     batch_delete = BatchStatement(retry_policy=self.db_access.retry_policy)
 
     delete_task = SimpleStatement("""
@@ -289,11 +297,16 @@ class Queue(object):
 
     self.db_access.session.execute(batch_delete)
 
-  def _resolve_task(self, task, index):
-    """ Cleans up expired tasks and indices.
+  def delete_task(self, task):
+    """ Deletes a task from the queue.
 
     Args:
       task: A Task object.
+    """
+    # Retrieve the ETA info so that the index can also be deleted.
+    task = self.get_task(task, omit_payload=True)
+    if task is not None:
+      self._delete_task_and_index(task)
 
   def _resolve_task(self, index):
     """ Cleans up expired tasks and indices.
@@ -301,29 +314,28 @@ class Queue(object):
     Args:
       index: An index result.
     """
-    select_task = """
-      SELECT enqueued, lease_expires, retry_count
-      FROM pull_queue_tasks
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """
-    parameters = {'app': self.app, 'queue': self.name, 'id': index.id}
-    try:
-      task_result = self.db_access.session.execute(select_task, parameters)[0]
-    except IndexError:
+    # The method to get the task will remove expired tasks.
+    task = self.get_task(Task({'id': index.id}), omit_payload=True)
+    if task is None:
       self._delete_index(index.eta, index.id)
-      return
 
-    task_info = {
-      'id': index.id,
-      'queueName': self.name,
-      'enqueueTimestamp': task_result.enqueued,
-      'leaseTimestamp': task_result.lease_expires,
-      'retry_count': task_result.retry_count
-    }
-    task = Task(task_info)
+  def _delete_index(self, eta, task_id):
+    """ Deletes an index entry for a task.
 
-    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
-      self._delete_task_and_index(task)
+    Args:
+      eta: A datetime object.
+      task_id: A string containing the task ID.
+    """
+    delete_index = """
+      DELETE FROM pull_queue_tasks_index
+      WHERE app = %(app)s
+      AND queue = %(queue)s
+      AND eta = %(eta)s
+      AND id = %(id)s
+    """
+    parameters = {'app': self.app, 'queue': self.name, 'eta': eta,
+                  'id': task_id}
+    self.db_access.session.execute(delete_index, parameters)
 
   def _update_index(self, old_index, task):
     """ Updates the index table after leasing a task.
