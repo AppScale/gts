@@ -21,7 +21,7 @@ TASK_NAME_RE = re.compile(TASK_NAME_PATTERN)
 QUEUE_ATTRIBUTE_RULES = {
   'id': lambda name: TASK_NAME_RE.match(name),
   'queueName': lambda name: queue.QUEUE_NAME_RE.match(name),
-  'tag': lambda tag: len(tag) <= MAX_TAG_LENGTH
+  'tag': lambda tag: tag is None or len(tag) <= MAX_TAG_LENGTH
 }
 
 
@@ -33,7 +33,8 @@ class Task(object):
   """ Represents a task created by an App Engine application. """
 
   # Attributes that may not be defined.
-  OPTIONAL_ATTRS = ['queueName', 'enqueueTimestamp', 'leaseTimestamp', 'tag']
+  OPTIONAL_ATTRS = ['queueName', 'enqueueTimestamp', 'leaseTimestamp', 'tag',
+                    'payloadBase64']
 
   def __init__(self, task_info):
     """ Create a Task object.
@@ -44,7 +45,7 @@ class Task(object):
     self.retry_count = 0
 
     if 'payloadBase64' in task_info:
-      self.payload = task_info['payloadBase64']
+      self.payloadBase64 = task_info['payloadBase64']
 
     self.id = ''.join(random.choice(string.ascii_lowercase) for _ in range(20))
     if 'id' in task_info:
@@ -150,7 +151,6 @@ class Task(object):
     task = {
       'kind': 'taskqueues#task',
       'id': self.id,
-      'payloadBase64': self.payload,
       'retry_count': self.retry_count
     }
     # Timestamps are represented as microseconds since the epoch.

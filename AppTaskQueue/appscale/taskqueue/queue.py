@@ -169,7 +169,7 @@ class Queue(object):
       'app': self.app,
       'queue': self.name,
       'id': task.id,
-      'payload': task.payload
+      'payload': task.payloadBase64
     }
 
     try:
