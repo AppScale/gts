@@ -106,16 +106,32 @@ class RESTLease(RequestHandler):
     """
     try:
       lease_seconds = int(self.get_argument('leaseSecs'))
-    except (MissingArgumentError, ValueError):
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      self.write('An integer is required for the parameter leaseSecs.')
+    except MissingArgumentError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'Required parameter leaseSecs not specified.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
+      return
+    except ValueError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'leaseSecs must be an integer.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
       return
 
     try:
       tasks = int(self.get_argument('numTasks'))
-    except (MissingArgumentError, ValueError):
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      self.write('An integer is required for the parameter numTasks.')
+    except MissingArgumentError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'Required parameter numTasks not specified.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
+      return
+    except ValueError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'numTasks must be an integer.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
       return
 
     try:
