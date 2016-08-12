@@ -809,9 +809,9 @@ class Djinn
       return "Error: Credential format wrong"
     end
 
+    keyname = possible_credentials["keyname"]
     @options = possible_credentials
     @app_names = app_names
-    keyname = possible_credentials["keyname"]
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
@@ -1054,6 +1054,7 @@ class Djinn
       end
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
+      keyname = @options['keyname']
       command = "appscale-upload-app --file '#{archived_file}' " +
         "--email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
@@ -2222,6 +2223,7 @@ class Djinn
   #     about a node to add to the current AppScale deployment (e.g.,
   #     IP addresses, roles to run).
   def add_nodes(node_info)
+    keyname = @options['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
     new_nodes = convert_fqdns_to_ips(new_nodes)
 
