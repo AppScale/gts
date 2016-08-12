@@ -2699,6 +2699,7 @@ class Djinn
   def write_database_info()
     table = @options['table']
     replication = @options['replication']
+    keyname = @options['keyname']
 
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
@@ -2771,6 +2772,7 @@ class Djinn
       return false
     end
 
+    keyname = @options['keyname']
     loop {
       begin
         json_state = ZKInterface.get_appcontroller_state()
