@@ -310,14 +310,7 @@ class Queue(object):
     if not omit_payload:
       task_info['payloadBase64'] = response.payload
 
-    retrieved_task = Task(task_info)
-
-    if (self.task_retry_limit != 0 and
-        retrieved_task.expired(self.task_retry_limit)):
-      self._delete_task_and_index(retrieved_task)
-      return None
-
-    return retrieved_task
+    return Task(task_info)
 
   def _delete_task_and_index(self, task):
     """ Deletes a task and its index atomically.
@@ -368,10 +361,13 @@ class Queue(object):
     Args:
       index: An index result.
     """
-    # The method to get the task will remove expired tasks.
     task = self.get_task(Task({'id': index.id}), omit_payload=True)
     if task is None:
       self._delete_index(index.eta, index.id)
+
+    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
+      self._delete_task_and_index(task)
+      return None
 
   def _delete_index(self, eta, task_id):
     """ Deletes an index entry for a task.
