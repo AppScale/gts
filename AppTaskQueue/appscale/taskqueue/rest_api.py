@@ -202,8 +202,40 @@ class RESTTask(RequestHandler):
       queue: A string containing a queue name.
       task: A string containing a task ID.
     """
-    self.set_status(HTTPCodes.NOT_IMPLEMENTED)
-    self.write('Not implemented')
+    task_info = tornado.escape.json_decode(self.request.body)
+    if 'leaseTimestamp' not in task_info:
+      write_error(self, HTTPCodes.BAD_REQUEST, 'leaseTimestamp is required.')
+      return
+
+    # GAE uses the ID from the post body and ignores the value in the URL.
+    if 'id' not in task_info:
+      write_error(self, HTTPCodes.BAD_REQUEST, 'id is required.')
+      return
+    provided_task = Task(task_info)
+
+    try:
+      new_lease_seconds = int(self.get_argument('newLeaseSeconds'))
+    except MissingArgumentError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'Required parameter newLeaseSeconds not specified.')
+      return
+    except ValueError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'newLeaseSeconds must be an integer.')
+      return
+
+    queue = self.queue_handler.get_queue(project, queue)
+    if queue is None:
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
+      return
+
+    try:
+      task = queue.update_lease(provided_task, new_lease_seconds)
+    except InvalidLeaseRequest as lease_error:
+      write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      return
+
+    self.write(json.dumps(task.json_safe_dict()))
 
   def delete(self, project, queue, task):
     """ Delete a task from a queue.

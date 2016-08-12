@@ -324,6 +324,43 @@ class Queue(object):
 
     return Task(task_info)
 
+  def update_lease(self, task, new_lease_seconds):
+    """ Updates the duration of a task lease.
+
+    Args:
+      task: A Task object.
+      new_lease_seconds: An integer specifying when to set the new ETA. It
+        represents the number of seconds from now.
+    Returns:
+      A Task object.
+    """
+    new_eta = current_time_ms() + datetime.timedelta(
+      days=0, seconds=new_lease_seconds)
+
+    update_task = """
+      UPDATE pull_queue_tasks
+      SET lease_expires = %(new_eta)s
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+      IF lease_expires = %(old_eta)s
+      AND lease_expires > dateof(now())
+    """
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'id': task.id,
+      'old_eta': task.get_eta(),
+      'new_eta': new_eta
+    }
+    result = self.db_access.session.execute(update_task, parameters)[0]
+
+    # If the lease has expired or the provided ETA does not match, do not
+    # update the lease. GAE does not differentiate between the two conditions.
+    if not result.applied:
+      raise InvalidLeaseRequest('The task lease has expired')
+
+    task.leaseTimestamp = new_eta
+    return task
+
   def _delete_task_and_index(self, task):
     """ Deletes a task and its index atomically.
 
