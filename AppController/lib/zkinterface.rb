@@ -130,9 +130,7 @@ class ZKInterface
   #   server.
   def self.is_connected?()
     ret = false
-    if defined?(@@zk)
-      ret = @@zk.connected?
-    end
+    ret = @@zk.connected?  if defined?(@@zk)
     Djinn.log_debug("Connection status with zookeeper server: #{ret}.")
     return ret
   end
@@ -184,9 +182,7 @@ class ZKInterface
   #   appname: A String corresponding to the appid of the app whose hosting
   #     data we want to erase.
   def self.clear_app_hosters(appname)
-    if !defined?(@@zk)
-      return
-    end
+    return unless defined?(@@zk)
 
     appname_path = ROOT_APP_PATH + "/#{appname}"
     app_hosters = self.get_children(appname_path)
@@ -660,6 +656,11 @@ class ZKInterface
 
 
   def self.exists?(key)
+    unless defined?(@@zk)
+      raise FailedZooKeeperOperationException.new("ZKinterface has not " +
+        "been initialized yet.")
+    end
+
     return self.run_zookeeper_operation {
       @@zk.get(:path => key)[:stat].exists
     }
@@ -667,6 +668,11 @@ class ZKInterface
 
 
   def self.get(key)
+    unless defined?(@@zk)
+      raise FailedZooKeeperOperationException.new("ZKinterface has not " +
+        "been initialized yet.")
+    end
+
     info = self.run_zookeeper_operation {
       @@zk.get(:path => key)
     }
@@ -680,6 +686,11 @@ class ZKInterface
 
 
   def self.get_children(key)
+    unless defined?(@@zk)
+      raise FailedZooKeeperOperationException.new("ZKinterface has not " +
+        "been initialized yet.")
+    end
+
     children = self.run_zookeeper_operation {
       @@zk.get_children(:path => key)[:children]
     }
@@ -693,6 +704,11 @@ class ZKInterface
 
 
   def self.set(key, val, ephemeral)
+    unless defined?(@@zk)
+      raise FailedZooKeeperOperationException.new("ZKinterface has not " +
+        "been initialized yet.")
+    end
+
     retries_left = 5
     begin
       info = {}
@@ -747,6 +763,11 @@ class ZKInterface
 
 
   def self.delete(key)
+    unless defined?(@@zk)
+      raise FailedZooKeeperOperationException.new("ZKinterface has not " +
+        "been initialized yet.")
+    end
+
     info = self.run_zookeeper_operation {
       @@zk.delete(:path => key)
     }

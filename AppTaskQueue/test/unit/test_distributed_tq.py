@@ -15,6 +15,9 @@ import file_io
 import monit_app_configuration
 import monit_interface
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppDB"))
+from cassandra_env.cassandra_interface import DatastoreProxy
+
 sample_queue_yaml = \
 """
 queue:
@@ -67,8 +70,10 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(TaskQueueConfig).should_receive("load_queues_from_file")
     flexmock(TaskQueueConfig).should_receive("create_celery_worker_scripts")
     flexmock(TaskQueueConfig).should_receive("create_celery_file")
-   
-    dtq = DistributedTaskQueue() 
+    flexmock(DatastoreProxy).should_receive('__init__')
+
+    dtq = DistributedTaskQueue()
+
     json_request = {}
     json_request = json.dumps(json_request)
     self.assertEquals(
@@ -98,6 +103,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(file_io).should_receive("read")\
       .and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+
+    flexmock(DatastoreProxy).should_receive('__init__')
 
     dtq = DistributedTaskQueue()
     json_request = {'app_id': 'test_app'}

@@ -3,6 +3,13 @@ This file contains constants used throughout AppScale.
 """
 import os
 
+
+class HTTPCodes(object):
+  BAD_REQUEST = 400
+  FORBIDDEN = 403
+  NOT_FOUND = 404
+  NOT_IMPLEMENTED = 501
+
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
