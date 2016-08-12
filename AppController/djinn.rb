@@ -1630,7 +1630,7 @@ class Djinn
       if check_app_language(app) == INVALID_REQUEST
         apps_to_restart.delete(app)
         stop_app(app, @@secret)
-        Djinn.log_error("#{app} language doens't match our record: disabling it.")
+        Djinn.log_error("Disabled #{app} since language doens't match our record.")
       end
     }
 
