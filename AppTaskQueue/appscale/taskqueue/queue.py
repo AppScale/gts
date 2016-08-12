@@ -61,6 +61,10 @@ class InvalidQueueConfiguration(Exception):
   pass
 
 
+class InvalidLeaseRequest(Exception):
+  pass
+
+
 class QueueTypes(object):
   PUSH = 'push'
   PULL = 'pull'
@@ -72,6 +76,12 @@ class Queue(object):
   # Attributes that may not be defined.
   OPTIONAL_ATTRS = ['rate', 'task_age_limit', 'min_backoff_seconds',
                     'max_backoff_seconds', 'max_doublings']
+
+  # The maximum number of tasks that can be leased at a time.
+  MAX_LEASE_AMOUNT = 1000
+
+  # Tasks can be leased for up to a week.
+  MAX_LEASE_TIME = 60 * 60 * 24 * 7
 
   def __init__(self, queue_info, app, db_access=None):
     """ Create a Queue object.
@@ -563,6 +573,14 @@ class Queue(object):
     Returns:
       A list of Task objects.
     """
+    if num_tasks > self.MAX_LEASE_AMOUNT:
+      raise InvalidLeaseRequest(
+        'Only {} tasks can be leased at a time'.format(self.MAX_LEASE_AMOUNT))
+
+    if lease_seconds > self.MAX_LEASE_TIME:
+      raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
+                                .format(self.MAX_LEASE_TIME))
+
     logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                   format(num_tasks, lease_seconds, group_by_tag, tag))
     new_eta = datetime.datetime.now() + datetime.timedelta(0, lease_seconds)

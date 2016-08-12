@@ -3,6 +3,7 @@ import json
 import sys
 import tornado.escape
 
+from queue import InvalidLeaseRequest
 from queue import QueueTypes
 from task import InvalidTaskInfo
 from task import Task
@@ -130,7 +131,7 @@ class RESTLease(RequestHandler):
       return
 
     try:
-      tasks = int(self.get_argument('numTasks'))
+      num_tasks = int(self.get_argument('numTasks'))
     except MissingArgumentError:
       error = {'code': HTTPCodes.BAD_REQUEST,
                'message': 'Required parameter numTasks not specified.'}
@@ -159,7 +160,15 @@ class RESTLease(RequestHandler):
       self.write('Queue not found.')
       return
 
-    tasks = queue.lease_tasks(tasks, lease_seconds, group_by_tag, tag)
+    try:
+      tasks = queue.lease_tasks(num_tasks, lease_seconds, group_by_tag, tag)
+    except InvalidLeaseRequest as lease_error:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': lease_error.message}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
+      return
+
     task_list = {
       'kind': 'taskqueues#tasks',
       'items': [task.json_safe_dict() for task in tasks]
