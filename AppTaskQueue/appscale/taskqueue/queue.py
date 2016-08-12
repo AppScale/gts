@@ -57,6 +57,18 @@ QUEUE_ATTRIBUTE_RULES = {
 }
 
 
+def current_time_ms():
+  """ Gets the current time with millisecond precision. This allows the server
+  to return exactly what Cassandra will store.
+
+  Returns:
+    A datetime object with the current time.
+  """
+  now = datetime.datetime.utcnow()
+  new_microsecond = int(now.microsecond / 1000) * 1000
+  return now.replace(microsecond=new_microsecond)
+
+
 class InvalidQueueConfiguration(Exception):
   pass
 
@@ -579,7 +591,7 @@ class Queue(object):
 
     logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                   format(num_tasks, lease_seconds, group_by_tag, tag))
-    new_eta = datetime.datetime.utcnow() + datetime.timedelta(
+    new_eta = current_time_ms() + datetime.timedelta(
       days=0, seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
