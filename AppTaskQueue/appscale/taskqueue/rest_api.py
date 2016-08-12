@@ -3,6 +3,7 @@ import json
 import sys
 import tornado.escape
 
+from queue import InvalidLeaseRequest
 from queue import QueueTypes
 from task import InvalidTaskInfo
 from task import Task
@@ -60,8 +61,18 @@ class RESTTasks(RequestHandler):
       project: A string containing an application ID.
       queue: A string containing a queue name.
     """
-    self.set_status(HTTPCodes.NOT_IMPLEMENTED)
-    self.write('Not implemented')
+    queue = self.queue_handler.get_queue(project, queue)
+    if queue is None:
+      self.set_status(HTTPCodes.NOT_FOUND)
+      self.write('Queue not found.')
+      return
+
+    tasks = queue.list_tasks()
+    task_list = {
+      'kind': 'taskqueues#tasks',
+      'items': [task.json_safe_dict() for task in tasks]
+    }
+    self.write(json.dumps(task_list))
 
   def post(self, project, queue):
     """ Insert a task into an existing queue.
@@ -106,16 +117,32 @@ class RESTLease(RequestHandler):
     """
     try:
       lease_seconds = int(self.get_argument('leaseSecs'))
-    except (MissingArgumentError, ValueError):
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      self.write('An integer is required for the parameter leaseSecs.')
+    except MissingArgumentError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'Required parameter leaseSecs not specified.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
+      return
+    except ValueError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'leaseSecs must be an integer.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
       return
 
     try:
-      tasks = int(self.get_argument('numTasks'))
-    except (MissingArgumentError, ValueError):
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      self.write('An integer is required for the parameter numTasks.')
+      num_tasks = int(self.get_argument('numTasks'))
+    except MissingArgumentError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'Required parameter numTasks not specified.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
+      return
+    except ValueError:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': 'numTasks must be an integer.'}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
       return
 
     try:
@@ -133,7 +160,15 @@ class RESTLease(RequestHandler):
       self.write('Queue not found.')
       return
 
-    tasks = queue.lease_tasks(tasks, lease_seconds, group_by_tag, tag)
+    try:
+      tasks = queue.lease_tasks(num_tasks, lease_seconds, group_by_tag, tag)
+    except InvalidLeaseRequest as lease_error:
+      error = {'code': HTTPCodes.BAD_REQUEST,
+               'message': lease_error.message}
+      self.set_status(error['code'])
+      self.write(json.dumps({'error': error}))
+      return
+
     task_list = {
       'kind': 'taskqueues#tasks',
       'items': [task.json_safe_dict() for task in tasks]
