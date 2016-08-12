@@ -450,7 +450,7 @@ class Queue(object):
       IF lease_expires < dateof(now())
     """
     if self.task_retry_limit != 0:
-      lease_task += ' AND retry_count <= {}'.format(self.task_retry_limit)
+      lease_task += ' AND retry_count < {}'.format(self.task_retry_limit)
     parameters = {
       'app': self.app,
       'queue': self.name,

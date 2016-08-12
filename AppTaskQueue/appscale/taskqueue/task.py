@@ -122,7 +122,7 @@ class Task(object):
     Returns:
       A boolean indicating whether or not the task has expired.
     """
-    if self.retry_count <= max_retries:
+    if self.retry_count < max_retries:
       return False
 
     if self.leaseTimestamp >= datetime.datetime.now():
