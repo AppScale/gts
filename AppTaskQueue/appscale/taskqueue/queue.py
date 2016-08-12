@@ -579,7 +579,8 @@ class Queue(object):
 
     logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                   format(num_tasks, lease_seconds, group_by_tag, tag))
-    new_eta = datetime.datetime.now() + datetime.timedelta(0, lease_seconds)
+    new_eta = datetime.datetime.utcnow() + datetime.timedelta(
+      days=0, seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
       tag = self._get_earliest_tag()
