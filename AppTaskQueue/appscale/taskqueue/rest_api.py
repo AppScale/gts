@@ -18,6 +18,19 @@ from constants import HTTPCodes
 REST_PREFIX = '/taskqueue/v1beta2/projects/([a-z0-9-]+)/taskqueues'
 
 
+def write_error(request, code, message):
+  """ Sets the response headers and body for error messages.
+
+  Args:
+    request: A tornado request object.
+    code: The HTTP response code.
+    message: The error message to use in the body of the request.
+  """
+  error = {'error': {'code': code, 'message': message}}
+  request.set_status(code)
+  request.write(json.dumps(error))
+
+
 class RESTQueue(RequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)'.format(REST_PREFIX)
 
@@ -34,13 +47,12 @@ class RESTQueue(RequestHandler):
     """
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
-      self.set_status(HTTPCodes.NOT_FOUND)
-      self.write('Queue not found.')
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     if queue.mode != QueueTypes.PULL:
-      self.set_status(HTTPCodes.NOT_FOUND)
-      self.write('The REST API is not applicable to push queues.')
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'The REST API is only applicable to pull queues.')
       return
 
     self.write(queue.to_json())
@@ -63,8 +75,7 @@ class RESTTasks(RequestHandler):
     """
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
-      self.set_status(HTTPCodes.NOT_FOUND)
-      self.write('Queue not found.')
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     tasks = queue.list_tasks()
@@ -86,17 +97,14 @@ class RESTTasks(RequestHandler):
 
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
-      self.set_status(HTTPCodes.NOT_FOUND)
-      self.write('Queue not found.')
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     try:
       queue.add_task(task)
     except InvalidTaskInfo as insert_error:
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      response = {'error': {'code': HTTPCodes.BAD_REQUEST,
-                            'message': insert_error.message}}
-      self.write(json.dumps(response))
+      write_error(self, HTTPCodes.BAD_REQUEST, insert_error.message)
+      return
 
     self.write(json.dumps(task.json_safe_dict()))
 
@@ -118,55 +126,40 @@ class RESTLease(RequestHandler):
     try:
       lease_seconds = int(self.get_argument('leaseSecs'))
     except MissingArgumentError:
-      error = {'code': HTTPCodes.BAD_REQUEST,
-               'message': 'Required parameter leaseSecs not specified.'}
-      self.set_status(error['code'])
-      self.write(json.dumps({'error': error}))
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'Required parameter leaseSecs not specified.')
       return
     except ValueError:
-      error = {'code': HTTPCodes.BAD_REQUEST,
-               'message': 'leaseSecs must be an integer.'}
-      self.set_status(error['code'])
-      self.write(json.dumps({'error': error}))
+      write_error(self, HTTPCodes.BAD_REQUEST, 'leaseSecs must be an integer.')
       return
 
     try:
       num_tasks = int(self.get_argument('numTasks'))
     except MissingArgumentError:
-      error = {'code': HTTPCodes.BAD_REQUEST,
-               'message': 'Required parameter numTasks not specified.'}
-      self.set_status(error['code'])
-      self.write(json.dumps({'error': error}))
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'Required parameter numTasks not specified.')
       return
     except ValueError:
-      error = {'code': HTTPCodes.BAD_REQUEST,
-               'message': 'numTasks must be an integer.'}
-      self.set_status(error['code'])
-      self.write(json.dumps({'error': error}))
+      write_error(self, HTTPCodes.BAD_REQUEST, 'numTasks must be an integer.')
       return
 
     try:
       group_by_tag = bool(self.get_argument('groupByTag', False))
     except ValueError:
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      self.write('groupByTag must be a boolean.')
+      write_error(self, HTTPCodes.BAD_REQUEST, 'groupByTag must be a boolean.')
       return
 
     tag = self.get_argument('tag', None)
 
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
-      self.set_status(HTTPCodes.BAD_REQUEST)
-      self.write('Queue not found.')
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     try:
       tasks = queue.lease_tasks(num_tasks, lease_seconds, group_by_tag, tag)
     except InvalidLeaseRequest as lease_error:
-      error = {'code': HTTPCodes.BAD_REQUEST,
-               'message': lease_error.message}
-      self.set_status(error['code'])
-      self.write(json.dumps({'error': error}))
+      write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
       return
 
     task_list = {
@@ -195,8 +188,7 @@ class RESTTask(RequestHandler):
 
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
-      self.set_status(HTTPCodes.NOT_FOUND)
-      self.write('Queue not found.')
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     task = queue.get_task(task)
@@ -225,8 +217,7 @@ class RESTTask(RequestHandler):
 
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
-      self.set_status(HTTPCodes.NOT_FOUND)
-      self.write('Queue not found.')
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     queue.delete_task(task)
