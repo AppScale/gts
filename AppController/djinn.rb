@@ -3737,8 +3737,8 @@ class Djinn
 
   def spawn_and_setup_appengine()
     # should also make sure the tools are on the vm and the envvars are set
-
     table = @options['table']
+    keyname = @options['keyname']
 
     machines = JSON.load(@options['ips'])
     appengine_info = spawn_appengine(machines)
