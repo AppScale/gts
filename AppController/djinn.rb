@@ -1795,7 +1795,7 @@ class Djinn
     last_print = Time.now.to_i
 
     check_health = nil
-    while !@kill_sig_received do
+    until @kill_sig_received do
       write_database_info()
       update_firewall()
       write_memcache_locations()
@@ -2475,8 +2475,6 @@ class Djinn
 
   def get_public_ip(private_ip)
     return private_ip unless is_cloud?
-
-    infrastructure = @options['infrastructure']
 
     Djinn.log_debug("Looking for #{private_ip}")
     private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
