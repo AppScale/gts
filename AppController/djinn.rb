@@ -674,7 +674,6 @@ class Djinn
       @app_info_map[appid]['nginx_https'] = https_port
     }
     proxy_port = @app_info_map[appid]['haproxy']
-    my_private = my_node.private_ip
     my_public = my_node.public_ip
 
     # Finally, the AppServer takes in the port to send Task Queue tasks to
@@ -697,7 +696,7 @@ class Djinn
           HelperFunctions.scp_file(port_file, port_file, node.private_ip,
             node.ssh_key)
         end
-        next if not node.is_appengine?
+        next unless node.is_appengine?
         app_manager = AppManagerClient.new(node.private_ip)
         begin
           app_manager.restart_app_instances_for_app(appid,
@@ -840,7 +839,7 @@ class Djinn
       # the parameter. There is no boolean, so TrueClass and FalseClass
       # needs to be check both. If not, remove the parameter since we
       # won't be able to translate it.
-      if not (val.class == String or val.class == PARAMETERS_AND_CLASS[key][0] or
+      unless (val.class == String or val.class == PARAMETERS_AND_CLASS[key][0] or
          (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class == FalseClass))
         begin
           msg = "Removing parameter '" + key + "' with unknown value '" +\
@@ -4663,7 +4662,7 @@ HOSTS
     my_apps = []
     to_end = []
     @app_info_map.each { |app, info|
-      next if not info['appengine']
+      next unless info['appengine']
 
       # Update the cron job for the app on the shadow.
       if my_node.is_shadow?
@@ -5043,7 +5042,7 @@ HOSTS
       Djinn.log_warn("Node at #{node_ip} is not responsive.")
       to_terminate = {}
       @app_info_map.each { |app, info|
-        next if not info['appengine']
+        next unless info['appengine']
         to_terminate[app] = []
 
         info['appengine'].each { |location|
@@ -5454,7 +5453,6 @@ HOSTS
     # We use the ports as assigned by the head node.
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
-    proxy_port = @app_info_map[app]['haproxy']
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
