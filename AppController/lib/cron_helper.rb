@@ -157,9 +157,6 @@ CRON
   end
 
 
-  private
-
-
   # Checks if a crontab line is valid.
   #
   # Args:

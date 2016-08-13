@@ -119,7 +119,7 @@ class ZKInterface
         @@zk.close!
       end
       Djinn.log_debug("Opening connection to zookeeper at #{ip}.")
-      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
+      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", TIMEOUT)
     }
   end
 

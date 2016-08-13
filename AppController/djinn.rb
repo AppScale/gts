@@ -3001,9 +3001,12 @@ class Djinn
             http.use_ssl = true
             response = http.post(url.path, encoded_logs,
               {'Content-Type'=>'application/json'})
+            Djinn.log_debug("Done flushing logs to AppDashboard. " +
+              "Response is: #{response.body}.")
           rescue
             # Don't crash the AppController because we weren't able to send over
             # the logs - just continue on.
+            Djinn.log_debug("Ignoring exception talking to dashboard.")
           end
         end
       }
@@ -3668,7 +3671,6 @@ class Djinn
 
   def start_datastore_server
     db_master_ip = nil
-    my_ip = my_node.public_ip
     verbose = @options['verbose'].downcase == 'true'
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?

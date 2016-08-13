@@ -517,10 +517,10 @@ CONFIG
 
     # copy over certs for ssl
     # just copy files once to keep certificate as static.
-    if !File.exists?("#{NGINX_PATH}/mykey.pem")
+    unless File.exists?("#{NGINX_PATH}/mykey.pem")
       HelperFunctions.shell("cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}")
     end
-    if !File.exists?("#{NGINX_PATH}/mycert.pem")
+    unless File.exists?("#{NGINX_PATH}/mycert.pem")
       HelperFunctions.shell("cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}")
     end
     # Write the main configuration file which sets default configuration parameters
