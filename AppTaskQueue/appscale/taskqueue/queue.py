@@ -334,8 +334,7 @@ class Queue(object):
     Returns:
       A Task object.
     """
-    new_eta = current_time_ms() + datetime.timedelta(
-      days=0, seconds=new_lease_seconds)
+    new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
 
     update_task = """
       UPDATE pull_queue_tasks
@@ -628,8 +627,7 @@ class Queue(object):
 
     logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                   format(num_tasks, lease_seconds, group_by_tag, tag))
-    new_eta = current_time_ms() + datetime.timedelta(
-      days=0, seconds=lease_seconds)
+    new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
       tag = self._get_earliest_tag()
