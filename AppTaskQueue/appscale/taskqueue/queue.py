@@ -412,10 +412,10 @@ class Queue(object):
     task = self.get_task(Task({'id': index.id}), omit_payload=True)
     if task is None:
       self._delete_index(index.eta, index.id)
+      return
 
     if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
       self._delete_task_and_index(task)
-      return None
 
   def _delete_index(self, eta, task_id):
     """ Deletes an index entry for a task.
