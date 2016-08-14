@@ -138,7 +138,13 @@ class RESTTasks(RequestHandler):
       project: A string containing an application ID.
       queue: A string containing a queue name.
     """
-    task_info = tornado.escape.json_decode(self.request.body)
+    try:
+      task_info = tornado.escape.json_decode(self.request.body)
+    except ValueError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'The request body must contain a task.')
+      return
+
     task = Task(task_info)
 
     requested_fields = self.get_argument('fields', None)
@@ -275,7 +281,13 @@ class RESTTask(RequestHandler):
       queue: A string containing a queue name.
       task: A string containing a task ID.
     """
-    task_info = tornado.escape.json_decode(self.request.body)
+    try:
+      task_info = tornado.escape.json_decode(self.request.body)
+    except ValueError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'The request body must contain a task.')
+      return
+
     if 'leaseTimestamp' not in task_info:
       write_error(self, HTTPCodes.BAD_REQUEST, 'leaseTimestamp is required.')
       return
