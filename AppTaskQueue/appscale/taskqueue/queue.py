@@ -43,6 +43,12 @@ DEFAULT_MAX_BACKOFF = 3600.0
 # The default maxiumum number of times to double the interval between retries.
 DEFAULT_MAX_DOUBLINGS = 16
 
+# All possible fields to include in a queue's JSON representation.
+QUEUE_FIELDS = [
+  'kind', 'id', 'maxLeases',
+  {'stats': ['totalTasks', 'oldestTask', 'leasedLastMinute', 'leasedLastHour']}
+]
+
 # Validation rules for queue parameters.
 QUEUE_ATTRIBUTE_RULES = {
   'name': lambda name: QUEUE_NAME_RE.match(name),
@@ -770,15 +776,31 @@ class Queue(object):
                          for attr, val in attributes.iteritems())
     return '<Queue {}: {}>'.format(self.name, attr_str)
 
-  def to_json(self):
+  def to_json(self, include_stats=False, fields=QUEUE_FIELDS):
     """ Generate a JSON representation of the queue.
 
+    Args:
+      include_stats: A boolean indicating whether or not to include stats.
+      fields: A list of fields to include in the output.
     Returns:
       A string in JSON format representing the queue.
     """
-    queue = {
-      'kind': 'taskqueues#taskqueue',
-      'id': self.name,
-      'maxLeases': self.task_retry_limit
-    }
+    queue = {}
+    if 'kind' in fields:
+      queue['kind'] = 'taskqueues#taskqueue'
+
+    if 'id' in fields:
+      queue['id'] = self.name
+
+    if 'maxLeases' in fields:
+      queue['maxLeases'] = self.task_retry_limit
+
+    stat_fields = []
+    for field in fields:
+      if isinstance(field, dict) and 'stats' in field:
+        stat_fields = field['stats']
+
+    if stat_fields and include_stats:
+      queue['stats'] = self._get_stats(fields=stat_fields)
+
     return json.dumps(queue)

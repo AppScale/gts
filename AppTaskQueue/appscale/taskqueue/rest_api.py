@@ -1,12 +1,15 @@
 """ Handlers for implementing v1beta2 of the taskqueue REST API. """
 import json
+import re
 import sys
 import tornado.escape
 
 from queue import InvalidLeaseRequest
 from queue import QueueTypes
+from queue import QUEUE_FIELDS
 from task import InvalidTaskInfo
 from task import Task
+from task import TASK_FIELDS
 from tornado.web import MissingArgumentError
 from tornado.web import RequestHandler
 from unpackaged import APPSCALE_LIB_DIR
@@ -16,6 +19,30 @@ from constants import HTTPCodes
 
 # The prefix for all of the handlers of the pull queue REST API.
 REST_PREFIX = '/taskqueue/v1beta2/projects/([a-z0-9-]+)/taskqueues'
+
+# Matches commas that are outside of parentheses.
+FIELD_DELIMITERS_RE = re.compile(r',(?=[^)]*(?:\(|$))')
+
+
+def parse_fields(fields_string):
+  """ Converts a fields string to a list.
+
+  Args:
+    fields_string: A string extracted from a URL parameter.
+  Returns:
+    A list containing the fields to use. If a field contains sub-fields, it is
+    represented as a dictionary.
+  """
+  fields = []
+  for main_field in FIELD_DELIMITERS_RE.split(fields_string):
+    if '(' not in main_field:
+      fields.append(main_field)
+      continue
+
+    section, sub_fields = main_field.split('(')
+    fields.append({section: sub_fields[:-1].split(',')})
+
+  return fields
 
 
 def write_error(request, code, message):
@@ -55,7 +82,15 @@ class RESTQueue(RequestHandler):
                   'The REST API is only applicable to pull queues.')
       return
 
-    self.write(queue.to_json())
+    get_stats = bool(self.get_argument('getStats', False))
+
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = QUEUE_FIELDS
+    else:
+      fields = parse_fields(requested_fields)
+
+    self.write(queue.to_json(include_stats=get_stats, fields=fields))
 
 
 class RESTTasks(RequestHandler):
@@ -73,16 +108,27 @@ class RESTTasks(RequestHandler):
       project: A string containing an application ID.
       queue: A string containing a queue name.
     """
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = ['kind', {'items': TASK_FIELDS}]
+    else:
+      fields = parse_fields(requested_fields)
+
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
     tasks = queue.list_tasks()
-    task_list = {
-      'kind': 'taskqueues#tasks',
-      'items': [task.json_safe_dict() for task in tasks]
-    }
+    task_list = {}
+    if 'kind' in fields:
+      task_list['kind'] = 'taskqueues#tasks'
+
+    for field in fields:
+      if isinstance(field, dict) and 'items' in field:
+        task_list['items'] = [task.json_safe_dict(fields=field['items'])
+                              for task in tasks]
+
     self.write(json.dumps(task_list))
 
   def post(self, project, queue):
@@ -95,6 +141,12 @@ class RESTTasks(RequestHandler):
     task_info = tornado.escape.json_decode(self.request.body)
     task = Task(task_info)
 
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = TASK_FIELDS
+    else:
+      fields = parse_fields(requested_fields)
+
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
@@ -106,7 +158,7 @@ class RESTTasks(RequestHandler):
       write_error(self, HTTPCodes.BAD_REQUEST, insert_error.message)
       return
 
-    self.write(json.dumps(task.json_safe_dict()))
+    self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
 
 class RESTLease(RequestHandler):
@@ -151,6 +203,12 @@ class RESTLease(RequestHandler):
 
     tag = self.get_argument('tag', None)
 
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = ['kind', {'items': TASK_FIELDS}]
+    else:
+      fields = parse_fields(requested_fields)
+
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
@@ -162,10 +220,15 @@ class RESTLease(RequestHandler):
       write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
       return
 
-    task_list = {
-      'kind': 'taskqueues#tasks',
-      'items': [task.json_safe_dict() for task in tasks]
-    }
+    task_list = {}
+    if 'kind' in fields:
+      task_list['kind'] = 'taskqueues#tasks'
+
+    for field in fields:
+      if isinstance(field, dict) and 'items' in field:
+        task_list['items'] = [task.json_safe_dict(fields=field['items'])
+                              for task in tasks]
+
     self.write(json.dumps(task_list))
 
 
@@ -186,13 +249,23 @@ class RESTTask(RequestHandler):
     """
     task = Task({'id': task, 'queueName': queue})
 
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = TASK_FIELDS
+    else:
+      fields = parse_fields(requested_fields)
+
+    omit_payload = False
+    if 'payloadBase64' not in fields:
+      omit_payload = True
+
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
-    task = queue.get_task(task)
-    self.write(json.dumps(task.json_safe_dict()))
+    task = queue.get_task(task, omit_payload=omit_payload)
+    self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
   def post(self, project, queue, task):
     """ Update the duration of a task lease.
@@ -224,6 +297,12 @@ class RESTTask(RequestHandler):
                   'newLeaseSeconds must be an integer.')
       return
 
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = TASK_FIELDS
+    else:
+      fields = parse_fields(requested_fields)
+
     queue = self.queue_handler.get_queue(project, queue)
     if queue is None:
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
@@ -235,7 +314,7 @@ class RESTTask(RequestHandler):
       write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
       return
 
-    self.write(json.dumps(task.json_safe_dict()))
+    self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
   def delete(self, project, queue, task):
     """ Delete a task from a queue.
