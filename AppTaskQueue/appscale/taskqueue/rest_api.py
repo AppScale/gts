@@ -353,5 +353,58 @@ class RESTTask(RequestHandler):
       queue: A string containing a queue name.
       task: A string containing a task ID.
     """
-    self.set_status(HTTPCodes.NOT_IMPLEMENTED)
-    self.write('Not implemented')
+    try:
+      task_info = tornado.escape.json_decode(self.request.body)
+    except ValueError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'The request body must contain a task.')
+      return
+
+    # GAE requires the queueName to be part of the PATCH.
+    if 'queueName' not in task_info:
+      write_error(self, HTTPCodes.BAD_REQUEST, 'queueName is invalid.')
+      return
+    if task_info['queueName'] != queue:
+      write_error(self, HTTPCodes.BAD_REQUEST, 'queueName cannot be updated.')
+      return
+
+    if 'id' in task_info and task_info['id'] != task:
+      write_error(self, HTTPCodes.BAD_REQUEST, 'Task ID cannot be updated.')
+      return
+    task_info['id'] = task
+
+    try:
+      new_task = Task(task_info)
+    except InvalidTaskInfo as task_error:
+      write_error(self, HTTPCodes.BAD_REQUEST, task_error.message)
+      return
+
+    try:
+      new_lease_seconds = int(self.get_argument('newLeaseSeconds'))
+    except MissingArgumentError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'Required parameter newLeaseSeconds not specified.')
+      return
+    except ValueError:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'newLeaseSeconds must be an integer.')
+      return
+
+    requested_fields = self.get_argument('fields', None)
+    if requested_fields is None:
+      fields = TASK_FIELDS
+    else:
+      fields = parse_fields(requested_fields)
+
+    queue = self.queue_handler.get_queue(project, queue)
+    if queue is None:
+      write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
+      return
+
+    try:
+      task = queue.update_task(new_task, new_lease_seconds)
+    except InvalidLeaseRequest as lease_error:
+      write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      return
+
+    self.write(json.dumps(task.json_safe_dict(fields=fields)))

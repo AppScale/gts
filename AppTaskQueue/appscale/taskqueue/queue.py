@@ -361,7 +361,44 @@ class Queue(object):
     # If the lease has expired or the provided ETA does not match, do not
     # update the lease. GAE does not differentiate between the two conditions.
     if not result.applied:
-      raise InvalidLeaseRequest('The task lease has expired')
+      raise InvalidLeaseRequest('The task lease has expired.')
+
+    task.leaseTimestamp = new_eta
+    return task
+
+  def update_task(self, task, new_lease_seconds):
+    """ Updates leased tasks.
+
+    Args:
+      task: A task object.
+      new_lease_seconds: An integer specifying when to set the new ETA. It
+        represents the number of seconds from now.
+    """
+    new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
+
+    check_lease = ''
+    if hasattr(task, 'leaseTimestamp'):
+      check_lease = 'AND lease_expires = %(old_eta)s'
+
+    update_task = """
+      UPDATE pull_queue_tasks
+      SET lease_expires = %(new_eta)s
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+      IF lease_expires > dateof(now())
+      {check_lease}
+    """.format(check_lease=check_lease)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'id': task.id,
+      'new_eta': new_eta
+    }
+    if check_lease:
+      parameters['old_eta'] = task.get_eta()
+    result = self.db_access.session.execute(update_task, parameters)[0]
+
+    if not result.applied:
+      raise InvalidLeaseRequest('The task lease has expired.')
 
     task.leaseTimestamp = new_eta
     return task
