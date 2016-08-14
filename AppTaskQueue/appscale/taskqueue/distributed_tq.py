@@ -91,6 +91,17 @@ def create_pull_queue_tables(session):
   """
   session.execute(create_index)
 
+  logging.info('Trying to create pull_queue_leases')
+  create_leases_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_leases (
+      app text,
+      queue text,
+      leased timestamp,
+      PRIMARY KEY ((app, queue, leased))
+    )
+  """
+  session.execute(create_leases_table)
+
 
 class TaskName(db.Model):
   """ A datastore model for tracking task names in order to prevent

@@ -553,6 +553,7 @@ class Queue(object):
         'Transaction check failed when updating retry_count: {}'.format(task))
 
     self._update_index(index, task)
+    self._update_stats()
 
     return task
 
@@ -664,6 +665,66 @@ class Queue(object):
         break
 
     return leased
+
+  def _update_stats(self):
+    """ Write queue metadata for keeping track of statistics. """
+    # Stats are only kept for one hour.
+    ttl = 60 * 60
+    record_lease = """
+      INSERT INTO pull_queue_leases (app, queue, leased)
+      VALUES (%(app)s, %(queue)s, dateof(now()))
+      USING TTL {ttl}
+    """.format(ttl=ttl)
+    parameters = {'app': self.app, 'queue': self.name}
+    self.db_access.session.execute(record_lease, parameters)
+
+  def _get_stats(self, fields):
+    """ Fetch queue statistics.
+
+    Args:
+      fields: A list of fields to fields to include in the results.
+    Returns:
+      A dictionary containing queue statistics.
+    """
+    session = self.db_access.session
+    stats = {}
+
+    if 'totalTasks' in fields:
+      select_count = """
+        SELECT COUNT(*) FROM pull_queue_tasks
+        WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
+        AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
+      """
+      parameters = {'app': self.app, 'queue': self.name,
+                    'next_queue': self.name + chr(0)}
+      stats['totalTasks'] = session.execute(select_count, parameters)[0].count
+
+    if 'oldestTask' in fields:
+      select_oldest = """
+        SELECT eta FROM pull_queue_tasks_index
+        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+        LIMIT 1
+      """
+      parameters = {'app': self.app, 'queue': self.name}
+      oldest_eta = session.execute(select_oldest, parameters)[0].eta
+      epoch = datetime.datetime.utcfromtimestamp(0)
+      stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
+
+    if 'leasedLastMinute' in fields:
+      select_count = """
+        SELECT COUNT(*) from pull_queue_leases
+        WHERE token(app, queue, leased) > token(%(app)s, %(queue)s, %(ts)s)
+      """
+      start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
+      parameters = {'app': self.app, 'queue': self.name, 'ts': start_time}
+      leased_last_minute = session.execute(select_count, parameters)[0].count
+      stats['leasedLastMinute'] = leased_last_minute
+
+    if 'leasedLastHour' in fields:
+      select_count = 'SELECT COUNT(*) from pull_queue_leases'
+      stats['leasedLastHour'] = session.execute(select_count)[0].count
+
+    return stats
 
   def __eq__(self, other):
     """ Checks whether or not this Queue is equivalent to another.
