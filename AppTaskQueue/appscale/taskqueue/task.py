@@ -25,8 +25,8 @@ QUEUE_ATTRIBUTE_RULES = {
 }
 
 # All possible fields to include in a task's JSON representation.
-TASK_FIELDS = ['kind', 'queueName', 'id', 'enqueueTimestamp', 'leaseTimestamp',
-               'payloadBase64', 'retry_count', 'tag']
+TASK_FIELDS = ('kind', 'queueName', 'id', 'enqueueTimestamp', 'leaseTimestamp',
+               'payloadBase64', 'retry_count', 'tag')
 
 
 def parse_timestamp(timestamp):

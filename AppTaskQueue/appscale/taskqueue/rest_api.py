@@ -25,12 +25,12 @@ FIELD_DELIMITERS_RE = re.compile(r',(?=[^)]*(?:\(|$))')
 
 
 def parse_fields(fields_string):
-  """ Converts a fields string to a list.
+  """ Converts a fields string to a tuple.
 
   Args:
     fields_string: A string extracted from a URL parameter.
   Returns:
-    A list containing the fields to use. If a field contains sub-fields, it is
+    A tuple containing the fields to use. If a field contains sub-fields, it is
     represented as a dictionary.
   """
   fields = []
@@ -40,9 +40,9 @@ def parse_fields(fields_string):
       continue
 
     section, sub_fields = main_field.split('(')
-    fields.append({section: sub_fields[:-1].split(',')})
+    fields.append({section: tuple(sub_fields[:-1].split(','))})
 
-  return fields
+  return tuple(fields)
 
 
 def write_error(request, code, message):
@@ -110,7 +110,7 @@ class RESTTasks(RequestHandler):
     """
     requested_fields = self.get_argument('fields', None)
     if requested_fields is None:
-      fields = ['kind', {'items': TASK_FIELDS}]
+      fields = ('kind', {'items': TASK_FIELDS})
     else:
       fields = parse_fields(requested_fields)
 
@@ -211,7 +211,7 @@ class RESTLease(RequestHandler):
 
     requested_fields = self.get_argument('fields', None)
     if requested_fields is None:
-      fields = ['kind', {'items': TASK_FIELDS}]
+      fields = ('kind', {'items': TASK_FIELDS})
     else:
       fields = parse_fields(requested_fields)
 
