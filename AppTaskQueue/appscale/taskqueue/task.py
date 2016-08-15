@@ -24,6 +24,10 @@ QUEUE_ATTRIBUTE_RULES = {
   'tag': lambda tag: tag is None or len(tag) <= MAX_TAG_LENGTH
 }
 
+# All possible fields to include in a task's JSON representation.
+TASK_FIELDS = ('kind', 'queueName', 'id', 'enqueueTimestamp', 'leaseTimestamp',
+               'payloadBase64', 'retry_count', 'tag')
+
 
 def parse_timestamp(timestamp):
   """ Parses timestamps used for creating tasks.
@@ -138,24 +142,34 @@ class Task(object):
     """
     return '<Task: {}>'.format(self.id)
 
-  def json_safe_dict(self):
+  def json_safe_dict(self, fields=TASK_FIELDS):
     """ Generate a JSON-safe dictionary representation of the task.
 
+    Args:
+      fields: A list of fields to include in the response.
     Returns:
       A JSON-safe dictionary representing the task.
     """
-    task = {
-      'kind': 'taskqueues#task',
-      'id': self.id,
-      'retry_count': self.retry_count
-    }
+    task = {}
+
+    if 'kind' in fields:
+      task['kind'] = 'taskqueues#task'
+
+    if 'id' in fields:
+      task['id'] = self.id
+
+    if 'retry_count' in fields:
+      task['retry_count'] = self.retry_count
+
     # Timestamps are represented as microseconds since the epoch.
     epoch = datetime.datetime.utcfromtimestamp(0)
     for attribute in self.OPTIONAL_ATTRS:
-      if hasattr(self, attribute):
-        value = getattr(self, attribute)
-        if isinstance(value, datetime.datetime):
-          value = long((value - epoch).total_seconds() * 1000000)
-        task[attribute] = value
+      if attribute not in fields or not hasattr(self, attribute):
+        continue
+
+      value = getattr(self, attribute)
+      if isinstance(value, datetime.datetime):
+        value = long((value - epoch).total_seconds() * 1000000)
+      task[attribute] = value
 
     return task

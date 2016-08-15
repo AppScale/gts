@@ -43,6 +43,12 @@ DEFAULT_MAX_BACKOFF = 3600.0
 # The default maxiumum number of times to double the interval between retries.
 DEFAULT_MAX_DOUBLINGS = 16
 
+# All possible fields to include in a queue's JSON representation.
+QUEUE_FIELDS = (
+  'kind', 'id', 'maxLeases',
+  {'stats': ('totalTasks', 'oldestTask', 'leasedLastMinute', 'leasedLastHour')}
+)
+
 # Validation rules for queue parameters.
 QUEUE_ATTRIBUTE_RULES = {
   'name': lambda name: QUEUE_NAME_RE.match(name),
@@ -55,6 +61,18 @@ QUEUE_ATTRIBUTE_RULES = {
   'max_backoff_seconds': lambda seconds: seconds >= 0,
   'max_doublings': lambda doublings: doublings >= 0
 }
+
+
+def current_time_ms():
+  """ Gets the current time with millisecond precision. This allows the server
+  to return exactly what Cassandra will store.
+
+  Returns:
+    A datetime object with the current time.
+  """
+  now = datetime.datetime.utcnow()
+  new_microsecond = int(now.microsecond / 1000) * 1000
+  return now.replace(microsecond=new_microsecond)
 
 
 class InvalidQueueConfiguration(Exception):
@@ -312,6 +330,79 @@ class Queue(object):
 
     return Task(task_info)
 
+  def update_lease(self, task, new_lease_seconds):
+    """ Updates the duration of a task lease.
+
+    Args:
+      task: A Task object.
+      new_lease_seconds: An integer specifying when to set the new ETA. It
+        represents the number of seconds from now.
+    Returns:
+      A Task object.
+    """
+    new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
+
+    update_task = """
+      UPDATE pull_queue_tasks
+      SET lease_expires = %(new_eta)s
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+      IF lease_expires = %(old_eta)s
+      AND lease_expires > dateof(now())
+    """
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'id': task.id,
+      'old_eta': task.get_eta(),
+      'new_eta': new_eta
+    }
+    result = self.db_access.session.execute(update_task, parameters)[0]
+
+    # If the lease has expired or the provided ETA does not match, do not
+    # update the lease. GAE does not differentiate between the two conditions.
+    if not result.applied:
+      raise InvalidLeaseRequest('The task lease has expired.')
+
+    task.leaseTimestamp = new_eta
+    return task
+
+  def update_task(self, task, new_lease_seconds):
+    """ Updates leased tasks.
+
+    Args:
+      task: A task object.
+      new_lease_seconds: An integer specifying when to set the new ETA. It
+        represents the number of seconds from now.
+    """
+    new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
+
+    check_lease = ''
+    if hasattr(task, 'leaseTimestamp'):
+      check_lease = 'AND lease_expires = %(old_eta)s'
+
+    update_task = """
+      UPDATE pull_queue_tasks
+      SET lease_expires = %(new_eta)s
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+      IF lease_expires > dateof(now())
+      {check_lease}
+    """.format(check_lease=check_lease)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'id': task.id,
+      'new_eta': new_eta
+    }
+    if check_lease:
+      parameters['old_eta'] = task.get_eta()
+    result = self.db_access.session.execute(update_task, parameters)[0]
+
+    if not result.applied:
+      raise InvalidLeaseRequest('The task lease has expired.')
+
+    task.leaseTimestamp = new_eta
+    return task
+
   def _delete_task_and_index(self, task):
     """ Deletes a task and its index atomically.
 
@@ -364,10 +455,10 @@ class Queue(object):
     task = self.get_task(Task({'id': index.id}), omit_payload=True)
     if task is None:
       self._delete_index(index.eta, index.id)
+      return
 
     if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
       self._delete_task_and_index(task)
-      return None
 
   def _delete_index(self, eta, task_id):
     """ Deletes an index entry for a task.
@@ -505,6 +596,7 @@ class Queue(object):
         'Transaction check failed when updating retry_count: {}'.format(task))
 
     self._update_index(index, task)
+    self._update_stats()
 
     return task
 
@@ -579,8 +671,7 @@ class Queue(object):
 
     logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                   format(num_tasks, lease_seconds, group_by_tag, tag))
-    new_eta = datetime.datetime.utcnow() + datetime.timedelta(
-      days=0, seconds=lease_seconds)
+    new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
       tag = self._get_earliest_tag()
@@ -617,6 +708,66 @@ class Queue(object):
         break
 
     return leased
+
+  def _update_stats(self):
+    """ Write queue metadata for keeping track of statistics. """
+    # Stats are only kept for one hour.
+    ttl = 60 * 60
+    record_lease = """
+      INSERT INTO pull_queue_leases (app, queue, leased)
+      VALUES (%(app)s, %(queue)s, dateof(now()))
+      USING TTL {ttl}
+    """.format(ttl=ttl)
+    parameters = {'app': self.app, 'queue': self.name}
+    self.db_access.session.execute(record_lease, parameters)
+
+  def _get_stats(self, fields):
+    """ Fetch queue statistics.
+
+    Args:
+      fields: A tuple of fields to include in the results.
+    Returns:
+      A dictionary containing queue statistics.
+    """
+    session = self.db_access.session
+    stats = {}
+
+    if 'totalTasks' in fields:
+      select_count = """
+        SELECT COUNT(*) FROM pull_queue_tasks
+        WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
+        AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
+      """
+      parameters = {'app': self.app, 'queue': self.name,
+                    'next_queue': self.name + chr(0)}
+      stats['totalTasks'] = session.execute(select_count, parameters)[0].count
+
+    if 'oldestTask' in fields:
+      select_oldest = """
+        SELECT eta FROM pull_queue_tasks_index
+        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+        LIMIT 1
+      """
+      parameters = {'app': self.app, 'queue': self.name}
+      oldest_eta = session.execute(select_oldest, parameters)[0].eta
+      epoch = datetime.datetime.utcfromtimestamp(0)
+      stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
+
+    if 'leasedLastMinute' in fields:
+      select_count = """
+        SELECT COUNT(*) from pull_queue_leases
+        WHERE token(app, queue, leased) > token(%(app)s, %(queue)s, %(ts)s)
+      """
+      start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
+      parameters = {'app': self.app, 'queue': self.name, 'ts': start_time}
+      leased_last_minute = session.execute(select_count, parameters)[0].count
+      stats['leasedLastMinute'] = leased_last_minute
+
+    if 'leasedLastHour' in fields:
+      select_count = 'SELECT COUNT(*) from pull_queue_leases'
+      stats['leasedLastHour'] = session.execute(select_count)[0].count
+
+    return stats
 
   def __eq__(self, other):
     """ Checks whether or not this Queue is equivalent to another.
@@ -662,15 +813,34 @@ class Queue(object):
                          for attr, val in attributes.iteritems())
     return '<Queue {}: {}>'.format(self.name, attr_str)
 
-  def to_json(self):
+  def to_json(self, include_stats=False, fields=None):
     """ Generate a JSON representation of the queue.
 
+    Args:
+      include_stats: A boolean indicating whether or not to include stats.
+      fields: A tuple of fields to include in the output.
     Returns:
       A string in JSON format representing the queue.
     """
-    queue = {
-      'kind': 'taskqueues#taskqueue',
-      'id': self.name,
-      'maxLeases': self.task_retry_limit
-    }
+    if fields is None:
+      fields = QUEUE_FIELDS
+
+    queue = {}
+    if 'kind' in fields:
+      queue['kind'] = 'taskqueues#taskqueue'
+
+    if 'id' in fields:
+      queue['id'] = self.name
+
+    if 'maxLeases' in fields:
+      queue['maxLeases'] = self.task_retry_limit
+
+    stat_fields = ()
+    for field in fields:
+      if isinstance(field, dict) and 'stats' in field:
+        stat_fields = field['stats']
+
+    if stat_fields and include_stats:
+      queue['stats'] = self._get_stats(fields=stat_fields)
+
     return json.dumps(queue)
