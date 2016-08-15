@@ -1098,7 +1098,6 @@ class DatastoreDistributed():
     current_values = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
-    batch = []
     for entity in entities:
       prefix = self.get_table_prefix(entity)
       entity_key = self.get_entity_key(prefix, entity.key().path())
@@ -1110,10 +1109,9 @@ class DatastoreDistributed():
         current_value = entity_pb.EntityProto(
           current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-      batch.extend(self.mutations_for_entity(entity, txn, current_value,
-                                             composite_indexes))
-
-    self.datastore_batch.batch_mutate(batch)
+      batch = self.mutations_for_entity(
+        entity, txn, current_value, composite_indexes)
+      self.datastore_batch.batch_mutate(batch)
 
   def delete_entities(self, keys, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
@@ -1131,16 +1129,14 @@ class DatastoreDistributed():
     current_values = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
-    batch = []
     for key in entity_keys:
       if not current_values[key]:
         continue
 
       current_value = entity_pb.EntityProto(
         current_values[key][APP_ENTITY_SCHEMA[0]])
-      batch.extend(self.deletions_for_entity(current_value, composite_indexes))
-
-    self.datastore_batch.batch_mutate(batch)
+      batch = self.deletions_for_entity(current_value, composite_indexes)
+      self.datastore_batch.batch_mutate(batch)
 
   def delete_entities_txn(self, app, keys, txn_hash):
     """ Updates the transaction table with entities to delete.
