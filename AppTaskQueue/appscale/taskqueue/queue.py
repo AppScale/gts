@@ -25,24 +25,6 @@ RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
 # A regex rule for validating push queue age limit.
 AGE_LIMIT_REGEX = re.compile(r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])')
 
-# The default rate for push queues.
-DEFAULT_RATE = '5/s'
-
-# The default number of task retries for a queue.
-DEFAULT_RETRY_LIMIT = 0
-
-# The queue default time limit for retrying a failed push task.
-DEFAULT_AGE_LIMIT = None
-
-# The default minimum number of seconds to wait before retrying push tasks.
-DEFAULT_MIN_BACKOFF = .1
-
-# The default maximum number of seconds to wait before retrying push tasks.
-DEFAULT_MAX_BACKOFF = 3600.0
-
-# The default maxiumum number of times to double the interval between retries.
-DEFAULT_MAX_DOUBLINGS = 16
-
 # All possible fields to include in a queue's JSON representation.
 QUEUE_FIELDS = (
   'kind', 'id', 'maxLeases',
@@ -52,7 +34,6 @@ QUEUE_FIELDS = (
 # Validation rules for queue parameters.
 QUEUE_ATTRIBUTE_RULES = {
   'name': lambda name: QUEUE_NAME_RE.match(name),
-  'mode': lambda mode: mode in (QueueTypes.PUSH, QueueTypes.PULL),
   'rate': lambda rate: RATE_REGEX.match(rate),
   'task_retry_limit': lambda limit: limit >= 0,
   'task_age_limit': lambda limit: (limit is None or
@@ -83,11 +64,6 @@ class InvalidLeaseRequest(Exception):
   pass
 
 
-class QueueTypes(object):
-  PUSH = 'push'
-  PULL = 'pull'
-
-
 class Queue(object):
   """ Represents a queue created by an App Engine application. """
 
@@ -95,60 +71,30 @@ class Queue(object):
   OPTIONAL_ATTRS = ['rate', 'task_age_limit', 'min_backoff_seconds',
                     'max_backoff_seconds', 'max_doublings']
 
-  # The maximum number of tasks that can be leased at a time.
-  MAX_LEASE_AMOUNT = 1000
+  # The default number of task retries for a queue.
+  DEFAULT_RETRY_LIMIT = 0
 
-  # Tasks can be leased for up to a week.
-  MAX_LEASE_TIME = 60 * 60 * 24 * 7
-
-  def __init__(self, queue_info, app, db_access=None):
+  def __init__(self, queue_info, app):
     """ Create a Queue object.
 
     Args:
       queue_info: A dictionary containing queue info.
       app: A string containing the application ID.
-      db_access: A DatastoreProxy object.
     """
+    self.app = app
+
     if 'name' not in queue_info:
       raise InvalidQueueConfiguration(
         'Queue requires a name: {}'.format(queue_info))
-
     self.name = queue_info['name']
 
-    self.mode = QueueTypes.PUSH
-    if 'mode' in queue_info:
-      self.mode = queue_info['mode']
-
-    if self.mode == QueueTypes.PUSH:
-      self.rate = DEFAULT_RATE
-      if 'rate' in queue_info:
-        self.rate = queue_info['rate']
-
-    self.task_retry_limit = DEFAULT_RETRY_LIMIT
+    self.task_retry_limit = self.DEFAULT_RETRY_LIMIT
     if 'retry_parameters' in queue_info:
       retry_params = queue_info['retry_parameters']
       if 'task_retry_limit' in retry_params:
         self.task_retry_limit = retry_params['task_retry_limit']
 
-    if self.mode == QueueTypes.PUSH:
-      self.task_age_limit = DEFAULT_AGE_LIMIT
-      self.min_backoff_seconds = DEFAULT_MIN_BACKOFF
-      self.max_backoff_seconds = DEFAULT_MAX_BACKOFF
-      self.max_doublings = DEFAULT_MAX_DOUBLINGS
-      if 'retry_parameters' in queue_info:
-        retry_params = queue_info['retry_parameters']
-        if 'task_age_limit' in retry_params:
-          self.task_age_limit = retry_params['task_age_limit']
-        if 'min_backoff_seconds' in retry_params:
-          self.min_backoff_seconds = retry_params['min_backoff_seconds']
-        if 'max_backoff_seconds' in retry_params:
-          self.max_backoff_seconds = retry_params['max_backoff_seconds']
-        if 'max_doublings' in retry_params:
-          self.max_doublings = retry_params['max_doublings']
-
     self.validate_config()
-    self.db_access = db_access
-    self.app = app
 
   def validate_config(self):
     """ Ensures all of the Queue's attributes are valid.
@@ -167,48 +113,108 @@ class Queue(object):
           .format(queue=self.name, param=attribute, value=value)
         raise InvalidQueueConfiguration(message)
 
-  def list_tasks(self, limit=100):
-    """ List all non-deleted tasks in the queue.
+  def __eq__(self, other):
+    """ Checks whether or not this Queue is equivalent to another.
+
+    Returns:
+      A boolean indicating whether or not the two Queues are equal.
+    """
+    if not isinstance(other, self.__class__):
+      return False
+
+    if self.app != other.app or self.name != other.name:
+      return False
+
+    for attribute in self.OPTIONAL_ATTRS:
+      if hasattr(self, attribute):
+        if not hasattr(other, attribute):
+          return False
+        if getattr(self, attribute) != getattr(other, attribute):
+          return False
+      else:
+        if hasattr(other, attribute):
+          return False
+
+    return True
+
+class PushQueue(Queue):
+  # The default rate for push queues.
+  DEFAULT_RATE = '5/s'
+
+  # The queue default time limit for retrying a failed push task.
+  DEFAULT_AGE_LIMIT = None
+
+  # The default minimum number of seconds to wait before retrying push tasks.
+  DEFAULT_MIN_BACKOFF = .1
+
+  # The default maximum number of seconds to wait before retrying push tasks.
+  DEFAULT_MAX_BACKOFF = 3600.0
+
+  # The default max number of times to double the interval between retries.
+  DEFAULT_MAX_DOUBLINGS = 16
+
+  def __init__(self, queue_info, app):
+    """ Create a PushQueue object.
 
     Args:
-      limit: An integer specifying the maximum number of tasks to list.
-    Returns:
-      A list of Task objects.
+      queue_info: A dictionary containing queue info.
+      app: A string containing the application ID.
     """
-    session = self.db_access.session
+    self.rate = self.DEFAULT_RATE
+    if 'rate' in queue_info:
+      self.rate = queue_info['rate']
 
-    tasks = []
-    start_date = datetime.datetime.utcfromtimestamp(0)
-    while True:
-      query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) > token(%(app)s, %(queue)s, %(eta)s)
-        LIMIT {limit}
-      """.format(limit=limit)
-      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date}
-      results = [result for result in session.execute(query_tasks, parameters)]
+    self.task_age_limit = self.DEFAULT_AGE_LIMIT
+    self.min_backoff_seconds = self.DEFAULT_MIN_BACKOFF
+    self.max_backoff_seconds = self.DEFAULT_MAX_BACKOFF
+    self.max_doublings = self.DEFAULT_MAX_DOUBLINGS
+    if 'retry_parameters' in queue_info:
+      retry_params = queue_info['retry_parameters']
+      if 'task_age_limit' in retry_params:
+        self.task_age_limit = retry_params['task_age_limit']
+      if 'min_backoff_seconds' in retry_params:
+        self.min_backoff_seconds = retry_params['min_backoff_seconds']
+      if 'max_backoff_seconds' in retry_params:
+        self.max_backoff_seconds = retry_params['max_backoff_seconds']
+      if 'max_doublings' in retry_params:
+        self.max_doublings = retry_params['max_doublings']
 
-      if not results:
-        break
+    super(PushQueue, self).__init__(queue_info, app)
 
-      satisfied_request = False
-      for result in results:
-        task = self.get_task(Task({'id': result.id}), omit_payload=True)
-        if task is None:
-          self._delete_index(result.eta, result.id)
-          continue
+  def __repr__(self):
+    """ Generates a string representation of the queue.
+    Returns:
+      A string representing the PushQueue.
+    """
+    attributes = {'app': self.app,
+                  'task_retry_limit': self.task_retry_limit}
+    for attribute in self.OPTIONAL_ATTRS:
+      if hasattr(self, attribute):
+        attributes[attribute] = getattr(self, attribute)
 
-        tasks.append(task)
-        if len(tasks) >= limit:
-          satisfied_request = True
-          break
-      if satisfied_request:
-        break
+    attr_str = ', '.join('{}={}'.format(attr, val)
+                         for attr, val in attributes.iteritems())
 
-      # Update the cursor.
-      start_date = results[-1].eta
+    return '<PushQueue {}: {}>'.format(self.name, attr_str)
 
-    return tasks
+
+class PullQueue(Queue):
+  # The maximum number of tasks that can be leased at a time.
+  MAX_LEASE_AMOUNT = 1000
+
+  # Tasks can be leased for up to a week.
+  MAX_LEASE_TIME = 60 * 60 * 24 * 7
+
+  def __init__(self, queue_info, app, db_access=None):
+    """ Create a PullQueue object.
+
+    Args:
+      queue_info: A dictionary containing queue info.
+      app: A string containing the application ID.
+      db_access: A DatastoreProxy object.
+    """
+    self.db_access = db_access
+    super(PullQueue, self).__init__(queue_info, app)
 
   def add_task(self, task):
     """ Adds a task to the queue.
@@ -218,12 +224,8 @@ class Queue(object):
     Raises:
       InvalidTaskInfo if the task ID already exists in the queue.
     """
-    # This method is only supported for pull queues right now.
-    if self.mode != QueueTypes.PULL:
-      return
-
     if not hasattr(task, 'payloadBase64'):
-      raise InvalidTaskInfo('Tasks require a payload.')
+      raise InvalidTaskInfo('{} is missing a payload.'.format(task))
 
     insert_task = SimpleStatement("""
       INSERT INTO pull_queue_tasks (
@@ -330,6 +332,17 @@ class Queue(object):
 
     return Task(task_info)
 
+  def delete_task(self, task):
+    """ Deletes a task from the queue.
+
+    Args:
+      task: A Task object.
+    """
+    # Retrieve the ETA info so that the index can also be deleted.
+    task = self.get_task(task, omit_payload=True)
+    if task is not None:
+      self._delete_task_and_index(task)
+
   def update_lease(self, task, new_lease_seconds):
     """ Updates the duration of a task lease.
 
@@ -403,123 +416,189 @@ class Queue(object):
     task.leaseTimestamp = new_eta
     return task
 
-  def _delete_task_and_index(self, task):
-    """ Deletes a task and its index atomically.
+  def list_tasks(self, limit=100):
+    """ List all non-deleted tasks in the queue.
 
     Args:
-      task: A Task object.
+      limit: An integer specifying the maximum number of tasks to list.
+    Returns:
+      A list of Task objects.
     """
-    batch_delete = BatchStatement(retry_policy=self.db_access.retry_policy)
+    session = self.db_access.session
 
-    delete_task = SimpleStatement("""
-      DELETE FROM pull_queue_tasks
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """)
-    parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
-    batch_delete.add(delete_task, parameters=parameters)
+    tasks = []
+    start_date = datetime.datetime.utcfromtimestamp(0)
+    while True:
+      query_tasks = """
+        SELECT eta, id FROM pull_queue_tasks_index
+        WHERE token(app, queue, eta) > token(%(app)s, %(queue)s, %(eta)s)
+        LIMIT {limit}
+      """.format(limit=limit)
+      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date}
+      results = [result for result in session.execute(query_tasks, parameters)]
 
-    delete_task_index = SimpleStatement("""
-      DELETE FROM pull_queue_tasks_index
-      WHERE app = %(app)s
-      AND queue = %(queue)s
-      AND eta = %(eta)s
-      AND id = %(id)s
-    """)
-    parameters = {
-      'app': self.app,
-      'queue': self.name,
-      'eta': task.get_eta(),
-      'id': task.id
-    }
-    batch_delete.add(delete_task_index, parameters=parameters)
+      if not results:
+        break
 
-    self.db_access.session.execute(batch_delete)
+      satisfied_request = False
+      for result in results:
+        task = self.get_task(Task({'id': result.id}), omit_payload=True)
+        if task is None:
+          self._delete_index(result.eta, result.id)
+          continue
 
-  def delete_task(self, task):
-    """ Deletes a task from the queue.
+        tasks.append(task)
+        if len(tasks) >= limit:
+          satisfied_request = True
+          break
+      if satisfied_request:
+        break
+
+      # Update the cursor.
+      start_date = results[-1].eta
+
+    return tasks
+
+  def lease_tasks(self, num_tasks, lease_seconds, group_by_tag=False,
+                  tag=None):
+    """ Acquires a lease on tasks from the queue.
 
     Args:
-      task: A Task object.
+      num_tasks: An integer specifying the number of tasks to lease.
+      lease_seconds: An integer specifying how long to lease the tasks.
+      group_by_tag: A boolean indicating that only tasks of one tag should
+        be leased.
+      tag: A string containing the tag for the task.
+    Returns:
+      A list of Task objects.
     """
-    # Retrieve the ETA info so that the index can also be deleted.
-    task = self.get_task(task, omit_payload=True)
-    if task is not None:
-      self._delete_task_and_index(task)
+    if num_tasks > self.MAX_LEASE_AMOUNT:
+      raise InvalidLeaseRequest(
+        'Only {} tasks can be leased at a time'.format(self.MAX_LEASE_AMOUNT))
 
-  def _resolve_task(self, index):
-    """ Cleans up expired tasks and indices.
+    if lease_seconds > self.MAX_LEASE_TIME:
+      raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
+                                .format(self.MAX_LEASE_TIME))
+
+    logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
+                  format(num_tasks, lease_seconds, group_by_tag, tag))
+    new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
+    # If not specified, the tag is assumed to be that of the oldest task.
+    if group_by_tag and tag is None:
+      tag = self._get_earliest_tag()
+      if tag is None:
+        return []
+
+    # Fetch available tasks and try to lease them until the requested number
+    # has been leased or until the index has been exhausted.
+    leased = []
+    indices_seen = set()
+    while True:
+      results = self._query_available_tasks(num_tasks, group_by_tag, tag)
+      # If there are no more available tasks, return whatever has been leased.
+      if not results:
+        break
+
+      satisfied_request = False
+      for result in results:
+        task = self._lease_task(result, new_eta)
+        if task is None:
+          # If this lease request has previously encountered this index, it's
+          # likely that either the index is invalid or that the task has
+          # exceeded its retry_count.
+          if result.id in indices_seen:
+            self._resolve_task(result)
+          indices_seen.add(result.id)
+          continue
+
+        leased.append(task)
+        if len(leased) >= num_tasks:
+          satisfied_request = True
+          break
+      if satisfied_request:
+        break
+
+    return leased
+
+  def to_json(self, include_stats=False, fields=None):
+    """ Generate a JSON representation of the queue.
 
     Args:
-      index: An index result.
+      include_stats: A boolean indicating whether or not to include stats.
+      fields: A tuple of fields to include in the output.
+    Returns:
+      A string in JSON format representing the queue.
     """
-    task = self.get_task(Task({'id': index.id}), omit_payload=True)
-    if task is None:
-      self._delete_index(index.eta, index.id)
-      return
+    if fields is None:
+      fields = QUEUE_FIELDS
 
-    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
-      self._delete_task_and_index(task)
+    queue = {}
+    if 'kind' in fields:
+      queue['kind'] = 'taskqueues#taskqueue'
 
-  def _delete_index(self, eta, task_id):
-    """ Deletes an index entry for a task.
+    if 'id' in fields:
+      queue['id'] = self.name
+
+    if 'maxLeases' in fields:
+      queue['maxLeases'] = self.task_retry_limit
+
+    stat_fields = ()
+    for field in fields:
+      if isinstance(field, dict) and 'stats' in field:
+        stat_fields = field['stats']
+
+    if stat_fields and include_stats:
+      queue['stats'] = self._get_stats(fields=stat_fields)
+
+    return json.dumps(queue)
+
+  def _query_available_tasks(self, num_tasks, group_by_tag=False, tag=None):
+    """ Query the index table for available tasks.
 
     Args:
-      eta: A datetime object.
-      task_id: A string containing the task ID.
-    """
-    delete_index = """
-      DELETE FROM pull_queue_tasks_index
-      WHERE app = %(app)s
-      AND queue = %(queue)s
-      AND eta = %(eta)s
-      AND id = %(id)s
-    """
-    parameters = {'app': self.app, 'queue': self.name, 'eta': eta,
-                  'id': task_id}
-    self.db_access.session.execute(delete_index, parameters)
+      num_tasks: An integer specifying the number of tasks to lease.
+      group_by_tag: A boolean indicating that only tasks of one tag should
+        be leased.
+      tag: A string containing the tag for the task.
 
-  def _update_index(self, old_index, task):
-    """ Updates the index table after leasing a task.
-
-    Args:
-      old_index: The row to remove from the index table.
-      task: A Task object to create a new index entry for.
+    Returns:
+      A list of results from the index table.
     """
-    old_eta = old_index.eta
-    update_index = BatchStatement(retry_policy=self.db_access.retry_policy)
-    delete_old_index = SimpleStatement("""
-      DELETE FROM pull_queue_tasks_index
-      WHERE app = %(app)s
-      AND queue = %(queue)s
-      AND eta = %(eta)s
-      AND id = %(id)s
-    """)
-    parameters = {
-      'app': self.app,
-      'queue': self.name,
-      'eta': old_eta,
-      'id': task.id
-    }
-    update_index.add(delete_old_index, parameters)
+    if group_by_tag:
+      query_tasks = """
+        SELECT eta, id FROM pull_queue_tasks_index
+        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+        AND token(app, queue, eta) <= token(%(app)s, %(queue)s, dateof(now()))
+        AND tag = %(tag)s
+        LIMIT {limit}
+      """.format(limit=num_tasks)
+      parameters = {'app': self.app, 'queue': self.name, 'tag': tag}
+      results = self.db_access.session.execute(query_tasks, parameters)
+    else:
+      query_tasks = """
+        SELECT eta, id FROM pull_queue_tasks_index
+        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+        AND token(app, queue, eta) <= token(%(app)s, %(queue)s, dateof(now()))
+        LIMIT {limit}
+      """.format(limit=num_tasks)
+      parameters = {'app': self.app, 'queue': self.name}
+      results = self.db_access.session.execute(query_tasks, parameters)
+    return results
 
-    create_new_index = SimpleStatement("""
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
-      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
-    """)
-    parameters = {
-      'app': self.app,
-      'queue': self.name,
-      'eta': task.leaseTimestamp,
-      'id': task.id
-    }
+  def _get_earliest_tag(self):
+    """ Get the tag with the earliest ETA.
+
+    Returns:
+      A string containing a tag or None.
+    """
+    get_earliest_tag = """
+      SELECT tag FROM pull_queue_tasks_index WHERE tag_exists = true LIMIT 1
+    """
     try:
-      parameters['tag'] = task.tag
-    except AttributeError:
-      parameters['tag'] = ''
-    parameters['tag_exists'] = parameters['tag'] != ''
-    update_index.add(create_new_index, parameters)
-
-    self.db_access.session.execute(update_index)
+      tag = self.db_access.session.execute(get_earliest_tag)[0].tag
+    except IndexError:
+      return None
+    return tag
 
   def _lease_task(self, index, new_eta):
     """ Acquires a lease on task in the queue.
@@ -600,114 +679,112 @@ class Queue(object):
 
     return task
 
-  def _get_earliest_tag(self):
-    """ Get the tag with the earliest ETA.
+  def _update_index(self, old_index, task):
+    """ Updates the index table after leasing a task.
 
-    Returns:
-      A string containing a tag or None.
+    Args:
+      old_index: The row to remove from the index table.
+      task: A Task object to create a new index entry for.
     """
-    get_earliest_tag = """
-      SELECT tag FROM pull_queue_tasks_index WHERE tag_exists = true LIMIT 1
-    """
+    old_eta = old_index.eta
+    update_index = BatchStatement(retry_policy=self.db_access.retry_policy)
+    delete_old_index = SimpleStatement("""
+      DELETE FROM pull_queue_tasks_index
+      WHERE app = %(app)s
+      AND queue = %(queue)s
+      AND eta = %(eta)s
+      AND id = %(id)s
+    """)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'eta': old_eta,
+      'id': task.id
+    }
+    update_index.add(delete_old_index, parameters)
+
+    create_new_index = SimpleStatement("""
+      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
+      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
+    """)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'eta': task.leaseTimestamp,
+      'id': task.id
+    }
     try:
-      tag = self.db_access.session.execute(get_earliest_tag)[0].tag
-    except IndexError:
-      return None
-    return tag
+      parameters['tag'] = task.tag
+    except AttributeError:
+      parameters['tag'] = ''
+    parameters['tag_exists'] = parameters['tag'] != ''
+    update_index.add(create_new_index, parameters)
 
-  def _query_available_tasks(self, num_tasks, group_by_tag=False, tag=None):
-    """ Query the index table for available tasks.
+    self.db_access.session.execute(update_index)
 
-    Args:
-      num_tasks: An integer specifying the number of tasks to lease.
-      group_by_tag: A boolean indicating that only tasks of one tag should
-        be leased.
-      tag: A string containing the tag for the task.
-
-    Returns:
-      A list of results from the index table.
-    """
-    if group_by_tag:
-      query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-        AND token(app, queue, eta) <= token(%(app)s, %(queue)s, dateof(now()))
-        AND tag = %(tag)s
-        LIMIT {limit}
-      """.format(limit=num_tasks)
-      parameters = {'app': self.app, 'queue': self.name, 'tag': tag}
-      results = self.db_access.session.execute(query_tasks, parameters)
-    else:
-      query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-        AND token(app, queue, eta) <= token(%(app)s, %(queue)s, dateof(now()))
-        LIMIT {limit}
-      """.format(limit=num_tasks)
-      parameters = {'app': self.app, 'queue': self.name}
-      results = self.db_access.session.execute(query_tasks, parameters)
-    return results
-
-  def lease_tasks(self, num_tasks, lease_seconds, group_by_tag=False,
-                  tag=None):
-    """ Acquires a lease on tasks from the queue.
+  def _delete_index(self, eta, task_id):
+    """ Deletes an index entry for a task.
 
     Args:
-      num_tasks: An integer specifying the number of tasks to lease.
-      lease_seconds: An integer specifying how long to lease the tasks.
-      group_by_tag: A boolean indicating that only tasks of one tag should
-        be leased.
-      tag: A string containing the tag for the task.
-    Returns:
-      A list of Task objects.
+      eta: A datetime object.
+      task_id: A string containing the task ID.
     """
-    if num_tasks > self.MAX_LEASE_AMOUNT:
-      raise InvalidLeaseRequest(
-        'Only {} tasks can be leased at a time'.format(self.MAX_LEASE_AMOUNT))
+    delete_index = """
+      DELETE FROM pull_queue_tasks_index
+      WHERE app = %(app)s
+      AND queue = %(queue)s
+      AND eta = %(eta)s
+      AND id = %(id)s
+    """
+    parameters = {'app': self.app, 'queue': self.name, 'eta': eta,
+                  'id': task_id}
+    self.db_access.session.execute(delete_index, parameters)
 
-    if lease_seconds > self.MAX_LEASE_TIME:
-      raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
-                                .format(self.MAX_LEASE_TIME))
+  def _delete_task_and_index(self, task):
+    """ Deletes a task and its index atomically.
 
-    logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
-                  format(num_tasks, lease_seconds, group_by_tag, tag))
-    new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
-    # If not specified, the tag is assumed to be that of the oldest task.
-    if group_by_tag and tag is None:
-      tag = self._get_earliest_tag()
-      if tag is None:
-        return []
+    Args:
+      task: A Task object.
+    """
+    batch_delete = BatchStatement(retry_policy=self.db_access.retry_policy)
 
-    # Fetch available tasks and try to lease them until the requested number
-    # has been leased or until the index has been exhausted.
-    leased = []
-    indices_seen = set()
-    while True:
-      results = self._query_available_tasks(num_tasks, group_by_tag, tag)
-      # If there are no more available tasks, return whatever has been leased.
-      if not results:
-        break
+    delete_task = SimpleStatement("""
+      DELETE FROM pull_queue_tasks
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+    """)
+    parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
+    batch_delete.add(delete_task, parameters=parameters)
 
-      satisfied_request = False
-      for result in results:
-        task = self._lease_task(result, new_eta)
-        if task is None:
-          # If this lease request has previously encountered this index, it's
-          # likely that either the index is invalid or that the task has
-          # exceeded its retry_count.
-          if result.id in indices_seen:
-            self._resolve_task(result)
-          indices_seen.add(result.id)
-          continue
+    delete_task_index = SimpleStatement("""
+      DELETE FROM pull_queue_tasks_index
+      WHERE app = %(app)s
+      AND queue = %(queue)s
+      AND eta = %(eta)s
+      AND id = %(id)s
+    """)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'eta': task.get_eta(),
+      'id': task.id
+    }
+    batch_delete.add(delete_task_index, parameters=parameters)
 
-        leased.append(task)
-        if len(leased) >= num_tasks:
-          satisfied_request = True
-          break
-      if satisfied_request:
-        break
+    self.db_access.session.execute(batch_delete)
 
-    return leased
+  def _resolve_task(self, index):
+    """ Cleans up expired tasks and indices.
+
+    Args:
+      index: An index result.
+    """
+    task = self.get_task(Task({'id': index.id}), omit_payload=True)
+    if task is None:
+      self._delete_index(index.eta, index.id)
+      return
+
+    if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
+      self._delete_task_and_index(task)
 
   def _update_stats(self):
     """ Write queue metadata for keeping track of statistics. """
@@ -769,78 +846,11 @@ class Queue(object):
 
     return stats
 
-  def __eq__(self, other):
-    """ Checks whether or not this Queue is equivalent to another.
-
-    Returns:
-      A boolean indicating whether or not the two Queues are equal.
-    """
-    if not isinstance(other, self.__class__):
-      return False
-
-    if self.app != other.app:
-      return False
-
-    if self.name != other.name or self.mode != other.mode:
-      return False
-
-    for attribute in self.OPTIONAL_ATTRS:
-      if hasattr(self, attribute):
-        if not hasattr(other, attribute):
-          return False
-        if getattr(self, attribute) != getattr(other, attribute):
-          return False
-      else:
-        if hasattr(other, attribute):
-          return False
-
-    return True
-
   def __repr__(self):
     """ Generates a string representation of the queue.
 
     Returns:
-      A string representing the Queue.
+      A string representing the PullQueue.
     """
-    attributes = {'app': self.app,
-                  'mode': self.mode,
-                  'task_retry_limit': self.task_retry_limit}
-    for attribute in self.OPTIONAL_ATTRS:
-      if hasattr(self, attribute):
-        attributes[attribute] = getattr(self, attribute)
-
-    attr_str = ', '.join('{}={}'.format(attr, val)
-                         for attr, val in attributes.iteritems())
-    return '<Queue {}: {}>'.format(self.name, attr_str)
-
-  def to_json(self, include_stats=False, fields=None):
-    """ Generate a JSON representation of the queue.
-
-    Args:
-      include_stats: A boolean indicating whether or not to include stats.
-      fields: A tuple of fields to include in the output.
-    Returns:
-      A string in JSON format representing the queue.
-    """
-    if fields is None:
-      fields = QUEUE_FIELDS
-
-    queue = {}
-    if 'kind' in fields:
-      queue['kind'] = 'taskqueues#taskqueue'
-
-    if 'id' in fields:
-      queue['id'] = self.name
-
-    if 'maxLeases' in fields:
-      queue['maxLeases'] = self.task_retry_limit
-
-    stat_fields = ()
-    for field in fields:
-      if isinstance(field, dict) and 'stats' in field:
-        stat_fields = field['stats']
-
-    if stat_fields and include_stats:
-      queue['stats'] = self._get_stats(fields=stat_fields)
-
-    return json.dumps(queue)
+    return '<PullQueue {}: app={}, task_retry_limit={}>'.format(
+      self.name, self.app, self.task_retry_limit)

@@ -13,7 +13,7 @@ import sys
 import time
 import tq_lib
 
-from queue import QueueTypes
+from queue import PushQueue
 from tq_config import TaskQueueConfig
 from unpackaged import APPSCALE_DATASTORE
 from unpackaged import APPSCALE_LIB_DIR
@@ -321,7 +321,7 @@ class DistributedTaskQueue():
 
     # Stop workers for push queues that no longer exist.
     for name, queue in cached_queues.iteritems():
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         continue
 
       if name not in new_queues:
@@ -330,7 +330,7 @@ class DistributedTaskQueue():
 
     # Create any new push queues and update ones that have changed.
     for name, queue in new_queues.iteritems():
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         continue
 
       if name not in cached_queues:
@@ -728,7 +728,7 @@ class DistributedTaskQueue():
     if (app_id in self.__queue_info_cache and
         queue_name in self.__queue_info_cache[app_id]):
       queue = self.__queue_info_cache[app_id][queue_name]
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         raise Exception('Only push queues are implemented')
 
       args['max_retries'] = queue.task_retry_limit
