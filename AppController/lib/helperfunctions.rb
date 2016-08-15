@@ -294,7 +294,8 @@ module HelperFunctions
         Kernel.sleep(1)
         retry
       end
-    rescue
+    rescue => except
+      Djinn.log_warn("[is_port_open]: got #{except.message}.")
     end
   
     return false
@@ -512,7 +513,7 @@ module HelperFunctions
   # TODO: This doesn't solve the problem if the IP address isn't there
   # the first time around - should we sleep and retry in that case?
   def self.local_ip()
-    if !@@my_local_ip.nil?
+    unless @@my_local_ip.nil?
       Djinn.log_debug("Returning cached ip #{@@my_local_ip}")
       return @@my_local_ip
     end
@@ -545,11 +546,11 @@ module HelperFunctions
   end
 
   def self.get_ips(ips)
-    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length.odd?
     reported_public = []
     reported_private = []
     ips.each_index { |index|
-      if index % 2 == 0
+      if index.even?
         reported_public << ips[index]
       else
         reported_private << ips[index]
@@ -725,7 +726,7 @@ module HelperFunctions
     jobs = []
     if job.is_a?(String)
       # We only got one job, so just repeat it for each one of the nodes
-      public_ips.length.times { |i| jobs << job }
+      public_ips.length.times { jobs << job }
     else
       jobs = job
     end
@@ -943,7 +944,7 @@ module HelperFunctions
 
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
-    rescue Errno::ENOENT => e
+    rescue Errno::ENOENT
       return self.parse_java_static_data(app_name)
     end
 
@@ -1011,13 +1012,13 @@ module HelperFunctions
           relative_filename = get_relative_filename(filename,app_name)
 
           # Only include files that match the provided upload regular expression
-          next if !relative_filename.match(upload_regex)
+          next unless relative_filename.match(upload_regex)
 
           # Skip all files which match the skip file regex so they do not get copied
           next if relative_filename.match(skip_files_regex)
 
           file_cache_path = File.join(cache_path, File.dirname(relative_filename))
-          FileUtils.mkdir_p file_cache_path if !File.exists?(file_cache_path)
+          FileUtils.mkdir_p file_cache_path unless File.exists?(file_cache_path)
           
           FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
         end
@@ -1050,7 +1051,7 @@ module HelperFunctions
   def self.parse_java_static_data(app_name)
     # Verify that app_name is a Java app.
     tar_gz_location = "/opt/appscale/apps/#{app_name}.tar.gz"
-    if !self.app_has_config_file?(tar_gz_location)
+    unless self.app_has_config_file?(tar_gz_location)
       Djinn.log_warn("#{app_name} does not appear to be a Java app")
       return []
     end
@@ -1116,7 +1117,7 @@ module HelperFunctions
     end
 
     handlers.map! do |handler|
-      next if !handler.key?("secure")
+      next unless handler.key?("secure")
 
       if handler["secure"] == "always"
         secure_handlers[:always] << handler
@@ -1368,9 +1369,7 @@ module HelperFunctions
 
     # If asked for, wait for a while before crashing. This will help the
     # tools to collect the status report or crashlog.
-    if !sleep.nil?
-      Kernel.sleep(sleep)
-    end
+    Kernel.sleep(sleep) unless sleep.nil?
     abort(message)
   end
 
@@ -1385,7 +1384,7 @@ module HelperFunctions
     contents = self.read_file(RESOLV_CONF, chomp=false)
     new_contents = ""
     contents.split("\n").each { |line|
-      new_contents << line if !contents.include?("nameserver")
+      new_contents << line unless contents.include?("nameserver")
     }
     self.write_file(RESOLV_CONF, new_contents)
   end
@@ -1409,12 +1408,12 @@ module HelperFunctions
   #   reaches this machine.
   def self.get_public_ip_from_metadata_service()
     aws_ip = `curl -L -s #{AWS_METADATA}/public-ipv4`
-    if !aws_ip.empty?
+    unless aws_ip.empty?
       Djinn.log_debug("Detected AWS public ip: #{aws_ip}.")
       return aws_ip
     end
     gce_ip = `curl -L -s #{GCE_METADATA}/network-interfaces/0/access-configs/0/external-ip`
-    if !gce_ip.empty?
+    unless gce_ip.empty?
       Djinn.log_debug("Detected GCE public ip: #{gce_ip}.")
       return gce_ip
     end
