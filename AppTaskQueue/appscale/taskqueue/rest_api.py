@@ -5,7 +5,7 @@ import sys
 import tornado.escape
 
 from queue import InvalidLeaseRequest
-from queue import QueueTypes
+from queue import PullQueue
 from queue import QUEUE_FIELDS
 from task import InvalidTaskInfo
 from task import Task
@@ -77,7 +77,7 @@ class RESTQueue(RequestHandler):
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
-    if queue.mode != QueueTypes.PULL:
+    if not isinstance(queue, PullQueue):
       write_error(self, HTTPCodes.BAD_REQUEST,
                   'The REST API is only applicable to pull queues.')
       return
