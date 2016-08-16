@@ -66,9 +66,11 @@ class Task(object):
     if 'payloadBase64' in task_info:
       self.payloadBase64 = task_info['payloadBase64']
 
-    self.id = ''.join(random.choice(string.ascii_lowercase) for _ in range(20))
-    if 'id' in task_info:
+    if 'id' in task_info and task_info['id']:
       self.id = task_info['id']
+    else:
+      self.id = ''.join(random.choice(string.ascii_lowercase)
+                        for _ in range(20))
 
     if 'queueName' in task_info:
       self.queueName = task_info['queueName']
