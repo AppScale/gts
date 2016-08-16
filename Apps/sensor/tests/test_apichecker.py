@@ -2,7 +2,6 @@
 """ Testing for high level API checker. """
 import json
 import os
-import settings
 import sys
 import unittest
 
@@ -10,6 +9,7 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 import apichecker
+import settings
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from common import constants
