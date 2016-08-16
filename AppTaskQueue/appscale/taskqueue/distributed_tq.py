@@ -13,7 +13,7 @@ import sys
 import time
 import tq_lib
 
-from queue import QueueTypes
+from queue import PushQueue
 from tq_config import TaskQueueConfig
 from unpackaged import APPSCALE_DATASTORE
 from unpackaged import APPSCALE_LIB_DIR
@@ -90,6 +90,17 @@ def create_pull_queue_tables(session):
     ON pull_queue_tasks_index (tag_exists);
   """
   session.execute(create_index)
+
+  logging.info('Trying to create pull_queue_leases')
+  create_leases_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_leases (
+      app text,
+      queue text,
+      leased timestamp,
+      PRIMARY KEY ((app, queue, leased))
+    )
+  """
+  session.execute(create_leases_table)
 
 
 class TaskName(db.Model):
@@ -310,7 +321,7 @@ class DistributedTaskQueue():
 
     # Stop workers for push queues that no longer exist.
     for name, queue in cached_queues.iteritems():
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         continue
 
       if name not in new_queues:
@@ -319,7 +330,7 @@ class DistributedTaskQueue():
 
     # Create any new push queues and update ones that have changed.
     for name, queue in new_queues.iteritems():
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         continue
 
       if name not in cached_queues:
@@ -717,7 +728,7 @@ class DistributedTaskQueue():
     if (app_id in self.__queue_info_cache and
         queue_name in self.__queue_info_cache[app_id]):
       queue = self.__queue_info_cache[app_id][queue_name]
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         raise Exception('Only push queues are implemented')
 
       args['max_retries'] = queue.task_retry_limit

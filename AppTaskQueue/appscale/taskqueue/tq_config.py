@@ -6,8 +6,8 @@ import os
 import sys
 
 from queue import InvalidQueueConfiguration
-from queue import Queue
-from queue import QueueTypes
+from queue import PullQueue
+from queue import PushQueue
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
@@ -141,11 +141,17 @@ queue:
     # Discard the invalid queues.
     queues = {}
     for queue in queue_info['queue']:
-      try:
-        queues[queue['name']] = Queue(queue, self._app_id, self.db_access)
-      except InvalidQueueConfiguration:
-        logging.exception('Invalid queue configuration')
-
+      if 'mode' in queue and queue['mode'] == 'pull':
+        try:
+          queues[queue['name']] = PullQueue(queue, self._app_id,
+                                            self.db_access)
+        except InvalidQueueConfiguration:
+          logging.exception('Invalid queue configuration')
+      else:
+        try:
+          queues[queue['name']] = PushQueue(queue, self._app_id)
+        except InvalidQueueConfiguration:
+          logging.exception('Invalid queue configuration')
     return queues
 
   def parse_queue_xml(self, xml_string):
@@ -202,7 +208,7 @@ queue:
 
     for name, queue in self.queues.iteritems():
       # Celery only handles push queues.
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         continue
 
       # The queue name is used as a function name so replace invalid chars
@@ -308,7 +314,7 @@ queue:
     annotations = []
     for name, queue in self.queues.iteritems():
       # Celery only handles push queues.
-      if queue.mode != QueueTypes.PUSH:
+      if not isinstance(queue, PushQueue):
         continue
 
       celery_name = TaskQueueConfig.get_celery_queue_name(

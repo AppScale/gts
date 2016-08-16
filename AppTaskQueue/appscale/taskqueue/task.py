@@ -21,8 +21,27 @@ TASK_NAME_RE = re.compile(TASK_NAME_PATTERN)
 QUEUE_ATTRIBUTE_RULES = {
   'id': lambda name: TASK_NAME_RE.match(name),
   'queueName': lambda name: queue.QUEUE_NAME_RE.match(name),
-  'tag': lambda tag: len(tag) <= MAX_TAG_LENGTH
+  'tag': lambda tag: tag is None or len(tag) <= MAX_TAG_LENGTH
 }
+
+# All possible fields to include in a task's JSON representation.
+TASK_FIELDS = ('kind', 'queueName', 'id', 'enqueueTimestamp', 'leaseTimestamp',
+               'payloadBase64', 'retry_count', 'tag')
+
+
+def parse_timestamp(timestamp):
+  """ Parses timestamps used for creating tasks.
+
+  Args:
+    timestamp: Either a datetime object or an integer specifying the number
+      of microseconds since the epoch.
+  Returns:
+    A datetime object.
+  """
+  if isinstance(timestamp, datetime.datetime):
+    return timestamp
+  else:
+    return datetime.datetime.utcfromtimestamp(int(timestamp) / 1000000.0)
 
 
 class InvalidTaskInfo(Exception):
@@ -33,7 +52,8 @@ class Task(object):
   """ Represents a task created by an App Engine application. """
 
   # Attributes that may not be defined.
-  OPTIONAL_ATTRS = ['queueName', 'enqueueTimestamp', 'leaseTimestamp', 'tag']
+  OPTIONAL_ATTRS = ['queueName', 'enqueueTimestamp', 'leaseTimestamp', 'tag',
+                    'payloadBase64']
 
   def __init__(self, task_info):
     """ Create a Task object.
@@ -44,7 +64,7 @@ class Task(object):
     self.retry_count = 0
 
     if 'payloadBase64' in task_info:
-      self.payload = task_info['payloadBase64']
+      self.payloadBase64 = task_info['payloadBase64']
 
     self.id = ''.join(random.choice(string.ascii_lowercase) for _ in range(20))
     if 'id' in task_info:
@@ -60,11 +80,10 @@ class Task(object):
       self.retry_count = task_info['retry_count']
 
     if 'leaseTimestamp' in task_info:
-      if isinstance(task_info['leaseTimestamp'], datetime.datetime):
-        self.leaseTimestamp = task_info['leaseTimestamp']
-      else:
-        self.leaseTimestamp = datetime.datetime.utcfromtimestamp(
-          int(task_info['leaseTimestamp']) / 1000000.0)
+      self.leaseTimestamp = parse_timestamp(task_info['leaseTimestamp'])
+
+    if 'enqueueTimestamp' in task_info:
+      self.enqueueTimestamp = parse_timestamp(task_info['enqueueTimestamp'])
 
     self.validate_info()
 
@@ -84,37 +103,73 @@ class Task(object):
         raise InvalidTaskInfo(
           'Invalid task info: {}={}'.format(attribute, value))
 
+  def get_eta(self):
+    """ Returns the ETA for a task.
+
+    Raises:
+      InvalidTaskInfo if ETA information is not set.
+    """
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    if hasattr(self, 'leaseTimestamp') and self.leaseTimestamp != epoch:
+      return self.leaseTimestamp
+
+    try:
+      return self.enqueueTimestamp
+    except AttributeError:
+      raise InvalidTaskInfo('No ETA info for {}'.format(self))
+
+  def expired(self, max_retries):
+    """ Checks whether or not a task has expired.
+
+    Args:
+      max_retries: An integer specifying the queue's task retry limit.
+    Returns:
+      A boolean indicating whether or not the task has expired.
+    """
+    if self.retry_count < max_retries:
+      return False
+
+    if self.leaseTimestamp >= datetime.datetime.utcnow():
+      return False
+
+    return True
+
   def __repr__(self):
     """ Generates a string representation of the task.
 
     Returns:
       A string representing the task.
     """
-    attributes = {'id': self.id,
-                  'payload': self.payload}
-    attr_str = ', '.join('{}={}'.format(attr, val)
-                         for attr, val in attributes.iteritems())
-    return '<Task: {}>'.format(attr_str)
+    return '<Task: {}>'.format(self.id)
 
-  def json_safe_dict(self):
+  def json_safe_dict(self, fields=TASK_FIELDS):
     """ Generate a JSON-safe dictionary representation of the task.
 
+    Args:
+      fields: A list of fields to include in the response.
     Returns:
       A JSON-safe dictionary representing the task.
     """
-    task = {
-      'kind': 'taskqueues#task',
-      'id': self.id,
-      'payloadBase64': self.payload,
-      'retry_count': self.retry_count
-    }
+    task = {}
+
+    if 'kind' in fields:
+      task['kind'] = 'taskqueues#task'
+
+    if 'id' in fields:
+      task['id'] = self.id
+
+    if 'retry_count' in fields:
+      task['retry_count'] = self.retry_count
+
     # Timestamps are represented as microseconds since the epoch.
     epoch = datetime.datetime.utcfromtimestamp(0)
     for attribute in self.OPTIONAL_ATTRS:
-      if hasattr(self, attribute):
-        value = getattr(self, attribute)
-        if isinstance(value, datetime.datetime):
-          value = long((value - epoch).total_seconds() * 1000000)
-        task[attribute] = value
+      if attribute not in fields or not hasattr(self, attribute):
+        continue
+
+      value = getattr(self, attribute)
+      if isinstance(value, datetime.datetime):
+        value = long((value - epoch).total_seconds() * 1000000)
+      task[attribute] = value
 
     return task

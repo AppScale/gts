@@ -7,7 +7,7 @@ import unittest
 from flexmock import flexmock
 
 from appscale.taskqueue.queue import InvalidQueueConfiguration
-from appscale.taskqueue.queue import Queue
+from appscale.taskqueue.queue import PushQueue
 from appscale.taskqueue.tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
@@ -90,14 +90,14 @@ class TestTaskQueueConfig(unittest.TestCase):
     tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'default', 'rate': '5/s'},
                      {'name': 'foo', 'rate': '10/m'}]
-    expected_queues = {info['name']: Queue(info, app_id)
+    expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
     flexmock(file_io).should_receive("read").and_raise(IOError)
     tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'default', 'rate': '5/s'}]
-    expected_queues = {info['name']: Queue(info, app_id)
+    expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
@@ -106,7 +106,7 @@ class TestTaskQueueConfig(unittest.TestCase):
     tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'foo', 'rate': '10/m'},
                      {'name': 'default', 'rate': '5/s'}]
-    expected_queues = {info['name']: Queue(info, app_id)
+    expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
@@ -131,7 +131,7 @@ class TestTaskQueueConfig(unittest.TestCase):
        'name': 'mapreduce-workers',
        'retry_parameters': {'task_age_limit': '3d'}}
     ]
-    expected_queues = {info['name']: Queue(info, app_id)
+    expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
@@ -177,8 +177,8 @@ class TestTaskQueueConfig(unittest.TestCase):
     invalid_names = ['hello_hello5354', 'hello$hello', 'hello@hello',
                      'hello&hello', 'hello*hello', 'a'*101]
     for name in valid_names:
-      Queue({'name': name}, app_id)
+      PushQueue({'name': name}, app_id)
 
     for name in invalid_names:
       self.assertRaises(
-        InvalidQueueConfiguration, Queue, {'name': name}, app_id)
+        InvalidQueueConfiguration, PushQueue, {'name': name}, app_id)
