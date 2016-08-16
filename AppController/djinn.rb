@@ -3550,10 +3550,19 @@ class Djinn
     retries = 10
     loop {
       return if system("#{prime_script} --replication #{replication}")
-      Djinn.log_warn("Failed to prime database. #{retries} retries left.")
-      Kernel.sleep(SMALL_WAIT)
       retries -= 1
+      Djinn.log_warn("Failed to prime database. #{retries} retries left.")
+
+      # Run a repair and try to prime one more time.
+      if retries == 1
+        @state = 'Running a Cassandra repair.'
+        Djinn.log_warn(@state)
+        system("#{NODETOOL} repair")
+        next
+      end
+
       break if retries.zero?
+      Kernel.sleep(SMALL_WAIT)
     }
 
     @state = "Failed to prime #{table}."
