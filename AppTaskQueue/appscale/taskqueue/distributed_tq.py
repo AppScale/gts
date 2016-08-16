@@ -13,7 +13,9 @@ import sys
 import time
 import tq_lib
 
+from queue import PullQueue
 from queue import PushQueue
+from task import Task
 from tq_config import TaskQueueConfig
 from unpackaged import APPSCALE_DATASTORE
 from unpackaged import APPSCALE_LIB_DIR
@@ -451,7 +453,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def delete(self, app_id, http_data):
-    """ 
+    """ Delete a task.
 
     Args:
       app_id: The application ID.
@@ -459,13 +461,18 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.TaskQueueDeleteRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteResponse()
-    return (response.Encode(), 0, "")
+
+    queue = self.get_queue(app_id, request.queue_name())
+    for task_name in request.task_name_list():
+      queue.delete_task(Task({'id': task_name}))
+      response.add_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+
+    return response.Encode(), 0, ""
 
   def query_and_own_tasks(self, app_id, http_data):
-    """ 
+    """ Lease pull queue tasks.
 
     Args:
       app_id: The application ID.
@@ -473,10 +480,21 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
-    return (response.Encode(), 0, "")
+
+    queue = self.get_queue(app_id, request.queue_name())
+    tag = None
+    if request.has_tag():
+      tag = request.tag()
+
+    tasks = queue.lease_tasks(request.max_tasks(), request.lease_seconds(),
+                              group_by_tag=request.group_by_tag(), tag=tag)
+    for task in tasks:
+      task_pb = response.add_task()
+      task_pb.MergeFrom(task.encode_lease_pb())
+
+    return response.Encode(), 0, ""
 
   def add(self, app_id, http_data):
     """ Adds a single task to the task queue.
@@ -531,7 +549,7 @@ class DistributedTaskQueue():
    
     Args:
       request: taskqueue_service_pb.TaskQueueBulkAddRequest.
-      response: taskqueue_service_pb.TaskQUeueBulkAddResponse.
+      response: taskqueue_service_pb.TaskQueueBulkAddResponse.
     Raises:
       apiproxy_error.ApplicationError.
     """
@@ -542,8 +560,27 @@ class DistributedTaskQueue():
 
     # Assign names if needed and validate tasks.
     error_found = False
-    for add_request in request.add_request_list(): 
+    for add_request in request.add_request_list():
       task_result = response.add_taskresult()
+
+      if (add_request.has_mode() and
+          add_request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
+        queue = self.get_queue(add_request.app_id(), add_request.queue_name())
+        if not isinstance(queue, PullQueue):
+          task_result.set_result(
+            taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_MODE)
+          error_found = True
+
+        task_info = {'payloadBase64': add_request.body(),
+                     'leaseTimestamp': add_request.eta_usec()}
+        if add_request.has_task_name():
+          task_info['id'] = add_request.task_name()
+        if add_request.has_tag():
+          task_info['tag'] = add_request.tag()
+        queue.add_task(Task(task_info))
+        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+        continue
+
       result = tq_lib.verify_task_queue_add_request(add_request.app_id(),
                                                     add_request, now)
       # Tasks go from SKIPPED to OK once they're run. If there are
@@ -567,7 +604,11 @@ class DistributedTaskQueue():
 
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
-      try:  
+      if (add_request.has_mode() and
+          add_request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
+        continue
+
+      try:
         self.__enqueue_push_task(add_request)
       except apiproxy_errors.ApplicationError as error:
         task_result.set_result(error.application_error)
