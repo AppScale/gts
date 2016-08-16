@@ -3553,12 +3553,13 @@ class Djinn
       retries -= 1
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
 
-      # Run a repair and try to prime one more time.
+      # If this has failed 10 times in a row, it's probably a
+      # "Column ID mismatch" error that seems to be caused by creating tables
+      # as the cluster is settling. Running a repair may fix the issue.
       if retries == 1
         @state = 'Running a Cassandra repair.'
         Djinn.log_warn(@state)
         system("#{NODETOOL} repair")
-        next
       end
 
       break if retries.zero?
