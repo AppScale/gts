@@ -2172,7 +2172,7 @@ class Djinn
             "would put us over the user-specified limit of #{@options['max_images']} " +
             "VMs. Instead, spawning up #{allowed_vms}.")
           vms_to_spawn = allowed_vms
-          if vms_to_spawn.zero?
+          if vms_to_spawn <= 0
             Djinn.log_error("Reached the maximum number of VMs that we " +
               "can use in this cloud deployment, so not spawning more nodes.")
             return "Reached maximum number of VMs we can use."
