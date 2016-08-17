@@ -969,13 +969,15 @@ class Djinn
         next if app_name == "none"
         stats_str << "    Information for application: #{app_name}\n"
         stats_str << "        Language            : "
-        unless @app_info_map[app_name]['language'].nil?
-          stats_str << "#{@app_info_map[app_name]['language']}\n"
-        else
+        if @app_info_map[app_name]['language'].nil?
           stats_str << "Unknown\n"
+        else
+          stats_str << "#{@app_info_map[app_name]['language']}\n"
         end
         stats_str << "        Number of AppServers: "
-        unless @app_info_map[app_name]['appengine'].nil?
+        if @app_info_map[app_name]['appengine'].nil?
+          stats_str << "Unknown\n"
+        else
           running = 0
           pending = 0
           @app_info_map[app_name]['appengine'].each{ |location|
@@ -991,20 +993,18 @@ class Djinn
             stats_str << ", #{pending} pending"
           end
           stats_str << "\n"
-        else
-          stats_str << "Unknown\n"
         end
         stats_str << "        HTTP port           : "
-        unless @app_info_map[app_name]['nginx'].nil?
-          stats_str << "#{@app_info_map[app_name]['nginx']}\n"
-        else
+        if @app_info_map[app_name]['nginx'].nil?
           stats_str << "Unknown\n"
+        else
+          stats_str << "#{@app_info_map[app_name]['nginx']}\n"
         end
         stats_str << "        HTTPS port          : "
-        unless @app_info_map[app_name]['nginx_https'].nil?
-          stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
-        else
+        if @app_info_map[app_name]['nginx_https'].nil?
           stats_str << "Unknown\n"
+        else
+          stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
         end
       }
     end
@@ -4129,32 +4129,32 @@ HOSTS
 
       # Check that we have the application information needed to
       # regenerate the routing configuration.
-      if @app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
-          @app_info_map[app]['nginx_https'].nil? or
-          @app_info_map[app]['haproxy'].nil? or
-          @app_info_map[app]['appengine'].nil?
-        Djinn.log_debug("Skipping routing for #{app} until all parameters are set.")
-        next
+      running = false
+      unless (@app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
+              @app_info_map[app]['nginx_https'].nil? or
+              @app_info_map[app]['haproxy'].nil? or
+              @app_info_map[app]['appengine'].nil?)
+        http_port = @app_info_map[app]['nginx']
+        https_port = @app_info_map[app]['nginx_https']
+        proxy_port = @app_info_map[app]['haproxy']
+        Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
+          "port #{http_port}, https port #{https_port}, and haproxy port " +
+          "#{proxy_port}.")
+
+        # Let's see if we already have any AppServers running for this
+        # application.
+        @app_info_map[app]['appengine'].each { |location|
+          host, port = location.split(":")
+          next if Integer(port) < 0
+          running = true
+          break
+        }
       end
 
-      http_port = @app_info_map[app]['nginx']
-      https_port = @app_info_map[app]['nginx_https']
-      proxy_port = @app_info_map[app]['haproxy']
-      Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
-        "port #{http_port}, https port #{https_port}, and haproxy port " +
-        "#{proxy_port}.")
-
-      # Let's see if we already have any AppServers running for this
-      # application.
-      running = false
-      @app_info_map[app]['appengine'].each { |location|
-        _host, port = location.split(":")
-        next if Integer(port) < 0
-        running = true
-        break
-      }
       unless running
-        Djinn.log_debug("Skipping routing for #{app} since no appserver is running.")
+        Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
+        Nginx.remove_app(app)
+        HAProxy.remove_app(app)
         next
       end
 
