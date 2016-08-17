@@ -4457,22 +4457,20 @@ HOSTS
     @state = "Starting AppDashboard"
     Djinn.log_info("Starting AppDashboard")
 
-    Thread.new{
-      my_public = my_node.public_ip
-      my_private = my_node.private_ip
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
 
-      AppDashboard.start(my_public, my_private,
-          PERSISTENT_MOUNT_POINT, @@secret)
-      setup_app_dir(AppDashboard::APP_NAME, true)
-      APPS_LOCK.synchronize {
-        @app_info_map[AppDashboard::APP_NAME] = {
-            'nginx' => AppDashboard::LISTEN_PORT,
-            'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
-            'haproxy' => AppDashboard::PROXY_PORT,
-            'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
-                            "#{my_private}:-1"],
-            'language' => AppDashboard::APP_LANGUAGE
-        }
+    AppDashboard.start(my_public, my_private,
+        PERSISTENT_MOUNT_POINT, @@secret)
+    setup_app_dir(AppDashboard::APP_NAME, true)
+    APPS_LOCK.synchronize {
+      @app_info_map[AppDashboard::APP_NAME] = {
+          'nginx' => AppDashboard::LISTEN_PORT,
+          'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
+          'haproxy' => AppDashboard::PROXY_PORT,
+          'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
+                          "#{my_private}:-1"],
+          'language' => AppDashboard::APP_LANGUAGE
       }
     }
   end
