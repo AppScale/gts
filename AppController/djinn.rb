@@ -1506,10 +1506,6 @@ class Djinn
     app_name.gsub!(/[^\w\d\-]/, "")
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
-    # Prevent future deploys from using the old application code.
-    FileUtils.rm_rf("#{HelperFunctions.get_app_path(app_name)}")
-    FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
-    CronHelper.clear_app_crontab(app_name)
 
     # Since stopping an application can take some time, we do it in a
     # thread.
@@ -1529,18 +1525,18 @@ class Djinn
 
       # If this node has any information about AppServers for this app,
       # clear that information out.
-      @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
+      APPS_LOCK.synchronize {
+        @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
+        @apps_loaded = @apps_loaded - [app_name]
+        @app_names = @app_names - [app_name]
+        @apps_loaded << "none" if @apps_loaded.empty?
+        @app_names << "none" if @app_names.empty?
+      }
 
-      @apps_loaded = @apps_loaded - [app_name]
-      @app_names = @app_names - [app_name]
-
-      if @apps_loaded.empty?
-        @apps_loaded << "none"
-      end
-
-      if @app_names.empty?
-        @app_names << "none"
-      end
+      # Prevent future deploys from using the old application code.
+      FileUtils.rm_rf("#{HelperFunctions.get_app_path(app_name)}")
+      FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
+      CronHelper.clear_app_crontab(app_name)
     }
 
     return "true"
@@ -1616,7 +1612,7 @@ class Djinn
     Djinn.log_info("Received request to update these apps: #{app_names.join(', ')}.")
 
     # Begin by marking the apps that should be running.
-    current_apps_uploaded = @apps_loaded
+    APPS_LOCK.synchronize { current_apps_uploaded = @apps_loaded }
     Djinn.log_debug("Running apps: #{app_names.join(', ')}.")
 
     # Get a list of the apps we need to restart.
@@ -4136,7 +4132,7 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
-    apps_to_check = @apps_loaded + RESERVED_APPS
+    APPS_LOCK.synchronize { apps_to_check = @apps_loaded + RESERVED_APPS }
     apps_to_check.each { |app|
       next if app == "none"
 
@@ -4147,10 +4143,12 @@ HOSTS
         unless (@app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
                 @app_info_map[app]['nginx_https'].nil? or
                 @app_info_map[app]['haproxy'].nil? or
-                @app_info_map[app]['appengine'].nil?)
+                @app_info_map[app]['appengine'].nil? or
+                @app_info_map[app]['language'].nil?)
           http_port = @app_info_map[app]['nginx']
           https_port = @app_info_map[app]['nginx_https']
           proxy_port = @app_info_map[app]['haproxy']
+          app_language = @app_info_map[app]['language']
           Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
             "port #{http_port}, https port #{https_port}, and haproxy port " +
             "#{proxy_port}.")
@@ -4164,7 +4162,6 @@ HOSTS
             break
           }
         end
-        app_language = @app_info_map[app]['language']
 
         unless running
           Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
@@ -5900,44 +5897,51 @@ HOSTS
     # Combine all useful stats and return.
     all_stats = system_stats
     all_stats["apps"] = {}
-    if my_node.is_shadow? and !app_info_map.nil?
-      @apps_loaded.each { |app_name|
-        next if app_name == "none"
-
-        # Get HAProxy requests.
-        Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-        total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
-        # Create the apps hash with useful information containing HAProxy stats.
-        begin
-          appservers = 0
-          pending = 0
-          if collection_time == :no_backend
-            total_reqs = 0
-            reqs_enqueued = 0
-          else
-            @app_info_map[app_name]['appengine'].each{ |location|
-              host, port = location.split(":")
-              if Integer(port) > 0
-                appservers += 1
-              else
-                pending += 1
-              end
-            }
+    if my_node.is_shadow?
+      APPS_LOCK.synchronize {
+        @apps_loaded.each { |app_name|
+          next if app_name == "none"
+          if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
+            Djinn.log_debug("#{app_name} not setup yet: skipping getting stats.")
+            next
           end
-          all_stats["apps"][app_name] = {
-            "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
-            "appservers" => appservers,
-            "pending_appservers" => pending,
-            "http" => @app_info_map[app_name]["nginx"],
-            "https" => @app_info_map[app_name]["nginx_https"],
-            "total_reqs" => total_reqs,
-            "reqs_enqueued" => reqs_enqueued
-          }
-        rescue => exception
-          backtrace = exception.backtrace.join("\n")
-          message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
-          Djinn.log_warn("Unable to get application stats: #{message}")
-        end
+
+          # Get HAProxy requests.
+          Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
+          total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+          # Create the apps hash with useful information containing HAProxy stats.
+          begin
+            appservers = 0
+            pending = 0
+            if collection_time == :no_backend
+              total_reqs = 0
+              reqs_enqueued = 0
+            else
+
+              @app_info_map[app_name]['appengine'].each{ |location|
+                host, port = location.split(":")
+                if Integer(port) > 0
+                  appservers += 1
+                else
+                  pending += 1
+                end
+              }
+            end
+            all_stats["apps"][app_name] = {
+              "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
+              "appservers" => appservers,
+              "pending_appservers" => pending,
+              "http" => @app_info_map[app_name]["nginx"],
+              "https" => @app_info_map[app_name]["nginx_https"],
+              "total_reqs" => total_reqs,
+              "reqs_enqueued" => reqs_enqueued
+            }
+          rescue => exception
+            backtrace = exception.backtrace.join("\n")
+            message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+            Djinn.log_warn("Unable to get application stats: #{message}")
+          end
+        }
       }
     end
 
