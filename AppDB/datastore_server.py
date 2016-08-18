@@ -4472,12 +4472,13 @@ def main(argv):
           datastore API:" + db_type
     sys.exit(1)
  
-  datastore_batch = appscale_datastore_batch.DatastoreFactory.\
-                                             getDatastore(db_type)
-  zookeeper = zk.ZKTransaction(host=zookeeper_locations)
+  datastore_batch = DatastoreFactory.getDatastore(
+    db_type, log_level=logger.getEffectiveLevel())
+  zookeeper = zk.ZKTransaction(
+    host=zookeeper_locations, start_gc=True, db_access=datastore_batch)
 
-  datastore_access = DatastoreDistributed(datastore_batch,
-    zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
+  datastore_access = DatastoreDistributed(
+    datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
   if port == DEFAULT_SSL_PORT and not is_encrypted:
     port = DEFAULT_PORT
 

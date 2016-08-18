@@ -135,7 +135,7 @@ class ZKTransaction:
   # When we have this many failures trying to connect to ZK, abort execution.
   MAX_CONNECTION_FAILURES = 10 
 
-  def __init__(self, host=DEFAULT_HOST, start_gc=True):
+  def __init__(self, host=DEFAULT_HOST, start_gc=False, db_access=None):
     """ Creates a new ZKTransaction, which will communicate with Zookeeper
     on the given host.
 
@@ -169,6 +169,8 @@ class ZKTransaction:
     self.gc_cv = threading.Condition()
     if start_gc:
       self.start_gc()
+
+    self.db_access = db_access
 
   def start_gc(self):
     """ Starts a new thread that cleans up failed transactions.
