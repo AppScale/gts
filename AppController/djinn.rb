@@ -765,7 +765,7 @@ class Djinn
   # Validates and sets the instance variables that Djinn needs before it can
   # begin configuring and deploying services on a given node (and if it is the
   # first Djinn, starting up the other Djinns).
-  def set_parameters(djinn_locations, database_credentials, app_names, secret)
+  def set_parameters(djinn_locations, database_credentials, apps, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     if djinn_locations.class != String
@@ -783,9 +783,8 @@ class Djinn
       return msg
     end
 
-    if app_names.class != Array
-      msg = "Error: app_names wasn't an Array, but was a " +
-        app_names.class.to_s
+    if apps.class != Array
+      msg = "Error: apps wasn't an Array, but was a " + apps.class.to_s
       Djinn.log_error(msg)
       return msg
     end
@@ -808,7 +807,7 @@ class Djinn
 
     keyname = possible_credentials["keyname"]
     @options = possible_credentials
-    @app_names = app_names
+    @app_names = apps
 
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     converted_nodes = convert_fqdns_to_ips(nodes)
@@ -956,12 +955,12 @@ class Djinn
     STATUS
 
     if my_node.is_shadow?
-      app_names = []
+      apps = []
       stats['apps'].each { |key, _|
-        app_names << key
+        apps << key
       }
 
-      stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
+      stats_str << "    Hosting the following apps: #{apps.join(', ')}\n"
 
       stats['apps'].each { |app_name, is_loaded|
         next unless is_loaded
@@ -1591,37 +1590,35 @@ class Djinn
     end
   end
 
-  def update(app_names, secret)
+  def update(apps, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Few sanity checks before acting.
     unless my_node.is_shadow?
-       Djinn.log_debug("Sending update call for #{app_names} to shadow.")
+       Djinn.log_debug("Sending update call for #{apps} to shadow.")
        acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
        begin
-         return acc.update(app_names)
+         return acc.update(apps)
        rescue FailedNodeException => except
          Djinn.log_warn("Failed to forward update call to shadow (#{get_shadow}).")
          return NOT_READY
        end
     end
-    if app_names.class != Array
-      return "app_names was not an Array but was a #{app_names.class}."
+    if apps.class != Array
+      return "apps was not an Array but was a #{apps.class}."
     end
 
-    Djinn.log_info("Received request to update these apps: #{app_names.join(', ')}.")
+    Djinn.log_info("Received request to update these apps: #{apps.join(', ')}.")
 
     # Begin by marking the apps that should be running.
     apps_to_restart = []
     APPS_LOCK.synchronize {
-      current_apps_uploaded = @apps_loaded
-
       # Get a list of the apps we need to restart.
-      apps_to_restart = current_apps_uploaded & app_names
+      apps_to_restart = @apps_loaded & apps
       Djinn.log_debug("Apps to restart are #{apps_to_restart}").
 
       # Next, check if the language of the application is correct.
-      app_names.each{ |app|
+      apps.each{ |app|
         if @app_info_map[app] && @app_info_map[app]['language']
           if @app_info_map[app]['language'] != get_app_language(app)
             apps_to_restart.delete(app)
@@ -1666,7 +1663,7 @@ class Djinn
     APPS_LOCK.synchronize {
       # Since we have at least one application running, we don't need to
       # display anymore 'none' as the list of running applications.
-      @app_names |= app_names
+      @app_names |= apps
       @app_names = @app_names - ["none"]
     }
     Djinn.log_debug("Done updating apps!")
