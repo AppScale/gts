@@ -918,7 +918,7 @@ class Djinn
       @options['max_images'] = Integer(@options['min_images'])
     end
 
-    # We need to make sure our nodes is listed in the started nodes.
+    # We need to make sure this node is listed in the started nodes.
     find_me_in_locations()
     return "Error: Couldn't find me in the node map" if @my_index.nil?
 
