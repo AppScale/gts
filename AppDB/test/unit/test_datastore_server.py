@@ -16,6 +16,10 @@ from google.appengine.ext import db
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import dbconstants
 
+from cassandra_env.cassandra_interface import DatastoreProxy
+from cassandra_env.cassandra_interface import deletions_for_entity
+from cassandra_env.cassandra_interface import index_deletions
+from cassandra_env.cassandra_interface import mutations_for_entity
 from datastore_server import DatastoreDistributed
 from datastore_server import ID_KEY_LENGTH
 from datastore_server import TOMBSTONE
@@ -765,14 +769,14 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
     dd = DatastoreDistributed(db_batch, None)
-    self.assertListEqual([], dd.index_deletions(old_entity, old_entity))
+    self.assertListEqual([], index_deletions(old_entity, old_entity))
 
     # When a property changes, the previous index entries should be deleted.
     new_entity = entity_pb.EntityProto()
     new_entity.MergeFrom(old_entity)
     new_entity.property_list()[0].value().set_stringvalue('updated content')
 
-    deletions = dd.index_deletions(old_entity, new_entity)
+    deletions = index_deletions(old_entity, new_entity)
     self.assertEqual(len(deletions), 2)
     self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
     self.assertEqual(deletions[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
@@ -799,7 +803,7 @@ class TestDatastoreServer(unittest.TestCase):
     prop2 = definition.add_property()
     prop2.set_name('author')
     prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
-    deletions = dd.index_deletions(old_entity, new_entity, (composite_index,))
+    deletions = index_deletions(old_entity, new_entity, (composite_index,))
     self.assertEqual(len(deletions), 3)
     self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
     self.assertEqual(deletions[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
@@ -807,7 +811,7 @@ class TestDatastoreServer(unittest.TestCase):
 
     # No composite deletions should occur when the entity type differs.
     definition.set_entity_type('TestEntity')
-    deletions = dd.index_deletions(old_entity, new_entity, (composite_index,))
+    deletions = index_deletions(old_entity, new_entity, (composite_index,))
     self.assertEqual(len(deletions), 2)
 
   def test_deletions_for_entity(self):
@@ -817,7 +821,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
     dd = DatastoreDistributed(db_batch, None)
-    deletions = dd.deletions_for_entity(entity)
+    deletions = deletions_for_entity(entity)
     self.assertEqual(len(deletions), 4)
     self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
     self.assertEqual(deletions[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
@@ -842,7 +846,7 @@ class TestDatastoreServer(unittest.TestCase):
     prop2 = definition.add_property()
     prop2.set_name('author')
     prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
-    deletions = dd.deletions_for_entity(entity, (composite_index,))
+    deletions = deletions_for_entity(entity, (composite_index,))
     self.assertEqual(len(deletions), 7)
     self.assertEqual(deletions[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
     self.assertEqual(deletions[1]['table'], dbconstants.ASC_PROPERTY_TABLE)
@@ -860,7 +864,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
     dd = DatastoreDistributed(db_batch, None)
-    mutations = dd.mutations_for_entity(entity, txn)
+    mutations = mutations_for_entity(entity, txn)
     self.assertEqual(len(mutations), 4)
     self.assertEqual(mutations[0]['table'], dbconstants.APP_ENTITY_TABLE)
     self.assertEqual(mutations[1]['table'], dbconstants.APP_KIND_TABLE)
@@ -872,7 +876,7 @@ class TestDatastoreServer(unittest.TestCase):
     new_entity = entity_pb.EntityProto()
     new_entity.MergeFrom(entity)
     new_entity.property_list()[0].value().set_stringvalue('updated content')
-    mutations = dd.mutations_for_entity(entity, txn, new_entity)
+    mutations = mutations_for_entity(entity, txn, new_entity)
     self.assertEqual(len(mutations), 6)
     self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
     self.assertEqual(mutations[0]['operation'], dbconstants.TxnActions.DELETE)
@@ -909,8 +913,8 @@ class TestDatastoreServer(unittest.TestCase):
     prop2.set_name('author')
     prop1.set_direction(datastore_pb.Query_Order.ASCENDING)
 
-    mutations = dd.mutations_for_entity(entity, txn, new_entity,
-                                        (composite_index,))
+    mutations = mutations_for_entity(entity, txn, new_entity,
+                                     (composite_index,))
     self.assertEqual(len(mutations), 10)
     self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
     self.assertEqual(mutations[0]['operation'], dbconstants.TxnActions.DELETE)
@@ -962,7 +966,7 @@ class TestDatastoreServer(unittest.TestCase):
     prefix = dd.get_table_prefix(entity.key())
     entity_key = dd.get_entity_key(prefix, entity.key().path())
     encoded_path = str(
-      dd._DatastoreDistributed__encode_index_pb(entity.key().path()))
+      dd.encode_index_pb(entity.key().path()))
     txn_keys = [dd._SEPARATOR.join([app, txn_str, '', encoded_path])]
     txn_values = {
       txn_keys[0]: {
@@ -995,7 +999,7 @@ class TestDatastoreServer(unittest.TestCase):
 
     entities = [entity]
     encoded_path = str(
-      dd._DatastoreDistributed__encode_index_pb(entity.key().path()))
+      dd.encode_index_pb(entity.key().path()))
     txn_keys = [dd._SEPARATOR.join([app, txn_str, '', encoded_path])]
     txn_values = {
       txn_keys[0]: {
