@@ -431,10 +431,7 @@ class DatastoreProxy(AppDBInterface):
     """
     statement = """
       DELETE FROM "{table}" WHERE {key} = ?
-    """.format(table=table,
-               key=ThriftColumn.KEY,
-               column=ThriftColumn.COLUMN_NAME,
-               value=ThriftColumn.VALUE)
+    """.format(table=table, key=ThriftColumn.KEY)
     return self.session.prepare(statement)
 
   def batch_mutate(self, mutations):
