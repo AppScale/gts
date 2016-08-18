@@ -5,6 +5,7 @@ import os
 import sys
 import unittest
 
+from cassandra.cluster import Cluster
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
@@ -340,17 +341,18 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEquals(len(putresp_pb.key_list()), 2)
 
   def test_put_entities(self):
+    app_id = 'test'
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
 
     zookeeper = flexmock()
     zookeeper.should_receive("acquire_lock").and_return(True)
 
-    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
-                                              "prop1val", ns="blah")
+    entity_proto1 = self.get_new_entity_proto(
+      app_id, "test_kind", "bob", "prop1name", "prop1val", ns="blah")
     entity_key1 = 'test\x00blah\x00test_kind:bob\x01'
-    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
-                                              "prop2val", ns="blah")
+    entity_proto2 = self.get_new_entity_proto(
+      app_id, "test_kind", "nancy", "prop1name", "prop2val", ns="blah")
     entity_key2 = 'test\x00blah\x00test_kind:nancy\x01'
     entity_list = [entity_proto1, entity_proto2]
 
@@ -360,8 +362,8 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, zookeeper)
 
     # Make sure it does not throw an exception
-    dd.put_entities(entity_list, {"test\x00blah\x00test_kind:bob\x01":1,
-      "test\x00blah\x00test_kind:nancy\x01":1})
+    txn_hash = {entity_key1: 1, entity_key2: 1}
+    dd.put_entities(app_id, entity_list, txn_hash)
 
   def test_acquire_locks_for_trans(self):
     db_batch = flexmock()
@@ -408,6 +410,7 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertRaises(ZKTransactionException, dd.acquire_locks_for_trans, [entity], 1)
          
   def test_acquire_locks_for_nontrans(self):
+    app_id = 'test'
     PREFIX = 'x\x01'
     zookeeper = flexmock()
     zookeeper.should_receive("acquire_lock").and_return(True)
@@ -418,20 +421,21 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
     db_batch.should_receive("batch_delete").and_return(None)
     dd = DatastoreDistributed(db_batch, zookeeper) 
-    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
-                                              "prop1val", ns="blah")
-    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
-                                              "prop2val", ns="blah")
+    entity_proto1 = self.get_new_entity_proto(
+      app_id, 'test_kind', "bob", "prop1name", "prop1val", ns="blah")
+    entity_proto2 = self.get_new_entity_proto(
+      app_id, "test_kind", "nancy", "prop1name", "prop2val", ns="blah")
     entity_list = [entity_proto1, entity_proto2]
     self.assertEquals({'test\x00blah\x00test_kind:bob\x01': 2, 'test\x00blah\x00test_kind:nancy\x01': 1}, 
                       dd.acquire_locks_for_nontrans("test", entity_list))
 
   def test_delete_entities(self):
-    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
-                                              "prop1val", ns="blah")
+    app_id = 'test'
+    entity_proto1 = self.get_new_entity_proto(
+      app_id, "test_kind", "bob", "prop1name", "prop1val", ns="blah")
     row_key = "test\x00blah\x00test_kind:bob\x01"
-    row_values = {row_key:{APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
-                         APP_ENTITY_SCHEMA[1]: '1'}}
+    row_values = {row_key: {APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
+                            APP_ENTITY_SCHEMA[1]: '1'}}
 
     zookeeper = flexmock()
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
@@ -444,7 +448,9 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, zookeeper) 
 
     row_keys = [entity_proto1.key()]
-    dd.delete_entities(row_keys)
+
+    txn_hash = {row_key: 1}
+    dd.delete_entities(app_id, row_keys, txn_hash)
      
   def test_release_put_locks_for_nontrans(self):
     zookeeper = flexmock()

@@ -1059,11 +1059,12 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, entities, txn_hash, composite_indexes=()):
+  def put_entities(self, app, entities, txn_hash, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
+      app: A string containing the application ID.
       entities: List of entities.
       txn_hash: A mapping of root keys to transaction IDs.
       composite_indexes: A list or tuple of CompositeIndex objects.
@@ -1093,11 +1094,13 @@ class DatastoreDistributed():
         entity, txn, current_value, composite_indexes)
       self.datastore_batch.batch_mutate(batch)
 
-  def delete_entities(self, keys, composite_indexes=()):
+  def delete_entities(self, app, keys, txn_hash, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
 
     Args:
+      app: A string containing the application ID.
       keys: A list of keys to be deleted.
+      txn_hash: A mapping of root keys to transaction IDs.
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
     entity_keys = []
@@ -1113,11 +1116,14 @@ class DatastoreDistributed():
       if not current_values[key]:
         continue
 
+      root_key = self.get_root_key_from_entity_key(key)
+      txn = txn_hash[root_key]
+
       current_value = entity_pb.EntityProto(
         current_values[key][APP_ENTITY_SCHEMA[0]])
       batch = cassandra_env.cassandra_interface.deletions_for_entity(
         current_value, composite_indexes)
-      self.datastore_batch.batch_mutate(batch)
+      self.datastore_batch.batch_mutate(app, batch, [entity_change], txn)
 
   def delete_entities_txn(self, app, keys, txn_hash):
     """ Updates the transaction table with entities to delete.
@@ -1204,7 +1210,7 @@ class DatastoreDistributed():
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
           retries=self.NON_TRANS_LOCK_RETRY_COUNT)
-        self.put_entities(entities, txn_hash,
+        self.put_entities(app_id, entities, txn_hash,
                           put_request.composite_index_list())
         self.logger.debug('Updated {} entities'.format(len(entities)))
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
@@ -1498,7 +1504,9 @@ class DatastoreDistributed():
       )
     else:
       self.delete_entities(
+        app_id,
         keys,
+        txn_hash,
         composite_indexes=filtered_indexes
       )
       self.logger.debug('Removed {} entities'.format(len(keys)))
@@ -3728,7 +3736,7 @@ class DatastoreDistributed():
           entity, txn, current_value, composite_indices)
         batch.extend(mutations)
 
-    self.datastore_batch.batch_mutate(batch)
+    self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
