@@ -1621,7 +1621,11 @@ class Djinn
 
     # Next, check if the language of the application is correct.
     app_names.each{ |app|
-      if check_app_language(app) == INVALID_REQUEST
+      APPS_LOCK.synchronize {
+        next unless @app_info_map[app]['language']
+        app_language = @app_info_map[app]['language']
+      }
+      if app_language != get_app_language(app)
         apps_to_restart.delete(app)
         stop_app(app, @@secret)
         Djinn.log_error("Disabled #{app} since language doesn't match our record.")
@@ -1833,7 +1837,11 @@ class Djinn
       check_stopped_app()
 
       # Login nodes may need to check/update nginx/haproxy.
-      regenerate_routing_config() if my_node.is_load_balancer?
+      if my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
+          regenerate_routing_config()
+        }
+      end
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -4132,56 +4140,54 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
-    APPS_LOCK.synchronize { apps_to_check = @apps_loaded + RESERVED_APPS }
+    apps_to_check = @apps_loaded + RESERVED_APPS
     apps_to_check.each { |app|
       next if app == "none"
 
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       running = false
-      APPS_LOCK.synchronize {
-        unless (@app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
-                @app_info_map[app]['nginx_https'].nil? or
-                @app_info_map[app]['haproxy'].nil? or
-                @app_info_map[app]['appengine'].nil? or
-                @app_info_map[app]['language'].nil?)
-          http_port = @app_info_map[app]['nginx']
-          https_port = @app_info_map[app]['nginx_https']
-          proxy_port = @app_info_map[app]['haproxy']
-          app_language = @app_info_map[app]['language']
-          Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
-            "port #{http_port}, https port #{https_port}, and haproxy port " +
-            "#{proxy_port}.")
+      unless (@app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
+              @app_info_map[app]['nginx_https'].nil? or
+              @app_info_map[app]['haproxy'].nil? or
+              @app_info_map[app]['appengine'].nil? or
+              @app_info_map[app]['language'].nil?)
+        http_port = @app_info_map[app]['nginx']
+        https_port = @app_info_map[app]['nginx_https']
+        proxy_port = @app_info_map[app]['haproxy']
+        app_language = @app_info_map[app]['language']
+        Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
+          "port #{http_port}, https port #{https_port}, and haproxy port " +
+          "#{proxy_port}.")
 
-          # Let's see if we already have any AppServers running for this
-          # application.
-          @app_info_map[app]['appengine'].each { |location|
-            host, port = location.split(":")
-            next if Integer(port) < 0
-            running = true
-            break
-          }
-        end
+        # Let's see if we already have any AppServers running for this
+        # application.
+        @app_info_map[app]['appengine'].each { |location|
+          host, port = location.split(":")
+          next if Integer(port) < 0
+          running = true
+          break
+        }
+      end
 
-        unless running
-          Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
-          Nginx.remove_app(app)
-          HAProxy.remove_app(app)
-          next
-        end
+      unless running
+        Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
+        Nginx.remove_app(app)
+        HAProxy.remove_app(app)
+        next
+      end
 
-        begin
-          static_handlers = HelperFunctions.parse_static_data(app)
-        rescue => except
-          # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-            "Exception of #{except.class} with message #{except.message}"
-          place_error_app(app, error_msg, app_language)
-          static_handlers = []
-        end
+      begin
+        static_handlers = HelperFunctions.parse_static_data(app)
+      rescue => except
+        # This specific exception may be a JSON parse error.
+        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
+          "Exception of #{except.class} with message #{except.message}"
+        place_error_app(app, error_msg, app_language)
+        static_handlers = []
+      end
 
-        HAProxy.update_app_config(my_private, app, @app_info_map[app])
-      }
+      HAProxy.update_app_config(my_private, app, @app_info_map[app])
 
       # If nginx config files have been updated, we communicate the app's
       # ports to the UserAppServer to make sure we have the latest info.
@@ -4475,8 +4481,8 @@ HOSTS
 
     AppDashboard.start(my_public, my_private,
         PERSISTENT_MOUNT_POINT, @@secret)
+    setup_app_dir(AppDashboard::APP_NAME, true)
     APPS_LOCK.synchronize {
-      setup_app_dir(AppDashboard::APP_NAME, true)
       @app_info_map[AppDashboard::APP_NAME] = {
           'nginx' => AppDashboard::LISTEN_PORT,
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
@@ -4674,7 +4680,7 @@ HOSTS
         if my_node.is_shadow?
           if !info['nginx'].nil? and !info['language'].nil?
             CronHelper.update_cron(get_load_balancer_ip(),
-              info[app]['nginx'], info[app]['language'], app)
+              info['nginx'], info['language'], app)
           end
         end
 
@@ -4768,12 +4774,16 @@ HOSTS
 
         # We then start or terminate AppServers as needed.
         if !no_appservers[0].nil?
-          Djinn.log_info("Starting first AppServer for app: #{no_appservers[0]}.")
-          ret = add_appserver_process(no_appservers[0])
+          app = no_appservers[0]
+          Djinn.log_info("Starting first AppServer for app: #{app}.")
+          ret = add_appserver_process(app, @app_info_map[app]['nginx'],
+            @app_info_map[app]['nginx_https'], @app_info_map[app]['language'])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_start[0].nil?
-          Djinn.log_info("Starting AppServer for app: #{to_start[0]}.")
-          ret = add_appserver_process(to_start[0])
+          app = to_start[0]
+          Djinn.log_info("Starting AppServer for app: #{app}.")
+          ret = add_appserver_process(app, @app_info_map[app]['nginx'],
+            @app_info_map[app]['nginx_https'], @app_info_map[app]['language'])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_end[0].nil?
           Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
@@ -4785,14 +4795,14 @@ HOSTS
     }
   end
 
-  # This functions check the language of the application both in what we
-  # recorded in the metadata and in app_info_map.
+  # This functions returns the language of the application as recorded in
+  # the metadata.
+  # Args
+  #   app: A String naming the application.
   # Returns:
   #   language: returns python27, java, php or go depending on the
-  #       language of the app, or INVALID_REQUEST in case there is a
-  #       discrepancy between the language recorded in the project and the
-  #       one in the uploaded application.
-  def check_app_language(app)
+  #       language of the app
+  def get_app_language(app)
     app_language = ""
 
     # Let's get the application language as we have in the metadata (this
@@ -4817,16 +4827,6 @@ HOSTS
       Kernel.sleep(SMALL_WAIT)
     }
 
-    # If the language of the application changed, we disable the app since
-    # it may cause some datastore corruption. User will have to create a
-    # new ID.
-    unless @app_info_map[app].nil?
-      if @app_info_map[app]['language'] and @app_info_map[app]['language'] != app_language
-        Djinn.log_warn("Application #{app} changed language!")
-        return INVALID_REQUEST
-      end
-    end
-
     return app_language
   end
 
@@ -4841,13 +4841,7 @@ HOSTS
 
     # Let's create an entry for the application if we don't already have it.
     @app_info_map[app] = {} if @app_info_map[app].nil?
-    @app_info_map[app]['language'] = check_app_language(app)
-    if @app_info_map[app]['language'] == INVALID_REQUEST
-      # We shoulnd't be here at all!
-      Djinn.log_error("Failed to get language for #{app}!")
-      stop_app(app, @@secret)
-      return
-    end
+    @app_info_map[app]['language'] = get_app_language(app)
 
     # Use already assigned ports, or otherwise assign new ports to the
     # application.
@@ -5427,8 +5421,7 @@ HOSTS
 
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
-      place_error_app(app, error_msg, @app_info_map[app]['language'])
-      @app_info_map[app]['language'] = "python27"
+      place_error_app(app, error_msg, get_app_language(app))
     else
       # Make sure we advertize that this node is hosting the app code.
       result = done_uploading(app, app_path, @@secret)
@@ -5440,29 +5433,20 @@ HOSTS
   # Starts a new AppServer for the given application.
   #
   # Args:
-  #   app_id: A String naming the application that an additional instance will
+  #   app: A String naming the application that an additional instance will
   #     be added for.
-  #   secret: A String that is used to authenticate the caller.
-  #
+  #   nginx_port: A String or Fixnum that names the port that should be used to
+  #     serve HTTP traffic for this app.
+  #   https_port: A String or Fixnum that names the port that should be used to
+  #     serve HTTPS traffic for this app.
+  #   app_language: A String naming the language of the application.
   # Returns:
   #   A Boolean to indicate if the AppServer was successfully started.
-  def add_appserver_process(app)
+  def add_appserver_process(app, nginx_port, https_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
-    APPS_LOCK.synchronize {
-      if @app_info_map[app].nil? or @app_info_map[app]['language'].nil?
-        Djinn.log_warn "add_appserver_process: #{app} is unknown."
-        return false
-      end
-
-      # Make sure we have the application code.
-      setup_app_dir(app)
-
-      # We use the ports as assigned by the head node.
-      nginx_port = @app_info_map[app]['nginx']
-      https_port = @app_info_map[app]['nginx_https']
-      app_language = @app_info_map[app]['language']
-    }
+    # Make sure we have the application code.
+    setup_app_dir(app)
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
