@@ -24,7 +24,7 @@ class ZKTimeoutException(Exception):
 ZOO_ACL_OPEN = None
 
 # The number of seconds to wait before we consider a transaction to be failed.
-TX_TIMEOUT = 30
+TX_TIMEOUT = 60
 
 # The number of seconds to wait between invocations of the transaction
 # garbage collector.
