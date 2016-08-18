@@ -1612,24 +1612,24 @@ class Djinn
     Djinn.log_info("Received request to update these apps: #{app_names.join(', ')}.")
 
     # Begin by marking the apps that should be running.
-    APPS_LOCK.synchronize { current_apps_uploaded = @apps_loaded }
-    Djinn.log_debug("Running apps: #{app_names.join(', ')}.")
+    apps_to_restart = []
+    APPS_LOCK.synchronize {
+      current_apps_uploaded = @apps_loaded
 
-    # Get a list of the apps we need to restart.
-    apps_to_restart = current_apps_uploaded & app_names
-    Djinn.log_debug("Apps to restart are #{apps_to_restart}")
+      # Get a list of the apps we need to restart.
+      apps_to_restart = current_apps_uploaded & app_names
+      Djinn.log_debug("Apps to restart are #{apps_to_restart}").
 
-    # Next, check if the language of the application is correct.
-    app_names.each{ |app|
-      APPS_LOCK.synchronize {
-        next unless @app_info_map[app]['language']
-        app_language = @app_info_map[app]['language']
+      # Next, check if the language of the application is correct.
+      app_names.each{ |app|
+        if @app_info_map[app] && @app_info_map[app]['language']
+          if @app_info_map[app]['language'] != get_app_language(app)
+            apps_to_restart.delete(app)
+            stop_app(app, @@secret)
+            Djinn.log_error("Disabled #{app} since language doesn't match our record.")
+          end
+        end
       }
-      if app_language != get_app_language(app)
-        apps_to_restart.delete(app)
-        stop_app(app, @@secret)
-        Djinn.log_error("Disabled #{app} since language doesn't match our record.")
-      end
     }
 
     # Next, restart any apps that have new code uploaded.
