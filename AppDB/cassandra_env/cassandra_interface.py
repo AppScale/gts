@@ -49,6 +49,26 @@ VERSION_INFO_KEY = 'version'
 # The metadata key indicating that the database has been primed.
 PRIMED_KEY = 'primed'
 
+# The size in bytes that a batch must be to use the batches table.
+LARGE_BATCH_THRESHOLD = 5 << 10
+
+
+def batch_size(batch):
+  """ Calculates the size of a batch.
+
+  Args:
+    batch: A list of dictionaries representing mutations.
+  Returns:
+    An integer specifying the size in bytes of the batch.
+  """
+  size = 0
+  for mutation in batch:
+    size += len(mutation['key'])
+    if 'values' in mutation:
+      for value in mutation['values'].values():
+        size += len(value)
+  return size
+
 
 def deletions_for_entity(entity, composite_indices=()):
   """ Get a list of deletions needed across tables for deleting an entity.
@@ -223,6 +243,10 @@ def mutations_for_entity(entity, txn, current_value=None,
                       'values': reference_value})
 
   return mutations
+
+
+class FailedBatch(Exception):
+  pass
 
 
 class IdempotentRetryPolicy(RetryPolicy):
@@ -434,12 +458,13 @@ class DatastoreProxy(AppDBInterface):
     """.format(table=table, key=ThriftColumn.KEY)
     return self.session.prepare(statement)
 
-  def batch_mutate(self, mutations):
-    """ Insert or delete multiple rows across tables in an atomic statement.
+  def _normal_batch(self, mutations):
+    """ Use Cassandra's native batch statement to apply mutations atomically.
 
     Args:
       mutations: A list of dictionaries representing mutations.
     """
+    self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
@@ -468,7 +493,129 @@ class DatastoreProxy(AppDBInterface):
       message = 'Exception during batch_mutate'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
-      
+
+  def apply_mutations(self, mutations):
+    """ Apply mutations across tables.
+
+    Args:
+      mutations: A list of dictionaries representing mutations.
+    """
+    for mutation in mutations:
+      table = mutation['table']
+      if mutation['operation'] == TxnActions.PUT:
+        values = mutation['values']
+        for column in values:
+          insert_row = """
+            INSERT INTO "{table}" ({key}, {column}, {value})
+            VALUES (%(key)s, %(column)s, %(value)s)
+          """.format(table=table,
+                     key=ThriftColumn.KEY,
+                     column=ThriftColumn.COLUMN_NAME,
+                     value=ThriftColumn.VALUE)
+          parameters = {'key': bytearray(mutation['key']),
+                        'column': column,
+                        'value': bytearray(values[column])}
+          self.session.execute(insert_row, parameters)
+      elif mutation['operation'] == TxnActions.DELETE:
+        delete_row = """
+          DELETE FROM "{table}" WHERE {key} = %(key)s
+        """.format(table=table, key=ThriftColumn.KEY)
+        parameters = {'key': bytearray(mutation['key'])}
+        self.session.execute(delete_row, parameters)
+
+  def _large_batch(self, app, mutations, entity_changes, txn):
+    """ Insert or delete multiple rows across tables in an atomic statement.
+
+    Args:
+      app: A string containing the application ID.
+      mutations: A list of dictionaries representing mutations.
+      entity_changes: A list of changes at the entity level.
+      txn: A transaction ID handler.
+    Raises:
+      FailedBatch if a concurrent process modifies the batch status.
+    """
+    self.logger.debug('Large batch: transaction {}, {} mutations'.
+                      format(txn, len(mutations)))
+    set_status = """
+      INSERT INTO batch_status (app, transaction, applied)
+      VALUES (%(app)s, %(transaction)s, False)
+      IF NOT EXISTS
+    """
+    parameters = {'app': app, 'transaction': txn}
+    result = self.session.execute(set_status, parameters)
+    if not result.was_applied:
+      raise FailedBatch('A batch for transaction {} already exists'.
+                        format(txn))
+
+    for entity_change in entity_changes:
+      insert_item = """
+        INSERT INTO batches (app, transaction, namespace, path,
+                             old_value, new_value)
+        VALUES (%(app)s, %(transaction)s, %(namespace)s, %(path)s,
+                %(old_value)s, %(new_value)s)
+      """
+      old_value = None
+      if entity_change['old'] is not None:
+        old_value = bytearray(entity_change['old'].Encode())
+      new_value = None
+      if entity_change['new'] is not None:
+        new_value = bytearray(entity_change['new'].Encode())
+
+      parameters = {
+        'app': app,
+        'transaction': txn,
+        'namespace': entity_change['key'].name_space(),
+        'path': bytearray(entity_change['key'].path().Encode()),
+        'old_value': old_value,
+        'new_value': new_value
+      }
+      self.session.execute(insert_item, parameters)
+
+    update_status = """
+      UPDATE batch_status
+      SET applied = True
+      WHERE app = %(app)s
+      AND transaction = %(transaction)s
+      IF applied = False
+    """
+    parameters = {'app': app, 'transaction': txn}
+    result = self.session.execute(update_status, parameters)
+    if not result.was_applied:
+      raise FailedBatch('Another process modified batch for transaction {}'.
+                        format(txn))
+
+    self.apply_mutations(mutations)
+
+    clear_batch = """
+      DELETE FROM batches
+      WHERE app = %(app)s AND transaction = %(transaction)s
+    """
+    parameters = {'app': app, 'transaction': txn}
+    self.session.execute(clear_batch, parameters)
+
+    clear_status = """
+      DELETE FROM batch_status
+      WHERE app = %(app)s and transaction = %(transaction)s
+    """
+    parameters = {'app': app, 'transaction': txn}
+    self.session.execute(clear_status, parameters)
+
+  def batch_mutate(self, app, mutations, entity_changes, txn):
+    """ Insert or delete multiple rows across tables in an atomic statement.
+
+    Args:
+      app: A string containing the application ID.
+      mutations: A list of dictionaries representing mutations.
+      entity_changes: A list of changes at the entity level.
+      txn: A transaction ID handler.
+    """
+    size = batch_size(mutations)
+    self.logger.debug('batch_size: {}'.format(size))
+    if size > LARGE_BATCH_THRESHOLD:
+      self._large_batch(app, mutations, entity_changes, txn)
+    else:
+      self._normal_batch(mutations)
+
   def batch_delete(self, table_name, row_keys, column_names=()):
     """
     Remove a set of rows corresponding to a set of keys.

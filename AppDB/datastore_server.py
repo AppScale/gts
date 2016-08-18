@@ -1092,7 +1092,10 @@ class DatastoreDistributed():
 
       batch = cassandra_env.cassandra_interface.mutations_for_entity(
         entity, txn, current_value, composite_indexes)
-      self.datastore_batch.batch_mutate(batch)
+
+      entity_change = {'key': entity.key(),
+                       'old': current_value, 'new': entity}
+      self.datastore_batch.batch_mutate(app, batch, [entity_change], txn)
 
   def delete_entities(self, app, keys, txn_hash, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
@@ -1123,6 +1126,9 @@ class DatastoreDistributed():
         current_values[key][APP_ENTITY_SCHEMA[0]])
       batch = cassandra_env.cassandra_interface.deletions_for_entity(
         current_value, composite_indexes)
+
+      entity_change = {'key': current_value.key(),
+                       'old': current_value, 'new': None}
       self.datastore_batch.batch_mutate(app, batch, [entity_change], txn)
 
   def delete_entities_txn(self, app, keys, txn_hash):
@@ -3715,6 +3721,7 @@ class DatastoreDistributed():
       dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
     batch = []
+    entity_changes = []
     for row in txn_rows:
       txn_action = row.values()[0]
       operation = txn_action[TRANSACTIONS_SCHEMA[0]]
@@ -3730,11 +3737,17 @@ class DatastoreDistributed():
         deletions = cassandra_env.cassandra_interface.deletions_for_entity(
           current_value, composite_indices)
         batch.extend(deletions)
+
+        entity_changes.append({'key': current_value.key(),
+                               'old': current_value, 'new': None})
       elif operation == TxnActions.PUT:
         entity = txn_dict[txn_key]['entity']
         mutations = cassandra_env.cassandra_interface.mutations_for_entity(
           entity, txn, current_value, composite_indices)
         batch.extend(mutations)
+
+        entity_changes.append({'key': entity.key(),
+                               'old': current_value, 'new': entity})
 
     self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
 
