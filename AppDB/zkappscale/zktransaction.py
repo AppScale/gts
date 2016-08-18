@@ -2,6 +2,7 @@
 """
 Distributed id and lock service for transaction support.
 """
+import cassandra_env.cassandra_interface
 import logging
 import os
 import re

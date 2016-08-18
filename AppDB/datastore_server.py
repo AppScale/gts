@@ -931,30 +931,6 @@ class DatastoreDistributed():
                                           dbconstants.COMPOSITE_SCHEMA,
                                           row_values)
 
-  def get_indices(self, app_id):
-    """ Gets the indices of the given application.
-
-    Args:
-       app_id: Name of the application.
-    Returns: 
-       Returns a list of encoded entity_pb.CompositeIndex objects.
-    """
-    start_key = self._SEPARATOR.join([app_id, 'index', ''])
-    end_key = self._SEPARATOR.join([app_id, 'index', self._TERM_STRING])
-    result = self.datastore_batch.range_query(dbconstants.METADATA_TABLE,
-                                                dbconstants.METADATA_SCHEMA,
-                                                start_key,
-                                                end_key,
-                                                self._MAX_NUM_INDEXES,
-                                                offset=0,
-                                                start_inclusive=True,
-                                                end_inclusive=True)
-    list_result = []
-    for list_item in result:
-      for key, value in list_item.iteritems():
-        list_result.append(value['data']) 
-    return list_result
-
   def delete_composite_index_metadata(self, app_id, index):
     """ Deletes a index for the given application identifier.
   
@@ -1504,7 +1480,7 @@ class DatastoreDistributed():
     composite_indexes = []
     filtered_indexes = []
     if delete_request.has_mark_changes():
-      all_composite_indexes = self.get_indices(app_id)
+      all_composite_indexes = self.datastore_batch.get_indices(app_id)
       for index in all_composite_indexes:
         new_index = entity_pb.CompositeIndex()
         new_index.ParseFromString(index)
@@ -3706,7 +3682,7 @@ class DatastoreDistributed():
       limit=None
     )
     composite_indices = [entity_pb.CompositeIndex(index)
-                         for index in self.get_indices(app)]
+                         for index in self.datastore_batch.get_indices(app)]
 
     # Fetch current values so we can remove old indices.
     txn_dict = {}
@@ -4236,7 +4212,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     response = datastore_pb.CompositeIndices()
     try:
-      indices = datastore_access.get_indices(app_id)
+      indices = datastore_access.datastore_batch.get_indices(app_id)
     except dbconstants.AppScaleDBConnectionError, dbce:
       logger.exception('DB connection error while fetching indices for '
         '{}'.format(app_id))

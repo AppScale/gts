@@ -14,6 +14,7 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+import appscale_info
 import dbconstants
 
 from cassandra_env.cassandra_interface import DatastoreProxy
@@ -146,14 +147,15 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEquals(dd.get_composite_index_key(composite_index, ent), 
       "appid\x00\x00123\x00\x9avalue\x01\x01\x00\x00kind:entity_name\x01")
 
-  def test_get_indicies(self):
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version').and_return(True)
-    db_batch.should_receive("range_query").and_return({})
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    dd = flexmock(dd)
+  def test_get_indices(self):
+    session = flexmock(default_consistency_level=None)
+    cluster = flexmock(connect=lambda keyspace: session)
+    flexmock(appscale_info).should_receive('get_db_ips')
+    flexmock(Cluster).new_instances(cluster)
+    flexmock(DatastoreProxy).should_receive('range_query').and_return({})
+    db_batch = DatastoreProxy()
 
-    self.assertEquals(dd.get_indices("appid"), [])
+    self.assertEquals(db_batch.get_indices("appid"), [])
 
   def test_delete_composite_index_metadata(self):
     db_batch = flexmock()
@@ -942,7 +944,7 @@ class TestDatastoreServer(unittest.TestCase):
                        'operand': entity.Encode()}
     }])
 
-    flexmock(DatastoreDistributed).should_receive('get_indices').and_return([])
+    db_batch.should_receive('get_indices').and_return([])
 
     dd = DatastoreDistributed(db_batch, None)
     prefix = dd.get_table_prefix(entity)

@@ -735,6 +735,32 @@ class DatastoreProxy(AppDBInterface):
                         dbconstants.DATASTORE_METADATA_SCHEMA)
       self.session.execute(statement, parameters)
 
+  def get_indices(self, app_id):
+    """ Gets the indices of the given application.
+
+    Args:
+      app_id: Name of the application.
+    Returns:
+      Returns a list of encoded entity_pb.CompositeIndex objects.
+    """
+    start_key = dbconstants.KEY_DELIMITER.join([app_id, 'index', ''])
+    end_key = dbconstants.KEY_DELIMITER.join(
+      [app_id, 'index', dbconstants.TERMINATING_STRING])
+    result = self.range_query(
+      dbconstants.METADATA_TABLE,
+      dbconstants.METADATA_SCHEMA,
+      start_key,
+      end_key,
+      dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES,
+      offset=0,
+      start_inclusive=True,
+      end_inclusive=True)
+    list_result = []
+    for list_item in result:
+      for key, value in list_item.iteritems():
+        list_result.append(value['data'])
+    return list_result
+
   def valid_data_version(self):
     """ Checks whether or not the data layout can be used.
 
