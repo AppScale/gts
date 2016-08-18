@@ -902,7 +902,7 @@ class Djinn
     }
 
     # From here on we do more logical checks on the values we received.
-    # The first one is to check that max and min are set appropriatedly.
+    # The first one is to check that max and min are set appropriately.
     # Max and min needs to be at least the number of started nodes, it
     # needs to be positive. Max needs to be no smaller than min.
     if Integer(@options['max_images']) < @nodes.length
