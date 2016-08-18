@@ -1594,6 +1594,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Few sanity checks before acting.
+    return "apps was not an Array but was a #{apps.class}." if apps.class != Array
     unless my_node.is_shadow?
        Djinn.log_debug("Sending update call for #{apps} to shadow.")
        acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
@@ -1604,29 +1605,29 @@ class Djinn
          return NOT_READY
        end
     end
-    if apps.class != Array
-      return "apps was not an Array but was a #{apps.class}."
-    end
 
     Djinn.log_info("Received request to update these apps: #{apps.join(', ')}.")
 
     # Begin by marking the apps that should be running.
     apps_to_restart = []
+    failed_apps = []
     APPS_LOCK.synchronize {
       # Get a list of the apps we need to restart.
       apps_to_restart = @apps_loaded & apps
-      Djinn.log_debug("Apps to restart are #{apps_to_restart}").
+      Djinn.log_debug("Apps to restart are #{apps_to_restart}.")
 
       # Next, check if the language of the application is correct.
       apps.each{ |app|
-        if @app_info_map[app] && @app_info_map[app]['language']
-          if @app_info_map[app]['language'] != get_app_language(app)
-            apps_to_restart.delete(app)
-            stop_app(app, @@secret)
-            Djinn.log_error("Disabled #{app} since language doesn't match our record.")
-          end
+        if @app_info_map[app] && @app_info_map[app]['language'] &&
+          @app_info_map[app]['language'] != get_app_language(app)
+          failed_apps << app
         end
       }
+    }
+    failed_apps.each { |app|
+      apps_to_restart.delete(app)
+      stop_app(app, @@secret)
+      Djinn.log_error("Disabled #{app} since language doesn't match our record.")
     }
 
     # Next, restart any apps that have new code uploaded.
@@ -1823,8 +1824,8 @@ class Djinn
         APPS_LOCK.synchronize {
           starts_new_apps_or_appservers()
           scale_appservers_within_nodes()
-          scale_appservers_across_nodes()
         }
+        scale_appservers_across_nodes()
       elsif !restore_appcontroller_state()
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
@@ -2727,22 +2728,24 @@ class Djinn
 
 
   def backup_appcontroller_state()
-    state = {'@@secret' => @@secret }
-    instance_variables.each { |k|
-      v = instance_variable_get(k)
-      if k.to_s == "@nodes"
-        v = Djinn.convert_location_class_to_array(v)
-      elsif k == "@my_index" or k == "@api_status"
-        # Don't back up @my_index - it's a node-specific pointer that
-        # indicates which node is "our node" and thus should be regenerated
-        # via find_me_in_locations.
-        # Also don't worry about @api_status - (used to be for deprecated
-        # API checker) it can take up a lot of space and can easily be
-        # regenerated with new data.
-        next
-      end
+    APPS_LOCK.synchronize {
+      state = {'@@secret' => @@secret }
+      instance_variables.each { |k|
+        v = instance_variable_get(k)
+        if k.to_s == "@nodes"
+          v = Djinn.convert_location_class_to_array(v)
+        elsif k == "@my_index" or k == "@api_status"
+          # Don't back up @my_index - it's a node-specific pointer that
+          # indicates which node is "our node" and thus should be regenerated
+          # via find_me_in_locations.
+          # Also don't worry about @api_status - (used to be for deprecated
+          # API checker) it can take up a lot of space and can easily be
+          # regenerated with new data.
+          next
+        end
 
-      state[k] = v
+        state[k] = v
+      }
     }
 
     Djinn.log_debug("backup_appcontroller_state:"+state.to_s)
@@ -4619,34 +4622,32 @@ HOSTS
       maybe_stop_taskqueue_worker(app)
       Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
-      APPS_LOCK.synchronize {
-        if my_node.is_load_balancer?
-          stop_xmpp_for_app(app)
-          Nginx.remove_app(app)
-          HAProxy.remove_app(app)
+      if my_node.is_load_balancer?
+        stop_xmpp_for_app(app)
+        Nginx.remove_app(app)
+        HAProxy.remove_app(app)
+      end
+
+      if my_node.is_appengine?
+        Djinn.log_debug("(stop_app) Calling AppManager for app #{app}")
+        app_manager = AppManagerClient.new(my_node.private_ip)
+        begin
+          if app_manager.stop_app(app)
+            Djinn.log_info("(stop_app) AppManager shut down app #{app}")
+          else
+            Djinn.log_error("(stop_app) unable to stop app #{app}")
+          end
+        rescue FailedNodeException
+          Djinn.log_warn("(stop_app) #{app} may have not been stopped")
         end
 
-        if my_node.is_appengine?
-          Djinn.log_debug("(stop_app) Calling AppManager for app #{app}")
-          app_manager = AppManagerClient.new(my_node.private_ip)
-          begin
-            if app_manager.stop_app(app)
-              Djinn.log_info("(stop_app) AppManager shut down app #{app}")
-            else
-              Djinn.log_error("(stop_app) unable to stop app #{app}")
-            end
-          rescue FailedNodeException
-            Djinn.log_warn("(stop_app) #{app} may have not been stopped")
-          end
-
-          begin
-            ZKInterface.remove_app_entry(app, my_node.public_ip)
-          rescue FailedZooKeeperOperationException => except
-            Djinn.log_warn("(stop_app) got exception talking to " +
-              "zookeeper: #{except.message}.")
-          end
+        begin
+          ZKInterface.remove_app_entry(app, my_node.public_ip)
+        rescue FailedZooKeeperOperationException => except
+          Djinn.log_warn("(stop_app) got exception talking to " +
+            "zookeeper: #{except.message}.")
         end
-      }
+      end
     }
   end
 
@@ -4743,30 +4744,43 @@ HOSTS
         Djinn.log_debug("Checking if any app need to be restarted.")
 
         # We restart applications first if needed.
+        apps_to_restart = []
+        app_language = ""
         APPS_LOCK.synchronize {
-          @apps_to_restart.each { |app_name|
-            Djinn.log_info("Got #{app_name} to restart (if applicable).")
+          apps_to_restart = @apps_to_restart
+        }
+
+        apps_to_restart.each { |app_name|
+          Djinn.log_info("Got #{app_name} to restart (if applicable).")
+          APPS_LOCK.synchronize {
+            # Since the AMS can take a long time and we don't hold the
+            # lock here on @apps_to_restart, we do a quick check before
+            # doing the work.
+            next unless @apps_to_restart.include?(app_name)
+
             setup_appengine_application(app_name)
-
-            app_manager = AppManagerClient.new(my_node.private_ip)
-            # TODO: What happens if the user updates their env vars between app
-            # deploys?
-            Djinn.log_info("Restarting AppServers hosting old version of #{app_name}.")
-            begin
-              result = app_manager.restart_app_instances_for_app(app_name,
-                @app_info_map[app_name]['language'])
-            rescue FailedNodeException
-              Djinn.log_warn("Failed to talk to app_manager to restart #{app_name}.")
-              result = false
-            end
-            unless result
-              Djinn.log_warn("Failed to restart app #{app_name}.")
-            end
-            maybe_reload_taskqueue_worker(app_name)
-
-            @apps_to_restart.delete(app_name)
-            Djinn.log_info("Done restarting #{app_name}.")
+            app_language = @app_info_map[app_name]['language']
           }
+
+          app_manager = AppManagerClient.new(my_node.private_ip)
+          # TODO: What happens if the user updates their env vars between app
+          # deploys?
+          Djinn.log_info("Restarting AppServers hosting old version of #{app_name}.")
+          begin
+            result = app_manager.restart_app_instances_for_app(app_name, app_language)
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to talk to app_manager to restart #{app_name}.")
+            result = false
+          end
+          unless result
+            Djinn.log_warn("Failed to restart app #{app_name}.")
+          end
+          maybe_reload_taskqueue_worker(app_name)
+
+          APPS_LOCK.synchronize {
+            @apps_to_restart.delete(app_name)
+          }
+          Djinn.log_info("Done restarting #{app_name}.")
         }
 
         # We then start or terminate AppServers as needed.
