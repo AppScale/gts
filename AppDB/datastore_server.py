@@ -371,7 +371,8 @@ class DatastoreDistributed():
       limit = 1
     return limit
 
-  def get_entity_key(self, prefix, pb):
+  @staticmethod
+  def get_entity_key(prefix, pb):
     """ Returns the key for the entity table.
     
     Args:
@@ -381,32 +382,34 @@ class DatastoreDistributed():
     Returns:
         A str, the key for entity table.
     """
-    return self._SEPARATOR.join([prefix, str(self.__encode_index_pb(pb))])
+    return dbconstants.KEY_DELIMITER.join(
+      [prefix, str(DatastoreDistributed.encode_index_pb(pb))])
 
-  def get_kind_key(self, prefix, key_path):
+  @staticmethod
+  def get_kind_key(prefix, key_path):
     """ Returns a key for the kind table.
     
     Args:
-        prefix: A str, the app name and namespace.
-        key_path: A str, the key path to build row key with.
+      prefix: A str, the app name and namespace.
+      key_path: A str, the key path to build row key with.
     Returns:
-        A str, the row key for kind table.
+      A str, the row key for kind table.
     """
     path = []
     path.append(key_path.element_list()[-1].type())
     for e in key_path.element_list():
       if e.has_name():
         key_id = e.name()
-      elif e.has_id():
+      else:
         # make sure ids are ordered lexigraphically by making sure they 
         # are of set size i.e. 2 > 0003 but 0002 < 0003
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append("{0}{2}{1}".format(e.type(), key_id, 
+      path.append("{0}{2}{1}".format(e.type(), key_id,
         dbconstants.ID_SEPARATOR))
     encoded_path = dbconstants.KIND_SEPARATOR.join(path)
     encoded_path += dbconstants.KIND_SEPARATOR
     
-    return prefix + self._NAMESPACE_SEPARATOR + encoded_path
+    return prefix + dbconstants.KEY_DELIMITER + encoded_path
   
   @staticmethod
   def __decode_index_str(value, prop_value):
