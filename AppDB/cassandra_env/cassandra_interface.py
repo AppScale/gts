@@ -96,10 +96,15 @@ class DatastoreProxy(AppDBInterface):
   """ 
     Cassandra implementation of the AppDBInterface
   """
-  def __init__(self):
+  def __init__(self, log_level=logging.INFO):
     """
     Constructor.
     """
+    class_name = self.__class__.__name__
+    self.logger = logging.getLogger(class_name)
+    self.logger.setLevel(log_level)
+    self.logger.info('Starting {}'.format(class_name))
+
     self.hosts = appscale_info.get_db_ips()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
