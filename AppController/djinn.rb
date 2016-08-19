@@ -2743,8 +2743,9 @@ class Djinn
 
 
   def backup_appcontroller_state()
+    local_state = {}
     APPS_LOCK.synchronize {
-      state = {'@@secret' => @@secret }
+      local_state = {'@@secret' => @@secret }
       instance_variables.each { |k|
         v = instance_variable_get(k)
         if k.to_s == "@nodes"
@@ -2759,14 +2760,14 @@ class Djinn
           next
         end
 
-        state[k] = v
+        local_state[k] = v
       }
     }
 
-    Djinn.log_debug("backup_appcontroller_state:"+state.to_s)
+    Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
-      ZKInterface.write_appcontroller_state(state)
+      ZKInterface.write_appcontroller_state(local_state)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " +
         "appcontroller state with #{e.message}.")
