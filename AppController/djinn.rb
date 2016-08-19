@@ -3710,8 +3710,7 @@ class Djinn
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     table = @options['table']
-    DatastoreServer.start(db_master_ip, my_node.private_ip, table,
-      verbose=verbose)
+    DatastoreServer.start(db_master_ip, my_node.private_ip, table, verbose)
     HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
 
     # Let's wait for the datastore to be active.
@@ -4561,37 +4560,37 @@ HOSTS
         # If app is not enabled or if we already know of it, we skip it.
         next if @app_names.include?(app)
         begin
-           next unless uac.is_app_enabled?(app)
-         rescue FailedNodeException
-           Djinn.log_warn("Failed to talk to the UserAppServer about " +
-             "application #{app}.")
-           next
-         end
+          next unless uac.is_app_enabled?(app)
+        rescue FailedNodeException
+          Djinn.log_warn("Failed to talk to the UserAppServer about " +
+            "application #{app}.")
+          next
+        end
 
-         # If we don't have a record for this app, we start it.
-         Djinn.log_info("Adding #{app} to running apps.")
+        # If we don't have a record for this app, we start it.
+        Djinn.log_info("Adding #{app} to running apps.")
 
-         # We query the UserAppServer looking for application data, in
-         # particular ports and language.
-         result = uac.get_app_data(app)
-         app_data = JSON.load(result)
-         Djinn.log_debug("#{app} metadata: #{app_data}")
+        # We query the UserAppServer looking for application data, in
+        # particular ports and language.
+        result = uac.get_app_data(app)
+        app_data = JSON.load(result)
+        Djinn.log_debug("#{app} metadata: #{app_data}")
 
-         app_language = app_data['language']
-         Djinn.log_info("Restoring app #{app} (language #{app_language})" +
-           " with ports #{app_data['hosts']}.")
+        app_language = app_data['language']
+        Djinn.log_info("Restoring app #{app} (language #{app_language})" +
+          " with ports #{app_data['hosts']}.")
 
-         @app_info_map[app] = {} if @app_info_map[app].nil?
-         @app_info_map[app]['language'] = app_language if app_language
-         if app_data['hosts'].values[0]
-           if app_data['hosts'].values[0]['http']
-             @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
-           end
-           if app_data['hosts'].values[0]['https']
-             @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
-           end
-         end
-         @app_names = @app_names + [app]
+        @app_info_map[app] = {} if @app_info_map[app].nil?
+        @app_info_map[app]['language'] = app_language if app_language
+        if app_data['hosts'].values[0]
+          if app_data['hosts'].values[0]['http']
+            @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
+          end
+          if app_data['hosts'].values[0]['https']
+            @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
+          end
+        end
+        @app_names = @app_names + [app]
       rescue FailedNodeException
         Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
       end
@@ -5199,8 +5198,8 @@ HOSTS
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if @app_info_map[app_name]['appengine'].length < @num_appengines
-       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
-       @last_decision[app_name] = 0
+      Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
+      @last_decision[app_name] = 0
       return :scale_up
     end
 
@@ -5267,7 +5266,7 @@ HOSTS
     if average_request_rate < 0
       Djinn.log_info("Saw negative request rate for app #{app_name}, so " +
         "resetting our haproxy stats for this app.")
-      initialize_scaling_info_for_app(app_name, force=true)
+      initialize_scaling_info_for_app(app_name, true)
       return
     end
 
