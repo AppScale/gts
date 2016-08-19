@@ -5438,8 +5438,16 @@ HOSTS
       @app_info_map[app]['language'] = "python27"
     else
       # Make sure we advertize that this node is hosting the app code.
-      result = done_uploading(app, app_path, @@secret)
-      Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+      RETRIES.downto(0) {
+        result = done_uploading(app, app_path, @@secret)
+        if result.include?("Found #{app} in zookeeper.")
+          Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+          return
+        end
+        Djinn.log_debug("Retrying done_uploading since it failed (#{result}).")
+        Kernel.sleep(SMALL_WAIT)
+      }
+      Djinn.log_warn("Failed to notify zookeeper we host #{app} (#{result}).")
     end
   end
 
