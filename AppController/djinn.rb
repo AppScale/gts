@@ -905,15 +905,15 @@ class Djinn
     # needs to be positive. Max needs to be no smaller than min.
     if Integer(@options['max_images']) < @nodes.length
       Djinn.log_warn("max_images is less than the number of nodes!")
-      @options['max_images'] = @nodes.length
+      @options['max_images'] = @nodes.length.to_s
     end
     if Integer(@options['min_images']) < @nodes.length
       Djinn.log_warn("min_images is less than the number of nodes!")
-      @options['min_images'] = @nodes.length
+      @options['min_images'] = @nodes.length.to_s
     end
     if Integer(@options['max_images']) < Integer(@options['min_images'])
       Djinn.log_warn("min_images is bigger than max_images!")
-      @options['max_images'] = Integer(@options['min_images'])
+      @options['max_images'] = @options['min_images']
     end
 
     # We need to make sure this node is listed in the started nodes.
