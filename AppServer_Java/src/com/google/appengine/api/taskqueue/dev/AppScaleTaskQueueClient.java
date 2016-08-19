@@ -83,6 +83,25 @@ public class AppScaleTaskQueueClient {
         return addResponse;
     }
 
+    public TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {
+        purgeRequest.setAppId(getAppId());
+
+        Request request = new Request();
+        request.setMethod("PurgeQueue");
+        request.setServiceName(SERVICE_NAME);
+        request.setRequestAsBytes(purgeRequest.toByteArray());
+        Response response = sendRequest(request);
+        if (response.hasApplicationError()) {
+            throw new ApiProxy.ApplicationException(
+                response.getApplicationError().getCode(),
+                "TaskQueue PurgeQueue operation failed"
+            );
+        }
+        TaskQueuePb.TaskQueuePurgeQueueResponse purgeQueueResponse = new TaskQueuePb.TaskQueuePurgeQueueResponse();
+        purgeQueueResponse.parseFrom(response.getResponseAsBytes());
+        return purgeQueueResponse;
+    }
+
     private Response sendRequest(Request request) {
         HttpPost post = new HttpPost(url);
         post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);

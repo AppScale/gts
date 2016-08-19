@@ -74,7 +74,7 @@ abstract class DevQueue {
 
     abstract boolean deleteTask(String paramString);
 
-    abstract void flush();
+    abstract TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest);
 
     abstract TaskQueuePb.TaskQueueMode.Mode getMode();
 

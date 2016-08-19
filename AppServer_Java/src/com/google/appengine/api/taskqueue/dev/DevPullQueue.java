@@ -83,8 +83,20 @@ public class DevPullQueue extends DevQueue {
         return this.taskMap.remove(taskName) != null;
     }
 
-    void flush() {
+    synchronized TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {
+        String queueName = purgeRequest.getQueueName();
+        if (!queueName.equals(getQueueName())) {
+            throw new ApiProxy.ApplicationException(
+                    TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_REQUEST.getValue());
+        }
+
+        logger.info("Sending PurgeQueue to TaskQueue for " + queueName);
+        TaskQueuePb.TaskQueuePurgeQueueResponse purgeResponse = client.purge(purgeRequest);
+
+        // This can be removed as soon as taskMap is replaced with proper TaskQueue calls.
         this.taskMap.clear();
+
+        return purgeResponse;
     }
 
     QueueStateInfo getStateInfo() {
