@@ -447,9 +447,11 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.TaskQueuePurgeQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePurgeQueueResponse()
+
+    queue = self.get_queue(app_id, request.queue_name())
+    queue.purge()
     return (response.Encode(), 0, "")
 
   def delete(self, app_id, http_data):
