@@ -899,13 +899,28 @@ class Djinn
       end
     }
 
-    find_me_in_locations()
-    if @my_index.nil?
-      return "Error: Couldn't find me in the node map"
+    # From here on we do more logical checks on the values we received.
+    # The first one is to check that max and min are set appropriately.
+    # Max and min needs to be at least the number of started nodes, it
+    # needs to be positive. Max needs to be no smaller than min.
+    if Integer(@options['max_images']) < @nodes.length
+      Djinn.log_warn("max_images is less than the number of nodes!")
+      @options['max_images'] = @nodes.length
+    end
+    if Integer(@options['min_images']) < @nodes.length
+      Djinn.log_warn("min_images is less than the number of nodes!")
+      @options['min_images'] = @nodes.length
+    end
+    if Integer(@options['max_images']) < Integer(@options['min_images'])
+      Djinn.log_warn("min_images is bigger than max_images!")
+      @options['max_images'] = Integer(@options['min_images'])
     end
 
-    ENV['EC2_URL'] = @options['ec2_url']
+    # We need to make sure this node is listed in the started nodes.
+    find_me_in_locations()
+    return "Error: Couldn't find me in the node map" if @my_index.nil?
 
+    ENV['EC2_URL'] = @options['ec2_url']
     if @options['ec2_access_key'].nil?
       @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
       @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
@@ -2160,7 +2175,7 @@ class Djinn
             "would put us over the user-specified limit of #{@options['max_images']} " +
             "VMs. Instead, spawning up #{allowed_vms}.")
           vms_to_spawn = allowed_vms
-          if vms_to_spawn.zero?
+          if vms_to_spawn <= 0
             Djinn.log_error("Reached the maximum number of VMs that we " +
               "can use in this cloud deployment, so not spawning more nodes.")
             return "Reached maximum number of VMs we can use."
@@ -5395,11 +5410,11 @@ HOSTS
 
     if remove_old
       Djinn.log_info("Removing old application version for app: #{app}.")
-      unless my_node.is_shadow?
-        FileUtils.rm_rf(app_path)
-      else
+      if my_node.is_shadow?
         # Force the shadow node to refresh the application directory.
         FileUtils.rm_rf(app_dir)
+      else
+        FileUtils.rm_rf(app_path)
       end
     end
 

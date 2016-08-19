@@ -8,6 +8,7 @@ import queue
 from unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.taskqueue.taskqueue import MAX_TAG_LENGTH
 from google.appengine.api.taskqueue.taskqueue import MAX_TASK_NAME_LENGTH
 
@@ -66,9 +67,11 @@ class Task(object):
     if 'payloadBase64' in task_info:
       self.payloadBase64 = task_info['payloadBase64']
 
-    self.id = ''.join(random.choice(string.ascii_lowercase) for _ in range(20))
-    if 'id' in task_info:
+    if 'id' in task_info and task_info['id']:
       self.id = task_info['id']
+    else:
+      self.id = ''.join(random.choice(string.ascii_lowercase)
+                        for _ in range(20))
 
     if 'queueName' in task_info:
       self.queueName = task_info['queueName']
@@ -173,3 +176,22 @@ class Task(object):
       task[attribute] = value
 
     return task
+
+  def encode_lease_pb(self):
+    """ Encode this task as a protocol buffer response.
+
+    Returns:
+      A TaskQueueQueryAndOwnTasksResponse_Task object.
+    """
+    task_pb = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse_Task()
+    task_pb.set_task_name(self.id)
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    task_pb.set_eta_usec(
+      int((self.get_eta() - epoch).total_seconds()) * 1000000)
+    task_pb.set_retry_count(self.retry_count)
+    task_pb.set_body(self.payloadBase64)
+    try:
+      task_pb.set_tag(self.tag)
+    except AttributeError:
+      pass
+    return task_pb
