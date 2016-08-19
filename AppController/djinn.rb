@@ -5450,8 +5450,15 @@ HOSTS
       place_error_app(app, error_msg, get_app_language(app))
     else
       # Make sure we advertize that this node is hosting the app code.
-      result = done_uploading(app, app_path, @@secret)
-      Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+      RETRIES.downto(0) {
+        result = done_uploading(app, app_path, @@secret)
+        if result.include?("Found #{app} in zookeeper.")
+          Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+          return
+        end
+        Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
+        Kernel.sleep(SMALL_WAIT)
+      }
     end
   end
 
