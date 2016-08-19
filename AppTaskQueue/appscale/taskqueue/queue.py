@@ -834,6 +834,8 @@ class PullQueue(Queue):
       select_count = """
         SELECT COUNT(*) from pull_queue_leases
         WHERE token(app, queue, leased) > token(%(app)s, %(queue)s, %(ts)s)
+        AND token(app, queue, leased) <=
+            token(%(app)s, %(queue)s, dateof(now()))
       """
       start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
       parameters = {'app': self.app, 'queue': self.name, 'ts': start_time}
@@ -841,8 +843,16 @@ class PullQueue(Queue):
       stats['leasedLastMinute'] = leased_last_minute
 
     if 'leasedLastHour' in fields:
-      select_count = 'SELECT COUNT(*) from pull_queue_leases'
-      stats['leasedLastHour'] = session.execute(select_count)[0].count
+      select_count = """
+        SELECT COUNT(*) from pull_queue_leases
+        WHERE token(app, queue, leased) > token(%(app)s, %(queue)s, %(ts)s)
+        AND token(app, queue, leased) <=
+            token(%(app)s, %(queue)s, dateof(now()))
+      """
+      start_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=60)
+      parameters = {'app': self.app, 'queue': self.name, 'ts': start_time}
+      leased_last_hour = session.execute(select_count, parameters)[0].count
+      stats['leasedLastHour'] = leased_last_hour
 
     return stats
 
