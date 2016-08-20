@@ -144,7 +144,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(true, result_2.include?("Error: database_credentials"))
 
     result_3 = djinn.set_parameters("", [], bad_param, @secret)
-    assert_equal(true, result_3.include?("Error: app_names"))
+    assert_equal(true, result_3.include?("Error: apps"))
 
     # Since DB credentials will be turned from an Array to a Hash,
     # it should have an even number of items in it
