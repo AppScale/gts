@@ -13,6 +13,7 @@ import sys
 import time
 import tq_lib
 
+from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
 from task import Task
@@ -888,10 +889,23 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
-    return (response.Encode(), 0, "")
+
+    queue = self.get_queue(app_id, request.queue_name())
+    task_info = {'id': request.task_name()}
+    try:
+      # The Python AppServer sets eta_usec with a resolution of 1 second,
+      # so update_lease can't be used. It checks with millisecond precision.
+      task = queue.update_task(Task(task_info), request.lease_seconds())
+    except InvalidLeaseRequest as lease_error:
+      error = taskqueue_service_pb.TaskQueueServiceError.TASK_LEASE_EXPIRED
+      # The response requires ETA to be set before encoding.
+      response.set_updated_eta_usec(0)
+      return response.Encode(), error, str(lease_error)
+
+    response.set_updated_eta_usec(task.json_safe_dict()['leaseTimestamp'])
+    return response.Encode(), 0, ""
 
   def fetch_queue(self, app_id, http_data):
     """ 
