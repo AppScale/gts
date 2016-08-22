@@ -520,6 +520,27 @@ class PullQueue(Queue):
 
     return leased
 
+  def purge(self):
+    """ Remove all tasks from queue.
+
+    Cassandra cannot perform a range scan during a delete, so this function
+    selects all the tasks before deleting them one at a time.
+    """
+    select_tasks = """
+      SELECT id, enqueued, lease_expires FROM pull_queue_tasks
+      WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
+      AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
+    """
+    parameters = {'app': self.app, 'queue': self.name,
+                  'next_queue': self.name + chr(0)}
+    results = self.db_access.session.execute(select_tasks, parameters)
+
+    for result in results:
+      task_info = {'id': result.id,
+                   'enqueueTimestamp': result.enqueued,
+                   'leaseTimestamp': result.lease_expires}
+      self._delete_task_and_index(Task(task_info))
+
   def to_json(self, include_stats=False, fields=None):
     """ Generate a JSON representation of the queue.
 
