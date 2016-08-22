@@ -1522,7 +1522,7 @@ class Djinn
     end
 
     app_name.gsub!(/[^\w\d\-]/, "")
-    return "false: #{app_name} is a reserved app." if RESERVED_APPS.include?(appid)
+    return "false: #{app_name} is a reserved app." if RESERVED_APPS.include?(app_name)
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
 
