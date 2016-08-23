@@ -269,7 +269,7 @@ class UserAppClient
     }
 
     app_list = all_apps.split(":")
-    if app_list[0] = "Error"
+    if app_list[0] == "Error"
       raise FailedNodeException.new("get_all_apps: got #{all_apps}.")
     end
     app_list = app_list - [app_list[0]] # first item is a dummy value

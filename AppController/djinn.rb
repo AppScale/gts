@@ -61,7 +61,7 @@ APPS_LOCK = Monitor.new()
 AMS_LOCK = Mutex.new()
 
 
-# The name of the system user to be used with reserved applications.
+# The name of the user to be used with reserved applications.
 APPSCALE_USER = "appscale-admin@local.appscale"
 
 
@@ -1442,7 +1442,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while commiting " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while committing " +
         "the user #{username}.")
     end
   end
@@ -3487,7 +3487,7 @@ class Djinn
       UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
-      app_list = uac.get_all_apps()
+      uac.does_app_exist?("not-there")
     rescue FailedNodeException
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
@@ -4509,9 +4509,9 @@ HOSTS
     password = SecureRandom.base64
     begin
       result = uac.commit_new_user(APPSCALE_USER, password, "app")
-      Djinn.log_info("Create/confirmed system user: (#{result})")
+      Djinn.log_info("Created/confirmed system user: (#{result})")
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while commiting " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while committing " +
         "the system user.")
     end
   end
@@ -4527,16 +4527,16 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-    # First commit the dashboard to the UserAppServer.
+    # Reserve dashboard app ID.
     result = reserve_app_id(APPSCALE_USER, AppDashboard::APP_NAME,
       AppDashboard::APP_LANGUAGE, @@secret)
     Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Then create and 'upload' the application.
+    # Create and 'upload' the application.
     AppDashboard.start(my_public, my_private,
         PERSISTENT_MOUNT_POINT, @@secret)
 
-    # Finally, we'll assign the specific ports to it.
+    # Assign the specific ports to it.
     APPS_LOCK.synchronize {
       @app_info_map[AppDashboard::APP_NAME] = {
           'nginx' => AppDashboard::LISTEN_PORT,
