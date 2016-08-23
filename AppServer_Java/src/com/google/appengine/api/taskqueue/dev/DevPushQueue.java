@@ -115,6 +115,17 @@ class DevPushQueue extends DevQueue {
         return addResponse;
     }
 
+    TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeQueueRequest) {
+        try {
+            for (String name : this.scheduler.getJobNames(getQueueName()))
+                this.scheduler.deleteJob(name, getQueueName());
+        } catch (SchedulerException e) {
+            throw new ApiProxy.ApplicationException(
+                    TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue());
+        }
+        return new TaskQueuePb.TaskQueuePurgeQueueResponse();
+    }
+
     private String getTaskName(TaskQueueAddRequest addRequest) {
         String taskName;
         if ((addRequest.hasTaskName()) && (!addRequest.getTaskName().equals(""))) {
@@ -165,15 +176,6 @@ class DevPushQueue extends DevQueue {
         } catch (SchedulerException e) {
         }
         throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue());
-    }
-
-    void flush() {
-        try {
-            for (String name : this.scheduler.getJobNames(getQueueName()))
-                this.scheduler.deleteJob(name, getQueueName());
-        } catch (SchedulerException e) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue());
-        }
     }
 
     private JobExecutionContext getExecutionContext(UrlFetchJobDetail jobDetail) {

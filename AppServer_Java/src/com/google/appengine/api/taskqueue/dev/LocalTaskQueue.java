@@ -349,9 +349,8 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
     }
 
     public TaskQueuePb.TaskQueuePurgeQueueResponse purgeQueue(LocalRpcService.Status status, TaskQueuePb.TaskQueuePurgeQueueRequest purgeQueueRequest) {
-        TaskQueuePb.TaskQueuePurgeQueueResponse purgeQueueResponse = new TaskQueuePb.TaskQueuePurgeQueueResponse();
-        flushQueue(purgeQueueRequest.getQueueName());
-        return purgeQueueResponse;
+        DevQueue queue = getQueueByName(purgeQueueRequest.getQueueName());
+        return queue.purge(purgeQueueRequest);
     }
 
     public TaskQueuePb.TaskQueueBulkAddResponse bulkAdd(LocalRpcService.Status status, TaskQueuePb.TaskQueueBulkAddRequest bulkAddRequest) {
@@ -499,11 +498,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
             throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.UNKNOWN_QUEUE.getValue(), queueName);
         }
         return queue;
-    }
-
-    public void flushQueue(String queueName) {
-        DevQueue queue = getQueueByName(queueName);
-        queue.flush();
     }
 
     public boolean deleteTask(String queueName, String taskName) {
