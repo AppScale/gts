@@ -269,6 +269,9 @@ class UserAppClient
     }
 
     app_list = all_apps.split(":")
+    if app_list[0] = "Error"
+      raise FailedNodeException.new("get_all_apps: got #{all_apps}.")
+    end
     app_list = app_list - [app_list[0]] # first item is a dummy value
     return app_list
   end
@@ -280,6 +283,9 @@ class UserAppClient
     }
 
     user_list = all_users.split(":")
+    if user_list[0] = "Error"
+      raise FailedNodeException.new("get_all_users: got #{all_users}.")
+    end
     user_list = user_list - [user_list[0]]  # first item is a dummy value
     return user_list
   end
