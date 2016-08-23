@@ -4544,6 +4544,7 @@ HOSTS
           'haproxy' => AppDashboard::PROXY_PORT,
           'language' => AppDashboard::APP_LANGUAGE
       }
+      @app_info_map[AppDashboard::APP_NAME]['appengine'] = []
       @app_names << AppDashboard::APP_NAME
     }
   end
