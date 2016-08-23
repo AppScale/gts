@@ -3526,8 +3526,8 @@ class Djinn
       }
     end
 
-    # All nodes have application managers
     threads << Thread.new {
+      start_app_dashboard()
       start_app_manager_server()
     }
 
@@ -3561,9 +3561,7 @@ class Djinn
 
     # Leader node starts additional services.
     if my_node.is_shadow?
-      create_appscale_user()
       update_node_info_cache()
-      start_app_dashboard()
       start_hermes()
       TaskQueue.start_flower(@options['flower_password'])
     end
@@ -4510,34 +4508,41 @@ HOSTS
     end
   end
 
-  # Start the AppDashboard web service which allows users to login,
-  # upload and remove apps, and view the status of the AppScale deployment.
+  # Start the AppDashboard web service which allows users to login, upload
+  # and remove apps, and view the status of the AppScale deployment. Other
+  # nodes will need to delete the old source since we regenerate each
+  # 'up'.
   def start_app_dashboard()
-    @state = "Starting AppDashboard"
-    Djinn.log_info("Starting AppDashboard")
+    if my_node.is_shadow?
+      @state = "Starting AppDashboard"
+      create_appscale_user()
+      Djinn.log_info("Starting AppDashboard")
 
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
+      my_public = my_node.public_ip
+      my_private = my_node.private_ip
 
-    # First commit the dashboard to the UserAppServer.
-    result = reserve_app_id(APPSCALE_USER, AppDashboard::APP_NAME,
-      AppDashboard::APP_LANGUAGE, @@secret)
-    Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
+      # First commit the dashboard to the UserAppServer.
+      result = reserve_app_id(APPSCALE_USER, AppDashboard::APP_NAME,
+        AppDashboard::APP_LANGUAGE, @@secret)
+      Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Then create and 'upload' the application.
-    AppDashboard.start(my_public, my_private,
-        PERSISTENT_MOUNT_POINT, @@secret)
+      # Then create and 'upload' the application.
+      AppDashboard.start(my_public, my_private,
+          PERSISTENT_MOUNT_POINT, @@secret)
 
-    # Finally, we'll assign the specific ports to it.
-    APPS_LOCK.synchronize {
-      @app_info_map[AppDashboard::APP_NAME] = {
-          'nginx' => AppDashboard::LISTEN_PORT,
-          'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
-          'haproxy' => AppDashboard::PROXY_PORT,
-          'language' => AppDashboard::APP_LANGUAGE
+      # Finally, we'll assign the specific ports to it.
+      APPS_LOCK.synchronize {
+        @app_info_map[AppDashboard::APP_NAME] = {
+            'nginx' => AppDashboard::LISTEN_PORT,
+            'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
+            'haproxy' => AppDashboard::PROXY_PORT,
+            'language' => AppDashboard::APP_LANGUAGE
+        }
+        @app_names << AppDashboard::APP_NAME
       }
-      @app_names << AppDashboard::APP_NAME
-    }
+    else
+      FileUtils.rm_rf("PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz")
+    end
   end
 
   # Stop the AppDashboard web service.
