@@ -2792,7 +2792,7 @@ class Djinn
   # Returns:
   #   A boolean to indicate if we were able to restore the state.
   def restore_appcontroller_state()
-    Djinn.log_info("Restoring AppController state")
+    Djinn.log_debug("Reloading deployment state.")
     json_state=""
 
     unless File.exists?(ZK_LOCATIONS_FILE)
@@ -2813,7 +2813,7 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    Djinn.log_info("Reload State : #{json_state}")
+    Djinn.log_debug("Reload State : #{json_state}.")
 
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
