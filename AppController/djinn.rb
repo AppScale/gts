@@ -5324,7 +5324,7 @@ HOSTS
 
 
   def try_to_scale_up(app_name)
-    if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
+    if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
       Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
         "hosting it anymore.")
       return
