@@ -65,7 +65,7 @@ module CronHelper
         begin
           # Parse URL to prevent malicious code from being appended.
           url = URI.parse(item['url']).to_s()
-          Djinn.log_info("Parsed cron URL: #{url}")
+          Djinn.log_debug("Parsed cron URL: #{url}")
         rescue URI::InvalidURIError
           Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
           next
@@ -164,7 +164,7 @@ CRON
   # Returns:
   #   A boolean that expresses the validity of the line.
   def self.valid_crontab_line(line)
-    crontab_exists = system('crontab -l')
+    crontab_exists = system('crontab -l 2> /dev/null')
     if crontab_exists
       `crontab -l > crontab.backup`
     end
