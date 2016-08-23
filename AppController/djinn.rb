@@ -4541,7 +4541,7 @@ HOSTS
         @app_names << AppDashboard::APP_NAME
       }
     else
-      FileUtils.rm_rf("PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz")
+      FileUtils.rm_rf("PERSISTENT_MOUNT_POINT}/apps/#{AppDashboard::APP_NAME}.tar.gz")
     end
   end
 
