@@ -1626,10 +1626,10 @@ class Djinn
        end
     end
 
-    RESERVED_APPS.each { |app|
-      if apps.include?(app)
-        Djinn.log_warn("Cannot update reserved app #{app}.")
-        apps.delete(app)
+    RESERVED_APPS.each { |reserved_app|
+      if apps.include?(reserved_app)
+        Djinn.log_warn("Cannot update reserved app #{reserved_app}.")
+        apps.delete(reserved_app)
       end
     }
     Djinn.log_info("Received request to update these apps: #{apps.join(', ')}.")
@@ -3526,8 +3526,8 @@ class Djinn
       }
     end
 
-    # Headnode need to ensure we have the appscale user, and need to
-    # prepare the dashboard to be started.
+    # The headnode needs to ensure we have the appscale user, and it needs
+    # to prepare the dashboard to be started.
     if my_node.is_shadow?
       threads << Thread.new {
         create_appscale_user()
@@ -4542,9 +4542,9 @@ HOSTS
           'nginx' => AppDashboard::LISTEN_PORT,
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
           'haproxy' => AppDashboard::PROXY_PORT,
+          'appengine' = [],
           'language' => AppDashboard::APP_LANGUAGE
       }
-      @app_info_map[AppDashboard::APP_NAME]['appengine'] = []
       @app_names << AppDashboard::APP_NAME
     }
   end
