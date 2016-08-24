@@ -4542,7 +4542,7 @@ HOSTS
           'nginx' => AppDashboard::LISTEN_PORT,
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
           'haproxy' => AppDashboard::PROXY_PORT,
-          'appengine' = [],
+          'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE
       }
       @app_names << AppDashboard::APP_NAME
