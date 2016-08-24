@@ -9,6 +9,7 @@ given (Put, Get, Delete, Query, etc).
 import array
 import __builtin__
 import cassandra_env.cassandra_interface
+import dbconstants
 import getopt
 import itertools
 import json
@@ -19,22 +20,16 @@ import random
 import sys
 import threading
 import time
-
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-
-import dbconstants
 import helper_functions
+import zkappscale.zktransaction
 
 from appscale_datastore_batch import DatastoreFactory
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import TRANSACTIONS_SCHEMA
 from dbconstants import TxnActions
-from zkappscale import zktransaction as zk
-from zkappscale.zktransaction import ZKBadRequest
-from zkappscale.zktransaction import ZKInternalException
-from zkappscale.zktransaction import ZKTransactionException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -1048,9 +1043,9 @@ class DatastoreDistributed():
           prev, current = self.zookeeper.increment_and_get_counter(
             "/{0}/counter".format(app_id), max_id - current + 1)
           
-    except ZKTransactionException, zk_exception:
+    except zkappscale.zktransaction.ZKTransactionException as zk_exception:
       if num_retries > 0:
-        time.sleep(zk.ZKTransaction.ZK_RETRY_TIME)
+        time.sleep(zkappscale.zktransaction.ZKTransaction.ZK_RETRY_TIME)
         self.logger.debug('Retrying to allocate ids for {}'.format(app_id))
         return self.allocate_ids(app_id, size, max_id=max_id,
           num_retries=num_retries - 1)
@@ -1222,7 +1217,7 @@ class DatastoreDistributed():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
 
       put_response.key_list().extend([e.key() for e in entities])
-    except ZKTransactionException, zkte:
+    except zkappscale.zktransaction.ZKTransactionException as zkte:
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
@@ -1292,7 +1287,7 @@ class DatastoreDistributed():
         txnid = self.setup_transaction(app_id, is_xg=False)
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    except ZKTransactionException, zkte:
+    except zkappscale.zktransaction.ZKTransactionException as zkte:
       if retries > 0:
         time.sleep(self.LOCK_RETRY_TIME)
         self.logger.warning('Retrying to acquire lock. Retries left: {}'.
@@ -1380,7 +1375,7 @@ class DatastoreDistributed():
       for root_key in root_keys:
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    except ZKTransactionException, zkte:
+    except zkappscale.zktransaction.ZKTransactionException as zkte:
       self.logger.warning('Concurrent transaction: {}'.format(txnid))
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
@@ -1447,7 +1442,7 @@ class DatastoreDistributed():
       txnid = get_request.transaction().handle()
       try:
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
-      except ZKTransactionException, zkte:
+      except zkappscale.zktransaction.ZKTransactionException as zkte:
         self.logger.warning('Concurrent transaction: {}'.format(txnid))
         self.zookeeper.notify_failed_transaction(app_id, txnid)
         raise zkte
@@ -1773,7 +1768,7 @@ class DatastoreDistributed():
       # Pad the number of references to fetch to increase the likelihood of
       # getting all the valid references that we need.
       if not added_padding:
-        to_fetch += zk.MAX_GROUPS_FOR_XG
+        to_fetch += zkappscale.zktransaction.MAX_GROUPS_FOR_XG
         added_padding = True
 
   def __extract_entities(self, kv):
@@ -1818,7 +1813,7 @@ class DatastoreDistributed():
       try:
         prefix = self.get_table_prefix(query)
         self.zookeeper.acquire_lock(clean_app_id(query.app()), txn_id, root_key)
-      except ZKTransactionException, zkte:
+      except zkappscale.zktransaction.ZKTransactionException as zkte:
         self.logger.warning('Concurrent transaction: {}'.format(txn_id))
         self.zookeeper.notify_failed_transaction(clean_app_id(query.app()), 
           txn_id)
@@ -1874,7 +1869,7 @@ class DatastoreDistributed():
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
         self.zookeeper.acquire_lock(clean_app_id(query.app()), txn_id, root_key)
-      except ZKTransactionException, zkte:
+      except zkappscale.zktransaction.ZKTransactionException as zkte:
         self.logger.warning('Concurrent transaction: {}'.format(txn_id))
         self.zookeeper.notify_failed_transaction(clean_app_id(query.app()), 
           txn_id)
@@ -2209,7 +2204,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + zkappscale.zktransaction.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
@@ -2396,7 +2391,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + zkappscale.zktransaction.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
@@ -3223,7 +3218,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zk.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + zkappscale.zktransaction.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} entities do not match query. '
         'Fetching {} more references.'.format(invalid_refs, current_limit))
@@ -3781,19 +3776,19 @@ class DatastoreDistributed():
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
-    except ZKBadRequest, zkie:
+    except zkappscale.zktransaction.ZKBadRequest as zkie:
       self.logger.exception('Unable to commit transaction {} for {}'.
         format(transaction_pb, app_id))
       return (commitres_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       self.logger.exception('ZKInternalException during {} for {}'.
         format(transaction_pb, app_id))
       return (commitres_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except ZKTransactionException, zkte:
+    except zkappscale.zktransaction.ZKTransactionException as zkte:
       self.logger.exception('Concurrent transaction during {} for {}'.
         format(transaction_pb, app_id))
       self.zookeeper.notify_failed_transaction(app_id, txn_id)
@@ -3816,7 +3811,7 @@ class DatastoreDistributed():
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")
-    except ZKTransactionException, zkte:
+    except zkappscale.zktransaction.ZKTransactionException as zkte:
       self.logger.exception('Unable to rollback {} for {}'.
         format(txn, app_id))
       return (api_base_pb.VoidProto().Encode(),
@@ -4033,7 +4028,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('Unable to begin {}'.format(transaction_pb))
       return (transaction_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
@@ -4075,7 +4070,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {} for {}'.
         format(http_request_data, app_id))
       return (response.Encode(), datastore_pb.Error.INTERNAL_ERROR,
@@ -4099,19 +4094,19 @@ class MainHandler(tornado.web.RequestHandler):
     clone_qr_pb = UnprocessedQueryResult()
     try:
       datastore_access._dynamic_run_query(query, clone_qr_pb)
-    except ZKBadRequest, zkie:
+    except zkappscale.zktransaction.ZKBadRequest, zkie:
       logger.exception('Illegal arguments in transaction during {}'.
         format(query))
       return (clone_qr_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except ZKTransactionException:
+    except zkappscale.zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
@@ -4272,17 +4267,17 @@ class MainHandler(tornado.web.RequestHandler):
     start = end = 0
     try:
       start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
-    except ZKBadRequest, zkie:
+    except zkappscale.zktransaction.ZKBadRequest as zkie:
       logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except ZKTransactionException:
+    except zkappscale.zktransaction.ZKTransactionException:
       logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
@@ -4322,17 +4317,17 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
-    except ZKBadRequest, zkie:
+    except zkappscale.zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
             datastore_pb.Error.BAD_REQUEST, 
             "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except ZKTransactionException:
+    except zkappscale.zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
       return (putresp_pb.Encode(),
@@ -4359,17 +4354,17 @@ class MainHandler(tornado.web.RequestHandler):
     getresp_pb = datastore_pb.GetResponse()
     try:
       datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
-    except ZKBadRequest, zkie:
+    except zkappscale.zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except ZKTransactionException:
+    except zkappscale.zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(getreq_pb))
       return (getresp_pb.Encode(),
@@ -4406,17 +4401,17 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
-    except ZKBadRequest, zkie:
+    except zkappscale.zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except ZKInternalException:
+    except zkappscale.zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except ZKTransactionException:
+    except zkappscale.zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(delreq_pb))
       return (delresp_pb.Encode(),
@@ -4487,7 +4482,7 @@ def main(argv):
  
   datastore_batch = DatastoreFactory.getDatastore(
     db_type, log_level=logger.getEffectiveLevel())
-  zookeeper = zk.ZKTransaction(
+  zookeeper = zkappscale.zktransaction.ZKTransaction(
     host=zookeeper_locations, start_gc=True, db_access=datastore_batch)
 
   datastore_access = DatastoreDistributed(
