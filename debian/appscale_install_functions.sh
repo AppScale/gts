@@ -546,3 +546,8 @@ installtaskqueue()
 {
     (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
 }
+
+installlibffidev()
+{
+    apt-get install libffi-dev
+}
