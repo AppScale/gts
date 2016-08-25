@@ -22,8 +22,11 @@ import xmltodict
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """
 
+  # Min concurrency per worker.
+  MIN_CELERY_CONCURRENTY = 2
+
   # Max concurrency per worker.
-  CELERY_CONCURRENCY = 10
+  MAX_CELERY_CONCURRENCY = 8
 
   # The default YAML used if a queue.yaml or queue.xml is not supplied.
   DEFAULT_QUEUE_YAML = """
