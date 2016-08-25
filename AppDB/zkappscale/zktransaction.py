@@ -1488,7 +1488,7 @@ class ZKTransaction:
     parameters = {'app': app, 'transaction': transaction}
     if status_exists:
       clear_status = """
-        DELETE FROM batch_status (app, transaction, applied)
+        DELETE FROM batch_status
         WHERE app = %(app)s AND transaction = %(transaction)s
         IF applied = False
       """
