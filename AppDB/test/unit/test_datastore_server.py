@@ -27,6 +27,7 @@ from datastore_server import ID_KEY_LENGTH
 from datastore_server import TOMBSTONE
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import JOURNAL_SCHEMA
+from zkappscale.zktransaction import TX_TIMEOUT
 from zkappscale.zktransaction import ZKTransactionException
 
 
@@ -991,7 +992,7 @@ class TestDatastoreServer(unittest.TestCase):
       txn_keys,
       dbconstants.TRANSACTIONS_SCHEMA,
       txn_values,
-      ttl=dd.MAX_TXN_DURATION * 2
+      ttl=TX_TIMEOUT * 2
     )
     dd.delete_entities_txn(app, keys, txn_hash)
 
@@ -1024,7 +1025,7 @@ class TestDatastoreServer(unittest.TestCase):
       txn_keys,
       dbconstants.TRANSACTIONS_SCHEMA,
       txn_values,
-      ttl=dd.MAX_TXN_DURATION * 2
+      ttl=TX_TIMEOUT * 2
     )
     dd.put_entities_txn(entities, txn_hash, app)
 

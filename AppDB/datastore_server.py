@@ -310,9 +310,6 @@ class DatastoreDistributed():
   # The number of entities to fetch at a time when updating indices.
   BATCH_SIZE = 100
 
-  # The maximum number of seconds a transaction can take.
-  MAX_TXN_DURATION = 60
-
   def __init__(self, datastore_batch, zookeeper=None, log_level=logging.INFO):
     """
        Constructor.
@@ -647,7 +644,7 @@ class DatastoreDistributed():
       txn_keys,
       TRANSACTIONS_SCHEMA,
       txn_values,
-      ttl=self.MAX_TXN_DURATION * 2
+      ttl=zkappscale.zktransaction.TX_TIMEOUT * 2
     )
 
   @staticmethod
@@ -1156,7 +1153,7 @@ class DatastoreDistributed():
       txn_keys,
       TRANSACTIONS_SCHEMA,
       txn_values,
-      ttl=self.MAX_TXN_DURATION * 2
+      ttl=zkappscale.zktransaction.TX_TIMEOUT * 2
     )
 
   def dynamic_put(self, app_id, put_request, put_response):

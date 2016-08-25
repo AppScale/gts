@@ -35,7 +35,9 @@ class BatchInProgress(Exception):
 # and writable by anyone.
 ZOO_ACL_OPEN = None
 
-# The number of seconds to wait before we consider a transaction to be failed.
+# The maximum number of seconds a transaction can take. In GAE, transactions
+# "have a maximum duration of 60 seconds with a 10 second idle expiration time
+# after 30 seconds." The 10-second idle check is not yet implemented.
 TX_TIMEOUT = 60
 
 # The number of seconds to wait between invocations of the transaction
