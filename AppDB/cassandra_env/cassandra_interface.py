@@ -117,7 +117,9 @@ def deletions_for_entity(entity, composite_indices=()):
 
 
 def index_deletions(old_entity, new_entity, composite_indices=()):
-  """ Get a list of index deletions needed for updating an entity.
+  """ Get a list of index deletions needed for updating an entity. For changing
+  an existing entity, this involves examining the property list of both
+  entities to see which index entries need to be removed.
 
   Args:
     old_entity: An entity object.
