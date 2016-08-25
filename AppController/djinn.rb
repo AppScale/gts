@@ -4654,7 +4654,7 @@ HOSTS
     Djinn.log_debug("Checking applications that have been stopped.")
     begin
       app_list = uac.get_all_apps()
-    rescue FailedNodeException => except
+    rescue FailedNodeException
       Djinn.log_warn("check_stopped_apps: failed to get apps (#{app_list}).")
       app_list = []
     end
