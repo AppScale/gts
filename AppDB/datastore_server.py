@@ -4483,7 +4483,8 @@ def main(argv):
   datastore_batch = DatastoreFactory.getDatastore(
     db_type, log_level=logger.getEffectiveLevel())
   zookeeper = zkappscale.zktransaction.ZKTransaction(
-    host=zookeeper_locations, start_gc=True, db_access=datastore_batch)
+    host=zookeeper_locations, start_gc=True, db_access=datastore_batch,
+    log_level=logger.getEffectiveLevel())
 
   datastore_access = DatastoreDistributed(
     datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
