@@ -231,7 +231,9 @@ def main():
 
   tq_application = tornado.web.Application(handlers)
 
-  server = tornado.httpserver.HTTPServer(tq_application)
+  server = tornado.httpserver.HTTPServer(
+    tq_application,
+    decompress_request=True)   # Automatically decompress incoming requests.
   server.listen(SERVER_PORT)
 
   while 1:
