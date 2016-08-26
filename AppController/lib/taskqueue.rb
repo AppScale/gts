@@ -26,7 +26,7 @@ module TaskQueue
   SERVER_PORT = 5672 
  
   # The port where the TaskQueue server runs on, by default. 
-  TASKQUEUE_SERVER_PORT = 64839
+  TASKQUEUE_SERVER_PORT = 17446
 
   # The port where the Flower server runs on, by default.
   FLOWER_SERVER_PORT = 5555

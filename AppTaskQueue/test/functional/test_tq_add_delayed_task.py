@@ -24,9 +24,9 @@ class TestTaskAddTask(unittest.TestCase):
     item.set_mode(taskqueue_service_pb.TaskQueueMode.PUSH)
     item.set_eta_usec(5000000) # 5 seconds
     host = socket.gethostbyname(socket.gethostname())
-    item.set_url('http://' + host + ':64839/queues') 
+    item.set_url('http://' + host + ':17446/queues') 
     host = socket.gethostbyname(socket.gethostname())
-    req = urllib2.Request('http://' + host + ':64839')
+    req = urllib2.Request('http://' + host + ':17446')
     api_request = remote_api_pb.Request()
     api_request.set_method("BulkAdd")
     api_request.set_service_name("taskqueue")

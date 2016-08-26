@@ -26,7 +26,7 @@ sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
 
 # Default port this service runs on.
-SERVER_PORT = 64839
+SERVER_PORT = 17446
 
 # Global for Distributed TaskQueue.
 task_queue = None
