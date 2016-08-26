@@ -66,6 +66,5 @@ case "$1" in
         installapiclient
         buildgo
         installtaskqueue
-        installlibffidev
         ;;
 esac
