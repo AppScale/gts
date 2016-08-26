@@ -117,14 +117,21 @@ class InfrastructureManagerClient
         'EC2_SECRET_KEY' => options['ec2_secret_key'],
         'EC2_URL' => options['ec2_url']
       },
-      'project' => options['project'],  # GCE-specific
+      "project" => options['project'],  # GCE-specific
       "group" => options['group'],
       "image_id" => options['machine'],
       "infrastructure" => options['infrastructure'],
       "instance_type" => options['instance_type'],
       "keyname" => options['keyname'],
       "use_spot_instances" => options['use_spot_instances'],
-      "max_spot_price" => options['max_spot_price']
+      "max_spot_price" => options['max_spot_price'],
+      "subscription_id" => options['subscription_id'],
+      "app_id" => options['app_id'],
+      "app_secret_key" => options['app_secret_key'],
+      "tenant_id" => options['tenant_id'],
+      "resource_group" => options['resource_group'],
+      "group_tag" => options['group_tag'],
+      "storage_account" => options['storage_account'],
     }
   end
 
