@@ -2709,6 +2709,17 @@ class Djinn
     Nginx.reload()
   end
 
+  # Creates HAProxy configuration for the TaskQueue REST API.
+  def configure_tq_haproxy()
+    all_tq_ips = []
+    @nodes.each { | node |
+      if node.is_taskqueue_master? || node.is_taskqueue_slave?
+        all_tq_ips.push(node.private_ip)
+      end
+    }
+    HAProxy.create_tq_endpoint_config(all_tq_ips,
+      my_node.private_ip, TaskQueue::HAPROXY_PORT)
+  end
 
   def write_database_info()
     table = @options['table']
@@ -3512,6 +3523,7 @@ class Djinn
     if my_node.is_load_balancer?
       threads << Thread.new {
         start_ejabberd()
+        configure_tq_haproxy()
       }
     end
 

@@ -19,6 +19,9 @@ require 'monit_interface'
 # methods that automatically configure and deploy rabbitmq and celery as needed.
 module TaskQueue
 
+  # The default name of the service.
+  NAME = "TaskQueue"
+
   # AppScale install directory  
   APPSCALE_HOME = ENV["APPSCALE_HOME"]
 
@@ -27,6 +30,9 @@ module TaskQueue
  
   # The port where the TaskQueue server runs on, by default. 
   TASKQUEUE_SERVER_PORT = 17446
+
+  # HAProxy port for TaskQueue REST API endpoints.
+  HAPROXY_PORT = 8061
 
   # The port where the Flower server runs on, by default.
   FLOWER_SERVER_PORT = 5555

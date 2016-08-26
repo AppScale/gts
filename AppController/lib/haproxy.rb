@@ -91,6 +91,15 @@ module HAProxy
     self.create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
   end
 
+  # Create the config file for TaskQueue REST API endpoints.
+  def self.create_tq_endpoint_config(server_ips, my_ip, listen_port)
+    servers = []
+    server_ips.each{ |server|
+      servers << {'ip' => server, 'port' => TaskQueue::TASKQUEUE_SERVER_PORT }
+    }
+    self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
+  end
+
   # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
     # For the Datastore servers we have a list of local ports the servers

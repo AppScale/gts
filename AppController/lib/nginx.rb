@@ -153,6 +153,16 @@ location ~ /_ah/upload/.* {
 JAVA_BLOBSTORE_REDIRECTION
     end
 
+    rest_taskqueue_redirection = <<REST_TASKQUEUE_REDIRECTION
+location ~ /taskqueue/v1beta2/projects/.* {
+    proxy_pass            http://gae_#{app_name}_taskqueue;
+    proxy_connect_timeout 600;
+    proxy_read_timeout    600;
+    client_body_timeout   600;
+    client_max_body_size  2G;
+    }
+REST_TASKQUEUE_REDIRECTION
+
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
     else
@@ -207,6 +217,10 @@ upstream gae_#{app_name}_blobstore {
     server #{my_private_ip}:#{BlobServer::HAPROXY_PORT};
 }
 
+upstream gae_#{app_name}_taskqueue {
+    server #{my_private_ip}:#{TaskQueue::HAPROXY_PORT};
+}
+
 map $scheme $ssl {
     default off;
     https on;
@@ -235,6 +249,7 @@ server {
     #{non_secure_static_locations}
     #{non_secure_default_location}
 
+    #{rest_taskqueue_redirection}
     #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
@@ -275,6 +290,7 @@ server {
     #{secure_static_locations}
     #{secure_default_location}
 
+    #{rest_taskqueue_redirection}
     #{java_blobstore_redirection}
 
     location /reserved-channel-appscale-path {
