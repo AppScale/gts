@@ -4,7 +4,9 @@
  Cassandra Interface for AppScale
 """
 import cassandra
+import datastore_server
 import dbconstants
+import helper_functions
 import logging
 import os
 import sys
@@ -46,6 +48,207 @@ VERSION_INFO_KEY = 'version'
 
 # The metadata key indicating that the database has been primed.
 PRIMED_KEY = 'primed'
+
+# The size in bytes that a batch must be to use the batches table.
+LARGE_BATCH_THRESHOLD = 5 << 10
+
+
+def batch_size(batch):
+  """ Calculates the size of a batch.
+
+  Args:
+    batch: A list of dictionaries representing mutations.
+  Returns:
+    An integer specifying the size in bytes of the batch.
+  """
+  size = 0
+  for mutation in batch:
+    size += len(mutation['key'])
+    if 'values' in mutation:
+      for value in mutation['values'].values():
+        size += len(value)
+  return size
+
+
+def deletions_for_entity(entity, composite_indices=()):
+  """ Get a list of deletions needed across tables for deleting an entity.
+
+  Args:
+    entity: An entity object.
+    composite_indices: A list or tuple of composite indices.
+  Returns:
+    A list of dictionaries representing mutation operations.
+  """
+  ds_static = datastore_server.DatastoreDistributed
+  deletions = []
+  app_id = datastore_server.clean_app_id(entity.key().app())
+  namespace = entity.key().name_space()
+  prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])
+
+  asc_rows = ds_static.get_index_kv_from_tuple([(prefix, entity)])
+  for entry in asc_rows:
+    deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
+                      'key': entry[0],
+                      'operation': TxnActions.DELETE})
+
+  dsc_rows = ds_static.get_index_kv_from_tuple(
+    [(prefix, entity)], reverse=True)
+  for entry in dsc_rows:
+    deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
+                      'key': entry[0],
+                      'operation': TxnActions.DELETE})
+
+  for key in ds_static.get_composite_indexes_rows([entity], composite_indices):
+    deletions.append({'table': dbconstants.COMPOSITE_TABLE,
+                      'key': key,
+                      'operation': TxnActions.DELETE})
+
+  entity_key = ds_static.get_entity_key(prefix, entity.key().path())
+  deletions.append({'table': dbconstants.APP_ENTITY_TABLE,
+                    'key': entity_key,
+                    'operation': TxnActions.DELETE})
+
+  kind_key = ds_static.get_kind_key(prefix, entity.key().path())
+  deletions.append({'table': dbconstants.APP_KIND_TABLE,
+                    'key': kind_key,
+                    'operation': TxnActions.DELETE})
+
+  return deletions
+
+
+def index_deletions(old_entity, new_entity, composite_indices=()):
+  """ Get a list of index deletions needed for updating an entity. For changing
+  an existing entity, this involves examining the property list of both
+  entities to see which index entries need to be removed.
+
+  Args:
+    old_entity: An entity object.
+    new_entity: An entity object.
+    composite_indices: A list or tuple of composite indices.
+  Returns:
+    A list of dictionaries representing mutation operations.
+  """
+  ds_static = datastore_server.DatastoreDistributed
+  deletions = []
+  app_id = datastore_server.clean_app_id(old_entity.key().app())
+  namespace = old_entity.key().name_space()
+  kind = ds_static.get_entity_kind(old_entity.key())
+  entity_key = str(ds_static.encode_index_pb(old_entity.key().path()))
+
+  new_props = {}
+  for prop in new_entity.property_list():
+    if prop.name() not in new_props:
+      new_props[prop.name()] = []
+    new_props[prop.name()].append(prop)
+
+  changed_props = {}
+  for prop in old_entity.property_list():
+    if prop.name() in new_props and prop in new_props[prop.name()]:
+      continue
+
+    if prop.name() not in changed_props:
+      changed_props[prop.name()] = []
+    changed_props[prop.name()].append(prop)
+
+    value = str(ds_static.encode_index_pb(prop.value()))
+
+    key = dbconstants.KEY_DELIMITER.join(
+      [app_id, namespace, kind, prop.name(), value, entity_key])
+    deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
+                      'key': key,
+                      'operation': TxnActions.DELETE})
+
+    reverse_key = dbconstants.KEY_DELIMITER.join(
+      [app_id, namespace, kind, prop.name(),
+       helper_functions.reverse_lex(value), entity_key])
+    deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
+                      'key': reverse_key,
+                      'operation': TxnActions.DELETE})
+
+  changed_prop_names = set(changed_props.keys())
+  for index in composite_indices:
+    if index.definition().entity_type() != kind:
+      continue
+
+    index_props = set(prop.name() for prop
+                      in index.definition().property_list())
+    if index_props.isdisjoint(changed_prop_names):
+      continue
+
+    old_entries = set(ds_static.get_composite_index_keys(index, old_entity))
+    new_entries = set(ds_static.get_composite_index_keys(index, new_entity))
+    for entry in (old_entries - new_entries):
+      deletions.append({'table': dbconstants.COMPOSITE_TABLE,
+                        'key': entry,
+                        'operation': TxnActions.DELETE})
+
+  return deletions
+
+
+def mutations_for_entity(entity, txn, current_value=None,
+                         composite_indices=()):
+  """ Get a list of mutations needed across tables for an entity change.
+
+  Args:
+    entity: An entity object.
+    txn: A transaction ID handler.
+    current_value: The entity object currently stored.
+    composite_indices: A list of composite indices for the entity kind.
+  Returns:
+    A list of dictionaries representing mutations.
+  """
+  ds_static = datastore_server.DatastoreDistributed
+  mutations = []
+  if current_value is not None:
+    mutations.extend(
+      index_deletions(current_value, entity, composite_indices))
+
+  app_id = datastore_server.clean_app_id(entity.key().app())
+  namespace = entity.key().name_space()
+  encoded_path = str(ds_static.encode_index_pb(entity.key().path()))
+  prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])
+  entity_key = dbconstants.KEY_DELIMITER.join([prefix, encoded_path])
+  entity_value = {dbconstants.APP_ENTITY_SCHEMA[0]: entity.Encode(),
+                  dbconstants.APP_ENTITY_SCHEMA[1]: str(txn)}
+  mutations.append({'table': dbconstants.APP_ENTITY_TABLE,
+                    'key': entity_key,
+                    'operation': TxnActions.PUT,
+                    'values': entity_value})
+
+  reference_value = {'reference': entity_key}
+
+  kind_key = ds_static.get_kind_key(prefix, entity.key().path())
+  mutations.append({'table': dbconstants.APP_KIND_TABLE,
+                    'key': kind_key,
+                    'operation': TxnActions.PUT,
+                    'values': reference_value})
+
+  asc_rows = ds_static.get_index_kv_from_tuple([(prefix, entity)])
+  for entry in asc_rows:
+    mutations.append({'table': dbconstants.ASC_PROPERTY_TABLE,
+                      'key': entry[0],
+                      'operation': TxnActions.PUT,
+                      'values': reference_value})
+
+  dsc_rows = ds_static.get_index_kv_from_tuple(
+    [(prefix, entity)], reverse=True)
+  for entry in dsc_rows:
+    mutations.append({'table': dbconstants.DSC_PROPERTY_TABLE,
+                      'key': entry[0],
+                      'operation': TxnActions.PUT,
+                      'values': reference_value})
+
+  for key in ds_static.get_composite_indexes_rows([entity], composite_indices):
+    mutations.append({'table': dbconstants.COMPOSITE_TABLE,
+                      'key': key,
+                      'operation': TxnActions.PUT,
+                      'values': reference_value})
+
+  return mutations
+
+
+class FailedBatch(Exception):
+  pass
 
 
 class IdempotentRetryPolicy(RetryPolicy):
@@ -96,10 +299,15 @@ class DatastoreProxy(AppDBInterface):
   """ 
     Cassandra implementation of the AppDBInterface
   """
-  def __init__(self):
+  def __init__(self, log_level=logging.INFO):
     """
     Constructor.
     """
+    class_name = self.__class__.__name__
+    self.logger = logging.getLogger(class_name)
+    self.logger.setLevel(log_level)
+    self.logger.info('Starting {}'.format(class_name))
+
     self.hosts = appscale_info.get_db_ips()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
@@ -249,18 +457,16 @@ class DatastoreProxy(AppDBInterface):
     """
     statement = """
       DELETE FROM "{table}" WHERE {key} = ?
-    """.format(table=table,
-               key=ThriftColumn.KEY,
-               column=ThriftColumn.COLUMN_NAME,
-               value=ThriftColumn.VALUE)
+    """.format(table=table, key=ThriftColumn.KEY)
     return self.session.prepare(statement)
 
-  def batch_mutate(self, mutations):
-    """ Insert or delete multiple rows across tables in an atomic statement.
+  def _normal_batch(self, mutations):
+    """ Use Cassandra's native batch statement to apply mutations atomically.
 
     Args:
       mutations: A list of dictionaries representing mutations.
     """
+    self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
@@ -289,7 +495,129 @@ class DatastoreProxy(AppDBInterface):
       message = 'Exception during batch_mutate'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
-      
+
+  def apply_mutations(self, mutations):
+    """ Apply mutations across tables.
+
+    Args:
+      mutations: A list of dictionaries representing mutations.
+    """
+    for mutation in mutations:
+      table = mutation['table']
+      if mutation['operation'] == TxnActions.PUT:
+        values = mutation['values']
+        for column in values:
+          insert_row = """
+            INSERT INTO "{table}" ({key}, {column}, {value})
+            VALUES (%(key)s, %(column)s, %(value)s)
+          """.format(table=table,
+                     key=ThriftColumn.KEY,
+                     column=ThriftColumn.COLUMN_NAME,
+                     value=ThriftColumn.VALUE)
+          parameters = {'key': bytearray(mutation['key']),
+                        'column': column,
+                        'value': bytearray(values[column])}
+          self.session.execute(insert_row, parameters)
+      elif mutation['operation'] == TxnActions.DELETE:
+        delete_row = """
+          DELETE FROM "{table}" WHERE {key} = %(key)s
+        """.format(table=table, key=ThriftColumn.KEY)
+        parameters = {'key': bytearray(mutation['key'])}
+        self.session.execute(delete_row, parameters)
+
+  def _large_batch(self, app, mutations, entity_changes, txn):
+    """ Insert or delete multiple rows across tables in an atomic statement.
+
+    Args:
+      app: A string containing the application ID.
+      mutations: A list of dictionaries representing mutations.
+      entity_changes: A list of changes at the entity level.
+      txn: A transaction ID handler.
+    Raises:
+      FailedBatch if a concurrent process modifies the batch status.
+    """
+    self.logger.debug('Large batch: transaction {}, {} mutations'.
+                      format(txn, len(mutations)))
+    set_status = """
+      INSERT INTO batch_status (app, transaction, applied)
+      VALUES (%(app)s, %(transaction)s, False)
+      IF NOT EXISTS
+    """
+    parameters = {'app': app, 'transaction': txn}
+    result = self.session.execute(set_status, parameters)
+    if not result.was_applied:
+      raise FailedBatch('A batch for transaction {} already exists'.
+                        format(txn))
+
+    for entity_change in entity_changes:
+      insert_item = """
+        INSERT INTO batches (app, transaction, namespace, path,
+                             old_value, new_value)
+        VALUES (%(app)s, %(transaction)s, %(namespace)s, %(path)s,
+                %(old_value)s, %(new_value)s)
+      """
+      old_value = None
+      if entity_change['old'] is not None:
+        old_value = bytearray(entity_change['old'].Encode())
+      new_value = None
+      if entity_change['new'] is not None:
+        new_value = bytearray(entity_change['new'].Encode())
+
+      parameters = {
+        'app': app,
+        'transaction': txn,
+        'namespace': entity_change['key'].name_space(),
+        'path': bytearray(entity_change['key'].path().Encode()),
+        'old_value': old_value,
+        'new_value': new_value
+      }
+      self.session.execute(insert_item, parameters)
+
+    update_status = """
+      UPDATE batch_status
+      SET applied = True
+      WHERE app = %(app)s
+      AND transaction = %(transaction)s
+      IF applied = False
+    """
+    parameters = {'app': app, 'transaction': txn}
+    result = self.session.execute(update_status, parameters)
+    if not result.was_applied:
+      raise FailedBatch('Another process modified batch for transaction {}'.
+                        format(txn))
+
+    self.apply_mutations(mutations)
+
+    clear_batch = """
+      DELETE FROM batches
+      WHERE app = %(app)s AND transaction = %(transaction)s
+    """
+    parameters = {'app': app, 'transaction': txn}
+    self.session.execute(clear_batch, parameters)
+
+    clear_status = """
+      DELETE FROM batch_status
+      WHERE app = %(app)s and transaction = %(transaction)s
+    """
+    parameters = {'app': app, 'transaction': txn}
+    self.session.execute(clear_status, parameters)
+
+  def batch_mutate(self, app, mutations, entity_changes, txn):
+    """ Insert or delete multiple rows across tables in an atomic statement.
+
+    Args:
+      app: A string containing the application ID.
+      mutations: A list of dictionaries representing mutations.
+      entity_changes: A list of changes at the entity level.
+      txn: A transaction ID handler.
+    """
+    size = batch_size(mutations)
+    self.logger.debug('batch_size: {}'.format(size))
+    if size > LARGE_BATCH_THRESHOLD:
+      self._large_batch(app, mutations, entity_changes, txn)
+    else:
+      self._normal_batch(mutations)
+
   def batch_delete(self, table_name, row_keys, column_names=()):
     """
     Remove a set of rows corresponding to a set of keys.
@@ -555,6 +883,32 @@ class DatastoreProxy(AppDBInterface):
       self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
                         dbconstants.DATASTORE_METADATA_SCHEMA)
       self.session.execute(statement, parameters)
+
+  def get_indices(self, app_id):
+    """ Gets the indices of the given application.
+
+    Args:
+      app_id: Name of the application.
+    Returns:
+      Returns a list of encoded entity_pb.CompositeIndex objects.
+    """
+    start_key = dbconstants.KEY_DELIMITER.join([app_id, 'index', ''])
+    end_key = dbconstants.KEY_DELIMITER.join(
+      [app_id, 'index', dbconstants.TERMINATING_STRING])
+    result = self.range_query(
+      dbconstants.METADATA_TABLE,
+      dbconstants.METADATA_SCHEMA,
+      start_key,
+      end_key,
+      dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES,
+      offset=0,
+      start_inclusive=True,
+      end_inclusive=True)
+    list_result = []
+    for list_item in result:
+      for key, value in list_item.iteritems():
+        list_result.append(value['data'])
+    return list_result
 
   def valid_data_version(self):
     """ Checks whether or not the data layout can be used.

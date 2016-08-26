@@ -82,7 +82,7 @@ module Ejabberd
 
     return if nodes.nil?
     nodes.each { |node|
-      next if node.is_login? # don't copy the file to itself
+      next if node.is_shadow? # don't copy the file to itself
       ip = node.private_ip
       ssh_key = node.ssh_key
       HelperFunctions.scp_file(ONLINE_USERS_FILE, ONLINE_USERS_FILE, ip, ssh_key)
