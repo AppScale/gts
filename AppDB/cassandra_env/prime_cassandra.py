@@ -52,6 +52,35 @@ def define_ua_schema(session):
     session.execute(define_schema, values)
 
 
+def create_batch_tables(session):
+  """ Create the tables required for large batches. """
+  logging.info('Trying to create batches')
+  create_table = """
+    CREATE TABLE IF NOT EXISTS batches (
+      app text,
+      transaction int,
+      namespace text,
+      path blob,
+      old_value blob,
+      new_value blob,
+      exclude_indices text,
+      PRIMARY KEY ((app, transaction), namespace, path)
+    )
+  """
+  session.execute(create_table)
+
+  logging.info('Trying to create batch_status')
+  create_table = """
+    CREATE TABLE IF NOT EXISTS batch_status (
+      app text,
+      transaction int,
+      applied boolean,
+      PRIMARY KEY ((app), transaction)
+    )
+  """
+  session.execute(create_table)
+
+
 def prime_cassandra(replication):
   """ Create Cassandra keyspace and initial tables.
 
@@ -108,6 +137,7 @@ def prime_cassandra(replication):
     logging.info('Trying to create {}'.format(table))
     session.execute(create_table)
 
+  create_batch_tables(session)
   create_pull_queue_tables(session)
 
   first_entity = session.execute(
