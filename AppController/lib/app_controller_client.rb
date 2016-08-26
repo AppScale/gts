@@ -171,8 +171,10 @@ class AppControllerClient
     make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
   end
 
-  def upload_app(app)
-    make_call(30, RETRY_ON_FAIL, "upload_app") { @conn.upload_app(app, @secret) }
+  def upload_app(archived_file, file_suffix, email)
+    make_call(30, RETRY_ON_FAIL, "upload_app") {
+      @conn.upload_app(archived_file, file_suffix, email, @secret)
+    }
   end
 
   def stop_app(app_name)
