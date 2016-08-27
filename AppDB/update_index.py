@@ -50,7 +50,7 @@ def main(app_id, db_type):
   datastore_access = DatastoreDistributed(datastore_batch,
     zookeeper=zookeeper)
 
-  pb_indices = datastore_access.get_indices(app_id)
+  pb_indices = datastore_access.datastore_batch.get_indices(app_id)
   indices = [datastore_pb.CompositeIndex(index) for index in pb_indices]
   if len(indices) == 0:
     print('No composite indices found for app {}'.format(app_id))

@@ -80,6 +80,8 @@ class TestCassandra(unittest.TestCase):
     self.assertListEqual([], db.range_query("table", [], "start", "end", 0))
 
   def test_batch_mutate(self):
+    app_id = 'guestbook'
+    transaction = 1
     flexmock(file_io).should_receive('read').and_return('127.0.0.1')
 
     flexmock(Cluster).should_receive('connect').\
@@ -87,7 +89,7 @@ class TestCassandra(unittest.TestCase):
 
     db = cassandra_interface.DatastoreProxy()
 
-    db.batch_mutate([])
+    db.batch_mutate(app_id, [], [], transaction)
 
 if __name__ == "__main__":
   unittest.main()    

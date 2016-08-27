@@ -6,6 +6,7 @@ require 'monitor'
 require 'net/http'
 require 'net/https'
 require 'openssl'
+require 'securerandom'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
@@ -58,6 +59,10 @@ APPS_LOCK = Monitor.new()
 # This lock is to ensure that only one thread is trying to start/stop
 # applications.
 AMS_LOCK = Mutex.new()
+
+
+# The name of the user to be used with reserved applications.
+APPSCALE_USER = "appscale-admin@local.appscale"
 
 
 # The string that should be returned to the caller if they call a publicly
@@ -624,9 +629,7 @@ class Djinn
     end
 
     # Sanity checks on app ID and settings.
-    if RESERVED_APPS.include?(appid)
-      return "Error: Can't relocate the #{appid} app."
-    end
+    return "Error: Can't relocate the #{appid} app." if RESERVED_APPS.include?(appid)
     begin
       http_port = Integer(http_port)
       https_port = Integer(https_port)
@@ -1198,6 +1201,7 @@ class Djinn
 
     stats['apps'] = {}
     @app_names.each { |name|
+      next if RESERVED_APPS.include?(name)
       stats['apps'][name] = @apps_loaded.include?(name)
     }
     return stats
@@ -1438,7 +1442,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while commiting " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while committing " +
         "the user #{username}.")
     end
   end
@@ -1518,6 +1522,7 @@ class Djinn
     end
 
     app_name.gsub!(/[^\w\d\-]/, "")
+    return "false: #{app_name} is a reserved app." if RESERVED_APPS.include?(app_name)
     Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
 
@@ -1621,6 +1626,12 @@ class Djinn
        end
     end
 
+    RESERVED_APPS.each { |reserved_app|
+      if apps.include?(reserved_app)
+        Djinn.log_warn("Cannot update reserved app #{reserved_app}.")
+        apps.delete(reserved_app)
+      end
+    }
     Djinn.log_info("Received request to update these apps: #{apps.join(', ')}.")
 
     # Begin by marking the apps that should be running.
@@ -1847,7 +1858,7 @@ class Djinn
       end
 
       check_running_apps()
-      check_stopped_app()
+      check_stopped_apps()
 
       # Login nodes may need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
@@ -2794,7 +2805,7 @@ class Djinn
   # Returns:
   #   A boolean to indicate if we were able to restore the state.
   def restore_appcontroller_state()
-    Djinn.log_info("Restoring AppController state")
+    Djinn.log_debug("Reloading deployment state.")
     json_state=""
 
     unless File.exists?(ZK_LOCATIONS_FILE)
@@ -2815,7 +2826,7 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    Djinn.log_info("Reload State : #{json_state}")
+    Djinn.log_debug("Reload State : #{json_state}.")
 
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
@@ -3489,7 +3500,7 @@ class Djinn
       UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
-      app_list = uac.get_all_apps()
+      uac.does_app_exist?("not-there")
     rescue FailedNodeException
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
@@ -3529,7 +3540,15 @@ class Djinn
       }
     end
 
-    # All nodes have application managers
+    # The headnode needs to ensure we have the appscale user, and it needs
+    # to prepare the dashboard to be started.
+    if my_node.is_shadow?
+      threads << Thread.new {
+        create_appscale_user()
+        prep_app_dashboard()
+      }
+    end
+
     threads << Thread.new {
       start_app_manager_server()
     }
@@ -3565,7 +3584,6 @@ class Djinn
     # Leader node starts additional services.
     if my_node.is_shadow?
       update_node_info_cache()
-      start_app_dashboard()
       start_hermes()
       TaskQueue.start_flower(@options['flower_password'])
     end
@@ -4169,7 +4187,7 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
-    apps_to_check = @apps_loaded + RESERVED_APPS
+    apps_to_check = @apps_loaded
     apps_to_check.each { |app|
       next if app == "none"
 
@@ -4499,27 +4517,49 @@ HOSTS
     Ejabberd.stop()
   end
 
-  # Start the AppDashboard web service which allows users to login,
-  # upload and remove apps, and view the status of the AppScale deployment.
-  def start_app_dashboard()
-    @state = "Starting AppDashboard"
-    Djinn.log_info("Starting AppDashboard")
+  # Create the system user used to start and run system's applications.
+  def create_appscale_user()
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    password = SecureRandom.base64
+    begin
+      result = uac.commit_new_user(APPSCALE_USER, password, "app")
+      Djinn.log_info("Created/confirmed system user: (#{result})")
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to the UserAppServer while committing " +
+        "the system user.")
+    end
+  end
+
+  # Start the AppDashboard web service which allows users to login, upload
+  # and remove apps, and view the status of the AppScale deployment. Other
+  # nodes will need to delete the old source since we regenerate each
+  # 'up'.
+  def prep_app_dashboard()
+    @state = "Preparing AppDashboard"
+    Djinn.log_info("Preparing AppDashboard")
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
+    # Reserve dashboard app ID.
+    result = reserve_app_id(APPSCALE_USER, AppDashboard::APP_NAME,
+      AppDashboard::APP_LANGUAGE, @@secret)
+    Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
+
+    # Create and 'upload' the application.
     AppDashboard.start(my_public, my_private,
         PERSISTENT_MOUNT_POINT, @@secret)
-    setup_app_dir(AppDashboard::APP_NAME, true)
+
+    # Assign the specific ports to it.
     APPS_LOCK.synchronize {
       @app_info_map[AppDashboard::APP_NAME] = {
           'nginx' => AppDashboard::LISTEN_PORT,
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
           'haproxy' => AppDashboard::PROXY_PORT,
-          'appengine' => ["#{my_private}:-1", "#{my_private}:-1",
-                          "#{my_private}:-1"],
+          'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE
       }
+      @app_names << AppDashboard::APP_NAME
     }
   end
 
@@ -4564,9 +4604,9 @@ HOSTS
     Djinn.log_debug("Checking applications that should be running.")
     begin
       app_list = uac.get_all_apps()
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to get app listing: retrying.")
-      retry
+    rescue FailedNodeException => except
+      Djinn.log_warn("starts_new_apps_or_appservers: failed to get apps (#{except}).")
+      app_list = []
     end
     Djinn.log_debug("Apps to check: #{app_list}.") unless app_list.empty?
     app_list.each { |app|
@@ -4623,17 +4663,17 @@ HOSTS
 
   # This function compares the applications that should be running with
   # the ones we have setup, and removes the stopped applications.
-  def check_stopped_app()
+  def check_stopped_apps()
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     Djinn.log_debug("Checking applications that have been stopped.")
     begin
       app_list = uac.get_all_apps()
     rescue FailedNodeException
-      Djinn.log_warn("Failed to get app listing: retrying.")
-      retry
+      Djinn.log_warn("check_stopped_apps: failed to get apps (#{app_list}).")
+      app_list = []
     end
     app_list += HelperFunctions.get_loaded_apps()
-    app_list.each{ |app|
+    app_list.each { |app|
       next if @app_names.include?(app)
       next if RESERVED_APPS.include?(app)
       begin
@@ -4861,7 +4901,7 @@ HOSTS
         break
       rescue FailedNodeException
         # Failed to talk to the UserAppServer: let's try again.
-        Djnn.log_debug("Failed to talk to UserAppServer for #{app}.")
+        Djinn.log_debug("Failed to talk to UserAppServer for #{app}.")
       end
       Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
       Kernel.sleep(SMALL_WAIT)
@@ -5211,7 +5251,8 @@ HOSTS
   def get_scaling_info_for_app(app_name, update_dashboard=true)
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
-    if @app_info_map[app_name]['appengine'].length < @num_appengines
+    if (@app_info_map[app_name]['appengine'].nil? ||
+        @app_info_map[app_name]['appengine'].length < @num_appengines)
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
       @last_decision[app_name] = 0
       return :scale_up
@@ -5298,7 +5339,7 @@ HOSTS
 
 
   def try_to_scale_up(app_name)
-    if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
+    if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
       Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
         "hosting it anymore.")
       return
@@ -5493,7 +5534,13 @@ HOSTS
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
     # Make sure we have the application code.
-    setup_app_dir(app)
+    if RESERVED_APPS.include?(app)
+      # Reserved apps always get the latest code, since they may depend on
+      # the deployment key. This is important upon restart.
+      setup_app_dir(app, true)
+    else
+      setup_app_dir(app)
+    end
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"

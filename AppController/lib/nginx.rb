@@ -29,7 +29,7 @@ module Nginx
   NGINX_BIN = "/usr/sbin/nginx"
 
   # Nginx AppScale log directory.
-  NGINX_LOG_PATH = "/var/log/nginx/appscale-"
+  NGINX_LOG_PATH = "/var/log/nginx"
 
   # Nginx top configuration directory.
   NGINX_PATH = "/etc/nginx"
@@ -228,10 +228,10 @@ server {
 
     #root #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/#{app_name}.access.log upstream;
+    #access_log #{NGINX_LOG_PATH}/appscale-#{app_name}.access.log upstream;
     #error_log  /dev/null crit;
     access_log  off;
-    error_log   #{NGINX_LOG_PATH}#{app_name}.error.log;
+    error_log   #{NGINX_LOG_PATH}/appscale-#{app_name}.error.log;
 
     ignore_invalid_headers off;
     rewrite_log off;
@@ -270,10 +270,10 @@ server {
 
     #root #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}#{app_name}.access.log upstream;
+    #access_log #{NGINX_LOG_PATH}/appscale-#{app_name}.access.log upstream;
     #error_log  /dev/null crit;
     access_log  off;
-    error_log   #{NGINX_LOG_PATH}#{app_name}.error.log;
+    error_log   #{NGINX_LOG_PATH}/appscale-#{app_name}.error.log;
 
     ignore_invalid_headers off;
     rewrite_log off;
@@ -359,8 +359,8 @@ server {
     root   /root/appscale/AppDB/;
 
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}datastore_server.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}datastore_server.error.log;
+    #access_log #{NGINX_LOG_PATH}/appscale-datastore_server.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/appscale-datastore_server.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
@@ -392,8 +392,8 @@ server {
     root /root/appscale/AppDB/public;
 
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}datastore_server_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}datastore_server_encrypt.error.log;
+    #access_log #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
@@ -449,8 +449,8 @@ server {
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
     root        /root/appscale/AppDB/public;
-    #access_log #{NGINX_LOG_PATH}datastore_server_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}datastore_server_encrypt.error.log;
+    #access_log #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
