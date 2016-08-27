@@ -95,7 +95,8 @@ module HAProxy
   def self.create_tq_endpoint_config(server_ips, my_ip, listen_port)
     servers = []
     server_ips.each{ |server|
-      servers << {'ip' => server, 'port' => TaskQueue::TASKQUEUE_SERVER_PORT }
+      servers << {'ip' => server,
+                  'port' => TaskQueue::TASKQUEUE_SERVER_INTERNAL_PORT}
     }
     self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
   end

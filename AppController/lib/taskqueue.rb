@@ -29,10 +29,13 @@ module TaskQueue
   SERVER_PORT = 5672 
  
   # The port where the TaskQueue server runs on, by default. 
-  TASKQUEUE_SERVER_PORT = 17446
+  TASKQUEUE_SERVER_INTERNAL_PORT = 17446
 
   # HAProxy port for TaskQueue REST API endpoints.
   HAPROXY_PORT = 8061
+
+  # Default REST API public port.
+  TASKQUEUE_SERVER_SSL_PORT = 8199
 
   # The port where the Flower server runs on, by default.
   FLOWER_SERVER_PORT = 5555
@@ -81,7 +84,8 @@ module TaskQueue
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server()
-    HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
+    HelperFunctions.sleep_until_port_is_open("localhost",
+                                             TASKQUEUE_SERVER_INTERNAL_PORT)
   end
 
 
@@ -153,7 +157,7 @@ module TaskQueue
           start_taskqueue_server()
           Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
           HelperFunctions.sleep_until_port_is_open("localhost", 
-            TASKQUEUE_SERVER_PORT)
+                                                   TASKQUEUE_SERVER_INTERNAL_PORT)
           Djinn.log_debug("Done waiting for TaskQueue server")
           return
         end
@@ -180,8 +184,9 @@ module TaskQueue
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
     env_vars = {}
-    MonitInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT,
-      env_vars)
+    MonitInterface.start(:taskqueue, start_cmd, stop_cmd,
+                         TASKQUEUE_SERVER_INTERNAL_PORT,
+                         env_vars)
     Djinn.log_debug("Done starting taskqueue_server on this node")
   end
 
