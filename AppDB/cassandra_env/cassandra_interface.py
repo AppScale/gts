@@ -313,8 +313,7 @@ class DatastoreProxy(AppDBInterface):
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        # Cassandra 2.1 only supports up to Protocol Version 3.
-        self.cluster = Cluster(self.hosts, protocol_version=3)
+        self.cluster = Cluster(self.hosts)
         self.session = self.cluster.connect(KEYSPACE)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
