@@ -342,17 +342,8 @@ installcassandra()
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
     mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
 
-    chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
-    cp -v ${CASSANDRA_ENV}/templates/cassandra-env.sh\
-        ${CASSANDRA_DIR}/cassandra/conf
-    mkdir -p /var/lib/cassandra
-    # TODO only grant the cassandra user access.
-    chmod 777 /var/lib/cassandra
 
     pipwrapper cassandra-driver
-
-    # Create separate log directory.
-    mkdir -pv /var/log/appscale/cassandra
 }
 
 postinstallcassandra()
