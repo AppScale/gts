@@ -340,8 +340,13 @@ installcassandra()
     mkdir -p ${CASSANDRA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
-    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
+    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} \
+        ${CASSANDRA_DIR}/cassandra
 
+    if ! id -u cassandra &> /dev/null ; then
+        useradd cassandra
+    fi
+    chown -R cassandra ${CASSANDRA_DIR}
 
     pipwrapper cassandra-driver
 }
