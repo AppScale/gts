@@ -83,7 +83,7 @@ module TaskQueue
       env_vars=nil, match_cmd=match_cmd)
 
     # Next, start up the TaskQueue Server.
-    start_taskqueue_server()
+    start_taskqueue_server(verbose)
     HelperFunctions.sleep_until_port_is_open("localhost",
                                              TASKQUEUE_SERVER_INTERNAL_PORT)
   end
