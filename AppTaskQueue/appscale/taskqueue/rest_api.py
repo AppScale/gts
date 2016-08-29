@@ -18,7 +18,7 @@ sys.path.append(APPSCALE_LIB_DIR)
 from constants import HTTPCodes
 
 # The prefix for all of the handlers of the pull queue REST API.
-REST_PREFIX = '/taskqueue/v1beta2/projects/([a-z0-9-]+)/taskqueues'
+REST_PREFIX = '/taskqueue/v1beta2/projects/(?:.~)?([a-z0-9-]+)/taskqueues'
 
 # Matches commas that are outside of parentheses.
 FIELD_DELIMITERS_RE = re.compile(r',(?=[^)]*(?:\(|$))')

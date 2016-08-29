@@ -395,7 +395,9 @@ class DistributedTaskQueue():
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
-               "--concurrency=" + str(TaskQueueConfig.CELERY_CONCURRENCY),
+               "--autoscale={max},{min}".format(
+                 max=TaskQueueConfig.MAX_CELERY_CONCURRENCY,
+                 min=TaskQueueConfig.MIN_CELERY_CONCURRENTY),
                "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
                "--pidfile=" + self.PID_FILE_LOC + 'celery___' + \
                              app_id + ".pid",
