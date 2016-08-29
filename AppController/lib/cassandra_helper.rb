@@ -72,8 +72,8 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 def start_db_master(clear_datastore, needed)
-  @state = "Starting up Cassandra on the head node"
-  Djinn.log_info("Starting up Cassandra as master")
+  @state = "Starting up Cassandra seed node"
+  Djinn.log_info(@state)
   start_cassandra(clear_datastore, needed)
 end
 
@@ -86,8 +86,20 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 def start_db_slave(clear_datastore, needed)
-  @state = "Waiting for Cassandra to come up"
-  Djinn.log_info("Starting up Cassandra as slave")
+  seed_node = get_db_master.private_ip
+  @state = "Waiting for Cassandra seed node at #{seed_node} to start"
+  Djinn.log_info(@state)
+  acc = AppControllerClient.new(seed_node, HelperFunctions.get_secret())
+  while true
+    begin
+      break if acc.seed_up() == "true"
+    rescue FailedNodeException
+      Djinn.log_warn(
+          "Failed to check if Cassandra is up at #{seed_node}")
+    end
+    sleep(SMALL_WAIT)
+  end
+
   start_cassandra(clear_datastore, needed)
 end
 

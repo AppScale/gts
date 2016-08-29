@@ -1376,6 +1376,30 @@ class Djinn
     return 'OK'
   end
 
+  # Checks if the Cassandra seed node is up.
+  def seed_up(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    seed_node = get_db_master.private_ip
+    unless my_node.is_db_master?
+      Djinn.log_debug("Asking #{seed_node} if Cassandra is up.")
+      acc = AppControllerClient.new(get_db_master.private_ip, @@secret)
+      begin
+        return acc.seed_up()
+      rescue FailedNodeException
+        Djinn.log_warn("Unable to ask #{seed_node} if Cassandra is up.")
+        return NOT_READY
+      end
+    end
+
+    output = `"#{NODETOOL}" status`
+    seed_up = false
+    output.split("\n").each{ |line|
+      seed_up = true if line.start_with?('UN') && line.include?(seed_node)
+    }
+    return "#{seed_up}"
+  end
+
   # Queries the UserAppServer to see if the named application exists,
   # and if it is listening to any port.
   #
