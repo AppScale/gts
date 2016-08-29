@@ -291,6 +291,7 @@ def process_entity(entity, datastore, zookeeper):
   if (valid_entity is None or
       valid_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE):
     delete_entity_from_table(key, datastore)
+    return
 
   if valid_entity != entity:
     update_entity_in_table(key, valid_entity, datastore)
