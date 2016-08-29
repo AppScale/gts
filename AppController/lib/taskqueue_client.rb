@@ -20,7 +20,7 @@ class TaskQueueClient
   attr_reader :conn, :ip
 
   # The port that the TaskQueue Server binds to.
-  SERVER_PORT = 64839
+  SERVER_PORT = 17446
 
   # Location of where the nearest taskqueue server is.
   NEAREST_TQ_LOCATION = '/etc/appscale/rabbitmq_ip'
