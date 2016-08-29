@@ -3641,7 +3641,9 @@ class Djinn
   end
 
   def start_taskqueue_master()
-    TaskQueue.start_master(@options['clear_datastore'].downcase == "true")
+    clear_datastore = @options['clear_datastore'].downcase == "true"
+    verbose = @options['verbose'].downcase == "true"
+    TaskQueue.start_master(clear_datastore, verbose)
     return true
   end
 
@@ -3653,7 +3655,9 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    TaskQueue.start_slave(master_ip, @options['clear_datastore'].downcase == "true")
+    clear_datastore = @options['clear_datastore'].downcase == "true"
+    verbose = @options['verbose'].downcase == "true"
+    TaskQueue.start_slave(master_ip, clear_datastore, verbose)
     return true
   end
 
