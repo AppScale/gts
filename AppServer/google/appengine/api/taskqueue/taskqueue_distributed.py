@@ -76,7 +76,7 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
 TASKQUEUE_LOCATION_FILE = "/etc/appscale/rabbitmq_ip"
-TASKQUEUE_SERVER_PORT = 64839
+TASKQUEUE_SERVER_PORT = 17446
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   """Python only task queue service stub.

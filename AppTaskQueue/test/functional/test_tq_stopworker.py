@@ -28,7 +28,7 @@ class TestTaskQueueServer(unittest.TestCase):
   def test_slave(self):
     values = {'app_id':'hawkeyepythonapp'}
     host = socket.gethostbyname(socket.gethostname())
-    req = urllib2.Request('http://' + host + ':64839/stopworker')
+    req = urllib2.Request('http://' + host + ':17446/stopworker')
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, json.dumps(values))
     print response.read()

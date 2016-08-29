@@ -35,7 +35,7 @@ import com.google.apphosting.utils.config.AppEngineWebXml;
 
 public class AppScaleTaskQueueClient {
     private static final Logger logger = Logger.getLogger(AppScaleTaskQueueClient.class.getName());
-    private final int port = 64839;
+    private final int port = 17446;
     private final int MAX_TOTAL_CONNECTIONS = 200;
     private final int MAX_CONNECTIONS_PER_ROUTE = 20;
     private final int MAX_CONNECTIONS_PER_ROUTE_LOCALHOST = 80;
