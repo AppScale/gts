@@ -481,11 +481,7 @@ CONFIG
   def self.create_taskqueue_rest_config(my_ip)
     config = <<CONFIG
 upstream taskqueue_rest_api_endpoint {
-CONFIG
-      config += <<CONFIG
     server #{my_ip}:#{TaskQueue::HAPROXY_PORT};
-CONFIG
-    config += <<CONFIG
 }
 
 server {
