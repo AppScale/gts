@@ -61,6 +61,10 @@ APPS_LOCK = Monitor.new()
 AMS_LOCK = Mutex.new()
 
 
+# Prevents nodetool from being invoked concurrently.
+NODETOOL_LOCK = Mutex.new()
+
+
 # The name of the user to be used with reserved applications.
 APPSCALE_USER = "appscale-admin@local.appscale"
 
@@ -1392,12 +1396,18 @@ class Djinn
       end
     end
 
-    output = `"#{NODETOOL}" status`
-    seed_up = false
-    output.split("\n").each{ |line|
-      seed_up = true if line.start_with?('UN') && line.include?(seed_node)
-    }
-    return "#{seed_up}"
+    lock_obtained = NODETOOL_LOCK.try_lock
+    begin
+      return NOT_READY unless lock_obtained
+      output = `"#{NODETOOL}" status`
+      seed_up = false
+      output.split("\n").each{ |line|
+        seed_up = true if line.start_with?('UN') && line.include?(seed_node)
+      }
+      return "#{seed_up}"
+    ensure
+      NODETOOL_LOCK.unlock
+    end
   end
 
   # Queries the UserAppServer to see if the named application exists,
