@@ -467,7 +467,8 @@ class DatastoreProxy(AppDBInterface):
       mutations: A list of dictionaries representing mutations.
     """
     self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
-    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
