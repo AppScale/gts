@@ -473,7 +473,14 @@ class Djinn
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
-    'zone' => [ String, nil ]
+    'zone' => [ String, nil ],
+    'subscription_id' => [ String, nil ],
+    'app_id' => [ String, nil ],
+    'app_secret_key' => [ String, nil ],
+    'tenant_id' => [ String, nil ],
+    'resource_group' => [ String, nil ],
+    'storage_account' => [ String, nil ],
+    'group_tag' => [ String, nil ]
   }
 
   # Template used for rsyslog configuration files.
