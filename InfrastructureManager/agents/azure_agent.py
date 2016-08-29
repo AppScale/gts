@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-"""
-This file provides a single class, AzureAgent, that the AppScale Tools can use to
-interact with Microsoft Azure.
-"""
 
 # General-purpose Python library imports
 import adal
@@ -206,7 +202,7 @@ class AzureAgent(BaseAgent):
     subscription_id = str(parameters[self.PARAM_SUBCR_ID])
     compute_client = ComputeManagementClient(credentials, subscription_id)
 
-    auth_keys_path =  self.AUTHORIZED_KEYS_FILE.format(self.ADMIN_USERNAME)
+    auth_keys_path = self.AUTHORIZED_KEYS_FILE.format(self.ADMIN_USERNAME)
 
     with open(auth_keys_path, 'r') as pub_ssh_key_fd:
       pub_ssh_key = pub_ssh_key_fd.read()
@@ -276,7 +272,7 @@ class AzureAgent(BaseAgent):
     compute_client = ComputeManagementClient(credentials, subscription_id)
     for vm_name in instance_ids:
       result = compute_client.virtual_machines.delete(resource_group, vm_name)
-      resource_name  = 'Virtual Machine' + ':' + vm_name
+      resource_name = 'Virtual Machine' + ':' + vm_name
       self.sleep_until_delete_operation_done(result, resource_name)
 
   def sleep_until_delete_operation_done(self, result, resource_name):
@@ -409,7 +405,7 @@ class AzureAgent(BaseAgent):
     utils.log("Creating/Updating the Network Interface '{}'".format(interface_name))
     network_interface_ip_conf = NetworkInterfaceIPConfiguration(
       name='default', private_ip_allocation_method=IPAllocationMethod.dynamic,
-      subnet=subnet, public_ip_address=PublicIPAddress(id=(public_ip_address.id)))
+      subnet=subnet, public_ip_address=PublicIPAddress(id=public_ip_address.id))
 
     result = network_client.network_interfaces.create_or_update(group_name,
       interface_name, NetworkInterface(location=region,
@@ -419,10 +415,10 @@ class AzureAgent(BaseAgent):
   def sleep_until_update_operation_done(self, result, resource_name):
     """ Sleeps until the create/update operation for the resource is completed
       successfully.
-      Args:
-        result: An instance, of the AzureOperationPoller to poll for the status
-          of the operation being performed.
-        resource_name: The name of the resource being updated.
+    Args:
+      result: An instance, of the AzureOperationPoller to poll for the status
+        of the operation being performed.
+      resource_name: The name of the resource being updated.
     """
     while not result.done():
       utils.log("Waiting {0} second(s) for {1} to be created/updated.".
