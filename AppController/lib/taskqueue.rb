@@ -63,7 +63,7 @@ module TaskQueue
   # Args:
   #   clear_data: A boolean that indicates whether or not RabbitMQ state should
   #     be erased before starting RabbitMQ.
-  def self.start_master(clear_data)
+  def self.start_master(clear_data, verbose)
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
 
@@ -100,7 +100,7 @@ module TaskQueue
   #     already running.
   #   clear_data: A boolean that indicates whether or not RabbitMQ state should
   #     be erased before starting up RabbitMQ.
-  def self.start_slave(master_ip, clear_data)
+  def self.start_slave(master_ip, clear_data, verbose)
     Djinn.log_info("Starting TaskQueue Slave")
     self.write_cookie()
 
@@ -154,7 +154,7 @@ module TaskQueue
           Djinn.log_debug("Done starting rabbitmq_slave on this node")
 
           Djinn.log_debug("Starting TaskQueue server on slave node")
-          start_taskqueue_server()
+          start_taskqueue_server(verbose)
           Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
           HelperFunctions.sleep_until_port_is_open("localhost", 
                                                    TASKQUEUE_SERVER_INTERNAL_PORT)
@@ -178,9 +178,10 @@ module TaskQueue
   end
 
   # Starts the AppScale TaskQueue server.
-  def self.start_taskqueue_server()
+  def self.start_taskqueue_server(verbose)
     Djinn.log_debug("Starting taskqueue_server on this node")
     start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT}"
+    start_cmd << ' --verbose' if verbose
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
     env_vars = {}
