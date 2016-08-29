@@ -121,8 +121,8 @@ def start_cassandra(clear_datastore, needed)
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
   stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py java cassandra"
   match_cmd = "/opt/cassandra"
-  MonitInterface.start(:cassandra, start_cmd, stop_cmd, ports=9999, env_vars=nil,
-    match_cmd=match_cmd)
+  MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, match_cmd,
+                       nil, nil)
 
   # Ensure enough Cassandra nodes are available.
   sleep(SMALL_WAIT) until system("#{NODETOOL} status")

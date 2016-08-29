@@ -1924,14 +1924,15 @@ class Djinn
     start_cmd = "#{PYTHON27} #{iaas_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{iaas_script} #{PYTHON27}"
-    port = [InfrastructureManagerClient::SERVER_PORT]
+    port = InfrastructureManagerClient::SERVER_PORT
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
 
-    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
+    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, [port], env,
+                         start_cmd, nil, nil)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
@@ -3700,8 +3701,9 @@ class Djinn
     start_cmd = "#{PYTHON27} #{app_manager_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{app_manager_script} #{PYTHON27}"
-    port = [AppManagerClient::SERVER_PORT]
-    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
+    port = AppManagerClient::SERVER_PORT
+    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, [port],
+                         env_vars, start_cmd, nil, nil)
   end
 
   # Starts the Hermes service on this node.
@@ -3748,9 +3750,10 @@ class Djinn
             "-t #{table}"].join(' ')
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{soap_script} #{PYTHON27}"
-    port = [UserAppClient::SERVER_PORT]
+    port = UserAppClient::SERVER_PORT
 
-    MonitInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
+    MonitInterface.start(:uaserver, start_cmd, stop_cmd, [port], env_vars,
+                         start_cmd, nil, nil)
   end
 
   def start_datastore_server
@@ -4441,14 +4444,13 @@ HOSTS
     }
     start = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
     stop = "/usr/sbin/service appscale-controller stop"
-    match_cmd = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
-      MonitInterface.start(:controller, start, stop, SERVER_PORT, env,
-        match_cmd)
+      MonitInterface.start(:controller, start, stop, [SERVER_PORT], env,
+                           start, nil, nil)
     rescue
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
@@ -4513,10 +4515,12 @@ HOSTS
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    start_cmd = "/usr/bin/memcached -m 64 -p 11211 -u root"
+    port = 11211
+    start_cmd = "/usr/bin/memcached -m 64 -p #{port} -u root"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "/usr/bin/memcached 11211"
-    MonitInterface.start(:memcached, start_cmd, stop_cmd, [11211])
+          "/usr/bin/memcached #{port}"
+    MonitInterface.start(:memcached, start_cmd, stop_cmd, [port], nil,
+                         start_cmd, nil, nil)
   end
 
   def stop_memcache()
@@ -5952,7 +5956,8 @@ HOSTS
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
-      MonitInterface.start(watch_name, start_cmd, stop_cmd, 9999)
+      MonitInterface.start(watch_name, start_cmd, stop_cmd, [9999], nil,
+                           start_cmd, nil, nil)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
       Djinn.log_debug("App #{app} does not need xmpp receive functionality")

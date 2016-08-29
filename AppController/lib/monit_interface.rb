@@ -35,13 +35,12 @@ module MonitInterface
     self.run_cmd("service monit start")
   end
   
-  def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil,
-    match_cmd=start_cmd, mem=nil)
+  def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,
+    pidfile)
 
-    ports = [ports] unless ports.class == Array
     ports.each { |port|
       self.write_monit_config(watch, start_cmd, stop_cmd, port,
-        env_vars, match_cmd, mem)
+        env_vars, match_cmd, mem, pidfile)
     }
 
     self.run_cmd("#{MONIT} start -g #{watch}")
@@ -103,7 +102,7 @@ BOO
 
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
-    env_vars, match_cmd, mem)
+    env_vars, match_cmd, mem, pidfile)
 
     # Monit doesn't support environment variables in its DSL, so if the caller
     # wants environment variables passed to the app, we have to collect them and
@@ -124,8 +123,10 @@ BOO
     full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
       "1>>#{logfile} 2>>#{logfile}'"
 
+    match_str = "MATCHING #{match_cmd}"
+    match_str = "PIDFILE #{pidfile}" unless pidfile.nil?
     contents = <<BOO
-check process #{watch}-#{port} matching "#{match_cmd}"
+CHECK PROCESS #{watch}-#{port} matching "#{match_str}"
   group #{watch}
   start program = "#{full_start_command}"
   stop program = "#{stop_cmd}"
