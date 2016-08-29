@@ -42,10 +42,11 @@ from cassandra_env.cassandra_interface import DatastoreProxy
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
 
-def create_pull_queue_tables(session):
+def create_pull_queue_tables(cluster, session):
   """ Create the required tables for pull queues.
 
   Args:
+    cluster: A cassandra-driver cluster.
     session: A cassandra-driver session.
   """
   logging.info('Trying to create pull_queue_tasks')
@@ -62,6 +63,7 @@ def create_pull_queue_tables(session):
       PRIMARY KEY ((app, queue, id))
     )
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_table)
 
   logging.info('Trying to create pull_queue_tasks_index')
@@ -76,12 +78,14 @@ def create_pull_queue_tables(session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_index_table)
 
   logging.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   # This additional index is needed for groupByTag=true,tag=None queries
@@ -91,6 +95,7 @@ def create_pull_queue_tables(session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   logging.info('Trying to create pull_queue_leases')
@@ -102,6 +107,7 @@ def create_pull_queue_tables(session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_leases_table)
 
 
