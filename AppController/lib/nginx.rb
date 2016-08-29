@@ -153,16 +153,6 @@ location ~ /_ah/upload/.* {
 JAVA_BLOBSTORE_REDIRECTION
     end
 
-    rest_taskqueue_redirection = <<REST_TASKQUEUE_REDIRECTION
-location ~ /taskqueue/v1beta2/projects/.* {
-    proxy_pass            http://gae_#{app_name}_taskqueue;
-    proxy_connect_timeout 600;
-    proxy_read_timeout    600;
-    client_body_timeout   600;
-    client_max_body_size  2G;
-    }
-REST_TASKQUEUE_REDIRECTION
-
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
     else
