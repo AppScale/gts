@@ -172,6 +172,9 @@ class AzureAgent(BaseAgent):
     subscription_id = str(parameters[self.PARAM_SUBCR_ID])
     network_client = NetworkManagementClient(credentials, subscription_id)
 
+    active_public_ips, active_private_ips, active_instances = \
+      self.describe_instances(parameters)
+
     for _ in range(count):
       vm_network_name = Haikunator().haikunate()
       self.create_network_interface(network_client, parameters,
@@ -182,6 +185,8 @@ class AzureAgent(BaseAgent):
                                   network_interface.id, parameters,
                                   vm_network_name)
     public_ips, private_ips, instance_ids = self.describe_instances(parameters)
+    public_ips = utils.diff(public_ips, active_public_ips)
+    instance_ids = utils.diff(instance_ids, active_instances)
     return instance_ids, public_ips, private_ips
 
   def create_virtual_machine(self, credentials, network_client, network_id,
