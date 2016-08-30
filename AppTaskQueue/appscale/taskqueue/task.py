@@ -145,11 +145,15 @@ class Task(object):
     """
     return '<Task: {}>'.format(self.id)
 
-  def json_safe_dict(self, fields=TASK_FIELDS):
+  def json_safe_dict(self, fields=TASK_FIELDS, project=None,
+                     long_queue_form=False):
     """ Generate a JSON-safe dictionary representation of the task.
 
     Args:
       fields: A list of fields to include in the response.
+      project: Optional. A str that represents the app ID this task belongs to.
+      long_queue_form: A boolean, True if the queueName field should be in the
+        long format. False by default.
     Returns:
       A JSON-safe dictionary representing the task.
     """
@@ -177,6 +181,10 @@ class Task(object):
         # the response can be successfully parsed by Google API clients.
         value = str(long((value - epoch).total_seconds() * 1000000))
       task[attribute] = value
+
+    if long_queue_form and 'queueName' in fields:
+      task['queueName'] = queue.LONG_QUEUE_FORM.format(app=project,
+                                                       queue=task['queueName'])
 
     return task
 
