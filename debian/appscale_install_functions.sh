@@ -546,3 +546,8 @@ installtaskqueue()
 {
     (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
 }
+
+prepdashboard()
+{
+    pip install -t ${APPSCALE_HOME}/AppDashboard/vendor SOAPpy
+}
