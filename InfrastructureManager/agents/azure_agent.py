@@ -177,11 +177,12 @@ class AzureAgent(BaseAgent):
     """
     credentials = self.open_connection(parameters)
     subscription_id = str(parameters[self.PARAM_SUBCR_ID])
+    group_name = parameters[self.PARAM_RESOURCE_GROUP]
     network_client = NetworkManagementClient(credentials, subscription_id)
     active_public_ips, active_private_ips, active_instances = \
       self.describe_instances(parameters)
-    subnet = self.create_virtual_network(network_client, parameters,
-                                         self.VIRTUAL_NETWORK, self.VIRTUAL_NETWORK)
+    subnet = network_client.subnets.get(group_name, self.VIRTUAL_NETWORK,
+                                        self.VIRTUAL_NETWORK)
     threads = []
     for _ in range(count):
       vm_network_name = Haikunator().haikunate()
@@ -196,6 +197,7 @@ class AzureAgent(BaseAgent):
 
     public_ips, private_ips, instance_ids = self.describe_instances(parameters)
     public_ips = utils.diff(public_ips, active_public_ips)
+    private_ips = utils.diff(private_ips, active_private_ips)
     instance_ids = utils.diff(instance_ids, active_instances)
     return instance_ids, public_ips, private_ips
 
