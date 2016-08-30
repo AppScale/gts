@@ -2756,6 +2756,19 @@ class Djinn
     Nginx.reload()
   end
 
+  # Creates HAProxy configuration for the TaskQueue REST API.
+  def configure_tq_routing()
+    all_tq_ips = []
+    @nodes.each { | node |
+      if node.is_taskqueue_master? || node.is_taskqueue_slave?
+        all_tq_ips.push(node.private_ip)
+      end
+    }
+    HAProxy.create_tq_endpoint_config(all_tq_ips,
+      my_node.private_ip, TaskQueue::HAPROXY_PORT)
+    Nginx.create_taskqueue_rest_config(my_node.private_ip)
+    Nginx.reload()
+  end
 
   def write_database_info()
     table = @options['table']
@@ -3559,6 +3572,7 @@ class Djinn
     if my_node.is_load_balancer?
       threads << Thread.new {
         start_ejabberd()
+        configure_tq_routing()
       }
     end
 
@@ -3677,7 +3691,9 @@ class Djinn
   end
 
   def start_taskqueue_master()
-    TaskQueue.start_master(@options['clear_datastore'].downcase == "true")
+    clear_datastore = @options['clear_datastore'].downcase == "true"
+    verbose = @options['verbose'].downcase == "true"
+    TaskQueue.start_master(clear_datastore, verbose)
     return true
   end
 
@@ -3689,7 +3705,9 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    TaskQueue.start_slave(master_ip, @options['clear_datastore'].downcase == "true")
+    clear_datastore = @options['clear_datastore'].downcase == "true"
+    verbose = @options['verbose'].downcase == "true"
+    TaskQueue.start_slave(master_ip, clear_datastore, verbose)
     return true
   end
 

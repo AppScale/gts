@@ -26,7 +26,7 @@ sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
 
 # Default port this service runs on.
-SERVER_PORT = 64839
+SERVER_PORT = 17446
 
 # Global for Distributed TaskQueue.
 task_queue = None
@@ -231,7 +231,9 @@ def main():
 
   tq_application = tornado.web.Application(handlers)
 
-  server = tornado.httpserver.HTTPServer(tq_application)
+  server = tornado.httpserver.HTTPServer(
+    tq_application,
+    decompress_request=True)   # Automatically decompress incoming requests.
   server.listen(SERVER_PORT)
 
   while 1:

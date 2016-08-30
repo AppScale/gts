@@ -34,7 +34,7 @@ class TestTaskQueueServer(unittest.TestCase):
     create_test_yaml()
     values = {'app_id':'test_app'}
     host = socket.gethostbyname(socket.gethostname())
-    req = urllib2.Request('http://' + host + ':64839/startworker')
+    req = urllib2.Request('http://' + host + ':17446/startworker')
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, json.dumps(values))
     print response.read()

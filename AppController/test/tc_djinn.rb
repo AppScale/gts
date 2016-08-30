@@ -230,7 +230,8 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
 
     # Set the clear_datastore option.
-    djinn.options = { 'clear_datastore' => 'false' }
+    djinn.options = {'clear_datastore' => 'false',
+                     'verbose' => 'false'}
 
     # make sure we write the secret to the cookie file
     # throw in Proc as the last arg to the mock since we don't care about what
@@ -271,7 +272,8 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]
 
     # Set the clear_datastore option.
-    djinn.options = { 'clear_datastore' => 'false' }
+    djinn.options = {'clear_datastore' => 'false',
+                     'verbose' => 'false'}
 
     # make sure we write the secret to the cookie file
     # throw in Proc as the last arg to the mock since we don't care about what
