@@ -1382,6 +1382,10 @@ class Djinn
 
   # Checks if the primary database node is ready. For Cassandra, this is needed
   # because the seed node needs to start before the other nodes.
+  # Args:
+  #   secret: A string that authenticates the caller.
+  # Returns:
+  #   A string indicating whether or not the primary database node is ready.
   def primary_db_is_up(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
