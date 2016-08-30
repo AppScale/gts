@@ -1380,18 +1380,19 @@ class Djinn
     return 'OK'
   end
 
-  # Checks if the Cassandra seed node is up.
-  def seed_up(secret)
+  # Checks if the primary database node is ready. For Cassandra, this is needed
+  # because the seed node needs to start before the other nodes.
+  def primary_db_is_up(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    seed_node = get_db_master.private_ip
+    primary_ip = get_db_master.private_ip
     unless my_node.is_db_master?
-      Djinn.log_debug("Asking #{seed_node} if Cassandra is up.")
+      Djinn.log_debug("Asking #{primary_ip} if database is ready.")
       acc = AppControllerClient.new(get_db_master.private_ip, @@secret)
       begin
-        return acc.seed_up()
+        return acc.primary_db_is_up()
       rescue FailedNodeException
-        Djinn.log_warn("Unable to ask #{seed_node} if Cassandra is up.")
+        Djinn.log_warn("Unable to ask #{primary_ip} if database is ready.")
         return NOT_READY
       end
     end
@@ -1400,11 +1401,11 @@ class Djinn
     begin
       return NOT_READY unless lock_obtained
       output = `"#{NODETOOL}" status`
-      seed_up = false
+      ready = false
       output.split("\n").each{ |line|
-        seed_up = true if line.start_with?('UN') && line.include?(seed_node)
+        ready = true if line.start_with?('UN') && line.include?(primary_ip)
       }
-      return "#{seed_up}"
+      return "#{ready}"
     ensure
       NODETOOL_LOCK.unlock
     end

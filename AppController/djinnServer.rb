@@ -110,7 +110,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "set_admin_role", "username", "is_cloud_admin", "capabilities" ,"secret")
     add_method(@djinn, "get_app_data", "app_id", "secret")
     add_method(@djinn, "reserve_app_id", "username", "app_id", "app_language" ,"secret")
-    add_method(@djinn, "seed_up", "secret")
+    add_method(@djinn, "primary_db_is_up", "secret")
   end
 end
 

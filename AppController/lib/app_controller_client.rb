@@ -81,7 +81,7 @@ class AppControllerClient
     @conn.add_method("remove_role", "old_role", "secret")
     @conn.add_method("get_queues_in_use", "secret")
     @conn.add_method("set_node_read_only", "read_only", "secret")
-    @conn.add_method("seed_up", "secret")
+    @conn.add_method("primary_db_is_up", "secret")
   end
 
 
@@ -235,8 +235,10 @@ class AppControllerClient
   end
 
   # Checks if the Cassandra seed node is up.
-  def seed_up()
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "seed_up") { @conn.seed_up(@secret) }
+  def primary_db_is_up()
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "primary_db_is_up") {
+      @conn.primary_db_is_up(@secret)
+    }
   end
 
 end

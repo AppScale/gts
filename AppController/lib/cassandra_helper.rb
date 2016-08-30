@@ -92,7 +92,7 @@ def start_db_slave(clear_datastore, needed)
   acc = AppControllerClient.new(seed_node, HelperFunctions.get_secret())
   while true
     begin
-      break if acc.seed_up() == "true"
+      break if acc.primary_db_is_up() == "true"
     rescue FailedNodeException
       Djinn.log_warn(
           "Failed to check if Cassandra is up at #{seed_node}")
