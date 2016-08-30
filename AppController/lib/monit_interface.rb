@@ -123,10 +123,10 @@ BOO
     full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
       "1>>#{logfile} 2>>#{logfile}'"
 
-    match_str = "MATCHING #{match_cmd}"
+    match_str = %Q[MATCHING "#{match_cmd}"]
     match_str = "PIDFILE #{pidfile}" unless pidfile.nil?
     contents = <<BOO
-CHECK PROCESS #{watch}-#{port} matching "#{match_str}"
+CHECK PROCESS #{watch}-#{port} #{match_str}
   group #{watch}
   start program = "#{full_start_command}"
   stop program = "#{stop_cmd}"
