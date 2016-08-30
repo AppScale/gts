@@ -407,30 +407,6 @@ class AzureAgent(BaseAgent):
                                               tenant=tenant_id)
     return credentials
 
-  def create_virtual_network(self, network_client, parameters, network_name,
-                             subnet_name):
-    """ Creates the network resources, such as Virtual network and Subnet.
-      Args:
-        network_client: A NetworkManagementClient instance.
-        parameters:  A dict, containing all the parameters necessary to
-          authenticate this user with Azure.
-        network_name: The name to use for the Virtual Network resource.
-        subnet_name: The name to use for the Subnet resource.
-      Returns:
-        A Subnet instance from the Virtual Network created.
-    """
-    group_name = parameters[self.PARAM_RESOURCE_GROUP]
-    region = parameters[self.PARAM_ZONE]
-    utils.log("Creating/Updating the Virtual Network '{}'".format(network_name))
-    address_space = AddressSpace(address_prefixes=['10.1.0.0/16'])
-    subnet1 = Subnet(name=subnet_name, address_prefix='10.1.0.0/24')
-    result = network_client.virtual_networks.create_or_update(group_name,
-      network_name, VirtualNetwork(location=region, address_space=address_space,
-                                   subnets=[subnet1]))
-    self.sleep_until_update_operation_done(result, network_name)
-    subnet = network_client.subnets.get(group_name, network_name, subnet_name)
-    return subnet
-
   def create_network_interface(self, network_client, interface_name, ip_name,
                                subnet, parameters):
     """ Creates the Public IP Address resource and uses that to create the
