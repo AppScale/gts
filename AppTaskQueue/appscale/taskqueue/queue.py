@@ -56,6 +56,20 @@ def current_time_ms():
   return now.replace(microsecond=new_microsecond)
 
 
+def next_key(key):
+  """ Calculates the next partition value of a key. Note: Cassandra BOP orders
+  'b' before 'aa'.
+
+  Args:
+    key: A string containing a Cassandra key.
+  Returns:
+    A string containing the next partition value.
+  """
+  mutable_key = list(key)
+  mutable_key[-1] = chr(ord(key[-1]) + 1)
+  return ''.join(mutable_key)
+
+
 class InvalidQueueConfiguration(Exception):
   pass
 
@@ -436,7 +450,7 @@ class PullQueue(Queue):
         LIMIT {limit}
       """.format(limit=limit)
       parameters = {'app': self.app, 'queue': self.name, 'eta': start_date,
-                    'next_queue': self.name + chr(0)}
+                    'next_queue': next_key(self.name)}
       results = [result for result in session.execute(query_tasks, parameters)]
 
       if not results:
@@ -534,7 +548,7 @@ class PullQueue(Queue):
       AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
     """
     parameters = {'app': self.app, 'queue': self.name,
-                  'next_queue': self.name + chr(0)}
+                  'next_queue': next_key(self.name)}
     results = self.db_access.session.execute(select_tasks, parameters)
 
     for result in results:
@@ -839,7 +853,7 @@ class PullQueue(Queue):
         AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
       """
       parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': self.name + chr(0)}
+                    'next_queue': next_key(self.name)}
       stats['totalTasks'] = session.execute(select_count, parameters)[0].count
 
     if 'oldestTask' in fields:
@@ -850,7 +864,7 @@ class PullQueue(Queue):
         LIMIT 1
       """
       parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': self.name + chr(0)}
+                    'next_queue': next_key(self.name)}
       oldest_eta = session.execute(select_oldest, parameters)[0].eta
       epoch = datetime.datetime.utcfromtimestamp(0)
       stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
