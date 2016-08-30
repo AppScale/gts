@@ -467,7 +467,8 @@ class DatastoreProxy(AppDBInterface):
       mutations: A list of dictionaries representing mutations.
     """
     self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
-    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
@@ -691,6 +692,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
+    self.cluster.refresh_schema_metadata()
     statement = 'CREATE TABLE IF NOT EXISTS "{table}" ('\
         '{key} blob,'\
         '{column} text,'\

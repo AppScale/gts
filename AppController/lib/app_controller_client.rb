@@ -81,6 +81,7 @@ class AppControllerClient
     @conn.add_method("remove_role", "old_role", "secret")
     @conn.add_method("get_queues_in_use", "secret")
     @conn.add_method("set_node_read_only", "read_only", "secret")
+    @conn.add_method("primary_db_is_up", "secret")
   end
 
 
@@ -230,6 +231,13 @@ class AppControllerClient
   def set_node_read_only(read_only)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_node_read_only") {
       @conn.set_node_read_only(read_only, @secret)
+    }
+  end
+
+  # Checks if the Cassandra seed node is up.
+  def primary_db_is_up()
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "primary_db_is_up") {
+      @conn.primary_db_is_up(@secret)
     }
   end
 

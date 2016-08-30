@@ -52,9 +52,15 @@ def define_ua_schema(session):
     session.execute(define_schema, values)
 
 
-def create_batch_tables(session):
-  """ Create the tables required for large batches. """
+def create_batch_tables(cluster, session):
+  """ Create the tables required for large batches.
+
+  Args:
+    cluster: A cassandra-driver cluster.
+    session: A cassandra-driver session.
+  """
   logging.info('Trying to create batches')
+  cluster.refresh_schema_metadata()
   create_table = """
     CREATE TABLE IF NOT EXISTS batches (
       app text,
@@ -70,6 +76,7 @@ def create_batch_tables(session):
   session.execute(create_table)
 
   logging.info('Trying to create batch_status')
+  cluster.refresh_schema_metadata()
   create_table = """
     CREATE TABLE IF NOT EXISTS batch_status (
       app text,
@@ -98,6 +105,7 @@ def prime_cassandra(replication):
 
   hosts = appscale_info.get_db_ips()
 
+  cluster = None
   session = None
   remaining_retries = INITIAL_CONNECT_RETRIES
   while True:
@@ -135,10 +143,11 @@ def prime_cassandra(replication):
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
     logging.info('Trying to create {}'.format(table))
+    cluster.refresh_schema_metadata()
     session.execute(create_table)
 
-  create_batch_tables(session)
-  create_pull_queue_tables(session)
+  create_batch_tables(cluster, session)
+  create_pull_queue_tables(cluster, session)
 
   first_entity = session.execute(
     'SELECT * FROM "{}" LIMIT 1'.format(dbconstants.APP_ENTITY_TABLE))
