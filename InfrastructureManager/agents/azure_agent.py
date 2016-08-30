@@ -101,6 +101,10 @@ class AzureAgent(BaseAgent):
   # Azure resources to get created.
   SLEEP_TIME = 10
 
+  # The Virtual Network and Subnet name to use while creating an Azure
+  # Virtual machine.
+  VIRTUAL_NETWORK = 'appscaleazure'
+
   def configure_instance_security(self, parameters):
     """ Configure and setup groups and storage accounts for the VMs spawned.
     This method is called before starting virtual machines.
@@ -171,19 +175,20 @@ class AzureAgent(BaseAgent):
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     subscription_id = str(parameters[self.PARAM_SUBCR_ID])
     network_client = NetworkManagementClient(credentials, subscription_id)
-
     active_public_ips, active_private_ips, active_instances = \
       self.describe_instances(parameters)
+    subnet = self.create_virtual_network(network_client, parameters,
+                                         self.VIRTUAL_NETWORK, self.VIRTUAL_NETWORK)
 
     for _ in range(count):
       vm_network_name = Haikunator().haikunate()
-      self.create_network_interface(network_client, parameters,
-        vm_network_name, vm_network_name, vm_network_name, vm_network_name)
+      self.create_network_interface(network_client, vm_network_name,
+                                    vm_network_name, subnet, parameters)
       network_interface = network_client.network_interfaces.get(
         resource_group, vm_network_name)
       self.create_virtual_machine(credentials, network_client,
-                                  network_interface.id, parameters,
-                                  vm_network_name)
+        network_interface.id, parameters, vm_network_name)
+
     public_ips, private_ips, instance_ids = self.describe_instances(parameters)
     public_ips = utils.diff(public_ips, active_public_ips)
     instance_ids = utils.diff(instance_ids, active_instances)
@@ -199,6 +204,7 @@ class AzureAgent(BaseAgent):
       network_id: The network id of the network interface created.
       parameters: A dict, containing all the parameters necessary to
         authenticate this user with Azure.
+      vm_network_name: The name of the Virtual machine to use.
     """
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     storage_account = parameters[self.PARAM_STORAGE_ACCOUNT]
@@ -206,7 +212,6 @@ class AzureAgent(BaseAgent):
     utils.log("Creating a Virtual Machine '{}'".format(vm_network_name))
     subscription_id = str(parameters[self.PARAM_SUBCR_ID])
     compute_client = ComputeManagementClient(credentials, subscription_id)
-
     auth_keys_path = self.AUTHORIZED_KEYS_FILE.format(self.ADMIN_USERNAME)
 
     with open(auth_keys_path, 'r') as pub_ssh_key_fd:
@@ -306,7 +311,7 @@ class AzureAgent(BaseAgent):
     network_client = NetworkManagementClient(credentials, subscription_id)
 
     utils.log("Deleting the Virtual Network, Public IP Address "
-                       "and Network Interface created for this deployment.")
+              "and Network Interface created for this deployment.")
     network_interfaces = network_client.network_interfaces.list(resource_group)
     for interface in network_interfaces:
       result = network_client.network_interfaces.delete(resource_group,
@@ -343,7 +348,7 @@ class AzureAgent(BaseAgent):
     for param in self.REQUIRED_CREDENTIALS:
       if param not in parameters:
         raise AgentConfigurationException('The required parameter, {0}, was not'
-          ' specified.'.format(param))
+                                          ' specified.'.format(param))
 
   def open_connection(self, parameters):
     """ Connects to Microsoft Azure with the given credentials, creates an
@@ -359,7 +364,7 @@ class AzureAgent(BaseAgent):
         create any resources.
     """
     app_id = parameters[self.PARAM_APP_ID]
-    app_secret_key = parameters[self.PARAM_APP_SECRET]
+    app_secret_key = parameters[self.PARAM_APP_SECRET] + "="
     tenant_id = parameters[self.PARAM_TENANT_ID]
 
     # Get an Authentication token using ADAL.
@@ -375,42 +380,57 @@ class AzureAgent(BaseAgent):
                                               tenant=tenant_id)
     return credentials
 
-  def create_network_interface(self, network_client, parameters, interface_name,
-                               network_name, subnet_name, ip_name):
-    """ A helper function that creates the network resources, such as virtual
-    network, public ip and network interface.
-    Args:
-      network_client: A NetworkManagementClient instance.
-      parameters:  A dict, containing all the parameters necessary to
-        authenticate this user with Azure.
-      interface_name: The name to use for the Network Interface resource.
-      network_name: The name to use for the Virtual Network resource.
-      subnet_name: The name to use for the Subnet resource.
-      ip_name: The name to use for the Public IP Address resource.
+  def create_virtual_network(self, network_client, parameters, network_name,
+                             subnet_name):
+    """ Creates the network resources, such as Virtual network and Subnet.
+      Args:
+        network_client: A NetworkManagementClient instance.
+        parameters:  A dict, containing all the parameters necessary to
+          authenticate this user with Azure.
+        network_name: The name to use for the Virtual Network resource.
+        subnet_name: The name to use for the Subnet resource.
+      Returns:
+        A Subnet instance from the Virtual Network created.
     """
     group_name = parameters[self.PARAM_RESOURCE_GROUP]
     region = parameters[self.PARAM_ZONE]
     utils.log("Creating/Updating the Virtual Network '{}'".format(network_name))
     address_space = AddressSpace(address_prefixes=['10.1.0.0/16'])
     subnet1 = Subnet(name=subnet_name, address_prefix='10.1.0.0/24')
-    result = network_client.virtual_networks.create_or_update(group_name, network_name,
-      VirtualNetwork(location=region, address_space=address_space, subnets=[subnet1]))
+    result = network_client.virtual_networks.create_or_update(group_name,
+      network_name, VirtualNetwork(location=region, address_space=address_space,
+                                   subnets=[subnet1]))
     self.sleep_until_update_operation_done(result, network_name)
     subnet = network_client.subnets.get(group_name, network_name, subnet_name)
+    return subnet
 
+  def create_network_interface(self, network_client, interface_name, ip_name,
+                               subnet, parameters):
+    """ Creates the Public IP Address resource and uses that to create the
+    Network Interface.
+    Args:
+      network_client: A NetworkManagementClient instance.
+      interface_name: The name to use for the Network Interface.
+      ip_name: The name to use for the Public IP Address.
+      subnet: The Subnet resource from the Virtual Network created.
+      parameters:  A dict, containing all the parameters necessary to
+        authenticate this user with Azure.
+    """
+    group_name = parameters[self.PARAM_RESOURCE_GROUP]
+    region = parameters[self.PARAM_ZONE]
     utils.log("Creating/Updating the Public IP Address '{}'".format(ip_name))
     ip_address = PublicIPAddress(
       location=region, public_ip_allocation_method=IPAllocationMethod.dynamic,
       idle_timeout_in_minutes=4)
-    result = network_client.public_ip_addresses.create_or_update(group_name,
-                                                                 ip_name, ip_address)
+    result = network_client.public_ip_addresses.create_or_update(
+      group_name, ip_name, ip_address)
     self.sleep_until_update_operation_done(result, ip_name)
     public_ip_address = network_client.public_ip_addresses.get(group_name, ip_name)
 
     utils.log("Creating/Updating the Network Interface '{}'".format(interface_name))
     network_interface_ip_conf = NetworkInterfaceIPConfiguration(
       name='default', private_ip_allocation_method=IPAllocationMethod.dynamic,
-      subnet=subnet, public_ip_address=PublicIPAddress(id=public_ip_address.id))
+      subnet=subnet, public_ip_address=PublicIPAddress(id=(public_ip_address.id)))
 
     result = network_client.network_interfaces.create_or_update(group_name,
       interface_name, NetworkInterface(location=region,
