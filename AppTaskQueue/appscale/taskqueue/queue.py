@@ -432,9 +432,11 @@ class PullQueue(Queue):
       query_tasks = """
         SELECT eta, id FROM pull_queue_tasks_index
         WHERE token(app, queue, eta) > token(%(app)s, %(queue)s, %(eta)s)
+        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
         LIMIT {limit}
       """.format(limit=limit)
-      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date}
+      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date,
+                    'next_queue': self.name + chr(0)}
       results = [result for result in session.execute(query_tasks, parameters)]
 
       if not results:
@@ -844,9 +846,11 @@ class PullQueue(Queue):
       select_oldest = """
         SELECT eta FROM pull_queue_tasks_index
         WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
         LIMIT 1
       """
-      parameters = {'app': self.app, 'queue': self.name}
+      parameters = {'app': self.app, 'queue': self.name,
+                    'next_queue': self.name + chr(0)}
       oldest_eta = session.execute(select_oldest, parameters)[0].eta
       epoch = datetime.datetime.utcfromtimestamp(0)
       stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
