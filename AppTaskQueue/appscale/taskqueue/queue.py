@@ -666,7 +666,7 @@ class PullQueue(Queue):
     parameters = {'app': self.app, 'queue': self.name, 'id': task_id}
     result = self.db_access.session.execute(select_task, parameters)[0]
     task_info = {
-      'queueName': LONG_QUEUE_FORM.format(app=self.app, queue=self.name),
+      'queueName': self.name,
       'id': task_id,
       'payloadBase64': result.payload,
       'enqueueTimestamp': result.enqueued,

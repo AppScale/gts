@@ -5,6 +5,7 @@ import sys
 import tornado.escape
 
 from queue import InvalidLeaseRequest
+from queue import LONG_QUEUE_FORM
 from queue import PullQueue
 from queue import QUEUE_FIELDS
 from task import InvalidTaskInfo
@@ -232,8 +233,11 @@ class RESTLease(RequestHandler):
 
     for field in fields:
       if isinstance(field, dict) and 'items' in field:
-        task_list['items'] = [task.json_safe_dict(fields=field['items'])
-                              for task in tasks]
+        task_list['items'] = [
+          task.json_safe_dict(
+            fields=field['items'], project=project, long_queue_form=True)
+          for task in tasks
+        ]
 
     self.write(json.dumps(task_list))
 
