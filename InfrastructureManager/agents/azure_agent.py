@@ -199,11 +199,6 @@ class AzureAgent(BaseAgent):
     public_ips, private_ips, instance_ids = self.describe_instances(parameters)
     public_ips = utils.diff(public_ips, active_public_ips)
     instance_ids = utils.diff(instance_ids, active_instances)
-
-    for ip in public_ips:
-      self.sleep_until_port_is_open(ip, self.SSH_PORT)
-      self.enable_root_login(ip, parameters)
-
     return instance_ids, public_ips, private_ips
 
   def setup_network_and_create_vm(self, network_client, parameters, subnet,
@@ -225,82 +220,6 @@ class AzureAgent(BaseAgent):
                                                               vm_network_name)
     self.create_virtual_machine(credentials, network_client, network_interface.id,
                                 parameters, vm_network_name)
-
-  def sleep_until_port_is_open(self, host, port):
-    """ Queries the given host to see if the named port is open, and if not,
-    waits until it is.
-    Args:
-      host: A str representing the host whose port we should be querying.
-      port: An int representing the port that should eventually be open.
-    """
-    while not self.is_port_open(host, port):
-      utils.log("Waiting {2} second(s) for {0}:{1} to open". \
-                format(host, port, self.SLEEP_TIME))
-      time.sleep(self.SLEEP_TIME)
-
-  def is_port_open(self, host, port):
-    """ Queries the given host to see if the named port is open.
-    Args:
-      host: A str representing the host whose port we should be querying.
-      port: An int representing the port that should eventually be open.
-    Returns:
-      True if the port is open, False otherwise.
-    """
-    try:
-      sock = socket.socket()
-      sock.connect((host, port))
-      return True
-    except Exception as exception:
-      utils.log(str(exception))
-      return False
-
-  def enable_root_login(self, ip, parameters):
-    """ Adds the contents of the user's authorized_keys file to the root's
-    authorized_keys file.
-    Args:
-      ip: A str representing the host to enable root logins on.
-      parameters: A dict, containing all the parameters necessary to
-        authenticate this user with Azure.
-    """
-    user = self.ADMIN_USERNAME
-    keyname = parameters[self.PARAM_KEYNAME]
-
-    utils.log('Root login not enabled - enabling it now.')
-    create_root_keys = 'sudo touch /root/.ssh/authorized_keys'
-    self.ssh(ip, keyname, create_root_keys, user=user)
-
-    set_permissions = 'sudo chmod 600 /root/.ssh/authorized_keys'
-    self.ssh(ip, keyname, set_permissions, user=user)
-
-    temp_file = self.ssh(ip, keyname, 'mktemp', user=user)
-    merge_to_tempfile = 'sudo sort -u ~/.ssh/authorized_keys ' \
-                        '/root/.ssh/authorized_keys -o {}'.format(temp_file)
-    self.ssh(ip, keyname, merge_to_tempfile, user=user)
-
-    overwrite_root_keys = "sudo sed -n '/.*Please login/d; " \
-                          "w/root/.ssh/authorized_keys' {}".format(temp_file)
-    self.ssh(ip, keyname, overwrite_root_keys, user=user)
-
-    remove_tempfile = 'rm -f {0}'.format(temp_file)
-    self.ssh(ip, keyname, remove_tempfile, user=user)
-    utils.log('Root login is now enabled.')
-    return
-
-  def ssh(self, ip_address, keyname, command, user, method=subprocess.check_call):
-    """ Runs a command on a given remote machine.
-    Args:
-      ip_address: A string containing the IP address of the remote machine.
-      keyname: A string containing the deployment's keyname.
-      command: The command to run on the remote machine.
-      method: The function to run the command with.
-    Returns:
-      The output of the function defined by method.
-    """
-    user_host = '{0}@{1}'.format(user, ip_address)
-    key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
-    ssh_cmd = ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
-               user_host, command]
-    return method(ssh_cmd)
 
   def create_virtual_machine(self, credentials, network_client, network_id,
                              parameters, vm_network_name):
