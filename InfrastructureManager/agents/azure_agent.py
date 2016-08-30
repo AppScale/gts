@@ -3,6 +3,7 @@
 # General-purpose Python library imports
 import adal
 import os.path
+import socket
 import subprocess
 import threading
 import time
@@ -107,6 +108,9 @@ class AzureAgent(BaseAgent):
   # Virtual machine.
   VIRTUAL_NETWORK = 'appscaleazure'
 
+  # The default port that the ssh daemon runs on.
+  SSH_PORT = 22
+
   def configure_instance_security(self, parameters):
     """ Configure and setup groups and storage accounts for the VMs spawned.
     This method is called before starting virtual machines.
@@ -197,6 +201,7 @@ class AzureAgent(BaseAgent):
     instance_ids = utils.diff(instance_ids, active_instances)
 
     for ip in public_ips:
+      self.sleep_until_port_is_open(ip, self.SSH_PORT)
       self.enable_root_login(ip, parameters)
 
     return instance_ids, public_ips, private_ips
@@ -220,6 +225,34 @@ class AzureAgent(BaseAgent):
                                                               vm_network_name)
     self.create_virtual_machine(credentials, network_client, network_interface.id,
                                 parameters, vm_network_name)
+
+  def sleep_until_port_is_open(self, host, port):
+    """ Queries the given host to see if the named port is open, and if not,
+    waits until it is.
+    Args:
+      host: A str representing the host whose port we should be querying.
+      port: An int representing the port that should eventually be open.
+    """
+    while not self.is_port_open(host, port):
+      utils.log("Waiting {2} second(s) for {0}:{1} to open". \
+                format(host, port, self.SLEEP_TIME))
+      time.sleep(self.SLEEP_TIME)
+
+  def is_port_open(self, host, port):
+    """ Queries the given host to see if the named port is open.
+    Args:
+      host: A str representing the host whose port we should be querying.
+      port: An int representing the port that should eventually be open.
+    Returns:
+      True if the port is open, False otherwise.
+    """
+    try:
+      sock = socket.socket()
+      sock.connect((host, port))
+      return True
+    except Exception as exception:
+      utils.log(str(exception))
+      return False
 
   def enable_root_login(self, ip, parameters):
     """ Adds the contents of the user's authorized_keys file to the root's
@@ -250,6 +283,7 @@ class AzureAgent(BaseAgent):
 
     remove_tempfile = 'rm -f {0}'.format(temp_file)
     self.ssh(ip, keyname, remove_tempfile, user=user)
+    utils.log('Root login is now enabled.')
     return
 
   def ssh(self, ip_address, keyname, command, user, method=subprocess.check_call):
