@@ -3,6 +3,8 @@
 # General-purpose Python library imports
 import adal
 import os.path
+import subprocess
+import threading
 import time
 
 # Azure specific imports
@@ -172,27 +174,99 @@ class AzureAgent(BaseAgent):
       private_ips: A list of private IP addresses.
     """
     credentials = self.open_connection(parameters)
-    resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     subscription_id = str(parameters[self.PARAM_SUBCR_ID])
     network_client = NetworkManagementClient(credentials, subscription_id)
     active_public_ips, active_private_ips, active_instances = \
       self.describe_instances(parameters)
     subnet = self.create_virtual_network(network_client, parameters,
                                          self.VIRTUAL_NETWORK, self.VIRTUAL_NETWORK)
-
+    threads = []
     for _ in range(count):
       vm_network_name = Haikunator().haikunate()
-      self.create_network_interface(network_client, vm_network_name,
-                                    vm_network_name, subnet, parameters)
-      network_interface = network_client.network_interfaces.get(
-        resource_group, vm_network_name)
-      self.create_virtual_machine(credentials, network_client,
-        network_interface.id, parameters, vm_network_name)
+      thread = threading.Thread(target=self.setup_network_and_create_vm,
+                                args=(network_client, parameters, subnet,
+                                      vm_network_name))
+      thread.start()
+      threads.append(thread)
+
+    for x in threads:
+      x.join()
 
     public_ips, private_ips, instance_ids = self.describe_instances(parameters)
     public_ips = utils.diff(public_ips, active_public_ips)
     instance_ids = utils.diff(instance_ids, active_instances)
+
+    for ip in public_ips:
+      self.enable_root_login(ip, parameters)
+
     return instance_ids, public_ips, private_ips
+
+  def setup_network_and_create_vm(self, network_client, parameters, subnet,
+                                  vm_network_name):
+    """ Sets up the network interface and creates a virtual machine using that
+      interface.
+      Args:
+        network_client: A NetworkManagementClient instance.
+        parameters: A dict, containing all the parameters necessary to
+          authenticate this user with Azure.
+        subnet: The Subnet resource from the Virtual Network created.
+        vm_network_name: The name of the Network to use for the Virtual machine.
+    """
+    credentials = self.open_connection(parameters)
+    resource_group = parameters[self.PARAM_RESOURCE_GROUP]
+    self.create_network_interface(network_client, vm_network_name,
+                                  vm_network_name, subnet, parameters)
+    network_interface = network_client.network_interfaces.get(resource_group,
+                                                              vm_network_name)
+    self.create_virtual_machine(credentials, network_client, network_interface.id,
+                                parameters, vm_network_name)
+
+  def enable_root_login(self, ip, parameters):
+    """ Adds the contents of the user's authorized_keys file to the root's
+    authorized_keys file.
+    Args:
+      ip: A str representing the host to enable root logins on.
+      parameters: A dict, containing all the parameters necessary to
+        authenticate this user with Azure.
+    """
+    user = self.ADMIN_USERNAME
+    keyname = parameters[self.PARAM_KEYNAME]
+
+    utils.log('Root login not enabled - enabling it now.')
+    create_root_keys = 'sudo touch /root/.ssh/authorized_keys'
+    self.ssh(ip, keyname, create_root_keys, user=user)
+
+    set_permissions = 'sudo chmod 600 /root/.ssh/authorized_keys'
+    self.ssh(ip, keyname, set_permissions, user=user)
+
+    temp_file = self.ssh(ip, keyname, 'mktemp', user=user)
+    merge_to_tempfile = 'sudo sort -u ~/.ssh/authorized_keys ' \
+                        '/root/.ssh/authorized_keys -o {}'.format(temp_file)
+    self.ssh(ip, keyname, merge_to_tempfile, user=user)
+
+    overwrite_root_keys = "sudo sed -n '/.*Please login/d; " \
+                          "w/root/.ssh/authorized_keys' {}".format(temp_file)
+    self.ssh(ip, keyname, overwrite_root_keys, user=user)
+
+    remove_tempfile = 'rm -f {0}'.format(temp_file)
+    self.ssh(ip, keyname, remove_tempfile, user=user)
+    return
+
+  def ssh(self, ip_address, keyname, command, user, method=subprocess.check_call):
+    """ Runs a command on a given remote machine.
+    Args:
+      ip_address: A string containing the IP address of the remote machine.
+      keyname: A string containing the deployment's keyname.
+      command: The command to run on the remote machine.
+      method: The function to run the command with.
+    Returns:
+      The output of the function defined by method.
+    """
+    user_host = '{0}@{1}'.format(user, ip_address)
+    key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
+    ssh_cmd = ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
+               user_host, command]
+    return method(ssh_cmd)
 
   def create_virtual_machine(self, credentials, network_client, network_id,
                              parameters, vm_network_name):
