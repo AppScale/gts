@@ -3,8 +3,6 @@
 # General-purpose Python library imports
 import adal
 import os.path
-import socket
-import subprocess
 import threading
 import time
 
