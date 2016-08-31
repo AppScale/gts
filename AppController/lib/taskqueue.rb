@@ -79,8 +79,8 @@ module TaskQueue
     start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_taskqueue_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
-    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, ports=9999,
-      env_vars=nil, match_cmd=match_cmd)
+    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, [9999], nil,
+                         match_cmd, nil, nil)
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -145,8 +145,8 @@ module TaskQueue
 
     tries_left = RABBIT_START_RETRY
     loop {
-      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, ports=9999,
-        env_vars=nil, match_cmd=match_cmd)
+      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, [9999], nil,
+                           match_cmd, nil, nil)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
@@ -186,8 +186,8 @@ module TaskQueue
           "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
     env_vars = {}
     MonitInterface.start(:taskqueue, start_cmd, stop_cmd,
-                         TASKQUEUE_SERVER_INTERNAL_PORT,
-                         env_vars)
+                         [TASKQUEUE_SERVER_INTERNAL_PORT], env_vars, start_cmd,
+                         nil, nil)
     Djinn.log_debug("Done starting taskqueue_server on this node")
   end
 
@@ -238,7 +238,8 @@ module TaskQueue
     start_cmd = "/usr/local/bin/flower --basic_auth=appscale:#{flower_password}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "flower #{flower_password}"
-    MonitInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
+    MonitInterface.start(:flower, start_cmd, stop_cmd, [FLOWER_SERVER_PORT],
+                         nil, start_cmd, nil, nil)
   end
 
 

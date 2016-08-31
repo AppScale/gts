@@ -93,8 +93,8 @@ def start_zookeeper(clear_datastore)
   start_cmd = "/usr/sbin/service #{zk_server} start"
   stop_cmd = "/usr/sbin/service #{zk_server} stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, ports=ZOOKEEPER_PORT, env_vars=nil,
-    match_cmd=match_cmd)
+  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, [ZOOKEEPER_PORT], nil,
+                       match_cmd, nil, nil)
 end
 
 def is_zookeeper_running?
