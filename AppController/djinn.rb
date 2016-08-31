@@ -3964,6 +3964,8 @@ class Djinn
     HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
   end
 
+  # Logs into the named host and alters its ssh configuration to enable the
+  # root user to directly log in.
   def enable_root_login(ip, ssh_key, user_name)
     options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
     backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' +

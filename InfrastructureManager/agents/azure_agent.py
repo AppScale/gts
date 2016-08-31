@@ -68,12 +68,13 @@ class AzureAgent(BaseAgent):
   PARAM_EXISTING_RG = 'does_exist'
   PARAM_GROUP = 'group'
   PARAM_INSTANCE_IDS = 'instance_ids'
+  PARAM_INSTANCE_TYPE = 'instance_type'
   PARAM_KEYNAME = 'keyname'
   PARAM_IMAGE_ID = 'image_id'
   PARAM_REGION = 'region'
   PARAM_RESOURCE_GROUP = 'resource_group'
   PARAM_STORAGE_ACCOUNT = 'storage_account'
-  PARAM_SUBCR_ID = 'subscription_id'
+  PARAM_SUBSCRIBER_ID = 'subscription_id'
   PARAM_TENANT_ID = 'tenant_id'
   PARAM_TEST = 'test'
   PARAM_TAG = 'group_tag'
@@ -85,8 +86,9 @@ class AzureAgent(BaseAgent):
     PARAM_APP_SECRET,
     PARAM_APP_ID,
     PARAM_IMAGE_ID,
+    PARAM_INSTANCE_TYPE,
     PARAM_KEYNAME,
-    PARAM_SUBCR_ID,
+    PARAM_SUBSCRIBER_ID,
     PARAM_TENANT_ID,
     PARAM_ZONE
   )
@@ -98,16 +100,21 @@ class AzureAgent(BaseAgent):
   # for an Azure VM.
   AUTHORIZED_KEYS_FILE = "/home/{}/.ssh/authorized_keys"
 
-  # The maximum number of seconds to sleep while waiting for
-  # Azure resources to get created.
+  # The number of seconds to sleep while polling for
+  # Azure resources to get created/updated.
   SLEEP_TIME = 10
+
+  # The maximum number of seconds to wait for Azure resources
+  # to get created/updated.
+  MAX_SLEEP_TIME = 60
+
+  # The maximum number of seconds to wait for an Azure VM to be created.
+  # (Takes longer than the creation time for other resources.)
+  MAX_VM_CREATION_TIME = 240
 
   # The Virtual Network and Subnet name to use while creating an Azure
   # Virtual machine.
   VIRTUAL_NETWORK = 'appscaleazure'
-
-  # The default port that the ssh daemon runs on.
-  SSH_PORT = 22
 
   def configure_instance_security(self, parameters):
     """ Configure and setup groups and storage accounts for the VMs spawned.
@@ -137,7 +144,7 @@ class AzureAgent(BaseAgent):
       instance_ids: A list of unique Azure VM names.
     """
     credentials = self.open_connection(parameters)
-    subscription_id = str(parameters[self.PARAM_SUBCR_ID])
+    subscription_id = str(parameters[self.PARAM_SUBSCRIBER_ID])
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     network_client = NetworkManagementClient(credentials, subscription_id)
     compute_client = ComputeManagementClient(credentials, subscription_id)
@@ -176,7 +183,7 @@ class AzureAgent(BaseAgent):
       private_ips: A list of private IP addresses.
     """
     credentials = self.open_connection(parameters)
-    subscription_id = str(parameters[self.PARAM_SUBCR_ID])
+    subscription_id = str(parameters[self.PARAM_SUBSCRIBER_ID])
     group_name = parameters[self.PARAM_RESOURCE_GROUP]
     network_client = NetworkManagementClient(credentials, subscription_id)
     active_public_ips, active_private_ips, active_instances = \
@@ -231,13 +238,14 @@ class AzureAgent(BaseAgent):
       network_id: The network id of the network interface created.
       parameters: A dict, containing all the parameters necessary to
         authenticate this user with Azure.
-      vm_network_name: The name of the Virtual machine to use.
+      vm_network_name: The name of the virtual machine to use.
     """
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     storage_account = parameters[self.PARAM_STORAGE_ACCOUNT]
     zone = parameters[self.PARAM_ZONE]
     utils.log("Creating a Virtual Machine '{}'".format(vm_network_name))
-    subscription_id = str(parameters[self.PARAM_SUBCR_ID])
+    subscription_id = str(parameters[self.PARAM_SUBSCRIBER_ID])
+    azure_instance_type = parameters[self.PARAM_INSTANCE_TYPE]
     compute_client = ComputeManagementClient(credentials, subscription_id)
     auth_keys_path = self.AUTHORIZED_KEYS_FILE.format(self.ADMIN_USERNAME)
 
@@ -252,8 +260,7 @@ class AzureAgent(BaseAgent):
                            computer_name=vm_network_name,
                            linux_configuration=linux_config)
 
-    hardware_profile = HardwareProfile(
-      vm_size=VirtualMachineSizeTypes.standard_a3)
+    hardware_profile = HardwareProfile(vm_size=azure_instance_type)
 
     network_profile = NetworkProfile(
       network_interfaces=[NetworkInterfaceReference(id=network_id)])
@@ -269,8 +276,9 @@ class AzureAgent(BaseAgent):
                      name=vm_network_name, vhd=virtual_hd, image=image_hd)
 
     compute_client.virtual_machines.create_or_update(
-      resource_group, vm_network_name, VirtualMachine(location=zone,
-        os_profile=os_profile, hardware_profile=hardware_profile,
+      resource_group, vm_network_name, VirtualMachine(
+        location=zone, os_profile=os_profile,
+        hardware_profile=hardware_profile,
         network_profile=network_profile,
         storage_profile=StorageProfile(os_disk=os_disk)))
 
@@ -287,7 +295,7 @@ class AzureAgent(BaseAgent):
       time.sleep(self.SLEEP_TIME)
 
   def associate_static_ip(self, instance_id, static_ip):
-    """Associates the given static IP address with the given instance ID.
+    """ Associates the given static IP address with the given instance ID.
     Args:
       instance_id: A str that names the instance that the static IP should be
         bound to.
@@ -302,7 +310,7 @@ class AzureAgent(BaseAgent):
     """
     credentials = self.open_connection(parameters)
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
-    subscription_id = str(parameters[self.PARAM_SUBCR_ID])
+    subscription_id = str(parameters[self.PARAM_SUBSCRIBER_ID])
     public_ips, private_ips, instance_ids = self.describe_instances(parameters)
 
     utils.log("Terminating the vm instance/s '{}'".format(instance_ids))
@@ -310,20 +318,29 @@ class AzureAgent(BaseAgent):
     for vm_name in instance_ids:
       result = compute_client.virtual_machines.delete(resource_group, vm_name)
       resource_name = 'Virtual Machine' + ':' + vm_name
-      self.sleep_until_delete_operation_done(result, resource_name)
+      self.sleep_until_delete_operation_done(result, resource_name,
+                                             self.MAX_VM_CREATION_TIME)
 
-  def sleep_until_delete_operation_done(self, result, resource_name):
+  def sleep_until_delete_operation_done(self, result, resource_name, max_sleep):
     """ Sleeps until the delete operation for the resource is completed
     successfully.
     Args:
       result: An instance, of the AzureOperationPoller to poll for the status
         of the operation being performed.
       resource_name: The name of the resource being deleted.
+      max_sleep: The maximum number of seconds to sleep for the resources to
+        be deleted.
     """
+    time_start = time.time()
     while not result.done():
       utils.log("Waiting {0} second(s) for '{1}' to be "
-                "deleted".format(self.SLEEP_TIME, resource_name))
+                "deleted.".format(self.SLEEP_TIME, resource_name))
       time.sleep(self.SLEEP_TIME)
+      total_sleep_time = time.time() - time_start
+      if total_sleep_time > max_sleep:
+        utils.log("Waited {0} second(s) for '{1}' to be deleted. "
+          "Operation has timed out.".format(total_sleep_time, resource_name))
+        break
 
   def cleanup_state(self, parameters):
     """ Removes any remote state that was created to run AppScale instances
@@ -332,7 +349,7 @@ class AzureAgent(BaseAgent):
       parameters: A dict that includes keys indicating the remote state
         that should be deleted.
     """
-    subscription_id = str(parameters[self.PARAM_SUBCR_ID])
+    subscription_id = str(parameters[self.PARAM_SUBSCRIBER_ID])
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     credentials = self.open_connection(parameters)
     network_client = NetworkManagementClient(credentials, subscription_id)
@@ -344,21 +361,24 @@ class AzureAgent(BaseAgent):
       result = network_client.network_interfaces.delete(resource_group,
                                                         interface.name)
       resource_name = 'Network Interface' + ':' + interface.name
-      self.sleep_until_delete_operation_done(result, resource_name)
+      self.sleep_until_delete_operation_done(result, resource_name,
+                                             self.MAX_SLEEP_TIME)
 
     public_ip_addresses = network_client.public_ip_addresses.list(resource_group)
     for public_ip in public_ip_addresses:
       result = network_client.public_ip_addresses.delete(resource_group,
                                                          public_ip.name)
       resource_name = 'Public IP Address' + ':' + public_ip.name
-      self.sleep_until_delete_operation_done(result, resource_name)
+      self.sleep_until_delete_operation_done(result, resource_name,
+                                             self.MAX_SLEEP_TIME)
 
     virtual_networks = network_client.virtual_networks.list(resource_group)
     for network in virtual_networks:
       result = network_client.virtual_networks.delete(resource_group,
                                                       network.name)
       resource_name = 'Virtual Network' + ':' + network.name
-      self.sleep_until_delete_operation_done(result, resource_name)
+      self.sleep_until_delete_operation_done(result, resource_name,
+                                             self.MAX_SLEEP_TIME)
 
   def assert_required_parameters(self, parameters, operation):
     """ Check whether all the parameters required to interact with Azure are
@@ -413,8 +433,8 @@ class AzureAgent(BaseAgent):
     Network Interface.
     Args:
       network_client: A NetworkManagementClient instance.
-      interface_name: The name to use for the Network Interface.
-      ip_name: The name to use for the Public IP Address.
+      interface_name: The name to use for the Network Interface resource.
+      ip_name: The name to use for the Public IP Address resource.
       subnet: The Subnet resource from the Virtual Network created.
       parameters:  A dict, containing all the parameters necessary to
         authenticate this user with Azure.
@@ -432,12 +452,12 @@ class AzureAgent(BaseAgent):
 
     utils.log("Creating/Updating the Network Interface '{}'".format(interface_name))
     network_interface_ip_conf = NetworkInterfaceIPConfiguration(
-      name='default', private_ip_allocation_method=IPAllocationMethod.dynamic,
+      name=interface_name, private_ip_allocation_method=IPAllocationMethod.dynamic,
       subnet=subnet, public_ip_address=PublicIPAddress(id=(public_ip_address.id)))
 
-    result = network_client.network_interfaces.create_or_update(group_name,
-      interface_name, NetworkInterface(location=region,
-                                       ip_configurations=[network_interface_ip_conf]))
+    result = network_client.network_interfaces.create_or_update(
+      group_name, interface_name, NetworkInterface(location=region,
+        ip_configurations=[network_interface_ip_conf]))
     self.sleep_until_update_operation_done(result, interface_name)
 
   def sleep_until_update_operation_done(self, result, resource_name):
@@ -448,7 +468,13 @@ class AzureAgent(BaseAgent):
         of the operation being performed.
       resource_name: The name of the resource being updated.
     """
+    time_start = time.time()
     while not result.done():
       utils.log("Waiting {0} second(s) for {1} to be created/updated.".
                 format(self.SLEEP_TIME, resource_name))
       time.sleep(self.SLEEP_TIME)
+      total_sleep_time = time.time() - time_start
+      if total_sleep_time > self.MAX_SLEEP_TIME:
+        utils.log("Waited {0} second(s) for {1} to be created/updated. "
+          "Operation has timed out.".format(total_sleep_time, resource_name))
+        break
