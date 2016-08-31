@@ -125,13 +125,13 @@ class InfrastructureManagerClient
       "keyname" => options['keyname'],
       "use_spot_instances" => options['use_spot_instances'],
       "max_spot_price" => options['max_spot_price'],
-      "subscription_id" => options['subscription_id'],
-      "app_id" => options['app_id'],
-      "app_secret_key" => options['app_secret_key'],
-      "tenant_id" => options['tenant_id'],
-      "resource_group" => options['resource_group'],
-      "group_tag" => options['group_tag'],
-      "storage_account" => options['storage_account'],
+      "azure_subscription_id" => options['azure_subscription_id'],
+      "azure_app_id" => options['azure_app_id'],
+      "azure_app_secret_key" => options['azure_app_secret_key'],
+      "azure_tenant_id" => options['azure_tenant_id'],
+      "azure_resource_group" => options['azure_resource_group'],
+      "azure_group_tag" => options['azure_group_tag'],
+      "azure_storage_account" => options['azure_storage_account'],
     }
   end
 

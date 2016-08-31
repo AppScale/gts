@@ -62,8 +62,8 @@ class AzureAgent(BaseAgent):
   # The following constants are string literals that can be used by callers to
   # index into the parameters that the user passes in, as opposed to having to
   # type out the strings each time we need them.
-  PARAM_APP_ID = 'app_id'
-  PARAM_APP_SECRET = 'app_secret_key'
+  PARAM_APP_ID = 'azure_app_id'
+  PARAM_APP_SECRET = 'azure_app_secret_key'
   PARAM_CREDENTIALS = 'credentials'
   PARAM_EXISTING_RG = 'does_exist'
   PARAM_GROUP = 'group'
@@ -72,12 +72,12 @@ class AzureAgent(BaseAgent):
   PARAM_KEYNAME = 'keyname'
   PARAM_IMAGE_ID = 'image_id'
   PARAM_REGION = 'region'
-  PARAM_RESOURCE_GROUP = 'resource_group'
-  PARAM_STORAGE_ACCOUNT = 'storage_account'
-  PARAM_SUBSCRIBER_ID = 'subscription_id'
-  PARAM_TENANT_ID = 'tenant_id'
+  PARAM_RESOURCE_GROUP = 'azure_resource_group'
+  PARAM_STORAGE_ACCOUNT = 'azure_storage_account'
+  PARAM_SUBSCRIBER_ID = 'azure_subscription_id'
+  PARAM_TENANT_ID = 'azure_tenant_id'
   PARAM_TEST = 'test'
-  PARAM_TAG = 'group_tag'
+  PARAM_TAG = 'azure_group_tag'
   PARAM_VERBOSE = 'is_verbose'
   PARAM_ZONE = 'zone'
 
@@ -411,7 +411,7 @@ class AzureAgent(BaseAgent):
         create any resources.
     """
     app_id = parameters[self.PARAM_APP_ID]
-    app_secret_key = parameters[self.PARAM_APP_SECRET] + "="
+    app_secret_key = parameters[self.PARAM_APP_SECRET]
     tenant_id = parameters[self.PARAM_TENANT_ID]
 
     # Get an Authentication token using ADAL.

@@ -478,13 +478,13 @@ class Djinn
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
     'zone' => [ String, nil ],
-    'subscription_id' => [ String, nil ],
-    'app_id' => [ String, nil ],
-    'app_secret_key' => [ String, nil ],
-    'tenant_id' => [ String, nil ],
-    'resource_group' => [ String, nil ],
-    'storage_account' => [ String, nil ],
-    'group_tag' => [ String, nil ]
+    'azure_subscription_id' => [ String, nil ],
+    'azure_app_id' => [ String, nil ],
+    'azure_app_secret_key' => [ String, nil ],
+    'azure_tenant_id' => [ String, nil ],
+    'azure_resource_group' => [ String, nil ],
+    'azure_storage_account' => [ String, nil ],
+    'azure_group_tag' => [ String, nil ]
   }
 
   # Template used for rsyslog configuration files.
@@ -3453,6 +3453,13 @@ class Djinn
     newoptions = {}
     @options.each { |key, val|
       if ['ips', 'user_commands'].include?(key)
+        newoptions[key] = val
+        next
+      end
+
+      # Azure secret key contains an '=' and we do not need
+      # sanitization for it.
+      if 'azure_app_secret_key' == key
         newoptions[key] = val
         next
       end
