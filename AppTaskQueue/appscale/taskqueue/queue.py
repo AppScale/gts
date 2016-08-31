@@ -13,8 +13,13 @@ from unpackaged import APPSCALE_PYTHON_APPSERVER
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
 
+# This format is used when returning the long name of a queue as
+# part of a leased task. This is to mimic a GCP oddity/bug.
+LONG_QUEUE_FORM = 'projects/{app}/taskqueues/{queue}'
+
 # A regex rule for validating queue names.
-QUEUE_NAME_PATTERN = r'^[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
+QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
+                     r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
 
 # A compiled regex rule for validating queue names.
 QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
