@@ -66,5 +66,6 @@ case "$1" in
         installapiclient
         buildgo
         installtaskqueue
+        prepdashboard
         ;;
 esac

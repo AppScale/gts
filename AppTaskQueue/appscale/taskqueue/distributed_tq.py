@@ -13,6 +13,7 @@ import sys
 import time
 import tq_lib
 
+from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
 from task import Task
@@ -42,10 +43,11 @@ from cassandra_env.cassandra_interface import DatastoreProxy
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
 
-def create_pull_queue_tables(session):
+def create_pull_queue_tables(cluster, session):
   """ Create the required tables for pull queues.
 
   Args:
+    cluster: A cassandra-driver cluster.
     session: A cassandra-driver session.
   """
   logging.info('Trying to create pull_queue_tasks')
@@ -62,6 +64,7 @@ def create_pull_queue_tables(session):
       PRIMARY KEY ((app, queue, id))
     )
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_table)
 
   logging.info('Trying to create pull_queue_tasks_index')
@@ -76,12 +79,14 @@ def create_pull_queue_tables(session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_index_table)
 
   logging.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   # This additional index is needed for groupByTag=true,tag=None queries
@@ -91,6 +96,7 @@ def create_pull_queue_tables(session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   logging.info('Trying to create pull_queue_leases')
@@ -102,6 +108,7 @@ def create_pull_queue_tables(session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
+  cluster.refresh_schema_metadata()
   session.execute(create_leases_table)
 
 
@@ -888,10 +895,23 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    # TODO implement.
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
-    return (response.Encode(), 0, "")
+
+    queue = self.get_queue(app_id, request.queue_name())
+    task_info = {'id': request.task_name()}
+    try:
+      # The Python AppServer sets eta_usec with a resolution of 1 second,
+      # so update_lease can't be used. It checks with millisecond precision.
+      task = queue.update_task(Task(task_info), request.lease_seconds())
+    except InvalidLeaseRequest as lease_error:
+      error = taskqueue_service_pb.TaskQueueServiceError.TASK_LEASE_EXPIRED
+      # The response requires ETA to be set before encoding.
+      response.set_updated_eta_usec(0)
+      return response.Encode(), error, str(lease_error)
+
+    response.set_updated_eta_usec(task.json_safe_dict()['leaseTimestamp'])
+    return response.Encode(), 0, ""
 
   def fetch_queue(self, app_id, http_data):
     """ 

@@ -28,7 +28,7 @@ from datastore_server import ID_KEY_LENGTH
 from dbconstants import APP_ENTITY_SCHEMA
 from dbconstants import APP_ENTITY_TABLE
 from zkappscale import zktransaction as zk
-from zkappscale.zktransaction import ZK_SERVER_CMD
+from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
 from zkappscale.zktransaction import ZKInternalException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
@@ -135,7 +135,15 @@ def start_zookeeper(zk_ips, keyname):
       raise ZKInternalException(message)
 
   logging.info('Waiting for ZooKeeper to be ready')
-  status_cmd = '{} status'.format(ZK_SERVER_CMD)
+  zk_server_cmd = None
+  for script in ZK_SERVER_CMD_LOCATIONS:
+    if os.path.isfile(script):
+      zk_server_cmd = script
+      break
+  if zk_server_cmd is None:
+    raise ZKInternalException('Unable to find zkServer.sh')
+
+  status_cmd = '{} status'.format(zk_server_cmd)
   while (utils.ssh(zk_ips[0], keyname, status_cmd,
                    method=subprocess.call) != 0):
     time.sleep(5)
@@ -286,6 +294,7 @@ def process_entity(entity, datastore, zookeeper):
   if (valid_entity is None or
       valid_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE):
     delete_entity_from_table(key, datastore)
+    return
 
   if valid_entity != entity:
     update_entity_in_table(key, valid_entity, datastore)

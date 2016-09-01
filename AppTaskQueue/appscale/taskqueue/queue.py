@@ -13,8 +13,13 @@ from unpackaged import APPSCALE_PYTHON_APPSERVER
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
 
+# This format is used when returning the long name of a queue as
+# part of a leased task. This is to mimic a GCP oddity/bug.
+LONG_QUEUE_FORM = 'projects/{app}/taskqueues/{queue}'
+
 # A regex rule for validating queue names.
-QUEUE_NAME_PATTERN = r'^[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
+QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
+                     r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
 
 # A compiled regex rule for validating queue names.
 QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
@@ -54,6 +59,20 @@ def current_time_ms():
   now = datetime.datetime.utcnow()
   new_microsecond = int(now.microsecond / 1000) * 1000
   return now.replace(microsecond=new_microsecond)
+
+
+def next_key(key):
+  """ Calculates the next partition value of a key. Note: Cassandra BOP orders
+  'b' before 'aa'.
+
+  Args:
+    key: A string containing a Cassandra key.
+  Returns:
+    A string containing the next partition value.
+  """
+  mutable_key = list(key)
+  mutable_key[-1] = chr(ord(key[-1]) + 1)
+  return ''.join(mutable_key)
 
 
 class InvalidQueueConfiguration(Exception):
@@ -432,9 +451,11 @@ class PullQueue(Queue):
       query_tasks = """
         SELECT eta, id FROM pull_queue_tasks_index
         WHERE token(app, queue, eta) > token(%(app)s, %(queue)s, %(eta)s)
+        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
         LIMIT {limit}
       """.format(limit=limit)
-      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date}
+      parameters = {'app': self.app, 'queue': self.name, 'eta': start_date,
+                    'next_queue': next_key(self.name)}
       results = [result for result in session.execute(query_tasks, parameters)]
 
       if not results:
@@ -532,7 +553,7 @@ class PullQueue(Queue):
       AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
     """
     parameters = {'app': self.app, 'queue': self.name,
-                  'next_queue': self.name + chr(0)}
+                  'next_queue': next_key(self.name)}
     results = self.db_access.session.execute(select_tasks, parameters)
 
     for result in results:
@@ -837,16 +858,18 @@ class PullQueue(Queue):
         AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
       """
       parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': self.name + chr(0)}
+                    'next_queue': next_key(self.name)}
       stats['totalTasks'] = session.execute(select_count, parameters)[0].count
 
     if 'oldestTask' in fields:
       select_oldest = """
         SELECT eta FROM pull_queue_tasks_index
         WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
         LIMIT 1
       """
-      parameters = {'app': self.app, 'queue': self.name}
+      parameters = {'app': self.app, 'queue': self.name,
+                    'next_queue': next_key(self.name)}
       oldest_eta = session.execute(select_oldest, parameters)[0].eta
       epoch = datetime.datetime.utcfromtimestamp(0)
       stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())

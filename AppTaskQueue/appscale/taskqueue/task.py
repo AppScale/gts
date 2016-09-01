@@ -172,7 +172,10 @@ class Task(object):
 
       value = getattr(self, attribute)
       if isinstance(value, datetime.datetime):
-        value = long((value - epoch).total_seconds() * 1000000)
+        # All numbers are represented as strings in the GCP ecosystem for
+        # Javascript compatibility reasons. We convert to string so that
+        # the response can be successfully parsed by Google API clients.
+        value = str(long((value - epoch).total_seconds() * 1000000))
       task[attribute] = value
 
     return task
