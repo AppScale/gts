@@ -182,7 +182,7 @@ def validate_and_update_entities(db_access, zookeeper, log_postfix,
     zookeeper: A reference to ZKTransaction, which communicates with
       ZooKeeper on the given host.
     log_postfix: An identifier for the status log.
-    total_entities: The total number of entities to process.
+    total_entities: A string containing an entity count or None.
   """
   last_key = ""
   entities_checked = 0
@@ -201,8 +201,10 @@ def validate_and_update_entities(db_access, zookeeper, log_postfix,
     entities_checked += len(entities)
 
     if time.time() > last_logged + LOG_PROGRESS_FREQUENCY:
-      message = 'Processed {}/{} entities'.format(entities_checked,
-                                                  total_entities)
+      progress = str(entities_checked)
+      if total_entities is not None:
+        progress += '/{}'.format(total_entities)
+      message = 'Processed {} entities'.format(progress)
       logging.info(message)
       write_to_json_file({'status': 'inProgress', 'message': message},
                          log_postfix)
@@ -385,15 +387,17 @@ def estimate_total_entities(session, db_master, keyname):
     db_master: A string containing the IP address of the primary DB node.
     keyname: A string containing the deployment keyname.
   Returns:
-    An integer specifying the number of entities.
+    A string containing an entity count.
+  Raises:
+    AppScaleDBError if unable to get a count.
   """
-  estimated_keys = 0
   query = SimpleStatement(
     'SELECT COUNT(*) FROM "{}"'.format(dbconstants.APP_ENTITY_TABLE),
     consistency_level=ConsistencyLevel.ONE
   )
   try:
-    estimated_keys = session.execute(query)[0].count
+    rows = session.execute(query)[0].count
+    return str(rows / len(dbconstants.APP_ENTITY_SCHEMA))
   except (cassandra.Unavailable, cassandra.Timeout,
           cassandra.CoordinationFailure, cassandra.OperationTimedOut):
     stats_cmd = '{nodetool} cfstats {keyspace}.{table}'.format(
@@ -404,9 +408,8 @@ def estimate_total_entities(session, db_master, keyname):
                       method=subprocess.check_output)
     for line in stats.splitlines():
       if 'Number of keys (estimate)' in line:
-        estimated_keys = int(line.split()[-1])
-
-  return estimated_keys / len(dbconstants.APP_ENTITY_SCHEMA)
+        return '{} (estimate)'.format(line.split()[-1])
+  raise dbconstants.AppScaleDBError('Unable to estimate total entities.')
 
 
 def run_datastore_upgrade(db_access, zookeeper, log_postfix, total_entities):
@@ -416,7 +419,7 @@ def run_datastore_upgrade(db_access, zookeeper, log_postfix, total_entities):
     db_access: A handler for interacting with Cassandra.
     zookeeper: A handler for interacting with ZooKeeper.
     log_postfix: An identifier for the status log.
-    total_entities: The total number of entities to process.
+    total_entities: A string containing an entity count or None.
   """
   # This datastore upgrade script is to be run offline, so make sure
   # appscale is not up while running this script.
