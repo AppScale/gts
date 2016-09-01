@@ -395,10 +395,14 @@ class DatastoreProxy(AppDBInterface):
       AppScaleDBConnectionError: If the batch_put could not be performed due to
         an error with Cassandra.
     """
-    if not isinstance(table_name, str): raise TypeError("Expected a str")
-    if not isinstance(column_names, list): raise TypeError("Expected a list")
-    if not isinstance(row_keys, list): raise TypeError("Expected a list")
-    if not isinstance(cell_values, dict): raise TypeError("Expected a dic")
+    if not isinstance(table_name, str):
+      raise TypeError("Expected a str")
+    if not isinstance(column_names, list):
+      raise TypeError("Expected a list")
+    if not isinstance(row_keys, list):
+      raise TypeError("Expected a list")
+    if not isinstance(cell_values, dict):
+      raise TypeError("Expected a dict")
 
     insert_str = """
       INSERT INTO "{table}" ({key}, {column}, {value})
