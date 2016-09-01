@@ -67,7 +67,10 @@ if __name__ == "__main__":
       sys.exit()
 
     zookeeper = datastore_upgrade.get_zookeeper(args.zookeeper)
-    run_datastore_upgrade(db_access, zookeeper, args.keyname, args.log_postfix)
+    total_entities = datastore_upgrade.estimate_total_entities(
+      db_access.session, args.db_master, args.keyname)
+    run_datastore_upgrade(db_access, zookeeper, args.log_postfix,
+                          total_entities)
     status = {'status': 'complete', 'message': 'Data layout upgrade complete'}
   except Exception as error:
     status = {'status': 'error', 'message': error.message}

@@ -1,5 +1,6 @@
 """ This script performs a data upgrade. """
 
+import cassandra
 import json
 import logging
 import math
@@ -376,25 +377,50 @@ def wait_for_quorum(keyname, db_nodes, replication):
     time.sleep(1)
 
 
-def run_datastore_upgrade(db_access, zookeeper, keyname, log_postfix):
+def estimate_total_entities(session, db_master, keyname):
+  """ Estimate the total number of entities.
+
+  Args:
+    session: A cassandra-driver session.
+    db_master: A string containing the IP address of the primary DB node.
+    keyname: A string containing the deployment keyname.
+  Returns:
+    An integer specifying the number of entities.
+  """
+  estimated_keys = 0
+  query = SimpleStatement(
+    'SELECT COUNT(*) FROM "{}"'.format(dbconstants.APP_ENTITY_TABLE),
+    consistency_level=ConsistencyLevel.ONE
+  )
+  try:
+    estimated_keys = session.execute(query)[0].count
+  except (cassandra.Unavailable, cassandra.Timeout,
+          cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+    stats_cmd = '{nodetool} cfstats {keyspace}.{table}'.format(
+      nodetool=cassandra_interface.NODE_TOOL,
+      keyspace=cassandra_interface.KEYSPACE,
+      table=dbconstants.APP_ENTITY_TABLE)
+    stats = utils.ssh(db_master, keyname, stats_cmd,
+                      method=subprocess.check_output)
+    for line in stats.splitlines():
+      if 'Number of keys (estimate)' in line:
+        estimated_keys = int(line.split()[-1])
+
+  return estimated_keys / len(dbconstants.APP_ENTITY_SCHEMA)
+
+
+def run_datastore_upgrade(db_access, zookeeper, log_postfix, total_entities):
   """ Runs the data upgrade process of fetching, validating and updating data
   within ZooKeeper & Cassandra.
   Args:
     db_access: A handler for interacting with Cassandra.
     zookeeper: A handler for interacting with ZooKeeper.
-    keyname: A string containing the deployment's keyname.
     log_postfix: An identifier for the status log.
+    total_entities: The total number of entities to process.
   """
   # This datastore upgrade script is to be run offline, so make sure
   # appscale is not up while running this script.
   ensure_app_is_not_running()
-
-  query = SimpleStatement(
-    'SELECT COUNT(*) FROM "{}"'.format(dbconstants.APP_ENTITY_TABLE),
-    consistency_level=ConsistencyLevel.ONE
-  )
-  results = db_access.session.execute(query)
-  total_entities = results[0].count / len(dbconstants.APP_ENTITY_SCHEMA)
 
   # Loop through entities table, fetch valid entities from journal table
   # if necessary, delete tombstoned entities and updated invalid ones.
