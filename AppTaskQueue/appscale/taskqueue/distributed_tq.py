@@ -910,7 +910,9 @@ class DistributedTaskQueue():
       response.set_updated_eta_usec(0)
       return response.Encode(), error, str(lease_error)
 
-    response.set_updated_eta_usec(task.json_safe_dict()['leaseTimestamp'])
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    updated_usec = (task.leaseTimestamp - epoch).total_seconds() * 1000000
+    response.set_updated_eta_usec(updated_usec)
     return response.Encode(), 0, ""
 
   def fetch_queue(self, app_id, http_data):
