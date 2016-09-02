@@ -64,28 +64,45 @@ public class AppScaleTaskQueueClient {
     }
 
     public TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest) {
-        //update some of the AddRequest params
         addRequest.setAppId(getAppId());
         String taskPath = addRequest.getUrl();
         String appScaleTaskPath = "http://" + getNginxHost() + ":" + getNginxPort() + taskPath;
         addRequest.setUrl(appScaleTaskPath);
-        //Create a PB request
         Request request = new Request();
         request.setMethod("Add");
         request.setServiceName(SERVICE_NAME);
         request.setRequestAsBytes(addRequest.toByteArray());
         Response response = sendRequest(request);
         if (response.hasApplicationError()) {
-            throw new ApiProxy.ApplicationException(response.getApplicationError().getCode(), "TaskQueue Add operation failed");
+            throw new ApiProxy.ApplicationException(
+                response.getApplicationError().getCode(),
+                "TaskQueue Add operation failed"
+            );
         }
         TaskQueuePb.TaskQueueAddResponse addResponse = new TaskQueuePb.TaskQueueAddResponse();
         addResponse.parseFrom(response.getResponseAsBytes());
         return addResponse;
     }
 
+    public TaskQueuePb.TaskQueueQueryAndOwnTasksResponse lease(TaskQueuePb.TaskQueueQueryAndOwnTasksRequest leaseRequest) {
+        Request request = new Request();
+        request.setMethod("QueryAndOwnTasks");
+        request.setServiceName(SERVICE_NAME);
+        request.setRequestAsBytes(leaseRequest.toByteArray());
+        Response response = sendRequest(request);
+        if (response.hasApplicationError()) {
+            throw new ApiProxy.ApplicationException(
+                response.getApplicationError().getCode(),
+                "TaskQueue QueryAndOwn operation failed"
+            );
+        }
+        TaskQueuePb.TaskQueueQueryAndOwnTasksResponse leaseResponse = new TaskQueuePb.TaskQueueQueryAndOwnTasksResponse();
+        leaseResponse.parseFrom(response.getResponseAsBytes());
+        return leaseResponse;
+    }
+
     public TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {
         purgeRequest.setAppId(getAppId());
-
         Request request = new Request();
         request.setMethod("PurgeQueue");
         request.setServiceName(SERVICE_NAME);
@@ -114,7 +131,8 @@ public class AppScaleTaskQueueClient {
             post.setEntity(entity);
             bao.close();
         } catch (IOException e) {
-            logger.severe("Failed to create TaskQueue request due to IOException: " + e.getMessage());
+            logger.severe("Failed to create TaskQueue request due to IOException: " +
+                e.getMessage());
             return null;
         }
 
@@ -124,7 +142,8 @@ public class AppScaleTaskQueueClient {
             byte[] bytes = client.execute(post, handler);
             remoteResponse.parseFrom(bytes);
         } catch (ClientProtocolException e) {
-            logger.severe("Failed to send TaskQueue request due to ClientProtocolException: " + e.getMessage());
+            logger.severe("Failed to send TaskQueue request due to ClientProtocolException: " +
+                e.getMessage());
         } catch (IOException e) {
             logger.severe("Failed to send TaskQueue request due to IOException: " + e.getMessage());
         }
@@ -187,7 +206,8 @@ public class AppScaleTaskQueueClient {
 
     class ByteArrayResponseHandler implements ResponseHandler<byte[]> {
 
-        public byte[] handleResponse(HttpResponse response) throws ClientProtocolException, IOException {
+        public byte[] handleResponse(HttpResponse response)
+                throws ClientProtocolException, IOException {
             HttpEntity entity = response.getEntity();
             if (entity != null) {
                 InputStream inputStream = entity.getContent();
