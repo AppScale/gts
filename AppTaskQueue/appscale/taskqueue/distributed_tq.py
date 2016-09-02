@@ -911,7 +911,7 @@ class DistributedTaskQueue():
       return response.Encode(), error, str(lease_error)
 
     epoch = datetime.datetime.utcfromtimestamp(0)
-    updated_usec = (task.leaseTimestamp - epoch).total_seconds() * 1000000
+    updated_usec = int((task.leaseTimestamp - epoch).total_seconds() * 1000000)
     response.set_updated_eta_usec(updated_usec)
     return response.Encode(), 0, ""
 
