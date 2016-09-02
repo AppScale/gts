@@ -13,6 +13,7 @@ from unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import queueinfo
+from google.appengine.runtime import apiproxy_errors
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
@@ -88,6 +89,8 @@ queue:
     Returns:
       The location of the queue.yaml or queue.xml file, and 
       an empty string if it could not be found.
+    Raises:
+      apiproxy_errors.ApplicationError if multiple invalid files are found.
     """
     app_dir = appscale_info.get_app_path(app_id)
 
@@ -97,18 +100,34 @@ queue:
     paths = []
     for root, sub_dirs, files in os.walk(app_dir):
       for file in files:
-        if file in [queue_yaml, queue_xml]:
+        if file == queue_yaml:
+          queue_yaml_detected = True
+          paths.append(os.path.abspath(os.path.join(root, file)))
+        if file == queue_xml:
+          queue_xml_detected = True
           paths.append(os.path.abspath(os.path.join(root, file)))
 
-    if len(paths) == 0:
+    if not paths:
       return ""
-    elif len(paths) == 1:
+
+    paths = sorted(paths, key=len)
+    if len(paths) == 1:
       return paths[0]
-    else:
-      logging.error("Multiple matches for queue configurations in: {}".
-        format(queue_regex))
-      logging.error("Remove unused configuration files and re-deploy")
-      return ""
+
+    # If multiple files were detected and it's Python, return 
+    # the shortest path.
+    if queue_yaml_detected:
+      return paths[0]
+    
+    # If multiple files were detected and it's Java, return 
+    # the first path that contains WEB-INF.
+    for path in paths:
+      if queue_xml in path and "WEB-INF" in path and queue_xml_detected:
+        return path
+    
+    raise apiproxy_errors.\
+      ApplicationError("Multiple unusable queue configuration files detected")
+    return ""
 
   def load_queues_from_file(self):
     """ Translates an application's queue configuration file to queue objects.
@@ -118,14 +137,22 @@ queue:
     Raises:
       ValueError: If queue_file is unable to get loaded.
     """
-    queue_file = self.get_queue_file_location(self._app_id)
     using_default = False
+    queue_file = ''
+
     try:
-      info = file_io.read(queue_file)
-      logging.info('Found queue file for {}'.format(self._app_id))
-    except IOError:
-      logging.info(
-        'No queue file found for {}, using default queue'.format(self._app_id))
+      queue_file = self.get_queue_file_location(self._app_id)
+      try:
+        info = file_io.read(queue_file)
+        logging.info('Found queue file for {} in: {}'.
+          format(self._app_id, queue_file))
+      except IOError:
+        logging.error(
+          'No queue file found for {}, using default queue'.format(self._app_id))
+        info = self.DEFAULT_QUEUE_YAML
+        using_default = True
+    except apiproxy_errors.ApplicationError as application_error:
+      logging.error(application_error.message)
       info = self.DEFAULT_QUEUE_YAML
       using_default = True
 
