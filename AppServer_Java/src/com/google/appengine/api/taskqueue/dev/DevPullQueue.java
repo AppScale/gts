@@ -29,7 +29,6 @@ import com.google.appengine.api.taskqueue.QueueConstants;
 import com.google.appengine.api.taskqueue.TaskQueuePb;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueRetryParameters;
-import com.google.appengine.api.taskqueue.dev.QueueStateInfo.TaskStateInfo;
 import com.google.appengine.tools.development.Clock;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.utils.config.QueueXml;
@@ -62,6 +61,7 @@ public class DevPullQueue extends DevQueue {
     }
 
     synchronized TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest) {
+        String queueName = addRequest.getQueueName();
         if (addRequest.getMode() != TaskQueuePb.TaskQueueMode.Mode.PULL.getValue()) {
             throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_QUEUE_MODE.getValue());
         }
@@ -70,11 +70,9 @@ public class DevPullQueue extends DevQueue {
         }
 
         /*
-         * AppScale - sending task to RabbitMQ instead of calling scheduleTask
-         * method
+         * AppScale - sending task to RabbitMQ instead of calling scheduleTask method
          */
-        logger.log(Level.INFO,
-                "PullQueue: sending addRequest to TaskQueue server");
+        logger.log(Level.FINE, "PullQueue: sending AddRequest to TaskQueue server for " + queueName);
         TaskQueuePb.TaskQueueAddResponse addResponse = client.add(addRequest);
         return addResponse;
     }
@@ -90,11 +88,8 @@ public class DevPullQueue extends DevQueue {
                     TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_REQUEST.getValue());
         }
 
-        logger.info("Sending PurgeQueue to TaskQueue for " + queueName);
+        logger.log(Level.FINE, "PullQueue: Sending PurgeQueueRequest to TaskQueue server for " + queueName);
         TaskQueuePb.TaskQueuePurgeQueueResponse purgeResponse = client.purge(purgeRequest);
-
-        // This can be removed as soon as taskMap is replaced with proper TaskQueue calls.
-        this.taskMap.clear();
 
         return purgeResponse;
     }
@@ -199,7 +194,15 @@ public class DevPullQueue extends DevQueue {
         return index;
     }
 
-    synchronized List<TaskQueuePb.TaskQueueAddRequest> queryAndOwnTasks(double leaseSeconds, long maxTasks, boolean groupByTag, byte[] tag) {
+    synchronized TaskQueuePb.TaskQueueQueryAndOwnTasksResponse queryAndOwnTasks(TaskQueuePb.TaskQueueQueryAndOwnTasksRequest request) {
+        double leaseSeconds = request.getLeaseSeconds();
+        long maxTasks = request.getMaxTasks();
+        boolean groupByTag = request.isGroupByTag();
+        byte[] tag = request.getTagAsBytes();
+        String logMessage = "DevPullQueue.queryAndOwnTasks: " + "queue=" + request.getQueueName() +
+                            " | leaseSeconds=" + leaseSeconds + " | maxTasks=" + maxTasks;
+        logger.log(Level.FINE, logMessage);
+
         if ((leaseSeconds < 0.0D) || (leaseSeconds > QueueConstants.maxLease(TimeUnit.SECONDS))) {
             throw new IllegalArgumentException("Invalid value for lease time.");
         }
@@ -207,21 +210,8 @@ public class DevPullQueue extends DevQueue {
             throw new IllegalArgumentException("Invalid value for lease count.");
         }
 
-        List<QueueStateInfo.TaskStateInfo> tasks = groupByTag ? getStateInfoByTag(tag).getTaskInfo() : getStateInfo().getTaskInfo();
-
-        long nowMillis = currentTimeMillis();
-        int available = availableTaskCount(tasks, nowMillis);
-        int resultSize = (int) Math.min(tasks.size(), Math.min(available, maxTasks));
-        tasks = tasks.subList(0, resultSize);
-
-        List<TaskQueuePb.TaskQueueAddRequest> result = new ArrayList<TaskQueuePb.TaskQueueAddRequest>();
-        for (QueueStateInfo.TaskStateInfo task : tasks) {
-            TaskQueuePb.TaskQueueAddRequest addRequest = task.getAddRequest();
-            addRequest.setEtaUsec((long) (nowMillis * oneSecondInMilli + leaseSeconds * oneThousandSecondsInMilli));
-            result.add(addRequest);
-        }
-
-        return result;
+        TaskQueuePb.TaskQueueQueryAndOwnTasksResponse response = client.lease(request);
+        return response;
     }
 
     synchronized TaskQueuePb.TaskQueueModifyTaskLeaseResponse modifyTaskLease(TaskQueuePb.TaskQueueModifyTaskLeaseRequest request) {
