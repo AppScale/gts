@@ -14,6 +14,7 @@ from datastore_upgrade import write_to_json_file
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import LOG_FORMAT
+from dbconstants import AppScaleDBError
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
@@ -67,7 +68,13 @@ if __name__ == "__main__":
       sys.exit()
 
     zookeeper = datastore_upgrade.get_zookeeper(args.zookeeper)
-    run_datastore_upgrade(db_access, zookeeper, args.keyname, args.log_postfix)
+    try:
+      total_entities = datastore_upgrade.estimate_total_entities(
+        db_access.session, args.db_master, args.keyname)
+    except AppScaleDBError:
+      total_entities = None
+    run_datastore_upgrade(db_access, zookeeper, args.log_postfix,
+                          total_entities)
     status = {'status': 'complete', 'message': 'Data layout upgrade complete'}
   except Exception as error:
     status = {'status': 'error', 'message': error.message}
