@@ -98,6 +98,8 @@ queue:
     queue_xml = 'queue.xml'
     
     paths = []
+    queue_yaml_detected = False
+    queue_xml_detected = False
     for root, sub_dirs, files in os.walk(app_dir):
       for file in files:
         if file == queue_yaml:
