@@ -89,13 +89,25 @@ queue:
       The location of the queue.yaml or queue.xml file, and 
       an empty string if it could not be found.
     """
-    queue_yaml = appscale_info.get_app_path(app_id) + 'queue.yaml'
-    queue_xml = appscale_info.get_app_path(app_id) + '/war/WEB-INF/queue.xml'
-    if file_io.exists(queue_yaml):
-      return queue_yaml
-    elif file_io.exists(queue_xml):
-      return queue_xml
+    app_dir = appscale_info.get_app_path(app_id)
+
+    queue_yaml = 'queue.yaml'
+    queue_xml = 'queue.xml'
+    
+    paths = []
+    for root, sub_dirs, files in os.walk(app_dir):
+      for file in files:
+        if file in [queue_yaml, queue_xml]:
+          paths.append(os.path.abspath(os.path.join(root, file)))
+
+    if len(paths) == 0:
+      return ""
+    elif len(paths) == 1:
+      return paths[0]
     else:
+      logging.error("Multiple matches for queue configurations in: {}".
+        format(queue_regex))
+      logging.error("Remove unused configuration files and re-deploy")
       return ""
 
   def load_queues_from_file(self):
