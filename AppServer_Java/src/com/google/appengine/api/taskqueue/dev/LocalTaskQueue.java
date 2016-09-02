@@ -42,7 +42,6 @@ import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueuePurgeQueueRequest
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueuePurgeQueueResponse;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueQueryAndOwnTasksRequest;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueQueryAndOwnTasksResponse;
-import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueQueryAndOwnTasksResponse.Task;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueScannerQueueInfo;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueServiceError.ErrorCode;
 import com.google.appengine.api.urlfetch.URLFetchServicePb;
@@ -446,20 +445,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
         }
 
         DevPullQueue pullQueue = (DevPullQueue) queue;
-        List results = pullQueue.queryAndOwnTasks(request.getLeaseSeconds(), request.getMaxTasks(), request.isGroupByTag(), request.getTagAsBytes());
-
-        TaskQueuePb.TaskQueueQueryAndOwnTasksResponse response = new TaskQueuePb.TaskQueueQueryAndOwnTasksResponse();
-        for (TaskQueuePb.TaskQueueAddRequest task : (List<TaskQueuePb.TaskQueueAddRequest>) results) {
-            TaskQueuePb.TaskQueueQueryAndOwnTasksResponse.Task responseTask = response.addTask();
-            responseTask.setTaskName(task.getTaskName());
-            responseTask.setBodyAsBytes(task.getBodyAsBytes());
-            responseTask.setEtaUsec(task.getEtaUsec());
-            if (task.hasTag()) {
-                responseTask.setTagAsBytes(task.getTagAsBytes());
-            }
-
-        }
-
+        TaskQueuePb.TaskQueueQueryAndOwnTasksResponse response = pullQueue.queryAndOwnTasks(request);
         return response;
     }
 
