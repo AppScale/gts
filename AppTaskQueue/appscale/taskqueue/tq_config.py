@@ -112,7 +112,7 @@ queue:
     if not paths:
       return ""
 
-    paths = sorted(paths, key=len)
+    paths = sorted(paths, key = lambda k : len(k.split(os.sep)))
     if len(paths) == 1:
       return paths[0]
 
