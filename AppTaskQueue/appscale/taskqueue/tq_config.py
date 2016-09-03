@@ -116,12 +116,12 @@ queue:
     if len(paths) == 1:
       return paths[0]
 
-    # If multiple files were detected and it's Python, return 
+    # If multiple files were detected and it's Python, return
     # the shortest path.
     if queue_yaml_detected:
       return paths[0]
     
-    # If multiple files were detected and it's Java, return 
+    # If multiple files were detected and it's Java, return
     # the first path that contains WEB-INF.
     for path in paths:
       if queue_xml in path and "WEB-INF" in path and queue_xml_detected:
