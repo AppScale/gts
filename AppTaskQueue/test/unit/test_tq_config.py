@@ -63,6 +63,7 @@ class FakeConnection():
     pass
   def add_header(self, arg1, arg2):
     pass
+
 class FakeResponse():
   def __init__(self):
     pass
@@ -75,50 +76,61 @@ class TestTaskQueueConfig(unittest.TestCase):
   """
   def test_constructor(self):
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml)
-    flexmock(file_io).should_receive("write").and_return(None)
-    flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(TaskQueueConfig).should_receive('load_queues_from_file')
     TaskQueueConfig('myapp')
 
   def test_load_queues_from_file(self):
-    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml)
-    flexmock(file_io).should_receive("exists").and_return(True)
-    flexmock(file_io).should_receive("write").and_return(None)
-    flexmock(file_io).should_receive("mkdir").and_return(None)
+    self.maxDiff = None
 
+    flexmock(file_io).should_receive("mkdir").and_return(None)
     app_id = 'myapp'
-    tqc = TaskQueueConfig(app_id)
+
+    # Test queue sample.
+    flexmock(TaskQueueConfig).should_receive("get_queue_file_location").\
+      and_return("/path/to/file")
+    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml)
     expected_info = [{'name': 'default', 'rate': '5/s'},
                      {'name': 'foo', 'rate': '10/m'}]
     expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
-    self.assertEquals(tqc.queues, expected_queues)
-
-    flexmock(file_io).should_receive("read").and_raise(IOError)
+    flexmock(TaskQueueConfig).should_receive('load_queues_from_file').\
+      and_return(expected_queues)
     tqc = TaskQueueConfig(app_id)
-    expected_info = [{'name': 'default', 'rate': '5/s'}]
-    expected_queues = {info['name']: PushQueue(info, app_id)
-                       for info in expected_info}
     self.assertEquals(tqc.queues, expected_queues)
 
+    # Test queue sample 2.
+    flexmock(TaskQueueConfig).should_receive("get_queue_file_location").\
+      and_return("/path/to/file")
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io).should_receive("write").and_return(None)
-    tqc = TaskQueueConfig(app_id)
     expected_info = [{'name': 'foo', 'rate': '10/m'},
                      {'name': 'default', 'rate': '5/s'}]
     expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
+    flexmock(TaskQueueConfig).should_receive('load_queues_from_file').\
+      and_return(expected_queues)
+    tqc = TaskQueueConfig(app_id)
+    self.assertEquals(tqc.queues, expected_queues)
+
+    # Test without queues.
+    flexmock(TaskQueueConfig).should_receive("get_queue_file_location").\
+      and_return("")
+    flexmock(file_io).should_receive("read").and_raise(IOError)
+    expected_info = [{'name': 'default', 'rate': '5/s'}]
+    expected_queues = {info['name']: PushQueue(info, app_id)
+                       for info in expected_info}
+    flexmock(TaskQueueConfig).should_receive('load_queues_from_file').\
+      and_return(expected_queues)
+    tqc = TaskQueueConfig(app_id)
     self.assertEquals(tqc.queues, expected_queues)
 
   def test_load_queues_from_xml_file(self):
-    flexmock(file_io).should_receive("read").and_return(sample_queue_xml)
-    flexmock(file_io).should_receive("exists").and_return(False)\
-      .and_return(True)
-    flexmock(file_io).should_receive("write").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
 
     app_id = 'myapp'
-    tqc = TaskQueueConfig(app_id)
+
+    flexmock(TaskQueueConfig).should_receive("get_queue_file_location").\
+      and_return("/path/to/file")
+    flexmock(file_io).should_receive("read").and_return(sample_queue_xml)
     expected_info = [
       {'max_concurrent_requests': '300',
        'rate': '100/s',
@@ -133,11 +145,14 @@ class TestTaskQueueConfig(unittest.TestCase):
     ]
     expected_queues = {info['name']: PushQueue(info, app_id)
                        for info in expected_info}
+    flexmock(TaskQueueConfig).should_receive('load_queues_from_file').\
+      and_return(expected_queues)
+    tqc = TaskQueueConfig(app_id)
     self.assertEquals(tqc.queues, expected_queues)
 
   def test_create_celery_file(self):
-    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
-    flexmock(file_io).should_receive("exists").and_return(True)
+    flexmock(TaskQueueConfig).should_receive("get_celery_queue_name").\
+      and_return("")
     flexmock(file_io).should_receive("write").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
 
@@ -148,10 +163,10 @@ class TestTaskQueueConfig(unittest.TestCase):
                       TaskQueueConfig.CELERY_CONFIG_DIR + "myapp" + ".py")
  
   def test_create_celery_worker_scripts(self):
-    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
+    flexmock(TaskQueueConfig).should_receive("get_celery_queue_name").\
+      and_return("")
     flexmock(file_io).should_receive("write").and_return(None)
     flexmock(file_io).should_receive("mkdir").and_return(None)
-    flexmock(file_io).should_receive("exists").and_return(True)
 
     tqc = TaskQueueConfig('myapp')
 
