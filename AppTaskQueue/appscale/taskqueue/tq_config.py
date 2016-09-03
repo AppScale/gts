@@ -129,7 +129,6 @@ queue:
     
     raise apiproxy_errors.\
       ApplicationError("Multiple unusable queue configuration files detected")
-    return ""
 
   def load_queues_from_file(self):
     """ Translates an application's queue configuration file to queue objects.
