@@ -39,6 +39,13 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'cloud' => 'cloud1',
         'use_spot_instances' => true,
         'max_spot_price' => 1.23,
+        'azure_subscription_id' => nil,
+        'azure_app_id' => nil,
+        'azure_app_secret_key' => nil,
+        'azure_tenant_id' => nil,
+        'azure_resource_group' => nil,
+        'azure_group_tag' => nil,
+        'azure_storage_account' => nil,
         'region' => 'my-zone-1',
         'zone' => 'my-zone-1b'
       }).and_return({
@@ -123,6 +130,13 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'cloud' => 'cloud1',
         'use_spot_instances' => false,
         'max_spot_price' => nil,
+        'azure_subscription_id' => nil,
+        'azure_app_id' => nil,
+        'azure_app_secret_key' => nil,
+        'azure_tenant_id' => nil,
+        'azure_resource_group' => nil,
+        'azure_group_tag' => nil,
+        'azure_storage_account' => nil,
         'region' => 'my-zone-1',
         'zone' => 'my-zone-1b'
       }).and_return({
@@ -219,6 +233,13 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'cloud' => 'cloud1',
         'use_spot_instances' => nil,
         'max_spot_price' => nil,
+        'azure_subscription_id' => nil,
+        'azure_app_id' => nil,
+        'azure_app_secret_key' => nil,
+        'azure_tenant_id' => nil,
+        'azure_resource_group' => nil,
+        'azure_group_tag' => nil,
+        'azure_storage_account' => nil,
         'region' => nil,
         'zone' => 'my-zone-1b'
       }).and_return({
