@@ -477,7 +477,14 @@ class Djinn
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
     'verbose' => [ TrueClass, 'False' ],
-    'zone' => [ String, nil ]
+    'zone' => [ String, nil ],
+    'azure_subscription_id' => [ String, nil ],
+    'azure_app_id' => [ String, nil ],
+    'azure_app_secret_key' => [ String, nil ],
+    'azure_tenant_id' => [ String, nil ],
+    'azure_resource_group' => [ String, nil ],
+    'azure_storage_account' => [ String, nil ],
+    'azure_group_tag' => [ String, nil ]
   }
 
   # Template used for rsyslog configuration files.
@@ -3450,6 +3457,13 @@ class Djinn
         next
       end
 
+      # Azure secret key contains an '=' and we do not need
+      # sanitization for it.
+      if 'azure_app_secret_key' == key
+        newoptions[key] = val
+        next
+      end
+
       next unless key.class == String
       newkey = key.gsub(NOT_EMAIL_REGEX, "")
       if newkey.include? "_key" or newkey.include? "EC2_SECRET_KEY"
@@ -3951,23 +3965,17 @@ class Djinn
     if ["ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
       user_name = "ubuntu"
-      options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
-      backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' +
-        '/root/.ssh/authorized_keys.old'
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
-        "'#{backup_keys}'")
-
-      merge_keys = 'sudo sed -n ' +
-        '"/Please login/d; w/root/.ssh/authorized_keys" ' +
-        "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old"
-      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
-        "'#{merge_keys}'")
+      enable_root_login(ip, ssh_key, user_name)
     elsif @options['infrastructure'] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
       # sure.
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
+
+    elsif @options['infrastructure'] == 'azure'
+      user_name = 'azureuser'
+      enable_root_login(ip, ssh_key, user_name)
     end
 
     Kernel.sleep(SMALL_WAIT)
@@ -4003,6 +4011,22 @@ class Djinn
     end
 
     HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
+  end
+
+  # Logs into the named host and alters its ssh configuration to enable the
+  # root user to directly log in.
+  def enable_root_login(ip, ssh_key, user_name)
+    options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
+    backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' +
+        '/root/.ssh/authorized_keys.old'
+    Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+                      "'#{backup_keys}'")
+
+    merge_keys = 'sudo sed -n ' +
+        '"/Please login/d; w/root/.ssh/authorized_keys" ' +
+        "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old"
+    Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+                      "'#{merge_keys}'")
   end
 
   def rsync_files(dest_node)
