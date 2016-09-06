@@ -126,7 +126,7 @@ class RESTTasks(RequestHandler):
       task_list['kind'] = 'taskqueues#tasks'
 
     for field in fields:
-      if isinstance(field, dict) and 'items' in field:
+      if isinstance(field, dict) and 'items' in field and tasks:
         task_list['items'] = [task.json_safe_dict(fields=field['items'])
                               for task in tasks]
 
@@ -232,14 +232,14 @@ class RESTLease(RequestHandler):
       task_list['kind'] = 'taskqueues#tasks'
 
     for field in fields:
-      if isinstance(field, dict) and 'items' in field:
+      if isinstance(field, dict) and 'items' in field and tasks:
         task_list['items'] = [task.json_safe_dict(fields=field['items'])
                               for task in tasks]
 
-    for task in task_list['items']:
-      task.update({
-        'queueName': LONG_QUEUE_FORM.format(app=project,
-                                            queue=task['queueName'])})
+        for task in task_list['items']:
+          task.update({
+            'queueName': LONG_QUEUE_FORM.format(app=project,
+                                                queue=task['queueName'])})
 
     self.write(json.dumps(task_list))
 
