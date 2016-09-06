@@ -111,6 +111,10 @@ LOGROTATE_DIR = '/etc/logrotate.d'
 APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'
 
 
+# The location of the appscale-upload-app script from appscale-tools.
+UPLOAD_APP_SCRIPT = '/usr/local/bin/appscale-upload-app'
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -1080,7 +1084,7 @@ class Djinn
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
-      command = "appscale-upload-app --file '#{archived_file}' " +
+      command = "#{UPLOAD_APP_SCRIPT} --file '#{archived_file}' " +
         "--email #{email} --keyname #{keyname} 2>&1"
       output = Djinn.log_run("#{command}")
       if output.include?("Your app can be reached at the following URL")
