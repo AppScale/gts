@@ -603,6 +603,7 @@ class AppUploadPage(AppDashboard):
           self.request.POST.multi['app_file_data'].filename,
           self.request.POST.multi['app_file_data'].file)
       except AppHelperException as err:
+        self.response.set_status(500)
         err_msg = str(err)
       if success_msg:
         try:
