@@ -173,7 +173,8 @@ class AppDashboardHelper(object):
     currently exist.
 
     Args:
-      server_ip: An IP address specifying which machine to make AC calls to.
+      server_ip: An IP address specifying which machine to make AppController
+        calls to.
     Returns:
       An AppControllerClient, representing a connection to the AppController.
     """
