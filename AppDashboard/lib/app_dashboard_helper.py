@@ -168,15 +168,17 @@ class AppDashboardHelper(object):
     }
 
 
-  def get_appcontroller_client(self):
+  def get_appcontroller_client(self, server_ip=MY_PUBLIC_IP):
     """ Retrieves our saved AppController connection, creating a new one if none
     currently exist.
 
+    Args:
+      server_ip: An IP address specifying which machine to make AC calls to.
     Returns:
       An AppControllerClient, representing a connection to the AppController.
     """
     if self.appcontroller is None:
-      self.appcontroller = AppControllerClient(MY_PUBLIC_IP, GLOBAL_SECRET_KEY)
+      self.appcontroller = AppControllerClient(server_ip, GLOBAL_SECRET_KEY)
     return self.appcontroller
 
 
@@ -347,7 +349,10 @@ class AppDashboardHelper(object):
     try:
       self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
-      acc = self.get_appcontroller_client()
+
+      # The local controller needs to SCP the tempfile to the shadow node.
+      acc = self.get_appcontroller_client(server_ip='127.0.0.1')
+
       tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
       tgz_file.write(upload_file.read())
       tgz_file.close()
