@@ -353,26 +353,28 @@ class AppDashboardHelper(object):
       # The local controller needs to SCP the tempfile to the shadow node.
       acc = self.get_appcontroller_client(server_ip='127.0.0.1')
 
-      tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
-      tgz_file.write(upload_file.read())
-      tgz_file.close()
-      upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
-      status = upload_info['status']
+      # The sandboxed version of tempfile does not support specifying a suffix.
+      with tempfile.NamedTemporaryFile(delete=False) as tgz_file:
+        tgz_file.write(upload_file.read())
 
-      while status == AppUploadStatuses.STARTING:
-        time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
-        status = acc.get_app_upload_status(upload_info['reservation_id'])
-        if status == AppUploadStatuses.ID_NOT_FOUND:
-          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
-          raise AppHelperException('We could not find the reservation ID '
-            'for your app. Please try uploading it again.')
-        if status == AppUploadStatuses.COMPLETE:
-          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
-          return 'Application uploaded successfully. Please wait for the '\
-            'application to start running.'
-      os.remove('{}.{}'.format(tgz_file.name, file_suffix))
-      raise AppHelperException('Saw status {} when trying to upload app.'
-        .format(status))
+      try:
+        upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
+        status = upload_info['status']
+
+        while status == AppUploadStatuses.STARTING:
+          time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
+          status = acc.get_app_upload_status(upload_info['reservation_id'])
+          if status == AppUploadStatuses.ID_NOT_FOUND:
+            raise AppHelperException(
+              'We could not find the reservation ID for your app. '
+              'Please try uploading it again.')
+          if status == AppUploadStatuses.COMPLETE:
+            return 'Application uploaded successfully. Please wait for the '\
+              'application to start running.'
+        raise AppHelperException(
+          'Unknown app upload status: {}'.format(status))
+      finally:
+        os.remove(tgz_file.name)
 
     except Exception as err:
       logging.exception(err)

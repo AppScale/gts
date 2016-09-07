@@ -71,7 +71,7 @@ class AppControllerClient
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
-    @conn.add_method("upload_app", "app", "secret")
+    @conn.add_method("upload_app", "archived_file", "file_suffix", "email", "secret")
     @conn.add_method("update", "app_names", "secret")
     @conn.add_method("stop_app", "app_name", "secret")    
     @conn.add_method("get_all_public_ips", "secret")
