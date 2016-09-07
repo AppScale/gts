@@ -1125,7 +1125,20 @@ class Djinn
   def get_app_upload_status(reservation_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if @app_upload_reservations[reservation_id]['status']
+    unless my_node.is_shadow?
+      Djinn.log_debug("Sending get_upload_status call to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.get_app_upload_status(reservation_id)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward get_app_upload_status call to #{get_shadow}.")
+        return NOT_READY
+      end
+    end
+
+    if @app_upload_reservations.has_key?(reservation_id) &&
+       @app_upload_reservations[reservation_id]['status']
       return @app_upload_reservations[reservation_id]['status']
     else
       return ID_NOT_FOUND
@@ -1140,6 +1153,18 @@ class Djinn
   #   A JSON string with the statistics of the nodes.
   def get_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      Djinn.log_debug("Sending get_stats_json call to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.get_stats_json()
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward get_stats_json call to #{get_shadow}.")
+        return NOT_READY
+      end
+    end
 
     return JSON.dump(@all_stats)
   end
