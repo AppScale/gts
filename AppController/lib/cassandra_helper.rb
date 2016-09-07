@@ -117,9 +117,8 @@ def start_cassandra(clear_datastore, needed)
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
 
-  # TODO: Consider a more graceful stop command than this, which does a kill -9.
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
-  stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py java cassandra"
+  stop_cmd = "/bin/bash -c 'kill -s SIGTERM `cat #{PID_FILE}`'"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
                        PID_FILE)
 

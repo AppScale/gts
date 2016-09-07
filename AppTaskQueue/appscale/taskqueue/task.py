@@ -1,3 +1,4 @@
+import base64
 import datetime
 import random
 import re
@@ -192,7 +193,7 @@ class Task(object):
     task_pb.set_eta_usec(
       int((self.get_eta() - epoch).total_seconds()) * 1000000)
     task_pb.set_retry_count(self.retry_count)
-    task_pb.set_body(self.payloadBase64)
+    task_pb.set_body(base64.b64decode(self.payloadBase64))
     try:
       task_pb.set_tag(self.tag)
     except AttributeError:
