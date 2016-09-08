@@ -315,5 +315,95 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
     assert_equal(expected, actual)
   end
 
+  def test_spawn_one_vm_in_azure
+    flexmock(InfrastructureManagerClient).new_instances { |instance|
+      # Let's say that the run_instance request goes through fine
+      # on the first attempt here
+      instance.should_receive(:run_instances).with({
+        'credentials' => {
+            'EC2_ACCESS_KEY' => nil,
+            'EC2_SECRET_KEY' => nil,
+            'EC2_URL' => nil
+        },
+        'project' => nil,
+        'group' => nil,
+        'image_id' => 'booid',
+        'infrastructure' => 'booinfrastructure',
+        'instance_type' => 'booinstancetype',
+        'keyname' => 'bookeyname',
+        'num_vms' => '1',
+        'cloud' => 'cloud1',
+        'use_spot_instances' => nil,
+        'max_spot_price' => nil,
+        'azure_subscription_id' => 'boosubscriptionid',
+        'azure_app_id' => 'booappid',
+        'azure_app_secret_key' => 'booappsecretkey',
+        'azure_tenant_id' => 'bootenantid',
+        'azure_resource_group' => 'booresourcegroup',
+        'azure_group_tag' => 'boogrouptag',
+        'azure_storage_account' => 'boostorageaccount',
+        'region' => nil,
+        'zone' => 'my-zone-1b'
+      }).and_return({
+          'success' => true,
+          'reservation_id' => "0000000000",
+          'reason' => 'none'
+      })
+
+      # Let's say that the describe_instances request shows the machines
+      # not ready the first time, and then ready on all other times
+      first_result = {
+        'success' => true,
+        'reason' => 'received run request',
+        'state' => 'pending',
+        'vm_info' => nil
+      }
+
+      second_result = {
+        'success' => true,
+        'reason' => 'received run request',
+        'state' => 'running',
+        'vm_info' => {
+          'public_ips' => ['public_ip'],
+          'private_ips' => ['private_ip'],
+          'instance_ids' => ['i-id']
+        }
+      }
+
+      instance.should_receive(:describe_instances).with({
+        'reservation_id' => "0000000000"
+      }).and_return(first_result, second_result)
+    }
+
+    flexmock(HelperFunctions).should_receive(:local_ip).
+      and_return("127.0.0.1")
+
+    imc = InfrastructureManagerClient.new("secret")
+    options = {
+      'infrastructure' => 'booinfrastructure',
+      'machine' => 'booid',
+      'instance_type' => 'booinstancetype',
+      'keyname' => 'bookeyname',
+      'zone' => 'my-zone-1b',
+      'azure_subscription_id' => 'boosubscriptionid',
+      'azure_app_id' => 'booappid',
+      'azure_app_secret_key' => 'booappsecretkey',
+      'azure_tenant_id' => 'bootenantid',
+      'azure_resource_group' => 'booresourcegroup',
+      'azure_group_tag' => 'boogrouptag',
+      'azure_storage_account' => 'boostorageaccount'
+    }
+
+    expected = [{
+      'public_ip' => 'public_ip',
+      'private_ip' => 'private_ip',
+      'jobs' => 'open',
+      'instance_id' => 'i-id',
+      'disk' => nil
+    }]
+    actual = imc.spawn_vms(1, options, 'open', [nil])
+    assert_equal(expected, actual)
+  end
+
 
 end

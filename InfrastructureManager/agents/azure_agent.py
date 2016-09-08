@@ -2,7 +2,6 @@
 
 # General-purpose Python library imports
 import adal
-import os.path
 import threading
 import time
 
@@ -23,22 +22,17 @@ from azure.mgmt.compute.models import SshPublicKey
 from azure.mgmt.compute.models import StorageProfile
 from azure.mgmt.compute.models import VirtualHardDisk
 from azure.mgmt.compute.models import VirtualMachine
-from azure.mgmt.compute.models import VirtualMachineSizeTypes
 
 from azure.mgmt.network import NetworkManagementClient
-from azure.mgmt.network.models import AddressSpace
 from azure.mgmt.network.models import IPAllocationMethod
 from azure.mgmt.network.models import NetworkInterfaceIPConfiguration
 from azure.mgmt.network.models import NetworkInterface
 from azure.mgmt.network.models import PublicIPAddress
-from azure.mgmt.network.models import Subnet
-from azure.mgmt.network.models import VirtualNetwork
 
 from haikunator import Haikunator
 
 # AppScale-specific imports
 from agents.base_agent import AgentConfigurationException
-from agents.base_agent import AgentRuntimeException
 from agents.base_agent import BaseAgent
 from utils import utils
 
@@ -125,9 +119,6 @@ class AzureAgent(BaseAgent):
     Returns:
       True, if the group and account were created successfully.
       False, otherwise.
-    Raises:
-      AgentRuntimeException: If security features could not be successfully
-        configured in the underlying cloud.
     """
     return True
 
@@ -311,7 +302,7 @@ class AzureAgent(BaseAgent):
     credentials = self.open_connection(parameters)
     resource_group = parameters[self.PARAM_RESOURCE_GROUP]
     subscription_id = str(parameters[self.PARAM_SUBSCRIBER_ID])
-    public_ips, private_ips, instance_ids = self.describe_instances(parameters)
+    _, _, instance_ids = self.describe_instances(parameters)
 
     utils.log("Terminating the vm instance/s '{}'".format(instance_ids))
     compute_client = ComputeManagementClient(credentials, subscription_id)
