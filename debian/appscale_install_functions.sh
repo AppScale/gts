@@ -443,7 +443,7 @@ postinstallzookeeper()
 installcelery()
 {
     if [ "$DIST" = "precise" ]; then
-        pipwrapper Celery
+        pipwrapper celery==3.1.23
     fi
     pipwrapper Flower
 }
