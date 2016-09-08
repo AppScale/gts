@@ -168,15 +168,18 @@ class AppDashboardHelper(object):
     }
 
 
-  def get_appcontroller_client(self):
+  def get_appcontroller_client(self, server_ip=MY_PUBLIC_IP):
     """ Retrieves our saved AppController connection, creating a new one if none
     currently exist.
 
+    Args:
+      server_ip: An IP address specifying which machine to make AppController
+        calls to.
     Returns:
       An AppControllerClient, representing a connection to the AppController.
     """
     if self.appcontroller is None:
-      self.appcontroller = AppControllerClient(MY_PUBLIC_IP, GLOBAL_SECRET_KEY)
+      self.appcontroller = AppControllerClient(server_ip, GLOBAL_SECRET_KEY)
     return self.appcontroller
 
 
@@ -347,27 +350,32 @@ class AppDashboardHelper(object):
     try:
       self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
-      acc = self.get_appcontroller_client()
-      tgz_file = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
-      tgz_file.write(upload_file.read())
-      tgz_file.close()
-      upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
-      status = upload_info['status']
 
-      while status == AppUploadStatuses.STARTING:
-        time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
-        status = acc.get_app_upload_status(upload_info['reservation_id'])
-        if status == AppUploadStatuses.ID_NOT_FOUND:
-          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
-          raise AppHelperException('We could not find the reservation ID '
-            'for your app. Please try uploading it again.')
-        if status == AppUploadStatuses.COMPLETE:
-          os.remove('{}.{}'.format(tgz_file.name, file_suffix))
-          return 'Application uploaded successfully. Please wait for the '\
-            'application to start running.'
-      os.remove('{}.{}'.format(tgz_file.name, file_suffix))
-      raise AppHelperException('Saw status {} when trying to upload app.'
-        .format(status))
+      # The local controller needs to SCP the tempfile to the shadow node.
+      acc = self.get_appcontroller_client(server_ip='127.0.0.1')
+
+      # The sandboxed version of tempfile does not support specifying a suffix.
+      with tempfile.NamedTemporaryFile(delete=False) as tgz_file:
+        tgz_file.write(upload_file.read())
+
+      try:
+        upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
+        status = upload_info['status']
+
+        while status == AppUploadStatuses.STARTING:
+          time.sleep(self.APP_UPLOAD_CHECK_INTERVAL)
+          status = acc.get_app_upload_status(upload_info['reservation_id'])
+          if status == AppUploadStatuses.ID_NOT_FOUND:
+            raise AppHelperException(
+              'We could not find the reservation ID for your app. '
+              'Please try uploading it again.')
+          if status == AppUploadStatuses.COMPLETE:
+            return 'Application uploaded successfully. Please wait for the '\
+              'application to start running.'
+        raise AppHelperException(
+          'Unknown app upload status: {}'.format(status))
+      finally:
+        os.remove(tgz_file.name)
 
     except Exception as err:
       logging.exception(err)

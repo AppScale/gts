@@ -71,7 +71,7 @@ class AppControllerClient
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
-    @conn.add_method("upload_app", "app", "secret")
+    @conn.add_method("upload_app", "archived_file", "file_suffix", "email", "secret")
     @conn.add_method("update", "app_names", "secret")
     @conn.add_method("stop_app", "app_name", "secret")    
     @conn.add_method("get_all_public_ips", "secret")
@@ -82,6 +82,8 @@ class AppControllerClient
     @conn.add_method("get_queues_in_use", "secret")
     @conn.add_method("set_node_read_only", "read_only", "secret")
     @conn.add_method("primary_db_is_up", "secret")
+    @conn.add_method("get_app_upload_status", "reservation_id", "secret")
+    @conn.add_method("get_stats_json", "secret")
   end
 
 
@@ -238,6 +240,20 @@ class AppControllerClient
   def primary_db_is_up()
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "primary_db_is_up") {
       @conn.primary_db_is_up(@secret)
+    }
+  end
+
+  # Checks the status of an app upload.
+  def get_app_upload_status(reservation_id)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_app_upload_status") {
+      @conn.get_app_upload_status(reservation_id, @secret)
+    }
+  end
+
+  # Gets the statistics of all the nodes in the AppScale deployment.
+  def get_stats_json()
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_stats_json") {
+      @conn.get_stats_json(@secret)
     }
   end
 

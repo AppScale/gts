@@ -111,6 +111,10 @@ LOGROTATE_DIR = '/etc/logrotate.d'
 APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'
 
 
+# The location of the appscale-upload-app script from appscale-tools.
+UPLOAD_APP_SCRIPT = '/usr/local/bin/appscale-upload-app'
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -1058,7 +1062,10 @@ class Djinn
       Djinn.log_debug("Sending upload_app call to shadow.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
-        return acc.upload_app(archived_file, file_suffix, email)
+        remote_file = [archived_file, file_suffix].join('.')
+        HelperFunctions.scp_file(archived_file, remote_file,
+                                 get_shadow.private_ip, get_shadow.ssh_key)
+        return acc.upload_app(remote_file, file_suffix, email)
       rescue FailedNodeException => except
         Djinn.log_warn("Failed to forward upload_app call to shadow (#{get_shadow}).")
         return NOT_READY
@@ -1068,21 +1075,25 @@ class Djinn
     reservation_id = HelperFunctions.get_random_alphanumeric()
     @app_upload_reservations[reservation_id] = {'status' => 'starting'}
 
-    Djinn.log_debug("Received a request to upload app at #{archived_file}, with suffix #{file_suffix}, with admin user #{email}.")
+    Djinn.log_debug(
+      "Received a request to upload app at #{archived_file}, with suffix " +
+      "#{file_suffix}, with admin user #{email}.")
 
     Thread.new {
+      # If the dashboard is on the same node as the shadow, the archive needs
+      # to be copied to a location that includes the suffix.
       unless archived_file.match(/#{file_suffix}$/)
-        archived_file_old = archived_file
-        archived_file = "#{archived_file_old}.#{file_suffix}"
-        Djinn.log_debug("Renaming #{archived_file_old} to #{archived_file}")
-        File.rename(archived_file_old, archived_file)
+        new_location = [archived_file, file_suffix].join('.')
+        Djinn.log_debug("Copying #{archived_file} to #{new_location}")
+        FileUtils.copy(archived_file, new_location)
+        archived_file = new_location
       end
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
-      command = "appscale-upload-app --file '#{archived_file}' " +
+      command = "#{UPLOAD_APP_SCRIPT} --file '#{archived_file}' " +
         "--email #{email} --keyname #{keyname} 2>&1"
-      output = Djinn.log_run("#{command}")
+      output = Djinn.log_run(command)
       if output.include?("Your app can be reached at the following URL")
         result = "true"
       else
@@ -1090,6 +1101,7 @@ class Djinn
       end
 
       @app_upload_reservations[reservation_id]['status'] = result
+      File.delete(archived_file)
     }
 
     return JSON.dump({
@@ -1113,7 +1125,20 @@ class Djinn
   def get_app_upload_status(reservation_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if @app_upload_reservations[reservation_id]['status']
+    unless my_node.is_shadow?
+      Djinn.log_debug("Sending get_upload_status call to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.get_app_upload_status(reservation_id)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward get_app_upload_status call to #{get_shadow}.")
+        return NOT_READY
+      end
+    end
+
+    if @app_upload_reservations.has_key?(reservation_id) &&
+       @app_upload_reservations[reservation_id]['status']
       return @app_upload_reservations[reservation_id]['status']
     else
       return ID_NOT_FOUND
@@ -1128,6 +1153,18 @@ class Djinn
   #   A JSON string with the statistics of the nodes.
   def get_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      Djinn.log_debug("Sending get_stats_json call to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.get_stats_json()
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward get_stats_json call to #{get_shadow}.")
+        return NOT_READY
+      end
+    end
 
     return JSON.dump(@all_stats)
   end
