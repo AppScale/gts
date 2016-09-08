@@ -275,8 +275,14 @@ installgems()
     # Rake 10.0 depecates rake/rdoctask - upgrade later.
     gem install rake ${GEMOPT}
     sleep 1
-    # ZK 1.0 breaks our existing code - upgrade later.
-    gem install zookeeper
+    if [ "${UNAME_MACHINE}" = "x86_64" ]; then
+        gem install zookeeper
+    else
+        # The current zookeeper gem has x86-specific assembly code.
+        CUSTOM_ZK_GEM="zookeeper-1.4.11.gem"
+        cachepackage ${CUSTOM_ZK_GEM} 2117f0814722715a3c765211842337eb
+        gem install --local ${PACKAGE_CACHE}/${CUSTOM_ZK_GEM}
+    fi
     sleep 1
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
