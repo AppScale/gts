@@ -395,12 +395,9 @@ CRON
                 last_of_hour = m2
               end
 
-              mins = ""
-              for i in (first_of_hour..last_of_hour).step(increment)
-                mins += "#{i},"
-              end
+              mins = (first_of_hour..last_of_hour).step(increment).to_a.join(',')
               if !mins.empty?
-                crons.push({"hour" => "#{h}", "min" => mins[0..-2]})
+                crons.push({"hour" => "#{h}", "min" => mins})
               end
 
               # Set up next loop.
