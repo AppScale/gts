@@ -32,6 +32,7 @@ case "$1" in
         # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
+        upgradepip
         installgems
         postinstallhaproxy
         postinstallnginx
