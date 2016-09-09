@@ -344,17 +344,23 @@ CRON
 
           # Batch 2 - after midnight
           remainder = (24 - h1.to_i) % increment.to_i
+          first_hour = (increment.to_i-remainder)
+          min = m1
           if m1.to_i < m2.to_i    # hours, h1 >= h2, m1 < m2
-            hour = (increment.to_i-remainder).to_s + "-" + h2 + "/" + increment
-            min = m1
+            last_hour = h2.to_i
+            # Djinn.log_warn("After midnight| h1 >= h2 and m1 < m2: last_hour should be #{h2}: #{last_hour}")
           else    # hours, h1 >= h2, m1 >= m2
-            hour = (increment.to_i-remainder).to_s + "-" + (h2.to_i-1).to_s +
-                   "/" + increment
-            min = m1
+            last_hour = h2.to_i-1
           end
-          crons.push({"hour" => hour, "min" => min})
+          if first_hour < last_hour
+            hour = first_hour.to_s + "-" + last_hour.to_s + "/" + increment
+            crons.push({"hour" => hour, "min" => min})
+          elsif first_hour == last_hour
+            hour = first_hour.to_s
+            crons.push({"hour" => hour, "min" => min})
+          end
         end
-      else    # increment_types == minutes
+      else    # increment_type == minutes
         if h1.to_i < h2.to_i
           multiple_cron_entries = true
 
