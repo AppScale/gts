@@ -135,7 +135,7 @@ SERVER_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
 
 _IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
 _INSTANCES_REGEX = r'^[\d]+$'
-_INSTANCE_CLASS_REGEX = r'^([sS](1|2|4|8|4_1G))$'
+_INSTANCE_CLASS_REGEX = r'^([fF](1|2|4|4_1G)|[bB](1|2|4|8|4_1G))$'
 
 
 
