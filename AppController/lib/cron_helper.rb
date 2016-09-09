@@ -285,7 +285,6 @@ CRON
   #   standard cron format. It cannot be applied to a crontab because it only
   #   specifies the frequency of the job, and not the action to perform.
   def self.convert_messy_format(schedule)
-    cron = ""
     splitted = schedule.split
 
     unless splitted.length == 3 || splitted.length == 5 || splitted.length == 7
@@ -311,101 +310,103 @@ CRON
       months_of_year = "every"
       days_of_week = "day"
 
-      increment = splitted[1]
+      increment = splitted[1].to_i
       increment_type = splitted[2]
 
       # Split hour and minute and trim leading zeros.
       # Start time is represented as t1 = h1:m1.
       # End time is represented as t2 = h2:m2.
-      # The string values are used for the cron representation
-      # and the integer values are used for comparisons.
-      h1, m1 = splitted[4].split(":").map(&:to_i).map(&:to_s)
-      h2, m2 = splitted[6].split(":").map(&:to_i).map(&:to_s)
+      h1, m1 = splitted[4].split(":").map(&:to_i)
+      h2, m2 = splitted[6].split(":").map(&:to_i)
 
-      if increment_type == "hours"
-        if increment.to_i == 24
+      if h1 == h2 && m1 == m2   # e.g. every 5 minutes from 12:05 to 12:05
+        return []
+      elsif increment_type == "hours"
+        if increment > 24       # Invalid increment for this type of schedule.
+          return []
+        elsif increment == 24   # e.g. every 24 hours from 01:30 to 01:29
           hour = h1
           min = m1
-        elsif h1.to_i < h2.to_i
-          if m1.to_i <= m2.to_i    # hours, h1 < h2, m1 <= m2
-            hour = h1 + "-" + h2 + "/" + increment
-            min = m1
-          else    # hours, h1 < h2, m1 > m2
-            hour = h1 + "-" + (h2.to_i-1).to_s + "/" + increment
-            min = m1
+        elsif h1 < h2
+          if m1 <= m2   # hours, h1 < h2, m1 <= m2
+            hour = "#{h1}-#{h2}/#{increment}"
+            min = "#{m1}"
+          else          # hours, h1 < h2, m1 > m2
+            hour = "#{h1}-#{h2-1}/#{increment}"
+            min = "#{m1}"
           end
-        elsif h1.to_i >= h2.to_i
+        elsif h1 >= h2   # hours, h1 >= h2
           multiple_cron_entries = true
 
           # Batch 1 - before midnight
-          hour = h1 + "-23/" + increment
-          min = m1
+          hour = "#{h1}-23/#{increment}"
+          min = "#{m1}"
           crons.push({"hour" => hour, "min" => min})
 
           # Batch 2 - after midnight
-          remainder = (24 - h1.to_i) % increment.to_i
-          first_hour = (increment.to_i-remainder)
-          min = m1
-          if m1.to_i < m2.to_i    # hours, h1 >= h2, m1 < m2
-            last_hour = h2.to_i
-            # Djinn.log_warn("After midnight| h1 >= h2 and m1 < m2: last_hour should be #{h2}: #{last_hour}")
-          else    # hours, h1 >= h2, m1 >= m2
-            last_hour = h2.to_i-1
+          remainder = (24 - h1) % increment
+          first_hour = (increment-remainder)
+          min = "#{m1}"
+          if m1 < m2    # hours, h1 >= h2, m1 < m2
+            last_hour = h2
+          else          # hours, h1 >= h2, m1 >= m2
+            last_hour = h2-1
           end
+
+          # If the next occurrence after midnight is past h2,
+          # there won't be a batch 2.
           if first_hour < last_hour
-            hour = first_hour.to_s + "-" + last_hour.to_s + "/" + increment
+            hour = "#{first_hour}-#{last_hour}/#{increment}"
             crons.push({"hour" => hour, "min" => min})
           elsif first_hour == last_hour
-            hour = first_hour.to_s
+            hour = "#{first_hour}"
             crons.push({"hour" => hour, "min" => min})
           end
         end
       else    # increment_type == minutes
-        if h1.to_i < h2.to_i
-          multiple_cron_entries = true
-
-          first_of_hour = m1.to_i
-          for h in (h1.to_i..h2.to_i)
-            remainder  = (60 - first_of_hour) % increment.to_i
-            if h == h2.to_i
-              last_of_hour = m2.to_i
+        multiple_cron_entries = true
+        first_of_hour = m1    # First occurrence of the hour.
+        if h1 < h2            # minutes, h1 < h2
+          for h in (h1..h2)
+            remainder  = (60 - first_of_hour) % increment
+            if h == h2
+              last_of_hour = m2
             else
               last_of_hour = 60 - remainder
             end
             mins = ""
-            for i in (first_of_hour..last_of_hour).step(increment.to_i)
-              mins += i.to_s + ","
+            for i in (first_of_hour..last_of_hour).step(increment)
+              mins += "#{i},"
             end
-            crons.push({"hour" => h, "min" => mins[0..-2]})
-            first_of_hour = increment.to_i - remainder
+            crons.push({"hour" => "#{h}", "min" => mins[0..-2]})
+            first_of_hour = increment - remainder
           end
-        elsif h1.to_i >= h2.to_i    # minutes, h1 >= h2
-          multiple_cron_entries = true
-
-          first_of_hour = m1.to_i
-          [{"fh" => h1.to_i, "lh" => 23},   # Batch 1 - before midnight
-           {"fh" => 0, "lh" => h2.to_i},    # Batch 2 - after midnight
+        elsif h1 >= h2        # minutes, h1 >= h2
+          [{"fh" => h1, "lh" => 23},   # Batch 1 - before midnight
+           {"fh" => 0, "lh" => h2},    # Batch 2 - after midnight
           ].each do |batch|
             for h in (batch["fh"]..batch["lh"])
-              remainder = (60 - first_of_hour) % increment.to_i
+              remainder = (60 - first_of_hour) % increment
               last_of_hour = 60 - remainder
               if last_of_hour == 60
                 last_of_hour = 59
               end
               if batch["fh"] == 0 && h == batch["lh"]
-                last_of_hour = m2.to_i
+                last_of_hour = m2
               end
 
               mins = ""
-              for i in (first_of_hour..last_of_hour).step(increment.to_i)
-                mins += i.to_s + ","
+              for i in (first_of_hour..last_of_hour).step(increment)
+                mins += "#{i},"
               end
-              crons.push({"hour" => h, "min" => mins[0..-2]})
+              if !mins.empty?
+                crons.push({"hour" => "#{h}", "min" => mins[0..-2]})
+              end
 
               # Set up next loop.
               first_of_hour = 0   # If no remainder, start at the top.
               if remainder != 0
-                first_of_hour = increment.to_i - remainder
+                first_of_hour = increment - remainder
               end
             end
           end
@@ -418,13 +419,13 @@ CRON
     months_of_year = fix_months(months_of_year)
 
     cron_lines = Array.new
-    if ord == "every" && !multiple_cron_entries  # simple case
+    if ord == "every" && !multiple_cron_entries
       cron_lines.push("#{min} #{hour} * #{months_of_year} #{days_of_week}")
     elsif ord == "every" && multiple_cron_entries
       crons.each { |cron|
         cron_lines.push("#{cron["min"]} #{cron["hour"]} * #{months_of_year} #{days_of_week}")
       }
-    else # complex case, not implemented yet
+    else    # Complex case, not implemented yet.
       Djinn.log_error("Cannot set up cron route with ordinals, as AppScale" +
         " does not support it. Ordinal was: #{ord}")
       return [""]
