@@ -322,12 +322,15 @@ CRON
       h1, m1 = splitted[4].split(":").map(&:to_i).map(&:to_s)
       h2, m2 = splitted[6].split(":").map(&:to_i).map(&:to_s)
 
-      if increment_type == "hours"    #TODO Handle 24hr increment
-        if h1.to_i < h2.to_i
-          if m1.to_i < m2.to_i    # hours, h1 < h2, m1 < m2
+      if increment_type == "hours"
+        if increment.to_i == 24
+          hour = h1
+          min = m1
+        elsif h1.to_i < h2.to_i
+          if m1.to_i <= m2.to_i    # hours, h1 < h2, m1 <= m2
             hour = h1 + "-" + h2 + "/" + increment
             min = m1
-          else    # hours, h1 < h2, m1 >= m2
+          else    # hours, h1 < h2, m1 > m2
             hour = h1 + "-" + (h2.to_i-1).to_s + "/" + increment
             min = m1
           end
@@ -393,7 +396,7 @@ CRON
               end
               crons.push({"hour" => h, "min" => mins[0..-2]})
 
-              # Set up next loop
+              # Set up next loop.
               first_of_hour = 0   # If no remainder, start at the top.
               if remainder != 0
                 first_of_hour = increment.to_i - remainder
