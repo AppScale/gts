@@ -460,7 +460,7 @@ CRON
 
       if time == "hours"
         cron_lines = ["0 */#{num} * * *"]
-      elsif time == "minutes"
+      else
         cron_lines = ["*/#{num} * * * *"]
       end
     end
