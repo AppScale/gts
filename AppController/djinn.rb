@@ -1878,6 +1878,15 @@ class Djinn
       spawn_and_setup_appengine
     end
 
+    # Remove old copies of the RESERVED apps code. We need a fresh copy
+    # every time we boot.
+    RESERVED_APPS.each { |reserved_app|
+      app_dir = "#{HelperFunctions.get_app_path(reserved_app)}/app"
+      app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{reserved_app}.tar.gz"
+      FileUtils.rm_rf(app_dir)
+      FileUtils.rm_rf(app_path)
+    }
+
     # Initialize the current server and starts all the API and essential
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
@@ -5641,14 +5650,8 @@ HOSTS
   def add_appserver_process(app, nginx_port, https_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
-    # Make sure we have the application code.
-    if RESERVED_APPS.include?(app)
-      # Reserved apps always get the latest code, since they may depend on
-      # the deployment key. This is important upon restart.
-      setup_app_dir(app, true)
-    else
-      setup_app_dir(app)
-    end
+    # Make sure we have the application setup properly.
+    setup_app_dir(app)
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
