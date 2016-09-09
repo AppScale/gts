@@ -1856,7 +1856,7 @@ class Djinn
     # the options for this deployment. It's either a save state from a
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
-    fresh_start = False
+    fresh_start = false
     unless restore_appcontroller_state()
       # Remove old copies of the RESERVED apps code. We need a fresh copy
       # every time we boot.
@@ -1868,7 +1868,7 @@ class Djinn
       }
       erase_old_data()
       wait_for_data()
-      fresh_start = True
+      fresh_start = true
     end
     parse_options()
 
