@@ -831,6 +831,7 @@ class Djinn
     converted_nodes = convert_fqdns_to_ips(nodes)
     @state_change_lock.synchronize {
       @nodes = converted_nodes
+      @nodes.uniq!
     }
     @options = sanitize_credentials()
 
@@ -3256,7 +3257,8 @@ class Djinn
 
         old_roles = my_node.jobs
         @state_change_lock.synchronize {
-          @nodes = new_nodes.uniq
+          @nodes = new_nodes
+          @nodes.uniq!
         }
 
         find_me_in_locations()
