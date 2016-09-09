@@ -1856,19 +1856,16 @@ class Djinn
     # the options for this deployment. It's either a save state from a
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
-    fresh_start = false
     unless restore_appcontroller_state()
       # Remove old copies of the RESERVED apps code. We need a fresh copy
       # every time we boot.
       RESERVED_APPS.each { |reserved_app|
         app_dir = "#{HelperFunctions.get_app_path(reserved_app)}/app"
         app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{reserved_app}.tar.gz"
-        FileUtils.rm_rf(app_dir)
-        FileUtils.rm_rf(app_path)
+        FileUtils.rm_rf([app_dir, app_path])
       }
       erase_old_data()
       wait_for_data()
-      fresh_start = true
     end
     parse_options()
 
@@ -1892,7 +1889,7 @@ class Djinn
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
     initialize_server
-    start_api_services(fresh_start)
+    start_api_services
 
     # Now that we are done loading, we can set the monit job to check the
     # AppController. At this point we are resilient to failure (ie the AC
@@ -3533,7 +3530,7 @@ class Djinn
 
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
-  def start_api_services(fresh_start)
+  def start_api_services()
     @state = "Starting API Services."
     Djinn.log_info("#{@state}")
 
@@ -3643,7 +3640,7 @@ class Djinn
 
     # The headnode needs to ensure we have the appscale user, and it needs
     # to prepare the dashboard to be started.
-    if my_node.is_shadow? and fresh_start
+    if my_node.is_shadow?
       threads << Thread.new {
         create_appscale_user()
         prep_app_dashboard()
@@ -4670,13 +4667,15 @@ HOSTS
 
     # Assign the specific ports to it.
     APPS_LOCK.synchronize {
-      @app_info_map[AppDashboard::APP_NAME] = {
+      if @app_info_map[AppDashboard::APP_NAME].nil?
+        @app_info_map[AppDashboard::APP_NAME] = {
           'nginx' => AppDashboard::LISTEN_PORT,
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
           'haproxy' => AppDashboard::PROXY_PORT,
           'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE
-      }
+        }
+    }
       @app_names << AppDashboard::APP_NAME
     }
   end
