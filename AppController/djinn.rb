@@ -4677,7 +4677,7 @@ HOSTS
           'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE
         }
-    }
+      end
       @app_names << AppDashboard::APP_NAME
     }
   end
