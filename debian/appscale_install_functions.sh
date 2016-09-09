@@ -555,6 +555,12 @@ installtaskqueue()
 
 prepdashboard()
 {
+    # The version of pip in Precise does not have --target.
+    if [ "$DIST" = "precise" ]; then
+      pipwrapper pip
+      # Account for the change in the path to the pip binary.
+      hash -r
+    fi
     rm -rf ${APPSCALE_HOME}/AppDashboard/vendor
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor SOAPpy
 }
