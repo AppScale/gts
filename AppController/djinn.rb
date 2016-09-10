@@ -2897,7 +2897,6 @@ class Djinn
       return false
     end
 
-    keyname = @options['keyname']
     loop {
       begin
         json_state = ZKInterface.get_appcontroller_state()
