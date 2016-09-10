@@ -188,7 +188,11 @@ def primed():
     db_access = cassandra_interface.DatastoreProxy()
   except cassandra.InvalidRequest:
     return False
-  return db_access.get_metadata(cassandra_interface.PRIMED_KEY) == 'true'
+
+  try:
+    return db_access.get_metadata(cassandra_interface.PRIMED_KEY) == 'true'
+  finally:
+    db_access.close()
 
 
 if __name__ == "__main__":
