@@ -2914,6 +2914,7 @@ class Djinn
 
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
+      keyname = json_state['@options']['keyname']
 
       # Puts json_state.
       json_state.each { |k, v|
