@@ -14,4 +14,7 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   datastore_batch = DatastoreFactory.getDatastore(args.db_type)
-  assert datastore_batch.valid_data_version()
+  try:
+    assert datastore_batch.valid_data_version()
+  finally:
+    datastore_batch.close()

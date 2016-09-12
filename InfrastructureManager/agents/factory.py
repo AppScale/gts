@@ -1,8 +1,16 @@
-from agents.azure_agent import AzureAgent
+import logging
+import struct
+
 from agents.ec2_agent import EC2Agent
 from agents.euca_agent import EucalyptusAgent
 from agents.gce_agent import GCEAgent
 from agents.openstack_agent import OpenStackAgent
+
+try:
+  from agents.azure_agent import AzureAgent
+except (ImportError, struct.error):
+  logging.exception('AzureAgent disabled')
+  AzureAgent = None
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
@@ -17,9 +25,10 @@ class InfrastructureAgentFactory:
     'ec2': EC2Agent,
     'euca': EucalyptusAgent,
     'gce': GCEAgent,
-    'openstack': OpenStackAgent,
-    'azure': AzureAgent
+    'openstack': OpenStackAgent
   }
+  if AzureAgent is not None:
+    agents['azure'] = AzureAgent
 
   def create_agent(self, infrastructure):
     """
