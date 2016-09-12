@@ -111,7 +111,7 @@ CRON
         begin
           # Parse URL to prevent malicious code from being appended.
           url = URI.parse(raw_url).to_s()
-          Djinn.log_info("Parsed cron URL: #{url}")
+          Djinn.log_debug("Parsed cron URL: #{url}")
         rescue URI::InvalidURIError
           Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
           Djinn.log_app_error(app,
