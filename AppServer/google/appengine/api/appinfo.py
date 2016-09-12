@@ -137,6 +137,8 @@ _IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
 _INSTANCES_REGEX = r'^[\d]+$'
 _INSTANCE_CLASS_REGEX = r'^([fF](1|2|4|4_1G)|[bB](1|2|4|8|4_1G))$'
 
+_CONCURRENT_REQUESTS_REGEX = r'^([1-9]\d*)$'
+
 
 
 
@@ -243,6 +245,7 @@ MINIMUM_PENDING_LATENCY = 'min_pending_latency'
 MAXIMUM_PENDING_LATENCY = 'max_pending_latency'
 MINIMUM_IDLE_INSTANCES = 'min_idle_instances'
 MAXIMUM_IDLE_INSTANCES = 'max_idle_instances'
+MAXIMUM_CONCURRENT_REQUEST = 'max_concurrent_requests'
 
 
 INSTANCES = 'instances'
@@ -1217,6 +1220,8 @@ class AutomaticScaling(validation.Validated):
       MAXIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
       MINIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
+      MAXIMUM_CONCURRENT_REQUEST: validation.Optional(
+          _CONCURRENT_REQUESTS_REGEX),
   }
 
 
