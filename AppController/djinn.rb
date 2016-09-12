@@ -1857,6 +1857,13 @@ class Djinn
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
     unless restore_appcontroller_state()
+      # Remove old copies of the RESERVED apps code. We need a fresh copy
+      # every time we boot.
+      RESERVED_APPS.each { |reserved_app|
+        app_dir = "#{HelperFunctions.get_app_path(reserved_app)}/app"
+        app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{reserved_app}.tar.gz"
+        FileUtils.rm_rf([app_dir, app_path])
+      }
       erase_old_data()
       wait_for_data()
     end
@@ -1881,8 +1888,8 @@ class Djinn
     # Initialize the current server and starts all the API and essential
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
-    initialize_server()
-    start_api_services()
+    initialize_server
+    start_api_services
 
     # Now that we are done loading, we can set the monit job to check the
     # AppController. At this point we are resilient to failure (ie the AC
@@ -4660,13 +4667,15 @@ HOSTS
 
     # Assign the specific ports to it.
     APPS_LOCK.synchronize {
-      @app_info_map[AppDashboard::APP_NAME] = {
+      if @app_info_map[AppDashboard::APP_NAME].nil?
+        @app_info_map[AppDashboard::APP_NAME] = {
           'nginx' => AppDashboard::LISTEN_PORT,
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
           'haproxy' => AppDashboard::PROXY_PORT,
           'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE
-      }
+        }
+      end
       @app_names << AppDashboard::APP_NAME
     }
   end
@@ -5641,14 +5650,8 @@ HOSTS
   def add_appserver_process(app, nginx_port, https_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
-    # Make sure we have the application code.
-    if RESERVED_APPS.include?(app)
-      # Reserved apps always get the latest code, since they may depend on
-      # the deployment key. This is important upon restart.
-      setup_app_dir(app, true)
-    else
-      setup_app_dir(app)
-    end
+    # Make sure we have the application setup properly.
+    setup_app_dir(app)
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
