@@ -459,8 +459,10 @@ CRON
   def self.convert_schedule_to_cron(schedule, url, ip, port, app)
     Djinn.log_debug("Schedule: #{schedule}")
 
-    cron_lines = []
-    simple_format = schedule.scan(/\Aevery (\d+) (hours|mins|minutes)(?: from 00:00 to 23:59)?\Z/)
+    # "synchronized" is a synonym for "from 00:00 to 23:59" in the Cron API.
+    # Therefore, both are handled as simple format.
+    simple_format_regex = /\Aevery (\d+) (hours|mins|minutes)(?:\s+from 00:00 to 23:59|\s+synchronized)?\Z/
+    simple_format = schedule.scan(simple_format_regex)
 
     if simple_format.length.zero? &&
        !schedule.include?("from 00:00 to 23:59")    # not simple format
