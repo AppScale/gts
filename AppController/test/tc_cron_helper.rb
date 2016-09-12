@@ -10,7 +10,7 @@ require 'flexmock/test_unit'
 
 
 class TestCronHelper < Test::Unit::TestCase
-  
+
   def test_update_cron
     # TODO
   end

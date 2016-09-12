@@ -287,6 +287,12 @@ CRON
   def self.convert_messy_format(schedule)
     splitted = schedule.split
 
+    # Only 3, 5 or 7-token schedules are supported.
+    # Examples:
+    # every day 00:00
+    # every monday 09:00
+    # every monday of sep,oct,nov 17:00
+    # every 5 minutes from 10:00 to 14:00
     unless splitted.length == 3 || splitted.length == 5 || splitted.length == 7
       Djinn.log_error("bad format, length = #{splitted.length}")
       return [""]
@@ -456,7 +462,8 @@ CRON
     cron_lines = []
     simple_format = schedule.scan(/\Aevery (\d+) (hours|mins|minutes)(?: from 00:00 to 23:59)?\Z/)
 
-    if simple_format.length.zero? && !schedule.include?("from 00:00 to 23:59")# not simple format
+    if simple_format.length.zero? &&
+       !schedule.include?("from 00:00 to 23:59")    # not simple format
       Djinn.log_debug("Messy format")
       cron_lines = convert_messy_format(schedule)
     else
