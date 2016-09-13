@@ -106,9 +106,10 @@ if [ -e /etc/nginx/sites-enabled/${APP_ID}.conf ]; then
         echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $IP."
         service nginx reload
         if [ "$NO_OF_IP_LINES" != "2" ]; then
-                echo "Note: For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node"
+                echo "Note: For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node."
                 echo "You might need to type in the password for the app engine node."
                 echo "Run the SSH Tunnelling command: ssh -L ${LOCAL_PORT}:localhost:${port} ${APPENGINE_IP} -N"
+                echo "Modify the appscale/firewall.conf to open ports for the datastore viewer."
         fi
 else
         echo "Cannot find configuration for ${APP_ID}."
