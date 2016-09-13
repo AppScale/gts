@@ -56,7 +56,7 @@ fi
 
 APPENGINE_IP=""
 for x in $(cat /etc/appscale/all_ips); do
-        OUTPUT=$(ssh $x -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver | grep "$APP_ID" | grep -- "--admin_port" | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" | sort -ru')
+        OUTPUT=$(ssh $x -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver | grep -Ev '(grep|appscaledashboard)' | grep -- "--admin_port" | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" | sort -ru' | grep "$APP_ID")
         for i in $OUTPUT ; do
                 if [ "$i" = "$APP_ID" ]; then
                         continue
