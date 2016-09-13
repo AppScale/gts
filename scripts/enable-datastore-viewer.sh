@@ -5,7 +5,7 @@
 # Enable the datastore viewer and reload nginx.
 
 ALLOW=""
-APPS_ID=""
+APP_ID=""
 IP="all"
 VIEWER_PORT="8099"
 
@@ -41,7 +41,7 @@ while [ $# -gt 0 ]; do
 		fi
 	fi
         if [ -n "$1" ]; then
-                APPS_ID="$APPS_ID $1"
+                APP_ID=$1
                 shift
                 continue
         fi
@@ -53,32 +53,26 @@ if [ ! -e /etc/nginx/sites-enabled ]; then
         exit 1
 fi
 
-# Get the list of running applications, and corresponding ports.
-ps ax | grep appserver | grep -Ev '(grep|appscaledashboard)' | grep -- '--admin_port' | sed 's;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g' | sort -ru | while read port app_id; do
-        # Enable only for specified apps.
-        if [ -n "$APPS_ID" ]; then
-                found="no"
-                for x in $APPS_ID ; do
-                        if [ "$x" = "$app_id" ]; then
-                                found="yes"
-                                break
-                        fi
-                done
-                if [ "$found" = "no" ]; then
+for x in $(cat /etc/appscale/all_ips); do
+        OUTPUT=$(ssh $x -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver | grep -Ev "(grep|appscaledashboard)" | grep -- "--admin_port" | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" | sort -ru' | grep "$APP_ID")
+        for i in $OUTPUT ; do
+                if [ "$i" = "$APP_ID" ]; then
                         continue
+                else
+                        port=$i
+                        break
                 fi
-        fi
+        done
+done
 
-	let $((VIEWER_PORT += 1))
+let $((VIEWER_PORT += 1))
 
-	# Do not apply if it's already there.
-	if grep "datastore_viewer" /etc/nginx/sites-enabled/* > /dev/null ; then
-		echo "Datastore viewer already enabled for $app_id."
-		continue
-	fi
+while [ $(lsof -i :$VIEWER_PORT) ]; do
+        let $((VIEWER_PORT += 1))
+done
 
-	# Prepare the nginx config snippet.
-	pippo="
+# Prepare the nginx config snippet.
+pippo="
 upstream datastore_viewer_$VIEWER_PORT {
   server localhost:$port;
 }
@@ -96,12 +90,15 @@ server {
     }
 }
 "
-	if [ -e /etc/nginx/sites-enabled/${app_id}.conf ]; then
-		cp /etc/nginx/sites-enabled/${app_id}.conf /tmp
-		echo "$pippo" >> /etc/nginx/sites-enabled/${app_id}.conf
-		echo "Datastore viewer enabled for $app_id at http://$(cat /etc/appscale/my_public_ip):$VIEWER_PORT. Allowed IP: $IP."
+
+if [ -e /etc/nginx/sites-enabled/${APP_ID}.conf ]; then
+		cp /etc/nginx/sites-enabled/${APP_ID}.conf /tmp
+		echo "$pippo" >> /etc/nginx/sites-enabled/${APP_ID}.conf
+		echo "Datastore viewer enabled for $APP_ID at http://$(cat /etc/appscale/my_public_ip):$VIEWER_PORT. Allowed IP: $IP."
+        echo "Admin Port is at $port"
 		service nginx reload
-	else
-		echo "Cannot find configuration for ${app_id}."
-	fi
-done
+		echo "For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node"
+        echo "SSH Tunnelling command: ssh -L remote-port:localhost:local-port your-app-engine-node -N"
+else
+		echo "Cannot find configuration for ${APP_ID}."
+fi
