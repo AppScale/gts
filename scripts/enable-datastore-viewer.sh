@@ -53,9 +53,10 @@ if [ ! -e /etc/nginx/sites-enabled ]; then
         echo "ERROR: Cannot find nginx configurations. Is this an AppScale deployment?"
         exit 1
 fi
+
 APPENGINE_IP=""
 for x in $(cat /etc/appscale/all_ips); do
-        OUTPUT=$(ssh $x -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver | grep -E "(grep|$APP_ID)" | grep -- "--admin_port" | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" | sort -ru' | grep "$APP_ID")
+        OUTPUT=$(ssh $x -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver | grep -E "(grep|$APP_ID)" | grep -- "--admin_port" | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" | sort -ru')
         for i in $OUTPUT ; do
                 if [ "$i" = "$APP_ID" ]; then
                         continue
@@ -75,10 +76,15 @@ while [[ $(lsof -i :$LOCAL_PORT) ]]; do
         let $((LOCAL_PORT += 1))
 done
 
+NO_OF_IP_LINES=$(wc -l < /etc/appscale/all_ips)
+if [ "$NO_OF_IP_LINES" = "2" ]; then
+        LOCAL_PORT=$port
+fi
+
 # Prepare the nginx config snippet.
 config="
 upstream datastore_viewer_$VIEWER_PORT {
-  server localhost:$port;
+  server localhost:$LOCAL_PORT;
 }
 map \$scheme \$ssl {
     default off;
@@ -96,13 +102,14 @@ server {
 "
 
 if [ -e /etc/nginx/sites-enabled/${APP_ID}.conf ]; then
-        cp /etc/nginx/sites-enabled/${APP_ID}.conf /etc/nginx/sites-enabled/${APP_ID}_datastore_viewer.conf
-        echo "$config" >> /etc/nginx/sites-enabled/${APP_ID}_datastore_viewer.conf
+        echo "$config" > /etc/nginx/sites-enabled/${APP_ID}_datastore_viewer.conf
         echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $IP."
         service nginx reload
-        echo "Note: For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node"
-        echo "You might need to type in the password for the app engine node."
-        echo "Run the SSH Tunnelling command: ssh -L ${LOCAL_PORT}:localhost:${port} ${APPENGINE_IP} -N"
+        if [ "$NO_OF_IP_LINES" != "2" ]; then
+                echo "Note: For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node"
+                echo "You might need to type in the password for the app engine node."
+                echo "Run the SSH Tunnelling command: ssh -L ${LOCAL_PORT}:localhost:${port} ${APPENGINE_IP} -N"
+        fi
 else
         echo "Cannot find configuration for ${APP_ID}."
 fi
