@@ -5128,7 +5128,7 @@ HOSTS
     end
 
     @apps_loaded -= ["none"]
-    @apps_loaded << app
+    @apps_loaded << app unless @apps_loaded.include?(app)
   end
 
 
