@@ -57,14 +57,17 @@ EOF
 end
 
 def start_zookeeper(clear_datastore)
+  Djinn.log_info("Starting zookeeper.")
+
   if clear_datastore
+    Djinn.log_info("Removing old zookeeper state.")
     Djinn.log_run("rm -rfv /var/lib/zookeeper")
     Djinn.log_run("rm -rfv #{DATA_LOCATION}")
   end
 
   # Detect which version of zookeeper script we have.
   zk_server="zookeeper-server"
-  if system("service --status-all|grep zookeeper$")
+  if system("service --status-all 2> /dev/nullu | grep zookeeper$ > /dev/null")
     zk_server="zookeeper"
   end
 
