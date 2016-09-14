@@ -55,14 +55,17 @@ if [ ! -e /etc/nginx/sites-enabled ]; then
 fi
 
 APPENGINE_IP=""
-for x in $(cat /etc/appscale/all_ips); do
-        OUTPUT=$(ssh $x -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver | grep -E "(grep|$APP_ID)" | grep -- "--admin_port" | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" | sort -ru')
+for ip in $(cat /etc/appscale/all_ips); do
+        OUTPUT=$(ssh $ip -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver \
+               | grep -E "(grep|$APP_ID)" | grep -- "--admin_port" \
+               | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" \
+               | sort -ru')
         for i in $OUTPUT ; do
                 if [ "$i" = "$APP_ID" ]; then
                         continue
                 else
                         port=$i
-                        APPENGINE_IP=$x
+                        APPENGINE_IP=$ip
                         break
                 fi
         done
@@ -103,13 +106,13 @@ server {
 
 if [ -e /etc/nginx/sites-enabled/${APP_ID}.conf ]; then
         echo "$config" > /etc/nginx/sites-enabled/${APP_ID}_datastore_viewer.conf
-        echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $IP."
         service nginx reload
+        echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $IP."
         if [ "$NO_OF_IP_LINES" != "2" ]; then
                 echo "Note: For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node."
-                echo "You might need to type in the password for the app engine node."
-                echo "Run the SSH Tunnelling command: ssh -L ${LOCAL_PORT}:localhost:${port} ${APPENGINE_IP} -N"
                 echo "Modify the appscale/firewall.conf to open ports for the datastore viewer."
+                echo "Run the SSH Tunnelling command: ssh -L ${LOCAL_PORT}:localhost:${port} ${APPENGINE_IP} -N"
+                echo "You might need to type in the password for the app engine node."
         fi
 else
         echo "Cannot find configuration for ${APP_ID}."
