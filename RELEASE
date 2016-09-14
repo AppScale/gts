@@ -4,6 +4,20 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 3.1.0, released September, 2016
+- Added support for using Azure as an infrastructure
+- Added preliminary support for pull queues
+- Added support for more cron formats
+- Changed the dashboard, allowing it to be treated like a normal application
+- Added flexibility to the Java queue configuration parsing process
+- Upgraded Cassandra to 2.2.7
+- Made large batch statements and transactions more reliable
+- Fixed a bug that prevented multiple dashboard AppServers from running
+- Fixed a bug that caused instability when min was undefined
+- Fixed a bug that prevented the dashboard from deploying an application
+- Fixed a bug that prevented queue configuration changes from taking effect
+- Fixed crash when instance_class or max_concurrent_requests were defined
+
 AppScale version 3.0.1, released July, 2016
 Highlights of features/bugs in this release:
 - Set num tokens without defining initial token to fix problem with restarts
