@@ -418,19 +418,16 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
 
     public TaskQueuePb.TaskQueueDeleteResponse delete(LocalRpcService.Status status, TaskQueuePb.TaskQueueDeleteRequest request) {
         String queueName = request.getQueueName();
+        validateQueueName(queueName);
 
         DevQueue queue = getQueueByName(queueName);
-        TaskQueuePb.TaskQueueDeleteResponse response = new TaskQueuePb.TaskQueueDeleteResponse();
-        for (String taskName : request.taskNames()) {
-            try {
-                if (!queue.deleteTask(taskName))
-                    response.addResult(TaskQueuePb.TaskQueueServiceError.ErrorCode.UNKNOWN_TASK.getValue());
-                else
-                    response.addResult(TaskQueuePb.TaskQueueServiceError.ErrorCode.OK.getValue());
-            } catch (ApiProxy.ApplicationException e) {
-                response.addResult(e.getApplicationError());
-            }
+
+        if (queue.getMode() != TaskQueuePb.TaskQueueMode.Mode.PULL) {
+            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_QUEUE_MODE.getValue());
         }
+
+        DevPullQueue pullQueue = (DevPullQueue) queue;
+        TaskQueuePb.TaskQueueDeleteResponse response = pullQueue.deleteTask(request);
         return response;
     }
 
