@@ -92,7 +92,9 @@ public class DevPullQueue extends DevQueue {
 
     // Abstract method needs to be overriden here.
     boolean deleteTask(String taskName) {
-        throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue());
+        throw new ApiProxy.ApplicationException(
+            TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue(),
+            "Not implemented");
     }
 
     synchronized TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {
