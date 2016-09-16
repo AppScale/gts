@@ -29,8 +29,6 @@ import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
 import com.google.apphosting.api.ApiProxy;
 import com.google.appengine.api.taskqueue.TaskQueuePb;
-import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
-import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest.Header;
 import com.google.apphosting.utils.config.AppEngineWebXml;
 
 public class AppScaleTaskQueueClient {
@@ -99,6 +97,24 @@ public class AppScaleTaskQueueClient {
         TaskQueuePb.TaskQueueQueryAndOwnTasksResponse leaseResponse = new TaskQueuePb.TaskQueueQueryAndOwnTasksResponse();
         leaseResponse.parseFrom(response.getResponseAsBytes());
         return leaseResponse;
+    }
+
+    public TaskQueuePb.TaskQueueDeleteResponse delete(TaskQueuePb.TaskQueueDeleteRequest deleteRequest) {
+        deleteRequest.setAppId(getAppId());
+        Request request = new Request();
+        request.setMethod("Delete");
+        request.setServiceName(SERVICE_NAME);
+        request.setRequestAsBytes(deleteRequest.toByteArray());
+        Response response = sendRequest(request);
+        if (response.hasApplicationError()) {
+            throw new ApiProxy.ApplicationException(
+                response.getApplicationError().getCode(),
+                "TaskQueue Delete operation failed"
+            );
+        }
+        TaskQueuePb.TaskQueueDeleteResponse deleteResponse = new TaskQueuePb.TaskQueueDeleteResponse();
+        deleteResponse.parseFrom(response.getResponseAsBytes());
+        return deleteResponse;
     }
 
     public TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {

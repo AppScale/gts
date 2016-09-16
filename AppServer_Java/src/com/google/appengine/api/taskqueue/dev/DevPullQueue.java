@@ -77,8 +77,24 @@ public class DevPullQueue extends DevQueue {
         return addResponse;
     }
 
+    synchronized TaskQueuePb.TaskQueueDeleteResponse deleteTask(TaskQueuePb.TaskQueueDeleteRequest deleteRequest) {
+        String queueName = deleteRequest.getQueueName();
+        if (!queueName.equals(getQueueName())) {
+            throw new ApiProxy.ApplicationException(
+                    TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_REQUEST.getValue());
+        }
+
+        logger.log(Level.FINE, "PullQueue: Sending DeleteRequest to TaskQueue server for " + queueName);
+        TaskQueuePb.TaskQueueDeleteResponse deleteResponse = client.delete(deleteRequest);
+
+        return deleteResponse;
+    }
+
+    // Abstract method needs to be overriden here.
     boolean deleteTask(String taskName) {
-        return this.taskMap.remove(taskName) != null;
+        throw new ApiProxy.ApplicationException(
+            TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue(),
+            "Not implemented");
     }
 
     synchronized TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {
