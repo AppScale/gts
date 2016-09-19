@@ -110,7 +110,6 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 def start_cassandra(clear_datastore, needed)
-  Djinn.log_run("pkill ThriftBroker")
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
     Djinn.log_run("rm -rf /opt/appscale/cassandra*")
