@@ -122,7 +122,8 @@ def start_cassandra(clear_datastore, needed)
                        PID_FILE)
 
   # Ensure enough Cassandra nodes are available.
-  sleep(SMALL_WAIT) until system("#{NODETOOL} status")
+  Djinn.log_info('Waiting for Cassandra to start')
+  sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   while true
     output = `"#{NODETOOL}" status`
     nodes_ready = 0
