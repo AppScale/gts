@@ -99,6 +99,23 @@ public class AppScaleTaskQueueClient {
         return leaseResponse;
     }
 
+    public TaskQueuePb.TaskQueueModifyTaskLeaseResponse modifyLease(TaskQueuePb.TaskQueueModifyTaskLeaseRequest modifyLeaseRequest) {
+        Request request = new Request();
+        request.setMethod("ModifyTaskLease");
+        request.setServiceName(SERVICE_NAME);
+        request.setRequestAsBytes(modifyLeaseRequest.toByteArray());
+        Response response = sendRequest(request);
+        if (response.hasApplicationError()) {
+            throw new ApiProxy.ApplicationException(
+                response.getApplicationError().getCode(),
+                "TaskQueue ModifyTaskLease operation failed"
+            );
+        }
+        TaskQueuePb.TaskQueueModifyTaskLeaseResponse modifyLeaseResponse = new TaskQueuePb.TaskQueueModifyTaskLeaseResponse();
+        modifyLeaseResponse.parseFrom(response.getResponseAsBytes());
+        return modifyLeaseResponse;
+    }
+
     public TaskQueuePb.TaskQueueDeleteResponse delete(TaskQueuePb.TaskQueueDeleteRequest deleteRequest) {
         deleteRequest.setAppId(getAppId());
         Request request = new Request();
