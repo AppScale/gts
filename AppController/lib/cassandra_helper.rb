@@ -110,7 +110,6 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 def start_cassandra(clear_datastore, needed)
-  Djinn.log_run("pkill ThriftBroker")
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
     Djinn.log_run("rm -rf /opt/appscale/cassandra*")
@@ -123,7 +122,8 @@ def start_cassandra(clear_datastore, needed)
                        PID_FILE)
 
   # Ensure enough Cassandra nodes are available.
-  sleep(SMALL_WAIT) until system("#{NODETOOL} status")
+  Djinn.log_info('Waiting for Cassandra to start')
+  sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   while true
     output = `"#{NODETOOL}" status`
     nodes_ready = 0
