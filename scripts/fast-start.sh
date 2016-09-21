@@ -22,6 +22,7 @@ GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
 GUESTBOOK_APP="/root/guestbook.tar.gz"
 USE_DEMO_APP="Y"
+AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
 
 # On some system, when running this scipt from rc.local (ie at boot time)
 # there may not be any user set, which will cause ssh-copy-id to fail.
@@ -100,7 +101,6 @@ fi
 # Let's try to detect the environment we are using.
 PUBLIC_IP=""
 PRIVATE_IP=""
-AZURE_METADATA=$(curl -s -o /dev/null -w "%{http_code}" http://169.254.169.254/metadata/v1/InstanceInfo)
 
 if grep docker /proc/1/cgroup > /dev/null ; then
     # We need to start sshd by hand.
@@ -113,7 +113,7 @@ elif lspci | grep VirtualBox > /dev/null ; then
 elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
     # As per https://cloud.google.com/compute/docs/metadata.
     PROVIDER="GCE"
-elif [ $AZURE_METADATA = "200" ]; then
+elif [ "$(${CURL} -s -o /dev/null -w "%{http_code}" $AZURE_METADATA)" = "200" ] ; then
     PROVIDER="Azure"
 else
     # Get the public and private IP of this instance.
