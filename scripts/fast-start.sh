@@ -100,6 +100,8 @@ fi
 # Let's try to detect the environment we are using.
 PUBLIC_IP=""
 PRIVATE_IP=""
+AZURE_METADATA=$(curl -s -o /dev/null -w "%{http_code}" http://169.254.169.254/metadata/v1/InstanceInfo)
+
 if grep docker /proc/1/cgroup > /dev/null ; then
     # We need to start sshd by hand.
     /usr/sbin/sshd
@@ -111,6 +113,8 @@ elif lspci | grep VirtualBox > /dev/null ; then
 elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
     # As per https://cloud.google.com/compute/docs/metadata.
     PROVIDER="GCE"
+elif [ $AZURE_METADATA = "200" ]; then
+    PROVIDER="Azure"
 else
     # Get the public and private IP of this instance.
     PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
@@ -161,6 +165,13 @@ case "$PROVIDER" in
         fi
     done
     PRIVATE_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
+    ;;
+"Azure")
+    DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
+    PUBLIC_IP="$(wget http://ipinfo.io/ip -qO -)"
+    PRIVATE_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
+    ADMIN_EMAIL="a@a.com"
+    ADMIN_PASSWD="$(cat /etc/hostname)"
     ;;
 * )
     # Let's discover the device used for external communication.
