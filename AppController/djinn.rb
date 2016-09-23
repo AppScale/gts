@@ -1839,7 +1839,6 @@ class Djinn
       @zookeeper_data = zookeeper_data['locations']
       if @zookeeper_data.include?(my_ip) and !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
-        Djinn.log_info("Starting zookeeper.")
         begin
           start_zookeeper(false)
         rescue FailedZooKeeperOperationException
@@ -3538,7 +3537,6 @@ class Djinn
     threads << Thread.new {
       if not is_zookeeper_running?
         if my_node.is_zookeeper?
-          Djinn.log_info("Starting zookeeper.")
           configure_zookeeper(@nodes, @my_index)
           begin
             start_zookeeper(@options['clear_datastore'].downcase == "true")
