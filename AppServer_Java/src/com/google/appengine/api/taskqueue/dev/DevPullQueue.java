@@ -231,27 +231,8 @@ public class DevPullQueue extends DevQueue {
     }
 
     synchronized TaskQueuePb.TaskQueueModifyTaskLeaseResponse modifyTaskLease(TaskQueuePb.TaskQueueModifyTaskLeaseRequest request) {
-        TaskQueuePb.TaskQueueModifyTaskLeaseResponse response = new TaskQueuePb.TaskQueueModifyTaskLeaseResponse();
-
-        TaskQueuePb.TaskQueueAddRequest task = (TaskQueuePb.TaskQueueAddRequest) this.taskMap.get(request.getTaskName());
-
-        if (task == null) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.UNKNOWN_TASK.getValue());
-        }
-
-        if (task.getEtaUsec() != request.getEtaUsec()) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_LEASE_EXPIRED.getValue());
-        }
-
-        long timeNowUsec = System.currentTimeMillis() * (long) oneSecondInMilli;
-        if (task.getEtaUsec() < timeNowUsec) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_LEASE_EXPIRED.getValue());
-        }
-
-        long requestLeaseUsec = (long) (request.getLeaseSeconds() * oneThousandSecondsInMilli);
-        long etaUsec = timeNowUsec + requestLeaseUsec;
-        task.setEtaUsec(etaUsec);
-        response.setUpdatedEtaUsec(etaUsec);
+        logger.log(Level.FINE, "PullQueue: Sending modifyTaskLeaseRequest to TaskQueue server for " + request.getTaskName());
+        TaskQueuePb.TaskQueueModifyTaskLeaseResponse response = client.modifyLease(request);
         return response;
     }
 }

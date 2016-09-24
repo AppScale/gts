@@ -1839,7 +1839,6 @@ class Djinn
       @zookeeper_data = zookeeper_data['locations']
       if @zookeeper_data.include?(my_ip) and !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
-        Djinn.log_info("Starting zookeeper.")
         begin
           start_zookeeper(false)
         rescue FailedZooKeeperOperationException
@@ -3538,7 +3537,6 @@ class Djinn
     threads << Thread.new {
       if not is_zookeeper_running?
         if my_node.is_zookeeper?
-          Djinn.log_info("Starting zookeeper.")
           configure_zookeeper(@nodes, @my_index)
           begin
             start_zookeeper(@options['clear_datastore'].downcase == "true")
@@ -3574,10 +3572,11 @@ class Djinn
     threads.each { |t| t.join() }
 
     Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check")
+    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
 
+    Djinn.log_info('Ensuring data layout version is correct')
     layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
-    unless system("#{layout_script} --db-type cassandra")
+    unless system("#{layout_script} --db-type cassandra > /dev/null 2>&1")
       HelperFunctions.log_and_crash(
         'Unexpected data layout version. Please run "appscale upgrade".')
     end
@@ -3701,8 +3700,11 @@ class Djinn
     prime_script = "#{APPSCALE_HOME}/AppDB/#{table}_env/prime_#{table}.py"
     replication = Integer(@options['replication'])
     retries = 10
+    Djinn.log_info('Ensuring necessary tables have been created')
     loop {
-      return if system("#{prime_script} --replication #{replication}")
+      prime_cmd = "#{prime_script} --replication #{replication} >> " +
+        '/var/log/appscale/prime_db.log 2>&1'
+      return if system(prime_cmd)
       retries -= 1
       Djinn.log_warn("Failed to prime database. #{retries} retries left.")
 
