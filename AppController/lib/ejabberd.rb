@@ -35,7 +35,7 @@ module Ejabberd
     stop_cmd = "/etc/init.d/ejabberd stop"
     match_cmd = "sname ejabberd"
     MonitInterface.start(:ejabberd, start_cmd, stop_cmd, [9999], nil,
-                         match_cmd, nil, nil)
+                         match_cmd, nil, nil, nil)
   end
 
   def self.stop

@@ -35,6 +35,10 @@ NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
 PRIME_SCRIPT = "#{CASSANDRA_ENV_DIR}/prime_cassandra.py"
 
 
+# The number of seconds Monit should allow Cassandra to take while starting up.
+START_TIMEOUT = 60
+
+
 # Determines if a UserAppServer should run on this machine.
 #
 # Args:
@@ -119,7 +123,7 @@ def start_cassandra(clear_datastore, needed)
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
   stop_cmd = "/bin/bash -c 'kill -s SIGTERM `cat #{PID_FILE}`'"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
-                       PID_FILE)
+                       PID_FILE, START_TIMEOUT)
 
   # Ensure enough Cassandra nodes are available.
   Djinn.log_info('Waiting for Cassandra to start')

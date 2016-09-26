@@ -19,7 +19,7 @@ module BackupRecoveryService
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{bk_service} /usr/bin/python2"
     MonitInterface.start(:backup_recovery_service, start_cmd, stop_cmd,
-                         [BR_PORT], {}, start_cmd, nil, nil)
+                         [BR_PORT], {}, start_cmd, nil, nil, nil)
   end
 
   # Stops the backup/recovery service running on this machine. Since it's
