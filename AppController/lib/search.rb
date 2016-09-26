@@ -66,7 +66,7 @@ module Search
     start_cmd = "/root/appscale/SearchService/solr/solr/bin/solr start -noprompt -s /opt/appscale/solr/schemaless-appscale/solr/"
     stop_cmd = "/root/appscale/SearchService/solr/solr/bin/solr stop -all"
     MonitInterface.start(:solr, start_cmd, stop_cmd, [SOLR_SERVER_PORT], nil,
-                         "solr", nil, nil)
+                         "solr", nil, nil, nil)
     HelperFunctions.sleep_until_port_is_open("localhost", SOLR_SERVER_PORT)
     Djinn.log_debug("Done starting SOLR.")
   end
@@ -79,7 +79,7 @@ module Search
     stop_cmd = SEARCH_STOP_CMD
     env_vars = {}
     MonitInterface.start(:search, start_cmd, stop_cmd, [SEARCH_SERVER_PORT],
-                         env_vars, start_cmd, nil, nil)
+                         env_vars, start_cmd, nil, nil, nil)
     HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
     Djinn.log_debug("Done starting search_server on this node.")
   end

@@ -36,11 +36,11 @@ module MonitInterface
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,
-    pidfile)
+    pidfile, timeout)
 
     ports.each { |port|
       self.write_monit_config(watch, start_cmd, stop_cmd, port,
-        env_vars, match_cmd, mem, pidfile)
+        env_vars, match_cmd, mem, pidfile, timeout)
     }
 
     self.run_cmd("#{MONIT} start -g #{watch}")
@@ -102,7 +102,7 @@ BOO
 
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
-    env_vars, match_cmd, mem, pidfile)
+    env_vars, match_cmd, mem, pidfile, timeout)
 
     # Monit doesn't support environment variables in its DSL, so if the caller
     # wants environment variables passed to the app, we have to collect them and
@@ -125,10 +125,14 @@ BOO
 
     match_str = %Q[MATCHING "#{match_cmd}"]
     match_str = "PIDFILE #{pidfile}" unless pidfile.nil?
+
+    start_line = %Q[start program = "#{full_start_command}"]
+    start_line += " with timeout #{timeout} seconds" unless timeout.nil?
+
     contents = <<BOO
 CHECK PROCESS #{watch}-#{port} #{match_str}
   group #{watch}
-  start program = "#{full_start_command}"
+  #{start_line}
   stop program = "#{stop_cmd}"
 BOO
     # If we have a valid 'mem' option, set the max memory for this

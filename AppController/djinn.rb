@@ -1987,7 +1987,7 @@ class Djinn
     }
 
     MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, [port], env,
-                         start_cmd, nil, nil)
+                         start_cmd, nil, nil, nil)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
@@ -3786,7 +3786,7 @@ class Djinn
           "#{app_manager_script} #{PYTHON27}"
     port = AppManagerClient::SERVER_PORT
     MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, [port],
-                         env_vars, start_cmd, nil, nil)
+                         env_vars, start_cmd, nil, nil, nil)
   end
 
   # Starts the Hermes service on this node.
@@ -3836,7 +3836,7 @@ class Djinn
     port = UserAppClient::SERVER_PORT
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, [port], env_vars,
-                         start_cmd, nil, nil)
+                         start_cmd, nil, nil, nil)
   end
 
   def start_datastore_server
@@ -4543,7 +4543,7 @@ HOSTS
 
     begin
       MonitInterface.start(:controller, start, stop, [SERVER_PORT], env,
-                           start, nil, nil)
+                           start, nil, nil, nil)
     rescue
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
@@ -4613,7 +4613,7 @@ HOSTS
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "/usr/bin/memcached #{port}"
     MonitInterface.start(:memcached, start_cmd, stop_cmd, [port], nil,
-                         start_cmd, nil, nil)
+                         start_cmd, nil, nil, nil)
   end
 
   def stop_memcache()
@@ -6046,7 +6046,7 @@ HOSTS
       stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, [9999], nil,
-                           start_cmd, nil, nil)
+                           start_cmd, nil, nil, nil)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
       Djinn.log_debug("App #{app} does not need xmpp receive functionality")

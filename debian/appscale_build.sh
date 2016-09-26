@@ -67,6 +67,20 @@ if [ "${DIST}" = "wheezy" ]; then
     curl https://haproxy.debian.net/bernat.debian.org.gpg | apt-key add -
 fi
 
+# Trusty, Precise, and Wheezy do not have Java 8.
+case "$DIST" in
+    precise|trusty) apt-add-repository -y ppa:openjdk-r/ppa ;;
+    wheezy)
+        echo "This script does not automatically install Java 8 on Debian "\
+        "Wheezy due to the lack of official support for OpenJDK 8 in the "\
+        "distro. Since a Java 8 runtime is needed for Cassandra, please "\
+        "install one manually and change the JAVA path defined in "\
+        "AppDB/cassandra_env/templates/cassandra-env.sh before starting "\
+        "AppScale."
+        read -p "Press [Enter] to continue build."
+        ;;
+esac
+
 echo -n "Updating package list and cache ..."
 ${PKG_CMD} update > /dev/null
 echo "done."
