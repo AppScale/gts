@@ -13,6 +13,12 @@ fi
 
 set -e
 
+# We need to update the package cache and list first, to ensure we don't
+# get errors when installing basic packages.
+echo -n "Updating package list and cache ..."
+${PKG_CMD} update > /dev/null
+echo "done."
+
 # We need to make sure we have lsb-release, before we use it. On
 # streamlined images (like docker) it may not be present.
 if ! which lsb_release > /dev/null ; then
@@ -67,9 +73,23 @@ if [ "${DIST}" = "wheezy" ]; then
     curl https://haproxy.debian.net/bernat.debian.org.gpg | apt-key add -
 fi
 
+
+# Ensure we have apt-add-repository. On some very small/custom builds it
+# may be missing (for example docker).
+if ! which apt-add-repository > /dev/null ; then
+    echo -n "Installing software-properties-common..."
+    ${PKG_CMD} install -y software-properties-common > /dev/null
+    echo "done."
+fi
+
 # Trusty, Precise, and Wheezy do not have Java 8.
 case "$DIST" in
-    precise|trusty) apt-add-repository -y ppa:openjdk-r/ppa ;;
+    precise|trusty)
+        apt-add-repository -y ppa:openjdk-r/ppa
+        echo -n "Updating package list and cache ..."
+        ${PKG_CMD} update > /dev/null
+        echo "done."
+        ;;
     wheezy)
         echo "This script does not automatically install Java 8 on Debian "\
         "Wheezy due to the lack of official support for OpenJDK 8 in the "\
@@ -80,10 +100,6 @@ case "$DIST" in
         read -p "Press [Enter] to continue build."
         ;;
 esac
-
-echo -n "Updating package list and cache ..."
-${PKG_CMD} update > /dev/null
-echo "done."
 
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
