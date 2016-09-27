@@ -16,8 +16,8 @@ set -e
 # We need to make sure we have lsb-release, before we use it. On
 # streamlined images (like docker) it may not be present.
 if ! which lsb_release > /dev/null ; then
-    echo -n "Installing lsb-release..."
-    ${PKG_CMD} install -y lsb-release > /dev/null
+    echo -n "Installing lsb-release and software-properties-common..."
+    ${PKG_CMD} install -y lsb-release software-properties-common > /dev/null
     echo "done."
 fi
 
