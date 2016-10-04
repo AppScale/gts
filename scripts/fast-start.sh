@@ -146,8 +146,13 @@ case "$PROVIDER" in
     ${CURL} -Lo /tmp/hostname -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/hostname
     cut -f 1 -d '.' /tmp/hostname > /etc/hostname
     hostname -b -F /etc/hostname
-    ADMIN_PASSWD="$(cat /etc/hostname)"
-    ADMIN_EMAIL="a@a.com"
+    # Set admin user email and password.
+    ADMIN_EMAIL="$(${CURL} --fail -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/attributes/adminUser)"
+    ADMIN_PASSWD="$(${CURL} --fail -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/attributes/appscale_user_password)"
+    if [ -z "$ADMIN_PASSWD" ]; then
+        ADMIN_EMAIL="a@a.com"
+        ADMIN_PASSWD="$(cat /etc/hostname)"
+    fi
     ;;
 "VirtualBox")
     # Let's discover the device used for external communication. In
