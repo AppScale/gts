@@ -35,6 +35,10 @@ NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
 PRIME_SCRIPT = "#{CASSANDRA_ENV_DIR}/prime_cassandra.py"
 
 
+# The number of seconds Monit should allow Cassandra to take while starting up.
+START_TIMEOUT = 60
+
+
 # Determines if a UserAppServer should run on this machine.
 #
 # Args:
@@ -110,7 +114,6 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 def start_cassandra(clear_datastore, needed)
-  Djinn.log_run("pkill ThriftBroker")
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
     Djinn.log_run("rm -rf /opt/appscale/cassandra*")
@@ -120,10 +123,11 @@ def start_cassandra(clear_datastore, needed)
   start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
   stop_cmd = "/bin/bash -c 'kill -s SIGTERM `cat #{PID_FILE}`'"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
-                       PID_FILE)
+                       PID_FILE, START_TIMEOUT)
 
   # Ensure enough Cassandra nodes are available.
-  sleep(SMALL_WAIT) until system("#{NODETOOL} status")
+  Djinn.log_info('Waiting for Cassandra to start')
+  sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   while true
     output = `"#{NODETOOL}" status`
     nodes_ready = 0

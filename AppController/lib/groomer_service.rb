@@ -20,7 +20,7 @@ module GroomerService
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
       "#{groomer} /usr/bin/python2"
     MonitInterface.start(:groomer_service, start_cmd, stop_cmd, [9999], {},
-                         start_cmd, MAX_MEM, nil)
+                         start_cmd, MAX_MEM, nil, nil)
     MonitInterface.start_file(:groomer_file_check,
       "/var/log/appscale/groomer_service-9999.log", stop_cmd, "12")
   end
