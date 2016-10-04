@@ -104,7 +104,7 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     # We need to start sshd by hand.
     /usr/sbin/sshd
     # Force Start cron
-    /usr/sbin/cron 
+    /usr/sbin/cron
     PROVIDER="Docker"
 elif lspci | grep VirtualBox > /dev/null ; then
     PROVIDER="VirtualBox"
@@ -132,7 +132,7 @@ else
 fi
 
 # Let's make sure we got the IPs to use in the configuration.
-case "$PROVIDER" in 
+case "$PROVIDER" in
 "AWS" )
     # Set variables for AWS. We already have the IPs.
     ADMIN_PASSWD="$(ec2metadata --instance-id)"
