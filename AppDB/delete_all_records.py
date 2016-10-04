@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-""" 
- Deletes all application data.
-""" 
+""" Deletes all application data. """
 
 import logging
 import sys
@@ -97,12 +95,12 @@ if __name__ == "__main__":
   first_key = ""
   last_key = ""
 
-  if len(sys.argv) < 2:
-    print "usage: ./delete_all_records.py db_type [app_id]"
-  else:
-    database = sys.argv[1]
-    if len(sys.argv) == 3:
-      first_key = sys.argv[2]
+  if len(sys.argv) > 2:
+    print "usage: ./delete_all_records.py [app_id]"
+    exit(1)
+
+  if len(sys.argv) == 2:
+    first_key = sys.argv[1]
 
   try:
     tables_to_schemas = {
