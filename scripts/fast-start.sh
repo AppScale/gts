@@ -19,8 +19,7 @@ IP="$(which ip)"
 APPSCALE_CMD="$(which appscale)"
 APPSCALE_UPLOAD="$(which appscale-upload-app)"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
-GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
-GUESTBOOK_APP="/root/guestbook.tar.gz"
+GUESTBOOK_APP="/root/appscale/AppServer/demos/appengine-guestbook-python"
 USE_DEMO_APP="Y"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
 
@@ -219,11 +218,6 @@ if [ ! -e AppScalefile ]; then
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
     ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
-
-    # Download sample app.
-    echo -n "Downloading sample app..."
-    ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
-    echo "done."
 else
     # If AppScalefile is present, do not redeploy the demo app.
     USE_DEMO_APP="N"
@@ -243,7 +237,7 @@ KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 
 # Deploy sample app.
 [ -z "${ADMIN_EMAIL}" ] && ADMIN_EMAIL="a@a.com"
-[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
+[ -d ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443
