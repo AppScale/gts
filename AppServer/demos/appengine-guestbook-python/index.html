@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+{% autoescape true %}
+<html>
+  <head>
+    <link type="text/css" rel="stylesheet" href="/bootstrap/css/bootstrap.css" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 40px;
+        padding-bottom: 40px;
+        background-color: #f5f5f5;
+      }
+      blockquote {
+        margin-bottom: 10px;
+        border-left-color: #bbb;
+      }
+      form {
+        margin-top: 10px;
+      }
+      .form-signin input[type="text"] {
+        font-size: 16px;
+        height: auto;
+        margin-bottom: 15px;
+        padding: 7px 9px;
+      }
+      .row {
+        margin-left: 0px;
+        margin-top: 10px;
+        overflow: scroll;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <button type="button" class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="brand" href="#">App Engine Guestbook</a>
+          <div class="nav-collapse collapse pull-right">
+            <a href="{{ url|safe }}" class="btn">{{ url_linktext }}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+
+      {% for greeting in greetings %}
+      <div class="row">
+        {% if greeting.author %}
+          <b>{{ greeting.author.nickname() }}</b> wrote:
+        {% else %}
+         An anonymous person wrote:
+        {% endif %}
+        <blockquote>{{ greeting.content }}</blockquote>
+      </div>
+      {% endfor %}
+
+      <form action="/sign" method="post">
+        <div><textarea name="content" class="input-block-level" rows="3"></textarea></div>
+        <div><input type="submit" class="btn btn-large btn-primary" value="Sign Guestbook"></div>
+      </form>
+
+        </div>
+  </body>
+</html>
+{% endautoescape %}
