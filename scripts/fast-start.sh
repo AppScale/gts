@@ -154,6 +154,7 @@ case "$PROVIDER" in
     ADMIN_EMAIL="$(${CURL} --fail -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/attributes/adminUser)"
     ADMIN_PASSWD="$(${CURL} --fail -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/attributes/appscale_user_password)"
     if [ -z "$ADMIN_PASSWD" ]; then
+        echo "Google Cloud Launcher context missing. Using Google Compute Engine defaults."
         ADMIN_EMAIL="a@a.com"
         ADMIN_PASSWD="$(cat /etc/hostname)"
     fi
