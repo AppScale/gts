@@ -66,7 +66,18 @@ class Task(object):
     self.retry_count = 0
 
     if 'payloadBase64' in task_info:
-      self.payloadBase64 = task_info['payloadBase64']
+      encoded_payload = task_info['payloadBase64']
+
+      # Google's REST API adds missing padding.
+      missing_padding = 4 - (len(encoded_payload) % 4)
+      encoded_payload += '=' * missing_padding
+
+      # This decode/encode step is performed in order to match Google's
+      # behavior in cases where the given payload does not have the correct
+      # padding. It can be removed if we start storing the payload as binary
+      # blobs.
+      payload = base64.b64decode(encoded_payload)
+      self.payloadBase64 = base64.b64encode(payload)
 
     if 'id' in task_info and task_info['id']:
       self.id = task_info['id']
