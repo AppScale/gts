@@ -547,6 +547,7 @@ class PullQueue(Queue):
       if satisfied_request:
         break
 
+    logging.debug('Leased {} tasks'.format(len(leased)))
     return leased
 
   def purge(self):
