@@ -66,7 +66,7 @@ NODETOOL_LOCK = Mutex.new()
 
 
 # The name of the user to be used with reserved applications.
-APPSCALE_USER = "appscale-admin@local.appscale"
+APPSCALE_USER = "appscale-user@local.appscale"
 
 
 # The string that should be returned to the caller if they call a publicly
