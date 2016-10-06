@@ -221,9 +221,11 @@ if [ ! -e AppScalefile ]; then
     ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
 
     # Download sample app.
-    echo -n "Downloading sample app..."
-    ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
-    echo "done."
+    if [ ! -e ${GUESTBOOK_APP} ]; then
+      echo -n "Downloading sample app..."
+      ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
+      echo "done."
+    fi
 else
     # If AppScalefile is present, do not redeploy the demo app.
     USE_DEMO_APP="N"
