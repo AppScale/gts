@@ -24,6 +24,9 @@ REST_PREFIX = '/taskqueue/v1beta2/projects/(?:.~)?([a-z0-9-]+)/taskqueues'
 # Matches commas that are outside of parentheses.
 FIELD_DELIMITERS_RE = re.compile(r',(?=[^)]*(?:\(|$))')
 
+# Matches strings that only contain the standard Base64 alphabet.
+BASE64_CHARS_RE = re.compile(r'^[a-zA-Z0-9-+/=]*$')
+
 
 def parse_fields(fields_string):
   """ Converts a fields string to a tuple.
@@ -144,6 +147,16 @@ class RESTTasks(RequestHandler):
     except ValueError:
       write_error(self, HTTPCodes.BAD_REQUEST,
                   'The request body must contain a task.')
+      return
+
+    if 'payloadBase64' not in task_info:
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'payloadBase64 must be specified.')
+      return
+
+    if not BASE64_CHARS_RE.match(task_info['payloadBase64']):
+      write_error(self, HTTPCodes.BAD_REQUEST,
+                  'Invalid payloadBase64 value.')
       return
 
     task = Task(task_info)
