@@ -75,9 +75,11 @@ class Task(object):
       # This decode/encode step is performed in order to match Google's
       # behavior in cases where the given payload does not have the correct
       # padding. It can be removed if we start storing the payload as binary
-      # blobs.
-      payload = base64.b64decode(encoded_payload)
-      self.payloadBase64 = base64.b64encode(payload)
+      # blobs. The conversion from unicode string to byte string is needed
+      # because urlsafe_b64decode chokes on some invalid base64 that Google
+      # accepts.
+      payload = base64.urlsafe_b64decode(encoded_payload.encode('utf8'))
+      self.payloadBase64 = base64.urlsafe_b64encode(payload)
 
     if 'id' in task_info and task_info['id']:
       self.id = task_info['id']
@@ -204,7 +206,7 @@ class Task(object):
     task_pb.set_eta_usec(
       int((self.get_eta() - epoch).total_seconds()) * 1000000)
     task_pb.set_retry_count(self.retry_count)
-    task_pb.set_body(base64.b64decode(self.payloadBase64))
+    task_pb.set_body(base64.urlsafe_b64decode(self.payloadBase64))
     try:
       task_pb.set_tag(self.tag)
     except AttributeError:

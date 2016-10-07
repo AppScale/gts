@@ -583,7 +583,8 @@ class DistributedTaskQueue():
             taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_MODE)
           error_found = True
 
-        task_info = {'payloadBase64': base64.b64encode(add_request.body()),
+        encoded_payload = base64.urlsafe_b64encode(add_request.body())
+        task_info = {'payloadBase64': encoded_payload,
                      'leaseTimestamp': add_request.eta_usec()}
         if add_request.has_task_name():
           task_info['id'] = add_request.task_name()
