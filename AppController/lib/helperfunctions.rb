@@ -295,7 +295,7 @@ module HelperFunctions
         retry
       end
     rescue => except
-      Djinn.log_warn("[is_port_open]: got #{except.message}.")
+      Djinn.log_warn("[is_port_open](#{ip}, #{port}): got #{except.message}.")
     end
   
     return false
