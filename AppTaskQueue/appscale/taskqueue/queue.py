@@ -513,9 +513,16 @@ class PullQueue(Queue):
     # Fetch available tasks and try to lease them until the requested number
     # has been leased or until the index has been exhausted.
     leased = []
+    leased_ids = set()
     indices_seen = set()
     while True:
       results = self._query_available_tasks(num_tasks, group_by_tag, tag)
+
+      # The following prevents any task from being leased multiple times in the
+      # same request. If the lease time is very small, it's possible for the
+      # lease to expire while results are still being fetched.
+      results = [result for result in results if result.id not in leased_ids]
+
       # If there are no more available tasks, return whatever has been leased.
       if not results:
         break
@@ -533,12 +540,14 @@ class PullQueue(Queue):
           continue
 
         leased.append(task)
+        leased_ids.add(task.id)
         if len(leased) >= num_tasks:
           satisfied_request = True
           break
       if satisfied_request:
         break
 
+    logging.debug('Leased {} tasks'.format(len(leased)))
     return leased
 
   def purge(self):
