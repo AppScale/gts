@@ -1,6 +1,5 @@
 import datetime
 import json
-import logging
 import re
 import sys
 
@@ -9,6 +8,7 @@ from cassandra.query import SimpleStatement
 from task import InvalidTaskInfo
 from task import Task
 from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
@@ -501,8 +501,8 @@ class PullQueue(Queue):
       raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
                                 .format(self.MAX_LEASE_TIME))
 
-    logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
-                  format(num_tasks, lease_seconds, group_by_tag, tag))
+    logger.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
+                 format(num_tasks, lease_seconds, group_by_tag, tag))
     new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
@@ -547,7 +547,7 @@ class PullQueue(Queue):
       if satisfied_request:
         break
 
-    logging.debug('Leased {} tasks'.format(len(leased)))
+    logger.debug('Leased {} tasks'.format(len(leased)))
     return leased
 
   def purge(self):
@@ -722,7 +722,7 @@ class PullQueue(Queue):
     if not result.applied:
       # Since nothing else should be able to lease this task, this should
       # never happen. If for some reason it does, lease the task anyway.
-      logging.warning(
+      logger.warning(
         'Transaction check failed when updating retry_count: {}'.format(task))
 
     self._update_index(index, task)

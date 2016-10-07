@@ -1,7 +1,6 @@
 """ AppScale TaskQueue configuration class. It deals with the configuration
 file given with an application 'queue.yaml' or 'queue.xml'. """
 
-import logging
 import os
 import sys
 
@@ -10,6 +9,7 @@ from queue import PullQueue
 from queue import PushQueue
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import queueinfo
@@ -145,15 +145,15 @@ queue:
       queue_file = self.get_queue_file_location(self._app_id)
       try:
         info = file_io.read(queue_file)
-        logging.info('Found queue file for {} in: {}'.
+        logger.info('Found queue file for {} in: {}'.
           format(self._app_id, queue_file))
       except IOError:
-        logging.error(
+        logger.error(
           'No queue file found for {}, using default queue'.format(self._app_id))
         info = self.DEFAULT_QUEUE_YAML
         using_default = True
     except apiproxy_errors.ApplicationError as application_error:
-      logging.error(application_error.message)
+      logger.error(application_error.message)
       info = self.DEFAULT_QUEUE_YAML
       using_default = True
 
@@ -179,7 +179,7 @@ queue:
     if not has_default:
       queue_info['queue'].append({'rate':'5/s', 'name': 'default'})
 
-    logging.info('Queue for {}:\n{}'.format(self._app_id, queue_info))
+    logger.info('Queue for {}:\n{}'.format(self._app_id, queue_info))
 
     # Discard the invalid queues.
     queues = {}
@@ -189,12 +189,12 @@ queue:
           queues[queue['name']] = PullQueue(queue, self._app_id,
                                             self.db_access)
         except InvalidQueueConfiguration:
-          logging.exception('Invalid queue configuration')
+          logger.exception('Invalid queue configuration')
       else:
         try:
           queues[queue['name']] = PushQueue(queue, self._app_id)
         except InvalidQueueConfiguration:
-          logging.exception('Invalid queue configuration')
+          logger.exception('Invalid queue configuration')
     return queues
 
   def parse_queue_xml(self, xml_string):
@@ -233,7 +233,7 @@ queue:
 
       converted['queue'].append(single_queue)
 
-    logging.debug("XML queue info is {0}".format(converted))
+    logger.debug("XML queue info is {0}".format(converted))
     return converted
 
   def create_celery_worker_scripts(self):
