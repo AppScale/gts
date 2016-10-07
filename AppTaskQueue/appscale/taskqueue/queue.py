@@ -310,6 +310,7 @@ class PullQueue(Queue):
       parameters['tag'] = ''
     parameters['tag_exists'] = parameters['tag'] != ''
     self.db_access.session.execute(insert_index, parameters)
+    logger.debug('Added task: {}'.format(task))
 
   def get_task(self, task, omit_payload=False):
     """ Gets a task from the queue.
