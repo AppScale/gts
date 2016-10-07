@@ -96,10 +96,12 @@ class Task(object):
     if 'retry_count' in task_info:
       self.retry_count = task_info['retry_count']
 
-    if 'leaseTimestamp' in task_info:
+    if ('leaseTimestamp' in task_info and
+        task_info['leaseTimestamp'] is not None):
       self.leaseTimestamp = parse_timestamp(task_info['leaseTimestamp'])
 
-    if 'enqueueTimestamp' in task_info:
+    if ('enqueueTimestamp' in task_info and
+        task_info['enqueueTimestamp'] is not None):
       self.enqueueTimestamp = parse_timestamp(task_info['enqueueTimestamp'])
 
     self.validate_info()
