@@ -562,14 +562,15 @@ CONFIG
       FileUtils.mkdir_p SITES_ENABLED_PATH
     end
 
-    # copy over certs for ssl
-    # just copy files once to keep certificate as static.
-    unless File.exists?("#{NGINX_PATH}/mykey.pem")
-      HelperFunctions.shell("cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}")
-    end
-    unless File.exists?("#{NGINX_PATH}/mycert.pem")
-      HelperFunctions.shell("cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}")
-    end
+    # Copy certs for ssl. Just copy files once to keep the certificate static.
+    ['mykey.pem', 'mycert.pem'].each { |cert_file|
+      unless File.exist?("#{NGINX_PATH}/#{cert_file}") &&
+          !File.zero?("#{NGINX_PATH}/#{cert_file}")
+        FileUtils.cp("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_file}",
+                     "#{NGINX_PATH}/#{cert_file}")
+      end
+    }
+
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
 
