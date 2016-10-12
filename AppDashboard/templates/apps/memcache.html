@@ -1,0 +1,56 @@
+<div class="row-fluid">
+    <div class="span12">
+        <div class="box chart gradient">
+            <div class="title">
+                <h4><span id="icon" class="icon16 icomoon-icon-bars"></span><span id="title">Global Memcache Statistics</span></h4>
+            </div><!-- end title -->
+            <div class="content">
+                <div style="height: 400px;" id="mem-flot"></div>
+            </div><!-- end content -->
+        </div><!-- end box -->
+    </div><!-- end span6 -->
+</div><!-- end .row -->
+{% if is_user_cloud_admin %}
+<script>
+/**
+ * Updates the pie chart that tells users the status of their
+ * memcache usage.
+ */
+function update_mem_stats() {
+  $.ajax({
+    url: "/apps/stats/memcache"
+  }).done(
+    function(json_data) {
+      var stats_info = JSON.parse(json_data);
+      var all_stats = [
+        { label: "Hits: " + stats_info['hits'], data: [[1, stats_info['hits']]]},
+        { label: "Misses: " + stats_info['misses'], data: [[1, stats_info['misses']]]},
+      ];
+      $('#mem-flot').text('');
+      if($("#mem-flot").closest(".panel-collapse").height() >0) {
+          $.plot('#mem-flot', all_stats, {
+              series: {
+                  pie: {
+                      show: true,
+                      label: {
+                          show: true,
+                          radius: 3 / 4,
+                          formatter: function (label, series) {
+                              return '<div style="font-size:8pt;text-align:center;padding:2px;color:white;">' + label + '<br/>' + Math.round(series.percent) + '%</div>';
+                          },
+                          background: {
+                              opacity: 0.5,
+                              color: '#000'
+                          }
+                      }
+                  }
+              },
+              legend: {
+                  show: true
+              }
+          });
+      }
+    });
+}
+</script>
+{% endif %}
