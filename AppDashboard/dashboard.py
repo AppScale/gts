@@ -44,6 +44,8 @@ from app_dashboard_data import AppStatus
 from dashboard_logs import AppLogLine
 from dashboard_logs import RequestLogLine
 
+from collections import OrderedDict
+
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
       os.sep + 'templates'))
@@ -121,6 +123,7 @@ class AppDashboard(webapp2.RequestHandler):
       'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
       'can_upload_apps': self.dstore.can_upload_apps(),
       'apps_user_is_admin_on': owned_apps,
+      'user_layout_pref': json.loads(self.dstore.get_dash_layout_settings(), object_pairs_hook=OrderedDict),
       'flower_url': self.dstore.get_flower_url(),
       'monit_url': self.dstore.get_monit_url()
     }
@@ -166,8 +169,31 @@ class IndexPage(AppDashboard):
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
+class DashPage(AppDashboard):
+  """ Class to handle requests to the /status page. """
 
-class StatusRefreshPage(AppDashboard):
+  # The path for the status page.
+  PATH = '/'
+
+  # Another url that serves the status page.
+  ALIAS = '/status'
+
+  # The template to use for the status page.
+  TEMPLATE = 'apps/dash.html'
+
+  def get(self):
+    """ Handler for GET requests. """ 
+    # Called from the web.  Refresh data then display page (may be slow).
+    if self.request.get('forcerefresh'):
+      self.dstore.update_all()
+
+    self.render_page(page='dash', template_file=self.TEMPLATE, values={
+      'server_info' : self.dstore.get_status_info(),
+      'dbinfo' : self.dstore.get_database_info(),
+      'apps' : self.dstore.get_application_info(),
+      'monitoring_url' : self.dstore.get_monitoring_url(),
+    })
+class DashRefreshPage(AppDashboard):
   """ Class to handle requests to the /status/refresh page. """
 
 
@@ -191,13 +217,14 @@ class StatusPage(AppDashboard):
   """ Class to handle requests to the /status page. """
 
   # The path for the status page.
-  PATH = '/'
+  PATH = '/status/cloud'
 
   # Another url that serves the status page.
-  ALIAS = '/status'
+  ALIAS = '/status/cloud'
 
   # The template to use for the status page.
-  TEMPLATE = 'status/cloud.html'
+  TEMPLATE = 'layouts/app_page.html'
+  CONTENT = 'status/cloud.html'
 
   def get(self):
     """ Handler for GET requests. """ 
@@ -210,6 +237,7 @@ class StatusPage(AppDashboard):
       'dbinfo' : self.dstore.get_database_info(),
       'apps' : self.dstore.get_application_info(),
       'monitoring_url' : self.dstore.get_monitoring_url(),
+      'page_content' : self.CONTENT,
     })
 
 
@@ -1137,9 +1165,11 @@ class RunGroomer(AppDashboard):
 
 # Main Dispatcher
 dashboard_pages = [
-  (StatusPage.PATH, StatusPage),
-  (StatusPage.ALIAS, StatusPage),
-  ('/status/refresh', StatusRefreshPage),
+  (DashPage.PATH, DashPage),
+  (DashPage.ALIAS, DashPage),
+  ('/status/refresh', DashRefreshPage),
+  ('/status/cloud', StatusPage),
+  ('/status/cloud', StatusPage),
   ('/status/json', StatusAsJSONPage),
   ('/logout', LogoutPage),
   ('/users/logout', LogoutPage),
