@@ -1,0 +1,26 @@
+<div class="panel panel-default" id="panel{{ panel_count }}">
+    <div class="title panel-heading gradient">
+        <h4 class="panel-title">
+            <span aria-hidden="true" class="icon16"></span>
+            <a data-toggle="collapse" href="#panel-collapse{{ panel_count }}" class="collapsed"></a>
+        </h4>
+
+    </div>
+    <div id="panel-collapse{{ panel_count }}" class="panel-collapse collapse in" style="height: 0px;">
+        <div class="panel-body">
+            <div class="content">
+                {% include page_content %}
+                <script type="text/javascript">
+                    //take the classes from the template file's icon span to put into the panel title span
+                    $("#panel{{ panel_count }} .panel-title .icon16").attr("class",($("#panel-collapse{{ panel_count }} .title .icon16").attr("class")));
+                    //take the title from the template file's title span to put into the panel title
+                    $("#panel{{ panel_count }} .panel-title a").html($("#panel-collapse{{ panel_count }} #title").html());
+                    //get rid of original title so there are not double titles
+                    $("#panel-collapse{{ panel_count }} .title").html("");
+                </script>
+            </div>
+
+        </div><!-- End .box -->
+        <!--Start Cloud Admin View-->
+    </div><!-- End .span3 -->
+</div><!--end .panel-->
