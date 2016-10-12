@@ -1,0 +1,43 @@
+<!-- FILE:templates/apps/dash.html -->
+
+<script type="text/javascript" src="/js/dash.js"></script>
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+
+        <!--check if this has been dismissed-->
+        <div class="row-fluid">
+            <div style="margin-top:30px" class="hero-unit alert alert-info">
+                <h1 align="center">Welcome to AppScale!</h1>
+                <p align="center">The Open Source App Engine</p>
+            <span align="center" style="width: 50%" >
+            {% if flash_message %}
+                <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+            {% endif %}
+            </span>
+                <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+            </div>
+        </div><!-- End .row-fluid -->
+        <div class="row-fluid">
+        <!--TODO: remove set is_user_cloud_admin, purely for testing without logging in-->
+        {% set is_user_cloud_admin=True %}
+            {% if is_user_cloud_admin %}
+                <div class="panel-group sortable">
+                <!--Begin getting correct panels-->
+                {% set panel_count=1 %}
+                    {% for title, panel in user_layout_pref.panel.items() %}
+                      <div class="panel panel-default">
+                        <!--tell child template which app to get-->
+                        {% set page_content=panel+".html"%}
+                        <!--call panel.html as child template-->
+                        {% include "layouts/panel.html" %}
+                      </div>
+                        {% set panel_count=panel_count+1 %}
+                    {% endfor %}
+                </div>
+            {% endif %} <!-- end of admin only boxes -->
+        </div><!--End .row-fluid-->
+    </div><!-- End contentwrapper -->
+</div><!-- End #content -->
+
+</div> <!--close wwrapper started in navigation.html-->
