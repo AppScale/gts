@@ -104,6 +104,7 @@ class UserInfo(ndb.Model):
   can_upload_apps = ndb.BooleanProperty()
   owned_apps = ndb.StringProperty(repeated=True)
   timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
+  dash_layout_settings = ndb.TextProperty()
 
 
 class InstanceInfo(ndb.Model):
@@ -555,6 +556,7 @@ class AppDashboardData():
           is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
           can_upload_apps = self.helper.can_upload_apps(email)
           owned_apps = self.helper.get_owned_apps(email)
+          dash_layout_settings = self.get_dash_layout_settings(email)
 
           if user_info.is_user_cloud_admin != is_user_cloud_admin or \
             user_info.can_upload_apps != can_upload_apps or \
@@ -563,6 +565,7 @@ class AppDashboardData():
             user_info.is_user_cloud_admin = is_user_cloud_admin
             user_info.can_upload_apps = can_upload_apps
             user_info.owned_apps = owned_apps
+            user_info.dash_layout_settings = dash_layout_settings
             users_to_update.append(user_info)
 
           # Either way, add the user's info to the list of all user's info.
@@ -572,6 +575,7 @@ class AppDashboardData():
           user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
           user_info.can_upload_apps = self.helper.can_upload_apps(email)
           user_info.owned_apps = self.helper.get_owned_apps(email)
+          user_info.dash_layout_settings = self.get_dash_layout_settings(email)
           users_to_update.append(user_info)
           user_list.append(user_info)
       ndb.put_multi(users_to_update)
@@ -647,3 +651,65 @@ class AppDashboardData():
     except Exception as err:
       logging.exception(err)
       return False
+
+  def get_dash_layout_settings(self, email=None):
+    """ Queries the UserAppServer to see what settings the user has saved
+    for customizing the UI of the Dashboard
+
+    Returns:
+      A JSON string describing the customization layout
+    """
+    default_dash_layout = '''
+        {"nav" :
+              {"App Management":{"True":
+                {"Upload App":"/apps/new",
+                "Delete App":"/apps/delete"}},
+              "AppScale Management":{"True":
+                {"Cloud Status":"/status/cloud",
+                "Manage Users":"/authorize"}},
+              "Debugging/Monitoring":{"True":
+                {"Monit":"temp1",
+                "TaskQueue":"temp2",
+                "Logging":"/logs"}}}
+            ,
+            "panel" :
+              {"Database":"apps/database",
+              "Cloud Status":"status/cloud",
+              "Memcache":"apps/memcache"}
+            }
+          '''
+    #eventually will be put in default_dash_layout, currently items are set to True you don't have to be logged in
+    temp_dash ='''
+        {"nav" :
+              {"App Management":{"'''+ str(self.helper.can_upload_apps())+ '''":
+                {"Upload App":"/apps/new",
+                "Delete App":"/apps/delete"}},
+              "AppScale Management":{"'''+str(self.helper.is_user_cloud_admin())+'''":
+                {"Cloud Status":"/status/cloud",
+                "Manage Users":"/authorize"}},
+              "Debugging/Monitoring":{"'''+str(self.helper.get_owned_apps() or self.helper.is_user_cloud_admin())+'''":
+                {"Monit":"'''+self.get_monit_url()+'''",
+                "TaskQueue":"'''+self.get_flower_url()+'''",
+                "Logging":"/logs"}}}
+            ,
+            "panel" :
+              {"Database":"apps/database",
+              "Cloud Status":"status/cloud",
+              "Memcache":"apps/memcache"}
+            }
+          '''
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return default_dash_layout
+      email = user.email()
+    try:
+      user_info = self.get_by_id(UserInfo, email)
+      if user_info:
+        #for right now make everything use default
+        user_info.dash_layout_settings = default_dash_layout
+        dash_layout_json = user_info.dash_layout_settings
+      return dash_layout_json
+    except Exception as err:
+      logging.exception(err)
+      return default_dash_layout
