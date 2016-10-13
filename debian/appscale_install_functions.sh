@@ -37,6 +37,11 @@ APPSCALE_MR_BRANCH="appscale-compatible-mapreduce"
 APPSCALE_PL_BRANCH="appscale-compatible-pipeline"
 APPSCALE_GCS_BRANCH="appscale-compatible-gcs"
 
+# Current versions of the supported external libraries.
+GCS_VERSION="0.6"
+MAPREDUCE_VERSION="0.8.5"
+PIPELINE_VERSION="0.2.13"
+
 pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
