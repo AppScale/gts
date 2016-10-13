@@ -171,7 +171,6 @@ class AppDashboardData():
         AppDashboardHelper to talk to the AppController.
     """
     self.helper = helper or AppDashboardHelper()
-    self.lookup_dict = self.build_dict()
 
   def build_dict(self):
     LOOKUP_DICT = {}
@@ -706,18 +705,18 @@ class AppDashboardData():
     Returns:
       A JSON string describing the customization layout
     """
-
+    LOOKUP_DICT = self.build_dict()
     #base admin template
     default_dash_layout ='''{
         "nav":["app_management","appscale_management","debugging_monitoring"],
         "panel":["cloud_stats","database_stats","memcache_stats"]
         }'''
     temp_dict = json.loads(default_dash_layout)
-    temp_dict['nav'][:] = [self.lookup_dict.get(str(key))[1] for key in
+    temp_dict['nav'][:] = [LOOKUP_DICT.get(str(key))[1] for key in
                            temp_dict['nav'] if
-                           self.lookup_dict.get(str(key))[0] == "True"]
+                           LOOKUP_DICT.get(str(key))[0] == "True"]
 
-    temp_dict['panel'][:] = [self.lookup_dict.get(str(key)) for key in
+    temp_dict['panel'][:] = [LOOKUP_DICT.get(str(key)) for key in
                              temp_dict['panel']]
     return temp_dict
     #TODO: retrieve user stored settings
