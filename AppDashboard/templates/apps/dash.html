@@ -25,13 +25,13 @@
                 <div id="dash-panels" class="panel-group sortable">
                 <!--Begin getting correct panels-->
                 {% set panel_count=1 %}
-                    {% for title, panel in user_layout_pref.panel.items() %}
-                        <!--tell child template which app to get-->
-                        {% set page_content=panel+".html"%}
+                {% for panel in user_layout_pref.panel%}
+                    {% for title, page_content in panel.items() %}
                         <!--call panel.html as child template-->
                         {% include "layouts/panel.html" %}
                         {% set panel_count=panel_count+1 %}
                     {% endfor %}
+                {% endfor %}
                 </div>
             {% endif %} <!-- end of admin only boxes -->
         </div><!--End .row-fluid-->

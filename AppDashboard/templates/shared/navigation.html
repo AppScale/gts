@@ -50,31 +50,29 @@
                     <div class="panel-group sortable" style="overflow:auto;width:100%;">
                     {%set navigation_dict = user_layout_pref['nav'] %}
                     {% set count=1 %}
-                    {% for main_list_title, sublist in navigation_dict.items() %}
-                        {% for permission_val, title in sublist.items() %}
-                            {% if permission_val == "True" %}
-                                <div id="lists" class="panel panel-default">
-                                    <span class="glyphicon glyphicon-option-horizontal"></span>
-                                    <button class="btn nav-heading-button" data-toggle="collapse"
-                                            data-target="#collapse{{ count }}">{{ main_list_title }}</button>
-                                    <div>
-                                        <div id="collapse{{ count }}" class="in">
-                                            <ul class="list-group">
-                                                {% for list_title, link in title.items() %}
-                                                    <li align="center" class="list-group-item container">
-                                                        <div class="btn-group">
-                                                            <a class="btn btn-info" href="{{link}}"
-                                                               style="width:85%;">{{ list_title }}</a>
-                                                            <a href="#" class="btn btn-info add-panel" style="width:15%;">
-                                                                &#x2b;</a>
-                                                        </div>
-                                                    </li>
-                                                {% endfor %}
-                                            </ul>
-                                        </div>
+                    {% for menu in user_layout_pref.nav %}
+                        {% for menu_heading, submenu in menu.items() %}
+                            <div id="lists" class="panel panel-default">
+                                <span class="glyphicon glyphicon-option-horizontal"></span>
+                                <button class="btn nav-heading-button" data-toggle="collapse"
+                                        data-target="#collapse{{ count }}">{{ menu_heading }}</button>
+                                <div>
+                                    <div id="collapse{{ count }}" class="in">
+                                        <ul class="list-group">
+                                            {% for menu_item, link in submenu.items() %}
+                                                <li align="center" class="list-group-item container">
+                                                    <div class="btn-group">
+                                                        <a class="btn btn-info" href="{{link}}"
+                                                           style="width:85%;">{{ menu_item }}</a>
+                                                        <a href="#" class="btn btn-info add-panel" style="width:15%;">
+                                                            &#x2b;</a>
+                                                    </div>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
                                     </div>
                                 </div>
-                            {% endif %}
+                            </div>
                         {% endfor %}
                         {% set count=count+1 %}
                     {% endfor %}

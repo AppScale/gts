@@ -3,6 +3,7 @@
 
 import logging
 import sys
+import json
 from google.appengine.ext import ndb
 from google.appengine.api import users
 from app_dashboard_helper import AppDashboardHelper
@@ -104,6 +105,7 @@ class UserInfo(ndb.Model):
   can_upload_apps = ndb.BooleanProperty()
   owned_apps = ndb.StringProperty(repeated=True)
   timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
+  dash_layout_settings = ndb.TextProperty()
 
 
 class InstanceInfo(ndb.Model):
@@ -169,7 +171,49 @@ class AppDashboardData():
         AppDashboardHelper to talk to the AppController.
     """
     self.helper = helper or AppDashboardHelper()
+    self.lookup_dict = self.build_dict()
 
+  def build_dict(self):
+    LOOKUP_DICT = {}
+    LOOKUP_DICT['app_management'] = [self.helper.can_upload_apps(),
+                   {"App Management":
+                    {"Upload App": "/apps/new",
+                     "Delete App": "/apps/delete"}}]
+    #TODO: remove, used temporarily so user does not have to log in
+    LOOKUP_DICT['app_management'] = ["True",
+                   {"App Management":
+                    {"Upload App": "/apps/new",
+                     "Delete App": "/apps/delete"}}]
+    LOOKUP_DICT['appscale_management'] = [self.helper.is_user_cloud_admin(),
+                    {"AppScale Management":
+                        {"Cloud Status": "/status/cloud",
+                      "Manage Users": "/authorize"}}]
+    #TODO: remove, used temporarily so user does not have to log in
+    LOOKUP_DICT['appscale_management'] = ["True",
+                    {"AppScale Management":
+                        {"Cloud Status": "/status/cloud",
+                      "Manage Users": "/authorize"}}]
+    LOOKUP_DICT['debugging_monitoring'] = [self.helper.get_owned_apps() or
+                                           self.helper.is_user_cloud_admin(),
+                    {"Debugging/Monitoring":{
+                      "Monit":self.get_monit_url(),
+                      "TaskQueue":self.get_flower_url(),
+                      "Logging":"/logs"}}]
+    #TODO: remove, used temporarily so user does not have to log in
+    LOOKUP_DICT['debugging_monitoring'] = ["True",
+                    {"Debugging/Monitoring":
+                      {"Monit":self.get_monit_url(),
+                      "TaskQueue":self.get_flower_url(),
+                      "Logging":"/logs"}}]
+    LOOKUP_DICT['cloud_stats'] = {"Cloud Status":"status/cloud.html"}
+    LOOKUP_DICT['database_stats'] = {"Database":"apps/database.html"}
+    LOOKUP_DICT['memcache_stats'] = {"Memcache":"apps/memcache.html"}
+    LOOKUP_DICT['upload_app'] = {"Upload App":"apps/new.html"}
+    LOOKUP_DICT['delete_app'] = {"Delete App":"apps/delete.html"}
+    LOOKUP_DICT['manage_users'] = {"Manage Users":"authorize/cloud.html"}
+    LOOKUP_DICT['logging'] = {"Logs":"logs/main.html"}
+    print(LOOKUP_DICT)
+    return LOOKUP_DICT
 
   def get_by_id(self, model, key_name):
     """ Retrieves an object from the datastore, referenced by its keyname.
@@ -662,50 +706,21 @@ class AppDashboardData():
     Returns:
       A JSON string describing the customization layout
     """
-    default_dash_layout = '''
-        {"nav" :
-              {"App Management":{"True":
-                {"Upload App":"/apps/new",
-                "Delete App":"/apps/delete"}},
-              "AppScale Management":{"True":
-                {"Cloud Status":"/status/cloud",
-                "Manage Users":"/authorize"}},
-              "Debugging/Monitoring":{"True":
-                {"Monit":"temp1",
-                "TaskQueue":"temp2",
-                "Logging":"/logs"}}}
-            ,
-            "panel" :
-              {"Database":"apps/database",
-              "Cloud Status":"status/cloud",
-              "Memcache":"apps/memcache"}
-            }
-          '''
-    #eventually will be put in default_dash_layout,
-    # currently items are set to True you don't have to be logged in
-    temp_dash ='''
-        {"nav" :
-              {"App Management":{"'''+ \
-               str(self.helper.can_upload_apps())+ '''":
-                {"Upload App":"/apps/new",
-                "Delete App":"/apps/delete"}},
-              "AppScale Management":{"'''+\
-               str(self.helper.is_user_cloud_admin())+'''":
-                {"Cloud Status":"/status/cloud",
-                "Manage Users":"/authorize"}},
-              "Debugging/Monitoring":{"'''+\
-               str(self.helper.get_owned_apps() or
-                   self.helper.is_user_cloud_admin())+'''":
-                {"Monit":"'''+self.get_monit_url()+'''",
-                "TaskQueue":"'''+self.get_flower_url()+'''",
-                "Logging":"/logs"}}}
-            ,
-            "panel" :
-              {"Database":"apps/database",
-              "Cloud Status":"status/cloud",
-              "Memcache":"apps/memcache"}
-            }
-          '''
+
+    #base admin template
+    default_dash_layout ='''{
+        "nav":["app_management","appscale_management","debugging_monitoring"],
+        "panel":["cloud_stats","database_stats","memcache_stats"]
+        }'''
+    temp_dict = json.loads(default_dash_layout)
+    temp_dict['nav'][:] = [self.lookup_dict.get(str(key))[1] for key in
+                           temp_dict['nav'] if
+                           self.lookup_dict.get(str(key))[0] == "True"]
+
+    temp_dict['panel'][:] = [self.lookup_dict.get(str(key)) for key in
+                             temp_dict['panel']]
+    return temp_dict
+    #TODO: retrieve user stored settings
     if email is None:
       user = users.get_current_user()
       if not user:
