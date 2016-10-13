@@ -29,6 +29,13 @@ export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale versio
 
 PACKAGE_CACHE="/var/cache/appscale"
 
+# Default values for repositories.
+APPSCALE_MAPREDUCE="https://github.com/AppScale/appengine-mapreduce.git"
+APPSCALE_PIPELINE="https://github.com/AppScale/appengine-pipelines.git"
+APPSCALE_GCS_CLIENT="https://github.com/AppScale/appengine-gcs-client.git"
+APPSCALE_MR_BRANCH="appscale-compatible-mapreduce"
+APPSCALE_PL_BRANCH="appscale-compatible-pipeline"
+APPSCALE_GCS_BRANCH="appscale-compatible-gcs"
 
 pipwrapper ()
 {
@@ -572,4 +579,74 @@ upgradepip()
             hash -r
             ;;
     esac
+}
+
+buildmapreduce()
+{
+    # This function compiles the AppScale compatible MapReduce, Pipeline and GCS client libraries, builds the
+    # jars and places them under appscale/ext/java.
+
+    # Clone the AppScale repositories for the libaries.
+    git clone -b ${APPSCALE_GCS_BRANCH} ${APPSCALE_GCS_CLIENT} appscale-gcs-client
+    git clone -b ${APPSCALE_PL_BRANCH} ${APPSCALE_PIPELINE} appscale-pipeline
+    git clone -b ${APPSCALE_MR_BRANCH} ${APPSCALE_MAPREDUCE} appscale-mapreduce
+    echo -n "Building AppScale Google Cloud Storage Client jar ..."
+    if ! (cd appscale-gcs-client/java; mvn compile; cd target/classes; jar -cvf appscale-gcs-client-0.6.jar com/*); then
+        echo "GCS client compilation and jar creation failed!"
+        exit 1
+    fi
+
+    mkdir -p /root/appscale/ext/java/
+
+    # Copy the compiled gcs-client jar which is a dependency for the Pipeline and MapReduce library.
+    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-0.6.jar appscale-pipeline/java/
+    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-0.6.jar appscale-mapreduce/java/
+    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-0.6.jar /root/appscale/ext/java/
+
+    # Maven install includes the local pre-compiled gcs-client as the dependency for the Pipeline library.
+    echo -n "Building AppScale Pipeline jar ..."
+    if ! (cd appscale-pipeline/java; mvn install:install-file -Dfile=appscale-gcs-client-0.6.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=0.6 -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
+        echo "Failed to add GCS client jar as a dependency for Pipeline!"
+        exit 1
+    fi
+
+    if ! (cd appscale-pipeline/java; mvn compile); then
+        echo "Maven failed to compile the Pipeline library!"
+        exit 1
+    fi
+
+    if ! (cd appscale-pipeline/java/target/classes; jar -cvf appscale-pipeline-0.2.13.jar com/*); then
+        echo "Failed to create the Pipeline jar!"
+        exit 1
+    fi
+
+    # Copy the compiled pipeline jar which is a dependency for the MapReduce library.
+    cp appscale-pipeline/java/target/classes/appscale-pipeline-0.2.13.jar appscale-mapreduce/java/
+    cp appscale-pipeline/java/target/classes/appscale-pipeline-0.2.13.jar /root/appscale/ext/java/
+
+    # Maven install includes the local pre-compiled gcs-client and pipeline jars as the dependency for the
+    # MapReduce library.
+    echo -n "Building AppScale MapReduce jar ..."
+    if ! (cd appscale-mapreduce/java; mvn install:install-file -Dfile=appscale-gcs-client-0.6.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=0.6 -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
+        echo "Failed to add GCS client jar as a dependency for MapReduce!"
+        exit 1
+    fi
+
+    if ! (cd appscale-mapreduce/java; mvn install:install-file -Dfile=appscale-pipeline-0.2.13.jar -DgroupId=appscale-pipeline-sdk -DartifactId=appscale-pipeline -Dversion=0.2.13 -Dpackaging=jar -DlocalRepositoryPath=pipeline-lib/); then
+        echo "Failed to add Pipeline jar as a dependency for MapReduce!"
+        exit 1
+    fi
+
+    if ! (cd appscale-mapreduce/java; mvn compile); then
+        echo "Maven failed to compile the MapReduce library!"
+        exit 1
+    fi
+
+    if ! (cd appscale-mapreduce/java/target/classes; jar -cvf appscale-mapreduce-0.8.5.jar com/*); then
+        echo "Failed to create the MapReduce jar! "
+        exit 1
+    fi
+
+    cp appscale-mapreduce/java/target/classes/appscale-mapreduce-0.8.5.jar /root/appscale/ext/java/
+    rm -r appscale-mapreduce/ appscale-gcs-client/ appscale-pipeline/
 }

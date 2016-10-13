@@ -631,6 +631,12 @@ def remove_conflicting_jars(app_name):
     "/appengine-jsr107cache-*.jar", shell=True)
   subprocess.call("rm -f " + lib_dir + \
     "/jsr107cache-*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-mapreduce*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-pipeline*.jar", shell=True)
+  subprocess.call("rm -f " + lib_dir + \
+    "/appengine-gcs-client*.jar", shell=True)
 
 
 def copy_modified_jars(app_name):
@@ -673,6 +679,26 @@ def copy_modified_jars(app_name):
     logging.error("Failed to copy email jars to lib directory of " + app_name)
     return False
 
+  cp_mr_jar = subprocess.call("cp " + appscale_home + "/ext/java/" +\
+    "appscale-mapreduce-0.8.5.jar " + lib_dir, shell=True)
+
+  if cp_mr_jar != 0:
+    logging.error("Failed to copy mapreduce jars to lib directory of " + app_name)
+    return False
+
+  cp_pl_jar = subprocess.call("cp " + appscale_home + "/ext/java/" + \
+    "appscale-pipeline-0.2.13.jar " + lib_dir, shell=True)
+
+  if cp_pl_jar != 0:
+    logging.error("Failed to copy pipeline jars to lib directory of " + app_name)
+    return False
+
+  cp_gcs_jar = subprocess.call("cp " + appscale_home + "/ext/java/" + \
+    "appscale-gcs-client-0.6.jar " + lib_dir, shell=True)
+
+  if cp_gcs_jar != 0:
+    logging.error("Failed to copy gcs client jars to lib directory of " + app_name)
+    return False
   return True
 
 def create_java_start_cmd(app_name, port, load_balancer_host):
