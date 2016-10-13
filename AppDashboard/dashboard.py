@@ -1162,6 +1162,14 @@ class RunGroomer(AppDashboard):
       'result' : self.helper.run_groomer()
     }))
 
+class AjaxRenderPanel(AppDashboard):
+  """ Class that dynamically updates Kind statistics in the Datastore. """
+
+  def post(self):
+    """ Calls render_template to return the correct panel """
+    page_content = self.request.get('page_content')
+    self.response.out.write(self.render_template(template_file='layouts/panel.html',
+      values={'page_content': page_content}))
 
 # Main Dispatcher
 dashboard_pages = [
@@ -1193,7 +1201,8 @@ dashboard_pages = [
   ('/logs/(.+)', LogServicePage),
   ('/gather-logs', LogDownloader),
   ('/groomer', RunGroomer),
-  ('/change-password', ChangePasswordPage)
+  ('/change-password', ChangePasswordPage),
+  ('/ajax/render/panel', AjaxRenderPanel)
 ]
 
 if AppDashboardHelper.USE_SHIBBOLETH:
