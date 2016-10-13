@@ -123,7 +123,8 @@ class AppDashboard(webapp2.RequestHandler):
       'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
       'can_upload_apps': self.dstore.can_upload_apps(),
       'apps_user_is_admin_on': owned_apps,
-      'user_layout_pref': json.loads(self.dstore.get_dash_layout_settings(), object_pairs_hook=OrderedDict),
+      'user_layout_pref': json.loads(self.dstore.get_dash_layout_settings(),
+                                     object_pairs_hook=OrderedDict),
       'flower_url': self.dstore.get_flower_url(),
       'monit_url': self.dstore.get_monit_url()
     }
