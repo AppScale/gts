@@ -194,6 +194,7 @@ class DashPage(AppDashboard):
       'apps' : self.dstore.get_application_info(),
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
+
 class DashRefreshPage(AppDashboard):
   """ Class to handle requests to the /status/refresh page. """
 
