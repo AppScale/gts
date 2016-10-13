@@ -655,6 +655,10 @@ class AppDashboardData():
     """ Queries the UserAppServer to see what settings the user has saved
     for customizing the UI of the Dashboard.
 
+    Args:
+      email: A str that indicates the e-mail address of the administrator of
+        this application, or None if the currently logged-in user is the admin.
+
     Returns:
       A JSON string describing the customization layout
     """
