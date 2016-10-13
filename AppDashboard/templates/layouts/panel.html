@@ -6,17 +6,24 @@
         </h4>
 
     </div>
-    <div id="panel-collapse{{ panel_count }}" class="panel-collapse collapse in" style="height: 0px;">
+    <div id="panel-collapse{{ panel_count }}" class="panel-collapse collapse in">
         <div class="panel-body">
             <div class="content">
                 {% include page_content %}
                 <script type="text/javascript">
                     //take the classes from the template file's icon span to put into the panel title span
-                    $("#panel{{ panel_count }} .panel-title .icon16").attr("class",($("#panel-collapse{{ panel_count }} .title .icon16").attr("class")));
+                    $("#panel{{ panel_count }} .panel-title .icon16")
+                            .attr("class",($("#panel-collapse{{ panel_count }} .title .icon16").attr("class")));
                     //take the title from the template file's title span to put into the panel title
-                    $("#panel{{ panel_count }} .panel-title a").html($("#panel-collapse{{ panel_count }} #title").html());
+                    $("#panel{{ panel_count }} .panel-title a")
+                            .html($("#panel-collapse{{ panel_count }} #title").html());
+                    $("#panel{{ panel_count }} .panel-title a")
+                            .html($("#panel-collapse{{ panel_count }} .page-header h1").html());
+
                     //get rid of original title so there are not double titles
                     $("#panel-collapse{{ panel_count }} .title").html("");
+                    $("#panel-collapse{{ panel_count }} .heading").html("");
+                    $("#panel-collapse{{ panel_count }} .page-header").html("");
                 </script>
             </div>
 
