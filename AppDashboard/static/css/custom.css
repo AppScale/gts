@@ -1925,13 +1925,18 @@ footer {
     padding: 4px;
     float:right;
     width: 10%;
-}.mainnav li a{
+}
+.mainnav li a{
 	width:85%;
 	float:left;
 }
 .panel-group {
     overflow:auto;
 }
-li .btn-group {
+li .btn-group, .nav-heading-button {
   width:100%;
+}
+.ui-state-highlight {
+  height:2em;
+  line-height:1.5em;
 }
