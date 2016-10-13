@@ -893,6 +893,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
         else{
           liveQuery.setCompiledCursor(queryResult.getCompiledCursor());
+          queryResult.setCursor(request.getCursor());
         }
         return queryResult;
     }
