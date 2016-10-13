@@ -653,7 +653,7 @@ class AppDashboardData():
 
   def get_dash_layout_settings(self, email=None):
     """ Queries the UserAppServer to see what settings the user has saved
-    for customizing the UI of the Dashboard
+    for customizing the UI of the Dashboard.
 
     Returns:
       A JSON string describing the customization layout
@@ -677,16 +677,21 @@ class AppDashboardData():
               "Memcache":"apps/memcache"}
             }
           '''
-    #eventually will be put in default_dash_layout, currently items are set to True you don't have to be logged in
+    #eventually will be put in default_dash_layout,
+    # currently items are set to True you don't have to be logged in
     temp_dash ='''
         {"nav" :
-              {"App Management":{"'''+ str(self.helper.can_upload_apps())+ '''":
+              {"App Management":{"'''+ \
+               str(self.helper.can_upload_apps())+ '''":
                 {"Upload App":"/apps/new",
                 "Delete App":"/apps/delete"}},
-              "AppScale Management":{"'''+str(self.helper.is_user_cloud_admin())+'''":
+              "AppScale Management":{"'''+\
+               str(self.helper.is_user_cloud_admin())+'''":
                 {"Cloud Status":"/status/cloud",
                 "Manage Users":"/authorize"}},
-              "Debugging/Monitoring":{"'''+str(self.helper.get_owned_apps() or self.helper.is_user_cloud_admin())+'''":
+              "Debugging/Monitoring":{"'''+\
+               str(self.helper.get_owned_apps() or
+                   self.helper.is_user_cloud_admin())+'''":
                 {"Monit":"'''+self.get_monit_url()+'''",
                 "TaskQueue":"'''+self.get_flower_url()+'''",
                 "Logging":"/logs"}}}
