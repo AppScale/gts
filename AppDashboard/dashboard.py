@@ -154,6 +154,9 @@ class AppDashboard(webapp2.RequestHandler):
         shared_navigation=self.get_shared_navigation()
         ))
 
+  def render_app_page(self, page, values=None):
+    self.render_page(page=page, template_file="layouts/app_page.html",
+                values=values)
 
 class IndexPage(AppDashboard):
   """ Class to handle requests to the / page. """
@@ -222,8 +225,7 @@ class StatusPage(AppDashboard):
   ALIAS = '/status/cloud'
 
   # The template to use for the status page.
-  TEMPLATE = 'layouts/app_page.html'
-  CONTENT = 'status/cloud.html'
+  TEMPLATE = 'status/cloud.html'
 
   def get(self):
     """ Handler for GET requests. """ 
@@ -231,17 +233,17 @@ class StatusPage(AppDashboard):
     if self.request.get('forcerefresh'):
       self.dstore.update_all()
 
-    self.render_page(page='status', template_file=self.TEMPLATE, values={
+    self.render_app_page(page='status', values={
       'server_info' : self.dstore.get_status_info(),
       'dbinfo' : self.dstore.get_database_info(),
       'apps' : self.dstore.get_application_info(),
       'monitoring_url' : self.dstore.get_monitoring_url(),
-      'page_content' : self.CONTENT,
+      'page_content' : self.TEMPLATE,
     })
 
 
 class StatusAsJSONPage(webapp2.RequestHandler):
-  """ A class that exposes the same information as StatusPage, but via JSON
+  """ A class that exposes the same information as DashPage, but via JSON
   instead of raw HTML. """
 
 
@@ -317,7 +319,7 @@ class NewUserPage(AppDashboard):
     err_msgs = self.parse_new_user_post()
     try:
       if self.process_new_user_post(err_msgs):
-        self.redirect(StatusPage.PATH, self.response)
+        self.redirect(DashPage.PATH, self.response)
         return
     except AppHelperException as err:
       err_msgs['email'] = str(err)
@@ -328,9 +330,10 @@ class NewUserPage(AppDashboard):
     users['password_confirmation'] = cgi.escape(
       self.request.get('user_password_confirmation'))
 
-    self.render_page(page='users', template_file=self.TEMPLATE, values={
+    self.render_app_page(page='users', values={
         'user' : users,
         'error_message_content' : err_msgs,
+        'page_content' : self.TEMPLATE,
         })
 
 
@@ -363,7 +366,7 @@ class LoginVerify(AppDashboard):
       if AppDashboardHelper.USE_SHIBBOLETH:
         self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
       else:
-        self.redirect(StatusPage.PATH, self.response)
+        self.redirect(DashPage.PATH, self.response)
 
 
   def get(self):
@@ -394,7 +397,7 @@ class LogoutPage(AppDashboard):
       if AppDashboardHelper.USE_SHIBBOLETH:
         self.redirect(AppDashboardHelper.SHIBBOLETH_CONNECTOR, self.response)
       else:
-        self.redirect(StatusPage.PATH, self.response)
+        self.redirect(DashPage.PATH, self.response)
 
 
 class LoginPage(AppDashboard):
@@ -539,26 +542,30 @@ class AuthorizePage(AppDashboard):
         taskqueue.add(url='/status/refresh')
       except Exception as err:
         logging.exception(err)
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='authorize', values={
         'flash_message' : self.parse_update_user_permissions(),
         'user_perm_list' : self.helper.list_all_users_permissions(),
+        'page_content' : self.TEMPLATE,
         })
     else:
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='authorize', values={
         'flash_message':"Only the cloud administrator can change permissions.",
         'user_perm_list':{},
+        'page_content' : self.TEMPLATE,
         })
 
   def get(self):
     """ Handler for GET requests. """
     if self.dstore.is_user_cloud_admin():
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='authorize', values={
         'user_perm_list' : self.helper.list_all_users_permissions(),
+        'page_content' : self.TEMPLATE,
       })
     else:
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='authorize', values={
         'flash_message':"Only the cloud administrator can change permissions.",
         'user_perm_list':{},
+        'page_content' : self.TEMPLATE,
         })
 
 
@@ -586,22 +593,25 @@ class ChangePasswordPage(AppDashboard):
     else:
       error_flash_message = message
 
-    self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+    self.render_app_page(page='authorize', values={
       'flash_message':flash_message,
       'error_flash_message':error_flash_message,
       'user_perm_list' : self.helper.list_all_users_permissions(),
+      'page_content' : self.TEMPLATE,
       })
 
   def get(self):
     """ Handler for GET requests. """
     if self.dstore.is_user_cloud_admin():
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='authorize', values={
         'user_perm_list' : self.helper.list_all_users_permissions(),
+      'page_content' : self.TEMPLATE,
       })
     else:
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='authorize', values={
         'flash_message':"Only the cloud administrator can change permissions.",
         'user_perm_list':{},
+        'page_content' : self.TEMPLATE,
         })
 
 
@@ -618,9 +628,10 @@ class AppUploadPage(AppDashboard):
     if not self.request.POST.multi or \
       'app_file_data' not in self.request.POST.multi or \
       not hasattr(self.request.POST.multi['app_file_data'], 'file'):
-      self.render_page(page='apps', template_file=self.TEMPLATE, values={
+      self.render_app_page(page='apps', values={
           'error_message' : 'You must specify a file to upload.',
-          'success_message' : ''
+          'success_message' : '',
+          'page_content' : self.TEMPLATE,
         })
       return
 
@@ -640,14 +651,17 @@ class AppUploadPage(AppDashboard):
           logging.exception(err)
     else:
       err_msg = "You are not authorized to upload apps."
-    self.render_page(page='apps', template_file=self.TEMPLATE, values={
+    self.render_app_page(page='apps', values={
         'error_message' : err_msg,
-        'success_message' : success_msg
+        'success_message' : success_msg,
+        'page_content' : self.TEMPLATE,
       })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='apps', template_file=self.TEMPLATE)
+    self.render_app_page(page='apps', values={
+          'page_content' : self.TEMPLATE,
+      })
 
 
 class AppDeletePage(AppDashboard):
@@ -689,15 +703,17 @@ class AppDeletePage(AppDashboard):
     else:
       message = "You do not have permission to delete the application: " \
         "{0}".format(appname)
-    self.render_page(page='apps', template_file=self.TEMPLATE, values={
+    self.render_app_page(page='apps', values={
       'flash_message' : message,
       'apps' : self.get_app_list(),
+      'page_content' : self.TEMPLATE,
       })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='apps', template_file=self.TEMPLATE, values={
+    self.render_app_page(page='apps', values={
       'apps' : self.get_app_list(),
+      'page_content' : self.TEMPLATE,
     })
 
 
@@ -743,7 +759,7 @@ class LogMainPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (not apps_user_is_admin_on):
-      self.redirect(StatusPage.PATH, self.response)
+      self.redirect(DashPage.PATH, self.response)
 
     query = ndb.gql('SELECT * FROM LoggedService')
     all_services = []
@@ -756,8 +772,9 @@ class LogMainPage(AppDashboard):
       if is_cloud_admin or service in apps_user_is_admin_on:
         permitted_services.append(service)
 
-    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
-      'services' : permitted_services
+    self.render_app_page(page='logs', values = {
+      'services' : permitted_services,
+      'page_content' : self.TEMPLATE,
     })
 
 
@@ -772,7 +789,7 @@ class LogServicePage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect(StatusPage.PATH, self.response)
+      self.redirect(DashPage.PATH, self.response)
 
     service = LoggedService.get_by_id(service_name)
     if service:
@@ -782,7 +799,7 @@ class LogServicePage(AppDashboard):
       exists = False
       hosts = []
 
-    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+    self.render_app_page(page='logs', values = {
       'exists' : exists,
       'service_name' : service_name,
       'hosts' : hosts
@@ -807,7 +824,7 @@ class LogServiceHostPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
-      self.redirect(StatusPage.PATH, self.response)
+      self.redirect(DashPage.PATH, self.response)
 
     encoded_cursor = self.request.get('next_cursor')
     if encoded_cursor and encoded_cursor != "None":
@@ -830,12 +847,13 @@ class LogServiceHostPage(AppDashboard):
     else:
       cursor_value = None
 
-    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+    self.render_app_page(page='logs', values = {
       'service_name' : service_name,
       'host' : host,
       'query' : query,
       'next_cursor' : cursor_value,
-      'is_more' : is_more
+      'is_more' : is_more,
+      'page_content' : self.TEMPLATE,
     })
 
 
@@ -914,12 +932,13 @@ class LogDownloader(AppDashboard):
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if not is_cloud_admin:
-      self.redirect(StatusPage.PATH)
+      self.redirect(DashPage.PATH)
 
     success, uuid = self.helper.gather_logs()
-    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+    self.render_app_page(page='logs', values = {
       'success' : success,
-      'uuid' : uuid
+      'uuid' : uuid,
+      'page_content' : self.TEMPLATE,
     })
 
 
@@ -935,8 +954,9 @@ class AppConsolePage(AppDashboard):
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
-    self.render_page(page='console', template_file=self.TEMPLATE, values = {
-      'all_apps_this_user_owns' : apps_user_is_admin_on
+    self.render_app_page(page='console', values = {
+      'all_apps_this_user_owns' : apps_user_is_admin_on,
+      'page_content' : self.TEMPLATE,
     })
 
 
@@ -1130,10 +1150,10 @@ class StatsPage(AppDashboard):
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
     if not apps_user_is_admin_on:
-      self.redirect(StatusPage.PATH, self.response)
+      self.redirect(DashPage.PATH, self.response)
 
     if app_id not in apps_user_is_admin_on:
-      self.redirect(StatusPage.PATH, self.response)
+      self.redirect(DashPage.PATH, self.response)
 
     instance_info = InstanceStats.fetch_request_info(app_id)
 
@@ -1143,11 +1163,12 @@ class StatsPage(AppDashboard):
     else:
       url = None
 
-    self.render_page(page='stats', template_file=self.TEMPLATE, values = {
+    self.render_app_page(page='stats', values = {
       'appid' : app_id,
       'all_apps_this_user_owns' : apps_user_is_admin_on,
       'instance_info' : instance_info,
-      'app_url' : url
+      'app_url' : url,
+      'page_content' : self.TEMPLATE,
     })
 
 
