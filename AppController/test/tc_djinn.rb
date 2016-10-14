@@ -720,7 +720,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(YAML).should_receive(:load_file).with(app_yaml).
       and_return({})
 
-    nginx_conf = "/etc/nginx/sites-enabled/booapp.conf"
+    nginx_conf = "/etc/nginx/sites-enabled/appscale-booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
     flexmock(Nginx).should_receive(:start).and_return()
     flexmock(Nginx).should_receive(:is_running?).and_return(true)

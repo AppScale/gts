@@ -104,8 +104,8 @@ server {
 }
 "
 
-if [ -e /etc/nginx/sites-enabled/${APP_ID}.conf ]; then
-        echo "$config" > /etc/nginx/sites-enabled/${APP_ID}_datastore_viewer.conf
+if [ -e /etc/nginx/sites-enabled/appscale-${APP_ID}.conf ]; then
+        echo "$config" > /etc/nginx/sites-enabled/appscale-${APP_ID}_datastore_viewer.conf
         service nginx reload
         echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $IP."
         if [ "$NO_OF_IP_LINES" != "2" ]; then
