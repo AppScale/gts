@@ -7,7 +7,9 @@ $(document).ready(function(){
         $.ajax({
             method: "post",
             url:"/ajax/render/panel",
-            data:{page_content:$(this).siblings("a").first().attr("href")+".html"},
+            data:{
+                page_content:$(this).siblings("a").first().attr("href")+".html",
+                key_val:$(this).attr("data-target")},
             success: function(result) {
                 $("#dash-panels").append(result);
             }

@@ -1166,9 +1166,11 @@ class AjaxRenderPanel(AppDashboard):
 
   def post(self):
     """ Calls render_template to return the correct panel """
-    page_content = self.request.get('page_content')
-    self.response.out.write(self.render_template(template_file='layouts/panel.html',
-      values={'page_content': page_content}))
+    key_val = self.request.get('key_val')
+    self.response.out.write(self.render_template(
+      template_file='layouts/panel.html',
+      values={'page_info':self.dstore.build_dict()[key_val],
+              'id':key_val}))
 
 # Main Dispatcher
 dashboard_pages = [
