@@ -623,12 +623,12 @@ def remove_conflicting_jars(app_name):
     logging.warn("Lib directory not found in app code while updating.")
     return
   logging.info("Removing jars from {0}".format(lib_dir))
-  file_pattern = ['appengine-api-1.0-sdk-*.jar', 'appengine-api-stubs-*.jar',
+  conflicting_jars_pattern = ['appengine-api-1.0-sdk-*.jar', 'appengine-api-stubs-*.jar',
                   'appengine-api-labs-*.jar', 'appengine-jsr107cache-*.jar',
                   'jsr107cache-*.jar', 'appengine-mapreduce*.jar',
                   'appengine-pipeline*.jar', 'appengine-gcs-client*.jar']
   for file in os.listdir(lib_dir):
-    for pattern in file_pattern:
+    for pattern in conflicting_jars_pattern:
       if fnmatch.fnmatch(file, pattern):
         os.remove(lib_dir + os.sep + file)
 
@@ -658,18 +658,18 @@ def copy_modified_jars(app_name):
         format(web_inf_dir))
       return False
   try:
-    shutil_copy(appscale_home + "/AppServer_Java/" +\
+    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
                 "appengine-java-sdk-repacked/lib/user/*.jar", lib_dir)
-    shutil_copy(appscale_home + "/AppServer_Java/" +\
+    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
                 "appengine-java-sdk-repacked/lib/impl/appscale-*.jar", lib_dir)
-    shutil_copy(appscale_home + "/ext/java/*", lib_dir)
+    copy_files_matching_pattern(appscale_home + "/ext/java/*", lib_dir)
   except IOError as io_error:
     logging.error("Failed to copy modified jar files to lib directory of " + app_name +\
                   " due to:" + str(io_error))
     return False
   return True
 
-def shutil_copy(file_path_pattern, dest):
+def copy_files_matching_pattern(file_path_pattern, dest):
   """ Copies files matching the specified pattern to the destination directory.
   Args:
       file_path_pattern: The pattern of the files to be copied over.

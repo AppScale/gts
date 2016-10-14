@@ -597,12 +597,12 @@ buildmapreduce()
     git clone -b ${APPSCALE_MR_BRANCH} ${APPSCALE_MAPREDUCE} appscale-mapreduce
 
     echo -n "Building AppScale Google Cloud Storage Client jar ..."
-    if ! (cd appscale-gcs-client/java; mvn compile); then
+    if ! (cd appscale-gcs-client/java && mvn compile); then
         echo "Maven failed to compile the GCS client library!"
         exit 1
     fi
 
-    if ! (cd appscale-gcs-client/java/target/classes; jar -cvf appscale-gcs-client-${GCS_VERSION}.jar com/*); then
+    if ! (cd appscale-gcs-client/java/target/classes && jar -cvf appscale-gcs-client-${GCS_VERSION}.jar com/*); then
         echo "Failed to create the GCS client jar!"
         exit 1
     fi
@@ -616,17 +616,17 @@ buildmapreduce()
 
     # Maven install includes the local pre-compiled gcs-client as the dependency for the Pipeline library.
     echo -n "Building AppScale Pipelines jar ..."
-    if ! (cd appscale-pipelines/java; mvn install:install-file -Dfile=appscale-gcs-client-${GCS_VERSION}.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=${GCS_VERSION} -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
+    if ! (cd appscale-pipelines/java && mvn install:install-file -Dfile=appscale-gcs-client-${GCS_VERSION}.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=${GCS_VERSION} -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
         echo "Failed to add GCS client jar as a dependency for Pipeline!"
         exit 1
     fi
 
-    if ! (cd appscale-pipelines/java; mvn compile); then
+    if ! (cd appscale-pipelines/java && mvn compile); then
         echo "Maven failed to compile the Pipeline library!"
         exit 1
     fi
 
-    if ! (cd appscale-pipelines/java/target/classes; jar -cvf appscale-pipeline-${PIPELINE_VERSION}.jar com/*); then
+    if ! (cd appscale-pipelines/java/target/classes && jar -cvf appscale-pipeline-${PIPELINE_VERSION}.jar com/*); then
         echo "Failed to create the Pipeline jar!"
         exit 1
     fi
@@ -638,22 +638,22 @@ buildmapreduce()
     # Maven install includes the local pre-compiled gcs-client and pipeline jars as the dependency for the
     # MapReduce library.
     echo -n "Building AppScale MapReduce jar ..."
-    if ! (cd appscale-mapreduce/java; mvn install:install-file -Dfile=appscale-gcs-client-${GCS_VERSION}.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=${GCS_VERSION} -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
+    if ! (cd appscale-mapreduce/java && mvn install:install-file -Dfile=appscale-gcs-client-${GCS_VERSION}.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=${GCS_VERSION} -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
         echo "Failed to add GCS client jar as a dependency for MapReduce!"
         exit 1
     fi
 
-    if ! (cd appscale-mapreduce/java; mvn install:install-file -Dfile=appscale-pipeline-${PIPELINE_VERSION}.jar -DgroupId=appscale-pipeline-sdk -DartifactId=appscale-pipeline -Dversion=${PIPELINE_VERSION} -Dpackaging=jar -DlocalRepositoryPath=pipeline-lib/); then
+    if ! (cd appscale-mapreduce/java && mvn install:install-file -Dfile=appscale-pipeline-${PIPELINE_VERSION}.jar -DgroupId=appscale-pipeline-sdk -DartifactId=appscale-pipeline -Dversion=${PIPELINE_VERSION} -Dpackaging=jar -DlocalRepositoryPath=pipeline-lib/); then
         echo "Failed to add Pipeline jar as a dependency for MapReduce!"
         exit 1
     fi
 
-    if ! (cd appscale-mapreduce/java; mvn compile); then
+    if ! (cd appscale-mapreduce/java && mvn compile); then
         echo "Maven failed to compile the MapReduce library!"
         exit 1
     fi
 
-    if ! (cd appscale-mapreduce/java/target/classes; jar -cvf appscale-mapreduce-${MAPREDUCE_VERSION}.jar com/*); then
+    if ! (cd appscale-mapreduce/java/target/classes && jar -cvf appscale-mapreduce-${MAPREDUCE_VERSION}.jar com/*); then
         echo "Failed to create the MapReduce jar! "
         exit 1
     fi
