@@ -185,7 +185,7 @@ class AppDashboardData():
                                  "link":"/apps/new",
                                  "template":"apps/new.html"}
     LOOKUP_DICT['delete_app'] = {"title":"Delete App",
-                                 "link":"apps/delete",
+                                 "link":"/apps/delete",
                                  "template":"apps/delete.html"}
     LOOKUP_DICT['manage_users'] = {"title":"Manage Users",
                                    "link":"/authorize",
