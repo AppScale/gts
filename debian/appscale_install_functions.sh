@@ -306,7 +306,6 @@ installphp54()
 
 postinstallnginx()
 {
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
 }

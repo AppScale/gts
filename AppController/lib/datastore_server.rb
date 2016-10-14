@@ -35,7 +35,7 @@ module DatastoreServer
 
   # The name that nginx should use as the identifier for the DatastoreServer when it
   # we write its configuration files.
-  NAME = "as_datastore_server"
+  NAME = "appscale-datastore_server"
 
   # If we fail to get the number of processors we set our default number of 
   # datastore servers to this value.

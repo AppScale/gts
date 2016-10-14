@@ -287,7 +287,8 @@ server {
 }
 CONFIG
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH,
+                            "appscale-#{app_name}.#{CONFIG_EXTENSION}")
 
     # Let's reload and overwrite only if something changed.
     current = ""
@@ -314,7 +315,7 @@ CONFIG
   end 
 
   def self.remove_app(app_name)
-    config_name = "#{app_name}.#{CONFIG_EXTENSION}"
+    config_name = "appscale-#{app_name}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload()
   end
@@ -324,7 +325,9 @@ CONFIG
     if File.directory?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
       # Remove any files that are not configs
-      sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
+      sites.delete_if { |site|
+        !site.end_with?(CONFIG_EXTENSION) && !site.start_with?('appscale-')
+      }
       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
       FileUtils.rm_f full_path_sites
       Nginx.reload()
@@ -468,7 +471,7 @@ server {
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, "appscale-uaserver.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
@@ -515,7 +518,7 @@ server {
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "as_taskqueue.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, "appscale-taskqueue.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
