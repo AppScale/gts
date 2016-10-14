@@ -662,7 +662,7 @@ def copy_modified_jars(app_name):
                 "appengine-java-sdk-repacked/lib/user/*.jar", lib_dir)
     copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
                 "appengine-java-sdk-repacked/lib/impl/appscale-*.jar", lib_dir)
-    copy_files_matching_pattern(appscale_home + "/ext/java/*", lib_dir)
+    copy_files_matching_pattern("/usr/share/appscale/ext/*", lib_dir)
   except IOError as io_error:
     logging.error("Failed to copy modified jar files to lib directory of " + app_name +\
                   " due to:" + str(io_error))

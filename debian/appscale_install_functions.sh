@@ -589,7 +589,7 @@ upgradepip()
 buildmapreduce()
 {
     # This function compiles the AppScale compatible MapReduce, Pipeline and GCS client libraries, builds the
-    # jars and places them under appscale/ext/java.
+    # jars and places them under /usr/share/appscale/ext/
 
     # Clone the AppScale repositories for the libaries.
     git clone -b ${APPSCALE_GCS_BRANCH} ${APPSCALE_GCS_CLIENT} appscale-gcs-client
@@ -607,12 +607,12 @@ buildmapreduce()
         exit 1
     fi
 
-    mkdir -p ${APPSCALE_HOME}/ext/java/
+    mkdir -p /usr/share/appscale/ext/
 
     # Copy the compiled gcs-client jar which is a dependency for the Pipeline and MapReduce library.
     cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar appscale-pipelines/java/
     cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar appscale-mapreduce/java/
-    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar /root/appscale/ext/java/
+    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar /usr/share/appscale/ext/
 
     # Maven install includes the local pre-compiled gcs-client as the dependency for the Pipeline library.
     echo -n "Building AppScale Pipelines jar ..."
@@ -633,7 +633,7 @@ buildmapreduce()
 
     # Copy the compiled Pipeline jar which is a dependency for the MapReduce library.
     cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar appscale-mapreduce/java/
-    cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar /root/appscale/ext/java/
+    cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar /usr/share/appscale/ext/
 
     # Maven install includes the local pre-compiled gcs-client and pipeline jars as the dependency for the
     # MapReduce library.
@@ -658,6 +658,6 @@ buildmapreduce()
         exit 1
     fi
 
-    cp appscale-mapreduce/java/target/classes/appscale-mapreduce-${MAPREDUCE_VERSION}.jar /root/appscale/ext/java/
+    cp appscale-mapreduce/java/target/classes/appscale-mapreduce-${MAPREDUCE_VERSION}.jar /usr/share/appscale/ext/
     rm -r appscale-mapreduce/ appscale-gcs-client/ appscale-pipelines/
 }
