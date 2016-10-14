@@ -893,6 +893,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
         else{
           liveQuery.setCompiledCursor(queryResult.getCompiledCursor());
+          queryResult.setCursor(request.getCursor());
         }
         return queryResult;
     }
@@ -1265,6 +1266,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             this.lastCursor.copyFrom(cursor);
             if (query.hasCount()) {
               this.totalCount = Integer.valueOf(this.query.getCount());
+              if (query.hasLimit()) {
+                  int limit = Integer.valueOf(this.query.getLimit());
+                  if (limit < this.totalCount)
+                    this.totalCount = limit;
+              }
             }
             else if (query.hasLimit()) {
               this.totalCount = Integer.valueOf(this.query.getLimit());
