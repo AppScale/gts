@@ -597,8 +597,13 @@ buildmapreduce()
     git clone -b ${APPSCALE_MR_BRANCH} ${APPSCALE_MAPREDUCE} appscale-mapreduce
 
     echo -n "Building AppScale Google Cloud Storage Client jar ..."
-    if ! (cd appscale-gcs-client/java; mvn compile; cd target/classes; jar -cvf appscale-gcs-client-${GCS_VERSION}.jar com/*); then
-        echo "GCS client compilation and jar creation failed!"
+    if ! (cd appscale-gcs-client/java; mvn compile); then
+        echo "Maven failed to compile the GCS client library!"
+        exit 1
+    fi
+
+    if ! (cd appscale-gcs-client/java/target/classes; jar -cvf appscale-gcs-client-${GCS_VERSION}.jar com/*); then
+        echo "Failed to create the GCS client jar!"
         exit 1
     fi
 
