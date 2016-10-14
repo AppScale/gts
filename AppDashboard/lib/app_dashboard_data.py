@@ -174,44 +174,72 @@ class AppDashboardData():
 
   def build_dict(self):
     LOOKUP_DICT = {}
+    LOOKUP_DICT['cloud_stats'] = {"title":"Cloud Status",
+                                  "link":"/status/cloud",
+                                  "template":"status/cloud.html"}
+    LOOKUP_DICT['database_stats'] = {"title":"Database",
+                                  "template":"apps/database.html"}
+    LOOKUP_DICT['memcache_stats'] = {"title":"Memcache",
+                                     "template":"apps/memcache.html"}
+    LOOKUP_DICT['upload_app'] = {"title":"Upload App",
+                                 "link":"/apps/new",
+                                 "template":"apps/new.html"}
+    LOOKUP_DICT['delete_app'] = {"title":"Delete App",
+                                 "link":"apps/delete.html",
+                                 "template":"apps/delete.html"}
+    LOOKUP_DICT['manage_users'] = {"title":"Manage Users",
+                                   "link":"/authorize",
+                                   "template":"authorize/cloud.html"}
+    LOOKUP_DICT['logging'] = {"title":"Logs",
+                              "link":"/logs",
+                              "template":"logs/main.html"}
+    LOOKUP_DICT['monit'] = {"title":"Monit",
+                             "link":self.get_monit_url()}
+    LOOKUP_DICT['taskqueue'] = {"title":"TaskQueue",
+                             "link":self.get_flower_url()}
+
     LOOKUP_DICT['app_management'] = [self.helper.can_upload_apps(),
-                   {"App Management":
-                    {"Upload App": "/apps/new",
-                     "Delete App": "/apps/delete"}}]
-    #TODO: remove, used temporarily so user does not have to log in
+                                     {"App Management":
+                                        [{"upload_app": LOOKUP_DICT[
+                                          'upload_app']},
+                                         {"delete_app": LOOKUP_DICT[
+                                           'delete_app']}]}]
+    # TODO: remove, used temporarily so user does not have to log in
     LOOKUP_DICT['app_management'] = ["True",
-                   {"App Management":
-                    {"Upload App": "/apps/new",
-                     "Delete App": "/apps/delete"}}]
+                                     {"App Management":
+                                        [{"upload_app": LOOKUP_DICT[
+                                          'upload_app']},
+                                         {"delete_app": LOOKUP_DICT[
+                                           'delete_app']}]}]
     LOOKUP_DICT['appscale_management'] = [self.helper.is_user_cloud_admin(),
-                    {"AppScale Management":
-                        {"Cloud Status": "/status/cloud",
-                      "Manage Users": "/authorize"}}]
-    #TODO: remove, used temporarily so user does not have to log in
+                                          {"AppScale Management":
+                                             [{"cloud_stats": LOOKUP_DICT[
+                                               'cloud_stats']},
+                                              {"manage_users": LOOKUP_DICT[
+                                                'manage_users']}]}]
+    # TODO: remove, used temporarily so user does not have to log in
     LOOKUP_DICT['appscale_management'] = ["True",
-                    {"AppScale Management":
-                        {"Cloud Status": "/status/cloud",
-                      "Manage Users": "/authorize"}}]
+                                          {"AppScale Management":
+                                             [{"cloud_stats": LOOKUP_DICT[
+                                               'cloud_stats']},
+                                              {"manage_users": LOOKUP_DICT[
+                                                'manage_users']}]}]
     LOOKUP_DICT['debugging_monitoring'] = [self.helper.get_owned_apps() or
                                            self.helper.is_user_cloud_admin(),
-                    {"Debugging/Monitoring":{
-                      "Monit":self.get_monit_url(),
-                      "TaskQueue":self.get_flower_url(),
-                      "Logging":"/logs"}}]
-    #TODO: remove, used temporarily so user does not have to log in
+                                           {"Debugging/Monitoring":
+                                              [{"monit": LOOKUP_DICT['monit']},
+                                               {"taskqueue": LOOKUP_DICT[
+                                                 'taskqueue']},
+                                               {"logging": LOOKUP_DICT[
+                                                 'logging']}]}]
+    # TODO: remove, used temporarily so user does not have to log in
     LOOKUP_DICT['debugging_monitoring'] = ["True",
-                    {"Debugging/Monitoring":
-                      {"Monit":self.get_monit_url(),
-                      "TaskQueue":self.get_flower_url(),
-                      "Logging":"/logs"}}]
-    LOOKUP_DICT['cloud_stats'] = {"Cloud Status":"status/cloud.html"}
-    LOOKUP_DICT['database_stats'] = {"Database":"apps/database.html"}
-    LOOKUP_DICT['memcache_stats'] = {"Memcache":"apps/memcache.html"}
-    LOOKUP_DICT['upload_app'] = {"Upload App":"apps/new.html"}
-    LOOKUP_DICT['delete_app'] = {"Delete App":"apps/delete.html"}
-    LOOKUP_DICT['manage_users'] = {"Manage Users":"authorize/cloud.html"}
-    LOOKUP_DICT['logging'] = {"Logs":"logs/main.html"}
-    print(LOOKUP_DICT)
+                                           {"Debugging/Monitoring":
+                                              [{"monit": LOOKUP_DICT['monit']},
+                                               {"taskqueue": LOOKUP_DICT[
+                                                 'taskqueue']},
+                                               {"logging": LOOKUP_DICT[
+                                                 'logging']}]}]
     return LOOKUP_DICT
 
   def get_by_id(self, model, key_name):
@@ -712,11 +740,11 @@ class AppDashboardData():
         "panel":["cloud_stats","database_stats","memcache_stats"]
         }'''
     temp_dict = json.loads(default_dash_layout)
-    temp_dict['nav'][:] = [LOOKUP_DICT.get(str(key))[1] for key in
+    temp_dict['nav'][:] = [{key:LOOKUP_DICT.get(str(key))[1]} for key in
                            temp_dict['nav'] if
                            LOOKUP_DICT.get(str(key))[0] == "True"]
 
-    temp_dict['panel'][:] = [LOOKUP_DICT.get(str(key)) for key in
+    temp_dict['panel'][:] = [{key:LOOKUP_DICT.get(str(key))} for key in
                              temp_dict['panel']]
     return temp_dict
     #TODO: retrieve user stored settings

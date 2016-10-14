@@ -1,119 +1,124 @@
    <!-- FILE:templates/shared/navigation.html -->
    <div id="header">
-        <div class="navbar">
-            <div class="navbar-inner">
-                <a id="appscale_logo" href="/"><img src="/images/appscale-logo.png?v=2"/></a>
-              <div class="container-fluid">
-                <div class="nav-no-collapse">
-                    <a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a>
-                    &nbsp;
-                    <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large" target="_blank">Submit Issue</a>
+    <div class="navbar">
+      <div class="navbar-inner">
+        <a id="appscale_logo" href="/"><img src="/images/appscale-logo.png?v=2"/></a>
+        <div class="container-fluid">
+        <div class="nav-no-collapse">
+          <a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a>
+          &nbsp;
+          <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large" target="_blank">Submit Issue</a>
 
-                    <a href="https://www.appscale.com/resources/docs/" class="btn btn-default btn-large" target="_blank">View Docs</a>
-                    {% if is_user_cloud_admin %}
-                    &nbsp;
-                    <a href="http://webchat.freenode.net/?channels=appscale&uio=d4" class="btn btn-inverse btn-large" target="_blank">Live Support</a>
-                    {% endif %}
-                    <ul style="padding-right: 2.5%;" class="nav pull-right">
-                        {% if logged_in %}
-                          <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small silk-icon-exit" href="/users/logout"><span>Logout</span></a></h3><br />
-                        {% else %}
-                          <h3>
-                              <a class="btn btn-small btn-success silk-icon-enter" href="/users/login"><span>Login</span></a>
-                              {% if show_create_account %}
-                              <a class="btn btn-info btn-small entypo-icon-contact" href="/users/new"><span>Create Account</span></a>
-                              {% endif %}
-                          </h3>
-                        {% endif %}
-                    </ul><!--close drop down-->
+          <a href="https://www.appscale.com/resources/docs/" class="btn btn-default btn-large" target="_blank">View Docs</a>
+          {% if is_user_cloud_admin %}
+          &nbsp;
+          <a href="http://webchat.freenode.net/?channels=appscale&uio=d4" class="btn btn-inverse btn-large" target="_blank">Live Support</a>
+          {% endif %}
+          <ul style="padding-right: 2.5%;" class="nav pull-right">
+            {% if logged_in %}
+              <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small silk-icon-exit" href="/users/logout"><span>Logout</span></a></h3><br />
+            {% else %}
+              <h3>
+                <a class="btn btn-small btn-success silk-icon-enter" href="/users/login"><span>Login</span></a>
+                {% if show_create_account %}
+                <a class="btn btn-info btn-small entypo-icon-contact" href="/users/new"><span>Create Account</span></a>
+                {% endif %}
+              </h3>
+            {% endif %}
+          </ul><!--close drop down-->
 
-                </div><!-- /.nav-collapse -->
-              </div>
-            </div><!-- /navbar-inner -->
-          </div><!-- /navbar --> 
-
-    </div><!-- End #header -->
-
-    <div id="wrapper">
-
-        <!--Responsive navigation button-->  
-        <div class="resBtn">
-            <a href="#"><span class="icon16 minia-icon-list-3"></span></a>
+        </div><!-- /.nav-collapse -->
         </div>
+      </div><!-- /navbar-inner -->
+      </div><!-- /navbar --> 
 
-        <!--Sidebar content-->
-        <div id="sidebar">
-            <div class="sidenav">
-                <div class="sidebar-widget" style="width: 210px; margin: 30px 0 0 0;">
-                </div><!-- End .sidenav-widget -->
-                <div align="center" class="mainnav"><div></div>
-                    <div class="panel-group sortable" style="overflow:auto;width:100%;">
-                    {%set navigation_dict = user_layout_pref['nav'] %}
-                    {% set count=1 %}
-                    {% for menu in user_layout_pref.nav %}
-                        {% for menu_heading, submenu in menu.items() %}
-                            <div id="lists" class="panel panel-default">
-                                <span class="glyphicon glyphicon-option-horizontal"></span>
-                                <button class="btn nav-heading-button" data-toggle="collapse"
-                                        data-target="#collapse{{ count }}">{{ menu_heading }}</button>
-                                <div>
-                                    <div id="collapse{{ count }}" class="in">
-                                        <ul class="list-group">
-                                            {% for menu_item, link in submenu.items() %}
-                                                <li align="center" class="list-group-item container">
-                                                    <div class="btn-group">
-                                                        <a class="btn btn-info" href="{{link}}"
-                                                           style="width:85%;">{{ menu_item }}</a>
-                                                        <a href="#" class="btn btn-info add-panel" style="width:15%;">
-                                                            &#x2b;</a>
-                                                    </div>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
+  </div><!-- End #header -->
+
+  <div id="wrapper">
+
+    <!--Responsive navigation button-->  
+    <div class="resBtn">
+      <a href="#"><span class="icon16 minia-icon-list-3"></span></a>
+    </div>
+
+    <!--Sidebar content-->
+    <div id="sidebar">
+      <div class="sidenav">
+        <div class="sidebar-widget" style="width: 210px; margin: 30px 0 0 0;">
+        </div><!-- End .sidenav-widget -->
+        <div align="center" class="mainnav"><div></div>
+          <div class="panel-group sortable" style="overflow:auto;width:100%;">
+          {% for navigation_dict in user_layout_pref.nav %}
+            {% for id,menu in navigation_dict.items() %}
+              {% for sub_menu_heading, submenu_list in menu.items() %}
+                <div class="panel panel-default">
+                  <!--sortable ui handle-->
+                  <span class="glyphicon glyphicon-option-horizontal"></span>
+                  <!--sub menu heading-->
+                  <button class="btn nav-heading-button" data-toggle="collapse"
+                      data-target="#{{ id }}">{{ sub_menu_heading }}</button>
+                  <div>
+                    <div id="{{ id }}" class="in">
+                      <ul class="list-group">
+                        {% for menuitem_dict in submenu_list %}
+                          {% for dict_key, menuitem in menuitem_dict.items() %}
+                            <li align="center" class="list-group-item container">
+                            <div class="btn-group">
+                              <a class="btn btn-info" href="{{menuitem.link}}"
+                                 style="width:85%;">{{ menuitem.title }}</a>
+                              <a href="#" class="btn btn-info add-panel"
+                                 data-target="{{ dict_key }}" style="width:15%;">
+                                &#x2b;</a>
+                              </div>
+                            </li>
+                          {% endfor %}
                         {% endfor %}
-                        {% set count=count+1 %}
-                    {% endfor %}
+                      </ul>
                     </div>
+                  </div>
                 </div>
-            </div><!-- End sidenav -->
-        </div><!-- End #sidebar -->
-        <script>
-            $(document).ready(function() {
-                // Insert a new style that extends the height of the header to
-                // encompass the sidebar when .resBtn is clicked.
-                var newHeaderHeight = $('#header').height() + $('#sidebar').height();
-                var style = document.createElement('style');
-                style.type = 'text/css';
-                style.setAttribute('media', 'only screen and (max-width: 980px)');
-                var css = '#header.open { height: ' + newHeaderHeight + 'px; }';
-                if (style.styleSheet) style.styleSheet.cssText = css;
-                else style.appendChild(document.createTextNode(css));
-                var head = document.head || document.getElementsByTagName('head')[0];
-                head.appendChild(style);
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+          </div>
+        </div>
+      </div><!-- End sidenav -->
+    </div><!-- End #sidebar -->
+    <script>
+      $(document).ready(function() {
+        // Insert a new style that extends the height of the header to
+        // encompass the sidebar when .resBtn is clicked.
+        var newHeaderHeight = $('#header').height() + $('#sidebar').height();
+        var style = document.createElement('style');
+        style.type = 'text/css';
+        style.setAttribute('media', 'only screen and (max-width: 980px)');
+        var css = '#header.open { height: ' + newHeaderHeight + 'px; }';
+        if (style.styleSheet) style.styleSheet.cssText = css;
+        else style.appendChild(document.createTextNode(css));
+        var head = document.head || document.getElementsByTagName('head')[0];
+        head.appendChild(style);
 
-                // Take the extra height of .resBtn into account
-                var sidebarBtn = $('#wrapper').find('.resBtn');
-                newHeaderHeight += sidebarBtn.height();
-                var style = document.createElement('style');
-                style.type = 'text/css';
-                style.setAttribute('media', 'only screen and (max-width: 572px)');
-                // Insert after page load so it will not affect the height calculation
-                var css = '#header { height: 120px; }';
-                css += '#header.open { height: ' + newHeaderHeight + 'px; }';
-                if (style.styleSheet) style.styleSheet.cssText = css;
-                else style.appendChild(document.createTextNode(css));
-                var head = document.head || document.getElementsByTagName('head')[0];
-                head.appendChild(style);
+        // Take the extra height of .resBtn into account
+        var sidebarBtn = $('#wrapper').find('.resBtn');
+        newHeaderHeight += sidebarBtn.height();
+        var style = document.createElement('style');
+        style.type = 'text/css';
+        style.setAttribute('media', 'only screen and (max-width: 572px)');
+        // Insert after page load so it will not affect the height calculation
+        var css = '#header { height: 120px; }';
+        css += '#header.open { height: ' + newHeaderHeight + 'px; }';
+        if (style.styleSheet) style.styleSheet.cssText = css;
+        else style.appendChild(document.createTextNode(css));
+        var head = document.head || document.getElementsByTagName('head')[0];
+        head.appendChild(style);
 
-                sidebarBtn.click(function() {
-                    var selectors = $(this).add('#header, #sidebar');
-                    $(this).hasClass('open') ? selectors.removeClass('open') : selectors.addClass('open');
-                });
-            });
-        </script>
+        sidebarBtn.click(function() {
+          var selectors = $(this).add('#header, #sidebar');
+          $(this).hasClass('open') ? selectors.removeClass('open') :
+                  selectors.addClass('open');
+        });
+      });
+    </script>
 <!--Testing SFTP -->
 
 
