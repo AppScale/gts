@@ -2360,7 +2360,6 @@ class Djinn
   # Cleans out temporary files that may have been written by a previous
   # AppScale deployment.
   def erase_old_data()
-    Djinn.log_run("rm -rf #{Dir.tmpdir}/h*")
     Djinn.log_run("rm -f ~/.appscale_cookies")
 
     Nginx.clear_sites_enabled()
