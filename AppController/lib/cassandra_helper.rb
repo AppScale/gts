@@ -128,7 +128,7 @@ def start_cassandra(clear_datastore, needed)
   Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
 
   start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
-  stop_cmd = %Q[/bin/bash -c "kill $(cat #{PID_FILE})"]
+  stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
                        PID_FILE, START_TIMEOUT)
 
