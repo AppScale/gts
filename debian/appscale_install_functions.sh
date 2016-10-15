@@ -154,6 +154,7 @@ root            hard    nofile           200000
 root            soft    nofile           200000
 *               hard    nofile           200000
 *               soft    nofile           200000
+*               -       nproc            32768
 EOF
 }
 
