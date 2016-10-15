@@ -7,7 +7,7 @@ require 'monit_interface'
 
 # A String that indicates where we write the process ID that Cassandra runs
 # on at this machine.
-PID_FILE = "/var/appscale/appscale-cassandra.pid"
+PID_FILE = "/tmp/appscale-cassandra.pid"
 
 
 # A String that indicates where we install Cassandra on this machine.
