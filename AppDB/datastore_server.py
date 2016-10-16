@@ -2407,6 +2407,12 @@ class DatastoreDistributed():
           'An infinite loop was detected while fetching references.')
 
     results = entities[:limit]
+
+    # Handle projection queries.
+    # TODO: When the index has been confirmed clean, use those values directly.
+    if query.property_name_size() > 0:
+      results = self.remove_extra_props(query, results)
+
     self.logger.debug('Returning {} results'.format(len(results)))
     return results
 
