@@ -105,7 +105,7 @@ class UserInfo(ndb.Model):
   can_upload_apps = ndb.BooleanProperty()
   owned_apps = ndb.StringProperty(repeated=True)
   timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
-  dash_layout_settings = ndb.TextProperty()
+  dash_layout_settings = ndb.JsonProperty(default=None)
 
 
 class InstanceInfo(ndb.Model):
@@ -174,72 +174,72 @@ class AppDashboardData():
 
   def build_dict(self):
     LOOKUP_DICT = {}
-    LOOKUP_DICT['cloud_stats'] = {"title":"Cloud Status",
+    LOOKUP_DICT["cloud_stats"] = {"title":"Cloud Status",
                                   "link":"/status/cloud",
                                   "template":"status/cloud.html"}
-    LOOKUP_DICT['database_stats'] = {"title":"Database",
+    LOOKUP_DICT["database_stats"] = {"title":"Database",
                                   "template":"apps/database.html"}
-    LOOKUP_DICT['memcache_stats'] = {"title":"Memcache",
+    LOOKUP_DICT["memcache_stats"] = {"title":"Memcache",
                                      "template":"apps/memcache.html"}
-    LOOKUP_DICT['upload_app'] = {"title":"Upload App",
+    LOOKUP_DICT["upload_app"] = {"title":"Upload App",
                                  "link":"/apps/new",
                                  "template":"apps/new.html"}
-    LOOKUP_DICT['delete_app'] = {"title":"Delete App",
+    LOOKUP_DICT["delete_app"] = {"title":"Delete App",
                                  "link":"/apps/delete",
                                  "template":"apps/delete.html"}
-    LOOKUP_DICT['manage_users'] = {"title":"Manage Users",
+    LOOKUP_DICT["manage_users"] = {"title":"Manage Users",
                                    "link":"/authorize",
                                    "template":"authorize/cloud.html"}
-    LOOKUP_DICT['logging'] = {"title":"Logs",
+    LOOKUP_DICT["logging"] = {"title":"Logs",
                               "link":"/logs",
                               "template":"logs/main.html"}
-    LOOKUP_DICT['monit'] = {"title":"Monit",
+    LOOKUP_DICT["monit"] = {"title":"Monit",
                              "link":self.get_monit_url()}
-    LOOKUP_DICT['taskqueue'] = {"title":"TaskQueue",
+    LOOKUP_DICT["taskqueue"] = {"title":"TaskQueue",
                              "link":self.get_flower_url()}
 
-    LOOKUP_DICT['app_management'] = [self.helper.can_upload_apps(),
+    LOOKUP_DICT["app_management"] = [self.helper.can_upload_apps(),
                                      {"App Management":
                                         [{"upload_app": LOOKUP_DICT[
-                                          'upload_app']},
+                                          "upload_app"]},
                                          {"delete_app": LOOKUP_DICT[
-                                           'delete_app']}]}]
+                                           "delete_app"]}]}]
     # TODO: remove, used temporarily so user does not have to log in
-    LOOKUP_DICT['app_management'] = ["True",
+    LOOKUP_DICT["app_management"] = ["True",
                                      {"App Management":
                                         [{"upload_app": LOOKUP_DICT[
-                                          'upload_app']},
+                                          "upload_app"]},
                                          {"delete_app": LOOKUP_DICT[
-                                           'delete_app']}]}]
-    LOOKUP_DICT['appscale_management'] = [self.helper.is_user_cloud_admin(),
+                                           "delete_app"]}]}]
+    LOOKUP_DICT["appscale_management"] = [self.helper.is_user_cloud_admin(),
                                           {"AppScale Management":
                                              [{"cloud_stats": LOOKUP_DICT[
-                                               'cloud_stats']},
+                                               "cloud_stats"]},
                                               {"manage_users": LOOKUP_DICT[
-                                                'manage_users']}]}]
+                                                "manage_users"]}]}]
     # TODO: remove, used temporarily so user does not have to log in
-    LOOKUP_DICT['appscale_management'] = ["True",
+    LOOKUP_DICT["appscale_management"] = ["True",
                                           {"AppScale Management":
                                              [{"cloud_stats": LOOKUP_DICT[
-                                               'cloud_stats']},
+                                               "cloud_stats"]},
                                               {"manage_users": LOOKUP_DICT[
-                                                'manage_users']}]}]
-    LOOKUP_DICT['debugging_monitoring'] = [self.helper.get_owned_apps() or
+                                                "manage_users"]}]}]
+    LOOKUP_DICT["debugging_monitoring"] = [self.helper.get_owned_apps() or
                                            self.helper.is_user_cloud_admin(),
                                            {"Debugging/Monitoring":
-                                              [{"monit": LOOKUP_DICT['monit']},
+                                              [{"monit": LOOKUP_DICT["monit"]},
                                                {"taskqueue": LOOKUP_DICT[
-                                                 'taskqueue']},
+                                                 "taskqueue"]},
                                                {"logging": LOOKUP_DICT[
-                                                 'logging']}]}]
+                                                 "logging"]}]}]
     # TODO: remove, used temporarily so user does not have to log in
-    LOOKUP_DICT['debugging_monitoring'] = ["True",
+    LOOKUP_DICT["debugging_monitoring"] = ["True",
                                            {"Debugging/Monitoring":
-                                              [{"monit": LOOKUP_DICT['monit']},
+                                              [{"monit": LOOKUP_DICT["monit"]},
                                                {"taskqueue": LOOKUP_DICT[
-                                                 'taskqueue']},
+                                                 "taskqueue"]},
                                                {"logging": LOOKUP_DICT[
-                                                 'logging']}]}]
+                                                 "logging"]}]}]
     return LOOKUP_DICT
 
   def get_by_id(self, model, key_name):
@@ -722,6 +722,50 @@ class AppDashboardData():
       logging.exception(err)
       return False
 
+  def set_dash_layout_settings(self, values=None):
+    """ Saves user settings
+        for customizing the UI of the Dashboard.
+
+    Args:
+      email: A str that indicates the e-mail address of the administrator of
+        this application, or None if the currently logged-in user is the admin.
+
+      values: A str that defines the layout of the dash page
+
+    Returns:
+      A JSON string describing the customization layout
+    """
+    user = users.get_current_user()
+    if not user:
+      return
+    email = user.email()
+    try:
+      user_info = self.get_by_id(UserInfo, email)
+      if user_info:
+        user_info.dash_layout_settings = self.rebuild_dash_layout_settings_dict(
+          values)
+        user_info.put()
+      return
+    except Exception as err:
+      logging.exception(err)
+
+  def rebuild_dash_layout_settings_dict(self, value=None):
+    if value is None:
+      #base admin template
+      value = '''{
+          "nav":["app_management","appscale_management","debugging_monitoring"],
+          "panel":["cloud_stats","database_stats","memcache_stats"]
+          }'''
+    LOOKUP_DICT = self.build_dict()
+    temp_dict = json.loads(value)
+    temp_dict['nav'] = [{key: LOOKUP_DICT.get(str(key))[1]} for key in
+                           temp_dict['nav'] if
+                           LOOKUP_DICT.get(str(key))[0] == "True"]
+
+    temp_dict['panel'] = [{key: LOOKUP_DICT.get(str(key))} for key in
+                             temp_dict['panel']]
+    return temp_dict
+
   def get_dash_layout_settings(self, email=None):
     """ Queries the UserAppServer to see what settings the user has saved
     for customizing the UI of the Dashboard.
@@ -733,33 +777,24 @@ class AppDashboardData():
     Returns:
       A JSON string describing the customization layout
     """
-    LOOKUP_DICT = self.build_dict()
-    #base admin template
-    default_dash_layout ='''{
-        "nav":["app_management","appscale_management","debugging_monitoring"],
-        "panel":["cloud_stats","database_stats","memcache_stats"]
-        }'''
-    temp_dict = json.loads(default_dash_layout)
-    temp_dict['nav'][:] = [{key:LOOKUP_DICT.get(str(key))[1]} for key in
-                           temp_dict['nav'] if
-                           LOOKUP_DICT.get(str(key))[0] == "True"]
-
-    temp_dict['panel'][:] = [{key:LOOKUP_DICT.get(str(key))} for key in
-                             temp_dict['panel']]
-    return temp_dict
-    #TODO: retrieve user stored settings
     if email is None:
       user = users.get_current_user()
       if not user:
-        return default_dash_layout
+        return
       email = user.email()
     try:
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-        #for right now make everything use default
-        user_info.dash_layout_settings = default_dash_layout
-        dash_layout_json = user_info.dash_layout_settings
-      return dash_layout_json
+        try:
+          if user_info.dash_layout_settings \
+                  and type(user_info.dash_layout_settings) is dict:
+            return user_info.dash_layout_settings
+        except Exception as err:
+          logging.exception(err)
+        default_dash_dict = self.rebuild_dash_layout_settings_dict()
+        user_info.dash_layout_settings = default_dash_dict
+        user_info.put()
+        return default_dash_dict
+      return {}
     except Exception as err:
       logging.exception(err)
-      return default_dash_layout
