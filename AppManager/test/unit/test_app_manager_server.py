@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -138,6 +139,7 @@ class TestAppManager(unittest.TestCase):
     flexmock(threading).should_receive('Thread').\
       and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
+    flexmock(os).should_receive('listdir').and_return([])
     self.assertEqual(0, app_manager_server.start_app(configuration))
 
   def test_start_app_failed_copy_java(self):
@@ -297,13 +299,15 @@ class TestAppManager(unittest.TestCase):
     flexmock(subprocess).should_receive('call').and_return(0)
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
+    flexmock(shutil).should_receive('copy').and_return()
     self.assertEqual(True, app_manager_server.copy_modified_jars(app_name))  
   
   def test_copy_modified_jars_fail_case_1(self):
     app_name = 'test'
-    flexmock(subprocess).should_receive('call').and_return(0).and_return(1)
+    flexmock(subprocess).should_receive('call').and_return(0)
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
+    flexmock(shutil).should_receive('copy').and_raise(IOError)
     self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
 
   def test_copy_modified_jars_fail_case_2(self):

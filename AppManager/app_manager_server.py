@@ -1,10 +1,12 @@
 """ This service starts and stops application servers of a given application. """
 
+import fnmatch
 import glob
 import json
 import logging
 import math
 import os
+import shutil
 import SOAPpy
 import subprocess
 import sys
@@ -621,17 +623,14 @@ def remove_conflicting_jars(app_name):
     logging.warn("Lib directory not found in app code while updating.")
     return
   logging.info("Removing jars from {0}".format(lib_dir))
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-api-1.0-sdk-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-api-stubs-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-api-labs-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-jsr107cache-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/jsr107cache-*.jar", shell=True)
-
+  conflicting_jars_pattern = ['appengine-api-1.0-sdk-*.jar', 'appengine-api-stubs-*.jar',
+                  'appengine-api-labs-*.jar', 'appengine-jsr107cache-*.jar',
+                  'jsr107cache-*.jar', 'appengine-mapreduce*.jar',
+                  'appengine-pipeline*.jar', 'appengine-gcs-client*.jar']
+  for file in os.listdir(lib_dir):
+    for pattern in conflicting_jars_pattern:
+      if fnmatch.fnmatch(file, pattern):
+        os.remove(lib_dir + os.sep + file)
 
 def copy_modified_jars(app_name):
   """ Copies the changes made to the Java SDK
@@ -658,22 +657,26 @@ def copy_modified_jars(app_name):
       logging.error("Failed to create missing lib directory in: {0}.".
         format(web_inf_dir))
       return False
-
-  cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
-    "appengine-java-sdk-repacked/lib/user/*.jar " + lib_dir, shell=True)
-  if cp_result != 0:
-    logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
-      "to lib directory of " + app_name)
+  try:
+    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
+                "appengine-java-sdk-repacked/lib/user/*.jar", lib_dir)
+    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
+                "appengine-java-sdk-repacked/lib/impl/appscale-*.jar", lib_dir)
+    copy_files_matching_pattern("/usr/share/appscale/ext/*", lib_dir)
+  except IOError as io_error:
+    logging.error("Failed to copy modified jar files to lib directory of " + app_name +\
+                  " due to:" + str(io_error))
     return False
-
-  cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
-    "appengine-java-sdk-repacked/lib/impl/appscale-*.jar " + lib_dir, shell=True)
-
-  if cp_result != 0:
-    logging.error("Failed to copy email jars to lib directory of " + app_name)
-    return False
-
   return True
+
+def copy_files_matching_pattern(file_path_pattern, dest):
+  """ Copies files matching the specified pattern to the destination directory.
+  Args:
+      file_path_pattern: The pattern of the files to be copied over.
+      dest: The destination directory.
+  """
+  for file in glob.glob(file_path_pattern):
+    shutil.copy(file, dest)
 
 def create_java_start_cmd(app_name, port, load_balancer_host):
   """ Creates the start command to run the java application server.
