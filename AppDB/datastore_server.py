@@ -3411,6 +3411,11 @@ class DatastoreDistributed():
       props_to_keep = [prop for prop in entity.property_list()
                        if prop.name() in projected_props]
 
+      # If the entity does not have the property, do not include it in the
+      # results. Raw (unindexed) properties should not be projected.
+      if not props_to_keep:
+        continue
+
       entity.clear_property()
       for prop in props_to_keep:
         # Projected properties should have a meaning set to INDEX_VALUE.
