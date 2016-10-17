@@ -22,9 +22,9 @@
       </div>
     </div><!-- End .row-fluid -->
     <div class="row-fluid">
-    <!--TODO: remove set is_user_cloud_admin-- for testing without logging in-->
-    {% set is_user_cloud_admin=True %}
       {% if is_user_cloud_admin %}
+        <button id="save-layout" class="btn btn-primary">
+            Save Current Layout</button>
         <div id="dash-panels" class="panel-group sortable">
         <!--Begin getting correct panels-->
         {% for panel_dict in user_layout_pref.panel %}
