@@ -130,7 +130,7 @@ class AppDashboard(webapp2.RequestHandler):
     return template.render(sub_vars)
 
 
-  def get_shared_navigation(self):
+  def get_shared_navigation(self, page):
     """ Renders the shared navigation.
 
     Returns:
@@ -140,7 +140,7 @@ class AppDashboard(webapp2.RequestHandler):
     if AppDashboardHelper.USE_SHIBBOLETH:
       show_create_account = False
     return self.render_template(template_file='shared/navigation.html',
-      values={'show_create_account': show_create_account})
+      values={'show_create_account': show_create_account, 'page_name':page})
 
   def render_page(self, page, template_file, values=None ):
     """ Renders a template with the main layout and nav bar. """
@@ -151,7 +151,7 @@ class AppDashboard(webapp2.RequestHandler):
     self.response.out.write(template.render(
         page_name=page,
         page_body=self.render_template(template_file, values),
-        shared_navigation=self.get_shared_navigation()
+        shared_navigation=self.get_shared_navigation(page)
         ))
 
   def render_app_page(self, page, values=None):

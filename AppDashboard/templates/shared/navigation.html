@@ -64,11 +64,16 @@
                           {% for dict_key, menuitem in menuitem_dict.items() %}
                             <li align="center" class="list-group-item container">
                             <div class="btn-group">
-                              <a class="btn btn-info" href="{{menuitem.link}}"
-                                 style="width:85%;">{{ menuitem.title }}</a>
-                              <a href="#" class="btn btn-info add-panel"
-                                 data-target="{{ dict_key }}" style="width:15%;">
+                              {% if page_name=="dash" %}
+                                <a class="btn btn-info" href="{{menuitem.link}}"
+                                   style="width:85%;">{{ menuitem.title }}</a>
+                                <a href="#" class="btn btn-info add-panel"
+                                   data-target="{{ dict_key }}" style="width:15%;">
                                 &#x2b;</a>
+                              {% else %}
+                                <a class="btn btn-info" href="{{menuitem.link}}"
+                                 style="width:100%;">{{ menuitem.title }}</a>
+                              {% endif %}
                               </div>
                             </li>
                           {% endfor %}
