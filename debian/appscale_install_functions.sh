@@ -42,6 +42,9 @@ GCS_VERSION="0.6"
 MAPREDUCE_VERSION="0.8.5"
 PIPELINE_VERSION="0.2.13"
 
+# Default directory for external library jars
+APPSCALE_EXT="/usr/share/appscale/ext/"
+
 pipwrapper ()
 {
     # We have seen quite a few network/DNS issues lately, so much so that
@@ -606,12 +609,12 @@ buildmapreduce()
         exit 1
     fi
 
-    mkdir -p /usr/share/appscale/ext/
+    mkdir -p ${APPSCALE_EXT}
 
     # Copy the compiled gcs-client jar which is a dependency for the Pipeline and MapReduce library.
     cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar appscale-pipelines/java/
     cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar appscale-mapreduce/java/
-    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar /usr/share/appscale/ext/
+    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar ${APPSCALE_EXT}
 
     # Maven install includes the local pre-compiled gcs-client as the dependency for the Pipeline library.
     echo -n "Building AppScale Pipelines jar ..."
@@ -632,7 +635,7 @@ buildmapreduce()
 
     # Copy the compiled Pipeline jar which is a dependency for the MapReduce library.
     cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar appscale-mapreduce/java/
-    cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar /usr/share/appscale/ext/
+    cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar ${APPSCALE_EXT}
 
     # Maven install includes the local pre-compiled gcs-client and pipeline jars as the dependency for the
     # MapReduce library.
@@ -657,6 +660,6 @@ buildmapreduce()
         exit 1
     fi
 
-    cp appscale-mapreduce/java/target/classes/appscale-mapreduce-${MAPREDUCE_VERSION}.jar /usr/share/appscale/ext/
+    cp appscale-mapreduce/java/target/classes/appscale-mapreduce-${MAPREDUCE_VERSION}.jar ${APPSCALE_EXT}
     rm -r appscale-mapreduce/ appscale-gcs-client/ appscale-pipelines/
 }
