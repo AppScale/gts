@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-import simplejson
+import json
 import sys
 import unittest
 import urllib2
@@ -68,20 +68,20 @@ class TestSolrInterface(unittest.TestCase):
     urllib2.should_receive("urlopen").and_return(FakeConnection(False))
     self.assertRaises(search_exceptions.InternalError, solr.get_index, "app_id", "ns", "name")
 
-    # Test the case of ValueError on a simplejson.load.
+    # Test the case of ValueError on a json.load.
     urllib2.should_receive("urlopen").and_return(FakeConnection(True))
-    flexmock(simplejson)
-    simplejson.should_receive("load").and_raise(ValueError)
+    flexmock(json)
+    json.should_receive("load").and_raise(ValueError)
     self.assertRaises(search_exceptions.InternalError, solr.get_index, "app_id", "ns", "name")
 
     # Test a bad status from SOLR.
     dictionary = {'responseHeader':{'status': 1}}
-    simplejson.should_receive("load").and_return(dictionary)
+    json.should_receive("load").and_return(dictionary)
     self.assertRaises(search_exceptions.InternalError, solr.get_index, "app_id", "ns", "name")
 
     fields = [{'name':"index_ns_name_"}]
     dictionary = {'responseHeader':{'status': 0}, "fields": fields}
-    simplejson.should_receive("load").and_return(dictionary)
+    json.should_receive("load").and_return(dictionary)
     index = solr.get_index("app_id", "ns", "name")
     self.assertEquals(index.schema.fields[0]['name'], "index_ns_name_")
 
@@ -96,17 +96,17 @@ class TestSolrInterface(unittest.TestCase):
     self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
 
     updates = [{'name': 'name1', 'type':'type1'}]
-    flexmock(simplejson)
-    simplejson.should_receive("load").and_raise(ValueError)
+    flexmock(json)
+    json.should_receive("load").and_raise(ValueError)
     urllib2.should_receive("urlopen").and_return(FakeConnection(True))
     self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
 
     dictionary = {"responseHeader":{"status":1}}
-    simplejson.should_receive("load").and_return(dictionary)
+    json.should_receive("load").and_return(dictionary)
     self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
     
     dictionary = {"responseHeader":{"status":0}}
-    simplejson.should_receive("load").and_return(dictionary)
+    json.should_receive("load").and_return(dictionary)
     solr.update_schema(updates)
 
   def test_to_solr_hash_map(self):
@@ -120,23 +120,23 @@ class TestSolrInterface(unittest.TestCase):
     appscale_info.should_receive("get_search_location").and_return("somelocation")
     solr = solr_interface.Solr()
     
-    flexmock(simplejson)
-    simplejson.should_receive("loads").and_return({})
+    flexmock(json)
+    json.should_receive("loads").and_return({})
 
     flexmock(urllib2)
     urllib2.should_receive("urlopen").and_return(FakeConnection(False))
     self.assertRaises(search_exceptions.InternalError, solr.commit_update, {})
 
-    simplejson.should_receive("load").and_raise(ValueError)
+    json.should_receive("load").and_raise(ValueError)
     urllib2.should_receive("urlopen").and_return(FakeConnection(True))
     self.assertRaises(search_exceptions.InternalError, solr.commit_update, {})
 
     dictionary = {'responseHeader':{'status': 1}}
-    simplejson.should_receive("load").and_return(dictionary).once()
+    json.should_receive("load").and_return(dictionary).once()
     self.assertRaises(search_exceptions.InternalError, solr.commit_update, {})
 
     dictionary = {'responseHeader':{'status': 0}}
-    simplejson.should_receive("load").and_return(dictionary).once()
+    json.should_receive("load").and_return(dictionary).once()
     solr.commit_update({})
 
   def test_update_document(self):
