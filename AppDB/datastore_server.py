@@ -2219,6 +2219,11 @@ class DatastoreDistributed():
       entities = [self.default_namespace()] + entities
 
     results = entities[:limit]
+
+    # Handle projection queries.
+    if query.property_name_size() > 0:
+      results = self.remove_extra_props(query, results)
+
     self.logger.debug('Returning {} entities'.format(len(results)))
     return results
 
@@ -2402,6 +2407,12 @@ class DatastoreDistributed():
           'An infinite loop was detected while fetching references.')
 
     results = entities[:limit]
+
+    # Handle projection queries.
+    # TODO: When the index has been confirmed clean, use those values directly.
+    if query.property_name_size() > 0:
+      results = self.remove_extra_props(query, results)
+
     self.logger.debug('Returning {} results'.format(len(results)))
     return results
 
@@ -3382,6 +3393,39 @@ class DatastoreDistributed():
         format(prop_name))
 
     return False
+
+  def remove_extra_props(self, query, results):
+    """ Decodes entities, strips extra properties, and re-encodes them.
+
+    Args:
+      query: A datastore_pb.Query object.
+      results: A list of encoded entities.
+    Returns:
+      A list of encoded entities.
+    """
+    projected_props = query.property_name_list()
+
+    cleaned_results = []
+    for result in results:
+      entity = entity_pb.EntityProto(result)
+      props_to_keep = [prop for prop in entity.property_list()
+                       if prop.name() in projected_props]
+
+      # If the entity does not have the property, do not include it in the
+      # results. Raw (unindexed) properties should not be projected.
+      if not props_to_keep:
+        continue
+
+      entity.clear_property()
+      for prop in props_to_keep:
+        # Projected properties should have a meaning set to INDEX_VALUE.
+        prop.set_meaning(entity_pb.Property.INDEX_VALUE)
+        new_prop = entity.add_property()
+        new_prop.MergeFrom(prop)
+
+      cleaned_results.append(entity.Encode())
+
+    return cleaned_results
 
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
