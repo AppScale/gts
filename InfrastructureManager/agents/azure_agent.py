@@ -179,8 +179,9 @@ class AzureAgent(BaseAgent):
     network_client = NetworkManagementClient(credentials, subscription_id)
     active_public_ips, active_private_ips, active_instances = \
       self.describe_instances(parameters)
-    subnet = network_client.subnets.get(group_name, self.VIRTUAL_NETWORK,
-                                        self.VIRTUAL_NETWORK)
+    virtual_network = parameters[self.PARAM_GROUP]
+    subnet = network_client.subnets.get(group_name, virtual_network,
+                                        virtual_network)
     threads = []
     for _ in range(count):
       vm_network_name = Haikunator().haikunate()
