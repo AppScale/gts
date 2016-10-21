@@ -1635,10 +1635,10 @@ class Djinn
         @app_names << "none" if @app_names.empty?
       }
 
-      # Prevent future deploys from using the old application code.
-      FileUtils.rm_rf("#{HelperFunctions.get_app_path(app_name)}")
-      FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
-      CronHelper.clear_app_crontab(app_name)
+      # To prevent future deploys from using the old application code, we
+      # forced a removal of the application status on disk (for example
+      # the code and cronjob) right now.
+      check_stopped_apps
     }
 
     return "true"
