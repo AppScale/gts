@@ -4825,6 +4825,12 @@ HOSTS
         end
       end
 
+      if my_node.is_shadow?
+        Djinn.log_info("Removing log configuration for #{app}.")
+        FileUtils.rm_f(get_rsyslog_conf(app))
+        HelperFunctions.shell("service rsyslog restart")
+      end
+
       Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
       CronHelper.clear_app_crontab(app)
       maybe_stop_taskqueue_worker(app)
@@ -5022,6 +5028,17 @@ HOSTS
     return app_language
   end
 
+  # Small utility function that returns the full path for the rsyslog
+  # configuration for each application.
+  #
+  # Args:
+  #   app: A String containing the application ID.
+  # Returns:
+  #   path: A String with the path to the rsyslog configuration file.
+  def get_rsyslog_conf(app)
+    return "/etc/rsyslog.d/10-#{app}.conf"
+  end
+
   # Performs all of the preprocessing needed to start an App Engine application
   # on this node. This method then starts the actual app by calling the AppManager.
   #
@@ -5099,7 +5116,7 @@ HOSTS
       }
 
       # Setup rsyslog to store application logs.
-      app_log_config_file = "/etc/rsyslog.d/10-#{app}.conf"
+      app_log_config_file = get_rsyslog_conf(app)
       begin
         existing_app_log_config = File.open(app_log_config_file, 'r').read()
       rescue Errno::ENOENT
