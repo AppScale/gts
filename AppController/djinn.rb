@@ -1636,8 +1636,8 @@ class Djinn
       }
 
       # To prevent future deploys from using the old application code, we
-      # forced a removal of the application status on disk (for example
-      # the code and cronjob) right now.
+      # force a removal of the application status on disk (for example the
+      # code and cronjob) right now.
       check_stopped_apps
     }
 
