@@ -4779,35 +4779,24 @@ HOSTS
     }
   end
 
-  # This function compares the applications that should be running with
-  # the ones we have setup, and removes the stopped applications.
+  # This function ensures that applications we are not aware of (that is
+  # they are not accounted for) will be terminated and, potentially old
+  # sources, will be removed.
   def check_stopped_apps()
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     Djinn.log_debug("Checking applications that have been stopped.")
-    begin
-      app_list = uac.get_all_apps()
-    rescue FailedNodeException
-      Djinn.log_warn("check_stopped_apps: failed to get apps (#{app_list}).")
-      app_list = []
-    end
-    app_list += HelperFunctions.get_loaded_apps()
+    app_list = HelperFunctions.get_loaded_apps()
     app_list.each { |app|
       next if @app_names.include?(app)
       next if RESERVED_APPS.include?(app)
       begin
         next if uac.is_app_enabled?(app)
       rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to the UserAppServer about " +
-          "application #{app}.")
+        Djinn.log_warn("Failed to talk to the UserAppServer about app #{app}.")
         next
       end
 
       Djinn.log_info("#{app} is no longer running: removing old states.")
-      Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
-      CronHelper.clear_app_crontab(app)
-      Djinn.log_debug("(stop_app) Maybe stopping taskqueue worker")
-      maybe_stop_taskqueue_worker(app)
-      Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       if my_node.is_load_balancer?
         stop_xmpp_for_app(app)
@@ -4816,25 +4805,30 @@ HOSTS
       end
 
       if my_node.is_appengine?
-        Djinn.log_debug("(stop_app) Calling AppManager for app #{app}")
+        Djinn.log_debug("Calling AppManager to stop app #{app}.")
         app_manager = AppManagerClient.new(my_node.private_ip)
         begin
           if app_manager.stop_app(app)
-            Djinn.log_info("(stop_app) AppManager shut down app #{app}")
+            Djinn.log_info("Asked AppManager to shut down app #{app}.")
           else
-            Djinn.log_error("(stop_app) unable to stop app #{app}")
+            Djinn.log_warn("AppManager is unable to stop app #{app}.")
           end
         rescue FailedNodeException
-          Djinn.log_warn("(stop_app) #{app} may have not been stopped")
+          Djinn.log_warn("Failed to talk to AppManager about stopping #{app}.")
         end
 
         begin
           ZKInterface.remove_app_entry(app, my_node.public_ip)
         rescue FailedZooKeeperOperationException => except
-          Djinn.log_warn("(stop_app) got exception talking to " +
+          Djinn.log_warn("check_stopped_apps: got exception talking to " +
             "zookeeper: #{except.message}.")
         end
       end
+
+      Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
+      CronHelper.clear_app_crontab(app)
+      maybe_stop_taskqueue_worker(app)
+      Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
   end
 
