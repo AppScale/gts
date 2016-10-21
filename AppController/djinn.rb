@@ -2001,9 +2001,9 @@ class Djinn
 
     online_users = []
 
-    login_node = get_load_balancer
-    ip = login_node.public_ip
-    key = login_node.ssh_key
+    lb_node = get_load_balancer
+    ip = lb_node.public_ip
+    key = lb_node.ssh_key
     raw_list = `ssh -i #{key} -o StrictHostkeyChecking=no root@#{ip} 'ejabberdctl connected-users'`
     raw_list.split("\n").each { |userdata|
       online_users << userdata.split("/")[0]
@@ -2303,7 +2303,7 @@ class Djinn
         # already have info about the open nodes we want to use
         new_nodes = Djinn.convert_location_array_to_class(new_nodes_info,
           @options['keyname'])
-        vms_to_use << convert_fqdns_to_ips(new_nodes)
+        vms_to_use << new_nodes
         vms_to_use.flatten!
       end
     }
@@ -2340,7 +2340,6 @@ class Djinn
   def add_nodes(node_info)
     keyname = @options['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
-    new_nodes = convert_fqdns_to_ips(new_nodes)
 
     # Since an external thread can modify @nodes, let's put a lock around
     # it to prevent race conditions.
@@ -3358,46 +3357,6 @@ class Djinn
   end
 
 
-  # If running in a cloud environment, we may be dealing with public and
-  # private FQDNs instead of IP addresses, which makes it hard to find out
-  # which node is our node (since we find our node by IP). This method
-  # looks through all the nodes we currently know of and converts any private
-  # FQDNs we see to private IPs.
-  #
-  # Args:
-  #   nodes: An Array of DjinnJobDatas, where each item corresponds to a single
-  #     node in this AppScale deployment.
-  #
-  # Returns:
-  #   An Array of DjinnJobDatas, where each item may have its private FQDN
-  #   replaced with a private IP address.
-  def convert_fqdns_to_ips(nodes)
-    if is_cloud?
-      Djinn.log_debug("In a cloud deployment, so converting FQDNs -> IPs")
-    else
-      Djinn.log_debug("Not in a cloud deployment, so not converting FQDNs -> IPs")
-      return nodes
-    end
-
-    nodes.each { |node|
-      # Resolve the private FQDN to a private IP, but don't resolve the public
-      # FQDN, as that will just resolve to the private IP.
-
-      pri = node.private_ip
-      if pri =~ /#{FQDN_REGEX}/
-        begin
-          node.private_ip = HelperFunctions.convert_fqdn_to_ip(pri)
-        rescue => e
-          Djinn.log_info("Failed to convert IP: #{e.message}")
-          node.private_ip = node.public_ip
-        end
-      end
-    }
-
-    return nodes
-  end
-
-
   # Searches through @nodes to try to find out which node is ours. Strictly
   # speaking, we assume that our node is identifiable by private IP, but
   # we also check our public IPs (for AWS and GCE) in case the user got it
@@ -3856,7 +3815,7 @@ class Djinn
   end
 
   def is_cloud?
-    !@options['infrastructure'].nil?
+    return ['ec2', 'euca', 'gce', 'azure'].include?(@options['infrastructure'])
   end
 
   def restore_from_db?
@@ -3867,14 +3826,22 @@ class Djinn
     # should also make sure the tools are on the vm and the envvars are set
     keyname = @options['keyname']
 
+    appengine_info = []
     machines = JSON.load(@options['ips'])
-    appengine_info = spawn_appengine(machines)
+    machines.each { |node|
+      appengine_info << {
+        'public_ip' => node['public_ip'],
+        'private_ip' => node['private_ip'],
+        'jobs' => node['jobs'],
+        'instance_id' => node['instance_id'],
+        'disk' => node['disk_id']
+      }
+    }
     Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}.")
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
 
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
-    appengine_info = convert_fqdns_to_ips(appengine_info)
     @state_change_lock.synchronize {
       @nodes.concat(appengine_info)
       @nodes.uniq!
@@ -3886,52 +3853,6 @@ class Djinn
     initialize_nodes_in_parallel(appengine_info)
   end
 
-  def spawn_appengine(machines)
-    Djinn.log_debug("Machines requested or available: #{machines.join(', ')}.")
-    appengine_info = []
-
-    if is_cloud?
-      # In cloud mode we need to spawn the instances, but we should check
-      # if the instances have been already spawned: we can do that
-      # comparing what we are requested and what we have in @nodes.
-      # Note: the tools doesn't include the headnode in machines.
-      if @nodes.length < (machines.length + 1)
-        @state = "Spawning up #{machines.length} virtual machines"
-        roles = machines.map { |node| node['jobs'] }
-        disks = machines.map { |node| node['disk'] }
-
-        Djinn.log_info("Starting #{machines.length} machines.")
-
-        imc = InfrastructureManagerClient.new(@@secret)
-        begin
-          appengine_info = imc.spawn_vms(machines.length, @options, roles, disks)
-        rescue FailedNodeException, AppScaleException => exception
-          @state = "Couldn't spawn #{machines.length} VMs " +
-            "with roles #{roles} because: #{exception.message}"
-          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
-        end
-        Djinn.log_info("Spawned #{machines.length} virtual machines.")
-      else
-        Djinn.log_info("Not spawning new instances since we have the requested" +
-          " number already.")
-      end
-    else
-      # For cluster mode, we return a nodes structure with the correct
-      # values, since we already have the jobs and ips for the layout.
-      machines.each { |node|
-        appengine_info << {
-          'public_ip' => node['ip'],
-          'private_ip' => node['ip'],
-          'jobs' => node['jobs'],
-          'instance_id' => 'i-APPSCALE',
-          'disk' => nil
-        }
-      }
-    end
-
-    Djinn.log_debug("Received appengine info: #{appengine_info.join(', ')}.")
-    return appengine_info
-  end
 
   def initialize_nodes_in_parallel(node_info)
     threads = []
@@ -4222,7 +4143,7 @@ class Djinn
 
     all_nodes = ""
     @nodes.each_with_index { |node, index|
-      all_nodes << "#{HelperFunctions.convert_fqdn_to_ip(node.private_ip)} appscale-image#{index}\n"
+      all_nodes << "#{node.private_ip} appscale-image#{index}\n"
     }
 
     new_etc_hosts = <<HOSTS
