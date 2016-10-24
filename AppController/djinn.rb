@@ -1635,10 +1635,10 @@ class Djinn
         @app_names << "none" if @app_names.empty?
       }
 
-      # Prevent future deploys from using the old application code.
-      FileUtils.rm_rf("#{HelperFunctions.get_app_path(app_name)}")
-      FileUtils.rm_rf("#{PERSISTENT_MOUNT_POINT}/apps/#{app_name}.tar.gz")
-      CronHelper.clear_app_crontab(app_name)
+      # To prevent future deploys from using the old application code, we
+      # force a removal of the application status on disk (for example the
+      # code and cronjob) right now.
+      check_stopped_apps
     }
 
     return "true"
@@ -4779,35 +4779,24 @@ HOSTS
     }
   end
 
-  # This function compares the applications that should be running with
-  # the ones we have setup, and removes the stopped applications.
+  # This function ensures that applications we are not aware of (that is
+  # they are not accounted for) will be terminated and, potentially old
+  # sources, will be removed.
   def check_stopped_apps()
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     Djinn.log_debug("Checking applications that have been stopped.")
-    begin
-      app_list = uac.get_all_apps()
-    rescue FailedNodeException
-      Djinn.log_warn("check_stopped_apps: failed to get apps (#{app_list}).")
-      app_list = []
-    end
-    app_list += HelperFunctions.get_loaded_apps()
+    app_list = HelperFunctions.get_loaded_apps()
     app_list.each { |app|
       next if @app_names.include?(app)
       next if RESERVED_APPS.include?(app)
       begin
         next if uac.is_app_enabled?(app)
       rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to the UserAppServer about " +
-          "application #{app}.")
+        Djinn.log_warn("Failed to talk to the UserAppServer about app #{app}.")
         next
       end
 
       Djinn.log_info("#{app} is no longer running: removing old states.")
-      Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
-      CronHelper.clear_app_crontab(app)
-      Djinn.log_debug("(stop_app) Maybe stopping taskqueue worker")
-      maybe_stop_taskqueue_worker(app)
-      Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       if my_node.is_load_balancer?
         stop_xmpp_for_app(app)
@@ -4816,25 +4805,36 @@ HOSTS
       end
 
       if my_node.is_appengine?
-        Djinn.log_debug("(stop_app) Calling AppManager for app #{app}")
+        Djinn.log_debug("Calling AppManager to stop app #{app}.")
         app_manager = AppManagerClient.new(my_node.private_ip)
         begin
           if app_manager.stop_app(app)
-            Djinn.log_info("(stop_app) AppManager shut down app #{app}")
+            Djinn.log_info("Asked AppManager to shut down app #{app}.")
           else
-            Djinn.log_error("(stop_app) unable to stop app #{app}")
+            Djinn.log_warn("AppManager is unable to stop app #{app}.")
           end
         rescue FailedNodeException
-          Djinn.log_warn("(stop_app) #{app} may have not been stopped")
+          Djinn.log_warn("Failed to talk to AppManager about stopping #{app}.")
         end
 
         begin
           ZKInterface.remove_app_entry(app, my_node.public_ip)
         rescue FailedZooKeeperOperationException => except
-          Djinn.log_warn("(stop_app) got exception talking to " +
+          Djinn.log_warn("check_stopped_apps: got exception talking to " +
             "zookeeper: #{except.message}.")
         end
       end
+
+      if my_node.is_shadow?
+        Djinn.log_info("Removing log configuration for #{app}.")
+        FileUtils.rm_f(get_rsyslog_conf(app))
+        HelperFunctions.shell("service rsyslog restart")
+      end
+
+      Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
+      CronHelper.clear_app_crontab(app)
+      maybe_stop_taskqueue_worker(app)
+      Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
   end
 
@@ -5028,6 +5028,17 @@ HOSTS
     return app_language
   end
 
+  # Small utility function that returns the full path for the rsyslog
+  # configuration for each application.
+  #
+  # Args:
+  #   app: A String containing the application ID.
+  # Returns:
+  #   path: A String with the path to the rsyslog configuration file.
+  def get_rsyslog_conf(app)
+    return "/etc/rsyslog.d/10-#{app}.conf"
+  end
+
   # Performs all of the preprocessing needed to start an App Engine application
   # on this node. This method then starts the actual app by calling the AppManager.
   #
@@ -5105,7 +5116,7 @@ HOSTS
       }
 
       # Setup rsyslog to store application logs.
-      app_log_config_file = "/etc/rsyslog.d/10-#{app}.conf"
+      app_log_config_file = get_rsyslog_conf(app)
       begin
         existing_app_log_config = File.open(app_log_config_file, 'r').read()
       rescue Errno::ENOENT
