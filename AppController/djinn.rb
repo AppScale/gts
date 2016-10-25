@@ -794,44 +794,56 @@ class Djinn
       Djinn.log_error(msg)
       return msg
     end
-    locations = JSON.load(layout)
+    locations = nil
+    begin
+      locations = JSON.load(layout)
+    rescue JSON::ParserError => e
+    end
+
     # Check that we have the basic information in the layout.
+    if locations.nil? || locations.empty?
+      msg = "Error: layout is not a JSON structure."
+      Djinn.log_error(msg)
+      return msg
+    end
     locations.each{ |node|
       if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
-        !node['instance_id'] || !node['disk_id']
+        !node['instance_id']
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         return msg
-      elsif node['public_ip'].empty || node['private_ip'].empty ||
-         node['jobs'].empty || node['instance_id'].empty
+      elsif node['public_ip'].empty? || node['private_ip'].empty? ||
+         node['jobs'].empty? || node['instance_id'].empty?
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         return msg
       end
     }
 
+    # options is an array that we're converting to hash tables, so we need
+    # to make sure that every key maps to a value e.g., ['foo', 'bar']
+    # becomes {'foo' => 'bar'} so we need to make sure that the array has
+    # an even number of elements.
     if options.class != Array
       msg = "Error: options wasn't an Array, but was a " +
         options.class.to_s
       Djinn.log_error(msg)
       return msg
     end
-
-    # options is an array that we're converting to hash tables, so we need
-    # to make sure that every key maps to a value e.g., ['foo', 'bar']
-    # becomes {'foo' => 'bar'} so we need to make sure that the array has
-    # an even number of elements.
     if options.length.odd?
       msg = "Error: options wasn't of even length: Len = #{options.length}"
       Djinn.log_error(msg)
       return msg
     end
-
     @options = Hash[*options]
     # Let's validate we have the needed options defined.
-    return "Error: cannot find keyname in options!" unless @option['keyname']
-    return "Error: cannot find login in options!" unless @option['login']
-    return "Error: cannot find table in options!" unless @option['table']
+    ['keyname', 'login', 'table'].each{ |key|
+      unless @option[key]
+        msg = "Error: cannot find #{key} in options!" unless @option[key]
+        Djinn.log_error(msg)
+        return msg
+      end
+    }
 
     @state_change_lock.synchronize {
       @nodes = Djinn.convert_location_array_to_class(locations,

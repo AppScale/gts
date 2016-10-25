@@ -60,13 +60,13 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_all_public_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.job_start(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_online_users_list(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.done_uploading(@app, "/tmp/app", 
+    assert_equal(BAD_SECRET_MSG, djinn.done_uploading(@app, "/tmp/app",
       @secret))
     assert_equal(BAD_SECRET_MSG, djinn.is_app_running(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.add_role("baz", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.remove_role("baz", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '', 
+    assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '',
       @secret))
     assert_equal(BAD_SECRET_MSG, djinn.add_routing_for_appserver(@app, 'baz',
       'baz', @secret))
@@ -109,7 +109,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [node1, node2]
 
     role1_to_hash, role2_to_hash = JSON.load(djinn.get_role_info(@secret))
-  
+
     # make sure role1 got hashed fine
     assert_equal("public_ip", role1_to_hash['public_ip'])
     assert_equal("private_ip", role1_to_hash['private_ip'])
@@ -138,7 +138,7 @@ class TestDjinn < Test::Unit::TestCase
     # Try passing in params that aren't the required type
     bad_param = ""
     result_1 = djinn.set_parameters([], [], @secret)
-    assert_equal(true, result_1.include?("Error: djinn_locations"))
+    assert_equal(true, result_1.include?("Error: layout wasn't a String"))
 
     result_2 = djinn.set_parameters("", bad_param, @secret)
     assert_equal(true, result_2.include?("Error: database_credentials"))
@@ -157,7 +157,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal("Error: Credential format wrong", result_5)
 
     # Now try good credentials, but with bad node info
-    credentials = ['table', 'cassandra', 'hostname', '127.0.0.1', 'ips', '', 
+    credentials = ['table', 'cassandra', 'login', '127.0.0.1', 'ips', '',
       'keyname', 'appscale']
     bad_node_info = "[1]"
     assert_raises(Exception) {
@@ -189,7 +189,7 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new
 
-    credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
+    credentials = ['table', 'cassandra', 'login', 'public_ip', 'ips', '',
       'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False']
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
@@ -326,7 +326,7 @@ class TestDjinn < Test::Unit::TestCase
     json_data = '{"ips":[],"last_updated":1331849005}'
     baz.should_receive(:get).
       with(:path => ZKInterface::IP_LIST).
-      and_return({:rc => 0, :data => json_data, 
+      and_return({:rc => 0, :data => json_data,
           :stat => flexmock(:exists => true)})
 
     flexmock(Time).should_receive(:now).and_return(
@@ -337,7 +337,7 @@ class TestDjinn < Test::Unit::TestCase
       and_return(new_data)
     flexmock(JSON).should_receive(:dump).with(true).and_return('true')
 
-    baz.should_receive(:set).with(:path => ZKInterface::IP_LIST, 
+    baz.should_receive(:set).with(:path => ZKInterface::IP_LIST,
       :data => new_data).and_return(all_ok)
 
     # Mocks for the appcontroller lock
@@ -420,7 +420,7 @@ class TestDjinn < Test::Unit::TestCase
       and_return({:stat => flexmock(:exists => true)})
 
     baz.should_receive(:create).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH, 
+      :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
       :ephemeral => ZKInterface::EPHEMERAL,
       :data => JSON.dump("public_ip")).and_return(failure, all_ok)
     baz.should_receive(:get).with(
@@ -529,7 +529,7 @@ class TestDjinn < Test::Unit::TestCase
 
     # mock out ZooKeeper's init stuff
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
-      and_return() 
+      and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(mocked_zk)
 
@@ -1000,7 +1000,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new()
     djinn.nodes = [node]
     djinn.my_index = 0
-    
+
     # let's say there's one app running
     djinn.apps_loaded = ['bazapp']
 
@@ -1043,7 +1043,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [node, open_node]
     djinn.my_index = 0
     djinn.options = { 'keyname' => 'boo' }
-    
+
     # let's say there's one app running
     djinn.apps_loaded = ['bazapp']
     djinn.app_info_map = {
