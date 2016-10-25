@@ -1374,28 +1374,6 @@ module HelperFunctions
   end
 
 
-  # Copies the /etc/resolv.conf file to a backup file, and then removes all
-  # nameserver lookups from the current resolv.conf. We do this to avoid
-  # having to hop out to the nameserver to resolve each node's public and
-  # private IP address (which can be slow in Eucalyptus under heavy load).
-  def self.alter_etc_resolv()
-    self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
-
-    contents = self.read_file(RESOLV_CONF, chomp=false)
-    new_contents = ""
-    contents.split("\n").each { |line|
-      new_contents << line unless contents.include?("nameserver")
-    }
-    self.write_file(RESOLV_CONF, new_contents)
-  end
-
-
-  # Copies the backed-up resolv.conf file back to its original location.
-  def self.restore_etc_resolv()
-    self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
-  end
-
-
   # Contacts the Metadata Service running in Amazon Web Services, or
   # Google Compute Engine or any other supported public cloud,  to
   # determine the public FQDN associated with this virtual machine.

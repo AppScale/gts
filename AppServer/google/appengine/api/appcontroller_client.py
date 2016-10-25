@@ -88,16 +88,15 @@ class AppControllerClient():
       return self.call(retries - 1, function, *args)
 
 
-  def set_parameters(self, locations, credentials, app=None):
+  def set_parameters(self, layout, options, app=None):
     """Passes the given parameters to an AppController, allowing it to start
     configuring API services in this AppScale deployment.
 
     Args:
-      locations: A list that contains the first node's IP address.
-      credentials: A list that contains API service-level configuration info,
+      layout: A list that contains the first node's IP address.
+      options: A list that contains API service-level configuration info,
         as well as a mapping of IPs to the API services they should host
         (excluding the first node).
-      app: A list of the App Engine apps that should be started.
     Raises:
       AppControllerException: If the remote AppController indicates that there
         was a problem with the parameters passed to it.
@@ -105,8 +104,8 @@ class AppControllerClient():
     if app is None:
       app = 'none'
 
-    result = self.call(self.MAX_RETRIES, self.server.set_parameters, locations, 
-      credentials, [app], self.secret)
+    result = self.call(self.MAX_RETRIES, self.server.set_parameters, layout,
+      options, [app], self.secret)
     if result.startswith('Error'):
       raise AppControllerException(result)
 

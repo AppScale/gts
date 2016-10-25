@@ -446,7 +446,6 @@ class Djinn
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified.
   PARAMETERS_AND_CLASS = {
-    'alter_etc_resolv' => [ TrueClass, nil ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
     'appengine' => [ Fixnum, '2' ],
     'autoscale' => [ TrueClass, nil ],
@@ -771,9 +770,6 @@ class Djinn
       }
     end
 
-    if @options['alter_etc_resolv'].downcase == "true"
-      HelperFunctions.restore_etc_resolv()
-    end
     Djinn.log_info("---- Stopping AppController ----")
 
     return "OK"
@@ -783,54 +779,70 @@ class Djinn
   # Validates and sets the instance variables that Djinn needs before it can
   # begin configuring and deploying services on a given node (and if it is the
   # first Djinn, starting up the other Djinns).
-  def set_parameters(djinn_locations, database_credentials, apps, secret)
+  #
+  # Args:
+  #   layout: this is a JSON structure containing the nodes
+  #     informations (IPs, roles, instance ID etc...). These are the nodes
+  #     specified in the AppScalefile at startup time.
+  #   options: this is a Hash containing all the options and credentials
+  #     (for autoscaling) pertinent to this deployment.
+  def set_parameters(layout, options, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if djinn_locations.class != String
-      msg = "Error: djinn_locations wasn't a String, but was a " +
-        djinn_locations.class.to_s
+    if layout.class != String
+      msg = "Error: layout wasn't a String, but was a " + layout.class.to_s
       Djinn.log_error(msg)
       return msg
     end
-    locations = JSON.load(djinn_locations)
-
-    if database_credentials.class != Array
-      msg = "Error: database_credentials wasn't an Array, but was a " +
-        database_credentials.class.to_s
-      Djinn.log_error(msg)
-      return msg
+    locations = JSON.load(layout)
+    # Check that we have the basic information in the layout.
+    locations.each{ |node|
+      if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
+        !node['instance_id'] || !node['disk_id']
+        msg = "Error: node layout is missing information #{node}."
+        Djinn.log_error(msg)
+        return msg
+      elsif node['public_ip'].empty || node['private_ip'].empty ||
+         node['jobs'].empty || node['instance_id'].empty
+        msg = "Error: node layout is missing information #{node}."
+        Djinn.log_error(msg)
+        return msg
+      end
     end
 
-    if apps.class != Array
-      msg = "Error: apps wasn't an Array, but was a " + apps.class.to_s
-      Djinn.log_error(msg)
-      return msg
-    end
-
-    # credentials is an array that we're converting to
-    # hash tables, so we need to make sure that every key maps to a value
-    # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
-    # so we need to make sure that the array has an even number of elements
-    if database_credentials.length.odd?
-      msg = "Error: DB Credentials wasn't of even length: Len = " + \
-        "#{database_credentials.length}"
+    if options.class != Array
+      msg = "Error: options wasn't an Array, but was a " +
+        options.class.to_s
       Djinn.log_error(msg)
       return msg
     end
 
-    possible_credentials = Hash[*database_credentials]
-    unless valid_format_for_credentials(possible_credentials)
-      return "Error: Credential format wrong"
+    # options is an array that we're converting to hash tables, so we need
+    # to make sure that every key maps to a value e.g., ['foo', 'bar']
+    # becomes {'foo' => 'bar'} so we need to make sure that the array has
+    # an even number of elements.
+    if options.length.odd?
+      msg = "Error: options wasn't of even length: Len = #{options.length}"
+      Djinn.log_error(msg)
+      return msg
     end
 
-    keyname = possible_credentials["keyname"]
-    @options = possible_credentials
-    @app_names = apps
+    @options = Hash[*options]
+    # Let's validate we have the needed options defined.
+    return "Error: cannot find keyname in options!" unless @option['keyname']
+    return "Error: cannot find login in options!" unless @option['login']
+    return "Error: cannot find table in options!" unless @option['table']
 
     @state_change_lock.synchronize {
-      @nodes = Djinn.convert_location_array_to_class(locations, keyname)
+      @nodes = Djinn.convert_location_array_to_class(locations,
+        @options['keyname'])
     }
     @options = sanitize_credentials()
+    # Let's validate the layout has the needed roles. The folllwing
+    # functions would crash if the role is not there
+    get_db_master
+    get_shadow
+
 
     # Check that we got good parameters: we removed the unkown ones for
     # backward compatibilty.
@@ -941,10 +953,6 @@ class Djinn
       @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
       @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
       @options['ec2_url'] = @options['EC2_URL']
-    end
-
-    if @options['alter_etc_resolv'].downcase == "true"
-      HelperFunctions.alter_etc_resolv()
     end
 
     @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
@@ -1878,8 +1886,13 @@ class Djinn
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
-      Djinn.log_info("Spawning/setting up other nodes.")
-      spawn_and_setup_appengine
+      Djinn.log_info("Preparing other nodes for this deployment.")
+
+      find_me_in_locations()
+      write_database_info()
+      update_firewall()
+
+      initialize_nodes_in_parallel(@nodes)
     end
 
     # Initialize the current server and starts all the API and essential
@@ -3400,17 +3413,6 @@ class Djinn
   end
 
 
-  # Checks to see if the credentials given to us (a Hash) have all the keys that
-  # other methods expect to see.
-  def valid_format_for_credentials(possible_credentials)
-    required_fields = ["table", "login", "ips", "keyname"]
-    required_fields.each { |field|
-      return false unless possible_credentials[field]
-    }
-
-    return true
-  end
-
   def sanitize_credentials()
     newoptions = {}
     @options.each { |key, val|
@@ -3820,37 +3822,6 @@ class Djinn
 
   def restore_from_db?
     @options['restore_from_tar'] || @options['restore_from_ebs']
-  end
-
-  def spawn_and_setup_appengine()
-    # should also make sure the tools are on the vm and the envvars are set
-    keyname = @options['keyname']
-
-    appengine_info = []
-    machines = JSON.load(@options['ips'])
-    machines.each { |node|
-      appengine_info << {
-        'public_ip' => node['public_ip'],
-        'private_ip' => node['private_ip'],
-        'jobs' => node['jobs'],
-        'instance_id' => node['instance_id'],
-        'disk' => node['disk_id']
-      }
-    }
-    Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}.")
-
-    @state = "Copying over needed files and starting the AppController on the other VMs"
-
-    appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
-    @state_change_lock.synchronize {
-      @nodes.concat(appengine_info)
-      @nodes.uniq!
-    }
-    find_me_in_locations()
-    write_database_info()
-    update_firewall()
-
-    initialize_nodes_in_parallel(appengine_info)
   end
 
 
@@ -4473,7 +4444,7 @@ HOSTS
     loc_array = Djinn.convert_location_class_to_array(@nodes)
     options = @options.to_a.flatten
     begin
-      result = acc.set_parameters(loc_array, options, @app_names)
+      result = acc.set_parameters(loc_array, options)
     rescue FailedNodeException => e
       @state = "Couldn't set parameters on node at #{ip} for #{e.message}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
