@@ -808,7 +808,7 @@ class Djinn
         Djinn.log_error(msg)
         return msg
       end
-    end
+    }
 
     if options.class != Array
       msg = "Error: options wasn't an Array, but was a " +
@@ -3823,7 +3823,6 @@ class Djinn
   def restore_from_db?
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
-
 
   def initialize_nodes_in_parallel(node_info)
     threads = []

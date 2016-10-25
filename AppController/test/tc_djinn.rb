@@ -51,7 +51,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", "", @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.status(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_stats(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
@@ -137,26 +137,23 @@ class TestDjinn < Test::Unit::TestCase
 
     # Try passing in params that aren't the required type
     bad_param = ""
-    result_1 = djinn.set_parameters([], [], [], @secret)
+    result_1 = djinn.set_parameters([], [], @secret)
     assert_equal(true, result_1.include?("Error: djinn_locations"))
 
-    result_2 = djinn.set_parameters("", bad_param, [], @secret)
+    result_2 = djinn.set_parameters("", bad_param, @secret)
     assert_equal(true, result_2.include?("Error: database_credentials"))
-
-    result_3 = djinn.set_parameters("", [], bad_param, @secret)
-    assert_equal(true, result_3.include?("Error: apps"))
 
     # Since DB credentials will be turned from an Array to a Hash,
     # it should have an even number of items in it
     bad_credentials = ['a']
-    result_4 = djinn.set_parameters("", bad_credentials, [], @secret)
+    result_4 = djinn.set_parameters("", bad_credentials, @secret)
     expected_1 = "Error: DB Credentials wasn't of even length"
     assert_equal(true, result_4.include?(expected_1))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
     better_credentials = ['a', 'b']
-    result_5 = djinn.set_parameters("", better_credentials, [], @secret)
+    result_5 = djinn.set_parameters("", better_credentials, @secret)
     assert_equal("Error: Credential format wrong", result_5)
 
     # Now try good credentials, but with bad node info
@@ -164,8 +161,7 @@ class TestDjinn < Test::Unit::TestCase
       'keyname', 'appscale']
     bad_node_info = "[1]"
     assert_raises(Exception) {
-      djinn.set_parameters(bad_node_info, credentials, better_credentials,
-        @secret)
+      djinn.set_parameters(bad_node_info, credentials, @secret)
     }
 
     # Finally, try credentials with info in the right format, but where it
@@ -176,12 +172,11 @@ class TestDjinn < Test::Unit::TestCase
       'jobs' => ['some_role'],
       'instance_id' => 'instance_id'
     })
-    app_names = []
 
     udpsocket = flexmock(UDPSocket)
     udpsocket.should_receive(:open).and_return("not any ips above")
     assert_raises(Exception) {
-      djinn.set_parameters(one_node_info, credentials, app_names, @secret)
+      djinn.set_parameters(one_node_info, credentials, @secret)
     }
   end
 
@@ -202,14 +197,12 @@ class TestDjinn < Test::Unit::TestCase
       'jobs' => ['some_role'],
       'instance_id' => 'instance_id'
     }])
-    app_names = []
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4 ")
 
     expected = "OK"
-    actual = djinn.set_parameters(one_node_info, credentials, app_names,
-      @secret)
+    actual = djinn.set_parameters(one_node_info, credentials, @secret)
     assert_equal(expected, actual)
   end
 
@@ -692,13 +685,12 @@ class TestDjinn < Test::Unit::TestCase
 
     options = {'keyname' => 'boo', 'user_commands' => []}
     options_as_array = options.to_a.flatten
-    no_apps = []
 
     # and that the appcontrollers receive the initial message to start
     # up from our appcontroller
     flexmock(AppControllerClient).new_instances { |instance|
       instance.should_receive(:set_parameters).with(all_nodes_serialized,
-        options_as_array, no_apps).and_return("OK")
+        options_as_array).and_return("OK")
     }
 
     # the appcontroller will update its local /etc/hosts file
@@ -892,13 +884,12 @@ class TestDjinn < Test::Unit::TestCase
 
     options = {'keyname' => 'boo', 'user_commands' => []}
     options_as_array = options.to_a.flatten
-    no_apps = []
 
     # and that the appcontrollers receive the initial message to start
     # up from our appcontroller
     flexmock(AppControllerClient).new_instances { |instance|
       instance.should_receive(:set_parameters).with(all_nodes_serialized,
-        options_as_array, no_apps).and_return("OK")
+        options_as_array).and_return("OK")
     }
 
     # lastly, the appcontroller will update its local /etc/hosts file
