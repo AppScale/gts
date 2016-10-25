@@ -547,7 +547,7 @@ installpsutil()
 installapiclient()
 {
     # The InfrastructureManager requires the Google API client.
-    pipwrapper google-api-python-client
+    pipwrapper google-api-python-client==1.5.4
 }
 
 buildgo()
