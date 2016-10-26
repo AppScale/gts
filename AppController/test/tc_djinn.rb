@@ -135,26 +135,33 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new
 
+    one_node_info = JSON.dump([{
+      'public_ip' => 'public_ip',
+      'private_ip' => 'private_ip',
+      'jobs' => ['some_role'],
+      'instance_id' => 'instance_id'
+    }])
+
     # Try passing in params that aren't the required type
     bad_param = ""
     result_1 = djinn.set_parameters([], [], @secret)
     assert_equal(true, result_1.include?("Error: layout wasn't a String"))
 
     result_2 = djinn.set_parameters("", bad_param, @secret)
-    assert_equal(true, result_2.include?("Error: database_credentials"))
+    assert_equal(true, result_2.include?("Error: layout is nil"))
 
     # Since DB credentials will be turned from an Array to a Hash,
     # it should have an even number of items in it
     bad_credentials = ['a']
-    result_4 = djinn.set_parameters("", bad_credentials, @secret)
-    expected_1 = "Error: DB Credentials wasn't of even length"
+    result_4 = djinn.set_parameters(one_node_info, bad_credentials, @secret)
+    expected_1 = "Error: options wasn't of even length"
     assert_equal(true, result_4.include?(expected_1))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
     better_credentials = ['a', 'b']
-    result_5 = djinn.set_parameters("", better_credentials, @secret)
-    assert_equal("Error: Credential format wrong", result_5)
+    result_5 = djinn.set_parameters(one_node_info, better_credentials, @secret)
+    assert_equal("Error: cannot find", result_5)
 
     # Now try good credentials, but with bad node info
     credentials = ['table', 'cassandra', 'login', '127.0.0.1', 'ips', '',
@@ -200,6 +207,8 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4 ")
+    flexmock(djinn).should_receive("get_db_master").and_return
+    flexmock(djinn).should_receive("get_shadow").and_return
 
     expected = "OK"
     actual = djinn.set_parameters(one_node_info, credentials, @secret)

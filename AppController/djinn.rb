@@ -789,24 +789,30 @@ class Djinn
   def set_parameters(layout, options, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
+    # Few checks on the layout structure. It is suppose to be a JSON dump
+    # of an Array of Hash, containing the list of nodes of this deployment.
     if layout.class != String
       msg = "Error: layout wasn't a String, but was a " + layout.class.to_s
       Djinn.log_error(msg)
       return msg
     end
-    locations = nil
     begin
       locations = JSON.load(layout)
     rescue JSON::ParserError => e
+      locations = nil
+      Djinn.log_debug("Got exception parsing JSON structure layout.")
     end
-
-    # Check that we have the basic information in the layout.
-    if locations.nil? || locations.empty?
-      msg = "Error: layout is not a JSON structure."
+    if locations.nil? || locations.empty? || locations.class != Array
+      msg = "Error: layout is nil or not in the proper format."
       Djinn.log_error(msg)
       return msg
     end
     locations.each{ |node|
+      if node.class != Hash
+        msg = "Error: node structure is not a Hash."
+        Djinn.log_error(msg)
+        return msg
+      end
       if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
         !node['instance_id']
         msg = "Error: node layout is missing information #{node}."
@@ -838,8 +844,8 @@ class Djinn
     @options = Hash[*options]
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each{ |key|
-      unless @option[key]
-        msg = "Error: cannot find #{key} in options!" unless @option[key]
+      unless @options[key]
+        msg = "Error: cannot find #{key} in options!" unless @options[key]
         Djinn.log_error(msg)
         return msg
       end
