@@ -464,7 +464,6 @@ class Djinn
     'group' => [ String, nil ],
     'login' => [ String, nil ],
     'keyname' => [ String, nil ],
-    'ips' => [ String, nil ],
     'infrastructure' => [ String, nil ],
     'instance_type' => [ String, nil ],
     'machine' => [ String, nil ],
@@ -2999,16 +2998,6 @@ class Djinn
       @options['login'] = new_public_ip
     end
 
-    unless is_cloud?
-      nodes = JSON.load(@options['ips'])
-      nodes.each { |node|
-        if node['ip'] == old_private_ip
-          node['ip'] == new_private_ip
-        end
-      }
-      @options['ips'] = JSON.dump(nodes)
-    end
-
     @app_info_map.each { |_app_id, app_info|
       if app_info['appengine'].nil?
         next
@@ -3434,7 +3423,7 @@ class Djinn
   def sanitize_credentials()
     newoptions = {}
     @options.each { |key, val|
-      if ['ips', 'user_commands'].include?(key)
+      if key == 'user_commands'
         newoptions[key] = val
         next
       end
