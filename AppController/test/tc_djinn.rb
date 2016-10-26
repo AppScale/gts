@@ -161,24 +161,23 @@ class TestDjinn < Test::Unit::TestCase
     # required parameters
     better_credentials = ['a', 'b']
     result_5 = djinn.set_parameters(one_node_info, better_credentials, @secret)
-    assert_equal("Error: cannot find", result_5)
+    assert_equal(true, result_5.include?("Error: cannot find"))
 
     # Now try good credentials, but with bad node info
     credentials = ['table', 'cassandra', 'login', '127.0.0.1', 'ips', '',
       'keyname', 'appscale']
     bad_node_info = "[1]"
-    assert_raises(Exception) {
-      djinn.set_parameters(bad_node_info, credentials, @secret)
-    }
+    result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
+    assert_equal(true, result_6.include?("Error: node structure is not"))
 
     # Finally, try credentials with info in the right format, but where it
     # refers to nodes that aren't in our deployment
-    one_node_info = JSON.dump({
+    one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
       'jobs' => ['some_role'],
       'instance_id' => 'instance_id'
-    })
+    }])
 
     udpsocket = flexmock(UDPSocket)
     udpsocket.should_receive(:open).and_return("not any ips above")
