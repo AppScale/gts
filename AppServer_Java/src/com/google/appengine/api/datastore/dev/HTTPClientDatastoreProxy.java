@@ -27,9 +27,11 @@ import com.google.appengine.api.users.User;
 import com.google.appengine.api.users.UserService;
 import com.google.appengine.api.users.UserServiceFactory;
 import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
+import com.google.appengine.repackaged.org.apache.commons.httpclient.HttpStatus;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
 import com.google.apphosting.api.ApiProxy;
+import com.google.apphosting.datastore.DatastoreV3Pb;
 
 public class HTTPClientDatastoreProxy
 {
@@ -110,7 +112,10 @@ public class HTTPClientDatastoreProxy
         {
             e.printStackTrace();
         }
-        if (!remoteResponse.hasResponse()) logger.log(Level.WARNING, "no response from server for: " + method + " method!");
+        if (!remoteResponse.hasResponse()) {
+            throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR.getValue(),
+                    "The datastore did not return a response");
+        }
         if (remoteResponse.hasApplicationError())
         {
             logger.log(Level.WARNING, "Application error in " + method + " method !" + remoteResponse.getApplicationError().toFlatString());
@@ -141,6 +146,12 @@ public class HTTPClientDatastoreProxy
 
         public byte[] handleResponse( HttpResponse response ) throws ClientProtocolException, IOException
         {
+            int responseCode = response.getStatusLine().getStatusCode();
+            if (responseCode != HttpStatus.SC_OK) {
+                throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR.getValue(),
+                        "The datastore returned an invalid response code: " + responseCode);
+            }
+
             HttpEntity entity = response.getEntity();
             if (entity != null)
             {
