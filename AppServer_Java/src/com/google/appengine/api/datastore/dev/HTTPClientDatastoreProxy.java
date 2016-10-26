@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.ConcurrentModificationException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -118,11 +117,8 @@ public class HTTPClientDatastoreProxy
         }
         if (remoteResponse.hasApplicationError())
         {
-            logger.log(Level.WARNING, "Application error in " + method + " method !" + remoteResponse.getApplicationError().toFlatString());
-           if(remoteResponse.getApplicationError().getCode() == 2)
-           {
-               throw new ConcurrentModificationException(remoteResponse.getApplicationError().toFlatString());
-           }
+            throw new ApiProxy.ApplicationException(remoteResponse.getApplicationError().getCode(),
+                    remoteResponse.getApplicationError().getDetail());
         }
         if (remoteResponse.hasException())
         {
