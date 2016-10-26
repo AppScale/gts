@@ -407,8 +407,7 @@ def estimate_total_entities(session, db_master, keyname):
   try:
     rows = session.execute(query)[0].count
     return str(rows / len(dbconstants.APP_ENTITY_SCHEMA))
-  except (cassandra.Unavailable, cassandra.Timeout,
-          cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+  except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
     stats_cmd = '{nodetool} cfstats {keyspace}.{table}'.format(
       nodetool=cassandra_interface.NODE_TOOL,
       keyspace=cassandra_interface.KEYSPACE,

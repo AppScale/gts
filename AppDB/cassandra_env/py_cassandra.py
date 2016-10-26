@@ -2,6 +2,7 @@
 Cassandra Interface for AppScale
 """
 import cassandra
+import dbconstants
 import os
 import sys
 import time
@@ -63,8 +64,7 @@ class DatastoreProxy(AppDBInterface):
                   'columns': ValueSequence(column_names)}
     try:
       results = self.session.execute(query, parameters)
-    except (cassandra.Unavailable, cassandra.Timeout,
-            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       list[0] += 'Unable to fetch entity'
       return list
 
@@ -105,8 +105,7 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       self.session.execute(batch)
-    except (cassandra.Unavailable, cassandra.Timeout,
-            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       list[0] += 'Unable to insert entity'
       return list
 
@@ -134,8 +133,7 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       results = self.session.execute(query)
-    except (cassandra.Unavailable, cassandra.Timeout,
-            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       response[0] += 'Unable to fetch table contents'
       return response
 
@@ -174,8 +172,7 @@ class DatastoreProxy(AppDBInterface):
 
     try:
       self.session.execute(delete, (row_key,))
-    except (cassandra.Unavailable, cassandra.Timeout,
-            cassandra.CoordinationFailure, cassandra.OperationTimedOut):
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       response[0] += 'Unable to delete row'
       return response
 
