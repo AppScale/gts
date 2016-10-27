@@ -7,9 +7,9 @@ Some code was taken from
 http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.html
 
 """
+import argparse
 import cStringIO
 import datetime
-import getopt
 import gzip
 import hashlib
 import itertools
@@ -41,7 +41,7 @@ from constants import LOG_FORMAT
 UPLOAD_URL_PATH = '_ah/upload/'
 
 # The port this service binds to
-DEFAULT_PORT = "6107"
+DEFAULT_PORT = 6107
 
 # Connects to localhost to get access to the datastore
 DEFAULT_DATASTORE_PATH = "http://127.0.0.1:8888"
@@ -346,44 +346,26 @@ class UploadHandler(tornado.web.RequestHandler):
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
         return
 
-def usage():
-  """ The usage printed to the screen. """
-  print "-p or --port for binding port"
-  print "-d or --datastore_path for location of the pbserver"
-
-def main(port):
-  """ Initialization code of the blobstore server. 
-  
-   Args:
-     port: The port to bind to for this service.
-  """
-  setup_env()
-
-  http_server = tornado.httpserver.HTTPServer(Application(),
-    max_buffer_size=MAX_REQUEST_BUFF_SIZE)
-  http_server.listen(int(port))
-
-  acc = appscale_info.get_appcontroller_client()
-  acc.add_routing_for_blob_server()
-  logging.info('Added routing for BlobServer'.format(port))
-
-  logging.info('Starting BlobServer on {}'.format(port))
-  tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-  try:
-    opts, args = getopt.getopt(sys.argv[1:], "p:d:",
-                               ["port", "database_path"])
-  except getopt.GetoptError:
-    usage()
-    sys.exit(1)
 
-  port = DEFAULT_PORT
-  for opt, arg in opts:
-    if opt in ("-p", "--port"):
-      port = arg
-    elif opt  in ("-d", "--datastore_path"):
-      datastore_path = arg
-    
-  main(port)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-p', '--port', type=int, default=DEFAULT_PORT,
+                      required=True, help="The blobstore server's port")
+  parser.add_argument('-d', '--datastore-path', required=True,
+                      help='The location of the datastore server')
+  args = parser.parse_args()
+  datastore_path = args.datastore_path
+  setup_env()
+
+  http_server = tornado.httpserver.HTTPServer(
+    Application(), max_buffer_size=MAX_REQUEST_BUFF_SIZE)
+
+  http_server.listen(args.port)
+
+  acc = appscale_info.get_appcontroller_client()
+  acc.add_routing_for_blob_server()
+
+  logging.info('Starting BlobServer on {}'.format(args.port))
+  tornado.ioloop.IOLoop.instance().start()
