@@ -855,8 +855,8 @@ class Djinn
         @options['keyname'])
     }
     @options = sanitize_credentials()
-    # Let's validate the layout has the needed roles. The folllwing
-    # functions would crash if the role is not there
+    # Let's validate the layout has the needed roles. The following
+    # functions would crash if the role is not there.
     get_db_master
     get_shadow
 
@@ -1020,7 +1020,6 @@ class Djinn
 
       stats['apps'].each { |app_name, is_loaded|
         next unless is_loaded
-        next if app_name == "none"
         stats_str << "    Information for application: #{app_name}\n"
         stats_str << "        Language            : "
         if @app_info_map[app_name]['language'].nil?
@@ -1654,8 +1653,6 @@ class Djinn
         @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
         @apps_loaded = @apps_loaded - [app_name]
         @app_names = @app_names - [app_name]
-        @apps_loaded << "none" if @apps_loaded.empty?
-        @app_names << "none" if @app_names.empty?
       }
 
       # Prevent future deploys from using the old application code.
@@ -1794,10 +1791,7 @@ class Djinn
     end
 
     APPS_LOCK.synchronize {
-      # Since we have at least one application running, we don't need to
-      # display anymore 'none' as the list of running applications.
       @app_names |= apps
-      @app_names = @app_names - ["none"]
     }
     Djinn.log_debug("Done updating apps!")
 
@@ -3370,8 +3364,6 @@ class Djinn
     return false if @nodes == []
     Djinn.log_debug("[got_all_data]: checking options.")
     return false if @options == {}
-    Djinn.log_debug("[got_all_data]: checking app_names.")
-    return false if @app_names == []
     Djinn.log_debug("[got_all_data]: done.")
     return true
   end
@@ -4158,8 +4150,6 @@ HOSTS
 
     apps_to_check = @apps_loaded
     apps_to_check.each { |app|
-      next if app == "none"
-
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       running = false
@@ -4626,7 +4616,7 @@ HOSTS
     # And now starts applications.
     @state = "Preparing to run AppEngine apps if needed."
 
-    apps_to_load = @app_names - @apps_loaded - ["none"]
+    apps_to_load = @app_names - @apps_loaded
     apps_to_load.each { |app|
       setup_appengine_application(app)
       maybe_start_taskqueue_worker(app)
@@ -4982,7 +4972,6 @@ HOSTS
       end
     end
 
-    @apps_loaded -= ["none"]
     @apps_loaded << app unless @apps_loaded.include?(app)
   end
 
@@ -5128,8 +5117,6 @@ HOSTS
   # are sitting in haproxy's queue, waiting to be served.
   def scale_appservers_within_nodes
     @apps_loaded.each { |app_name|
-      next if app_name == "none"
-
       initialize_scaling_info_for_app(app_name)
 
       # Always get scaling info, as that will send this info to the
@@ -5945,7 +5932,6 @@ HOSTS
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @apps_loaded.each { |app_name|
-          next if app_name == "none"
           if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
             Djinn.log_debug("#{app_name} not setup yet: skipping getting stats.")
             next
