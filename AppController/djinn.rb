@@ -840,7 +840,11 @@ class Djinn
     rescue JSON::ParserError => e
       @options = nil
       Djinn.log_debug("Got exception parsing JSON options.")
-      return "Error: Got exception parsing JSON options."
+    end
+    if @options.nil? || @options.empty? || @options.class != Hash
+      msg = "Error: @options is nil or not in the proper format."
+      Djinn.log_error(msg)
+      return msg
     end
 
     # Let's validate we have the needed options defined.
