@@ -330,11 +330,10 @@ class NewUserPage(AppDashboard):
     users['password_confirmation'] = cgi.escape(
       self.request.get('user_password_confirmation'))
 
-    self.render_app_page(page='users', values={
+    self.render_page(page='users', template_file=self.TEMPLATE, values={
         'user' : users,
         'error_message_content' : err_msgs,
-        'page_content' : self.TEMPLATE,
-        })
+    })
 
 
   def get(self):
