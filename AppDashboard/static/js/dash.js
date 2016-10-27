@@ -1,7 +1,5 @@
 $(document).ready(function(){
-    //in case there's any later special implementations with multiple areas that can be dragged
-    //$( ".selector" ).droppable({accept: ".special"});
-
+    /*enable sortable areas*/
     $(".sortable").sortable({
         cursor:"move",
         helper:"clone",
@@ -10,6 +8,11 @@ $(document).ready(function(){
             $("#save-layout").html("Save Current Layout");
         }
     });
+
+    /*enable tooltips*/
+    $('[data-toggle="tooltip"]').tooltip();
+
+    /*add panel functionality*/
     $(".add-panel").click(function() {
         var newPanelID = "#" + $(this).attr("data-target");
         if(!$(newPanelID).length){
@@ -56,6 +59,7 @@ $(document).ready(function(){
             }
         });
     });
+    /*reset layout functionality*/
     $("#reset-layout").click(function() {
         $.ajax({
             method:"post",
