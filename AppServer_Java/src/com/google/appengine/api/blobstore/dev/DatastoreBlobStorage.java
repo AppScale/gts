@@ -74,6 +74,8 @@ public class DatastoreBlobStorage implements BlobStorage
     @Override
     public boolean hasBlob( BlobKey arg0 )
     {
+        if (arg0.getKeyString().contains(LocalBlobstoreService.GOOGLE_STORAGE_KEY_PREFIX))
+            return this.blobInfoStorage.loadGsFileInfo(arg0) != null;
         return this.blobInfoStorage.loadBlobInfo(arg0) != null;
     }
 

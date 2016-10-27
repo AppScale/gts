@@ -1,12 +1,16 @@
 package com.google.appengine.api.blobstore;
 
+import com.google.appengine.api.blobstore.dev.BlobInfoStorage;
+import com.google.appengine.api.blobstore.dev.LocalBlobstoreService;
 import com.google.appengine.repackaged.com.google.common.annotations.VisibleForTesting;
-
+import com.google.appengine.repackaged.org.apache.commons.io.IOUtils;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.ApplicationException;
 import com.google.apphosting.utils.servlet.MultipartMimeUtils;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -258,6 +262,28 @@ class BlobstoreServiceImpl implements BlobstoreService {
                     + " is larger " + "than maximum size " + 1015808
                     + " bytes.");
         }
+
+        if (blobKey.getKeyString().contains(LocalBlobstoreService.GOOGLE_STORAGE_KEY_PREFIX)) {
+            URL gcsURL = BlobInfoStorage.urlForGCSBlobKey(blobKey);
+
+            HttpURLConnection conn;
+            try {
+                conn = (HttpURLConnection) gcsURL.openConnection();
+                conn.setRequestProperty("Range", "bytes=" + startIndex + "-" + endIndex);
+                int respCode = conn.getResponseCode();
+
+                if (respCode == HttpURLConnection.HTTP_NOT_FOUND)
+                    throw new IllegalArgumentException(gcsURL.toString() + " not found.");
+
+                if (respCode != HttpURLConnection.HTTP_OK)
+                    throw new BlobstoreFailureException("Error fetching " + gcsURL.toString());
+
+                return IOUtils.toByteArray(conn.getInputStream());
+            } catch (IOException ex) {
+                throw new BlobstoreFailureException("Error fetching " + gcsURL.toString());
+            }
+        }
+
         BlobstoreServicePb.FetchDataRequest request = new BlobstoreServicePb.FetchDataRequest();
         request.setBlobKey(blobKey.getKeyString());
         request.setStartIndex(startIndex);

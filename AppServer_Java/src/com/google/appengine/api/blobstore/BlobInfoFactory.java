@@ -4,6 +4,8 @@ package com.google.appengine.api.blobstore;
 
 import com.google.appengine.api.NamespaceManager;
 import com.google.appengine.api.blobstore.BlobKey;
+import com.google.appengine.api.blobstore.dev.BlobInfoStorage;
+import com.google.appengine.api.blobstore.dev.LocalBlobstoreService;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
@@ -56,6 +58,9 @@ public class BlobInfoFactory {
    * {@code null} if no matching blob is found.
    */
   public BlobInfo loadBlobInfo(BlobKey blobKey) {
+    if (blobKey.getKeyString().contains(LocalBlobstoreService.GOOGLE_STORAGE_KEY_PREFIX))
+      return new BlobInfoStorage().loadGsFileInfo(blobKey);
+
     try {
       return createBlobInfo(datastoreService.get(getMetadataKeyForBlobKey(blobKey)));
     } catch (EntityNotFoundException ex) {
