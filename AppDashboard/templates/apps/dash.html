@@ -2,7 +2,7 @@
 
 <script type="text/javascript" src="/js/dash.js"></script>
 <!--Body content-->
-<div id="main-content" class="clearfix col-sm-9">
+<div id="main-content" class="clearfix col-sm-12 col-md-9 col-lg-10">
   <div class="contentwrapper"><!--Content wrapper-->
 
     <!--check if this has been dismissed-->
@@ -22,9 +22,11 @@
       </div>
     </div><!-- End .row-fluid -->
     <div class="row-fluid">
-      {% if is_user_cloud_admin %}
+        {% if logged_in %}
         <button id="save-layout" class="btn btn-primary">
             Save Current Layout</button>
+        <button id="reset-layout" class="btn btn-primary">
+            Reset Current Layout</button>
         <div id="dash-panels" class="panel-group sortable">
         <!--Begin getting correct panels-->
         {% for panel_dict in user_layout_pref.panel %}
@@ -33,10 +35,10 @@
             {% include "layouts/panel.html" %}
           {% endfor %}
         {% endfor %}
-        </div>
-      {% endif %} <!-- end of admin only boxes -->
+        </div><!--end dash-panels-->
+        {% endif %}
     </div><!--End .row-fluid-->
-  </div><!-- End contentwrapper -->
-</div><!-- End #content -->
+    </div><!-- End contentwrapper -->
+  </div><!-- End main-content -->
+</div><!--end wrapper started in navigation.html-->
 
-</div> <!--close wwrapper started in navigation.html-->
