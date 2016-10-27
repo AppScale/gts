@@ -616,10 +616,10 @@ class AppDashboardData():
           owned_apps = self.helper.get_owned_apps(email)
           dash_layout_settings = self.get_dash_layout_settings(email)
 
-          dash_change = (dash_layout_settings["nav"] !=
-                         user_info.dash_layout_settings["nav"]) and \
-                        (dash_layout_settings["panel"] !=
-                         user_info.dash_layout_settings["panel"])
+          dash_change = (dash_layout_settings.get("nav") !=
+                         user_info.dash_layout_settings.get("nav")) and \
+                        (dash_layout_settings.get("panel") !=
+                         user_info.dash_layout_settings.get("panel"))
 
           if user_info.is_user_cloud_admin != is_user_cloud_admin or \
             user_info.can_upload_apps != can_upload_apps or \
@@ -784,6 +784,8 @@ class AppDashboardData():
                                key in LOOKUP_DICT]
             user_info.dash_layout_settings = values
             user_info.put()
+          else:
+            self.set_dash_layout_settings()
         except Exception as err:
           logging.exception(err)
           self.set_dash_layout_settings()
@@ -815,7 +817,7 @@ class AppDashboardData():
             return user_info.dash_layout_settings
         except Exception as err:
           logging.exception(err)
-        self.set_dash_layout_settings(email=email)
+        self.set_dash_layout_settings()
         return user_info.dash_layout_settings
       return {}
     except Exception as err:
