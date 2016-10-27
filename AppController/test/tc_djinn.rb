@@ -150,22 +150,18 @@ class TestDjinn < Test::Unit::TestCase
     result_2 = djinn.set_parameters("", bad_param, @secret)
     assert_equal(true, result_2.include?("Error: layout is nil"))
 
-    # Since DB credentials will be turned from an Array to a Hash,
-    # it should have an even number of items in it
-    bad_credentials = ['a']
-    result_4 = djinn.set_parameters(one_node_info, bad_credentials, @secret)
-    expected_1 = "Error: options wasn't of even length"
-    assert_equal(true, result_4.include?(expected_1))
-
     # Now try credentials with an even number of items, but not all the
     # required parameters
-    better_credentials = ['a', 'b']
+    better_credentials = JSON.dump({'a' => 'b'})
     result_5 = djinn.set_parameters(one_node_info, better_credentials, @secret)
     assert_equal(true, result_5.include?("Error: cannot find"))
 
     # Now try good credentials, but with bad node info
-    credentials = ['table', 'cassandra', 'login', '127.0.0.1', 'ips', '',
-      'keyname', 'appscale']
+    credentials = JSON.dump({
+      'table' => 'cassandra',
+      'login' => '127.0.0.1',
+      'keyname' => 'appscale'
+    })
     bad_node_info = "[1]"
     result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
     assert_equal(true, result_6.include?("Error: node structure is not"))
@@ -195,8 +191,12 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new
 
-    credentials = ['table', 'cassandra', 'login', 'public_ip', 'ips', '',
-      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False']
+    credentials = JSON.dump({
+      'table' => 'cassandra',
+      'login' => 'public_ip',
+      'keyname' => 'appscale',
+      'verbose' => 'False'
+    })
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',

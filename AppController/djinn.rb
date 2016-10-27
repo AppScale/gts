@@ -829,18 +829,24 @@ class Djinn
     # to make sure that every key maps to a value e.g., ['foo', 'bar']
     # becomes {'foo' => 'bar'} so we need to make sure that the array has
     # an even number of elements.
-    if options.class != Array
-      msg = "Error: options wasn't an Array, but was a " +
+    if options.class != String
+      msg = "Error: options wasn't a String, but was a " +
         options.class.to_s
       Djinn.log_error(msg)
       return msg
     end
-    if options.length.odd?
-      msg = "Error: options wasn't of even length: Len = #{options.length}"
+    begin
+      @options = JSON.load(options)
+    rescue JSON::ParserError => e
+      @options = nil
+      Djinn.log_debug("Got exception parsing JSON options.")
+    end
+    if @options.nil? || @options.empty? || @options.class != Hash
+      msg = "Error: @options is nil or not in the proper format."
       Djinn.log_error(msg)
       return msg
     end
-    @options = Hash[*options]
+
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each{ |key|
       unless @options[key]
@@ -2530,17 +2536,17 @@ class Djinn
   # This method is the opposite of the previous method, and is needed when an
   # AppController wishes to pass node information to other AppControllers via
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
-  def self.convert_location_class_to_array(djinn_locations)
-    if djinn_locations.class != Array
-      @state = "Locations is not an Array, not a #{djinn_locations.class}."
+  def self.convert_location_class_to_json(layout)
+    if layout.class != Array
+      @state = "Locations is not an Array, but a #{layout.class}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
 
-    djinn_loc_array = []
-    djinn_locations.each { |location|
-      djinn_loc_array << location.to_hash
+    layout_array = []
+    layout.each { |location|
+      layout_array << location.to_hash
     }
-    return JSON.dump(djinn_loc_array)
+    return JSON.dump(layout_array)
   end
 
   def get_shadow()
@@ -2854,7 +2860,7 @@ class Djinn
       instance_variables.each { |k|
         v = instance_variable_get(k)
         if k.to_s == "@nodes"
-          v = Djinn.convert_location_class_to_array(v)
+          v = Djinn.convert_location_class_to_json(v)
         elsif k == "@my_index" or k == "@api_status"
           # Don't back up @my_index - it's a node-specific pointer that
           # indicates which node is "our node" and thus should be regenerated
@@ -4437,10 +4443,10 @@ HOSTS
     end
     Djinn.log_debug("Sending data to #{ip}.")
 
-    loc_array = Djinn.convert_location_class_to_array(@nodes)
-    options = @options.to_a.flatten
+    layout = Djinn.convert_location_class_to_json(@nodes)
+    options = JSON.dump(@options)
     begin
-      result = acc.set_parameters(loc_array, options)
+      result = acc.set_parameters(layout, options)
     rescue FailedNodeException => e
       @state = "Couldn't set parameters on node at #{ip} for #{e.message}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
