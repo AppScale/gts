@@ -3991,7 +3991,7 @@ class Djinn
     head_node_ip = get_shadow.public_ip
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_ip", "#{head_node_ip}\n")
 
-    login_ip = @option['login']
+    login_ip = @options['login']
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_ip", "#{login_ip}\n")
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_ip}\n")
 
