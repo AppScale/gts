@@ -54,6 +54,13 @@ class BlobstoreServiceImpl implements BlobstoreService {
 
         if (uploadOptions.hasMaxUploadSizeBytes())
             request.setMaxUploadSizeBytes(uploadOptions.getMaxUploadSizeBytes());
+
+        if (uploadOptions.hasGoogleStorageBucketName()) {
+            if (System.getenv(LocalBlobstoreService.GCS_HOST_VAR) == null)
+                throw new IllegalArgumentException(LocalBlobstoreService.GCS_HOST_VAR + " not set.");
+            request.setGsBucketName(uploadOptions.getGoogleStorageBucketName());
+        }
+
         byte[] responseBytes;
         try {
             responseBytes = ApiProxy.makeSyncCall("blobstore",

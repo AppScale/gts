@@ -37,6 +37,7 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
     public static final String       NO_STORAGE_PROPERTY       = "blobstore.no_storage";
     public static final String       PACKAGE                   = "blobstore";
     public static final String       GOOGLE_STORAGE_KEY_PREFIX = "encoded_gs_key:";
+    public static final String       GCS_HOST_VAR              = "GCS_HOST";
     static final String              UPLOAD_URL_PREFIX         = "/_ah/upload/";
     private BlobStorage              blobStorage;
     private BlobUploadSessionStorage uploadSessionStorage;
@@ -91,6 +92,10 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
         if (request.hasMaxUploadSizeBytes())
         {
             session.setMaxUploadSizeBytes(request.getMaxUploadSizeBytes());
+        }
+        if (request.hasGsBucketName())
+        {
+            session.setGoogleStorageBucketName(request.getGsBucketName());
         }
         String sessionId = this.uploadSessionStorage.createSession(session);
 

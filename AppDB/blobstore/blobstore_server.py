@@ -8,15 +8,18 @@ http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.htm
 
 """
 import argparse
+import base64
 import cStringIO
 import datetime
 import gzip
 import hashlib
 import itertools
 import logging
+import math
 import mimetools
 import os 
 import os.path
+import requests
 from StringIO import StringIO
 import sys
 import tornado.httpserver
@@ -61,8 +64,18 @@ UPLOAD_ERROR = 'There was an error with your upload. Redirect path not '\
 # The maximum size of an incoming request.
 MAX_REQUEST_BUFF_SIZE = 2 * 1024 * 1024 * 1024  # 2GBs
 
+# The header used by GCS to provide a resumable upload ID.
+GCS_UPLOAD_ID_HEADER = 'X-GUploader-UploadID'
+
+# The chunk size to use for uploading files to GCS.
+GCS_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
+
 # Global used for setting the datastore path when registering the DB
 datastore_path = ""
+
+# The host and port of a GCS-compatible server.
+gcs_path = ''
+
 
 class MultiPartForm(object):
   """Accumulate the data to be used when posting a form."""
@@ -295,10 +308,46 @@ class UploadHandler(tornado.web.RequestHandler):
       size = len(body)
       filename = file["filename"]
       file_content_type = file["content_type"]
-     
-      blob_entity = uploadhandler.StoreBlob(file, creation)
 
-      blob_key = str(blob_entity.key().name())
+      gs_path = ''
+      if 'gcs_bucket' in blob_session:
+        if not gcs_path:
+          self.send_error('GCS host is not defined.')
+          return
+
+        gcs_bucket_name = blob_session['gcs_bucket']
+        gcs_url = '/'.join([gcs_path, gcs_bucket_name, filename])
+        response = requests.post(gcs_url,
+                                 headers={'x-goog-resumable': 'start'})
+        if (response.status_code != 201 or
+            GCS_UPLOAD_ID_HEADER not in response.headers):
+          self.send_error(reason='Unable to start resumable GCS upload.')
+          return
+        upload_id = response.headers[GCS_UPLOAD_ID_HEADER]
+
+        total_chunks = int(math.ceil(float(size) / GCS_CHUNK_SIZE))
+        for chunk_num in range(total_chunks):
+          offset = GCS_CHUNK_SIZE * chunk_num
+          current_chunk_size = min(GCS_CHUNK_SIZE, size - offset)
+          end_byte = offset + current_chunk_size
+          current_range = '{}-{}'.format(offset, end_byte - 1)
+          content_range = 'bytes {}/{}'.format(current_range, size)
+          response = requests.put(gcs_url, data=body[offset:end_byte],
+                                  headers={'Content-Range': content_range},
+                                  params={'upload_id': upload_id})
+          if chunk_num == total_chunks - 1:
+            if response.status_code != 200:
+              self.send_error(reason='Unable to complete GCS upload.')
+              return
+          else:
+            if response.status_code != 308:
+              self.send_error(reason='Unable to continue GCS upload.')
+              return
+        gs_path = '/gs/{}/{}'.format(gcs_bucket_name, filename)
+        blob_key = 'encoded_gs_key:' + base64.b64encode(gs_path)
+      else:
+        blob_entity = uploadhandler.StoreBlob(file, creation)
+        blob_key = str(blob_entity.key().name())
 
       if not blob_key: 
         self.finish('Status: 500\n\n')
@@ -308,9 +357,15 @@ class UploadHandler(tornado.web.RequestHandler):
                     blobstore.BLOB_KEY_HEADER, size, creation_formatted)
 
       md5_handler = hashlib.md5(str(body))
-      data["blob_info_metadata"][filekey].append( 
-        {"filename": filename, "creation-date": creation_formatted, "key": blob_key, "size": str(size),
-         "content-type": file_content_type, "md5-hash": md5_handler.hexdigest()})
+      blob_info = {"filename": filename,
+                   "creation-date": creation_formatted,
+                   "key": blob_key,
+                   "size": str(size),
+                   "content-type": file_content_type,
+                   "md5-hash": md5_handler.hexdigest()}
+      if 'gcs_bucket' in blob_session:
+        blob_info['gs-name'] = gs_path
+      data["blob_info_metadata"][filekey].append(blob_info)
 
     # Loop through form fields
     for fieldkey in self.request.arguments.keys():
@@ -355,8 +410,19 @@ if __name__ == "__main__":
                       required=True, help="The blobstore server's port")
   parser.add_argument('-d', '--datastore-path', required=True,
                       help='The location of the datastore server')
+  group = parser.add_argument_group('gcs-host')
+  group.add_argument('--gcs-host',
+                     help='The hostname of a GCS-compatible server')
+  group.add_argument('--gcs-port', type=int, default=443,
+                     help='The port number of a GCS-compatible server')
+  group.add_argument('--gcs-scheme', default='https',
+                     help='The scheme to use to communicate with a GCS server')
   args = parser.parse_args()
+
   datastore_path = args.datastore_path
+  if args.gcs_host is not None:
+    gcs_path = '{scheme}://{host}:{port}'.format(
+      scheme=args.gcs_scheme, host=args.gcs_host, port=args.gcs_port)
   setup_env()
 
   http_server = tornado.httpserver.HTTPServer(
