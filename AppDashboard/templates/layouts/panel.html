@@ -1,40 +1,29 @@
+{% if page_info.is_admin_panel == is_user_cloud_admin or page_info.is_admin_panel is not defined %}
 <!-- FILE:templates/apps/dash.html -->
 <!-- this is a child template to display a panel in dash.html-->
 <!-- it takes parameters id and page_info from the parent -->
 <div class="panel panel-default" id="panel-{{ id }}">
   <div class="title panel-heading gradient">
-    <h4 class="panel-title">
+    <h2 class="panel-title">
       <span aria-hidden="true" class="icon16"></span>
       <a data-toggle="collapse" href="#{{ id }}" class="collapsed">
         {{ page_info.title }}
       </a>
-    </h4>
+    </h2>
 
-  </div>
+  </div><!--end .panel-heading-->
   <div id="{{ id }}" class="panel-collapse collapse in">
     <div class="panel-body">
       <div class="content">
         {% include page_info.template %}
         <script type="text/javascript">
-          //take the classes from the template file's icon span
-          // to put into the panel title span
-          $("#panel-{{ id }} .panel-title .icon16")
-            .attr("class",($("#{{ id }} .title .icon16").attr("class")));
-          //take the title from the template file's title span to put into
-          // the panel title
-          $("#panel-{{ id }} .panel-title a")
-              .html($("#{{ id }}  #title").html());
-          $("#panel-{{ id }} .panel-title a")
-              .html($("#{{ id }}  .page-header h1").html());
-
-          //get rid of original title so there are not double titles
-          $("#{{ id }} .title").html("");
-          $("#{{ id }} .heading").html("");
-          $("#{{ id }} .page-header").html("");
+          $(document).ready(function(){
+              $(".well").removeClass("well");
+          });
         </script>
       </div>
-
-    </div><!-- End .box -->
+    </div><!-- End .panel-body -->
     <!--Start Cloud Admin View-->
-  </div><!-- End .span3 -->
+  </div><!-- End .panel-collapse -->
 </div><!--end .panel-->
+{% endif %}
