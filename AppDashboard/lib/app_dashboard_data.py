@@ -172,52 +172,63 @@ class AppDashboardData():
     """
     self.helper = helper or AppDashboardHelper()
 
-  def build_dict(self):
-    LOOKUP_DICT = {
-      "cloud_stats":{"title":"Cloud Status",
-                                  "link":"/status/cloud",
-                                  "template":"status/cloud.html"},
-      "database_stats":{"title":"Database",
-                                  "template":"apps/database.html"},
-      "memcache_stats":{"title":"Memcache",
-                                     "template":"apps/memcache.html"},
-      "upload_app":{"title":"Upload App",
-                                 "link":"/apps/new",
-                                 "template":"apps/new.html"},
-      "delete_app":{"title":"Delete App",
-                                 "link":"/apps/delete",
-                                 "template":"apps/delete.html"},
-      "manage_users":{"title":"Manage Users",
-                                   "link":"/authorize",
-                                   "template":"authorize/cloud.html"},
-      "logging":{"title":"Logs",
-                              "link":"/logs",
-                              "template":"logs/main.html"},
-      "monit":{"title":"Monit",
-                             "link":self.get_monit_url()},
-      "taskqueue":{"title":"TaskQueue",
-                             "link":self.get_flower_url()}
-    }
-    if(self.helper.can_upload_apps()):
-      LOOKUP_DICT["app_management"] = {"App Management":
-                                        [{"upload_app": LOOKUP_DICT[
-                                          "upload_app"]},
-                                         {"delete_app": LOOKUP_DICT[
-                                           "delete_app"]}]}
-    if(self.helper.is_user_cloud_admin()):
-      LOOKUP_DICT["appscale_management"] = {"AppScale Management":
-                                             [{"cloud_stats": LOOKUP_DICT[
-                                               "cloud_stats"]},
-                                              {"manage_users": LOOKUP_DICT[
-                                                "manage_users"]}]}
-    if(self.helper.get_owned_apps() or self.helper.is_user_cloud_admin()):
-      LOOKUP_DICT["debugging_monitoring"] = {"Debugging/Monitoring":
-                                              [{"monit": LOOKUP_DICT["monit"]},
-                                               {"taskqueue": LOOKUP_DICT[
-                                                 "taskqueue"]},
-                                               {"logging": LOOKUP_DICT[
-                                                 "logging"]}]}
-    return LOOKUP_DICT
+
+  def build_dict(self, email=None):
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return
+      email = user.email()
+    try:
+      user_info = self.get_by_id(UserInfo, email)
+      if user_info:
+        LOOKUP_DICT = {
+          "cloud_stats":{"title":"Cloud Statistics",
+                         "link":"/status/cloud",
+                         "template":"status/cloud.html"},
+          "database_stats":{"title":"Database & Application Information",
+                            "template":"apps/database.html"},
+          "memcache_stats":{"title":"Global Memcache Statistics",
+                            "template":"apps/memcache.html"},
+          "upload_app":{"title":"Upload Application",
+                        "link":"/apps/new",
+                        "template":"apps/new.html"},
+          "delete_app":{"title":"Delete Application",
+                        "link":"/apps/delete",
+                        "template":"apps/delete.html"},
+          "manage_users":{"title":"Manage Users",
+                          "link":"/authorize",
+                          "template":"authorize/cloud.html"},
+          "logging":{"title":"Log Viewer",
+                     "link":"/logs",
+                     "template":"logs/main.html"},
+          "monit":{"title":"Monit",
+                   "link":self.get_monit_url()},
+          "taskqueue":{"title":"TaskQueue",
+                       "link":self.get_flower_url()}
+        }
+        if(user_info.can_upload_apps):
+          LOOKUP_DICT["app_management"] = {"App Management":
+                                          [{"upload_app": LOOKUP_DICT[
+                                            "upload_app"]},
+                                           {"delete_app": LOOKUP_DICT[
+                                             "delete_app"]}]}
+        if(user_info.is_user_cloud_admin):
+          LOOKUP_DICT["appscale_management"] = {"AppScale Management":
+                                               [{"cloud_stats": LOOKUP_DICT[
+                                                 "cloud_stats"]},
+                                                {"manage_users": LOOKUP_DICT[
+                                                  "manage_users"]}]}
+        if(user_info.owned_apps or user_info.is_user_cloud_admin):
+          LOOKUP_DICT["debugging_monitoring"] = {"Debugging/Monitoring":
+                                                [{"monit": LOOKUP_DICT["monit"]},
+                                                 {"taskqueue": LOOKUP_DICT[
+                                                   "taskqueue"]},
+                                                 {"logging": LOOKUP_DICT[
+                                                   "logging"]}]}
+        return LOOKUP_DICT
+    except Exception as err:
+      logging.exception(err)
 
   def get_by_id(self, model, key_name):
     """ Retrieves an object from the datastore, referenced by its keyname.
@@ -605,8 +616,14 @@ class AppDashboardData():
           owned_apps = self.helper.get_owned_apps(email)
           dash_layout_settings = self.get_dash_layout_settings(email)
 
+          dash_change = (dash_layout_settings["nav"] !=
+                         user_info.dash_layout_settings["nav"]) and \
+                        (dash_layout_settings["panel"] !=
+                         user_info.dash_layout_settings["panel"])
+
           if user_info.is_user_cloud_admin != is_user_cloud_admin or \
             user_info.can_upload_apps != can_upload_apps or \
+            dash_change or \
             user_info.owned_apps != owned_apps:
 
             user_info.is_user_cloud_admin = is_user_cloud_admin
@@ -719,29 +736,78 @@ class AppDashboardData():
     try:
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-        user_info.dash_layout_settings = self.rebuild_dash_layout_settings_dict(
-          values)
+        if values is None:
+          user_info.dash_layout_settings = self.build_dash_layout_settings_dict(value=None, email=email)
+          user_info.put()
+          return
+        user_info.dash_layout_settings = self.build_dash_layout_settings_dict(value=values, email=email)
         user_info.put()
       return
     except Exception as err:
       logging.exception(err)
+      pass
 
-  def rebuild_dash_layout_settings_dict(self, value=None):
-    if value is None:
+  def build_dash_layout_settings_dict(self, value=None, email=None):
+    LOOKUP_DICT = self.build_dict(email=email)
+    try:
+      temp_dict = json.loads(value)
+      temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
+                          temp_dict['nav'] if
+                          key in LOOKUP_DICT]
+
+      temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
+                            temp_dict['panel'] if
+                            key in LOOKUP_DICT]
+      return temp_dict
+    except TypeError as err:
       #base admin template
-      value = '''{
-          "nav":["app_management","appscale_management","debugging_monitoring"],
-          "panel":["cloud_stats","database_stats","memcache_stats"]
-          }'''
-    LOOKUP_DICT = self.build_dict()
-    temp_dict = json.loads(value)
-    temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
-                           temp_dict['nav'] if
-                           key in LOOKUP_DICT]
+      default_value = '''{
+        "nav":["app_management","appscale_management","debugging_monitoring"],
+        "panel":["cloud_stats","database_stats","memcache_stats"]
+        }'''
+      temp_dict = json.loads(default_value)
+      temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
+                        temp_dict['nav'] if
+                        key in LOOKUP_DICT]
 
-    temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
-                             temp_dict['panel']]
-    return temp_dict
+      temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
+                          temp_dict['panel'] if
+                          key in LOOKUP_DICT]
+      logging.info(temp_dict)
+      return temp_dict
+    except Exception as err:
+      logging.exception(err)
+
+
+  def rebuild_dash_layout_settings_dict(self, email=None):
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return
+      email = user.email()
+    try:
+      user_info = self.get_by_id(UserInfo, email)
+      if user_info:
+        try:
+          if user_info.dash_layout_settings:
+            LOOKUP_DICT = self.build_dict(email=email)
+            values = user_info.dash_layout_settings
+            values['nav'] = [{key: LOOKUP_DICT.get(key)} for key_dict in
+                             values['nav'] for key in key_dict if
+                             key in LOOKUP_DICT]
+            values['panel'] = [{key: LOOKUP_DICT.get(key)} for key_dict in
+                               values['panel'] for key in key_dict if
+                               key in LOOKUP_DICT]
+            user_info.dash_layout_settings = values
+            user_info.put()
+        except Exception as err:
+          logging.exception(err)
+          default_dash_dict = self.build_dash_layout_settings_dict(email=email)
+          user_info.dash_layout_settings = default_dash_dict
+          user_info.put()
+    except Exception as err:
+      logging.exception(err)
+
 
   def get_dash_layout_settings(self, email=None):
     """ Queries the UserAppServer to see what settings the user has saved
@@ -763,12 +829,11 @@ class AppDashboardData():
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
         try:
-          if user_info.dash_layout_settings \
-                  and type(user_info.dash_layout_settings) is dict:
+          if user_info.dash_layout_settings:
             return user_info.dash_layout_settings
         except Exception as err:
           logging.exception(err)
-        default_dash_dict = self.rebuild_dash_layout_settings_dict()
+        default_dash_dict = self.build_dash_layout_settings_dict(email=email)
         user_info.dash_layout_settings = default_dash_dict
         user_info.put()
         return default_dash_dict
