@@ -716,6 +716,57 @@ class AppDeletePage(AppDashboard):
       'page_content' : self.TEMPLATE,
     })
 
+class AppRelocatePage(AppDashboard):
+  """ Class to handle requests to the /apps/new page. """
+
+  # The template to use for the upload app page.
+  TEMPLATE = 'apps/relocate.html'
+
+  def post(self):
+    """ Handler for POST requests. """
+    success_msg = ''
+    err_msg = ''
+    if not self.request.POST.multi or \
+      'app_id' not in self.request.POST.multi :
+      self.render_app_page(page='apps', values={
+          'error_message' : 'You must specify an app to relocate.',
+          'success_message' : '',
+          'page_content' : self.TEMPLATE,
+        })
+      return
+
+    app_id = self.request.POST.get('app_id')
+    if self.dstore.is_user_cloud_admin() or \
+       app_id in self.dstore.get_owned_apps():
+      try:
+        success_msg = self.helper.relocate_app(
+          self.request.POST.multi['app_id'],
+          self.request.POST.multi['http_port'],
+          self.request.POST.multi['https_port'])
+      except AppHelperException as err:
+        self.response.set_status(500)
+        err_msg = str(err)
+      if success_msg:
+        try:
+          taskqueue.add(url='/status/refresh')
+          taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
+        except Exception as err:
+          logging.exception(err)
+    else:
+      err_msg = "You are not authorized to relocate that application."
+    self.render_app_page(page='apps', values={
+        'error_message' : err_msg,
+        'apps' : self.dstore.get_application_info(),
+        'success_message' : success_msg,
+        'page_content' : self.TEMPLATE,
+      })
+
+  def get(self):
+    """ Handler for GET requests. """
+    self.render_app_page(page='apps', values={
+        'apps' : self.dstore.get_application_info(),
+        'page_content' : self.TEMPLATE,
+      })
 
 class AppsAsJSONPage(webapp2.RequestHandler):
   """ A class that exposes application-level info used on the Cloud Status page,
@@ -1224,6 +1275,7 @@ dashboard_pages = [
   ('/apps/stats/memcache', MemcacheStats),
   ('/apps/new', AppUploadPage),
   ('/apps/upload', AppUploadPage),
+  ('/apps/relocate', AppRelocatePage),
   ('/apps/delete', AppDeletePage),
   ('/apps/json/?', AppsAsJSONPage),
   ('/apps/json/(.+)', AppsAsJSONPage),
