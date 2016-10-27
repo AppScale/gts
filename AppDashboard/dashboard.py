@@ -1201,7 +1201,22 @@ class AjaxSaveLayoutSettings(AppDashboard):
     nav = self.request.get("nav")
     panel = self.request.get("panel")
     json_string = '{"nav":'+nav+',"panel":'+panel+"}"
-    self.dstore.set_dash_layout_settings(values=json_string)
+    try:
+        self.dstore.set_dash_layout_settings(values=json_string)
+        self.response.set_status(200)
+        self.response.out.write("Saved")
+    except Exception as err:
+        logging.exception(err)
+        self.response.set_status(500)
+        self.response.out.write("Try Again")
+
+
+class AjaxResetLayoutSettings(AppDashboard):
+  """ Class that stores dashboard layout settings in the Datastore. """
+
+  def post(self):
+    """ sets the dashboard layout settings """
+    self.dstore.set_dash_layout_settings()
 
 # Main Dispatcher
 dashboard_pages = [
@@ -1235,7 +1250,8 @@ dashboard_pages = [
   ('/groomer', RunGroomer),
   ('/change-password', ChangePasswordPage),
   ('/ajax/render/panel', AjaxRenderPanel),
-  ('/ajax/save/layout', AjaxSaveLayoutSettings)
+  ('/ajax/save/layout', AjaxSaveLayoutSettings),
+  ('/ajax/reset/layout', AjaxResetLayoutSettings)
 ]
 
 if AppDashboardHelper.USE_SHIBBOLETH:
