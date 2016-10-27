@@ -2,13 +2,15 @@
 <!--Body content-->
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
-
+    {% set app_page_title="Delete an Application" %}
+        {% if standalone_app_page %}
+            <div class="page-header">
+                <h1>{{ app_page_title }}</h1>
+            </div><!--close header-->
+        {% endif %}
+    {% set apps=apps_user_is_admin_on %}
         <!-- Build page from here: -->
         <div class="row-fluid">
-          <div class="span4"></div>
-          <div class="span4">
-            <div class="page-header">
-            <h1>Delete an application</h1></div><!--close page header-->
             <div class="well">
           {% if apps|length > 0 %}
               {% if flash_message %}
@@ -17,7 +19,7 @@
                <form action="/apps/delete" method="post"><div style="margin:0;padding:0;display:inline">
               <p>
                 <select id="appname" name="appname">
-                {% for app_name in apps.keys()|sort  %}
+                {% for app_name in apps|sort  %}
                     <option value="{{ app_name }}">{{ app_name }}</option>
                 {% endfor %}
                 </select>
@@ -37,8 +39,6 @@
             </h2>
           {% endif %}
         </div><!--close well-->
-        </div><!--close span6 -->
-        <div class="span4"></div>
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
