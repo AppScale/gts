@@ -721,13 +721,8 @@ class AppDashboardData():
         for customizing the UI of the Dashboard.
 
     Args:
-      email: A str that indicates the e-mail address of the administrator of
-        this application, or None if the currently logged-in user is the admin.
-
-      values: A str that defines the layout of the dash page
-
-    Returns:
-      A JSON string describing the customization layout
+      values: A JSON str that defines the layout of the dash page
+        from /ajax/save/layout
     """
     user = users.get_current_user()
     if not user:
@@ -736,50 +731,39 @@ class AppDashboardData():
     try:
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-        if values is None:
-          user_info.dash_layout_settings = self.build_dash_layout_settings_dict(value=None, email=email)
-          user_info.put()
-          return
-        user_info.dash_layout_settings = self.build_dash_layout_settings_dict(value=values, email=email)
+        LOOKUP_DICT = self.build_dict(email=email)
+        try:
+          temp_dict = json.loads(values)
+        except TypeError as err:
+          #base admin template
+          default_value = '''{
+            "nav":["app_management","appscale_management","debugging_monitoring"],
+            "panel":["cloud_stats","database_stats","memcache_stats"]
+            }'''
+          temp_dict = json.loads(default_value)
+        temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
+                            temp_dict['nav'] if
+                            key in LOOKUP_DICT]
+
+        temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
+                              temp_dict['panel'] if
+                              key in LOOKUP_DICT]
+        user_info.dash_layout_settings = temp_dict
         user_info.put()
       return
     except Exception as err:
       logging.exception(err)
       pass
 
-  def build_dash_layout_settings_dict(self, value=None, email=None):
-    LOOKUP_DICT = self.build_dict(email=email)
-    try:
-      temp_dict = json.loads(value)
-      temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
-                          temp_dict['nav'] if
-                          key in LOOKUP_DICT]
-
-      temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
-                            temp_dict['panel'] if
-                            key in LOOKUP_DICT]
-      return temp_dict
-    except TypeError as err:
-      #base admin template
-      default_value = '''{
-        "nav":["app_management","appscale_management","debugging_monitoring"],
-        "panel":["cloud_stats","database_stats","memcache_stats"]
-        }'''
-      temp_dict = json.loads(default_value)
-      temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
-                        temp_dict['nav'] if
-                        key in LOOKUP_DICT]
-
-      temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
-                          temp_dict['panel'] if
-                          key in LOOKUP_DICT]
-      logging.info(temp_dict)
-      return temp_dict
-    except Exception as err:
-      logging.exception(err)
-
 
   def rebuild_dash_layout_settings_dict(self, email=None):
+    """ Rebuilds the user's layout settings in case there is an update
+      to the lookup dictionary
+
+    Args:
+      email: A str that indicates the e-mail address of the administrator of
+        this application, or None if the currently logged-in user is the admin.
+    """
     if email is None:
       user = users.get_current_user()
       if not user:
@@ -802,9 +786,7 @@ class AppDashboardData():
             user_info.put()
         except Exception as err:
           logging.exception(err)
-          default_dash_dict = self.build_dash_layout_settings_dict(email=email)
-          user_info.dash_layout_settings = default_dash_dict
-          user_info.put()
+          self.set_dash_layout_settings()
     except Exception as err:
       logging.exception(err)
 
@@ -818,7 +800,7 @@ class AppDashboardData():
         this application, or None if the currently logged-in user is the admin.
 
     Returns:
-      A JSON string describing the customization layout
+      A dictionary containing the customization layout
     """
     if email is None:
       user = users.get_current_user()
@@ -833,10 +815,8 @@ class AppDashboardData():
             return user_info.dash_layout_settings
         except Exception as err:
           logging.exception(err)
-        default_dash_dict = self.build_dash_layout_settings_dict(email=email)
-        user_info.dash_layout_settings = default_dash_dict
-        user_info.put()
-        return default_dash_dict
+        self.set_dash_layout_settings(email=email)
+        return user_info.dash_layout_settings
       return {}
     except Exception as err:
       logging.exception(err)
