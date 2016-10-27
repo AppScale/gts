@@ -56,7 +56,7 @@ msgstr ""
 
 #: contrib/admin/media/js/dateparse.js:27
 msgid "Sunday Monday Tuesday Wednesday Thursday Friday Saturday"
-msgstr "Domingo Lunes Martes Miércoles Jueves Viernes Sábado"
+msgstr "Domingo Lunes Martes Miï¿½rcoles Jueves Viernes Sï¿½bado"
 
 #: contrib/admin/media/js/calendar.js:25
 msgid "S M T W T F S"
@@ -85,7 +85,7 @@ msgstr "6 a.m."
 
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:83
 msgid "Noon"
-msgstr "Mediodía"
+msgstr "Mediodï¿½a"
 
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:87
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:168
@@ -107,4 +107,4 @@ msgstr "Ayer"
 
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:164
 msgid "Tomorrow"
-msgstr "Mañana"
+msgstr "Maï¿½ana"

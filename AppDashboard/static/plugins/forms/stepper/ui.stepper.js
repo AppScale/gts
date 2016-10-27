@@ -77,7 +77,7 @@ $.fn.remove = function() {
 
 // $.widget is a factory to create jQuery plugins
 // taking some boilerplate code out of the plugin code
-// created by Scott González and Jörn Zaefferer
+// created by Scott Gonzï¿½lez and Jï¿½rn Zaefferer
 function getter(namespace, plugin, method) {
 	var methods = $[namespace][plugin].getter || [];
 	methods = (typeof methods == "string" ? methods.split(/,?\s+/) : methods);

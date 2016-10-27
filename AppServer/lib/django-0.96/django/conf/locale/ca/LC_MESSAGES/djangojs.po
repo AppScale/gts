@@ -54,7 +54,7 @@ msgid ""
 "January February March April May June July August September October November "
 "December"
 msgstr ""
-"Febrer Març Abril Maig Juny Juliol Agost Setembre Octubre Novembre Desembre"
+"Febrer Marï¿½ Abril Maig Juny Juliol Agost Setembre Octubre Novembre Desembre"
 
 #: contrib/admin/media/js/dateparse.js:33
 msgid "Sunday Monday Tuesday Wednesday Thursday Friday Saturday"
@@ -92,7 +92,7 @@ msgstr "Migdia"
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:88
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:183
 msgid "Cancel"
-msgstr "Cancel·lar"
+msgstr "Cancelï¿½lar"
 
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:128
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:177
@@ -109,7 +109,7 @@ msgstr "Ahir"
 
 #: contrib/admin/media/js/admin/DateTimeShortcuts.js:179
 msgid "Tomorrow"
-msgstr "Demà"
+msgstr "Demï¿½"
 
 #: contrib/admin/media/js/admin/CollapsedFieldsets.js:34
 #: contrib/admin/media/js/admin/CollapsedFieldsets.js:72
