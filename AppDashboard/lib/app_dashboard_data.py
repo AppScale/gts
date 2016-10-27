@@ -206,7 +206,9 @@ class AppDashboardData():
                                         [{"upload_app": LOOKUP_DICT[
                                           "upload_app"]},
                                          {"delete_app": LOOKUP_DICT[
-                                           "delete_app"]}]}
+                                           "delete_app"]},
+                                         {"relocate_app": LOOKUP_DICT[
+                                           "relocate_app"]}]}
     if(self.helper.is_user_cloud_admin()):
       LOOKUP_DICT["appscale_management"] = {"AppScale Management":
                                              [{"cloud_stats": LOOKUP_DICT[
