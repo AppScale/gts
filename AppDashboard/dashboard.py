@@ -424,6 +424,7 @@ class LoginPage(AppDashboard):
         continue_url = self.request.get('continue').encode('ascii','ignore')
         self.redirect(continue_url, self.response)
       else:
+        self.dstore.rebuild_dash_layout_settings_dict(email=user_email)
         self.redirect('/', self.response)
     else:
       flash_message = 'Incorrect username / password combination. '\
