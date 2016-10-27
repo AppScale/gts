@@ -829,18 +829,20 @@ class Djinn
     # to make sure that every key maps to a value e.g., ['foo', 'bar']
     # becomes {'foo' => 'bar'} so we need to make sure that the array has
     # an even number of elements.
-    if options.class != Array
-      msg = "Error: options wasn't an Array, but was a " +
+    if options.class != String
+      msg = "Error: options wasn't a String, but was a " +
         options.class.to_s
       Djinn.log_error(msg)
       return msg
     end
-    if options.length.odd?
-      msg = "Error: options wasn't of even length: Len = #{options.length}"
-      Djinn.log_error(msg)
-      return msg
+    begin
+      @options = JSON.load(options)
+    rescue JSON::ParserError => e
+      @options = nil
+      Djinn.log_debug("Got exception parsing JSON options.")
+      return "Error: Got exception parsing JSON options."
     end
-    @options = Hash[*options]
+
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each{ |key|
       unless @options[key]
@@ -4438,7 +4440,7 @@ HOSTS
     Djinn.log_debug("Sending data to #{ip}.")
 
     loc_array = Djinn.convert_location_class_to_array(@nodes)
-    options = @options.to_a.flatten
+    options = JSON.dump(@options)
     begin
       result = acc.set_parameters(loc_array, options)
     rescue FailedNodeException => e
