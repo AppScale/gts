@@ -24,23 +24,21 @@ public final class BlobInfoStorage {
     public BlobInfo loadGsFileInfo(BlobKey blobKey) {
         String namespace = NamespaceManager.get();
 
-        BlobInfo var5;
+        BlobInfo blobInfo;
         try {
             NamespaceManager.set("");
             Key key = KeyFactory.createKey((Key)null, "__GsFileInfo__", blobKey.getKeyString());
 
             try {
                 Entity ex = this.datastoreService.get(key);
-                var5 = (new BlobInfoFactory()).createBlobInfo(ex);
-                return var5;
-            } catch (EntityNotFoundException var9) {
-                var5 = null;
+                blobInfo = (new BlobInfoFactory()).createBlobInfo(ex);
+                return blobInfo;
+            } catch (EntityNotFoundException e) {
+                return null;
             }
         } finally {
             NamespaceManager.set(namespace);
         }
-
-        return var5;
     }
 
     public void saveBlobInfo(BlobInfo blobInfo) {
@@ -52,7 +50,7 @@ public final class BlobInfoStorage {
             entity.setProperty("content_type", blobInfo.getContentType());
             entity.setProperty("creation", blobInfo.getCreation());
             entity.setProperty("filename", blobInfo.getFilename());
-            entity.setProperty("size", Long.valueOf(blobInfo.getSize()));
+            entity.setProperty("size", blobInfo.getSize());
             entity.setProperty("md5_hash", blobInfo.getMd5Hash());
             this.datastoreService.put(entity);
         } finally {
@@ -62,26 +60,22 @@ public final class BlobInfoStorage {
     }
 
     public void deleteBlobInfo(BlobKey blobKey) {
-        this.datastoreService.delete(new Key[]{this.getMetadataKeyForBlobKey(blobKey)});
+        this.datastoreService.delete(this.getMetadataKeyForBlobKey(blobKey));
     }
 
     protected Key getMetadataKeyForBlobKey(BlobKey blobKey) {
         String namespace = NamespaceManager.get();
 
-        Key var3;
         try {
             NamespaceManager.set("");
-            if(blobKey.getKeyString().startsWith("encoded_gs_key:")) {
-                var3 = KeyFactory.createKey("__GsFileInfo__", blobKey.getKeyString());
-                return var3;
+            if(blobKey.getKeyString().startsWith(LocalBlobstoreService.GOOGLE_STORAGE_KEY_PREFIX)) {
+                return KeyFactory.createKey("__GsFileInfo__", blobKey.getKeyString());
             }
 
-            var3 = KeyFactory.createKey("__BlobInfo__", blobKey.getKeyString());
+            return KeyFactory.createKey("__BlobInfo__", blobKey.getKeyString());
         } finally {
             NamespaceManager.set(namespace);
         }
-
-        return var3;
     }
 
     void deleteAllBlobInfos() {
@@ -95,11 +89,11 @@ public final class BlobInfoStorage {
             NamespaceManager.set(namespace);
         }
 
-        Iterator i$ = this.datastoreService.prepare(q).asIterable().iterator();
+        Iterator entities = this.datastoreService.prepare(q).asIterable().iterator();
 
-        while(i$.hasNext()) {
-            Entity e = (Entity)i$.next();
-            this.datastoreService.delete(new Key[]{e.getKey()});
+        while(entities.hasNext()) {
+            Entity e = (Entity)entities.next();
+            this.datastoreService.delete(e.getKey());
         }
 
     }
