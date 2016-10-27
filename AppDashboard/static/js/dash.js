@@ -11,17 +11,26 @@ $(document).ready(function(){
         }
     });
     $(".add-panel").click(function() {
-        $.ajax({
-            method: "post",
-            url:"/ajax/render/panel",
-            data:{
-                page_content:$(this).siblings("a").first().attr("href")+".html",
-                key_val:$(this).attr("data-target")},
-            success: function(result) {
-                $("#dash-panels").append(result);
-            }
-        });
+        var newPanelID = "#" + $(this).attr("data-target");
+        if(!$(newPanelID).length){
+            $.ajax({
+                method: "post",
+                url: "/ajax/render/panel",
+                async: false,
+                data: {
+                    page_content: $(this).siblings("a").first().attr("href") + ".html",
+                    key_val: $(this).attr("data-target")
+                },
+                success: function (result) {
+                    $("#dash-panels").append(result);
+                }
+            });
+            var offset = $(newPanelID).offset();
+            $("html, body").animate({scrollTop:offset.top});
+        }
     });
+
+    /*save layout functionality*/
     $("#save-layout").click(function() {
         var nav_array = [];
         $(".nav-heading-collapse").each(function(){
