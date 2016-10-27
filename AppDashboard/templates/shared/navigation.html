@@ -71,11 +71,17 @@
                             <div align="center" class="list-group-item">
                               <div class="btn-group">
                               {% if page_name=="dash" %}
-                                <a class="btn btn-info" href="{{menuitem.link}}"
-                                   style="width:85%;">{{ menuitem.title }}</a>
-                                <a href="#" class="btn btn-info add-panel"
-                                   data-target="{{ dict_key }}" style="width:15%;">
-                                &#x2b;</a>
+                                {% if dict_key=="taskqueue" or dict_key=="monit" %}
+                                  <a class="btn btn-info" href="{{menuitem.link}}"
+                                     style="width:100%;">{{ menuitem.title }}</a>
+                                {% else %}
+                                  <a class="btn btn-info" href="{{menuitem.link}}"
+                                     style="width:85%;">{{ menuitem.title }}</a>
+                                  <a href="#" class="btn btn-info add-panel"
+                                     data-toggle="tooltip" title="Add {{ menuitem.title }} Panel"
+                                     data-target="{{ dict_key }}" style="width:15%;">
+                                      &#x2b;</a>
+                                {% endif %}
                               {% else %}
                                 <a class="btn btn-info" href="{{menuitem.link}}"
                                  style="width:100%;">{{ menuitem.title }}</a>
