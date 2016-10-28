@@ -219,6 +219,7 @@ def restore_data(path, keyname, force=False):
 
     if db_ip not in machines_without_restore:
       utils.ssh(db_ip, keyname, 'tar xf {} -C {}'.format(path, cassandra_dir))
+      utils.ssh(db_ip, keyname, 'chown -R cassandra {}'.format(cassandra_dir))
 
     utils.ssh(db_ip, keyname,
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))

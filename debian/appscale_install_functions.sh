@@ -169,6 +169,7 @@ root            hard    nofile           200000
 root            soft    nofile           200000
 *               hard    nofile           200000
 *               soft    nofile           200000
+*               -       nproc            32768
 EOF
 }
 
@@ -341,10 +342,10 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=3.0.8
+    CASSANDRA_VER=3.7
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="9c3653523f7f0cb9a8b0f9bec9d8832a"
+    CASSANDRA_PACKAGE_MD5="39968c48cbb2a333e525f852db59fb48"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.
@@ -355,19 +356,15 @@ installcassandra()
     mkdir -p ${CASSANDRA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
-    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
+    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} \
+        ${CASSANDRA_DIR}/cassandra
 
-    chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
-    cp -v ${CASSANDRA_ENV}/templates/cassandra-env.sh\
-        ${CASSANDRA_DIR}/cassandra/conf
-    mkdir -p /var/lib/cassandra
-    # TODO only grant the cassandra user access.
-    chmod 777 /var/lib/cassandra
+    if ! id -u cassandra &> /dev/null ; then
+        useradd cassandra
+    fi
+    chown -R cassandra ${CASSANDRA_DIR}
 
     pipwrapper cassandra-driver
-
-    # Create separate log directory.
-    mkdir -pv /var/log/appscale/cassandra
 }
 
 postinstallcassandra()
