@@ -1,0 +1,353 @@
+.glyphicon {
+    padding-right:0.5em;
+}
+/*sideNav area*/
+.btn-group {
+    width:100%;
+}
+.list-group-item {
+    padding:0;
+}
+.navbar-brand {
+    font-size:1.5em;
+    height:84px;
+}
+#sideNav {
+    text-align:center;
+}
+a.btn-info {
+    padding:3%;
+}
+/*mainNav area*/
+#nav-links {
+    position:absolute;
+    bottom:0;
+}
+#appscale_title {
+    font-size:1.5em;
+}
+a.btn.btn-info {
+    font-size: 1em;
+    padding: 3%;
+}
+#header .row {
+    display: table;
+}
+.navbar .row > div {
+    display: table-cell;
+    float: none;
+}
+/*dashboard css*/
+#dash-panels .row-fluid {
+    overflow-x:auto;
+}
+.unstyled {
+    list-style:none;
+}
+/*panel specific*/
+#panel-database_stats .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e181";
+}
+#panel-cloud_stats .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\2601";
+}
+#panel-memcache_stats .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e185";
+}
+#panel-relocate_app .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e178";
+}
+#panel-upload_app .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e198";
+}
+#panel-delete_app .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e020";
+}
+#panel-manage_users .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e008";
+}
+#panel-logging .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e032";
+}
+
+
+@media only screen and (min-width:992px) {
+    .nav-header {
+        border-right: thin #9d9d9d solid;
+    }
+}
+/*small screens*/
+@media only screen and (max-width: 991px) {
+    #nav-links {
+        position:static;
+    }
+    .nav-header {
+        border:none;
+    }
+    #side-nav .navbar-header {
+        clear:both;
+    }
+    #side-nav .navbar-header button{
+        display:block;
+        border-radius:4px;
+        border:#9d9d9d thin solid;
+    }
+    #sideNav.navbar-collapse.collapse {
+        display: none!important;
+        height:0!important;
+        padding-bottom: 0;
+        overflow: hidden!important;
+    }
+    #sideNav.navbar-collapse.collapse.in {
+        display: block!important;
+        height:auto!important;
+        padding-bottom: 0;
+        overflow: visible!important;
+    }
+}
+
+/*errors*/
+/*Error pages style*/
+body.errorPage, body.loginPage {
+    background: url(../images/patterns/2.png) repeat;
+}
+.errorContainer {
+    background: url(../images/patterns/6.png) repeat;
+    border:1px solid #c4c4c4;
+    border-radius: 2px;
+    -moz-border-radius:2px;
+    -webkit-border-radius:2px;
+    padding:15px;
+    -webkit-box-shadow:  0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    box-shadow:  0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    position: absolute;
+    /* top:50%;*/
+    left:50%;
+    margin-left:-286px;
+    margin-top: -155px;
+    width:540px;
+}
+.errorContainer h1 {font-size: 10em; line-height: 1em;}
+.errorContainer.offline h1 {font-size: 5em;}
+.errorContainer h1 small {font-weight: 700; font-size: 0.3em;}
+.fieldWithErrors {
+    color: red;
+}
+
+#errorExplanation, #noticeExplanation {
+    list-style: none;
+    padding: 6px 6px 0 6px;
+    margin-left: -6px;
+    font-weight: bolder;
+    line-height: 22px;
+    width: 75%;
+    margin: 0 auto;
+}
+
+#errorExplanation {
+    color: #ff0000;
+    border: 2px solid red;
+    list-style: none;
+}
+
+#noticeExplanation {
+    color: green;
+    border: 2px solid green;
+    list-style: none;
+    line-height: 120%;
+}
+
+#errorExplanation h2 {
+    text-align: left;
+    font-weight: bold;
+    font-size: 12px;
+    color: red;
+    list-style: none;
+    line-height: 120%;
+}
+
+/* Form Validation */
+label.error {
+    padding: 3px 4px 3px 4px;
+    color: #c93605;
+    font-weight: bold;
+    text-shadow: 0px 1px 1px rgba(164, 44, 4, 0.20);
+    -moz-text-shadow: 0px 1px 1px rgba(164, 44, 4, 0.20);
+    -webkit-text-shadow: 0px 1px 1px rgba(164, 44, 4, 0.20);
+    font-size:11px;
+}
+
+form input.error {border: 1px solid #ED7A53 !important;}
+form input.valid {border: 1px solid #9FC569 !important;}
+
+.controls .checker label.error {
+    min-width: 260px;
+    text-align: left;
+    margin-top: -28px;
+}
+
+.controls label.error {
+    margin-top:-20px;
+}
+.controls .selector label.error {
+    position: absolute;
+    top: 5px;
+    right: 0;
+    margin:0;
+}
+
+.controls.sel label.error {
+    position: absolute;
+    top: 50px;
+}
+
+/*login screen*/
+.loginContainer {
+    position: absolute;
+    border:1px solid #c4c4c4;
+    width:300px;
+    /*height:232px;*/
+    height: auto;
+    left:50%;
+    top:50%;
+    margin-left:-171px;
+    margin-top: -150px;
+    border-radius: 2px;
+    -moz-border-radius:2px;
+    -webkit-border-radius:2px;
+    -webkit-box-shadow:  0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    box-shadow:  0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    background: #fefefe;
+    padding:0px 20px 0 20px;
+}
+
+.loginContainer:after,.loginContainer:before,.errorContainer:after,.errorContainer:before {
+    background: #f9f9f9;
+    background: -moz-linear-gradient(top,  rgba(248,248,248,1) 0%, rgba(249,249,249,1) 100%);
+    background: -webkit-linear-gradient(top,  rgba(248,248,248,1) 0%,rgba(249,249,249,1) 100%);
+    background: -o-linear-gradient(top,  rgba(248,248,248,1) 0%,rgba(249,249,249,1) 100%);
+    background: -ms-linear-gradient(top,  rgba(248,248,248,1) 0%,rgba(249,249,249,1) 100%);
+    background: linear-gradient(top,  rgba(248,248,248,1) 0%,rgba(249,249,249,1) 100%);
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f8f8f8', endColorstr='#f9f9f9',GradientType=0 );
+    border: 1px solid #c4c6ca;
+    content: "";
+    display: block;
+    height: 100%;
+    left: -1px;
+    position: absolute;
+    width: 100%;
+}
+.loginContainer:after, .errorContainer:after {
+    -webkit-transform: rotate(2deg);
+    -moz-transform: rotate(2deg);
+    -ms-transform: rotate(2deg);
+    -o-transform: rotate(2deg);
+    transform: rotate(2deg);
+    top: 0;
+    z-index: -1;
+}
+.loginContainer:before, .errorContainer:before {
+    -webkit-transform: rotate(-3deg);
+    -moz-transform: rotate(-3deg);
+    -ms-transform: rotate(-3deg);
+    -o-transform: rotate(-3deg);
+    transform: rotate(-3deg);
+    top: 0;
+    z-index: -2;
+}
+
+.loginPage .navbar .brand {float: none; text-align: center; margin:0;}
+.loginContainer .forgot {float: right;margin-right: -20px; font-size: 11px;}
+.loginContainer .form-horizontal {margin-bottom: 0px;}
+.loginContainer .form-actions {
+    margin: 0 -20px 0 -20px;
+    padding-left:20px !important;
+    padding-right: 12px;
+}
+.loginContainer .form-row .form-label {
+    text-align: left;
+    padding-right: 27px;
+    padding-top: 6px;
+    position: relative;
+}
+#loginForm label .icon16 {
+    position: absolute;
+    right: 0;
+    bottom: -26px;
+}
+#loginForm input {
+    width: 100%;
+}
+.loginContainer input#username {width: 100%;}
+@media only screen and (max-width: 572px) {
+    .loginPage #header {
+        height: 67px;
+    }
+
+    .loginPage .navbar .brand {
+        width: auto;
+    }
+}
+
+@media only screen and (max-width: 400px) {
+    .loginContainer {
+        width: 250px;
+        margin-left: -150px;
+    }
+}
+/* Smartphones (landscape) ----------- */
+@media only screen and (min-width : 321px) and (max-device-width : 480px) {
+    .loginPage #header {display: none;}
+    .loginContainer {top: 10px;margin-top: 0;}
+}
+
+@media only screen and (max-width: 320px) {
+    .loginContainer {
+        width: 220px;
+        margin-left: -130px;
+        top: 15%;
+        margin-top: 0;
+    }
+
+    .loginPage #header {
+        display: none;
+    }
+
+    .errorContainer {width: 200px; margin-left: -115px;}
+    .errorContainer .btn {margin-bottom: 15px;}
+}
+
+/*Error pages style*/
+body.errorPage, body.loginPage {
+    background: url(../images/patterns/2.png) repeat;
+}
+.errorContainer {
+    background: url(../images/patterns/6.png) repeat;
+    border:1px solid #c4c4c4;
+    border-radius: 2px;
+    -moz-border-radius:2px;
+    -webkit-border-radius:2px;
+    padding:15px;
+    -webkit-box-shadow:  0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    box-shadow:  0px 0px 1px 1px rgba(0, 0, 0, 0.1);
+    position: absolute;
+    /* top:50%;*/
+    left:50%;
+    margin-left:-286px;
+    margin-top: -155px;
+    width:540px;
+}
+.errorContainer h1 {font-size: 10em; line-height: 1em;}
+.errorContainer.offline h1 {font-size: 5em;}
+.errorContainer h1 small {font-weight: 700; font-size: 0.3em;}

@@ -1,201 +1,241 @@
-        <!-- FILE:templates/status/cloud.html -->
+<!-- FILE:templates/status/cloud.html -->
  <div class="row-fluid">
-                        <div class="span12">
-                            <div class="box gradient">
-                              <div class="title">
-                                <h4>
-                                    <span id="icon" class="icon16 icomoon-icon-screen-2"></span>
-                                    <span id="title">Cloud Statistics</span>
-                                </h4>
-                              </div>
-                              <div class="content noPad">
-                            <table class="table table-bordered" id="nodesTable">
-                                <thead>
-                                  <tr>
-                                    <th>IP Address</th>
-                                    <th>CPU Usage</th>
-                                    <th>Memory Usage</th>
-                                    <th>Hard Disk Usage</th>
-                                    <th>Roles</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                {% for server in server_info %}
-                                    <tr>
-                                      <td id="status_table">
-                                          <div align="center"><h3>{{server['ip']}}</h3></div></td>
-                                      <td align="center">
-                                        <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
-                                      </td>
-                                      <td align="center">
-                                        <div id="{{ server['key'] }}g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
-                                      </td>
-                                      <td align="center">
-                                        <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
-                                      </td>
-                                      <td style="text-align: center;">
-                                          <div style="margin-top: 50px;">
-                                            {% for role in server['roles'] %}
-                                            {% if role == 'load_balancer' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/load_balancer.png">
-                                            {% elif role == 'shadow' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/shadow.png">
-                                            {% elif role == 'db_master' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_master.png">
-                                            {% elif role == 'memcache' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/memcache.png">
-                                            {% elif role == 'zookeeper' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/zookeeper.png">
-                                            {% elif role == 'login' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/login.png">
-                                            {% elif role == 'appengine' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/app_engine.png">
-                                            {% elif role == 'taskqueue_master' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_master.png">
-                                            {% elif role == 'taskqueue_slave' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_slave.png">
-                                            {% elif role == 'db_slave' %}
-                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_slave.png">
-                                            {% endif %}
-                                            {% endfor %}
-                                          </div>
-                                      </td>
-                                    </tr>
-                                {% endfor %}
-                                 <script>
-                                   window.onload = function(){
-                                     update_mem_stats();
-                                     var gauges = {};
+  <div class="span12">
+    <div class="box gradient">
+    {% set app_page_title="Cloud Statistics" %}
+        {% if standalone_app_page %}
+            <div class="page-header">
+                <h1>{{ app_page_title }}</h1>
+            </div><!--close header-->
+        {% endif %}
+      <div class="content noPad" style="overflow-x: scroll;">
+    <table class="table table-bordered" id="nodesTable">
+      <thead>
+        <tr>
+        <th>IP Address</th>
+        <th>CPU Usage</th>
+        <th>Memory Usage</th>
+        <th>Hard Disk Usage</th>
+        <th>Roles</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for server in server_info %}
+        <tr>
+          <td id="status_table">
+            <div align="center"><h3>{{server['ip']}}</h3></div></td>
+          <td align="center">
+          <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
+          </td>
+          <td align="center">
+          <div id="{{ server['key'] }}g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
+          </td>
+          <td align="center">
+          <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
+          </td>
+          <td style="text-align: center;">
+            <div style="margin-top: 50px;">
+            {% for role in server['roles'] %}
+            {% if role == 'load_balancer' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/load_balancer.png">
+            {% elif role == 'shadow' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/shadow.png">
+            {% elif role == 'db_master' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/datastore_master.png">
+            {% elif role == 'memcache' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/memcache.png">
+            {% elif role == 'zookeeper' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/zookeeper.png">
+            {% elif role == 'login' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/login.png">
+            {% elif role == 'appengine' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/app_engine.png">
+            {% elif role == 'taskqueue_master' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/taskqueue_master.png">
+            {% elif role == 'taskqueue_slave' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/taskqueue_slave.png">
+            {% elif role == 'db_slave' %}
+              <img id="{{ role }}" class="node_icons" title="{{ role }}" src="/images/icons/datastore_slave.png">
+            {% endif %}
+            {% endfor %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+       <script>
+         /**
+          * Updates the pie chart that tells users the status of their
+          * memcache usage.
+          */
+         function update_mem_stats() {
+           $.ajax({
+             url: "/apps/stats/memcache"
+           }).done(
+               function(json_data) {
+                 var stats_info = JSON.parse(json_data);
+                 var all_stats = [
+                   { label: "Hits: " + stats_info['hits'], data: [[1, stats_info['hits']]]},
+                   { label: "Misses: " + stats_info['misses'], data: [[1, stats_info['misses']]]},
+                 ];
+                 $('#mem-flot').text('');
+                 if($("#mem-flot").closest(".panel-collapse").height() >0) {
+                   $.plot('#mem-flot', all_stats, {
+                     series: {
+                       pie: {
+                         show: true,
+                         label: {
+                           show: true,
+                           radius: 3 / 4,
+                           formatter: function (label, series) {
+                             return '<div style="font-size:8pt;text-align:center;padding:2px;color:white;">' + label + '<br/>' + Math.round(series.percent) + '%</div>';
+                           },
+                           background: {
+                             opacity: 0.5,
+                             color: '#000'
+                           }
+                         }
+                       }
+                     },
+                     legend: {
+                       show: true
+                     }
+                   });
+                 }
+               });
+         }
+         window.onload = function(){
+         update_mem_stats();
+         var gauges = {};
 
-                                     {% for server in server_info %}
-                                       gauges["g1{{ server['key'] }}"] = new JustGage({
-                                         id: "{{ server['key'] }}g1",
-                                         value: {{ server['cpu'] }},
-                                         min: 0,
-                                         max: 100,
-                                         title: "CPU",
-                                         label: "",
-                                         levelColorsGradient: false
-                                       });
+         {% for server in server_info %}
+           gauges["g1{{ server['key'] }}"] = new JustGage({
+           id: "{{ server['key'] }}g1",
+           value: {{ server['cpu'] }},
+           min: 0,
+           max: 100,
+           title: "CPU",
+           label: "",
+           levelColorsGradient: false
+           });
 
-                                       gauges["g2{{ server['key'] }}"] = new JustGage({
-                                         id: "{{ server['key'] }}g2",
-                                         value: {{ server['memory'] }},
-                                         min: 0,
-                                         max: 100,
-                                         title: "MEM",
-                                         label: "",
-                                         levelColorsGradient: false
-                                        });
+           gauges["g2{{ server['key'] }}"] = new JustGage({
+           id: "{{ server['key'] }}g2",
+           value: {{ server['memory'] }},
+           min: 0,
+           max: 100,
+           title: "MEM",
+           label: "",
+           levelColorsGradient: false
+          });
 
-                                        gauges["g3{{ server['key'] }}"] = new JustGage({
-                                          id: "{{ server['key'] }}g3",
-                                          value: {{ server['disk'] }},
-                                          min: 0,
-                                          max: 100,
-                                          title: "HD",
-                                          label: "",
-                                          levelColorsGradient: false
-                                        });
-                                     {% endfor %}
+          gauges["g3{{ server['key'] }}"] = new JustGage({
+            id: "{{ server['key'] }}g3",
+            value: {{ server['disk'] }},
+            min: 0,
+            max: 100,
+            title: "HD",
+            label: "",
+            levelColorsGradient: false
+          });
+         {% endfor %}
 
-                                   setInterval(function() {
-                                     update_mem_stats();
+         setInterval(function() {
+         update_mem_stats();
 
-                                     $.ajax({
-                                       url: "/status/json"
-                                     }).done(function(encoded_server_info) {
-                                       server_info = JSON.parse(encoded_server_info);
+         $.ajax({
+           url: "/status/json"
+         }).done(function(encoded_server_info) {
+           server_info = JSON.parse(encoded_server_info);
 
-                                       // update our divs accordingly
-                                       for (var i = 0; i < server_info.length; i++) {
-                                         server = server_info[i];
-                                         if ("g1" + server['key'] in gauges) {
-                                           // We're updating existing info.
-                                           gauges["g1" + server['key']].refresh(server['cpu']);
-                                           gauges["g2" + server['key']].refresh(server['memory']);
-                                           gauges["g3" + server['key']].refresh(server['disk']);
-                                         } else {
-                                           // This is a new node that just came online.
-                                           new_row = '<td id="status_table"><div align="center"><h3>';
-                                           new_row += server['ip'] + '</h3></div></td>';
-                                           new_row += '<td align="center">';
-                                           new_row += '<div id="' + server['key'] + 'g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
-                                           new_row += '</td>';
-                                           new_row += '<td align="center">';
-                                           new_row += '<div id="' + server['key'] + 'g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
-                                           new_row += '</td>';
-                                           new_row += '<td align="center">';
-                                           new_row += '<div id="' + server['key'] + 'g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
-                                           new_row += '</td>';
-                                           new_row += '<td style="text-align: center;">';
-                                           new_row += '<div style="margin-top: 50px;">';
-                                           for (var index = 0; index < server['roles'].length; index++) {
-                                             role = server['roles'][index];
-                                             if (role == 'load_balancer') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role +'" src="images/icons/load_balancer.png">';
-                                             } else if (role == 'shadow') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/shadow.png">';
-                                             } else if (role == 'db_master') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/datastore_master.png">';
-                                             } else if (role == 'memcache') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/memcache.png">';
-                                             } else if (role == 'zookeeper') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/zookeeper.png">';
-                                             } else if (role == 'login') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/login.png">';
-                                             } else if (role == 'appengine') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/app_engine.png">';
-                                             } else if (role == 'taskqueue_master') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/taskqueue_master.png">';
-                                             } else if (role == 'taskqueue_slave') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/taskqueue_slave.png">';
-                                             } else if (role == 'db_slave') {
-                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/datastore_slave.png">';
-                                             } else {
-                                               new_row += '<img id="unknown_role" alt="' + role + '" data-toggle="tooltip" title="The unknown role has been named: ' + role + '" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">';
-                                             }
-                                           }
-                                         new_row += '</div></td>';
-                                         $('#nodesTable').append(new_row);
-                                         gauges["g1" + server['key']] = new JustGage({
-                                           id: server['key'] + "g1",
-                                           value: server['cpu'],
-                                           min: 0,
-                                           max: 100,
-                                           title: "CPU",
-                                           label: "",
-                                           levelColorsGradient: false
-                                         });
+           // update our divs accordingly
+           for (var i = 0; i < server_info.length; i++) {
+           server = server_info[i];
+           if ("g1" + server['key'] in gauges) {
+             // We're updating existing info.
+             gauges["g1" + server['key']].refresh(server['cpu']);
+             gauges["g2" + server['key']].refresh(server['memory']);
+             gauges["g3" + server['key']].refresh(server['disk']);
+           } else {
+             // This is a new node that just came online.
+             new_row = '<td id="status_table"><div align="center"><h3>';
+             new_row += server['ip'] + '</h3></div></td>';
+             new_row += '<td align="center">';
+             new_row += '<div id="' + server['key'] + 'g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+             new_row += '</td>';
+             new_row += '<td align="center">';
+             new_row += '<div id="' + server['key'] + 'g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+             new_row += '</td>';
+             new_row += '<td align="center">';
+             new_row += '<div id="' + server['key'] + 'g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+             new_row += '</td>';
+             new_row += '<td style="text-align: center;">';
+             new_row += '<div style="margin-top: 50px;">';
+             for (var index = 0; index < server['roles'].length; index++) {
+             role = server['roles'][index];
+             if (role == 'load_balancer') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role +'" src="//images/icons/load_balancer.png">';
+             } else if (role == 'shadow') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/shadow.png">';
+             } else if (role == 'db_master') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/datastore_master.png">';
+             } else if (role == 'memcache') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/memcache.png">';
+             } else if (role == 'zookeeper') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/zookeeper.png">';
+             } else if (role == 'login') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/login.png">';
+             } else if (role == 'appengine') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/app_engine.png">';
+             } else if (role == 'taskqueue_master') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/taskqueue_master.png">';
+             } else if (role == 'taskqueue_slave') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/taskqueue_slave.png">';
+             } else if (role == 'db_slave') {
+               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="//images/icons/datastore_slave.png">';
+             } else {
+               new_row += '<img id="unknown_role" alt="' + role + '" data-toggle="tooltip" title="The unknown role has been named: ' + role + '" aria-hidden="true" class="node_icons" src="//images/icons/unknown_role.png">';
+             }
+             }
+           new_row += '</div></td>';
+           $('#nodesTable').append(new_row);
+           gauges["g1" + server['key']] = new JustGage({
+             id: server['key'] + "g1",
+             value: server['cpu'],
+             min: 0,
+             max: 100,
+             title: "CPU",
+             label: "",
+             levelColorsGradient: false
+           });
 
-                                         gauges["g2" + server['key']] = new JustGage({
-                                           id: server['key'] + "g2",
-                                           value: server['memory'],
-                                           min: 0,
-                                           max: 100,
-                                           title: "MEM",
-                                           label: "",
-                                           levelColorsGradient: false
-                                          });
+           gauges["g2" + server['key']] = new JustGage({
+             id: server['key'] + "g2",
+             value: server['memory'],
+             min: 0,
+             max: 100,
+             title: "MEM",
+             label: "",
+             levelColorsGradient: false
+            });
 
-                                          gauges["g3" + server['key']] = new JustGage({
-                                            id: server['key'] + "g3",
-                                            value: server['disk'],
-                                            min: 0,
-                                            max: 100,
-                                            title: "HD",
-                                            label: "",
-                                            levelColorsGradient: false
-                                          });
-                                         }
-                                       }
-                                     });
-                                   }, 10000);
-                                  }
-                                 </script>
-                                </tbody>
-                            </table>
-                          </div>
-                          </div>
-                        </div><!-- End .span6 -->
-                        </div><!-- End .row-fluid -->
+            gauges["g3" + server['key']] = new JustGage({
+            id: server['key'] + "g3",
+            value: server['disk'],
+            min: 0,
+            max: 100,
+            title: "HD",
+            label: "",
+            levelColorsGradient: false
+            });
+           }
+           }
+         });
+         }, 10000);
+        }
+       </script>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div><!-- End .span6 -->
+  </div><!-- End .row-fluid -->

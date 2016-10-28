@@ -1,7 +1,5 @@
 $(document).ready(function(){
-    //in case there's any later special implementations with multiple areas that can be dragged
-    //$( ".selector" ).droppable({accept: ".special"});
-
+    /*enable sortable areas*/
     $(".sortable").sortable({
         cursor:"move",
         helper:"clone",
@@ -10,25 +8,39 @@ $(document).ready(function(){
             $("#save-layout").html("Save Current Layout");
         }
     });
+
+    /*enable tooltips*/
+    $('[data-toggle="tooltip"]').tooltip();
+
+    /*add panel functionality*/
     $(".add-panel").click(function() {
-        $.ajax({
-            method: "post",
-            url:"/ajax/render/panel",
-            data:{
-                page_content:$(this).siblings("a").first().attr("href")+".html",
-                key_val:$(this).attr("data-target")},
-            success: function(result) {
-                $("#dash-panels").append(result);
-            }
-        });
+        var newPanelID = "#" + $(this).attr("data-target");
+        if(!$(newPanelID).length){
+            $.ajax({
+                method: "post",
+                url: "/ajax/render/panel",
+                async: false,
+                data: {
+                    page_content: $(this).siblings("a").first().attr("href") + ".html",
+                    key_val: $(this).attr("data-target")
+                },
+                success: function (result) {
+                    $("#dash-panels").append(result);
+                }
+            });
+            var offset = $(newPanelID).offset();
+            $("html, body").animate({scrollTop:offset.top});
+        }
     });
+
+    /*save layout functionality*/
     $("#save-layout").click(function() {
         var nav_array = [];
-        $(".nav-heading-button").each(function(){
-            nav_array.push($(this).attr("data-target").match("\#(.*)")[1]);
+        $(".nav-heading-collapse").each(function(){
+            nav_array.push($(this).attr("href").match("\#(.*)")[1]);
         });
         var panel_array = [];
-        $(".panel .panel-collapse").each(function(){
+        $("#dash-panels .panel-collapse").each(function(){
             panel_array.push($(this).attr("id"));
         });
         $.ajax({
@@ -39,12 +51,19 @@ $(document).ready(function(){
                 panel:JSON.stringify(panel_array)},
             success: function(result) {
                 if(result) {
-                    $("#save-layout").html("Saved");
+                    $("#save-layout").html(result);
                 }
             },
-            error: function () {
-                $("#save-layout").html("Try Again");
+            error: function (result) {
+                $("#save-layout").html(result);
             }
         });
     });
+    /*reset layout functionality*/
+    $("#reset-layout").click(function() {
+        $.ajax({
+            method:"post",
+            url:"/ajax/reset/layout"
+        })
+    })
 });

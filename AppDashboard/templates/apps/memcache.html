@@ -1,16 +1,14 @@
+<!-- FILE:templates/apps/memcache.html -->
 <div class="row-fluid">
     <div class="span12">
         <div class="box chart gradient">
-            <div class="title">
-                <h4><span id="icon" class="icon16 icomoon-icon-bars"></span><span id="title">Global Memcache Statistics</span></h4>
-            </div><!-- end title -->
+            {% set app_page_title="Global Memcache Statistics" %}
             <div class="content">
                 <div style="height: 400px;" id="mem-flot"></div>
             </div><!-- end content -->
         </div><!-- end box -->
     </div><!-- end span6 -->
 </div><!-- end .row -->
-{% if is_user_cloud_admin %}
 <script>
 /**
  * Updates the pie chart that tells users the status of their
@@ -53,4 +51,3 @@ function update_mem_stats() {
     });
 }
 </script>
-{% endif %}
