@@ -39,6 +39,8 @@ from google.appengine.tools import dev_appserver_upload
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
 import appscale_info
 from constants import LOG_FORMAT
+from deployment_config import DeploymentConfig
+from deployment_config import ConfigInaccessible
 
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'
@@ -73,8 +75,8 @@ GCS_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 # Global used for setting the datastore path when registering the DB
 datastore_path = ""
 
-# The host and port of a GCS-compatible server.
-gcs_path = ''
+# A DeploymentConfig accessor.
+deployment_config = None
 
 
 class MultiPartForm(object):
@@ -311,10 +313,18 @@ class UploadHandler(tornado.web.RequestHandler):
 
       gs_path = ''
       if 'gcs_bucket' in blob_session:
-        if not gcs_path:
+        gcs_config = {'scheme': 'https', 'port': 443}
+        try:
+          gcs_config.update(deployment_config.get_config('gcs'))
+        except ConfigInaccessible:
+          self.send_error('Unable to fetch GCS configuration.')
+          return
+
+        if 'host' not in gcs_config:
           self.send_error('GCS host is not defined.')
           return
 
+        gcs_path = '{scheme}://{host}:{port}'.format(**gcs_config)
         gcs_bucket_name = blob_session['gcs_bucket']
         gcs_url = '/'.join([gcs_path, gcs_bucket_name, filename])
         response = requests.post(gcs_url,
@@ -410,19 +420,10 @@ if __name__ == "__main__":
                       required=True, help="The blobstore server's port")
   parser.add_argument('-d', '--datastore-path', required=True,
                       help='The location of the datastore server')
-  group = parser.add_argument_group('gcs-host')
-  group.add_argument('--gcs-host',
-                     help='The hostname of a GCS-compatible server')
-  group.add_argument('--gcs-port', type=int, default=443,
-                     help='The port number of a GCS-compatible server')
-  group.add_argument('--gcs-scheme', default='https',
-                     help='The scheme to use to communicate with a GCS server')
   args = parser.parse_args()
 
   datastore_path = args.datastore_path
-  if args.gcs_host is not None:
-    gcs_path = '{scheme}://{host}:{port}'.format(
-      scheme=args.gcs_scheme, host=args.gcs_host, port=args.gcs_port)
+  deployment_config = DeploymentConfig(appscale_info.get_zk_locations_string())
   setup_env()
 
   http_server = tornado.httpserver.HTTPServer(

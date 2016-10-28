@@ -1,5 +1,6 @@
 """ This service starts and stops application servers of a given application. """
 
+import argparse
 import fnmatch
 import glob
 import json
@@ -22,9 +23,11 @@ import appscale_info
 import constants
 import file_io
 import monit_app_configuration
-from monit_app_configuration import MONIT_CONFIG_DIR
 import monit_interface
 import misc
+from deployment_config import DeploymentConfig
+from deployment_config import ConfigInaccessible
+from monit_app_configuration import MONIT_CONFIG_DIR
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerClient
@@ -83,6 +86,10 @@ HTTP_OK = 200
 
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
+
+# A DeploymentConfig accessor.
+deployment_config = None
+
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -541,6 +548,15 @@ def create_java_app_env(app_name):
   custom_env_vars = extract_env_vars_from_xml(config_file)
   env_vars.update(custom_env_vars)
 
+  gcs_config = {'scheme': 'https', 'port': 443}
+  try:
+    gcs_config.update(deployment_config.get_config('gcs'))
+  except ConfigInaccessible:
+    logging.warning('Unable to fetch GCS configuration.')
+
+  if 'host' in gcs_config:
+    env_vars['GCS_HOST'] = '{scheme}://{host}:{port}'.format(**gcs_config)
+
   return env_vars
 
 def create_python27_start_cmd(app_name,
@@ -759,18 +775,13 @@ def is_config_valid(config):
       return False
   return True
 
-def usage():
-  """ Prints usage of this program """
-  print "args: --help or -h for this menu"
 
 ################################
 # MAIN
 ################################
 if __name__ == "__main__":
-  for args_index in range(1, len(sys.argv)):
-    if sys.argv[args_index] in ("-h", "--help"):
-      usage()
-      sys.exit()
+  file_io.set_logging_format()
+  deployment_config = DeploymentConfig(appscale_info.get_zk_locations_string())
 
   INTERNAL_IP = appscale_info.get_private_ip()
   SERVER = SOAPpy.SOAPServer((INTERNAL_IP, constants.APP_MANAGER_PORT))
@@ -779,8 +790,6 @@ if __name__ == "__main__":
   SERVER.registerFunction(stop_app)
   SERVER.registerFunction(stop_app_instance)
   SERVER.registerFunction(restart_app_instances_for_app)
-
-  file_io.set_logging_format()
 
   while 1:
     try:
