@@ -3342,18 +3342,11 @@ class Djinn
 
     keypath = @options['keyname'] + ".key"
     Djinn.log_debug("Keypath is #{keypath}, keyname is #{@options['keyname']}")
-    tools_key = "#{APPSCALE_CONFIG_DIR}/ssh.key"
     my_key_dir = "#{APPSCALE_CONFIG_DIR}/keys/#{my_node.cloud}"
     my_key_loc = "#{my_key_dir}/#{keypath}"
     Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
     FileUtils.mkdir_p(my_key_dir)
-    if File.exists?(tools_key)
-      new_key = File.read(tools_key)
-      old_key = File.read("#{my_key_loc}")
-      Djinn.log_run("cp #{new_key} #{old_key}") if new_key != old_key
-    elsif my_node.is_shadow? && !File.exists?(my_key_loc)
-      Djinn.log_warn("Cannot find #{tools_key}.")
-    end
+    Djinn.log_run("cp #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
 
     if is_cloud?
       # for euca
