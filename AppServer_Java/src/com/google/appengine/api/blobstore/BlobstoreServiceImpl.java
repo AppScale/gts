@@ -3,7 +3,7 @@ package com.google.appengine.api.blobstore;
 import com.google.appengine.api.blobstore.dev.BlobInfoStorage;
 import com.google.appengine.api.blobstore.dev.LocalBlobstoreService;
 import com.google.appengine.repackaged.com.google.common.annotations.VisibleForTesting;
-import com.google.appengine.repackaged.org.apache.commons.io.IOUtils;
+import com.google.appengine.repackaged.com.google.common.io.ByteStreams;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.ApplicationException;
 import com.google.apphosting.utils.servlet.MultipartMimeUtils;
@@ -278,7 +278,7 @@ class BlobstoreServiceImpl implements BlobstoreService {
                 if (respCode != HttpURLConnection.HTTP_OK)
                     throw new BlobstoreFailureException("Error fetching " + gcsURL.toString());
 
-                return IOUtils.toByteArray(conn.getInputStream());
+                return ByteStreams.toByteArray(conn.getInputStream());
             } catch (IOException ex) {
                 throw new BlobstoreFailureException("Error fetching " + gcsURL.toString());
             }
