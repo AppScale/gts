@@ -3351,7 +3351,7 @@ class Djinn
       new_key = File.read(tools_key)
       old_key = File.read("#{my_key_loc}")
       Djinn.log_run("cp #{new_key} #{old_key}") if new_key != old_key
-    elsif my_node.is_shadow?
+    elsif my_node.is_shadow? && !File.exists?(my_key_loc)
       Djinn.log_warn("Cannot find #{tools_key}.")
     end
 
