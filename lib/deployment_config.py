@@ -45,6 +45,7 @@ class DeploymentConfig(object):
     self.conn = KazooClient(hosts=hosts, read_only=True)
     self.conn.add_listener(self._conn_listener)
     self.conn.start()
+    self.conn.ensure_path(self.CONFIG_ROOT)
     self.conn.ChildrenWatch(self.CONFIG_ROOT, func=self._update_config)
 
   def _conn_listener(self, state):
