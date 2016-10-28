@@ -395,6 +395,35 @@ class AppDashboardHelper(object):
         "{0}".format(failure_message))
 
 
+  def relocate_app(self, appid, http_port, https_port):
+    """ Relocates a Google App Engine application to different ports.
+
+      Args:
+        appid: The application to be relocated
+        http_port: The HTTP Port to relocate the application to
+        https_port: The HTTPS Port to relocate the application to
+      Returns:
+        A str indicating that the application was relocated successfully.
+      Raises:
+        AppHelperException: If the application was not uploaded successfully.
+      """
+    acc = self.get_appcontroller_client()
+    try:
+      relocate_info = acc.relocate_app(appid, http_port, https_port)
+      logging.info(relocate_info)
+      # Returns:
+      #"OK" if the relocation occurred successfully, and a String containing
+      # the reason why the relocation failed in all other cases.
+      if(relocate_info!="OK"):
+        logging.error("AppController returned: {0}".format(relocate_info))
+        return "Error attempting to relocate Application: {0}"\
+          .format(relocate_info)
+    except Exception as err:
+      logging.exception(err)
+      return "There was an error attempting to relocate the application."
+    return "Application was relocated successfully."
+
+
   def delete_app(self, appname):
     """ Removes a Google App Engine application from this AppScale deployment.
 

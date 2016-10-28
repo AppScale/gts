@@ -1,0 +1,57 @@
+<!-- FILE:templates/apps/new.html -->
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+        {% set apps=apps_user_is_admin_on %}
+        <!-- Build page from here: -->
+        <div class="row-fluid">
+          {% set app_page_title="Relocate an Application" %}
+            {% if standalone_app_page %}
+                <div class="page-header">
+                    <h1>{{ app_page_title }}</h1>
+                </div><!--close header-->
+            {% endif %}
+              <div class="well">
+              {% if can_upload_apps %}
+                <form action="/apps/relocate" class="form-inline" enctype="multipart/form-data" id="edit_app" method="post">
+                  {% if success_message %}
+                  <h3>
+                    <ul id="noticeExplanation"><li class="flash notice">{{ success_message }}</li></ul>
+                  </h3>
+                  {% endif %}
+                  {% if error_message %}
+                  <h3>
+                    <ul id="errorExplanation"><li class="flash error">{{ error_message }}</li></ul>
+                  </h3>
+                  {% endif %}
+                  <div id="help-text"><h3>How to Relocate Applications</h3>
+                  This page allows you to relocate applications in AppScale.
+                  HTTP Ports must be between: 8080-8100
+                  HTTPS Ports must be between: 4380-4400
+                  </div>
+                  <br />
+                  <p>
+                  <select name="app_id">
+                    {% for app_name in apps|sort %}
+                    <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
+                      <option value="{{ app_name }}">{{ app_name }}</option>
+                    </li>
+                    {% endfor %}
+                  </select>
+                    <label>HTTP Port Number:
+                        <input type="number" size="4" name="http_port"></label>
+                    <label>HTTPS Port Number:
+                        <input type="number" size="4" name="https_port"></label>
+                    <img alt="Spinner" id="spinner" src="/images/spinner.gif?1363364452" style="display:none;" />
+                  </p>
+                  <p>
+                    <input class="btn btn-primary" id="relocate-button" name="commit" type="submit" value="Relocate" />
+                  </p>
+                </form>
+              {% else %}
+                <h2>You do not have permission to relocate applications. Please contact your cloud administrator.</h2>
+              {% endif %}
+          </div><!--close well-->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->

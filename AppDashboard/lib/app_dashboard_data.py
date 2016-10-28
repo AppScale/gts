@@ -196,6 +196,9 @@ class AppDashboardData():
           "delete_app":{"title":"Delete Application",
                         "link":"/apps/delete",
                         "template":"apps/delete.html"},
+          "relocate_app":{"title":"Relocate Application",
+                          "link":"/apps/relocate",
+                          "template":"apps/relocate.html"},
           "manage_users":{"title":"Manage Users",
                           "link":"/authorize",
                           "template":"authorize/cloud.html"},
@@ -212,7 +215,9 @@ class AppDashboardData():
                                           [{"upload_app": LOOKUP_DICT[
                                             "upload_app"]},
                                            {"delete_app": LOOKUP_DICT[
-                                             "delete_app"]}]}
+                                             "delete_app"]},
+                                           {"relocate_app": LOOKUP_DICT[
+                                             "relocate_app"]}]}
         if(user_info.is_user_cloud_admin):
           LOOKUP_DICT["appscale_management"] = {"AppScale Management":
                                                [{"cloud_stats": LOOKUP_DICT[
