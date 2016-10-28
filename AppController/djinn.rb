@@ -474,7 +474,6 @@ class Djinn
     'replication' => [ Fixnum, '1' ],
     'project' => [ String, nil ],
     'scp' => [ String, nil ],
-    'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
@@ -3343,11 +3342,18 @@ class Djinn
 
     keypath = @options['keyname'] + ".key"
     Djinn.log_debug("Keypath is #{keypath}, keyname is #{@options['keyname']}")
+    tools_key = "#{APPSCALE_CONFIG_DIR}/ssh.key"
     my_key_dir = "#{APPSCALE_CONFIG_DIR}/keys/#{my_node.cloud}"
     my_key_loc = "#{my_key_dir}/#{keypath}"
     Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
     FileUtils.mkdir_p(my_key_dir)
-    Djinn.log_run("cp #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
+    if File.exists?(tools_key)
+      new_key = File.read(tools_key)
+      old_key = File.read("#{my_key_loc}")
+      Djinn.log_run("cp #{new_key} #{old_key}") if new_key != old_key
+    elsif my_node.is_shadow?
+      Djinn.log_warn("Cannot find #{tools_key}.")
+    end
 
     if is_cloud?
       # for euca
@@ -3536,12 +3542,6 @@ class Djinn
     threads = []
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
-        if my_node.is_db_master?
-          if @options['clear_datastore'].downcase == "true"
-            erase_app_instance_info
-          end
-        end
-
         if my_node.is_db_master? or my_node.is_db_slave?
           start_groomer_service()
         end
@@ -3832,6 +3832,7 @@ class Djinn
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
+      next if slave.private_ip == my_node.private_ip
       threads << Thread.new {
         initialize_node(slave)
       }
