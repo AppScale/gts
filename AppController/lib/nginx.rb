@@ -324,11 +324,18 @@ CONFIG
   def self.clear_sites_enabled()
     if File.directory?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
-      # Remove any files that are not configs
-      sites.delete_if { |site|
-        !site.end_with?(CONFIG_EXTENSION) && !site.start_with?('appscale-')
+
+      # Only remove AppScale-related config files.
+      to_remove = []
+      sites.each { |site|
+        if site.end_with?(CONFIG_EXTENSION) && site.start_with?('appscale-')
+          to_remove.push(site)
+        end
       }
-      full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
+
+      full_path_sites = to_remove.map { |site|
+        File.join(SITES_ENABLED_PATH, site)
+      }
       FileUtils.rm_f full_path_sites
       Nginx.reload()
     end
