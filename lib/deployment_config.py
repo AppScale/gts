@@ -73,7 +73,7 @@ class DeploymentConfig(object):
     """
     node = '/'.join([self.CONFIG_ROOT, child])
     try:
-      data, _ = self.conn.retry(self.conn.get(node))
+      data, _ = self.conn.retry(self.conn.get, node)
     except (KazooException, ZookeeperError):
       raise ConfigInaccessible('ZooKeeper connection not available')
     except NoNodeError:
