@@ -220,6 +220,7 @@ class TestAppManager(unittest.TestCase):
     assert app_manager_server.extract_env_vars_from_xml('/file.xml') == {}
 
   def test_create_java_app_env(self):
+    app_manager_server.deployment_config = flexmock(get_config=lambda x: {})
     app_name = 'foo'
     flexmock(app_manager_server).should_receive('find_web_xml').and_return()
     flexmock(app_manager_server).should_receive('extract_env_vars_from_xml').\
