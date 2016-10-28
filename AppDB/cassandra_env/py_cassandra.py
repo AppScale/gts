@@ -7,6 +7,7 @@ import os
 import sys
 import time
 
+from dbconstants import AppScaleDBConnectionError
 from dbconstants import SCHEMA_TABLE
 from dbconstants import SCHEMA_TABLE_SCHEMA
 from dbinterface import AppDBInterface
@@ -65,8 +66,7 @@ class DatastoreProxy(AppDBInterface):
     try:
       results = self.session.execute(query, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
-      list[0] += 'Unable to fetch entity'
-      return list
+      raise AppScaleDBConnectionError('Unable to fetch entity')
 
     results_dict = {}
     for (_, column, value) in results:
