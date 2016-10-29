@@ -19,12 +19,13 @@ from backup_recovery_constants import PADDING_PERCENTAGE
 from backup_recovery_constants import SERVICE_STOP_RETRIES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-from cassandra_env import shut_down_cassandra
+from cassandra_env import cassandra_interface
 from cassandra_env.cassandra_interface import NODE_TOOL
 from cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
 import appscale_info
+import monit_interface
 from constants import APPSCALE_DATA_DIR
 from constants import LOG_FORMAT
 
@@ -112,8 +113,9 @@ def shutdown_datastore():
     True on success, False otherwise.
   """
   logging.info("Shutting down Cassandra.")
-  if not shut_down_cassandra.run():
-    return False
+  monit_interface.stop(
+    cassandra_interface.CASSANDRA_MONIT_WATCH_NAME, is_group=False)
+  logging.warning("Done!")
   return True
 
 def backup_data(path, keyname):

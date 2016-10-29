@@ -18,7 +18,6 @@ sys.path.append(
   os.path.join(os.path.dirname(__file__), '../../../InfrastructureManager'))
 from utils import utils
 
-from cassandra_env import shut_down_cassandra
 from cassandra_env.cassandra_interface import NODE_TOOL
 
 class TestCassandraBackup(unittest.TestCase):
@@ -39,10 +38,6 @@ class TestCassandraBackup(unittest.TestCase):
 
   def test_restore_snapshots(self):
     pass
-
-  def test_shutdown_datastore(self):
-    flexmock(shut_down_cassandra).should_receive('run').times(1)
-    cassandra_backup.shutdown_datastore()
 
   def test_backup_data(self):
     db_ips = ['192.168.33.10', '192.168.33.11']

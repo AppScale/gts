@@ -14,6 +14,7 @@ from StringIO import StringIO
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
 import appscale_info
+import monit_interface
 from constants import CONTROLLER_SERVICE
 from constants import LOG_FORMAT
 
@@ -134,8 +135,7 @@ def shutdown_zookeeper():
     True on success, False otherwise.
   """
   logging.info("Shutting down Zookeeper.")
-  if not shut_down_zookeeper.run():
-    return False
+  monit_interface.stop('zookeeper-9999', is_group=False)
   return True
 
 def backup_data(path, keyname):
