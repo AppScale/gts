@@ -15,10 +15,10 @@ import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import appscale_datastore_batch
-import dbconstants
 import datastore_server
 import entity_utils
 
+from appscale.datastore import dbconstants
 from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))

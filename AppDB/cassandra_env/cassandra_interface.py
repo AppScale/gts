@@ -5,15 +5,15 @@
 """
 import cassandra
 import datastore_server
-import dbconstants
 import helper_functions
 import logging
 import os
 import sys
 import time
 
-from dbconstants import AppScaleDBConnectionError
-from dbconstants import TxnActions
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import AppScaleDBConnectionError
+from appscale.datastore.dbconstants import TxnActions
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy

@@ -2,14 +2,14 @@
 Cassandra Interface for AppScale
 """
 import cassandra
-import dbconstants
 import os
 import sys
 import time
 
-from dbconstants import AppScaleDBConnectionError
-from dbconstants import SCHEMA_TABLE
-from dbconstants import SCHEMA_TABLE_SCHEMA
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import AppScaleDBConnectionError
+from appscale.datastore.dbconstants import SCHEMA_TABLE
+from appscale.datastore.dbconstants import SCHEMA_TABLE_SCHEMA
 from dbinterface import AppDBInterface
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster

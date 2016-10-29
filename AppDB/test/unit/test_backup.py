@@ -12,9 +12,9 @@ from flexmock import flexmock
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/scripts"))
 import backup_data as backup
 import appscale_datastore_batch
-from dbconstants import AppScaleDBConnectionError
 import entity_utils
 
+from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from zkappscale.zktransaction import ZKTransactionException
 
 class FakeDatastore(object):

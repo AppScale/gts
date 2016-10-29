@@ -1,11 +1,24 @@
 #!/usr/bin/env python
 """ View all application entities. """
 
-import os
 import sys
 
-from dbconstants import *
 import appscale_datastore_batch
+
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
+from appscale.datastore.dbconstants import APP_KIND_SCHEMA
+from appscale.datastore.dbconstants import APP_KIND_TABLE
+from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import COMPOSITE_SCHEMA
+from appscale.datastore.dbconstants import COMPOSITE_TABLE
+from appscale.datastore.dbconstants import DATASTORE_METADATA_SCHEMA
+from appscale.datastore.dbconstants import DATASTORE_METADATA_TABLE
+from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import METADATA_SCHEMA
+from appscale.datastore.dbconstants import METADATA_TABLE
+from appscale.datastore.dbconstants import PROPERTY_SCHEMA
+from appscale.datastore.dbconstants import TERMINATING_STRING
 
 _MAX_ENTITIES = 1000000
 

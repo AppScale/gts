@@ -2,7 +2,6 @@
 """ Create Cassandra keyspace and initial tables. """
 
 import argparse
-import dbconstants
 import cassandra
 import cassandra_interface
 import logging
@@ -10,6 +9,7 @@ import os
 import sys
 import time
 
+from appscale.datastore import dbconstants
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster

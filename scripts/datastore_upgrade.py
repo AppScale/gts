@@ -1,6 +1,5 @@
 """ This script performs a data upgrade. """
 
-import cassandra
 import json
 import logging
 import math
@@ -21,12 +20,12 @@ from constants import LOG_DIR
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 import appscale_datastore_batch
 import datastore_server
-import dbconstants
 
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from cassandra_env import cassandra_interface
 from datastore_server import ID_KEY_LENGTH
-from dbconstants import APP_ENTITY_SCHEMA
-from dbconstants import APP_ENTITY_TABLE
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
 from zkappscale.zktransaction import ZKInternalException

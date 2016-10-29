@@ -1,9 +1,8 @@
 import unittest
 import migration
 import hashlib
-import SOAPpy
 import yaml
-from dbconstants import *
+from appscale.datastore.dbconstants import *
 
 TEST_TAR = '/root/appscale/AppDB/test/migration_data.tar.gz'
 DATABASE_YAML = '/root/appscale/.appscale/database_info.yaml'

@@ -16,7 +16,10 @@ from google.appengine.ext import db
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info
-import dbconstants
+
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import JOURNAL_SCHEMA
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
 from cassandra_env.cassandra_interface import DatastoreProxy
@@ -26,8 +29,6 @@ from cassandra_env.cassandra_interface import mutations_for_entity
 from datastore_server import DatastoreDistributed
 from datastore_server import ID_KEY_LENGTH
 from datastore_server import TOMBSTONE
-from dbconstants import APP_ENTITY_SCHEMA
-from dbconstants import JOURNAL_SCHEMA
 from zkappscale.zktransaction import TX_TIMEOUT
 from zkappscale.zktransaction import ZKTransactionException
 

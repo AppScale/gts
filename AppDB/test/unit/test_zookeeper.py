@@ -12,10 +12,7 @@ import kazoo.exceptions
 import kazoo.protocol
 import kazoo.protocol.states
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from dbconstants import *
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
 

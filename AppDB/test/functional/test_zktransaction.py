@@ -1,12 +1,10 @@
 import sys
+import threading
 import time
 import unittest
-import base64
-import re
-import threading
-from test import test_support
-from dbconstants import *
 import zkappscale.zktransaction
+
+from test import test_support
 
 class TestZKTransaction(unittest.TestCase):
 

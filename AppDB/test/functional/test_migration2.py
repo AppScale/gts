@@ -2,7 +2,7 @@ import os
 import unittest
 import subprocess
 from migration import * 
-from dbconstants import *
+from appscale.datastore.dbconstants import *
 TEST_TAR = '/root/appscale/AppDB/test/migration_data.tar.gz'
 
 class SecretTestCase(unittest.TestCase):

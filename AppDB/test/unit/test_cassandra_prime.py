@@ -4,13 +4,10 @@ import os
 import sys
 import unittest
 
+from appscale.datastore import dbconstants
 from cassandra.cluster import Cluster
-from flexmock import flexmock
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
-import dbconstants
-
 from cassandra_env import prime_cassandra
+from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info

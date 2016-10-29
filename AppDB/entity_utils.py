@@ -2,10 +2,10 @@
 
 import datastore_server
 
-from dbconstants import JOURNAL_SCHEMA
-from dbconstants import JOURNAL_TABLE
-from dbconstants import KEY_DELIMITER
-from dbconstants import KIND_SEPARATOR
+from appscale.datastore.dbconstants import JOURNAL_SCHEMA
+from appscale.datastore.dbconstants import JOURNAL_TABLE
+from appscale.datastore.dbconstants import KEY_DELIMITER
+from appscale.datastore.dbconstants import KIND_SEPARATOR
 
 from google.appengine.datastore import entity_pb
 

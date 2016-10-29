@@ -9,7 +9,6 @@ given (Put, Get, Delete, Query, etc).
 import array
 import __builtin__
 import cassandra_env.cassandra_interface
-import dbconstants
 import getopt
 import itertools
 import json
@@ -27,9 +26,6 @@ import helper_functions
 import zkappscale.zktransaction
 
 from appscale_datastore_batch import DatastoreFactory
-from dbconstants import APP_ENTITY_SCHEMA
-from dbconstants import TRANSACTIONS_SCHEMA
-from dbconstants import TxnActions
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -38,6 +34,11 @@ from constants import LOG_FORMAT
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
+
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import TRANSACTIONS_SCHEMA
+from appscale.datastore.dbconstants import TxnActions
 
 from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb

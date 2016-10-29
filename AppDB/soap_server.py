@@ -11,13 +11,17 @@ import json
 import logging
 import os
 import re
+import SOAPpy
 import sys
 import time
 
-from dbconstants import *
 import appscale_datastore
 
-import SOAPpy
+from appscale.datastore.dbconstants import AppScaleDBConnectionError
+from appscale.datastore.dbconstants import APPS_SCHEMA
+from appscale.datastore.dbconstants import APPS_TABLE
+from appscale.datastore.dbconstants import USERS_SCHEMA
+from appscale.datastore.dbconstants import USERS_TABLE
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 from constants import LOG_FORMAT

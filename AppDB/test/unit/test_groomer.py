@@ -4,7 +4,6 @@
 import datetime
 import os
 import sys
-import time
 import unittest
 from flexmock import flexmock
 
@@ -17,11 +16,10 @@ from google.appengine.datastore import entity_pb
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
 import appscale_datastore_batch
 import datastore_server
-import dbconstants
 import entity_utils
 import groomer
 
-from zkappscale.zktransaction import ZKTransactionException
+from appscale.datastore import dbconstants
 
 
 class FakeQuery():

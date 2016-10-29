@@ -1,18 +1,21 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
-import os
-import time
-import unittest 
+import unittest
 
 import appscale_datastore_batch
 import datastore_server
 
-from dbconstants import *
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
+from appscale.datastore.dbconstants import APP_ID_SCHEMA
+from appscale.datastore.dbconstants import APP_ID_TABLE
+from appscale.datastore.dbconstants import APP_KIND_SCHEMA
+from appscale.datastore.dbconstants import APP_KIND_TABLE
+from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import PROPERTY_SCHEMA
 
 from google.appengine.api import datastore
-from google.appengine.api import datastore_types
-from google.appengine.datastore import datastore_index
 from google.appengine.datastore import entity_pb
-from google.appengine.datastore import datastore_query
 
 # The separator of the namespace
 NAMESPACE_SEP = '/'
