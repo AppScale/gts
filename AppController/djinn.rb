@@ -3361,7 +3361,7 @@ class Djinn
     FileUtils.mkdir_p(my_key_dir)
     Djinn.log_run("cp #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
     Djinn.log_run("chmod 600 #{APPSCALE_CONFIG_DIR}/ssh.key")
-    Djinn.log_run("chmod 600 #{my_key_log}")
+    Djinn.log_run("chmod 600 #{my_key_loc}")
 
     # AWS and Euca need some evironmental variables.
     if ["ec2", "euca"].include?(@options['infrastructure'])
