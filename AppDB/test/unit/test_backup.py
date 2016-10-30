@@ -2,20 +2,15 @@
 
 """ Unit tests for backup_data.py """
 
-import os
 import re
-import sys
 import time
 import unittest
 
-from appscale.datastore import entity_utils
-from flexmock import flexmock
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/scripts"))
-import backup_data as backup
-
 from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import entity_utils
+from appscale.datastore.datastore_backup import DatastoreBackup
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
+from flexmock import flexmock
 from zkappscale.zktransaction import ZKTransactionException
 
 
@@ -47,7 +42,7 @@ class TestBackup(unittest.TestCase):
   """
   def test_init(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
   def test_stop(self):
@@ -63,7 +58,7 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.should_receive('set_filename').and_return()
     fake_backup.should_receive('backup_source_code').at_most().times(1).\
@@ -89,7 +84,7 @@ class TestBackup(unittest.TestCase):
   def test_get_backup_lock(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_lock_with_path").and_return(True)
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
     # Test with successfully obtaining the backup lock.
@@ -97,14 +92,14 @@ class TestBackup(unittest.TestCase):
 
   def test_get_entity_batch(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.db_access = FakeDatastore()
     self.assertEquals([], fake_backup.get_entity_batch('app_id', 100, True))
 
   def test_verify_entity(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
     # Test with valid entity.
@@ -122,12 +117,12 @@ class TestBackup(unittest.TestCase):
 
   def test_dump_entity(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
   def test_process_entity(self):
     zookeeper = flexmock()
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
 
     flexmock(re).should_receive('match').at_least().times(2).and_return(None)
@@ -166,7 +161,7 @@ class TestBackup(unittest.TestCase):
     zookeeper = flexmock()
 
     # Test with entities.
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.should_receive("get_entity_batch").\
       and_return([FAKE_ENCODED_ENTITY])
@@ -177,19 +172,20 @@ class TestBackup(unittest.TestCase):
     self.assertEquals(None, fake_backup.run_backup())
 
     # Test with no entities.
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.should_receive("get_entity_batch").and_return([])
     self.assertEquals(None, fake_backup.run_backup())
 
     # Test with exception tossed.
-    fake_backup = flexmock(backup.DatastoreBackup('app_id', zookeeper,
+    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
       "cassandra", False, []))
     fake_backup.should_receive("get_entity_batch").\
       and_raise(AppScaleDBConnectionError)
     flexmock(time).should_receive('sleep').and_return()
     fake_backup.should_receive("get_entity_batch").and_return([])
     self.assertEquals(None, fake_backup.run_backup())
+
 
 if __name__ == "__main__":
   unittest.main()

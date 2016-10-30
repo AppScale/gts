@@ -23,6 +23,9 @@ MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
 
+# Tombstone value for soft deletes.
+TOMBSTONE = "APPSCALE_SOFT_DELETE"
+
 TRANSIENT_CASSANDRA_ERRORS = (
   cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
   cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)

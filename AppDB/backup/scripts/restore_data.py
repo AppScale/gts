@@ -12,12 +12,12 @@ import sys
 import time
 
 from appscale.datastore import appscale_datastore_batch
+from appscale.datastore.datastore_backup import DatastoreBackup
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from backup_data import DatastoreBackup
 import datastore_server
 import delete_all_records
 

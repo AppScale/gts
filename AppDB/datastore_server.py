@@ -83,9 +83,6 @@ BLOCK_SIZE = 10000
 # The length of an ID string meant to make sure we have lexigraphically ordering
 ID_KEY_LENGTH = 10
 
-# Tombstone value for soft deletes
-TOMBSTONE = "APPSCALE_SOFT_DELETE"
-
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 

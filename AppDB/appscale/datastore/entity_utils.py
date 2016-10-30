@@ -1,7 +1,6 @@
 """ Utilities for parsing datastore entities. """
 
-import datastore_server
-
+from appscale.datastore import dbconstants
 from appscale.datastore.dbconstants import JOURNAL_SCHEMA
 from appscale.datastore.dbconstants import JOURNAL_TABLE
 from appscale.datastore.dbconstants import KEY_DELIMITER
@@ -51,7 +50,7 @@ def fetch_journal_entry(db_access, key):
 
   if JOURNAL_SCHEMA[0] in result.keys()[0]:
     ent_string = result[0][JOURNAL_SCHEMA[0]]
-    if ent_string == datastore_server.TOMBSTONE:
+    if ent_string == dbconstants.TOMBSTONE:
       return None
     return entity_pb.EntityProto().ParseFromString(ent_string)
   else:
