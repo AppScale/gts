@@ -26,15 +26,14 @@ sys.path.append(
 from utils import utils
 from utils.utils import KEY_DIRECTORY
 
-from backup_exceptions import AmbiguousKeyException
-from backup_exceptions import BRException
-from backup_exceptions import NoKeyException
+from appscale.datastore.backup.backup_exceptions import AmbiguousKeyException
+from appscale.datastore.backup.backup_exceptions import BRException
+from appscale.datastore.backup.backup_exceptions import NoKeyException
 from backup_recovery_constants import BACKUP_DIR_LOCATION
 from backup_recovery_constants import ZK_DATA_DIR
 from backup_recovery_constants import ZK_KEEP_PATHS
 from backup_recovery_constants import ZK_TOP_LEVEL
 
-from zkappscale import shut_down_zookeeper
 from zkappscale.zktransaction import DEFAULT_HOST as ZK_DEFAULT_HOST
 from zkappscale.zktransaction import PATH_SEPARATOR
 

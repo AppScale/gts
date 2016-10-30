@@ -11,10 +11,10 @@ import tarfile
 import time
 from os.path import getsize
 
-import backup_exceptions
 import backup_recovery_constants
 import gcs_helper
 
+from appscale.datastore.backup import backup_exceptions
 from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
 from backup_recovery_constants import APP_DIR_LOCATION
 from backup_recovery_constants import BACKUP_DIR_LOCATION

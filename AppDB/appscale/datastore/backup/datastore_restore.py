@@ -6,7 +6,7 @@ import random
 import time
 
 from appscale.datastore import appscale_datastore_batch
-from appscale.datastore.datastore_backup import DatastoreBackup
+from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from zkappscale import zktransaction as zk
 

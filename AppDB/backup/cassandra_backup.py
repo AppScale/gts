@@ -9,11 +9,11 @@ import sys
 from subprocess import CalledProcessError
 import time
 
-from backup_exceptions import AmbiguousKeyException
-from backup_exceptions import BRException
-from backup_exceptions import NoKeyException
 import backup_recovery_helper
 
+from appscale.datastore.backup.backup_exceptions import AmbiguousKeyException
+from appscale.datastore.backup.backup_exceptions import BRException
+from appscale.datastore.backup.backup_exceptions import NoKeyException
 from backup_recovery_constants import CASSANDRA_DATA_SUBDIRS
 from backup_recovery_constants import PADDING_PERCENTAGE
 from backup_recovery_constants import SERVICE_STOP_RETRIES

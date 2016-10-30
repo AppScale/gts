@@ -6,7 +6,7 @@ import argparse
 import logging
 import sys
 
-from appscale.datastore.datastore_backup import DatastoreBackup
+from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from zkappscale import zktransaction as zk
 

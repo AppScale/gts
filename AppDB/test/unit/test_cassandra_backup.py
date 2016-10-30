@@ -7,8 +7,10 @@ import subprocess
 import unittest
 from flexmock import flexmock
 
+from appscale.datastore.backup import backup_exceptions
+from cassandra_env.cassandra_interface import NODE_TOOL
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from backup import backup_exceptions
 from backup import cassandra_backup
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
@@ -18,7 +20,6 @@ sys.path.append(
   os.path.join(os.path.dirname(__file__), '../../../InfrastructureManager'))
 from utils import utils
 
-from cassandra_env.cassandra_interface import NODE_TOOL
 
 class TestCassandraBackup(unittest.TestCase):
   """ A set of test cases for the Cassandra backup. """
@@ -99,6 +100,7 @@ class TestCassandraBackup(unittest.TestCase):
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
 
     cassandra_backup.restore_data(path, keyname)
+
 
 if __name__ == "__main__":
   unittest.main()    
