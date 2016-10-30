@@ -25,7 +25,7 @@ import tornado.web
 import helper_functions
 import zkappscale.zktransaction
 
-from appscale_datastore_batch import DatastoreFactory
+from appscale.datastore.appscale_datastore_batch import DatastoreFactory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info

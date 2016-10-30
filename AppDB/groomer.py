@@ -11,9 +11,9 @@ import sys
 import threading
 import time
 
-import appscale_datastore_batch
 import datastore_server
 
+from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.taskqueue.distributed_tq import TaskName
 from zkappscale import zktransaction as zk

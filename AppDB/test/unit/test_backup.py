@@ -11,11 +11,12 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/scripts"))
 import backup_data as backup
-import appscale_datastore_batch
 import entity_utils
 
+from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from zkappscale.zktransaction import ZKTransactionException
+
 
 class FakeDatastore(object):
   def __init__(self):
@@ -37,6 +38,7 @@ S'j@j\x0bguestbook27r1\x0b\x12\tGuestbook"\x11default_guestbook\x0c\x0b\x12\x08G
 p1
 .
 """
+
 
 class TestBackup(unittest.TestCase):
   """

@@ -8,14 +8,15 @@ import os
 import sys
 import time
 import unittest
+
+from appscale.datastore import appscale_datastore_batch
 from flexmock import flexmock
+from zkappscale.zktransaction import ZKTransactionException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import appscale_datastore_batch
 import datastore_server
 from backup.scripts import restore_data as restore
 
-from zkappscale.zktransaction import ZKTransactionException
 
 class FakeArgumentParser(object):
   def __init__(self):

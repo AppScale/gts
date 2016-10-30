@@ -1,13 +1,13 @@
 #!/usr/bin/env python2
 
-import appscale_datastore_batch
 import appscale_info
-from datastore_server import DatastoreDistributed
 import getopt
 import sys
-from zkappscale import zktransaction as zk
 
+from appscale.datastore import appscale_datastore_batch
+from datastore_server import DatastoreDistributed
 from google.appengine.datastore import datastore_pb
+from zkappscale import zktransaction as zk
 
 def usage():
   """ Prints the usage of this script. """

@@ -13,19 +13,20 @@ import shutil
 import sys
 import time
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import appscale_datastore_batch
-import datastore_server
-import entity_utils
-
+from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from zkappscale import zktransaction as zk
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+import datastore_server
+import entity_utils
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))
 import appscale_info
 
 # The location to look at in order to verify that an app is deployed.
 _SOURCE_LOCATION = '/opt/appscale/apps/'
+
 
 class DatastoreBackup(multiprocessing.Process):
   """ Backs up all the entities for a set application ID. """

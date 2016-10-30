@@ -8,8 +8,17 @@ import subprocess
 import sys
 import time
 
+from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
+from cassandra_env import cassandra_interface
+from datastore_server import ID_KEY_LENGTH
+from zkappscale import zktransaction as zk
+from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
+from zkappscale.zktransaction import ZKInternalException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import appscale_info
@@ -18,17 +27,7 @@ from constants import CONTROLLER_SERVICE
 from constants import LOG_DIR
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-import appscale_datastore_batch
 import datastore_server
-
-from appscale.datastore import dbconstants
-from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
-from appscale.datastore.dbconstants import APP_ENTITY_TABLE
-from cassandra_env import cassandra_interface
-from datastore_server import ID_KEY_LENGTH
-from zkappscale import zktransaction as zk
-from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
-from zkappscale.zktransaction import ZKInternalException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
 from utils import utils

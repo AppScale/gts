@@ -5,21 +5,21 @@ import datetime
 import os
 import sys
 import unittest
+
+from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import dbconstants
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import appscale_datastore_batch
 import datastore_server
 import entity_utils
 import groomer
-
-from appscale.datastore import dbconstants
 
 
 class FakeQuery():

@@ -11,22 +11,22 @@ import random
 import sys
 import time
 
+from appscale.datastore import appscale_datastore_batch
+from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import entity_pb
+from zkappscale import zktransaction as zk
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import appscale_datastore_batch
 from backup_data import DatastoreBackup
 import datastore_server
 import delete_all_records
-
-from google.appengine.datastore import datastore_pb
-from google.appengine.datastore import entity_pb
-
-from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))
 import appscale_info
 
 # Where to look to verify the app is deployed.
 _APPS_LOCATION = '/var/apps/'
+
 
 class DatastoreRestore(multiprocessing.Process):
   """ Backs up all the entities for a set application ID. """

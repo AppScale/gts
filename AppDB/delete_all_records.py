@@ -6,7 +6,7 @@ import logging
 import sys
 import time
 
-import appscale_datastore_batch
+from appscale.datastore import appscale_datastore_batch
 
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA

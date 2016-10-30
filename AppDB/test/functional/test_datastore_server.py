@@ -1,9 +1,9 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 import unittest
 
-import appscale_datastore_batch
 import datastore_server
 
+from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
 from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from appscale.datastore.dbconstants import APP_ID_SCHEMA

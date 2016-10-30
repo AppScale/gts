@@ -3,8 +3,7 @@
 
 import sys
 
-import appscale_datastore_batch
-
+from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
 from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from appscale.datastore.dbconstants import APP_KIND_SCHEMA

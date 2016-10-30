@@ -6,7 +6,9 @@ import logging
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+from .unpackaged import APPSCALE_LIB_DIR
+
+sys.path.append(APPSCALE_LIB_DIR)
 import constants
 
 DATASTORE_DIR= "%s/AppDB" % constants.APPSCALE_HOME
