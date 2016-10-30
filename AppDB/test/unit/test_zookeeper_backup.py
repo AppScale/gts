@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
@@ -19,7 +20,6 @@ sys.path.append(
   os.path.join(os.path.dirname(__file__), '../../../InfrastructureManager'))
 from utils import utils
 
-from zkappscale import shut_down_zookeeper
 
 class TestZookeeperBackup(unittest.TestCase):
   """ A set of test cases for the Zookeeper backup. """
@@ -35,10 +35,6 @@ class TestZookeeperBackup(unittest.TestCase):
 
   def test_restore_zk(self):
     pass
-
-  def test_shutdown_zookeeper(self):
-    flexmock(shut_down_zookeeper).should_receive('run').times(1)
-    zookeeper_backup.shutdown_zookeeper()
 
   def test_backup_data(self):
     zk_ips = ['192.168.33.12', '192.168.33.13']
