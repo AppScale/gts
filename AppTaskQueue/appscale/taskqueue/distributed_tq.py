@@ -13,14 +13,14 @@ import sys
 import time
 import tq_lib
 
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
-from unpackaged import APPSCALE_DATASTORE
-from unpackaged import APPSCALE_LIB_DIR
-from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .unpackaged import APPSCALE_LIB_DIR
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_LIB_DIR)
@@ -37,9 +37,6 @@ from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
-
-sys.path.append(APPSCALE_DATASTORE)
-from cassandra_env.cassandra_interface import DatastoreProxy
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 

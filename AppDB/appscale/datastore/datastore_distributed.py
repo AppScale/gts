@@ -1,5 +1,4 @@
 import array
-import cassandra_env.cassandra_interface
 import dbconstants
 import itertools
 import logging
@@ -15,6 +14,7 @@ from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import READ_ONLY
 from .dbconstants import TRANSACTIONS_SCHEMA
 from .dbconstants import TxnActions
+from .cassandra_env import cassandra_interface
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
 from .utils import reference_property_to_reference
@@ -863,7 +863,7 @@ class DatastoreDistributed():
         current_value = entity_pb.EntityProto(
           current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-      batch = cassandra_env.cassandra_interface.mutations_for_entity(
+      batch = cassandra_interface.mutations_for_entity(
         entity, txn, current_value, composite_indexes)
 
       entity_change = {'key': entity.key(),
@@ -897,7 +897,7 @@ class DatastoreDistributed():
 
       current_value = entity_pb.EntityProto(
         current_values[key][APP_ENTITY_SCHEMA[0]])
-      batch = cassandra_env.cassandra_interface.deletions_for_entity(
+      batch = cassandra_interface.deletions_for_entity(
         current_value, composite_indexes)
 
       entity_change = {'key': current_value.key(),
@@ -3551,7 +3551,7 @@ class DatastoreDistributed():
           current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
       if operation == TxnActions.DELETE and current_value is not None:
-        deletions = cassandra_env.cassandra_interface.deletions_for_entity(
+        deletions = cassandra_interface.deletions_for_entity(
           current_value, composite_indices)
         batch.extend(deletions)
 
@@ -3559,7 +3559,7 @@ class DatastoreDistributed():
                                'old': current_value, 'new': None})
       elif operation == TxnActions.PUT:
         entity = txn_dict[txn_key]['entity']
-        mutations = cassandra_env.cassandra_interface.mutations_for_entity(
+        mutations = cassandra_interface.mutations_for_entity(
           entity, txn, current_value, composite_indices)
         batch.extend(mutations)
 

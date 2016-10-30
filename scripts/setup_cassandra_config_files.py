@@ -6,15 +6,15 @@ import argparse
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-from constants import APPSCALE_HOME
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-from cassandra_env.cassandra_interface import CASSANDRA_INSTALL_DIR
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  CASSANDRA_INSTALL_DIR
 
 # Cassandra configuration files to modify.
-CASSANDRA_TEMPLATES = os.path.join(APPSCALE_HOME, 'AppDB', 'cassandra_env',
-                                   'templates')
+CASSANDRA_TEMPLATES = os.path.join(
+  os.path.dirname(sys.modules['appscale.datastore.cassandra_env'].__file__),
+  'templates')
+
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(

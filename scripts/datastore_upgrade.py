@@ -14,9 +14,9 @@ from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
 from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from appscale.datastore.dbconstants import ID_KEY_LENGTH
 from appscale.datastore.dbconstants import TOMBSTONE
+from appscale.datastore.cassandra_env import cassandra_interface
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
-from cassandra_env import cassandra_interface
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
 from zkappscale.zktransaction import ZKInternalException

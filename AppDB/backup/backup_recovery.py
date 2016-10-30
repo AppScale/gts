@@ -4,11 +4,11 @@ import logging
 import json
 import threading
 
-import cassandra_backup
 import zookeeper_backup
 
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup import backup_recovery_helper
+from appscale.datastore.backup import cassandra_backup
 from appscale.datastore.backup.br_constants import StorageTypes
 
 

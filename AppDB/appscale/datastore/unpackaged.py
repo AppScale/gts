@@ -9,3 +9,7 @@ APPSCALE_LIB_DIR = os.path.join(APPSCALE_HOME, 'lib')
 
 # The location of the Python AppServer.
 APPSCALE_PYTHON_APPSERVER = os.path.join(APPSCALE_HOME, 'AppServer')
+
+# The location of the InfrastructureManager.
+INFRASTRUCTURE_MANAGER_DIR = os.path.join(APPSCALE_HOME,
+                                          'InfrastructureManager')

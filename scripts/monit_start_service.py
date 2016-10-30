@@ -5,8 +5,7 @@ import os
 import subprocess
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-from cassandra_env import cassandra_interface
+from appscale.datastore.cassandra_env import cassandra_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import APPSCALE_HOME

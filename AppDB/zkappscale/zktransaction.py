@@ -2,7 +2,8 @@
 """
 Distributed id and lock service for transaction support.
 """
-import cassandra_env.cassandra_interface
+import kazoo.client
+import kazoo.exceptions
 import logging
 import os
 import re
@@ -11,12 +12,11 @@ import threading
 import time
 import urllib
 
-import kazoo.client
-import kazoo.exceptions
-
-from google.appengine.datastore import entity_pb
+from appscale.datastore.cassandra_env import cassandra_interface
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import ZookeeperError
+
+from google.appengine.datastore import entity_pb
 
 
 class ZKTimeoutException(Exception):
@@ -1556,10 +1556,10 @@ class ZKTransaction:
         new_entity = entity_pb.EntityProto(new_entity)
 
       if new_entity is None:
-        mutations = cassandra_env.cassandra_interface.deletions_for_entity(
+        mutations = cassandra_interface.deletions_for_entity(
           old_entity, composite_indices)
       else:
-        mutations = cassandra_env.cassandra_interface.mutations_for_entity(
+        mutations = cassandra_interface.mutations_for_entity(
           new_entity, transaction, old_entity, composite_indices)
       self.db_access.apply_mutations(mutations)
 

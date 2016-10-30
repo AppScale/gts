@@ -3,23 +3,23 @@
 
 import argparse
 import cassandra
-import cassandra_interface
 import logging
 import os
 import sys
 import time
 
 from appscale.datastore import dbconstants
+from appscale.datastore.cassandra_env import cassandra_interface
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
-from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
-from cassandra_env.cassandra_interface import KEYSPACE
-from cassandra_env.cassandra_interface import ThriftColumn
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  INITIAL_CONNECT_RETRIES
+from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
+from appscale.datastore.cassandra_env.cassandra_interface import ThriftColumn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib/'))
 import appscale_info
-
 from constants import LOG_FORMAT
 
 # The data layout version to set after removing the journal table.

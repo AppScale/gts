@@ -8,10 +8,8 @@ import unittest
 from flexmock import flexmock
 
 from appscale.datastore.backup import backup_exceptions
-from cassandra_env.cassandra_interface import NODE_TOOL
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from backup import cassandra_backup
+from appscale.datastore.backup import cassandra_backup
+from appscale.datastore.cassandra_env.cassandra_interface import NODE_TOOL
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info

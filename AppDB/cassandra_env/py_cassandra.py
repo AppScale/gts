@@ -10,16 +10,18 @@ from appscale.datastore import dbconstants
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from appscale.datastore.dbconstants import SCHEMA_TABLE
 from appscale.datastore.dbconstants import SCHEMA_TABLE_SCHEMA
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  IdempotentRetryPolicy
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  INITIAL_CONNECT_RETRIES
+from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
+from appscale.datastore.cassandra_env.cassandra_interface import ThriftColumn
 from dbinterface import AppDBInterface
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import ValueSequence
-from cassandra_env.cassandra_interface import IdempotentRetryPolicy
-from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
-from cassandra_env.cassandra_interface import KEYSPACE
-from cassandra_env.cassandra_interface import ThriftColumn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import appscale_info

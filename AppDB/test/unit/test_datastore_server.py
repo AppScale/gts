@@ -14,6 +14,14 @@ from appscale.datastore.dbconstants import TOMBSTONE
 from cassandra.cluster import Cluster
 from flexmock import flexmock
 
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  deletions_for_entity
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  index_deletions
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  mutations_for_entity
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
@@ -24,10 +32,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
-from cassandra_env.cassandra_interface import DatastoreProxy
-from cassandra_env.cassandra_interface import deletions_for_entity
-from cassandra_env.cassandra_interface import index_deletions
-from cassandra_env.cassandra_interface import mutations_for_entity
 from zkappscale.zktransaction import TX_TIMEOUT
 from zkappscale.zktransaction import ZKTransactionException
 

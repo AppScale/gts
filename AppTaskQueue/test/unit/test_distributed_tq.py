@@ -5,18 +5,15 @@ import os
 import sys
 import unittest
 
-from flexmock import flexmock
-
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue.distributed_tq import DistributedTaskQueue
 from appscale.taskqueue.tq_config import TaskQueueConfig
+from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 import monit_app_configuration
 import monit_interface
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppDB"))
-from cassandra_env.cassandra_interface import DatastoreProxy
 
 sample_queue_yaml = \
 """

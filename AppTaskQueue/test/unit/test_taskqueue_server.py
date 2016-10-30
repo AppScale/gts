@@ -4,14 +4,12 @@ import os
 import sys
 import unittest
 
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue.distributed_tq import DistributedTaskQueue
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppDB"))
-from cassandra_env.cassandra_interface import DatastoreProxy
 
 
 def mock_file_io():

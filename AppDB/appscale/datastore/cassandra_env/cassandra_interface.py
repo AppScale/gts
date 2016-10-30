@@ -6,7 +6,6 @@
 import cassandra
 import helper_functions
 import logging
-import os
 import sys
 import time
 
@@ -14,6 +13,7 @@ from appscale.datastore import dbconstants
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from appscale.datastore.dbconstants import TxnActions
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from appscale.datastore.utils import clean_app_id
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
@@ -23,7 +23,7 @@ from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 
 # The directory Cassandra is installed to.
