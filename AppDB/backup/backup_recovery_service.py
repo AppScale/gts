@@ -2,17 +2,17 @@
 
 import json
 import logging
-
 import tornado.httpserver
 import tornado.httputil
 import tornado.ioloop
 import tornado.web
 
-import backup_recovery_helper
 from backup_recovery import BackupService
-from backup_recovery_constants import BACKUP_DIR_LOCATION
-from backup_recovery_constants import DEFAULT_PORT
-from backup_recovery_constants import HTTP_OK
+from appscale.datastore.backup import backup_recovery_helper
+from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
+from appscale.datastore.backup.br_constants import DEFAULT_PORT
+from appscale.datastore.backup.br_constants import HTTP_OK
+
 
 class MainHandler(tornado.web.RequestHandler):
   """ Main handler class. """
@@ -38,11 +38,13 @@ class MainHandler(tornado.web.RequestHandler):
     request.connection.write(response)
     request.connection.finish()
 
+
 def get_application():
   """ Retrieves the application to feed into tornado. """
   return tornado.web.Application([
     (r"/?", MainHandler, dict(backup_recovery_service=BackupService())),
     ], )
+
 
 def main():
   """ Main. """
@@ -60,6 +62,7 @@ def main():
   http_server.bind(DEFAULT_PORT)
   http_server.start(0)
   tornado.ioloop.IOLoop.instance().start()
+
 
 if __name__ == "__main__":
   main()

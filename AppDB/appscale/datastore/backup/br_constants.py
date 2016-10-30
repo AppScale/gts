@@ -55,6 +55,7 @@ ZK_DATA_DIR = '/opt/appscale/zookeeper'
 # Zookeeper data directories.
 ZOOKEEPER_DATA_SUBDIRS = ["version-2"]
 
+
 class StorageTypes(object):
   """ A class containing the supported types of storage infrastructures
   for backups. """

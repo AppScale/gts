@@ -4,12 +4,13 @@ import logging
 import json
 import threading
 
-import backup_exceptions
-import backup_recovery_helper
 import cassandra_backup
 import zookeeper_backup
 
-from backup_recovery_constants import StorageTypes
+from appscale.datastore.backup import backup_exceptions
+from appscale.datastore.backup import backup_recovery_helper
+from appscale.datastore.backup.br_constants import StorageTypes
+
 
 class BackupService():
   """ Backup service class. """

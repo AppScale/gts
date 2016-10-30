@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import tarfile
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/"))
-import backup_recovery_helper
+from appscale.datastore.backup import backup_recovery_helper
+
 
 class FakeTar():
   def __init__(self):
@@ -16,6 +15,7 @@ class FakeTar():
     self.add_count += 1
   def close(self):
     pass
+
 
 class TestBRHelper(unittest.TestCase):
   """ A set of test cases for the BR helper functions. """
@@ -101,6 +101,7 @@ class TestBRHelper(unittest.TestCase):
 
   def test_untar_backup_files(self):
     pass
+
 
 if __name__ == "__main__":
   unittest.main()    

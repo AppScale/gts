@@ -9,14 +9,13 @@ import sys
 from subprocess import CalledProcessError
 import time
 
-import backup_recovery_helper
-
+from appscale.datastore.backup import backup_recovery_helper
 from appscale.datastore.backup.backup_exceptions import AmbiguousKeyException
 from appscale.datastore.backup.backup_exceptions import BRException
 from appscale.datastore.backup.backup_exceptions import NoKeyException
-from backup_recovery_constants import CASSANDRA_DATA_SUBDIRS
-from backup_recovery_constants import PADDING_PERCENTAGE
-from backup_recovery_constants import SERVICE_STOP_RETRIES
+from appscale.datastore.backup.br_constants import CASSANDRA_DATA_SUBDIRS
+from appscale.datastore.backup.br_constants import PADDING_PERCENTAGE
+from appscale.datastore.backup.br_constants import SERVICE_STOP_RETRIES
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from cassandra_env import cassandra_interface
@@ -36,6 +35,7 @@ from utils.utils import ExitCodes
 from utils.utils import KEY_DIRECTORY
 from utils.utils import MonitStates
 
+
 def clear_old_snapshots():
   """ Remove any old snapshots to minimize disk space usage locally. """
   logging.info('Removing old Cassandra snapshots...')
@@ -44,6 +44,7 @@ def clear_old_snapshots():
   except CalledProcessError as error:
     logging.error('Error while deleting old Cassandra snapshots. Error: {0}'.\
       format(str(error)))
+
 
 def create_snapshot(snapshot_name=''):
   """ Perform local Cassandra backup by taking a new snapshot.
@@ -62,6 +63,7 @@ def create_snapshot(snapshot_name=''):
     return False
   return True
 
+
 def remove_old_data():
   """ Removes previous node data from the Cassandra store. """
   for directory in CASSANDRA_DATA_SUBDIRS:
@@ -75,6 +77,7 @@ def remove_old_data():
     except CalledProcessError as error:
       logging.error("Error while removing old data from db. Overwriting... "
         "Error: {0}".format(str(error)))
+
 
 def restore_snapshots():
   """ Restore snapshot into correct directories.
@@ -106,6 +109,7 @@ def restore_snapshots():
   logging.info("Done restoring Cassandra snapshots.")
   return True
 
+
 def shutdown_datastore():
   """ Top level function for bringing down Cassandra.
 
@@ -117,6 +121,7 @@ def shutdown_datastore():
     cassandra_interface.CASSANDRA_MONIT_WATCH_NAME, is_group=False)
   logging.warning("Done!")
   return True
+
 
 def backup_data(path, keyname):
   """ Backup Cassandra snapshot data directories/files.
@@ -162,6 +167,7 @@ def backup_data(path, keyname):
     utils.ssh(db_ip, keyname, 'cd {} && {}'.format(cassandra_dir, create_tar))
 
   logging.info("Done with db backup.")
+
 
 def restore_data(path, keyname, force=False):
   """ Restores the Cassandra backup.
@@ -227,6 +233,7 @@ def restore_data(path, keyname, force=False):
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
 
   logging.info("Done with db restore.")
+
 
 if "__main__" == __name__:
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)

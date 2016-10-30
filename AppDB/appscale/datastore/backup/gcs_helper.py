@@ -8,14 +8,16 @@ import subprocess
 import urllib
 
 import backup_recovery_helper
-from backup_recovery_constants import BACKUP_DIR_LOCATION
-from backup_recovery_constants import HTTP_OK
+
+from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
+from appscale.datastore.backup.br_constants import HTTP_OK
 
 # Google Cloud Storage prefix for apps/ directory.
 APPS_GCS_PREFIX = 'apps/'
 
 # The upload request timeout in seconds (12 hours).
 REQUEST_TIMEOUT = 12*60*60
+
 
 def upload_to_bucket(full_object_name, local_path):
   """ Uploads a file to GCS.
@@ -69,6 +71,7 @@ def upload_to_bucket(full_object_name, local_path):
   logging.info("Successfully uploaded '{0}' to GCS. "
     "GCS object name is '{1}'.".format(local_path, full_object_name))
   return True
+
 
 def download_from_bucket(full_object_name, local_path):
   """ Downloads a file from GCS.
@@ -126,6 +129,7 @@ def download_from_bucket(full_object_name, local_path):
     "Local file name is '{1}'.".format(full_object_name, local_path))
   return True
 
+
 def extract_gcs_tokens(full_object_name):
   """ Extracts the bucket and object name from a full GCS path.
 
@@ -151,6 +155,7 @@ def extract_gcs_tokens(full_object_name):
 
   return bucket_name, object_name
 
+
 def gcs_get_request(url):
   """ Performs a GET request to the given url.
 
@@ -161,6 +166,7 @@ def gcs_get_request(url):
   """
   return requests.request('GET', url, verify=False)
 
+
 def gcs_post_request(url):
   """ Performs a POST request to the given url.
 
@@ -170,6 +176,7 @@ def gcs_post_request(url):
     HTTPError if the resource cannot be reached.
   """
   return requests.request('POST', url, verify=False)
+
 
 def gcs_put_request(url, local_path):
   """ Performs a PUT request to the given url.
@@ -182,6 +189,7 @@ def gcs_put_request(url, local_path):
   return requests.request('PUT', url, data=open(local_path, 'rb'),
     headers={'content-type': 'application/x-gzip'},
     timeout=REQUEST_TIMEOUT, verify=False)
+
 
 def list_bucket(bucket_name):
   """ Lists all the files that are in the designated GCS bucket.

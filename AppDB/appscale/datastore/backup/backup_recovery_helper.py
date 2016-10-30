@@ -11,17 +11,18 @@ import tarfile
 import time
 from os.path import getsize
 
-import backup_recovery_constants
 import gcs_helper
 
 from appscale.datastore.backup import backup_exceptions
-from backup_recovery_constants import APP_BACKUP_DIR_LOCATION
-from backup_recovery_constants import APP_DIR_LOCATION
-from backup_recovery_constants import BACKUP_DIR_LOCATION
-from backup_recovery_constants import BACKUP_ROLLBACK_SUFFIX
-from backup_recovery_constants import StorageTypes
+from appscale.datastore.backup.br_constants import APP_BACKUP_DIR_LOCATION
+from appscale.datastore.backup.br_constants import APP_DIR_LOCATION
+from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
+from appscale.datastore.backup.br_constants import BACKUP_ROLLBACK_SUFFIX
+from appscale.datastore.backup.br_constants import PADDING_PERCENTAGE
+from appscale.datastore.backup.br_constants import StorageTypes
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 from constants import APPSCALE_DATA_DIR
 
@@ -29,6 +30,7 @@ from google.appengine.api.appcontroller_client import AppControllerClient
 
 # The port that the SOAP server listens to.
 UA_SERVER_PORT = 4343
+
 
 def delete_local_backup_file(local_file):
   """ Removes the local backup file.
@@ -40,6 +42,7 @@ def delete_local_backup_file(local_file):
     logging.warning("No local backup file '{0}' to delete. "
       "Skipping...".format(local_file))
 
+
 def delete_secondary_backup(base_path):
   """ Deletes the secondary backup if it exists, upon successful backup.
 
@@ -50,6 +53,7 @@ def delete_secondary_backup(base_path):
   if not remove("{0}{1}".format(base_path, BACKUP_ROLLBACK_SUFFIX)):
     logging.warning("No secondary backup to remove. Skipping...")
 
+
 def does_file_exist(path):
   """ Checks if the given file is in the local filesystem.
 
@@ -59,6 +63,7 @@ def does_file_exist(path):
     True on success, False otherwise.
   """
   return os.path.isfile(path)
+
 
 def enough_disk_space(service):
   """ Checks if there's enough available disk space for a new backup.
@@ -72,11 +77,11 @@ def enough_disk_space(service):
   backup_size = get_backup_size(service)
   logging.debug("Backup size: {0}".format(backup_size))
 
-  if backup_size > available_space * \
-    backup_recovery_constants.PADDING_PERCENTAGE:
+  if backup_size > available_space * PADDING_PERCENTAGE:
     logging.warning("Not enough space for a backup.")
     return False
   return True
+
 
 def get_available_disk_space():
   """ Returns the amount of available disk space under /opt/appscale.
@@ -86,6 +91,7 @@ def get_available_disk_space():
   """
   stat_struct = os.statvfs(os.path.dirname(BACKUP_DIR_LOCATION))
   return stat_struct[statvfs.F_BAVAIL] * stat_struct[statvfs.F_BSIZE]
+
 
 def get_backup_size(service):
   """ Sums up the size of the snapshot files that consist the backup for the
@@ -99,6 +105,7 @@ def get_backup_size(service):
   backup_files = get_snapshot_paths(service)
   total_size = sum(getsize(file) for file in backup_files)
   return total_size
+
 
 def get_snapshot_paths(service):
   """ Returns a list of file names holding critical data for the given service.
@@ -122,6 +129,7 @@ def get_snapshot_paths(service):
     service, file_list))
   return file_list
 
+
 def move_secondary_backup(base_path):
   """ Moves the secondary backup back in place, if it exists, upon an un
   successful backup attempt.
@@ -133,6 +141,7 @@ def move_secondary_backup(base_path):
   target = base_path
   if not rename(source, target):
     logging.warning("No secondary backup to restore. Skipping...")
+
 
 def mkdir(path):
   """ Creates a dir with the given path.
@@ -149,6 +158,7 @@ def mkdir(path):
     return False
   return True
 
+
 def makedirs(path):
   """ Creates a dir with the given path and all directories in between.
 
@@ -163,6 +173,7 @@ def makedirs(path):
     logging.error("OSError while creating dir '{0}'".format(path))
     return False
   return True
+
 
 def rename(source, destination):
   """ Renames source file into destination.
@@ -181,6 +192,7 @@ def rename(source, destination):
     return False
   return True
 
+
 def remove(path):
   """ Deletes the given file from the filesystem.
 
@@ -196,6 +208,7 @@ def remove(path):
       format(path))
     return False
   return True
+
 
 def tar_backup_files(file_paths, target):
   """ Tars all snapshot files for a given snapshot name.
@@ -222,6 +235,7 @@ def tar_backup_files(file_paths, target):
 
   return backup_file_location
 
+
 def untar_backup_files(source):
   """ Restores a previous backup into the Cassandra directory structure
   from a tar ball.
@@ -241,6 +255,7 @@ def untar_backup_files(source):
     raise backup_exceptions.BRException(
       "Exception while untarring backup file '{0}'.".format(source))
   logging.info("Done untarring '{0}'.".format(source))
+
 
 def app_backup(storage, full_bucket_name=None):
   """ Saves the app source code at the backups location on the filesystem.
@@ -279,6 +294,7 @@ def app_backup(storage, full_bucket_name=None):
           delete_app_tars(APP_BACKUP_DIR_LOCATION)
           return False
   return True
+
 
 def app_restore(storage, bucket_name=None):
   """ Restores the app source code from the backups location on the filesystem.
@@ -321,6 +337,7 @@ def app_restore(storage, bucket_name=None):
 
   return True
 
+
 def delete_app_tars(location):
   """ Deletes applications tars from the designated location.
 
@@ -334,6 +351,7 @@ def delete_app_tars(location):
       if not remove('{0}/{1}'.format(dir_path, filename)):
         return False
   return True
+
 
 def deploy_apps(app_paths):
   """ Deploys all apps that reside in /opt/appscale/apps.

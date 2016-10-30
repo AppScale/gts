@@ -29,13 +29,13 @@ from utils.utils import KEY_DIRECTORY
 from appscale.datastore.backup.backup_exceptions import AmbiguousKeyException
 from appscale.datastore.backup.backup_exceptions import BRException
 from appscale.datastore.backup.backup_exceptions import NoKeyException
-from backup_recovery_constants import BACKUP_DIR_LOCATION
-from backup_recovery_constants import ZK_DATA_DIR
-from backup_recovery_constants import ZK_KEEP_PATHS
-from backup_recovery_constants import ZK_TOP_LEVEL
-
+from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
+from appscale.datastore.backup.br_constants import ZK_DATA_DIR
+from appscale.datastore.backup.br_constants import ZK_KEEP_PATHS
+from appscale.datastore.backup.br_constants import ZK_TOP_LEVEL
 from zkappscale.zktransaction import DEFAULT_HOST as ZK_DEFAULT_HOST
 from zkappscale.zktransaction import PATH_SEPARATOR
+
 
 def dump_zk(filename):
   """ Dumps Zookeeper application data to a file.
@@ -48,6 +48,7 @@ def dump_zk(filename):
   with open(filename, "w") as f:
     recursive_dump(handle, ZK_TOP_LEVEL, f)
   handle.stop()
+
 
 def recursive_dump(handle, path, file_handler):
   """ Recursively dumps the path and the value of the children of the given
@@ -72,6 +73,7 @@ def recursive_dump(handle, path, file_handler):
       file_handler.write("{}\n".format(json.dumps({path: value})))
   except kazoo.exceptions.NoNodeError:
     logging.debug('Reached the end of the zookeeper path.')
+
 
 def recursive_flush(handle, path):
   """ Recursively deletes the path and the value of the children of the given
@@ -101,6 +103,7 @@ def recursive_flush(handle, path):
   except kazoo.exceptions.NoNodeError:
     logging.debug('Reached the end of the zookeeper path.')
 
+
 def restore_zk(handle, zk_persist_file):
   """ Restores Zookeeper data from a fixed file in the local FS.
 
@@ -127,6 +130,7 @@ def restore_zk(handle, zk_persist_file):
     except kazoo.exceptions.ZookeeperError:
       logging.warning("ZookeeperError for path '{0}'".format(path))
 
+
 def shutdown_zookeeper():
   """ Top level function for bringing down Zookeeper.
 
@@ -136,6 +140,7 @@ def shutdown_zookeeper():
   logging.info("Shutting down Zookeeper.")
   monit_interface.stop('zookeeper-9999', is_group=False)
   return True
+
 
 def backup_data(path, keyname):
   """ Backup Zookeeper data to path.
@@ -170,6 +175,7 @@ def backup_data(path, keyname):
   finally:
     utils.ssh(zk_ip, keyname, 'rm -f {}'.format(backup_file))
     utils.ssh(zk_ip, keyname, 'monit start -g zookeeper')
+
 
 def restore_data(path, keyname):
   """ Restores the Zookeeper snapshot.
@@ -274,6 +280,7 @@ def restore_data(path, keyname):
 
   logging.info("Done with zk restore.")
   return True
+
 
 if "__main__" == __name__:
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
