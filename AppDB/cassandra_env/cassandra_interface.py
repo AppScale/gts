@@ -4,7 +4,6 @@
  Cassandra Interface for AppScale
 """
 import cassandra
-import datastore_server
 import helper_functions
 import logging
 import os
@@ -12,8 +11,10 @@ import sys
 import time
 
 from appscale.datastore import dbconstants
+from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from appscale.datastore.dbconstants import TxnActions
+from appscale.datastore.utils import clean_app_id
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
@@ -79,9 +80,9 @@ def deletions_for_entity(entity, composite_indices=()):
   Returns:
     A list of dictionaries representing mutation operations.
   """
-  ds_static = datastore_server.DatastoreDistributed
+  ds_static = DatastoreDistributed
   deletions = []
-  app_id = datastore_server.clean_app_id(entity.key().app())
+  app_id = clean_app_id(entity.key().app())
   namespace = entity.key().name_space()
   prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])
 
@@ -128,9 +129,9 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
   Returns:
     A list of dictionaries representing mutation operations.
   """
-  ds_static = datastore_server.DatastoreDistributed
+  ds_static = DatastoreDistributed
   deletions = []
-  app_id = datastore_server.clean_app_id(old_entity.key().app())
+  app_id = clean_app_id(old_entity.key().app())
   namespace = old_entity.key().name_space()
   kind = ds_static.get_entity_kind(old_entity.key())
   entity_key = str(ds_static.encode_index_pb(old_entity.key().path()))
@@ -197,13 +198,13 @@ def mutations_for_entity(entity, txn, current_value=None,
   Returns:
     A list of dictionaries representing mutations.
   """
-  ds_static = datastore_server.DatastoreDistributed
+  ds_static = DatastoreDistributed
   mutations = []
   if current_value is not None:
     mutations.extend(
       index_deletions(current_value, entity, composite_indices))
 
-  app_id = datastore_server.clean_app_id(entity.key().app())
+  app_id = clean_app_id(entity.key().app())
   namespace = entity.key().name_space()
   encoded_path = str(ds_static.encode_index_pb(entity.key().path()))
   prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])

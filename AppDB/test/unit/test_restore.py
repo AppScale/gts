@@ -10,11 +10,11 @@ import time
 import unittest
 
 from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import datastore_distributed
 from flexmock import flexmock
 from zkappscale.zktransaction import ZKTransactionException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import datastore_server
 from backup.scripts import restore_data as restore
 
 
@@ -70,7 +70,7 @@ class TestRestore(unittest.TestCase):
     zookeeper = flexmock()
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
-    flexmock(datastore_server).should_receive(
+    flexmock(datastore_distributed).should_receive(
       'DatastoreDistributed').and_return()
     fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))

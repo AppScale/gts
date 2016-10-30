@@ -5,7 +5,7 @@ import getopt
 import sys
 
 from appscale.datastore import appscale_datastore_batch
-from datastore_server import DatastoreDistributed
+from appscale.datastore.datastore_distributed import DatastoreDistributed
 from google.appengine.datastore import datastore_pb
 from zkappscale import zktransaction as zk
 

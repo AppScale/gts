@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 
-import datastore_server
+from appscale.datastore.datastore_distributed import DatastoreDistributed
 
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
@@ -696,7 +696,7 @@ class DatastoreGroomer(threading.Thread):
       entity: An EntityProto.
       composites: A list of datastore_pb.CompositeIndexes composite indexes.
     """
-    row_keys = datastore_server.DatastoreDistributed.\
+    row_keys = DatastoreDistributed.\
       get_composite_indexes_rows([entity], composites)
     self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
       row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
@@ -738,7 +738,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    kind = datastore_server.DatastoreDistributed.get_entity_kind(entity.key())
+    kind = DatastoreDistributed.get_entity_kind(entity.key())
     namespace = entity.key().name_space()
 
     if not kind:
@@ -1129,7 +1129,7 @@ class DatastoreGroomer(threading.Thread):
     """
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
-    self.ds_access = datastore_server.DatastoreDistributed(
+    self.ds_access = DatastoreDistributed(
       datastore_batch=self.db_access, zookeeper=self.zoo_keeper)
 
     logging.info("Groomer started")

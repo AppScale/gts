@@ -13,12 +13,12 @@ import time
 
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.datastore_backup import DatastoreBackup
+from appscale.datastore.datastore_distributed import DatastoreDistributed
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import datastore_server
 import delete_all_records
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))
@@ -71,8 +71,8 @@ class DatastoreRestore(multiprocessing.Process):
     """ Starts the main loop of the restore thread. """
     datastore_batch = appscale_datastore_batch.\
       DatastoreFactory.getDatastore(self.table)
-    self.ds_distributed = datastore_server.\
-      DatastoreDistributed(datastore_batch, zookeeper=self.zoo_keeper)
+    self.ds_distributed = DatastoreDistributed(
+      datastore_batch, zookeeper=self.zoo_keeper)
 
     while True:
       logging.debug("Trying to get restore lock.")

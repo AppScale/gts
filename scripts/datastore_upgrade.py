@@ -12,10 +12,11 @@ from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
 from appscale.datastore.dbconstants import APP_ENTITY_TABLE
+from appscale.datastore.dbconstants import ID_KEY_LENGTH
+from appscale.datastore.dbconstants import TOMBSTONE
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra_env import cassandra_interface
-from datastore_server import ID_KEY_LENGTH
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
 from zkappscale.zktransaction import ZKInternalException
@@ -25,9 +26,6 @@ import appscale_info
 from constants import APPSCALE_HOME
 from constants import CONTROLLER_SERVICE
 from constants import LOG_DIR
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-import datastore_server
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
 from utils import utils
@@ -290,7 +288,7 @@ def process_entity(entity, datastore, zookeeper):
   valid_entity = validate_row(app_id, entity, zookeeper, datastore)
 
   if (valid_entity is None or
-      valid_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE):
+      valid_entity[key][APP_ENTITY_SCHEMA[0]] == TOMBSTONE):
     delete_entity_from_table(key, datastore)
     return
 

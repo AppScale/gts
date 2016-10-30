@@ -8,17 +8,33 @@ SECRET_LOCATION = "/etc/appscale/secret.key"
 ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
 
+# The datastore's default HTTP port.
+DEFAULT_PORT = 4080
+
+# The datastore's default HTTPS port.
+DEFAULT_SSL_PORT = 8443
+
 # The lowest character to separate different fields in a row key.
 KEY_DELIMITER = '\x00'
 
 # The character used to separate kinds in an ancestry.
 KIND_SEPARATOR = '\x01'
 
+# HTTP code to indicate that the request is invalid.
+HTTP_BAD_REQUEST = 400
+
+# The length of an ID string. A constant length allows lexicographic ordering.
+ID_KEY_LENGTH = 10
+
 # The character between the kind and the ID/name of an entity.
 ID_SEPARATOR = ":"
 
 # The maximum number of composite indexes an application can have.
 MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
+
+# Determines whether or not to allow datastore writes. Note: After enabling,
+# datastore processes must be restarted and the groomer must be stopped.
+READ_ONLY = False
 
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
@@ -29,6 +45,9 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 TRANSIENT_CASSANDRA_ERRORS = (
   cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
   cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
+
+# The database backends supported by the AppScale datastore.
+VALID_DATASTORES = ['cassandra']
 
 # Table names
 USERS_TABLE = "USERS__"

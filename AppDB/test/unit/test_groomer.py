@@ -9,6 +9,7 @@ import unittest
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
+from appscale.datastore.datastore_distributed import DatastoreDistributed
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
@@ -18,7 +19,6 @@ from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import datastore_server
 import groomer
 
 
@@ -130,8 +130,8 @@ class TestGroomer(unittest.TestCase):
  
   def test_process_statistics(self):
     zookeeper = flexmock()
-    flexmock(datastore_server.DatastoreDistributed)\
-      .should_receive("get_entity_kind").and_return("kind")
+    flexmock(DatastoreDistributed).should_receive("get_entity_kind").\
+      and_return("kind")
     
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)

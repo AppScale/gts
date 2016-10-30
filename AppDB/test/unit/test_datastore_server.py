@@ -5,10 +5,16 @@ import os
 import sys
 import unittest
 
+from appscale.datastore import dbconstants
+from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import ID_KEY_LENGTH
+from appscale.datastore.dbconstants import JOURNAL_SCHEMA
+from appscale.datastore.dbconstants import TOMBSTONE
 from cassandra.cluster import Cluster
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
@@ -17,18 +23,11 @@ from google.appengine.ext import db
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info
 
-from appscale.datastore import dbconstants
-from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
-from appscale.datastore.dbconstants import JOURNAL_SCHEMA
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
 from cassandra_env.cassandra_interface import DatastoreProxy
 from cassandra_env.cassandra_interface import deletions_for_entity
 from cassandra_env.cassandra_interface import index_deletions
 from cassandra_env.cassandra_interface import mutations_for_entity
-from datastore_server import DatastoreDistributed
-from datastore_server import ID_KEY_LENGTH
-from datastore_server import TOMBSTONE
 from zkappscale.zktransaction import TX_TIMEOUT
 from zkappscale.zktransaction import ZKTransactionException
 
