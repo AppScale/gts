@@ -8,6 +8,7 @@ import unittest
 
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
+from appscale.datastore import entity_utils
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
@@ -18,7 +19,6 @@ from google.appengine.datastore import entity_pb
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
 import datastore_server
-import entity_utils
 import groomer
 
 
@@ -30,6 +30,7 @@ class FakeQuery():
   def fetch(self, number):
     return [FakeEntity()]
 
+
 class FakeDatastore():
   def __init__(self):
     pass
@@ -39,11 +40,13 @@ class FakeDatastore():
   def batch_delete(self, table, row_keys):
     raise dbconstants.AppScaleDBConnectionError("Bad connection")
 
+
 class FakeDistributedDB():
   def __init__(self):
     pass
   def Query(self, model_class="kind", namespace=''):
     return FakeQuery()
+
 
 class FakeReference():
   def __init__(self):
@@ -52,6 +55,7 @@ class FakeReference():
     return "app_id"
   def name_space(self):
     return "namespace"
+
 
 class FakeEntity():
   def __init__(self):
@@ -70,6 +74,7 @@ class FakeEntity():
     return FakeReference()
   def query(self):
     return FakeQuery()
+
 
 class TestGroomer(unittest.TestCase):
   """
@@ -222,6 +227,7 @@ class TestGroomer(unittest.TestCase):
     dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
     dsg.DASHBOARD_DATA_MODELS = [FakeEntity]
     self.assertRaises(Exception, dsg.remove_old_dashboard_data)
+
 
 if __name__ == "__main__":
   unittest.main()    

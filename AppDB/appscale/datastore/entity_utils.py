@@ -6,8 +6,8 @@ from appscale.datastore.dbconstants import JOURNAL_SCHEMA
 from appscale.datastore.dbconstants import JOURNAL_TABLE
 from appscale.datastore.dbconstants import KEY_DELIMITER
 from appscale.datastore.dbconstants import KIND_SEPARATOR
-
 from google.appengine.datastore import entity_pb
+
 
 def get_root_key_from_entity_key(key):
   """ Extracts the root key from an entity key. We
@@ -22,6 +22,7 @@ def get_root_key_from_entity_key(key):
   tokens = key.split(KIND_SEPARATOR)
   return tokens[0] + KIND_SEPARATOR
 
+
 def get_kind_from_entity_key(entity_key):
   """ Extracts the kind from a key to the entity table.
 
@@ -32,6 +33,7 @@ def get_kind_from_entity_key(entity_key):
   """
   tokens = entity_key.split(KEY_DELIMITER)
   return tokens[2].split(":")[0]
+
 
 def fetch_journal_entry(db_access, key):
   """ Fetches the given key from the journal.
