@@ -2,28 +2,26 @@
 Cassandra Interface for AppScale
 """
 import cassandra
-import os
 import sys
 import time
 
 from appscale.datastore import dbconstants
-from appscale.datastore.dbconstants import AppScaleDBConnectionError
-from appscale.datastore.dbconstants import SCHEMA_TABLE
-from appscale.datastore.dbconstants import SCHEMA_TABLE_SCHEMA
-from appscale.datastore.cassandra_env.cassandra_interface import\
-  IdempotentRetryPolicy
-from appscale.datastore.cassandra_env.cassandra_interface import\
-  INITIAL_CONNECT_RETRIES
-from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
-from appscale.datastore.cassandra_env.cassandra_interface import ThriftColumn
 from dbinterface import AppDBInterface
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import ValueSequence
+from .cassandra_interface import IdempotentRetryPolicy
+from .cassandra_interface import INITIAL_CONNECT_RETRIES
+from .cassandra_interface import KEYSPACE
+from .cassandra_interface import ThriftColumn
+from ..dbconstants import AppScaleDBConnectionError
+from ..dbconstants import SCHEMA_TABLE
+from ..dbconstants import SCHEMA_TABLE_SCHEMA
+from ..unpackaged import APPSCALE_LIB_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA

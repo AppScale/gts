@@ -352,7 +352,6 @@ installcassandra()
     rm -rf ${APPSCALE_HOME}/AppDB/cassandra
 
     CASSANDRA_DIR="/opt/cassandra"
-    CASSANDRA_ENV="${APPSCALE_HOME}/AppDB/cassandra_env"
     mkdir -p ${CASSANDRA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
