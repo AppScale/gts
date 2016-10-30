@@ -10,12 +10,13 @@ from appscale.datastore.backup.backup_exceptions import AmbiguousKeyException
 from appscale.datastore.backup.backup_exceptions import NoKeyException
 from appscale.datastore.backup.cassandra_backup import backup_data
 from appscale.datastore.backup.cassandra_backup import restore_data
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from appscale.datastore.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
 
-sys.path.append(
-  os.path.join(os.path.dirname(__file__), '../../InfrastructureManager'))
+sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils.utils import KEY_DIRECTORY
 
 
