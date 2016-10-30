@@ -14,12 +14,22 @@ import time
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.datastore_backup import DatastoreBackup
 from appscale.datastore.datastore_distributed import DatastoreDistributed
-from google.appengine.datastore import datastore_pb
-from google.appengine.datastore import entity_pb
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
+from appscale.datastore.dbconstants import APP_KIND_SCHEMA
+from appscale.datastore.dbconstants import APP_KIND_TABLE
+from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import COMPOSITE_SCHEMA
+from appscale.datastore.dbconstants import COMPOSITE_TABLE
+from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import PROPERTY_SCHEMA
+from appscale.datastore.dbconstants import TRANSACTIONS_SCHEMA
+from appscale.datastore.dbconstants import TRANSACTIONS_TABLE
+from appscale.datastore.utils import fetch_and_delete_entities
 from zkappscale import zktransaction as zk
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import delete_all_records
+from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import entity_pb
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))
 import appscale_info
@@ -271,8 +281,17 @@ def main():
       format(args.app_id, args.backup_dir)
     logging.info(message)
     try:
-      delete_all_records.main('cassandra', args.app_id, True)
-    except Exception, exception:
+      tables_to_clear = {
+        APP_ENTITY_TABLE: APP_ENTITY_SCHEMA,
+        ASC_PROPERTY_TABLE: PROPERTY_SCHEMA,
+        DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
+        COMPOSITE_TABLE: COMPOSITE_SCHEMA,
+        APP_KIND_TABLE: APP_KIND_SCHEMA,
+        TRANSACTIONS_TABLE: TRANSACTIONS_SCHEMA
+      }
+      for table, schema in tables_to_clear.items():
+        fetch_and_delete_entities('cassandra', table, schema, args.app_id, False)
+    except Exception as exception:
       logging.error("Unhandled exception while deleting \"{0}\" data: {1} " \
         "Exiting...".format(args.app_id, exception.message))
       return

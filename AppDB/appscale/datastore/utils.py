@@ -1,5 +1,11 @@
+import logging
 import sys
+import time
 
+from .appscale_datastore_batch import DatastoreFactory
+from .dbconstants import AppScaleDBConnectionError
+from .dbconstants import METADATA_TABLE
+from .dbconstants import TERMINATING_STRING
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -162,3 +168,55 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
     result.set_more_results(offset < count)
     if self.__binary_results or self.__last_ent:
       self._EncodeCompiledCursor(result.mutable_compiled_cursor())
+
+
+def fetch_and_delete_entities(database, table, schema, first_key,
+                              entities_only=False):
+  """ Deletes all data from datastore.
+
+  Args:
+    database: The datastore type (e.g. cassandra).
+    first_key: A str, the first key to be deleted.
+      Either the app ID or "" to delete all db data.
+    entities_only: True to delete entities from APP_ENTITY/PROPERTY tables,
+      False to delete every trace of the given app ID.
+  """
+  # The amount of time to wait before retrying to fetch entities.
+  backoff_timeout = 30
+
+  # The default number of rows to fetch at a time.
+  batch_size = 1000
+
+  last_key = first_key + '\0' + TERMINATING_STRING
+
+  logging.debug("Deleting application data in the range: {0} - {1}".
+    format(first_key, last_key))
+
+  db = DatastoreFactory.getDatastore(database)
+
+  # Do not delete metadata, just entities.
+  if entities_only and table == METADATA_TABLE:
+    return
+
+  # Loop through the datastore tables and delete data.
+  logging.info("Deleting data from {0}".format(table))
+
+  start_inclusive = True
+  while True:
+    try:
+      entities = db.range_query(
+        table, schema, first_key, last_key, batch_size,
+        start_inclusive=start_inclusive)
+      if not entities:
+        logging.info("No entities found for {}".format(table))
+        break
+
+      for ii in entities:
+        db.batch_delete(table, ii.keys())
+      logging.info("Deleted {0} entities".format(len(entities)))
+
+      first_key = entities[-1].keys()[0]
+      start_inclusive = False
+    except AppScaleDBConnectionError:
+      logging.exception('Error while deleting data')
+      time.sleep(backoff_timeout)
