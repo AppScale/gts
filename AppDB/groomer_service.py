@@ -5,7 +5,7 @@ import sys
 
 import groomer
 
-from zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info

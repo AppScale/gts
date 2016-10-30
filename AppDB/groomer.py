@@ -16,7 +16,7 @@ from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.taskqueue.distributed_tq import TaskName
-from zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale import zktransaction as zk
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed

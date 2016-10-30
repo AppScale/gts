@@ -6,8 +6,9 @@ import sys
 
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.zkappscale import zktransaction as zk
+
 from google.appengine.datastore import datastore_pb
-from zkappscale import zktransaction as zk
 
 def usage():
   """ Prints the usage of this script. """

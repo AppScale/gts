@@ -14,10 +14,11 @@ from appscale.datastore.dbconstants import APPS_SCHEMA
 from appscale.datastore.dbconstants import APPS_TABLE
 from appscale.datastore.dbconstants import USERS_SCHEMA
 from appscale.datastore.dbconstants import USERS_TABLE
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from test import test_support
 from threading import Thread
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib/'))
+sys.path.append(APPSCALE_LIB_DIR)
 from constants import APPSCALE_HOME
 
 USERS_VALUES = ["suwanny@gmail.com", "11", "2009", "2009", "2009", 

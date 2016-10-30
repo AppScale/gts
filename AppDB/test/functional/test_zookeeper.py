@@ -12,7 +12,7 @@ import kazoo.protocol
 import kazoo.protocol.states
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale import zktransaction as zk
 
 PATH_SEPARATOR = "/"
 TOP_LEVEL = "/appscale/apps/appid"

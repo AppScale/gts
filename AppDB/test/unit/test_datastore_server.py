@@ -21,6 +21,8 @@ from appscale.datastore.cassandra_env.cassandra_interface import\
   index_deletions
 from appscale.datastore.cassandra_env.cassandra_interface import\
   mutations_for_entity
+from appscale.datastore.zkappscale.zktransaction import TX_TIMEOUT
+from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api import api_base_pb
@@ -30,10 +32,6 @@ from google.appengine.ext import db
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
-from zkappscale.zktransaction import TX_TIMEOUT
-from zkappscale.zktransaction import ZKTransactionException
 
 
 class Item(db.Model):

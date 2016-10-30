@@ -10,8 +10,8 @@ from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import entity_utils
 from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
+from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from flexmock import flexmock
-from zkappscale.zktransaction import ZKTransactionException
 
 
 class FakeDatastore(object):

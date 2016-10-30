@@ -21,7 +21,7 @@ from appscale.datastore.dbconstants import TRANSACTIONS_SCHEMA
 from appscale.datastore.dbconstants import TRANSACTIONS_TABLE
 from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from appscale.datastore.utils import fetch_and_delete_entities
-from zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info

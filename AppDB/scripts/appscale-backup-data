@@ -8,7 +8,7 @@ import sys
 
 from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info

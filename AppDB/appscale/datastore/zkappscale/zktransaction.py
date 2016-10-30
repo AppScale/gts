@@ -13,9 +13,11 @@ import time
 import urllib
 
 from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import ZookeeperError
 
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
 
 

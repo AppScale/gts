@@ -7,7 +7,6 @@ import random
 import sys
 import time
 import helper_functions
-import zkappscale.zktransaction
 
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
@@ -19,6 +18,7 @@ from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
 from .utils import reference_property_to_reference
 from .utils import UnprocessedQueryCursor
+from .zkappscale import zktransaction
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
@@ -425,7 +425,7 @@ class DatastoreDistributed():
       txn_keys,
       TRANSACTIONS_SCHEMA,
       txn_values,
-      ttl=zkappscale.zktransaction.TX_TIMEOUT * 2
+      ttl=zktransaction.TX_TIMEOUT * 2
     )
 
   @staticmethod
@@ -821,9 +821,9 @@ class DatastoreDistributed():
           prev, current = self.zookeeper.increment_and_get_counter(
             "/{0}/counter".format(app_id), max_id - current + 1)
           
-    except zkappscale.zktransaction.ZKTransactionException as zk_exception:
+    except zktransaction.ZKTransactionException as zk_exception:
       if num_retries > 0:
-        time.sleep(zkappscale.zktransaction.ZKTransaction.ZK_RETRY_TIME)
+        time.sleep(zktransaction.ZKTransaction.ZK_RETRY_TIME)
         self.logger.debug('Retrying to allocate ids for {}'.format(app_id))
         return self.allocate_ids(app_id, size, max_id=max_id,
           num_retries=num_retries - 1)
@@ -934,7 +934,7 @@ class DatastoreDistributed():
       txn_keys,
       TRANSACTIONS_SCHEMA,
       txn_values,
-      ttl=zkappscale.zktransaction.TX_TIMEOUT * 2
+      ttl=zktransaction.TX_TIMEOUT * 2
     )
 
   def dynamic_put(self, app_id, put_request, put_response):
@@ -995,7 +995,7 @@ class DatastoreDistributed():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
 
       put_response.key_list().extend([e.key() for e in entities])
-    except zkappscale.zktransaction.ZKTransactionException as zkte:
+    except zktransaction.ZKTransactionException as zkte:
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
@@ -1065,7 +1065,7 @@ class DatastoreDistributed():
         txnid = self.setup_transaction(app_id, is_xg=False)
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    except zkappscale.zktransaction.ZKTransactionException as zkte:
+    except zktransaction.ZKTransactionException as zkte:
       if retries > 0:
         time.sleep(self.LOCK_RETRY_TIME)
         self.logger.warning('Retrying to acquire lock. Retries left: {}'.
@@ -1153,7 +1153,7 @@ class DatastoreDistributed():
       for root_key in root_keys:
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    except zkappscale.zktransaction.ZKTransactionException as zkte:
+    except zktransaction.ZKTransactionException as zkte:
       self.logger.warning('Concurrent transaction: {}'.format(txnid))
       for root_key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
@@ -1220,7 +1220,7 @@ class DatastoreDistributed():
       txnid = get_request.transaction().handle()
       try:
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
-      except zkappscale.zktransaction.ZKTransactionException as zkte:
+      except zktransaction.ZKTransactionException as zkte:
         self.logger.warning('Concurrent transaction: {}'.format(txnid))
         self.zookeeper.notify_failed_transaction(app_id, txnid)
         raise zkte
@@ -1546,7 +1546,7 @@ class DatastoreDistributed():
       # Pad the number of references to fetch to increase the likelihood of
       # getting all the valid references that we need.
       if not added_padding:
-        to_fetch += zkappscale.zktransaction.MAX_GROUPS_FOR_XG
+        to_fetch += zktransaction.MAX_GROUPS_FOR_XG
         added_padding = True
 
   def __extract_entities(self, kv):
@@ -1591,7 +1591,7 @@ class DatastoreDistributed():
       try:
         prefix = self.get_table_prefix(query)
         self.zookeeper.acquire_lock(clean_app_id(query.app()), txn_id, root_key)
-      except zkappscale.zktransaction.ZKTransactionException as zkte:
+      except zktransaction.ZKTransactionException as zkte:
         self.logger.warning('Concurrent transaction: {}'.format(txn_id))
         self.zookeeper.notify_failed_transaction(clean_app_id(query.app()), 
           txn_id)
@@ -1647,7 +1647,7 @@ class DatastoreDistributed():
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
         self.zookeeper.acquire_lock(clean_app_id(query.app()), txn_id, root_key)
-      except zkappscale.zktransaction.ZKTransactionException as zkte:
+      except zktransaction.ZKTransactionException as zkte:
         self.logger.warning('Concurrent transaction: {}'.format(txn_id))
         self.zookeeper.notify_failed_transaction(clean_app_id(query.app()), 
           txn_id)
@@ -1982,7 +1982,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zkappscale.zktransaction.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + zktransaction.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
@@ -2174,7 +2174,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zkappscale.zktransaction.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + zktransaction.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
@@ -3007,7 +3007,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zkappscale.zktransaction.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + zktransaction.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} entities do not match query. '
         'Fetching {} more references.'.format(invalid_refs, current_limit))
@@ -3598,19 +3598,19 @@ class DatastoreDistributed():
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
-    except zkappscale.zktransaction.ZKBadRequest as zkie:
+    except zktransaction.ZKBadRequest as zkie:
       self.logger.exception('Unable to commit transaction {} for {}'.
         format(transaction_pb, app_id))
       return (commitres_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       self.logger.exception('ZKInternalException during {} for {}'.
         format(transaction_pb, app_id))
       return (commitres_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except zkappscale.zktransaction.ZKTransactionException as zkte:
+    except zktransaction.ZKTransactionException as zkte:
       self.logger.exception('Concurrent transaction during {} for {}'.
         format(transaction_pb, app_id))
       self.zookeeper.notify_failed_transaction(app_id, txn_id)
@@ -3633,7 +3633,7 @@ class DatastoreDistributed():
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")
-    except zkappscale.zktransaction.ZKTransactionException as zkte:
+    except zktransaction.ZKTransactionException as zkte:
       self.logger.exception('Unable to rollback {} for {}'.
         format(txn, app_id))
       return (api_base_pb.VoidProto().Encode(),

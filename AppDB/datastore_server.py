@@ -16,7 +16,7 @@ import time
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-import zkappscale.zktransaction
+from appscale.datastore.zkappscale import zktransaction
 
 from appscale.datastore import dbconstants
 from appscale.datastore.appscale_datastore_batch import DatastoreFactory
@@ -257,7 +257,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('Unable to begin {}'.format(transaction_pb))
       return (transaction_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
@@ -299,7 +299,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {} for {}'.
         format(http_request_data, app_id))
       return (response.Encode(), datastore_pb.Error.INTERNAL_ERROR,
@@ -323,19 +323,19 @@ class MainHandler(tornado.web.RequestHandler):
     clone_qr_pb = UnprocessedQueryResult()
     try:
       datastore_access._dynamic_run_query(query, clone_qr_pb)
-    except zkappscale.zktransaction.ZKBadRequest, zkie:
+    except zktransaction.ZKBadRequest, zkie:
       logger.exception('Illegal arguments in transaction during {}'.
         format(query))
       return (clone_qr_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except zkappscale.zktransaction.ZKTransactionException:
+    except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.format(query))
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
@@ -496,17 +496,17 @@ class MainHandler(tornado.web.RequestHandler):
     start = end = 0
     try:
       start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
-    except zkappscale.zktransaction.ZKBadRequest as zkie:
+    except zktransaction.ZKBadRequest as zkie:
       logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(), 
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except zkappscale.zktransaction.ZKTransactionException:
+    except zktransaction.ZKTransactionException:
       logger.exception('Unable to allocate IDs for {}'.format(app_id))
       return (response.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
@@ -546,17 +546,17 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
-    except zkappscale.zktransaction.ZKBadRequest as zkie:
+    except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
             datastore_pb.Error.BAD_REQUEST, 
             "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except zkappscale.zktransaction.ZKTransactionException:
+    except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
       return (putresp_pb.Encode(),
@@ -583,17 +583,17 @@ class MainHandler(tornado.web.RequestHandler):
     getresp_pb = datastore_pb.GetResponse()
     try:
       datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
-    except zkappscale.zktransaction.ZKBadRequest as zkie:
+    except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except zkappscale.zktransaction.ZKTransactionException:
+    except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(getreq_pb))
       return (getresp_pb.Encode(),
@@ -630,17 +630,17 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
-    except zkappscale.zktransaction.ZKBadRequest as zkie:
+    except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.BAD_REQUEST, 
               "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zkappscale.zktransaction.ZKInternalException:
+    except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR, 
               "Internal error with ZooKeeper connection.")
-    except zkappscale.zktransaction.ZKTransactionException:
+    except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(delreq_pb))
       return (delresp_pb.Encode(),
@@ -714,7 +714,7 @@ def main(argv):
  
   datastore_batch = DatastoreFactory.getDatastore(
     db_type, log_level=logger.getEffectiveLevel())
-  zookeeper = zkappscale.zktransaction.ZKTransaction(
+  zookeeper = zktransaction.ZKTransaction(
     host=zookeeper_locations, start_gc=True, db_access=datastore_batch,
     log_level=logger.getEffectiveLevel())
 

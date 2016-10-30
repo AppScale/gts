@@ -14,7 +14,7 @@ import time
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
-from zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale import zktransaction as zk
 
 # The location to look at in order to verify that an app is deployed.
 _SOURCE_LOCATION = '/opt/appscale/apps/'

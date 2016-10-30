@@ -15,11 +15,11 @@ from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from appscale.datastore.dbconstants import ID_KEY_LENGTH
 from appscale.datastore.dbconstants import TOMBSTONE
 from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
+from appscale.datastore.zkappscale.zktransaction import ZKInternalException
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
-from zkappscale import zktransaction as zk
-from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
-from zkappscale.zktransaction import ZKInternalException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import appscale_info
