@@ -35,26 +35,6 @@ PADDING_PERCENTAGE = 0.9
 # Number of times to retry stopping a service.
 SERVICE_STOP_RETRIES = 10
 
-# Temporary Zookeeper backup file location.
-TMP_ZOOKEEPER_BACKUP = "{0}/zookeeper_backup".format(
-  BACKUP_DIR_LOCATION)
-
-# Zookeeper paths that should not be altered during a restore.
-ZK_KEEP_PATHS = ['/appcontroller', '/appscale/deployment_id']
-
-# Zookeeper top level path.
-ZK_TOP_LEVEL = "/"
-
-# Zookeeper tarred backup file location.
-ZOOKEEPER_BACKUP_FILE_LOCATION = "{0}/zookeeper_backup.tar.gz".format(
-  BACKUP_DIR_LOCATION)
-
-# The directory where ZooKeeper data is stored.
-ZK_DATA_DIR = '/opt/appscale/zookeeper'
-
-# Zookeeper data directories.
-ZOOKEEPER_DATA_SUBDIRS = ["version-2"]
-
 
 class StorageTypes(object):
   """ A class containing the supported types of storage infrastructures

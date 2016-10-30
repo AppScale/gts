@@ -231,10 +231,6 @@ def create_br_json_data(role, type, bucket_name, index, storage):
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
     data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
       hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
-  elif role == 'zk':
-    data[JSONTags.TYPE] = 'zookeeper_{0}'.format(type)
-    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-      hermes_constants.ZK_OBJECT_NAME.format(index))
   else:
     return None
 

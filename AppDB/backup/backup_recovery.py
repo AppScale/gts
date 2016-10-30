@@ -4,8 +4,6 @@ import logging
 import json
 import threading
 
-import zookeeper_backup
-
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup import backup_recovery_helper
 from appscale.datastore.backup import cassandra_backup
@@ -39,7 +37,6 @@ class BackupService():
       '%(lineno)s %(message)s')
     logging.getLogger().handlers[0].setFormatter(log_format)
     self.__cassandra_backup_lock = threading.Lock()
-    self.__zookeeper_backup_lock = threading.Lock()
 
   @classmethod
   def bad_request(cls, reason):
@@ -84,10 +81,6 @@ class BackupService():
       return self.do_cassandra_backup(storage, path)
     elif request_type == "cassandra_restore":
       return self.do_cassandra_restore(storage, path)
-    elif request_type == "zookeeper_backup":
-      return self.do_zookeeper_backup(storage, path)
-    elif request_type == "zookeeper_restore":
-      return self.do_zookeeper_restore(storage, path)
     elif request_type == "app_backup":
       return self.do_app_backup(storage, path)
     elif request_type == "app_restore":
@@ -174,63 +167,5 @@ class BackupService():
       reason = str(exception)
     finally:
       self.__cassandra_backup_lock.release()
-
-    return json.dumps({'success': success, 'reason': reason})
-
-  def do_zookeeper_backup(self, storage, path):
-    """ Top level function for doing Zookeeper backups.
-
-    Args:
-      storage: A str, one of the StorageTypes class members.
-      path: A str, the name of the backup file to be created.
-    Returns:
-      A JSON string to return to the client.
-    """
-    success = True
-    reason = "success"
-    try:
-      logging.info("Acquiring lock for zk backup.")
-      self.__zookeeper_backup_lock.acquire(True)
-      logging.info("Got the lock for zk backup.")
-      if not zookeeper_backup.backup_data(storage, path):
-        return self.bad_request("ZK backup failed!")
-      else:
-        logging.info("Successful zk backup!")
-    except backup_exceptions.BRException, exception:
-      logging.error("Unable to complete zk backup: {0}".format(exception))
-      success = False
-      reason = str(exception)
-    finally:
-      self.__zookeeper_backup_lock.release()
-      logging.info("Released lock for zk backup.")
-
-    return json.dumps({'success': success, 'reason': reason})
-
-  def do_zookeeper_restore(self, storage, path):
-    """ Top level function for doing Zookeeper restores.
-
-    Args:
-      storage: A str, one of the StorageTypes class members.
-      path: A str, the name of the backup file to be created.
-    Returns:
-      A JSON string to return to the client.
-    """
-    success = True
-    reason = "success"
-    try:
-      logging.info("Acquiring lock for zk restore.")
-      self.__zookeeper_backup_lock.acquire(True)
-      logging.info("Got the lock for zk restore.")
-      if not zookeeper_backup.restore_data(storage, path):
-        return self.bad_request("ZK restore failed!")
-      else:
-        logging.info("Successful zk restore!")
-    except backup_exceptions.BRException, exception:
-      logging.error("Unable to complete zk restore: {0}".format(exception))
-      success = False
-      reason = str(exception)
-    finally:
-      self.__zookeeper_backup_lock.release()
-      logging.info("Released lock for zk restore.")
 
     return json.dumps({'success': success, 'reason': reason})
