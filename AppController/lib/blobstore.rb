@@ -23,7 +23,7 @@ module BlobServer
 
   def self.start(db_local_ip, db_local_port)
     start_cmd = [
-      "/usr/bin/python2 #{self.scriptname}",
+      "#{self.scriptname}",
       "-d #{db_local_ip}:#{db_local_port}",
       "-p #{self::SERVER_PORT}"
     ].join(' ')
@@ -45,6 +45,6 @@ module BlobServer
   end 
 
   def self.scriptname()
-    return "#{APPSCALE_HOME}/AppDB/blobstore/blobstore_server.py"
+    return "/usr/local/bin/appscale-blobstore-server"
   end
 end
