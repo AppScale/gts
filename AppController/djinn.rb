@@ -1882,6 +1882,7 @@ class Djinn
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
     initialize_server
+    write_zookeeper_locations()
     start_api_services
 
     # Now that we are done loading, we can set the monit job to check the
@@ -1890,7 +1891,6 @@ class Djinn
     set_appcontroller_monit()
     @done_loading = true
 
-    write_zookeeper_locations()
     pick_zookeeper(@zookeeper_data)
     write_our_node_info()
     wait_for_nodes_to_finish_loading(@nodes)

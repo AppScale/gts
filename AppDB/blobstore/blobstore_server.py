@@ -7,16 +7,19 @@ Some code was taken from
 http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.html
 
 """
+import argparse
+import base64
 import cStringIO
 import datetime
-import getopt
 import gzip
 import hashlib
 import itertools
 import logging
+import math
 import mimetools
 import os 
 import os.path
+import requests
 from StringIO import StringIO
 import sys
 import tornado.httpserver
@@ -36,12 +39,14 @@ from google.appengine.tools import dev_appserver_upload
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
 import appscale_info
 from constants import LOG_FORMAT
+from deployment_config import DeploymentConfig
+from deployment_config import ConfigInaccessible
 
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'
 
 # The port this service binds to
-DEFAULT_PORT = "6107"
+DEFAULT_PORT = 6107
 
 # Connects to localhost to get access to the datastore
 DEFAULT_DATASTORE_PATH = "http://127.0.0.1:8888"
@@ -61,8 +66,18 @@ UPLOAD_ERROR = 'There was an error with your upload. Redirect path not '\
 # The maximum size of an incoming request.
 MAX_REQUEST_BUFF_SIZE = 2 * 1024 * 1024 * 1024  # 2GBs
 
+# The header used by GCS to provide a resumable upload ID.
+GCS_UPLOAD_ID_HEADER = 'X-GUploader-UploadID'
+
+# The chunk size to use for uploading files to GCS.
+GCS_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
+
 # Global used for setting the datastore path when registering the DB
 datastore_path = ""
+
+# A DeploymentConfig accessor.
+deployment_config = None
+
 
 class MultiPartForm(object):
   """Accumulate the data to be used when posting a form."""
@@ -295,10 +310,54 @@ class UploadHandler(tornado.web.RequestHandler):
       size = len(body)
       filename = file["filename"]
       file_content_type = file["content_type"]
-     
-      blob_entity = uploadhandler.StoreBlob(file, creation)
 
-      blob_key = str(blob_entity.key().name())
+      gs_path = ''
+      if 'gcs_bucket' in blob_session:
+        gcs_config = {'scheme': 'https', 'port': 443}
+        try:
+          gcs_config.update(deployment_config.get_config('gcs'))
+        except ConfigInaccessible:
+          self.send_error('Unable to fetch GCS configuration.')
+          return
+
+        if 'host' not in gcs_config:
+          self.send_error('GCS host is not defined.')
+          return
+
+        gcs_path = '{scheme}://{host}:{port}'.format(**gcs_config)
+        gcs_bucket_name = blob_session['gcs_bucket']
+        gcs_url = '/'.join([gcs_path, gcs_bucket_name, filename])
+        response = requests.post(gcs_url,
+                                 headers={'x-goog-resumable': 'start'})
+        if (response.status_code != 201 or
+            GCS_UPLOAD_ID_HEADER not in response.headers):
+          self.send_error(reason='Unable to start resumable GCS upload.')
+          return
+        upload_id = response.headers[GCS_UPLOAD_ID_HEADER]
+
+        total_chunks = int(math.ceil(float(size) / GCS_CHUNK_SIZE))
+        for chunk_num in range(total_chunks):
+          offset = GCS_CHUNK_SIZE * chunk_num
+          current_chunk_size = min(GCS_CHUNK_SIZE, size - offset)
+          end_byte = offset + current_chunk_size
+          current_range = '{}-{}'.format(offset, end_byte - 1)
+          content_range = 'bytes {}/{}'.format(current_range, size)
+          response = requests.put(gcs_url, data=body[offset:end_byte],
+                                  headers={'Content-Range': content_range},
+                                  params={'upload_id': upload_id})
+          if chunk_num == total_chunks - 1:
+            if response.status_code != 200:
+              self.send_error(reason='Unable to complete GCS upload.')
+              return
+          else:
+            if response.status_code != 308:
+              self.send_error(reason='Unable to continue GCS upload.')
+              return
+        gs_path = '/gs/{}/{}'.format(gcs_bucket_name, filename)
+        blob_key = 'encoded_gs_key:' + base64.b64encode(gs_path)
+      else:
+        blob_entity = uploadhandler.StoreBlob(file, creation)
+        blob_key = str(blob_entity.key().name())
 
       if not blob_key: 
         self.finish('Status: 500\n\n')
@@ -308,9 +367,15 @@ class UploadHandler(tornado.web.RequestHandler):
                     blobstore.BLOB_KEY_HEADER, size, creation_formatted)
 
       md5_handler = hashlib.md5(str(body))
-      data["blob_info_metadata"][filekey].append( 
-        {"filename": filename, "creation-date": creation_formatted, "key": blob_key, "size": str(size),
-         "content-type": file_content_type, "md5-hash": md5_handler.hexdigest()})
+      blob_info = {"filename": filename,
+                   "creation-date": creation_formatted,
+                   "key": blob_key,
+                   "size": str(size),
+                   "content-type": file_content_type,
+                   "md5-hash": md5_handler.hexdigest()}
+      if 'gcs_bucket' in blob_session:
+        blob_info['gs-name'] = gs_path
+      data["blob_info_metadata"][filekey].append(blob_info)
 
     # Loop through form fields
     for fieldkey in self.request.arguments.keys():
@@ -346,44 +411,28 @@ class UploadHandler(tornado.web.RequestHandler):
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
         return
 
-def usage():
-  """ The usage printed to the screen. """
-  print "-p or --port for binding port"
-  print "-d or --datastore_path for location of the pbserver"
-
-def main(port):
-  """ Initialization code of the blobstore server. 
-  
-   Args:
-     port: The port to bind to for this service.
-  """
-  setup_env()
-
-  http_server = tornado.httpserver.HTTPServer(Application(),
-    max_buffer_size=MAX_REQUEST_BUFF_SIZE)
-  http_server.listen(int(port))
-
-  acc = appscale_info.get_appcontroller_client()
-  acc.add_routing_for_blob_server()
-  logging.info('Added routing for BlobServer'.format(port))
-
-  logging.info('Starting BlobServer on {}'.format(port))
-  tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-  try:
-    opts, args = getopt.getopt(sys.argv[1:], "p:d:",
-                               ["port", "database_path"])
-  except getopt.GetoptError:
-    usage()
-    sys.exit(1)
 
-  port = DEFAULT_PORT
-  for opt, arg in opts:
-    if opt in ("-p", "--port"):
-      port = arg
-    elif opt  in ("-d", "--datastore_path"):
-      datastore_path = arg
-    
-  main(port)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-p', '--port', type=int, default=DEFAULT_PORT,
+                      required=True, help="The blobstore server's port")
+  parser.add_argument('-d', '--datastore-path', required=True,
+                      help='The location of the datastore server')
+  args = parser.parse_args()
+
+  datastore_path = args.datastore_path
+  deployment_config = DeploymentConfig(appscale_info.get_zk_locations_string())
+  setup_env()
+
+  http_server = tornado.httpserver.HTTPServer(
+    Application(), max_buffer_size=MAX_REQUEST_BUFF_SIZE)
+
+  http_server.listen(args.port)
+
+  acc = appscale_info.get_appcontroller_client()
+  acc.add_routing_for_blob_server()
+
+  logging.info('Starting BlobServer on {}'.format(args.port))
+  tornado.ioloop.IOLoop.instance().start()
