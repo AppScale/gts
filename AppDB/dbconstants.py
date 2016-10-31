@@ -1,6 +1,8 @@
 """
  Datastore Constants
 """
+import cassandra.cluster
+
 SECRET_LOCATION = "/etc/appscale/secret.key"
 
 ERROR_DEFAULT = "DB_ERROR:"
@@ -20,6 +22,10 @@ MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
 
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
+
+TRANSIENT_CASSANDRA_ERRORS = (
+  cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
+  cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
 
 # Table names
 USERS_TABLE = "USERS__"
