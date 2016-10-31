@@ -362,8 +362,6 @@ installcassandra()
         useradd cassandra
     fi
     chown -R cassandra ${CASSANDRA_DIR}
-
-    pipwrapper cassandra-driver
 }
 
 postinstallcassandra()
@@ -561,6 +559,11 @@ buildgo()
 installtaskqueue()
 {
     (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
+}
+
+installdatastore()
+{
+    (cd ${APPSCALE_HOME}/AppDB && python setup.py install)
 }
 
 prepdashboard()
