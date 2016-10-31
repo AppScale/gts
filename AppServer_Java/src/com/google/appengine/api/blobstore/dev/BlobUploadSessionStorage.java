@@ -57,6 +57,10 @@ public final class BlobUploadSessionStorage
         entity.setProperty("creation", time);
         entity.setProperty("user", user);
         entity.setProperty("state", "init");
+
+        if (session.hasGoogleStorageBucketName())
+            entity.setProperty("gcs_bucket", session.getGoogleStorageBucketName());
+
         this.datastoreService.put(entity);
 
         return KeyFactory.keyToString(entity.getKey());
