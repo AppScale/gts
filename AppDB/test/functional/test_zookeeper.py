@@ -2,16 +2,12 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 """ This is a top level test for ZooKeeper. ZooKeeper must be running. """
 
-import os
-import sys
-import unittest
-
 import kazoo.client
 import kazoo.exceptions
 import kazoo.protocol
 import kazoo.protocol.states
+import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
 from appscale.datastore.zkappscale import zktransaction as zk
 
 PATH_SEPARATOR = "/"
