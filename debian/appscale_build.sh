@@ -97,7 +97,12 @@ case "$DIST" in
         "install one manually and change the JAVA path defined in "\
         "AppDB/cassandra_env/templates/cassandra-env.sh before starting "\
         "AppScale."
-        read -p "Press [Enter] to continue build."
+        if [ -t 1 ]; then
+            read -p "Press [Enter] to continue build."
+        else
+            echo "Press Ctrl-C if Java was not installed"
+            sleep 3
+        fi
         ;;
 esac
 
