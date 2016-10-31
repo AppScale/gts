@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import os
 import sys
 import unittest
 
@@ -21,16 +20,18 @@ from appscale.datastore.cassandra_env.cassandra_interface import\
   index_deletions
 from appscale.datastore.cassandra_env.cassandra_interface import\
   mutations_for_entity
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.zkappscale.zktransaction import TX_TIMEOUT
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 
 

@@ -2,14 +2,14 @@
 
 """ Unit tests for entity_utils.py """
 
-import os
 import sys
 import unittest
 
 from appscale.datastore import entity_utils
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
 
 

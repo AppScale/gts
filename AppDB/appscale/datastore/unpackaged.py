@@ -13,3 +13,6 @@ APPSCALE_PYTHON_APPSERVER = os.path.join(APPSCALE_HOME, 'AppServer')
 # The location of the InfrastructureManager.
 INFRASTRUCTURE_MANAGER_DIR = os.path.join(APPSCALE_HOME,
                                           'InfrastructureManager')
+
+# The location of the dashboard.
+DASHBOARD_DIR = os.path.join(APPSCALE_HOME, 'AppDashboard')

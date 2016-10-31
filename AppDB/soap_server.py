@@ -15,8 +15,7 @@ import SOAPpy
 import sys
 import time
 
-import appscale_datastore
-
+from appscale.datastore import appscale_datastore
 from appscale.datastore.dbconstants import AppScaleDBConnectionError
 from appscale.datastore.dbconstants import APPS_SCHEMA
 from appscale.datastore.dbconstants import APPS_TABLE

@@ -1,7 +1,3 @@
-""" This process grooms the datastore cleaning up old state and
-calculates datastore statistics. Removes tombstoned items for garbage
-collection.
-"""
 import datetime
 import logging
 import os
@@ -11,13 +7,17 @@ import sys
 import threading
 import time
 
-from appscale.datastore.datastore_distributed import DatastoreDistributed
+import appscale_datastore_batch
+import dbconstants
 
-from appscale.datastore import appscale_datastore_batch
-from appscale.datastore import dbconstants
 from appscale.taskqueue.distributed_tq import TaskName
-from appscale.datastore.zkappscale import zktransaction as zk
+from .datastore_distributed import DatastoreDistributed
+from .unpackaged import APPSCALE_LIB_DIR
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
+from .unpackaged import DASHBOARD_DIR
+from .zkappscale import zktransaction as zk
 
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.api.memcache import memcache_distributed
@@ -29,11 +29,11 @@ from google.appengine.ext.db import stats
 from google.appengine.ext.db import metadata
 from google.appengine.api import datastore_errors
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 import constants
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDashboard/lib/"))
+sys.path.append(os.path.join(DASHBOARD_DIR, 'lib'))
 from app_dashboard_data import InstanceInfo
 from app_dashboard_data import ServerStatus
 from app_dashboard_data import RequestInfo
@@ -1230,6 +1230,7 @@ class DatastoreGroomer(threading.Thread):
         self.index_entries_delete_failures))
     logging.info("Groomer took {0} seconds".format(str(time_taken)))
 
+
 def main():
   """ This main function allows you to run the groomer manually. """
   zk_connection_locations = appscale_info.get_zk_locations_string()
@@ -1260,6 +1261,3 @@ def main():
       zookeeper.close()
   else:
     logging.info("Did not get the groomer lock.")
-
-if __name__ == "__main__":
-  main()

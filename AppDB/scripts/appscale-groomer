@@ -1,0 +1,9 @@
+#!/usr/bin/env python2
+""" This process grooms the datastore cleaning up old state and
+calculates datastore statistics. Removes tombstoned items for garbage
+collection.
+"""
+from appscale.datastore.groomer import main
+
+if __name__ == "__main__":
+  main()

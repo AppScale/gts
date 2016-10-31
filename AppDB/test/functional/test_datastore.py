@@ -3,13 +3,13 @@
 #
 # NOMURA Yoshihide <nomura@pobox.com>
 
-import appscale_datastore
 import base64
 import helper_functions as hf
 import os
 import sys
 import unittest
 
+from appscale.datastore import appscale_datastore
 from appscale.datastore.dbconstants import APPS_SCHEMA
 from appscale.datastore.dbconstants import APPS_TABLE
 from appscale.datastore.dbconstants import USERS_SCHEMA

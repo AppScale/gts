@@ -1269,7 +1269,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Thread.new {
-      run_groomer_command = "#{PYTHON27} #{APPSCALE_HOME}/AppDB/groomer.py"
+      run_groomer_command = "/usr/local/bin/appscale-groomer"
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else

@@ -2,24 +2,22 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 import datetime
-import os
 import sys
 import unittest
 
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
+from appscale.datastore import groomer
 from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import groomer
 
 
 class FakeQuery():
