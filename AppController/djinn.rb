@@ -3823,8 +3823,8 @@ class Djinn
       env_vars['SIMPLEDB_SECRET_KEY'] = @options['SIMPLEDB_SECRET_KEY']
     end
 
-    soap_script = "#{APPSCALE_HOME}/AppDB/soap_server.py"
-    start_cmd = ["#{PYTHON27} #{soap_script}",
+    soap_script = "/usr/local/bin/appscale-uaserver"
+    start_cmd = [#{soap_script}",
             "-t #{table}"].join(' ')
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{soap_script} #{PYTHON27}"

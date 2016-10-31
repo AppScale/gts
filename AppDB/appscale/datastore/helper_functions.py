@@ -2,13 +2,9 @@
 Helpful functions and classes which are used by AppDB
 """
 import hashlib
-import logging
-import logging.handlers
 import inspect
-import os
-import os.path
 import random
-import time
+
 
 def reverse_lex(ustring):
   """ Strings must be in unicode to reverse the string
@@ -26,6 +22,7 @@ def reverse_lex(ustring):
     newstr += char
   return newstr
 
+
 def reverse_lex_128(ustring):
   """ Certain datastores are unable to store keys with unichars of 
       128 or more this function reflects on 127 and less.
@@ -40,6 +37,7 @@ def reverse_lex_128(ustring):
     char = unichr(new_byte)
     newstr += char
   return newstr
+
 
 def random_string(length):
   """ Returns a string of a given length. 
@@ -56,6 +54,7 @@ def random_string(length):
     ret += s.hexdigest()
   return ret[0:length]
 
+
 def lineno():
   """ Returns the current line number in our program.
 
@@ -63,6 +62,7 @@ def lineno():
     The current line number in our program.
   """
   return inspect.currentframe().f_back.f_lineno
+
 
 def str_to_hex(string):
   """ Returns a string in readable hex encoding.

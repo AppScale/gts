@@ -6,17 +6,21 @@ import sys
 
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.zkappscale import zktransaction as zk
 
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import datastore_pb
+
 
 def usage():
   """ Prints the usage of this script. """
-  print('Usage: update_index.py OPTION')
+  print('Usage: appscale-update-index OPTION')
   print('Updates a composite index.\n')
   print('Options:')
   print('  -t, --type=DATASTORE_TYPE    e.g. cassandra')
   print('  -a, --app_ID=APPLICATION_ID  e.g. guestbook')
+
 
 def prettify_index(index, initial_indent=3):
   """ Formats an index definition as it appears in the YAML definition.
@@ -36,6 +40,7 @@ def prettify_index(index, initial_indent=3):
     if prop.direction() == prop.DESCENDING:
       output += '{}direction: desc\n'.format(indent + '  ')
   return output
+
 
 def main(app_id, db_type):
   """ Updates a composite index after prompting the user.
@@ -76,6 +81,7 @@ def main(app_id, db_type):
   datastore_access.update_composite_index(app_id, selected_index)
 
   zookeeper.close()
+
 
 if __name__ == '__main__':
   try:

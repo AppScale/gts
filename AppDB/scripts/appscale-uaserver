@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 """ This SOAP server is a data access layer over the datastore. It
 presents information about applications and users as SOAP callable
 functions.
@@ -9,7 +10,6 @@ functions.
 import datetime
 import json
 import logging
-import os
 import re
 import SOAPpy
 import sys
@@ -21,8 +21,9 @@ from appscale.datastore.dbconstants import APPS_SCHEMA
 from appscale.datastore.dbconstants import APPS_TABLE
 from appscale.datastore.dbconstants import USERS_SCHEMA
 from appscale.datastore.dbconstants import USERS_TABLE
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
 import appscale_info
 
@@ -70,6 +71,7 @@ VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 
 # Port separator used to store http and https application ports.
 PORT_SEPARATOR = '-'
+
 
 class Users:
   attributes_ = USERS_SCHEMA
@@ -141,6 +143,7 @@ class Users:
       self.applications_ = []
 
     return "true"
+
 
 class Apps:
   attributes_ = APPS_SCHEMA
@@ -239,6 +242,7 @@ class Apps:
 
     return "true"
 
+
 def does_user_exist(username, secret):
   global db
   global super_secret
@@ -252,6 +256,7 @@ def does_user_exist(username, secret):
     return "true"
   else:
     return "false"
+
 
 def does_app_exist(appname, secret):
   global db
@@ -267,6 +272,7 @@ def does_app_exist(appname, secret):
   else:
     return "false"
 
+
 def get_user_apps(username, secret):
   global db
   global super_secret
@@ -281,6 +287,7 @@ def get_user_apps(username, secret):
   else:
     error = "Error: user not found"
     return error
+
 
 def get_user_data(username, secret):
   global db
@@ -303,6 +310,7 @@ def get_user_data(username, secret):
   user = Users("a","b", "c")
   user.unpackit(result)
   return user.stringit()
+
 
 def get_app_data(appname, secret):
   global db
@@ -330,6 +338,7 @@ def get_app_data(appname, secret):
   app.unpackit(result)
   return app.to_json()
 
+
 def commit_new_user(user, passwd, utype, secret):
   global db
   global super_secret
@@ -354,6 +363,7 @@ def commit_new_user(user, passwd, utype, secret):
   if result[0] not in ERROR_CODES:
     return "false"
   return "true"
+
 
 def add_admin_for_app(user, app, secret):
   """ Grants admin role to a given application.
@@ -393,6 +403,7 @@ def add_admin_for_app(user, app, secret):
     return "true"
   else:
     return "Error: Unable to update the user."
+
 
 def commit_new_app(appname, user, language, secret):
   global db
@@ -447,6 +458,7 @@ def commit_new_app(appname, user, language, secret):
     error = "Error: User not found"
     return error
 
+
 def get_tar(app_name, secret):
   global db
   global super_secret
@@ -461,6 +473,7 @@ def get_tar(app_name, secret):
     return result[1]
   else:
     return "Error:" + result[0]
+
 
 def commit_tar(app_name, tar, secret):
   global db
@@ -498,6 +511,7 @@ def commit_tar(app_name, tar, secret):
     return error
   return "true"
 
+
 def delete_all_apps(secret):
   global db
   global super_secret
@@ -514,6 +528,7 @@ def delete_all_apps(secret):
     if delete_app(ii, secret) == "false":
       ret = "false"
   return ret
+
 
 def get_all_users(secret):
   global db
@@ -542,6 +557,7 @@ def get_all_users(secret):
     userstring += ":" + kk.email_
   return userstring
 
+
 def get_all_apps(secret):
   global db
   global super_secret
@@ -569,6 +585,7 @@ def get_all_apps(secret):
     appstring += ":" + kk.name_
   return appstring
 
+
 def add_instance(appname, host, port, https_port, secret):
   global db
   global super_secret
@@ -593,6 +610,7 @@ def add_instance(appname, host, port, https_port, secret):
     return "false"
   return "true"
 
+
 def delete_app(appname, secret):
   global db
   global super_secret
@@ -614,6 +632,7 @@ def delete_app(appname, secret):
 
   # disabling the app, a type of soft delete
   return disable_app(appname, secret)
+
 
 def delete_instance(appname, host, port, secret):
   global db
@@ -655,6 +674,7 @@ def delete_instance(appname, host, port, secret):
     return "false"
   return ret
 
+
 def commit_new_token(user, token, token_exp, secret):
   global db
   global super_secret
@@ -685,6 +705,7 @@ def commit_new_token(user, token, token_exp, secret):
     return "false"
   return "true"
 
+
 def get_token(user, secret):
   global db
   global super_secret
@@ -702,6 +723,7 @@ def get_token(user, secret):
   result = result[1:]
   return "token:"+ result[0] + "\n" + "token_exp:" + result[1] + "\n"
 
+
 def get_version(appname, secret):
   global db
   global super_secret
@@ -718,6 +740,7 @@ def get_version(appname, secret):
     return "false"
   result = result[1:]
   return "version: " + result[0] + "\n"
+
 
 def change_password(user, password, secret):
   global db
@@ -745,6 +768,7 @@ def change_password(user, password, secret):
   if result[0] not in ERROR_CODES:
     return "Error:" + result[0]
   return "true"
+
 
 def enable_app(appname, secret):
   global db
@@ -790,6 +814,7 @@ def disable_app(appname, secret):
     return "false"
   return "true"
 
+
 def is_app_enabled(appname, secret):
   global db
   global super_secret
@@ -805,6 +830,7 @@ def is_app_enabled(appname, secret):
   if result[0] not in ERROR_CODES or len(result) != 2:
     return "false"
   return result[1]
+
 
 def enable_user(user, secret):
   global db
@@ -850,6 +876,7 @@ def disable_user(user, secret):
     return "false"
   return "true"
 
+
 def delete_user(user, secret):
   global db
   global user_schema
@@ -873,6 +900,7 @@ def delete_user(user, secret):
     return "false"
   return "true"
 
+
 def is_user_enabled(user, secret):
   global db
   global super_secret
@@ -888,6 +916,7 @@ def is_user_enabled(user, secret):
   if result[0] not in ERROR_CODES or len(result) == 1:
     return "false"
   return result[1]
+
 
 def get_key_block(app_id, block_size, secret):
   global db
@@ -913,6 +942,7 @@ def get_key_block(app_id, block_size, secret):
     return "false"
   return key
 
+
 def is_user_cloud_admin(username, secret):
   global db
   global super_secret
@@ -929,6 +959,7 @@ def is_user_cloud_admin(username, secret):
   else:
     return "false"
 
+
 def set_cloud_admin_status(username, is_cloud_admin, secret):
   global db
   global super_secret
@@ -938,6 +969,7 @@ def set_cloud_admin_status(username, is_cloud_admin, secret):
   if result[0] not in ERROR_CODES:
     return "false:" + result[0]
   return "true"
+
 
 def get_capabilities(username, secret):
   global db
@@ -955,6 +987,7 @@ def get_capabilities(username, secret):
   else:
     return [result[0]]
 
+
 def set_capabilities(username, capabilities, secret):
   global db
   global super_secret
@@ -965,12 +998,14 @@ def set_capabilities(username, capabilities, secret):
     return "false:" + result[0]
   return "true"
 
+
 def usage():
   print "args: --apps or -a for the application location"
   print "      --users or -u for the user location"
   print "      --type or -t for type of datastore"
   print "        type available: cassandra"
   print "      --port or -p for server port"
+
 
 if __name__ == "__main__":
   """ Main function for running the server. """

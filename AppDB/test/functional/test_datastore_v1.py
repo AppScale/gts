@@ -1,10 +1,10 @@
 #Navraj Chohan
+import os
 import sys
-import helper_functions
-import os 
 import time
 
 from appscale.datastore import appscale_datastore
+from appscale.datastore import helper_functions
 
 hf = helper_functions
 if "LOCAL_DB_IP" not in os.environ:

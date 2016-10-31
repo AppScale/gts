@@ -4,24 +4,24 @@
  Cassandra Interface for AppScale
 """
 import cassandra
-import helper_functions
 import logging
 import sys
 import time
 
-from appscale.datastore import dbconstants
-from appscale.datastore.datastore_distributed import DatastoreDistributed
-from appscale.datastore.dbconstants import AppScaleDBConnectionError
-from appscale.datastore.dbconstants import TxnActions
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.utils import clean_app_id
-from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
+from .. import dbconstants
+from .. import helper_functions
+from ..datastore_distributed import DatastoreDistributed
+from ..dbconstants import AppScaleDBConnectionError
+from ..dbconstants import TxnActions
+from ..dbinterface import AppDBInterface
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..utils import clean_app_id
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info

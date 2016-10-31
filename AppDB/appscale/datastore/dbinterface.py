@@ -6,6 +6,7 @@ __date__="$2009.5.5 18:27:00$"
 
 import os
 
+
 class AppDBInterface:
   def get_entity(self, table_name, row_key, column_names, txnid = 0):  
     raise NotImplementedError("get_entity is not implemented in %s." % self.__class__)
@@ -67,4 +68,3 @@ class AppDBInterface:
         self.__master_ip = master_ip
 
     return self.__master_ip
-

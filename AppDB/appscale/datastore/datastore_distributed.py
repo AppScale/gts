@@ -1,11 +1,12 @@
 import array
-import dbconstants
 import itertools
 import logging
 import md5
 import random
 import sys
 import time
+
+import dbconstants
 import helper_functions
 
 from .dbconstants import APP_ENTITY_SCHEMA

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # See LICENSE file
 #
 """
@@ -16,20 +16,22 @@ import time
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-from appscale.datastore.zkappscale import zktransaction
 
 from appscale.datastore import dbconstants
 from appscale.datastore.appscale_datastore_batch import DatastoreFactory
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.utils import clean_app_id
 from appscale.datastore.utils import UnprocessedQueryResult
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.zkappscale import zktransaction
 from M2Crypto import SSL
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 from constants import LOG_FORMAT
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb

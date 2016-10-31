@@ -5,8 +5,6 @@ import cassandra
 import sys
 import time
 
-from appscale.datastore import dbconstants
-from dbinterface import AppDBInterface
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
@@ -16,9 +14,11 @@ from .cassandra_interface import IdempotentRetryPolicy
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
+from .. import dbconstants
 from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import SCHEMA_TABLE
 from ..dbconstants import SCHEMA_TABLE_SCHEMA
+from ..dbinterface import AppDBInterface
 from ..unpackaged import APPSCALE_LIB_DIR
 
 sys.path.append(APPSCALE_LIB_DIR)
@@ -30,6 +30,8 @@ PERSISTENT_CONNECTION = False
 PROFILING = False
 
 MAX_ROW_COUNT = 10000000
+
+
 class DatastoreProxy(AppDBInterface):
   def __init__(self):
     hosts = appscale_info.get_db_ips()
