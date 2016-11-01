@@ -9,12 +9,14 @@ import time
 
 import appscale_datastore_batch
 import dbconstants
+import utils
 
 from appscale.taskqueue.distributed_tq import TaskName
 from .datastore_distributed import DatastoreDistributed
 from .unpackaged import APPSCALE_LIB_DIR
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .unpackaged import DASHBOARD_DIR
+from .utils import get_composite_indexes_rows
 from .zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -696,8 +698,7 @@ class DatastoreGroomer(threading.Thread):
       entity: An EntityProto.
       composites: A list of datastore_pb.CompositeIndexes composite indexes.
     """
-    row_keys = DatastoreDistributed.\
-      get_composite_indexes_rows([entity], composites)
+    row_keys = get_composite_indexes_rows([entity], composites)
     self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
       row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
 
@@ -738,7 +739,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    kind = DatastoreDistributed.get_entity_kind(entity.key())
+    kind = utils.get_entity_kind(entity.key())
     namespace = entity.key().name_space()
 
     if not kind:

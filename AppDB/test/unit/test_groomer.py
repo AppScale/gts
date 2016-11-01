@@ -9,6 +9,7 @@ from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
 from appscale.datastore import groomer
+from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
@@ -128,8 +129,7 @@ class TestGroomer(unittest.TestCase):
  
   def test_process_statistics(self):
     zookeeper = flexmock()
-    flexmock(DatastoreDistributed).should_receive("get_entity_kind").\
-      and_return("kind")
+    flexmock(utils).should_receive("get_entity_kind").and_return("kind")
     
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)

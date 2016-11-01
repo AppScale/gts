@@ -25,9 +25,13 @@ class FakeArgumentParser(object):
 class FakeDatastore(object):
   def __init__(self):
     pass
+
   def range_query(self, table, schema, start, end, batch_size,
     start_inclusive=True, end_inclusive=True):
     return []
+
+  def valid_data_version(self):
+    return True
 
 
 class FakeZookeeper(object):

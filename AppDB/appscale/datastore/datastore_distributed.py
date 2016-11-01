@@ -17,6 +17,12 @@ from .dbconstants import TxnActions
 from .cassandra_env import cassandra_interface
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
+from .utils import encode_index_pb
+from .utils import get_composite_index_keys
+from .utils import get_entity_key
+from .utils import get_entity_kind
+from .utils import get_index_key_from_params
+from .utils import get_kind_key
 from .utils import reference_property_to_reference
 from .utils import UnprocessedQueryCursor
 from .zkappscale import zktransaction
@@ -114,20 +120,6 @@ class DatastoreDistributed():
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
 
-  @staticmethod
-  def get_entity_kind(key_path):
-    """ Returns the Kind of the Entity. A Kind is like a type or a 
-        particular class of entity.
-
-    Args:
-        key_path: A str, the key path of entity.
-    Returns:
-        A str, the kind of the entity.
-    """
-    if isinstance(key_path, entity_pb.EntityProto):
-      key_path = key_path.key()
-    return key_path.path().element_list()[-1].type()
-
   def get_limit(self, query):
     """ Returns the limit that should be used for the given query.
   
@@ -145,46 +137,6 @@ class DatastoreDistributed():
     if limit <= 0:
       limit = 1
     return limit
-
-  @staticmethod
-  def get_entity_key(prefix, pb):
-    """ Returns the key for the entity table.
-    
-    Args:
-        prefix: A str, the app name and namespace string
-          example-- 'guestbook/mynamespace'.
-        pb: Protocol buffer that we will encode the index name.
-    Returns:
-        A str, the key for entity table.
-    """
-    return dbconstants.KEY_DELIMITER.join(
-      [prefix, str(DatastoreDistributed.encode_index_pb(pb))])
-
-  @staticmethod
-  def get_kind_key(prefix, key_path):
-    """ Returns a key for the kind table.
-    
-    Args:
-      prefix: A str, the app name and namespace.
-      key_path: A str, the key path to build row key with.
-    Returns:
-      A str, the row key for kind table.
-    """
-    path = []
-    path.append(key_path.element_list()[-1].type())
-    for e in key_path.element_list():
-      if e.has_name():
-        key_id = e.name()
-      else:
-        # make sure ids are ordered lexigraphically by making sure they 
-        # are of set size i.e. 2 > 0003 but 0002 < 0003
-        key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append("{0}{2}{1}".format(e.type(), key_id,
-        dbconstants.ID_SEPARATOR))
-    encoded_path = dbconstants.KIND_SEPARATOR.join(path)
-    encoded_path += dbconstants.KIND_SEPARATOR
-    
-    return prefix + dbconstants.KEY_DELIMITER + encoded_path
   
   @staticmethod
   def __decode_index_str(value, prop_value):
@@ -198,51 +150,6 @@ class DatastoreDistributed():
     decoded_value = sortable_pb_encoder.Decoder(
       array.array('B', str(value)))
     prop_value.Merge(decoded_value)
-
-  @staticmethod
-  def encode_index_pb(pb):
-    """ Returns an encoded protocol buffer.
-  
-    Args:
-        pb: The protocol buffer to encode.
-    Returns:
-        An encoded protocol buffer.
-    """
-    def _encode_path(pb):
-      """ Takes a protocol buffer and returns the encoded path. """
-      path = []
-      for e in pb.element_list():
-        if e.has_name():
-          key_id = e.name()
-        elif e.has_id():
-          key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-        path.append("{0}:{1}".format(e.type(), key_id))
-      val = dbconstants.KIND_SEPARATOR.join(path)
-      val += dbconstants.KIND_SEPARATOR
-      return val
-
-    if isinstance(pb, entity_pb.PropertyValue) and pb.has_uservalue():
-      userval = entity_pb.PropertyValue()
-      userval.mutable_uservalue().set_email(pb.uservalue().email())
-      userval.mutable_uservalue().set_auth_domain("")
-      userval.mutable_uservalue().set_gaiaid(0)
-      pb = userval
-
-    def remove_nulls(value):
-      """ Remove null values from a given string and byte stuff encode. """
-      return buffer(str(value).replace('\x01', '\x01\x02').replace('\x00', 
-        '\x01\x01'))
-
-    encoder = sortable_pb_encoder.Encoder()
-    pb.Output(encoder)
-
-    if isinstance(pb, entity_pb.PropertyValue):
-      value = encoder.buffer().tostring()
-      # We strip off null strings because it is our delimiter.
-      value = remove_nulls(value) 
-      return buffer(value)
-    elif isinstance(pb, entity_pb.Path):
-      return buffer(_encode_path(pb))
 
   @staticmethod
   def validate_app_id(app_id):
@@ -298,104 +205,6 @@ class DatastoreDistributed():
 
     return self._SEPARATOR.join([app_id, namespace])
 
-  @staticmethod
-  def get_index_key_from_params(params):
-    """Returns the index key from params.
-
-    Args:
-       params: a list of strings to be concatenated to form the key made of:
-              prefix, kind, property name, and path
-    Returns:
-       a string
-    Raises:
-       ValueError: if params are not of the correct cardinality
-    """
-    if len(params) != 5 and len(params) != 4: 
-      raise ValueError("Bad number of params")
-
-    if params[-1] is None:
-      # strip off the last None item
-      key = DatastoreDistributed._SEPARATOR.join(params[:-1]) + \
-        DatastoreDistributed._SEPARATOR
-    else:
-      key = DatastoreDistributed._SEPARATOR.join(params)
-    return key
-
-  @staticmethod
-  def get_index_kv_from_tuple(tuple_list, reverse=False):
-    """ Returns keys/value of indexes for a set of entities.
- 
-    Args: 
-       tuple_list: A list of tuples of prefix and pb entities
-       reverse: if these keys are for the descending table
-    Returns:
-       A list of keys and values of indexes
-    """
-    all_rows = []
-    for prefix, e in tuple_list:
-      for p in e.property_list():
-        val = str(DatastoreDistributed.encode_index_pb(p.value()))
-
-        if reverse:
-          val = helper_functions.reverse_lex(val)
-
-        params = [prefix, 
-                  DatastoreDistributed.get_entity_kind(e), 
-                  p.name(), 
-                  val, 
-                  str(DatastoreDistributed.encode_index_pb(e.key().path()))]
-
-        index_key = DatastoreDistributed.get_index_key_from_params(params)
-        p_vals = [index_key,
-                  buffer(prefix + DatastoreDistributed._SEPARATOR) + \
-                  DatastoreDistributed.encode_index_pb(e.key().path())]
-        all_rows.append(p_vals)
-    return tuple(ii for ii in all_rows)
-
-  @staticmethod
-  def get_composite_indexes_rows(entities, composite_indexes):
-    """ Get the composite indexes keys in the DB for the given entities.
-
-    Args:
-       entities: A list of EntityProto for which their indexes are to be 
-         deleted.
-       compsite_indexes: A list of datastore_pb.CompositeIndex.
-    Returns:
-      A list of keys.
-    """
-    if len(entities) == 0: 
-      return []
-
-    row_keys = []
-    for ent in entities:
-      for index_def in composite_indexes:
-        kind = DatastoreDistributed.get_entity_kind(ent.key())
-        if index_def.definition().entity_type() != kind:
-          continue
-        # Make sure the entity contains the required entities for the composite
-        # definition. 
-        prop_name_def_list = [index_prop.name() for index_prop in \
-          index_def.definition().property_list()]
-        all_prop_names_in_ent = [prop.name() for prop in \
-          ent.property_list()]
-
-        has_values = True 
-        for index_prop_name in prop_name_def_list:
-          if index_prop_name not in all_prop_names_in_ent:
-            has_values = False
-          # Special property name which does not show up in the list but 
-          # is a part of the key of the entity.
-          if index_prop_name == "__key__":
-            has_values = True
-        if not has_values:
-          continue
- 
-        composite_index_keys = DatastoreDistributed.get_composite_index_keys(
-          index_def, ent)  
-        row_keys.extend(composite_index_keys)
-
-    return row_keys
-
   def put_entities_txn(self, entities, txn_hash, app):
     """ Updates the transaction table.
 
@@ -414,7 +223,7 @@ class DatastoreDistributed():
       path = entity.key().path()
       root_key = self.get_root_key(app, namespace, path.element_list())
       txn = str(txn_hash[root_key]).zfill(ID_KEY_LENGTH)
-      encoded_path = str(self.encode_index_pb(path))
+      encoded_path = str(encode_index_pb(path))
       key = self._SEPARATOR.join([app, txn, namespace, encoded_path])
       txn_keys.append(key)
       txn_values[key] = {TRANSACTIONS_SCHEMA[0]: TxnActions.PUT,
@@ -429,26 +238,7 @@ class DatastoreDistributed():
       ttl=zktransaction.TX_TIMEOUT * 2
     )
 
-  @staticmethod
-  def get_ancestor_paths_from_ent_key(ent_key):
-    """ Get a list of key string for the ancestor portion of a composite key.
-    All subpaths are required.
 
-    Args:
-      ent_key: A string of the entire path of an entity.
-    Returns:
-      A list of strs of the path of the ancestor.
-    """
-    ancestor_list = []
-    tokens = str(ent_key).split(dbconstants.KIND_SEPARATOR)
-    # Strip off the empty placeholder and also do not include the last kind.
-    tokens = tokens[:-2]
-    for num_elements in range(0, len(tokens)):
-      ancestor = ""
-      for token in tokens[0:num_elements + 1]:
-        ancestor += token + dbconstants.KIND_SEPARATOR
-      ancestor_list.append(ancestor)
-    return ancestor_list
 
 
   @staticmethod
@@ -499,7 +289,7 @@ class DatastoreDistributed():
     definition = index.definition()
     app_id = clean_app_id(entity.key().app())
     name_space = entity.key().name_space()
-    ent_key = DatastoreDistributed.encode_index_pb(entity.key().path())
+    ent_key = encode_index_pb(entity.key().path())
     pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
       DatastoreDistributed._NAMESPACE_SEPARATOR, name_space, composite_id,
       DatastoreDistributed._SEPARATOR)
@@ -511,20 +301,19 @@ class DatastoreDistributed():
     value_dict = {}
     for prop in entity.property_list():
       value_dict[prop.name()] = \
-        str(DatastoreDistributed.encode_index_pb(prop.value()))
+        str(encode_index_pb(prop.value()))
 
     # Position list and filters are used if we're creating a composite
     # key for a cursor.
     if position_list:
       for indexvalue in position_list[0].indexvalue_list():
         value_dict[indexvalue.property()] = \
-          str(DatastoreDistributed.encode_index_pb(indexvalue.value()))
+          str(encode_index_pb(indexvalue.value()))
     if filters:
       for filt in filters:
         if filt.op() == datastore_pb.Query_Filter.EQUAL:
           value_dict[filt.property(0).name()] = \
-            str(DatastoreDistributed.encode_index_pb(
-              filt.property(0).value()))
+            str(encode_index_pb(filt.property(0).value()))
 
     index_value = ""
     for prop in definition.property_list():
@@ -548,109 +337,6 @@ class DatastoreDistributed():
       ent_key)
     return composite_key
   
-
-  @staticmethod
-  def get_composite_index_keys(index, entity):
-    """ Creates keys to the composite index table for a given entity.
-
-    Keys are built as such: 
-      app_id/ns/composite_id/ancestor/valuevaluevalue..../entity_key
-    Components explained:
-    ns: The namespace of the entity.
-    composite_id: The composite ID assigned to this index upon creation.
-    ancestor: The root ancestor path (only if the query this index is for 
-      has an ancestor)
-    value(s): The string representation of mulitiple properties.
-    entity_key: The entity key (full path) used as a means of having a unique
-      identifier. This prevents two entities with the same values from
-      colliding. 
-
-    Args:
-      index: A datastore_pb.CompositeIndex.
-      entity: A entity_pb.EntityProto.
-    Returns:
-      A list of strings representing keys to the composite table.
-    """
-    composite_id = index.id()
-    definition = index.definition()
-    app_id = clean_app_id(entity.key().app())
-    name_space = entity.key().name_space()
-    ent_key = DatastoreDistributed.encode_index_pb(entity.key().path())
-    pre_comp_index_key = "{0}{1}{2}{4}{3}{4}".format(app_id, 
-      DatastoreDistributed._NAMESPACE_SEPARATOR, name_space, composite_id,
-      DatastoreDistributed._SEPARATOR)
-    if definition.ancestor() == 1:
-      ancestor_list = DatastoreDistributed.get_ancestor_paths_from_ent_key(
-        ent_key)
-
-    property_list_names = [prop.name() for prop in entity.property_list()]
-    multivalue_dict = {}
-    for prop in entity.property_list():
-      if prop.name() not in property_list_names:
-        continue
-      value = str(DatastoreDistributed.encode_index_pb(prop.value()))
-
-      if prop.name() in multivalue_dict:
-        multivalue_dict[prop.name()].append(value)
-      else:
-        multivalue_dict[prop.name()] = [value]
-    # Build lists for which we'll get all combinations of indexes. 
-    lists_of_prop_list = []
-    for prop in definition.property_list():
-      # Check to make sure the entity has the required items. If not then we
-      # do not create an index for the composite index.
-      # The definition can also have a key as a part of the index, but this
-      # is not repeated.
-      if prop.name() == "__key__":
-        value = str(DatastoreDistributed.encode_index_pb(
-          entity.key().path()))
-        if prop.direction() == entity_pb.Index_Property.DESCENDING:
-          value = helper_functions.reverse_lex(value)
-        lists_of_prop_list.append([value])
-      elif prop.name() not in multivalue_dict:
-        return []
-      else:
-        my_list = multivalue_dict[prop.name()]
-        if prop.direction() == entity_pb.Index_Property.DESCENDING:
-          for index, item in enumerate(my_list):
-            my_list[index] = helper_functions.reverse_lex(item)
-        lists_of_prop_list.append(my_list)
-
-    # Get all combinations of the composite indexes.
-    all_combinations = []
-    if len(lists_of_prop_list) == 1:
-      for item in lists_of_prop_list[0]:
-        all_combinations.append([item])
-    elif len(lists_of_prop_list) > 1:
-      all_combinations = list(itertools.product(*lists_of_prop_list))
-
-    # We should throw an exception if the number of combinations is 
-    # more than 20000. We currently do not.
-    # https://developers.google.com/appengine/docs/python/datastore/
-    # #Python_Quotas_and_limits
-
-    all_keys = []
-    for combo in all_combinations:
-      index_value = ""
-      for prop_value in combo:
-        index_value += str(prop_value) + DatastoreDistributed._SEPARATOR
-         
-      # We append the ent key to have unique keys if entities happen
-      # to share the same index values (and ancestor).
-      if definition.ancestor() == 1:
-        for ancestor in ancestor_list:
-          pre_comp_key = pre_comp_index_key + "{0}{1}".format(ancestor,
-            DatastoreDistributed._SEPARATOR) 
-          composite_key = "{0}{1}{2}".format(pre_comp_key, index_value,
-            ent_key)
-          all_keys.append(composite_key)
-      else:
-        composite_key = "{0}{1}{2}".format(pre_comp_index_key, index_value,
-          ent_key)
-        all_keys.append(composite_key)
- 
-    return all_keys
-  
   def insert_composite_indexes(self, entities, composite_indexes):
     """ Creates composite indexes for a set of entities.
 
@@ -667,7 +353,7 @@ class DatastoreDistributed():
     for ent in entities:
       for index_def in composite_indexes:
         # Skip any indexes if the kind does not match.
-        kind = self.get_entity_kind(ent.key())
+        kind = get_entity_kind(ent.key())
         if index_def.definition().entity_type() != kind:
           continue
 
@@ -689,12 +375,11 @@ class DatastoreDistributed():
           continue
 
         # Get the composite index key.
-        composite_index_keys = DatastoreDistributed.get_composite_index_keys(
-          index_def, ent)  
+        composite_index_keys = get_composite_index_keys(index_def, ent)
         row_keys.extend(composite_index_keys)
 
         # Get the reference value for the composite table.
-        entity_key = str(self.encode_index_pb(ent.key().path()))
+        entity_key = str(encode_index_pb(ent.key().path()))
         prefix = self.get_table_prefix(ent.key())
         reference = "{0}{1}{2}".format(prefix, self._SEPARATOR,  entity_key)
         for composite_key in composite_index_keys:
@@ -848,14 +533,14 @@ class DatastoreDistributed():
     entity_keys = []
     for entity in entities:
       prefix = self.get_table_prefix(entity)
-      entity_keys.append(self.get_entity_key(prefix, entity.key().path()))
+      entity_keys.append(get_entity_key(prefix, entity.key().path()))
 
     current_values = self.datastore_batch.batch_get_entity(
       dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
     for entity in entities:
       prefix = self.get_table_prefix(entity)
-      entity_key = self.get_entity_key(prefix, entity.key().path())
+      entity_key = get_entity_key(prefix, entity.key().path())
       root_key = self.get_root_key_from_entity_key(entity_key)
       txn = txn_hash[root_key]
 
@@ -883,7 +568,7 @@ class DatastoreDistributed():
     entity_keys = []
     for key in keys:
       prefix = self.get_table_prefix(key)
-      entity_keys.append(self.get_entity_key(prefix, key.path()))
+      entity_keys.append(get_entity_key(prefix, key.path()))
 
     # Must fetch the entities to get the keys of indexes before deleting.
     current_values = self.datastore_batch.batch_get_entity(
@@ -920,12 +605,12 @@ class DatastoreDistributed():
       path = key.path()
       root_key = self.get_root_key(app, namespace, path.element_list())
       txn = str(txn_hash[root_key]).zfill(ID_KEY_LENGTH)
-      encoded_path = str(self.encode_index_pb(path))
+      encoded_path = str(encode_index_pb(path))
       txn_key = self._SEPARATOR.join([app, txn, namespace, encoded_path])
       txn_keys.append(txn_key)
 
       prefix = self.get_table_prefix(key)
-      entity_key = self.get_entity_key(prefix, key.path())
+      entity_key = get_entity_key(prefix, key.path())
       txn_values[txn_key] = {TRANSACTIONS_SCHEMA[0]: TxnActions.DELETE,
                              TRANSACTIONS_SCHEMA[1]: entity_key,
                              TRANSACTIONS_SCHEMA[2]: ''}
@@ -1195,7 +880,7 @@ class DatastoreDistributed():
     row_keys = []
     for key in key_list:
       self.validate_app_id(key.app())
-      index_key = str(self.encode_index_pb(key.path()))
+      index_key = str(encode_index_pb(key.path()))
       prefix = self.get_table_prefix(key)
       row_keys.append(self._SEPARATOR.join([prefix, index_key]))
     result = self.datastore_batch.batch_get_entity(
@@ -1307,8 +992,8 @@ class DatastoreDistributed():
       if prop.name() == '__key__':
         value = reference_property_to_reference(value.referencevalue())
         value = value.path()
-      filter_info.setdefault(prop.name(), []).append((filt.op(), 
-      self.encode_index_pb(value)))
+      filter_info.setdefault(prop.name(), []).\
+        append((filt.op(), encode_index_pb(value)))
     return filter_info
   
   def generate_order_info(self, orders):
@@ -1338,7 +1023,7 @@ class DatastoreDistributed():
         no longer has the requested property.
     """
     e = last_result
-    path = str(self.encode_index_pb(e.key().path()))
+    path = str(encode_index_pb(e.key().path()))
     last_result_key = self._SEPARATOR.join([prefix, path])
     if not prop_name and not order:
       return last_result_key
@@ -1361,15 +1046,15 @@ class DatastoreDistributed():
     val = None
     for p in plist:
       if p.name() == prop_name:
-        val = str(self.encode_index_pb(p.value()))
+        val = str(encode_index_pb(p.value()))
         break
     if val is None:
       raise dbconstants.AppScaleDBError('{} not in entity'.format(prop_name))
 
     if order == datastore_pb.Query_Order.DESCENDING:
       val = helper_functions.reverse_lex(val)        
-    params = [prefix, self.get_entity_kind(e), prop_name, val, path]
-    return self.get_index_key_from_params(params)
+    params = [prefix, get_entity_kind(e), prop_name, val, path]
+    return get_index_key_from_params(params)
 
   def is_zigzag_merge_join(self, query, filter_info, order_info):
     """ Checks to see if the current query can be executed as a zigzag
@@ -1583,8 +1268,7 @@ class DatastoreDistributed():
     """ 
     ancestor = query.ancestor()
     prefix = self.get_table_prefix(query)
-    path = buffer(prefix + self._SEPARATOR) + \
-      self.encode_index_pb(ancestor.path())
+    path = buffer(prefix + self._SEPARATOR) + encode_index_pb(ancestor.path())
     txn_id = 0
     if query.has_transaction():
       txn_id = query.transaction().handle()   
@@ -1640,8 +1324,7 @@ class DatastoreDistributed():
     """       
     ancestor = query.ancestor()
     prefix = self.get_table_prefix(query)
-    path = buffer(prefix + self._SEPARATOR) + \
-      self.encode_index_pb(ancestor.path())
+    path = buffer(prefix + self._SEPARATOR) + encode_index_pb(ancestor.path())
     txn_id = 0
     if query.has_transaction(): 
       txn_id = query.transaction().handle()   
@@ -1847,7 +1530,7 @@ class DatastoreDistributed():
     ancestor_filter = ""
     if query.has_ancestor():
       ancestor = query.ancestor()
-      ancestor_filter = self.encode_index_pb(ancestor.path())
+      ancestor_filter = encode_index_pb(ancestor.path())
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
     prefix = self.get_table_prefix(query)
@@ -1938,7 +1621,7 @@ class DatastoreDistributed():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       prefix = self.get_table_prefix(query)
-      startrow = self.get_kind_key(prefix, last_result.key().path())
+      startrow = get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
       if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
         start_inclusive = self._ENABLE_INCLUSIVITY
@@ -2233,7 +1916,7 @@ class DatastoreDistributed():
     """
     ancestor_filter = None
     if ancestor:
-      ancestor_filter = str(self.encode_index_pb(ancestor.path()))
+      ancestor_filter = str(encode_index_pb(ancestor.path()))
 
     end_inclusive = True
     start_inclusive = True
@@ -2267,10 +1950,10 @@ class DatastoreDistributed():
     if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
       if not startrow:
         params = [prefix, kind, property_name, ancestor_filter]
-        startrow = self.get_index_key_from_params(params)
+        startrow = get_index_key_from_params(params)
       if not endrow:
         params = [prefix, kind, property_name, self._TERM_STRING, None]
-        endrow = self.get_index_key_from_params(params)
+        endrow = get_index_key_from_params(params)
       if force_start_key_exclusive:
         start_inclusive = False
       result = self.datastore_batch.range_query(table_name, 
@@ -2338,11 +2021,11 @@ class DatastoreDistributed():
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]
-        startrow = self.get_index_key_from_params(params)
+        startrow = get_index_key_from_params(params)
         start_inclusive = self._DISABLE_INCLUSIVITY
       if not endrow:
         params = [prefix, kind, property_name, end_value]
-        endrow = self.get_index_key_from_params(params)
+        endrow = get_index_key_from_params(params)
 
       if force_start_key_exclusive:
         start_inclusive = False
@@ -2395,13 +2078,13 @@ class DatastoreDistributed():
         end_inclusive = self._DISABLE_INCLUSIVITY
         params = [prefix, kind, property_name, value1 + self._SEPARATOR]
         if not startrow:
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
         else:
           start_inclusive = self._DISABLE_INCLUSIVITY
         if not endrow:
           params = [prefix, kind, property_name, value1 + \
             self._SEPARATOR + self._TERM_STRING]
-          endrow = self.get_index_key_from_params(params)
+          endrow = get_index_key_from_params(params)
 
         ret = self.datastore_batch.range_query(
           table_name,
@@ -2433,10 +2116,10 @@ class DatastoreDistributed():
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:
           params = [prefix, kind, property_name, value1 + self._SEPARATOR + \
                     self._TERM_STRING]
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value1 ]
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
         else:
           raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
 
@@ -2445,12 +2128,12 @@ class DatastoreDistributed():
           end_inclusive = self._ENABLE_INCLUSIVITY
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN:    
           params = [prefix, kind, property_name, value2]
-          endrow = self.get_index_key_from_params(params)
+          endrow = get_index_key_from_params(params)
           end_inclusive = self._DISABLE_INCLUSIVITY
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value2 + self._SEPARATOR + \
                     self._TERM_STRING]
-          endrow = self.get_index_key_from_params(params)
+          endrow = get_index_key_from_params(params)
           end_inclusive = self._ENABLE_INCLUSIVITY
         else:
           raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
@@ -2464,12 +2147,12 @@ class DatastoreDistributed():
           end_inclusive = self._ENABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
           params = [prefix, kind, property_name, value1]
-          endrow = self.get_index_key_from_params(params)
+          endrow = get_index_key_from_params(params)
           end_inclusive = self._DISABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value1 + self._SEPARATOR + \
                     self._TERM_STRING]
-          endrow = self.get_index_key_from_params(params)
+          endrow = get_index_key_from_params(params)
           end_inclusive = self._ENABLE_INCLUSIVITY
 
         if startrow:
@@ -2477,10 +2160,10 @@ class DatastoreDistributed():
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN:
           params = [prefix, kind, property_name, value2 + self._SEPARATOR + \
                     self._TERM_STRING]
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value2]
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
         
       if force_start_key_exclusive:
         start_inclusive = False
@@ -2564,15 +2247,15 @@ class DatastoreDistributed():
           value = str(filter_ops[0][1])
           reference_key = start_key.split(self._SEPARATOR)[-1]
           params = [prefix, kind, prop_name, value, reference_key]
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
         elif query.has_compiled_cursor() and \
           query.compiled_cursor().position_size():
           cursor = appscale_stub_util.ListCursor(query)
           last_result = cursor._GetLastResult()
           value = str(filter_ops[0][1])
-          reference_key = str(self.encode_index_pb(last_result.key().path()))
+          reference_key = str(encode_index_pb(last_result.key().path()))
           params = [prefix, kind, prop_name, value, reference_key]
-          startrow = self.get_index_key_from_params(params)
+          startrow = get_index_key_from_params(params)
 
         # We use equality filters only so order ops should always be ASC. 
         order_ops = []
@@ -2735,7 +2418,7 @@ class DatastoreDistributed():
       self._NAMESPACE_SEPARATOR, name_space, index_id, self._SEPARATOR)
 
     if definition.ancestor() == 1:
-      ancestor_str = self.encode_index_pb(query.ancestor().path())
+      ancestor_str = encode_index_pb(query.ancestor().path())
       pre_comp_index_key += "{0}{1}".format(ancestor_str, self._SEPARATOR) 
 
     value = ''
@@ -3531,7 +3214,7 @@ class DatastoreDistributed():
       elif operation == TxnActions.PUT:
         entity = entity_pb.EntityProto(txn_action[TRANSACTIONS_SCHEMA[1]])
         prefix = self.get_table_prefix(entity)
-        entity_key = self.get_entity_key(prefix, entity.key().path())
+        entity_key = get_entity_key(prefix, entity.key().path())
         txn_dict[txn_key] = {'entity': entity, 'key': entity_key}
         entity_keys.append(entity_key)
 

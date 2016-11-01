@@ -16,12 +16,18 @@ from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
 from .. import dbconstants
 from .. import helper_functions
-from ..datastore_distributed import DatastoreDistributed
 from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
 from ..unpackaged import APPSCALE_LIB_DIR
 from ..utils import clean_app_id
+from ..utils import encode_index_pb
+from ..utils import get_composite_index_keys
+from ..utils import get_composite_indexes_rows
+from ..utils import get_entity_key
+from ..utils import get_entity_kind
+from ..utils import get_index_kv_from_tuple
+from ..utils import get_kind_key
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
@@ -80,36 +86,35 @@ def deletions_for_entity(entity, composite_indices=()):
   Returns:
     A list of dictionaries representing mutation operations.
   """
-  ds_static = DatastoreDistributed
   deletions = []
   app_id = clean_app_id(entity.key().app())
   namespace = entity.key().name_space()
   prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])
 
-  asc_rows = ds_static.get_index_kv_from_tuple([(prefix, entity)])
+  asc_rows = get_index_kv_from_tuple([(prefix, entity)])
   for entry in asc_rows:
     deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': entry[0],
                       'operation': TxnActions.DELETE})
 
-  dsc_rows = ds_static.get_index_kv_from_tuple(
+  dsc_rows = get_index_kv_from_tuple(
     [(prefix, entity)], reverse=True)
   for entry in dsc_rows:
     deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': entry[0],
                       'operation': TxnActions.DELETE})
 
-  for key in ds_static.get_composite_indexes_rows([entity], composite_indices):
+  for key in get_composite_indexes_rows([entity], composite_indices):
     deletions.append({'table': dbconstants.COMPOSITE_TABLE,
                       'key': key,
                       'operation': TxnActions.DELETE})
 
-  entity_key = ds_static.get_entity_key(prefix, entity.key().path())
+  entity_key = get_entity_key(prefix, entity.key().path())
   deletions.append({'table': dbconstants.APP_ENTITY_TABLE,
                     'key': entity_key,
                     'operation': TxnActions.DELETE})
 
-  kind_key = ds_static.get_kind_key(prefix, entity.key().path())
+  kind_key = get_kind_key(prefix, entity.key().path())
   deletions.append({'table': dbconstants.APP_KIND_TABLE,
                     'key': kind_key,
                     'operation': TxnActions.DELETE})
@@ -129,12 +134,11 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
   Returns:
     A list of dictionaries representing mutation operations.
   """
-  ds_static = DatastoreDistributed
   deletions = []
   app_id = clean_app_id(old_entity.key().app())
   namespace = old_entity.key().name_space()
-  kind = ds_static.get_entity_kind(old_entity.key())
-  entity_key = str(ds_static.encode_index_pb(old_entity.key().path()))
+  kind = get_entity_kind(old_entity.key())
+  entity_key = str(encode_index_pb(old_entity.key().path()))
 
   new_props = {}
   for prop in new_entity.property_list():
@@ -151,7 +155,7 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
       changed_props[prop.name()] = []
     changed_props[prop.name()].append(prop)
 
-    value = str(ds_static.encode_index_pb(prop.value()))
+    value = str(encode_index_pb(prop.value()))
 
     key = dbconstants.KEY_DELIMITER.join(
       [app_id, namespace, kind, prop.name(), value, entity_key])
@@ -176,8 +180,8 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
     if index_props.isdisjoint(changed_prop_names):
       continue
 
-    old_entries = set(ds_static.get_composite_index_keys(index, old_entity))
-    new_entries = set(ds_static.get_composite_index_keys(index, new_entity))
+    old_entries = set(get_composite_index_keys(index, old_entity))
+    new_entries = set(get_composite_index_keys(index, new_entity))
     for entry in (old_entries - new_entries):
       deletions.append({'table': dbconstants.COMPOSITE_TABLE,
                         'key': entry,
@@ -198,7 +202,6 @@ def mutations_for_entity(entity, txn, current_value=None,
   Returns:
     A list of dictionaries representing mutations.
   """
-  ds_static = DatastoreDistributed
   mutations = []
   if current_value is not None:
     mutations.extend(
@@ -206,7 +209,7 @@ def mutations_for_entity(entity, txn, current_value=None,
 
   app_id = clean_app_id(entity.key().app())
   namespace = entity.key().name_space()
-  encoded_path = str(ds_static.encode_index_pb(entity.key().path()))
+  encoded_path = str(encode_index_pb(entity.key().path()))
   prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])
   entity_key = dbconstants.KEY_DELIMITER.join([prefix, encoded_path])
   entity_value = {dbconstants.APP_ENTITY_SCHEMA[0]: entity.Encode(),
@@ -218,28 +221,27 @@ def mutations_for_entity(entity, txn, current_value=None,
 
   reference_value = {'reference': entity_key}
 
-  kind_key = ds_static.get_kind_key(prefix, entity.key().path())
+  kind_key = get_kind_key(prefix, entity.key().path())
   mutations.append({'table': dbconstants.APP_KIND_TABLE,
                     'key': kind_key,
                     'operation': TxnActions.PUT,
                     'values': reference_value})
 
-  asc_rows = ds_static.get_index_kv_from_tuple([(prefix, entity)])
+  asc_rows = get_index_kv_from_tuple([(prefix, entity)])
   for entry in asc_rows:
     mutations.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': entry[0],
                       'operation': TxnActions.PUT,
                       'values': reference_value})
 
-  dsc_rows = ds_static.get_index_kv_from_tuple(
-    [(prefix, entity)], reverse=True)
+  dsc_rows = get_index_kv_from_tuple([(prefix, entity)], reverse=True)
   for entry in dsc_rows:
     mutations.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': entry[0],
                       'operation': TxnActions.PUT,
                       'values': reference_value})
 
-  for key in ds_static.get_composite_indexes_rows([entity], composite_indices):
+  for key in get_composite_indexes_rows([entity], composite_indices):
     mutations.append({'table': dbconstants.COMPOSITE_TABLE,
                       'key': key,
                       'operation': TxnActions.PUT,
