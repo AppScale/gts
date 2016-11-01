@@ -3570,7 +3570,7 @@ class Djinn
     sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
 
     Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
+    layout_script = "/usr/local/bin/appscale-data-layout"
     unless system("#{layout_script} --db-type cassandra > /dev/null 2>&1")
       HelperFunctions.log_and_crash(
         'Unexpected data layout version. Please run "appscale upgrade".')
@@ -3824,10 +3824,9 @@ class Djinn
     end
 
     soap_script = "/usr/local/bin/appscale-uaserver"
-    start_cmd = [#{soap_script}",
-            "-t #{table}"].join(' ')
+    start_cmd = "#{soap_script} -t #{table}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{soap_script} #{PYTHON27}"
+          "#{soap_script} /usr/bin/python"
     port = UserAppClient::SERVER_PORT
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, [port], env_vars,

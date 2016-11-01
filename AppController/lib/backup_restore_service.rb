@@ -17,7 +17,7 @@ module BackupRecoveryService
     bk_service = self.scriptname()
     start_cmd = "#{bk_service}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{bk_service} /usr/bin/python2"
+          "#{bk_service} /usr/bin/python"
     MonitInterface.start(:backup_recovery_service, start_cmd, stop_cmd,
                          [BR_PORT], {}, start_cmd, nil, nil, nil)
   end

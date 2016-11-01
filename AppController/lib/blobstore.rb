@@ -28,7 +28,7 @@ module BlobServer
       "-p #{self::SERVER_PORT}"
     ].join(' ')
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-      "#{self.scriptname} /usr/bin/python2"
+      "#{self.scriptname} /usr/bin/python"
 
     MonitInterface.start(:blobstore, start_cmd, stop_cmd, [self::SERVER_PORT],
                          nil, start_cmd, nil, nil, nil)
