@@ -740,22 +740,23 @@ class AppDashboardData():
     try:
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-        LOOKUP_DICT = self.build_dict(email=email)
         try:
           temp_dict = json.loads(values)
         except TypeError as err:
           #base admin template
           default_value = '''{
-            "nav":["app_management","appscale_management","debugging_monitoring"],
+            "nav":["app_management", "appscale_management",
+            "debugging_monitoring"],
             "panel":["cloud_stats","database_stats","memcache_stats"]
             }'''
           temp_dict = json.loads(default_value)
+        LOOKUP_DICT = self.build_dict(email=email)
         temp_dict['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
-                            temp_dict['nav'] if
+                            temp_dict.get('nav') if
                             key in LOOKUP_DICT]
 
         temp_dict['panel'] = [{key: LOOKUP_DICT.get(key)} for key in
-                              temp_dict['panel'] if
+                              temp_dict.get('panel') if
                               key in LOOKUP_DICT]
         user_info.dash_layout_settings = temp_dict
         user_info.put()
@@ -785,11 +786,24 @@ class AppDashboardData():
           if user_info.dash_layout_settings:
             LOOKUP_DICT = self.build_dict(email=email)
             values = user_info.dash_layout_settings
-            values['nav'] = [{key: LOOKUP_DICT.get(key)} for key_dict in
-                             values['nav'] for key in key_dict if
-                             key in LOOKUP_DICT]
+            default_nav = ["app_management","appscale_management",
+                           "debugging_monitoring"]
+
+            nav_list=[]
+            for key_dict in values.get('nav'):
+              for temp_key in key_dict:
+                nav_list.append(temp_key)
+
+            print(nav_list)
+            if set(nav_list)!=set(default_nav):
+              for key in default_nav:
+                if nav_list.count(key)==0:
+                  nav_list.append(key)
+            values['nav'] = [{key: LOOKUP_DICT.get(key)} for key in
+                                nav_list if
+                                key in LOOKUP_DICT]
             values['panel'] = [{key: LOOKUP_DICT.get(key)} for key_dict in
-                               values['panel'] for key in key_dict if
+                               values.get('panel') for key in key_dict if
                                key in LOOKUP_DICT]
             user_info.dash_layout_settings = values
             user_info.put()
