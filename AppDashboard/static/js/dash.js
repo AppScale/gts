@@ -6,6 +6,7 @@ $(document).ready(function(){
         placeholder: "ui-state-highlight",
         update: function (event,ui) {
             $("#save-layout").html("Save Current Layout");
+            $("#reset-layout").html("Reset Current Layout");
         }
     });
 
@@ -31,6 +32,8 @@ $(document).ready(function(){
             var offset = $(newPanelID).offset();
             $("html, body").animate({scrollTop:offset.top});
         }
+        $("#save-layout").html("Save Current Layout");
+        $("#reset-layout").html("Reset Current Layout");
     });
 
     /*save layout functionality*/
@@ -63,7 +66,15 @@ $(document).ready(function(){
     $("#reset-layout").click(function() {
         $.ajax({
             method:"post",
-            url:"/ajax/reset/layout"
+            url:"/ajax/reset/layout",
+            success: function(result) {
+                if(result) {
+                    $("#reset-layout").html("Reset");
+                }
+            },
+            error: function (result) {
+                $("#reset-layout").html("Try Again");
+            }
         })
     })
 });
