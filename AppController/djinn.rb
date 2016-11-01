@@ -3359,9 +3359,8 @@ class Djinn
     my_key_loc = "#{my_key_dir}/#{keypath}"
     Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
     FileUtils.mkdir_p(my_key_dir)
-    Djinn.log_run("cp #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
     Djinn.log_run("chmod 600 #{APPSCALE_CONFIG_DIR}/ssh.key")
-    Djinn.log_run("chmod 600 #{my_key_loc}")
+    Djinn.log_run("cp -p #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
 
     # AWS and Euca need some evironmental variables.
     if ["ec2", "euca"].include?(@options['infrastructure'])
@@ -4032,11 +4031,9 @@ class Djinn
 
     cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
     make_dir = "mkdir -p #{cloud_keys_dir}"
-    change_permissions = "chmod 600 #{APPSCALE_CONFIG_DIR}/ssh.key}"
 
     HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
     HelperFunctions.scp_file(ssh_key, "#{APPSCALE_CONFIG_DIR}/ssh.key", ip, ssh_key)
-    HelperFunctions.run_remote_command(ip, change_permissions, ssh_key, NO_OUTPUT)
 
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
