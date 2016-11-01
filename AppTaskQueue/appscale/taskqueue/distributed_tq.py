@@ -13,7 +13,6 @@ import sys
 import time
 import tq_lib
 
-from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
@@ -185,8 +184,12 @@ class DistributedTaskQueue():
   # A dict that tells celery to run tasks even though we are running as root.
   CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
 
-  def __init__(self):
-    """ DistributedTaskQueue Constructor. """
+  def __init__(self, db_access):
+    """ DistributedTaskQueue Constructor.
+
+    Args:
+      db_access: A DatastoreProxy object.
+    """
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
@@ -203,7 +206,7 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
-    self.db_access = DatastoreProxy()
+    self.db_access = db_access
 
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False

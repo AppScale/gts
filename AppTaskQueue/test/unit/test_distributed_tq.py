@@ -5,7 +5,6 @@ import os
 import sys
 import unittest
 
-from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue.distributed_tq import DistributedTaskQueue
 from appscale.taskqueue.tq_config import TaskQueueConfig
 from flexmock import flexmock
@@ -67,9 +66,9 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(TaskQueueConfig).should_receive("load_queues_from_file")
     flexmock(TaskQueueConfig).should_receive("create_celery_worker_scripts")
     flexmock(TaskQueueConfig).should_receive("create_celery_file")
-    flexmock(DatastoreProxy).should_receive('__init__')
 
-    dtq = DistributedTaskQueue()
+    db_access = flexmock()
+    dtq = DistributedTaskQueue(db_access)
 
     json_request = {}
     json_request = json.dumps(json_request)
@@ -85,12 +84,14 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
     json_request = {'app_id':'my-app'}
     json_request = json.dumps(json_request)
+    print(dtq.start_worker(json_request))
     assert 'true' in dtq.start_worker(json_request)
 
     flexmock(monit_interface).should_receive('start').and_return(True)
   
     json_request = {'app_id':'my-app'}
     json_request = json.dumps(json_request)
+    print(dtq.start_worker(json_request))
     assert 'false' in dtq.start_worker(json_request)
 
   def test_stop_worker(self):
@@ -101,9 +102,9 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(file_io).should_receive("read")\
       .and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
 
-    flexmock(DatastoreProxy).should_receive('__init__')
+    db_access = flexmock()
+    dtq = DistributedTaskQueue(db_access)
 
-    dtq = DistributedTaskQueue()
     json_request = {'app_id': 'test_app'}
     response = dtq.stop_worker(json.dumps(json_request))
     self.assertTrue(json.loads(response)['error'])

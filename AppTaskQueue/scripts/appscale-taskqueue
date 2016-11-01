@@ -10,6 +10,7 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue import distributed_tq
 from appscale.taskqueue.rest_api import RESTLease
 from appscale.taskqueue.rest_api import RESTQueue
@@ -212,7 +213,9 @@ class MainHandler(tornado.web.RequestHandler):
 def main():
   """ Main function which initializes and starts the tornado server. """
   global task_queue
-  task_queue = distributed_tq.DistributedTaskQueue()
+
+  db_access = DatastoreProxy()
+  task_queue = distributed_tq.DistributedTaskQueue(db_access)
   handlers = [
     # Takes JSON requests from AppController.
     (r"/startworker", StartWorkerHandler),
