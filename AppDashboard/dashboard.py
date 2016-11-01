@@ -1268,7 +1268,14 @@ class AjaxResetLayoutSettings(AppDashboard):
 
   def post(self):
     """ sets the dashboard layout settings """
-    self.dstore.set_dash_layout_settings()
+    try:
+      self.dstore.set_dash_layout_settings()
+      self.response.set_status(200)
+      self.response.out.write("Layout Reset")
+    except Exception as err:
+      logging.exception(err)
+      self.response.set_status(500)
+      self.response.out.write("Try Again")
 
 # Main Dispatcher
 dashboard_pages = [
