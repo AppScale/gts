@@ -590,8 +590,11 @@ class DistributedTaskQueue():
           task_info['id'] = add_request.task_name()
         if add_request.has_tag():
           task_info['tag'] = add_request.tag()
-        queue.add_task(Task(task_info))
+
+        new_task = Task(task_info)
+        queue.add_task(new_task)
         task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+        task_result.set_chosen_task_name(new_task.id)
         continue
 
       result = tq_lib.verify_task_queue_add_request(add_request.app_id(),
