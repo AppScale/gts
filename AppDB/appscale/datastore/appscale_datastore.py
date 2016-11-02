@@ -1,44 +1,29 @@
 #!/usr/bin/python
 # See LICENSE file
 
-import imp
+import appscale.datastore
+import importlib
 import os
-import sys
-
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-import constants 
+import pkgutil
 
 DB_ERROR = "DB_ERROR:"
 
 ERROR_CODES = [DB_ERROR]
 
-DATASTORE_DIR= "%s/AppDB" % constants.APPSCALE_HOME
-
 
 class DatastoreFactory:
   @classmethod
   def getDatastore(cls, d_type):
-    database_env_dir = '{}/{}_env'.format(DATASTORE_DIR, d_type)
-    sys.path.append(database_env_dir)
-
-    module_name = 'py_{}'.format(d_type)
-    handle, path, description = imp.find_module(module_name)
-
-    try:
-      db_module = imp.load_module(module_name, handle, path, description)
-      datastore = db_module.DatastoreProxy()
-    finally:
-      if handle:
-        handle.close()
-
-    return datastore
+    db_module = importlib.import_module(
+      'appscale.datastore.{0}_env.py_{0}'.format(d_type))
+    return db_module.DatastoreProxy()
 
   @classmethod
   def valid_datastores(cls):
-    return [entry.replace('_env', '') for entry in
-            os.listdir(DATASTORE_DIR) if entry.endswith('_env')]
+    datastore_package_dir = os.path.dirname(appscale.datastore.__file__)
+    return [pkg.replace('_env', '') for _, pkg, ispkg
+            in pkgutil.iter_modules([datastore_package_dir])
+            if ispkg and pkg.endswith('_env')]
 
   @classmethod
   def error_codes(cls):
