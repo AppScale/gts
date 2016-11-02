@@ -911,20 +911,54 @@ class CronPage(AppDashboard):
         else:
             apps_user_is_admin_on = self.helper.get_owned_apps()
 
-        import pwd
+        from crontab import CronTab
+        import urllib
 
         mail_to = []
-        cron_lines = []
+        cron_jobs = []
         for app_id in apps_user_is_admin_on:
             cron_filename = self.CRON_TEMPLATE.format(app_id=app_id)
-            with open(cron_filename, "r") as inp:
-                cron_lines = inp.readlines()
-                mail_to, cron_lines = cron_lines[0], cron_lines[1:]
+            system_cron = CronTab(tabfile=cron_filename, user=False)
+            for job in system_cron:
+                query_params = {"command": job.command}
+                cron_jobs.append(
+                    {"command": job.command,
+                     "comment": job.comment,
+                     "frequency": job.description(),
+                     "url_command": "/cron/run?" + urllib.urlencode(query_params)}
+                )
 
         self.render_page(page='cron', template_file=self.TEMPLATE, values={
             'mail_to': mail_to,
-            'cron_lines': cron_lines
+            'cron_jobs': cron_jobs
         })
+
+
+class CronRun(AppDashboard):
+    """ Exposes a single GET route that cloud administrators can access to
+    download AppScale-generated logs.
+    """
+    # The location where the template file can be found that waits for logs
+    # to become available before redirecting to it.
+    def get(self):
+        """ Instructs the AppController to collect logs across all machines, place
+        it in this app's static file directory, and renders a page that will wait
+        for the logs to become available before downloading it.
+        """
+        import urllib
+
+        command = self.request.get("command")
+        command = urllib.unquote(command)
+        url = None
+        for part in command.split("http://"):
+            if "_admin" in part:
+                url = part.split("2>&1")[0].strip('"').strip()
+                break
+        logging.info(url)
+        if not url:
+            return
+        response = urllib.urlopen("http://" + url)
+        logging.info(response.read())
 
 
 class AppConsolePage(AppDashboard):
@@ -1193,6 +1227,7 @@ dashboard_pages = [
   ('/logs/(.+)/(.+)', LogServiceHostPage),
   ('/logs/(.+)', LogServicePage),
   ('/cron', CronPage),
+  ('/cron/run', CronRun),
   ('/gather-logs', LogDownloader),
   ('/groomer', RunGroomer),
   ('/change-password', ChangePasswordPage)

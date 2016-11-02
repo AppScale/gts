@@ -1,5 +1,9 @@
 <!-- FILE:templates/cron/cron.html -->
 <!--Body content-->
+<style>
+   table {border-collapse:collapse; table-layout:fixed; width:500px;}
+   table td {border:solid 5px #fab; width:1000px; word-wrap:break-word; border-color:gray}
+</style>
 <div id="content">
     <div class="heading">
         <h3>Cron viewer</h3>
@@ -8,9 +12,17 @@
         <div class="page-header">
             <h1>View cron tasks:</h1>
             <table>
-                {% for line in cron_lines %}
+                <tr>
+                    <th>Cron job</th>
+                    <th>Description</th>
+                    <th>Frequency</th>
+                </tr>
+                {% for cron_job in cron_jobs%}
                     <tr>
-                        <td>{{line}}</td>
+                        <td id="command">{{cron_job['command']}}</td>
+                        <td>{{cron_job['comment']}}</td>
+                        <td>{{cron_job['frequency']}}</td>
+                        <td><a class="btn btn-large" href="/cron/run?command={{cron_job['url_command']}}">Run</a></td>
                     </tr>
                 {% endfor %}
             </table>
