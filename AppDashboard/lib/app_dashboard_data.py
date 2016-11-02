@@ -212,7 +212,10 @@ class AppDashboardData():
           "monit":{"title":"Monit",
                    "link":self.get_monit_url()},
           "taskqueue":{"title":"TaskQueue",
-                       "link":self.get_flower_url()}
+                       "link":self.get_flower_url()},
+          "app_console":{"title":"App Console",
+                         "template":"apps/console.html",
+                       "link":"/apps/"}
         }
         if(user_info.can_upload_apps):
           LOOKUP_DICT["app_management"] = {"App Management":
@@ -234,7 +237,9 @@ class AppDashboardData():
                                                  {"taskqueue": LOOKUP_DICT[
                                                    "taskqueue"]},
                                                  {"logging": LOOKUP_DICT[
-                                                   "logging"]}]}
+                                                   "logging"]},
+                                                 {"app_console": LOOKUP_DICT[
+                                                   "app_console"]}]}
         return LOOKUP_DICT
     except Exception as err:
       logging.exception(err)
