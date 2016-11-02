@@ -136,7 +136,7 @@ def enable_sandbox(config):
   stubs.FakeFile.set_allowed_paths(
       config.application_root,
       python_lib_paths[1:] +
-      path_override_hook.extra_accessible_paths + ['/etc/cron.d/']
+      path_override_hook.extra_accessible_paths + ['/etc/cron.d/', '/var/apps/']
   )
   stubs.FakeFile.set_skip_files(config.skip_files)
   stubs.FakeFile.set_static_files(config.static_files)

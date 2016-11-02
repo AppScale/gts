@@ -899,6 +899,7 @@ class CronPage(AppDashboard):
     # to become available before redirecting to it.
     TEMPLATE = "cron/cron.html"
     CRON_TEMPLATE = "/etc/cron.d/appscale-{app_id}"
+    PATH = "/cron"
 
     def get(self):
         """ Instructs the AppController to collect logs across all machines, place
@@ -958,7 +959,7 @@ class CronRun(AppDashboard):
         if not url:
             return
         response = urllib.urlopen("http://" + url)
-        logging.info(response.read())
+        self.redirect(CronPage.PATH, response)
 
 
 class AppConsolePage(AppDashboard):
