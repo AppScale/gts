@@ -187,7 +187,7 @@ class AppDashboardData():
                          "link":"/status/cloud",
                          "is_admin_panel":True,
                          "template":"status/cloud.html"},
-          "database_stats":{"title":"Database & Application Information",
+          "database_stats":{"title":"Database Information",
                             "is_admin_panel":True,
                             "template":"apps/database.html"},
           "memcache_stats":{"title":"Global Memcache Statistics",
@@ -213,7 +213,7 @@ class AppDashboardData():
                    "link":self.get_monit_url()},
           "taskqueue":{"title":"TaskQueue",
                        "link":self.get_flower_url()},
-          "app_console":{"title":"App Console",
+          "app_console":{"title":"Application Statistics",
                          "template":"apps/console.html",
                        "link":"/apps/"}
         }
@@ -752,7 +752,8 @@ class AppDashboardData():
           default_value = '''{
             "nav":["app_management", "appscale_management",
             "debugging_monitoring"],
-            "panel":["cloud_stats","database_stats","memcache_stats"]
+            "panel":["app_console","upload_app","cloud_stats","database_stats",
+            "memcache_stats"]
             }'''
           temp_dict = json.loads(default_value)
         LOOKUP_DICT = self.build_dict(email=email)
