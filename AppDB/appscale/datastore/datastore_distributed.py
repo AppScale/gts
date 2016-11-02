@@ -11,7 +11,6 @@ import helper_functions
 
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
-from .dbconstants import READ_ONLY
 from .dbconstants import TRANSACTIONS_SCHEMA
 from .dbconstants import TxnActions
 from .cassandra_env import cassandra_interface
@@ -3264,12 +3263,6 @@ class DatastoreDistributed():
     commitres_pb = datastore_pb.CommitResponse()
     transaction_pb = datastore_pb.Transaction(http_request_data)
     txn_id = transaction_pb.handle()
-
-    if READ_ONLY:
-      self.logger.warning('Unable to commit in read-only mode: {}'.
-        format(transaction_pb))
-      return (commitres_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
-        'Datastore is in read-only mode.')
 
     try:
       self.apply_txn_changes(app_id, txn_id)

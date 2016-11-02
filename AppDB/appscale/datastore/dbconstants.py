@@ -32,10 +32,6 @@ ID_SEPARATOR = ":"
 # The maximum number of composite indexes an application can have.
 MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
 
-# Determines whether or not to allow datastore writes. Note: After enabling,
-# datastore processes must be restarted and the groomer must be stopped.
-READ_ONLY = False
-
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
 

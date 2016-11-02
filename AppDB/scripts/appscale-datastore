@@ -43,6 +43,10 @@ datastore_access = None
 # ZooKeeper global variable for locking
 zookeeper = None
 
+# Determines whether or not to allow datastore writes. Note: After enabling,
+# datastore processes must be restarted and the groomer must be stopped.
+READ_ONLY = False
+
 # Global stats.
 STATS = {}
 
@@ -279,6 +283,15 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded protocol buffer commit response.
     """
     global datastore_access
+
+    if READ_ONLY:
+      commitres_pb = datastore_pb.CommitResponse()
+      transaction_pb = datastore_pb.Transaction(http_request_data)
+      logger.warning('Unable to commit in read-only mode: {}'.
+        format(transaction_pb))
+      return (commitres_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
     return datastore_access.commit_transaction(app_id, http_request_data)
 
   def rollback_transaction_request(self, app_id, http_request_data):
