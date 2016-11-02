@@ -1,0 +1,19 @@
+<!-- FILE:templates/cron/cron.html -->
+<!--Body content-->
+<div id="content">
+    <div class="heading">
+        <h3>Cron viewer</h3>
+    </div>
+    <div class="row-fluid">
+        <div class="page-header">
+            <h1>View cron tasks:</h1>
+            <table>
+                {% for line in cron_lines %}
+                    <tr>
+                        <td>{{line}}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div><!--close header-->
+    </div> <!-- end row fluid -->
+</div>

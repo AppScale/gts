@@ -44,7 +44,8 @@ case "$1" in
         installphp54
         installappserverjava
         installtornado
-        installpycrypto 
+        installcrontab
+        installpycrypto
         installflexmock
         installzookeeper
         postinstallzookeeper

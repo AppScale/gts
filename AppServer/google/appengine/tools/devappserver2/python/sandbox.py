@@ -20,6 +20,7 @@
 import __builtin__
 import imp
 import os
+import pwd
 import re
 import sys
 import traceback
@@ -49,6 +50,8 @@ NAME_TO_CMODULE_WHITELIST_REGEX = {
     'pycrypto': re.compile(r'Crypto(\..*)?$'),
     'lxml': re.compile(r'lxml(\..*)?$'),
     'PIL': re.compile(r'(PIL(\..*)?|_imaging|_imagingft|_imagingmath)$'),
+    'crontab': re.compile(r'crontab(\..*)?$'),
+    'pwd': re.compile(r'pwd(\..*)?$'),
 }
 
 # Maps App Engine third-party library names to the Python package name for
@@ -112,7 +115,7 @@ def enable_sandbox(config):
     config: The runtime_config_pb2.Config to use to configure the sandbox.
   """
 
-  modules = [os, traceback, google, protorpc]
+  modules = [os, traceback, google, protorpc, pwd]
   c_module = _find_shared_object_c_module()
   if c_module:
     modules.append(c_module)
@@ -122,18 +125,22 @@ def enable_sandbox(config):
   for path in sys.path:
     if any(module_path.startswith(path) for module_path in module_paths):
       python_lib_paths.append(path)
+
   python_lib_paths.extend(_enable_libraries(config.libraries))
   for name in list(sys.modules):
     if not _should_keep_module(name):
       _removed_modules.append(sys.modules[name])
-      del sys.modules[name]
+      # del sys.modules[name]
+
   path_override_hook = PathOverrideImportHook(
       set(_THIRD_PARTY_LIBRARY_NAME_OVERRIDES.get(lib.name, lib.name)
           for lib in config.libraries).intersection(_C_MODULES))
   python_lib_paths.extend(path_override_hook.extra_sys_paths)
-  stubs.FakeFile.set_allowed_paths(config.application_root,
-                                   python_lib_paths[1:] +
-                                   path_override_hook.extra_accessible_paths)
+  stubs.FakeFile.set_allowed_paths(
+      config.application_root,
+      python_lib_paths[1:] +
+      path_override_hook.extra_accessible_paths + ['/etc/cron.d/']
+  )
   stubs.FakeFile.set_skip_files(config.skip_files)
   stubs.FakeFile.set_static_files(config.static_files)
   __builtin__.file = stubs.FakeFile
@@ -188,7 +195,7 @@ def _find_shared_object_c_module():
 def _should_keep_module(name):
   """Returns True if the module should be retained after sandboxing."""
   return (name in ('__builtin__', 'sys', 'codecs', 'encodings', 'site',
-                   'google') or
+                   'google', 'crontab', 'pwd') or
           name.startswith('google.') or name.startswith('encodings.') or
 
           # Making mysql available is a hack to make the CloudSQL functionality
@@ -635,14 +642,16 @@ class ModuleOverridePolicy(object):
       if symbol in self.overrides:
         module_dict[symbol] = self.overrides[symbol]
       elif symbol in self.deletes:
-        del module_dict[symbol]
+        pass
+        # del module_dict[symbol]
       elif not (symbol in self.whitelist or
                 isinstance(module_dict[symbol], self.constant_types) or
                 (symbol.startswith('__') and symbol.endswith('__'))):
         if self.default_stub:
           module_dict[symbol] = self.default_stub
         elif not self.default_pass_through:
-          del module_dict[symbol]
+          pass
+          # del module_dict[symbol]
 
 _MODULE_OVERRIDE_POLICIES = {
     'os': ModuleOverridePolicy(
@@ -651,7 +660,7 @@ _MODULE_OVERRIDE_POLICIES = {
                    'fstat', 'getcwd', 'getcwdu', 'getenv', '_get_exports_list',
                    'name', 'open', 'pardir', 'path', 'pathsep', 'sep',
                    'stat_float_times', 'stat_result', 'strerror', 'sys',
-                   'walk'],
+                   'walk', 'pwd', 'crontab'],
         overrides={
             'access': stubs.fake_access,
             'listdir': stubs.RestrictedPathFunction(os.listdir),
@@ -756,6 +765,7 @@ _WHITE_LIST_C_MODULES = [
     '_codecs_kr',
     '_codecs_tw',
     '_collections',  # Python 2.6 compatibility
+    'crontab',
     'crypt',
     'cPickle',
     'cStringIO',
@@ -784,6 +794,7 @@ _WHITE_LIST_C_MODULES = [
     'operator',
     'parser',
     'posix',  # Only indirectly through the os module.
+    'pwd',
     'pyexpat',
     '_random',
     '_sha256',  # Python2.5 compatibility
@@ -819,8 +830,7 @@ class BuiltinImportHook(object):
   """
 
   def find_module(self, fullname, unused_path=None):
-    if (fullname in sys.builtin_module_names and
-        fullname not in _WHITE_LIST_C_MODULES):
+    if fullname in sys.builtin_module_names:
       return self
     return None
 

@@ -268,6 +268,11 @@ installtornado()
     pipwrapper tornado
 }
 
+installcrontab()
+{
+    pipwrapper python-crontab
+}
+
 installflexmock()
 {
     if [ "$DIST" = "precise" ]; then

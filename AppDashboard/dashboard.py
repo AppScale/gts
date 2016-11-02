@@ -20,6 +20,7 @@ import sys
 import time
 import urllib
 import webapp2
+import subprocess
 
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
@@ -890,6 +891,42 @@ class LogDownloader(AppDashboard):
     })
 
 
+class CronPage(AppDashboard):
+    """ Exposes a single GET route that cloud administrators can access to
+    download AppScale-generated logs.
+    """
+    # The location where the template file can be found that waits for logs
+    # to become available before redirecting to it.
+    TEMPLATE = "cron/cron.html"
+    CRON_TEMPLATE = "/etc/cron.d/appscale-{app_id}"
+
+    def get(self):
+        """ Instructs the AppController to collect logs across all machines, place
+        it in this app's static file directory, and renders a page that will wait
+        for the logs to become available before downloading it.
+        """
+        is_cloud_admin = self.helper.is_user_cloud_admin()
+        if is_cloud_admin:
+            apps_user_is_admin_on = self.dstore.get_application_info().keys()
+        else:
+            apps_user_is_admin_on = self.helper.get_owned_apps()
+
+        import crontab
+
+        mail_to = []
+        cron_lines = []
+        for app_id in apps_user_is_admin_on:
+            cron_filename = self.CRON_TEMPLATE.format(app_id=app_id)
+            with open(cron_filename, "r") as inp:
+                cron_lines = inp.readlines()
+                mail_to, cron_lines = cron_lines[0], cron_lines[1:]
+
+        self.render_page(page='cron', template_file=self.TEMPLATE, values={
+            'mail_to': mail_to,
+            'cron_lines': cron_lines
+        })
+
+
 class AppConsolePage(AppDashboard):
 
   # The template to use for the app console page.
@@ -1155,6 +1192,7 @@ dashboard_pages = [
   ('/logs/upload', LogUploadPage),
   ('/logs/(.+)/(.+)', LogServiceHostPage),
   ('/logs/(.+)', LogServicePage),
+  ('/cron', CronPage),
   ('/gather-logs', LogDownloader),
   ('/groomer', RunGroomer),
   ('/change-password', ChangePasswordPage)
