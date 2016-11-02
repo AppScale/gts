@@ -952,7 +952,7 @@ class CronRun(AppDashboard):
         url = None
         for part in command.split("http://"):
             if "_admin" in part:
-                url = part.split("2>&1")[0].strip('"').strip()
+                url = part.split("2>&1")[0][:-2]
                 break
         logging.info(url)
         if not url:
