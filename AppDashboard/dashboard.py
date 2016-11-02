@@ -911,7 +911,7 @@ class CronPage(AppDashboard):
         else:
             apps_user_is_admin_on = self.helper.get_owned_apps()
 
-        import crontab
+        import pwd
 
         mail_to = []
         cron_lines = []

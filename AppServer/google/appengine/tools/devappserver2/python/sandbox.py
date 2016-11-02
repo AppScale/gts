@@ -20,7 +20,6 @@
 import __builtin__
 import imp
 import os
-import pwd
 import re
 import sys
 import traceback
@@ -49,9 +48,7 @@ NAME_TO_CMODULE_WHITELIST_REGEX = {
     'numpy': re.compile(r'numpy(\..*)?$'),
     'pycrypto': re.compile(r'Crypto(\..*)?$'),
     'lxml': re.compile(r'lxml(\..*)?$'),
-    'PIL': re.compile(r'(PIL(\..*)?|_imaging|_imagingft|_imagingmath)$'),
-    'crontab': re.compile(r'crontab(\..*)?$'),
-    'pwd': re.compile(r'pwd(\..*)?$'),
+    'PIL': re.compile(r'(PIL(\..*)?|_imaging|_imagingft|_imagingmath)$')
 }
 
 # Maps App Engine third-party library names to the Python package name for
@@ -115,7 +112,7 @@ def enable_sandbox(config):
     config: The runtime_config_pb2.Config to use to configure the sandbox.
   """
 
-  modules = [os, traceback, google, protorpc, pwd]
+  modules = [os, traceback, google, protorpc]
   c_module = _find_shared_object_c_module()
   if c_module:
     modules.append(c_module)
@@ -660,7 +657,7 @@ _MODULE_OVERRIDE_POLICIES = {
                    'fstat', 'getcwd', 'getcwdu', 'getenv', '_get_exports_list',
                    'name', 'open', 'pardir', 'path', 'pathsep', 'sep',
                    'stat_float_times', 'stat_result', 'strerror', 'sys',
-                   'walk', 'pwd', 'crontab'],
+                   'walk'],
         overrides={
             'access': stubs.fake_access,
             'listdir': stubs.RestrictedPathFunction(os.listdir),
@@ -765,7 +762,6 @@ _WHITE_LIST_C_MODULES = [
     '_codecs_kr',
     '_codecs_tw',
     '_collections',  # Python 2.6 compatibility
-    'crontab',
     'crypt',
     'cPickle',
     'cStringIO',
@@ -794,7 +790,6 @@ _WHITE_LIST_C_MODULES = [
     'operator',
     'parser',
     'posix',  # Only indirectly through the os module.
-    'pwd',
     'pyexpat',
     '_random',
     '_sha256',  # Python2.5 compatibility

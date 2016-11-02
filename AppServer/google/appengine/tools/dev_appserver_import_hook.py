@@ -857,8 +857,6 @@ class HardenedModulesHook(object):
     'future_builtins',
     'parser',
     'strop',
-    'crontab',
-    'pwd'
   ]
 
 
@@ -879,9 +877,6 @@ class HardenedModulesHook(object):
   __PY27_OPTIONAL_ALLOWED_MODULES = {
 
     'django': [],
-    'pwd': [],
-    'crontab': [],
-    'pwd': [],
     'jinja2': ['_debugsupport', '_speedups'],
     'lxml': ['etree', 'objectify'],
     'markupsafe': ['_speedups'],
@@ -1571,17 +1566,6 @@ class HardenedModulesHook(object):
 
     try:
       try:
-
-
-
-
-
-
-
-
-
-
-
         return self._imp.load_module(submodule_fullname,
                                      source_file,
                                      pathname,
