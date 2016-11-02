@@ -1,0 +1,9 @@
+../pytest_cache.py
+../pytest_cache.pyc
+./
+requires.txt
+SOURCES.txt
+top_level.txt
+PKG-INFO
+entry_points.txt
+dependency_links.txt

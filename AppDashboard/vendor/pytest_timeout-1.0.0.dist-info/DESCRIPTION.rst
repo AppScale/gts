@@ -1,0 +1,238 @@
+==============
+pytest-timeout
+==============
+
+This is a plugin which will terminate tests after a certain timeout.
+When doing so it will show a stack dump of all threads running at the
+time.  This is useful when running tests under a continuous
+integration server or simply if you don't know why the test suite
+hangs.
+
+Note that while by default on POSIX systems py.test will continue to
+execute the tests after a test has timed, out this is not always
+possible.  Often the only sure way to interrupt a hanging test is by
+terminating the entire process.  As this is a hard termination
+(``os._exit()``) it will result in no teardown, JUnit XML output etc.
+But the plugin will ensure you will have the debugging output on
+stderr nevertheless, which is the most important part at this stage.
+See below for detailed information on the timeout methods and their
+side-effects.
+
+The pytest-timeout plugin has been tested on python 2.6 or higher,
+including 3.X, pypy and pypy3.
+
+
+Usage
+=====
+
+Install is as simple as e.g.::
+
+   pip install pytest-timeout
+
+Now you can run tests using a timeout, in seconds, after which they
+will be terminated::
+
+   py.test --timeout=300
+
+Alternatively you can mark individual tests as having a timeout::
+
+   @pytest.mark.timeout(60)
+   def test_foo():
+       pass
+
+By default the plugin will not time out any tests, you must specify a
+valid timeout for the plugin to interrupt long-running tests.  A
+timeout is always specified as an integer number of seconds and can be
+defined in a number of ways, from low to high priority:
+
+1. You can set a global timeout in the `py.test configuration file`__
+   using the ``timeout`` option.  E.g.::
+
+      [pytest]
+      timeout = 300
+
+2. The ``PYTEST_TIMEOUT`` environment variable sets a global timeout
+   overriding a possible value in the configuration file.
+
+3. The ``--timeout`` command line option sets a global timeout
+   overriding both the environment variable and configuration option.
+
+4. Using the ``timeout`` marker_ on test items you can specify
+   timeouts on a per-item basis::
+
+      @pytest.mark.timeout(300)
+      def test_foo():
+          pass
+
+__ http://pytest.org/latest/customize.html#how-test-configuration-is-read-from-configuration-ini-files
+
+.. _marker: http://pytest.org/latest/mark.html
+
+Setting a timeout to 0 seconds disables the timeout, so if you have a
+global timeout set you can still disable the timeout by using the
+mark.
+
+Timeout Methods
+===============
+
+Interrupting tests which hang is not always as simple and can be
+platform dependent.  Furthermore some methods of terminating a test
+might conflict with the code under test itself.  The pytest-timeout
+plugin tries to pick the most suitable method based on your platform,
+but occasionally you may need to specify a specific timeout method
+explicitly.
+
+   If a timeout method does not work your safest bet is to use the
+   *thread* method.
+
+thread
+------
+
+This is the surest and most portable method.  It is also the default
+on systems not supporting the *signal* method.  For each test item the
+pytest-timeout plugin starts a timer thread which will terminate the
+whole process after the specified timeout.  When a test item finishes
+this timer thread is cancelled and the test run continues.
+
+The downsides of this method are that there is a relatively large
+overhead for running each test and that test runs are not completed.
+This means that other py.test features, like e.g. JUnit XML output or
+fixture teardown, will not function normally.  The second issue might
+be alleviated by using the ``--boxed`` option of the pytest-xdist_
+plugin.
+
+.. _pytest-xdist: http://pypi.python.org/pypi/pytest-xdist
+
+The benefit of this method is that it will always work.  Furthermore
+it will still provide you debugging information by printing the stacks
+of all the threads in the application to stderr.
+
+signal
+------
+
+If the system supports the SIGALRM signal the *signal* method will be
+used by default.  This method schedules an alarm when the test item
+starts and cancels it when it finishes.  If the alarm expires during
+the test the signal handler will dump the stack of any other threads
+running to stderr and use ``pytest.fail()`` to interrupt the test.
+
+The benefit of this method is that the py.test process is not
+terminated and the test run can complete normally.
+
+The main issue to look out for with this method is that it may
+interfere with the code under test.  If the code under test uses
+SIGALRM itself things will go wrong and you will have to choose the
+*thread* method.
+
+Specifying the Timeout Method
+-----------------------------
+
+The timeout method can be specified by using the ``timeout_method``
+option in the `py.test configuration file`__, the ``--timeout_method``
+command line parameter or the ``timeout`` marker_.  Simply set their
+value to the string ``thread`` or ``signal`` to override the default
+method.  On a marker this is done using the ``method`` keyword::
+
+   @pytest.mark.timeout(method='thread')
+   def test_foo():
+       pass
+
+__ http://pytest.org/latest/customize.html#how-test-configuration-is-read-from-configuration-ini-files
+
+.. _marker: http://pytest.org/latest/mark.html
+
+The ``timeout`` Marker API
+==========================
+
+The full signature of the timeout marker is::
+
+   pytest.mark.timeout(timeout=0, method=DEFAULT_METHOD)
+
+You can use either positional or keyword arguments for both the
+timeout and the method.  Neither needs to be present.
+
+See the marker api documentation_ and examples_ for the various ways
+markers can be applied to test items.
+
+.. _documentation: http://pytest.org/latest/mark.html
+
+.. _examples: http://pytest.org/latest/example/markers.html#marking-whole-classes-or-modules
+
+
+Timeouts in Fixture Teardown
+============================
+
+The plugin will happily terminate timeouts in the finalisers of
+fixtures.  The timeout specified applies to the entire process of
+setting up fixtures, running the tests and finalising the fixtures.
+However when a timeout occurs in a fixture finaliser and the test
+suite continues, i.e. the signal method is used, it must be realised
+that subsequent fixtures which need to be finalised might not have
+been executed, which could result in a broken test-suite anyway.  In
+case of doubt the thread method which terminates the entire process
+might result in clearer output.
+
+
+Changelog
+=========
+
+1.0.0
+-----
+
+* Bump version to 1.0 to commit to semantic versioning.
+* Fix issue 12: Now compatible with py.test 2.8
+* No longer test with pexpect on py26 as it is no longer supported
+* Require py.test 2.8 and use new hookimpl decorator
+
+0.5
+---
+
+* Timeouts will no longer be triggered when inside an interactive pdb
+  session started by ``pytest.set_trace()`` / ``pdb.set_trace()``.
+
+* Add pypy3 environment to tox.ini.
+
+* Transfer repository to pytest-dev team account.
+
+0.4
+---
+
+* Support timeouts happening in (session scoped) finalizers.
+
+* Change command line option --timeout_method into --timeout-method
+  for consistency with py.test
+
+0.3
+---
+
+* Added the PYTEST_TIMEOUT environment variable as a way of specifying
+  the timeout (closes issue #2).
+
+* More flexible marker argument parsing: you can now specify the
+  method using a positional argument.
+
+* The plugin is now enabled by default.  There is no longer a need to
+  specify ``timeout=0`` in the configuration file or on the command
+  line simply so that a marker would work.
+
+
+0.2
+---
+
+* Add a marker to modify the timeout delay using a @pytest.timeout(N)
+  syntax, thanks to Laurant Brack for the initial code.
+
+* Allow the timeout marker to select the timeout method using the
+  ``method`` keyword argument.
+
+* Rename the --nosigalrm option to --method=thread to future proof
+  support for eventlet and gevent.  Thanks to Ronny Pfannschmidt for
+  the hint.
+
+* Add ``timeout`` and ``timeout_method`` items to the configuration
+  file so you can enable and configure the plugin using the ini file.
+  Thanks to Holger Krekel and Ronny Pfannschmidt for the hints.
+
+* Tested (and fixed) for python 2.6, 2.7 and 3.2.
+
+

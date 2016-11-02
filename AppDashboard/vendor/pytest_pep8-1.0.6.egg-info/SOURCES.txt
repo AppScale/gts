@@ -1,0 +1,15 @@
+CHANGELOG
+LICENSE
+MANIFEST.in
+README.txt
+pytest_pep8.py
+setup.cfg
+setup.py
+test_pep8.py
+tox.ini
+pytest_pep8.egg-info/PKG-INFO
+pytest_pep8.egg-info/SOURCES.txt
+pytest_pep8.egg-info/dependency_links.txt
+pytest_pep8.egg-info/entry_points.txt
+pytest_pep8.egg-info/requires.txt
+pytest_pep8.egg-info/top_level.txt

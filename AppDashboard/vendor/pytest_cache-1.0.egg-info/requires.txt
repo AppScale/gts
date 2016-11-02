@@ -1,0 +1,2 @@
+pytest>=2.2
+execnet>=1.1.dev1

@@ -1,0 +1,1 @@
+import os, sys;exec('if \'COV_CORE_SOURCE\' in os.environ:\n try:\n  from pytest_cov.embed import init\n  init()\n except ImportError:\n  sys.stderr.write(\n   "Failed to setup coverage."\n   "Sources: {[COV_CORE_SOURCE]!r}"\n   "Config: {[COV_CORE_CONFIG]!r}"\n   "Exception: {!r}\\n".format(os.environ, exc))\n')

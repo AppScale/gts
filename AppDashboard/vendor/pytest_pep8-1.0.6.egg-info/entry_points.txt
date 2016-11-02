@@ -1,0 +1,3 @@
+[pytest11]
+pep8 = pytest_pep8
+

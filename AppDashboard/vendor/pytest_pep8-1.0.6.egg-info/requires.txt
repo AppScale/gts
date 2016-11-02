@@ -1,0 +1,3 @@
+pytest-cache
+pytest>=2.4.2
+pep8>=1.3

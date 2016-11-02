@@ -1,0 +1,9 @@
+../pytest_pep8.py
+../pytest_pep8.pyc
+./
+requires.txt
+SOURCES.txt
+top_level.txt
+PKG-INFO
+entry_points.txt
+dependency_links.txt
