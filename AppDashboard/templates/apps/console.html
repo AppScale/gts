@@ -11,8 +11,8 @@
               <div class="row-fluid">
                 <div class="offset1 span8">
                     <ul style="list-style:none;">
-                  {% if all_apps_this_user_owns %}
-                    {% for appid in all_apps_this_user_owns %}
+                  {% if apps_user_is_admin_on %}
+                    {% for appid in apps_user_is_admin_on %}
                       <li><a class="btn btn-primary" href="/apps/stats?appid={{ appid }}">{{ appid }}</a></li>
                     {% endfor %}
                   {% else %}

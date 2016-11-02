@@ -111,8 +111,12 @@ class AppDashboard(webapp2.RequestHandler):
     if values is None:
       values = {}
 
-    owned_apps = self.dstore.get_owned_apps()
-    self.helper.update_cookie_app_list(owned_apps, self.request, self.response)
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    if is_cloud_admin:
+      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+    else:
+      apps_user_is_admin_on = self.helper.get_owned_apps()
+    self.helper.update_cookie_app_list(apps_user_is_admin_on, self.request, self.response)
 
     template = jinja_environment.get_template(template_file)
     sub_vars = {
@@ -120,7 +124,7 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email': self.helper.get_user_email(),
       'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
       'can_upload_apps': self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on': owned_apps,
+      'apps_user_is_admin_on': apps_user_is_admin_on,
       'user_layout_pref': self.dstore.get_dash_layout_settings(),
       'flower_url': self.dstore.get_flower_url(),
       'monit_url': self.dstore.get_monit_url()
@@ -670,24 +674,6 @@ class AppDeletePage(AppDashboard):
   # The template to use for the app deletion page.
   TEMPLATE = 'apps/delete.html'
 
-  def get_app_list(self):
-    """ Returns a list of apps that the currently logged-in user is an admin of.
-
-    Returns:
-      A dict that maps the names of the applications the user is an admin on to
-      the URL that the app is hosted at.
-    """
-    if self.dstore.is_user_cloud_admin():
-      return self.dstore.get_application_info()
-    else:
-      ret_list = {}
-      app_list = self.dstore.get_application_info()
-      my_apps = self.dstore.get_owned_apps()
-      for application in app_list.keys():
-        if application in my_apps:
-          ret_list[application] = app_list[application]
-      return ret_list
-
   def post(self):
     """ Handler for POST requests. """
     appname = self.request.POST.get('appname')
@@ -703,16 +689,15 @@ class AppDeletePage(AppDashboard):
     else:
       message = "You do not have permission to delete the application: " \
         "{0}".format(appname)
+
     self.render_app_page(page='apps', values={
       'flash_message' : message,
-      'apps' : self.get_app_list(),
       'page_content' : self.TEMPLATE,
       })
 
   def get(self):
     """ Handler for GET requests. """
     self.render_app_page(page='apps', values={
-      'apps' : self.get_app_list(),
       'page_content' : self.TEMPLATE,
     })
 
@@ -754,9 +739,9 @@ class AppRelocatePage(AppDashboard):
           logging.exception(err)
     else:
       err_msg = "You are not authorized to relocate that application."
+
     self.render_app_page(page='apps', values={
         'error_message' : err_msg,
-        'apps' : self.dstore.get_application_info(),
         'success_message' : success_msg,
         'page_content' : self.TEMPLATE,
       })
@@ -764,7 +749,6 @@ class AppRelocatePage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     self.render_app_page(page='apps', values={
-        'apps' : self.dstore.get_application_info(),
         'page_content' : self.TEMPLATE,
       })
 
@@ -999,14 +983,7 @@ class AppConsolePage(AppDashboard):
   TEMPLATE = "apps/console.html"
 
   def get(self):
-    is_cloud_admin = self.helper.is_user_cloud_admin()
-    if is_cloud_admin:
-      apps_user_is_admin_on = self.dstore.get_application_info().keys()
-    else:
-      apps_user_is_admin_on = self.helper.get_owned_apps()
-
     self.render_app_page(page='console', values = {
-      'all_apps_this_user_owns' : apps_user_is_admin_on,
       'page_content' : self.TEMPLATE,
     })
 
