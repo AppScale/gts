@@ -17,15 +17,15 @@ msgstr ""
 #: contrib/admin/media/js/SelectFilter2.js:33
 #, perl-format
 msgid "Available %s"
-msgstr "Verfï¿½gbare %s"
+msgstr "Verfügbare %s"
 
 #: contrib/admin/media/js/SelectFilter2.js:41
 msgid "Choose all"
-msgstr "Alles auswï¿½hlen"
+msgstr "Alles auswählen"
 
 #: contrib/admin/media/js/SelectFilter2.js:46
 msgid "Add"
-msgstr "Hinzufï¿½gen"
+msgstr "Hinzufügen"
 
 #: contrib/admin/media/js/SelectFilter2.js:48
 msgid "Remove"
@@ -34,15 +34,15 @@ msgstr "Entfernen"
 #: contrib/admin/media/js/SelectFilter2.js:53
 #, perl-format
 msgid "Chosen %s"
-msgstr "Ausgewï¿½hlte %s"
+msgstr "Ausgewählte %s"
 
 #: contrib/admin/media/js/SelectFilter2.js:54
 msgid "Select your choice(s) and click "
-msgstr "Gewï¿½nschte Auswahl treffen und "
+msgstr "Gewünschte Auswahl treffen und "
 
 #: contrib/admin/media/js/SelectFilter2.js:59
 msgid "Clear all"
-msgstr "Alles abwï¿½hlen"
+msgstr "Alles abwählen"
 
 #: contrib/admin/media/js/dateparse.js:26
 #: contrib/admin/media/js/calendar.js:24
@@ -50,7 +50,7 @@ msgid ""
 "January February March April May June July August September October November "
 "December"
 msgstr ""
-"Januar Februar Mï¿½rz April Mai Juni Juli August September Oktober November "
+"Januar Februar März April Mai Juni Juli August September Oktober November "
 "Dezember"
 
 #: contrib/admin/media/js/dateparse.js:27
