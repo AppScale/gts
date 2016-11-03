@@ -1,10 +1,13 @@
 """ This service starts and stops application servers of a given application. """
 
+import argparse
+import fnmatch
 import glob
 import json
 import logging
 import math
 import os
+import shutil
 import SOAPpy
 import subprocess
 import sys
@@ -20,9 +23,11 @@ import appscale_info
 import constants
 import file_io
 import monit_app_configuration
-from monit_app_configuration import MONIT_CONFIG_DIR
 import monit_interface
 import misc
+from deployment_config import DeploymentConfig
+from deployment_config import ConfigInaccessible
+from monit_app_configuration import MONIT_CONFIG_DIR
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerClient
@@ -81,6 +86,10 @@ HTTP_OK = 200
 
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
+
+# A DeploymentConfig accessor.
+deployment_config = None
+
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -539,6 +548,15 @@ def create_java_app_env(app_name):
   custom_env_vars = extract_env_vars_from_xml(config_file)
   env_vars.update(custom_env_vars)
 
+  gcs_config = {'scheme': 'https', 'port': 443}
+  try:
+    gcs_config.update(deployment_config.get_config('gcs'))
+  except ConfigInaccessible:
+    logging.warning('Unable to fetch GCS configuration.')
+
+  if 'host' in gcs_config:
+    env_vars['GCS_HOST'] = '{scheme}://{host}:{port}'.format(**gcs_config)
+
   return env_vars
 
 def create_python27_start_cmd(app_name,
@@ -621,17 +639,14 @@ def remove_conflicting_jars(app_name):
     logging.warn("Lib directory not found in app code while updating.")
     return
   logging.info("Removing jars from {0}".format(lib_dir))
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-api-1.0-sdk-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-api-stubs-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-api-labs-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/appengine-jsr107cache-*.jar", shell=True)
-  subprocess.call("rm -f " + lib_dir + \
-    "/jsr107cache-*.jar", shell=True)
-
+  conflicting_jars_pattern = ['appengine-api-1.0-sdk-*.jar', 'appengine-api-stubs-*.jar',
+                  'appengine-api-labs-*.jar', 'appengine-jsr107cache-*.jar',
+                  'jsr107cache-*.jar', 'appengine-mapreduce*.jar',
+                  'appengine-pipeline*.jar', 'appengine-gcs-client*.jar']
+  for file in os.listdir(lib_dir):
+    for pattern in conflicting_jars_pattern:
+      if fnmatch.fnmatch(file, pattern):
+        os.remove(lib_dir + os.sep + file)
 
 def copy_modified_jars(app_name):
   """ Copies the changes made to the Java SDK
@@ -658,22 +673,26 @@ def copy_modified_jars(app_name):
       logging.error("Failed to create missing lib directory in: {0}.".
         format(web_inf_dir))
       return False
-
-  cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
-    "appengine-java-sdk-repacked/lib/user/*.jar " + lib_dir, shell=True)
-  if cp_result != 0:
-    logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
-      "to lib directory of " + app_name)
+  try:
+    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
+                "appengine-java-sdk-repacked/lib/user/*.jar", lib_dir)
+    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
+                "appengine-java-sdk-repacked/lib/impl/appscale-*.jar", lib_dir)
+    copy_files_matching_pattern("/usr/share/appscale/ext/*", lib_dir)
+  except IOError as io_error:
+    logging.error("Failed to copy modified jar files to lib directory of " + app_name +\
+                  " due to:" + str(io_error))
     return False
-
-  cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
-    "appengine-java-sdk-repacked/lib/impl/appscale-*.jar " + lib_dir, shell=True)
-
-  if cp_result != 0:
-    logging.error("Failed to copy email jars to lib directory of " + app_name)
-    return False
-
   return True
+
+def copy_files_matching_pattern(file_path_pattern, dest):
+  """ Copies files matching the specified pattern to the destination directory.
+  Args:
+      file_path_pattern: The pattern of the files to be copied over.
+      dest: The destination directory.
+  """
+  for file in glob.glob(file_path_pattern):
+    shutil.copy(file, dest)
 
 def create_java_start_cmd(app_name, port, load_balancer_host):
   """ Creates the start command to run the java application server.
@@ -756,18 +775,13 @@ def is_config_valid(config):
       return False
   return True
 
-def usage():
-  """ Prints usage of this program """
-  print "args: --help or -h for this menu"
 
 ################################
 # MAIN
 ################################
 if __name__ == "__main__":
-  for args_index in range(1, len(sys.argv)):
-    if sys.argv[args_index] in ("-h", "--help"):
-      usage()
-      sys.exit()
+  file_io.set_logging_format()
+  deployment_config = DeploymentConfig(appscale_info.get_zk_locations_string())
 
   INTERNAL_IP = appscale_info.get_private_ip()
   SERVER = SOAPpy.SOAPServer((INTERNAL_IP, constants.APP_MANAGER_PORT))
@@ -776,8 +790,6 @@ if __name__ == "__main__":
   SERVER.registerFunction(stop_app)
   SERVER.registerFunction(stop_app_instance)
   SERVER.registerFunction(restart_app_instances_for_app)
-
-  file_io.set_logging_format()
 
   while 1:
     try:

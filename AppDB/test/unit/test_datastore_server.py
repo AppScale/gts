@@ -14,10 +14,11 @@ from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
 import appscale_info
 import dbconstants
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
 from cassandra_env.cassandra_interface import DatastoreProxy
 from cassandra_env.cassandra_interface import deletions_for_entity
 from cassandra_env.cassandra_interface import index_deletions

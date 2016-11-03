@@ -12,6 +12,7 @@ Engine applications.
 import cgi
 import datetime
 import jinja2
+import json
 import logging
 import os
 import re
@@ -19,13 +20,6 @@ import sys
 import time
 import urllib
 import webapp2
-
-
-try:
-  import json
-except ImportError:
-  import simplejson as json
-
 
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue

@@ -20,6 +20,7 @@ Build-Depends: ant,
                libreadline-dev,
                libssl-dev,
                libxml2-dev,
+               maven,
                python-dev,
                zlib1g-dev
 Standards-Version: 3.8.0

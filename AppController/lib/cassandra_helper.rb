@@ -7,7 +7,7 @@ require 'monit_interface'
 
 # A String that indicates where we write the process ID that Cassandra runs
 # on at this machine.
-PID_FILE = "/var/appscale/appscale-cassandra.pid"
+PID_FILE = "/tmp/appscale-cassandra.pid"
 
 
 # A String that indicates where we install Cassandra on this machine.
@@ -37,6 +37,10 @@ PRIME_SCRIPT = "#{CASSANDRA_ENV_DIR}/prime_cassandra.py"
 
 # The number of seconds Monit should allow Cassandra to take while starting up.
 START_TIMEOUT = 60
+
+
+# The location of the Cassandra data directory.
+CASSANDRA_DATA_DIR = "/opt/appscale/cassandra"
 
 
 # Determines if a UserAppServer should run on this machine.
@@ -116,12 +120,15 @@ end
 def start_cassandra(clear_datastore, needed)
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
-    Djinn.log_run("rm -rf /opt/appscale/cassandra*")
-    Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
+    Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
   end
 
-  start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
-  stop_cmd = "/bin/bash -c 'kill -s SIGTERM `cat #{PID_FILE}`'"
+  # Create Cassandra data directory.
+  Djinn.log_run("mkdir -p #{CASSANDRA_DATA_DIR}")
+  Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
+
+  start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
+  stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
                        PID_FILE, START_TIMEOUT)
 

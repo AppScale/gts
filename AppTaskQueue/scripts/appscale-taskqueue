@@ -17,6 +17,7 @@ from appscale.taskqueue.rest_api import RESTTask
 from appscale.taskqueue.rest_api import RESTTasks
 from appscale.taskqueue.unpackaged import APPSCALE_LIB_DIR
 from appscale.taskqueue.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.taskqueue.utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -145,7 +146,7 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       http_request_data = apirequest.request()
 
-    logging.debug('Method: {}'.format(method))
+    logger.debug('Method: {}'.format(method))
     if method == "FetchQueueStats":
       response, errcode, errdetail = task_queue.fetch_queue_stats(app_id,
                                                  http_request_data)
@@ -238,10 +239,10 @@ def main():
 
   while 1:
     try:
-      logging.info('Starting TaskQueue server on port {}'.format(SERVER_PORT))
+      logger.info('Starting TaskQueue server on port {}'.format(SERVER_PORT))
       tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
-      logging.warning('Server interrupted by user, terminating...')
+      logger.warning('Server interrupted by user, terminating...')
       sys.exit(1)
 
 if __name__ == '__main__':
@@ -250,9 +251,7 @@ if __name__ == '__main__':
                       help='Output debug-level logging')
   args = parser.parse_args()
 
-  log_level = logging.INFO
   if args.verbose:
-    log_level = logging.DEBUG
+    logger.setLevel(logging.DEBUG)
 
-  logging.basicConfig(format=LOG_FORMAT, level=log_level)
   main()
