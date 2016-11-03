@@ -113,7 +113,7 @@ class AppDashboard(webapp2.RequestHandler):
 
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if is_cloud_admin:
-      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+      apps_user_is_admin_on = self.dstore.get_application_info()
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
     self.helper.update_cookie_app_list(apps_user_is_admin_on, self.request, self.response)

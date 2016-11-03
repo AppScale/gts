@@ -32,7 +32,7 @@
                   <br />
                   <p>
                   <select name="app_id">
-                    {% for app_name in apps|sort %}
+                    {% for app_name in apps.keys()|sort %}
                     <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
                       <option value="{{ app_name }}">{{ app_name }}</option>
                     </li>

@@ -19,7 +19,7 @@
                <form action="/apps/delete" method="post"><div style="margin:0;padding:0;display:inline">
               <p>
                 <select id="appname" name="appname">
-                {% for app_name in apps|sort  %}
+                {% for app_name in apps.keys()|sort  %}
                     <option value="{{ app_name }}">{{ app_name }}</option>
                 {% endfor %}
                 </select>
