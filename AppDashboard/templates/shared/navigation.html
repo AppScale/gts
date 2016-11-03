@@ -60,7 +60,9 @@
               {% for sub_menu_heading, submenu_list in menu.items() %}
                 <li class="panel panel-default">
                   <!--sortable ui handle-->
-                  <span class="glyphicon glyphicon-option-horizontal"></span>
+                  {% if page_name=="dash" %}
+                    <span class="glyphicon glyphicon-move"></span>
+                  {% endif %}
                   <!--sub menu heading-->
                   <a class="nav-heading-collapse" data-toggle="collapse" href="#{{ id }}">
                       {{ sub_menu_heading }}</a>
@@ -80,7 +82,7 @@
                                   <a href="#" class="btn btn-info add-panel"
                                      data-toggle="tooltip" title="Add {{ menuitem.title }} Panel"
                                      data-target="{{ dict_key }}" style="width:15%;">
-                                      &#x2b;</a>
+                                      <span class="glyphicon glyphicon-pushpin"></span></a>
                                 {% endif %}
                               {% else %}
                                 <a class="btn btn-info" href="{{menuitem.link}}"
@@ -99,41 +101,6 @@
         </ul>
       </div>
     </nav>
-    <script>
-      $(document).ready(function() {
-        // Insert a new style that extends the height of the header to
-        // encompass the sidebar when .resBtn is clicked.
-        var newHeaderHeight = $('#header').height() + $('#sidebar').height();
-        var style = document.createElement('style');
-        style.type = 'text/css';
-        style.setAttribute('media', 'only screen and (max-width: 980px)');
-        var css = '#header.open { height: ' + newHeaderHeight + 'px; }';
-        if (style.styleSheet) style.styleSheet.cssText = css;
-        else style.appendChild(document.createTextNode(css));
-        var head = document.head || document.getElementsByTagName('head')[0];
-        head.appendChild(style);
-
-        // Take the extra height of .resBtn into account
-        var sidebarBtn = $('#wrapper').find('.resBtn');
-        newHeaderHeight += sidebarBtn.height();
-        var style = document.createElement('style');
-        style.type = 'text/css';
-        style.setAttribute('media', 'only screen and (max-width: 572px)');
-        // Insert after page load so it will not affect the height calculation
-        var css = '#header { height: 120px; }';
-        css += '#header.open { height: ' + newHeaderHeight + 'px; }';
-        if (style.styleSheet) style.styleSheet.cssText = css;
-        else style.appendChild(document.createTextNode(css));
-        var head = document.head || document.getElementsByTagName('head')[0];
-        head.appendChild(style);
-
-        sidebarBtn.click(function() {
-          var selectors = $(this).add('#header, #sidebar');
-          $(this).hasClass('open') ? selectors.removeClass('open') :
-                  selectors.addClass('open');
-        });
-      });
-    </script>
 <!--Testing SFTP -->
 
 
