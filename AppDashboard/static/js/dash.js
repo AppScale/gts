@@ -55,6 +55,7 @@ $(document).ready(function(){
             success: function(result) {
                 if(result) {
                     $("#save-layout").html(result);
+                    location.reload();
                 }
             },
             error: function (result) {
@@ -70,6 +71,7 @@ $(document).ready(function(){
             success: function(result) {
                 if(result) {
                     $("#reset-layout").html("Reset");
+                    location.reload();
                 }
             },
             error: function (result) {
