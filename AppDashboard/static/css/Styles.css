@@ -1,6 +1,3 @@
-.glyphicon {
-    padding-right:0.5em;
-}
 /*sideNav area*/
 .btn-group {
     width:100%;
@@ -15,20 +12,12 @@
 #sideNav {
     text-align:center;
 }
-a.btn-info {
-    padding:3%;
+#sideNav a.btn.btn-info, .nav-pills>li>a {
+    text-align: left;
 }
 /*mainNav area*/
-#nav-links {
-    position:absolute;
-    bottom:0;
-}
 #appscale_title {
     font-size:1.5em;
-}
-a.btn.btn-info {
-    font-size: 1em;
-    padding: 3%;
 }
 #header .row {
     display: table;
@@ -37,9 +26,21 @@ a.btn.btn-info {
     display: table-cell;
     float: none;
 }
+.navbar-right {
+    min-width: 300px;
+}
+#mainNav .glyphicon {
+    padding-right:0.5em;
+}
 /*dashboard css*/
 #dash-panels .row-fluid {
     overflow-x:auto;
+}
+#dash-panels {
+    padding-top: 2%;
+}
+#layout-buttons {
+    text-align:right;
 }
 .unstyled {
     list-style:none;
@@ -49,9 +50,13 @@ a.btn.btn-info {
     font-family: 'Glyphicons Halflings';
     content: "\e181";
 }
-#panel-cloud_stats .panel-title a::before {
+#panel-app_console .panel-title a::before {
     font-family: 'Glyphicons Halflings';
     content: "\2601";
+}
+#panel-cloud_stats .panel-title a::before {
+    font-family: 'Glyphicons Halflings';
+    content: "\e141";
 }
 #panel-memcache_stats .panel-title a::before {
     font-family: 'Glyphicons Halflings';

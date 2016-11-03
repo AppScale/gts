@@ -23,10 +23,12 @@
     </div><!-- End .row-fluid -->
     <div class="row-fluid">
         {% if logged_in %}
-        <button id="save-layout" class="btn btn-primary">
-            Save Current Layout</button>
-        <button id="reset-layout" class="btn btn-primary">
-            Reset Current Layout</button>
+        <div id="layout-buttons">
+            <button id="save-layout" class="btn btn-success">
+                Save Current Layout</button>
+            <button id="reset-layout" class="btn btn-warning">
+                Reset Current Layout</button>
+        </div>
         <div id="dash-panels" class="panel-group sortable">
         <!--Begin getting correct panels-->
         {% for panel_dict in user_layout_pref.panel %}
