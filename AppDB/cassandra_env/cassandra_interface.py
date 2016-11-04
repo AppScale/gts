@@ -16,6 +16,7 @@ from dbconstants import AppScaleDBConnectionError
 from dbconstants import TxnActions
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
+from cassandra.concurrent import execute_concurrent
 from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
@@ -416,17 +417,16 @@ class DatastoreProxy(AppDBInterface):
 
     statement = self.session.prepare(insert_str)
 
-    batch_insert = BatchStatement(retry_policy=self.retry_policy)
-
+    statements_and_params = []
     for row_key in row_keys:
       for column in column_names:
-        batch_insert.add(
-          statement,
-          (bytearray(row_key), column, bytearray(cell_values[row_key][column]))
-        )
+        params = (bytearray(row_key), column,
+                  bytearray(cell_values[row_key][column]))
+        statements_and_params.append((statement, params))
 
     try:
-      self.session.execute(batch_insert)
+      execute_concurrent(self.session, statements_and_params,
+                         raise_on_first_error=True)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during batch_put_entity'
       logging.exception(message)
