@@ -68,6 +68,6 @@ case "$1" in
         buildgo
         installtaskqueue
         prepdashboard
-        buildmapreduce
+        fetchclientjars
         ;;
 esac
