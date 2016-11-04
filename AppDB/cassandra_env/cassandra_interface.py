@@ -504,28 +504,28 @@ class DatastoreProxy(AppDBInterface):
     Args:
       mutations: A list of dictionaries representing mutations.
     """
+    prepared_statements = {'insert': {}, 'delete': {}}
+    statements_and_params = []
     for mutation in mutations:
       table = mutation['table']
       if mutation['operation'] == TxnActions.PUT:
+        if table not in prepared_statements['insert']:
+          prepared_statements['insert'][table] = self.prepare_insert(table)
         values = mutation['values']
         for column in values:
-          insert_row = """
-            INSERT INTO "{table}" ({key}, {column}, {value})
-            VALUES (%(key)s, %(column)s, %(value)s)
-          """.format(table=table,
-                     key=ThriftColumn.KEY,
-                     column=ThriftColumn.COLUMN_NAME,
-                     value=ThriftColumn.VALUE)
-          parameters = {'key': bytearray(mutation['key']),
-                        'column': column,
-                        'value': bytearray(values[column])}
-          self.session.execute(insert_row, parameters)
+          params = (bytearray(mutation['key']), column,
+                    bytearray(values[column]))
+          statements_and_params.append(
+            (prepared_statements['insert'][table], params))
       elif mutation['operation'] == TxnActions.DELETE:
-        delete_row = """
-          DELETE FROM "{table}" WHERE {key} = %(key)s
-        """.format(table=table, key=ThriftColumn.KEY)
-        parameters = {'key': bytearray(mutation['key'])}
-        self.session.execute(delete_row, parameters)
+        if table not in prepared_statements['delete']:
+          prepared_statements['delete'][table] = self.prepare_delete(table)
+        params = (bytearray(mutation['key']),)
+        statements_and_params.append(
+          (prepared_statements['delete'][table], params))
+
+    execute_concurrent(self.session, statements_and_params,
+                       raise_on_first_error=True)
 
   def _large_batch(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.
@@ -537,6 +537,7 @@ class DatastoreProxy(AppDBInterface):
       txn: A transaction ID handler.
     Raises:
       FailedBatch if a concurrent process modifies the batch status.
+      AppScaleDBConnectionError if a database connection error was encountered.
     """
     self.logger.debug('Large batch: transaction {}, {} mutations'.
                       format(txn, len(mutations)))
@@ -551,13 +552,15 @@ class DatastoreProxy(AppDBInterface):
       raise FailedBatch('A batch for transaction {} already exists'.
                         format(txn))
 
+    insert_item = """
+      INSERT INTO batches (app, transaction, namespace, path,
+                           old_value, new_value)
+      VALUES (?, ?, ?, ?, ?, ?)
+    """
+    insert_statement = self.session.prepare(insert_item)
+
+    statements_and_params = []
     for entity_change in entity_changes:
-      insert_item = """
-        INSERT INTO batches (app, transaction, namespace, path,
-                             old_value, new_value)
-        VALUES (%(app)s, %(transaction)s, %(namespace)s, %(path)s,
-                %(old_value)s, %(new_value)s)
-      """
       old_value = None
       if entity_change['old'] is not None:
         old_value = bytearray(entity_change['old'].Encode())
@@ -565,15 +568,18 @@ class DatastoreProxy(AppDBInterface):
       if entity_change['new'] is not None:
         new_value = bytearray(entity_change['new'].Encode())
 
-      parameters = {
-        'app': app,
-        'transaction': txn,
-        'namespace': entity_change['key'].name_space(),
-        'path': bytearray(entity_change['key'].path().Encode()),
-        'old_value': old_value,
-        'new_value': new_value
-      }
-      self.session.execute(insert_item, parameters)
+      parameters = (app, txn, entity_change['key'].name_space(),
+                    bytearray(entity_change['key'].path().Encode()), old_value,
+                    new_value)
+      statements_and_params.append((insert_statement, parameters))
+
+    try:
+      execute_concurrent(self.session, statements_and_params,
+                         raise_on_first_error=True)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception during large batch'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
 
     update_status = """
       UPDATE batch_status
@@ -588,7 +594,12 @@ class DatastoreProxy(AppDBInterface):
       raise FailedBatch('Another process modified batch for transaction {}'.
                         format(txn))
 
-    self.apply_mutations(mutations)
+    try:
+      self.apply_mutations(mutations)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception during large batch'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
 
     clear_batch = """
       DELETE FROM batches
