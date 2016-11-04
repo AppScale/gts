@@ -309,11 +309,13 @@ class DatastoreProxy(AppDBInterface):
     self.logger.info('Starting {}'.format(class_name))
 
     self.hosts = appscale_info.get_db_ips()
+    self.retry_policy = IdempotentRetryPolicy()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        self.cluster = Cluster(self.hosts)
+        self.cluster = Cluster(self.hosts,
+                               default_retry_policy=self.retry_policy)
         self.session = self.cluster.connect(KEYSPACE)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
@@ -323,7 +325,6 @@ class DatastoreProxy(AppDBInterface):
         time.sleep(3)
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
-    self.retry_policy = IdempotentRetryPolicy()
 
   def close(self):
     """ Close all sessions and connections to Cassandra. """
