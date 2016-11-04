@@ -112,7 +112,7 @@ APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'
 
 
 # The location of the appscale-upload-app script from appscale-tools.
-UPLOAD_APP_SCRIPT = '/usr/local/bin/appscale-upload-app'
+UPLOAD_APP_SCRIPT = 'appscale-upload-app'
 
 
 # Djinn (interchangeably known as 'the AppController') automatically
