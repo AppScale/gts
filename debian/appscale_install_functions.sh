@@ -556,7 +556,7 @@ upgradepip()
     # dependencies when --upgrade is specified. This is problematic for flower,
     # which will fetch a newer version of celery than desired.
     case "$DIST" in
-        precise|wheezy)
+        precise|wheezy|trusty)
             pipwrapper pip
             # Account for the change in the path to the pip binary.
             hash -r
