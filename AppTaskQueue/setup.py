@@ -16,6 +16,7 @@ setup(
     'PyYaml',
     'tornado'
   ],
+  extras_require={'celery_gui': ['flower']},
   classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Environment :: Console',

@@ -438,14 +438,6 @@ postinstallzookeeper()
     fi
 }
 
-installcelery()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper celery==3.1.23
-    fi
-    pipwrapper Flower
-}
-
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down.
@@ -548,7 +540,7 @@ buildgo()
 
 installtaskqueue()
 {
-    (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
+    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
 }
 
 prepdashboard()
