@@ -115,6 +115,10 @@ APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'
 UPLOAD_APP_SCRIPT = '/usr/local/bin/appscale-upload-app'
 
 
+# The location of the build cache.
+APPSCALE_CACHE_DIR = '/var/cache/appscale'
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -1880,6 +1884,7 @@ class Djinn
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
+      build_uncommitted_changes
       Djinn.log_info("Spawning/setting up other nodes.")
       spawn_and_setup_appengine
     end
@@ -3898,6 +3903,35 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
+  # Run a build on modified directories so that changes will take effect.
+  def build_uncommitted_changes()
+    status = `git -C #{APPSCALE_HOME} status`
+
+    if status.include?('AppTaskQueue')
+      Djinn.log_info('Building uncommitted taskqueue changes')
+      if system('pip install --upgrade --no-deps ' +
+                "#{APPSCALE_HOME}/AppTaskQueue[celery_gui] > /dev/null 2>&1")
+        Djinn.log_info('Finished building taskqueue')
+      else
+        Djinn.log_error('Unable to build taskqueue')
+      end
+    end
+
+    server_java = "#{APPSCALE_HOME}/AppServer_Java"
+    if status.include?('AppServer_Java')
+      Djinn.log_info('Building uncommitted Java AppServer changes')
+      unzip = "unzip -o #{APPSCALE_CACHE_DIR}/appengine-java-sdk-1.8.4.zip " +
+        "-d #{server_java} > /dev/null 2>&1"
+      install = "ant -f #{server_java}/build.xml install > /dev/null 2>&1"
+      clean = "ant -f #{server_java}/build.xml clean-build > /dev/null 2>&1"
+      if system(unzip) && system(install) && system(clean)
+        Djinn.log_info('Finished building Java AppServer')
+      else
+        Djinn.log_error('Unable to build Java AppServer')
+      end
+    end
+  end
+
   def spawn_and_setup_appengine()
     # should also make sure the tools are on the vm and the envvars are set
     keyname = @options['keyname']
@@ -4093,6 +4127,38 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
+
+    # Run a build on modified directories so that changes will take effect.
+    get_status = 'git -C appscale status'
+    ssh_opts = "-i #{ssh_key} -o StrictHostkeyChecking=no " +
+      '-o NumberOfPasswordPrompts=0'
+    status = `ssh #{ssh_opts} root@#{ip} #{get_status}`
+
+    if status.include?('AppTaskQueue')
+      Djinn.log_info("Building uncommitted taskqueue changes on #{ip}")
+      build_tq = 'pip install --upgrade --no-deps ' +
+        "#{APPSCALE_HOME}/AppTaskQueue[celery_gui]"
+      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_tq}" > /dev/null 2>&1])
+        Djinn.log_info("Finished building taskqueue on #{ip}")
+      else
+        Djinn.log_error("Unable to build taskqueue on #{ip}")
+      end
+    end
+
+    if status.include?('AppServer_Java')
+      Djinn.log_info("Building uncommitted Java AppServer changes on #{ip}")
+      build = [
+        "unzip -o #{APPSCALE_CACHE_DIR}/appengine-java-sdk-1.8.4.zip " +
+          "-d #{server_java}",
+        "ant -f #{server_java}/build.xml install",
+        "ant -f #{server_java}/build.xml clean-build"
+      ].join(' && ')
+      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build}" > /dev/null 2>&1])
+        Djinn.log_info("Finished building Java AppServer on #{ip}")
+      else
+        Djinn.log_error("Unable to build Java AppServer on #{ip}")
+      end
+    end
   end
 
   def setup_config_files()
