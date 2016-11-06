@@ -46,7 +46,7 @@ module TaskQueue
   # The location of the taskqueue server script. This service controls 
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = '/usr/local/bin/appscale-taskqueue'
+  TASKQUEUE_SERVER_SCRIPT = `which appscale-taskqueue`
 
   # The longest we'll wait for RabbitMQ to come up in seconds.
   MAX_WAIT_FOR_RABBITMQ = 30
@@ -235,7 +235,8 @@ module TaskQueue
   # Args:
   #   flower_password: A String that is used as the password to log into flower.
   def self.start_flower(flower_password)
-    start_cmd = "/usr/local/bin/flower --basic_auth=appscale:#{flower_password}"
+    flower_cmd = `which flower`
+    start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "flower #{flower_password}"
     MonitInterface.start(:flower, start_cmd, stop_cmd, [FLOWER_SERVER_PORT],
