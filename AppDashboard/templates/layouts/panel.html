@@ -1,4 +1,6 @@
-{% if page_info.is_admin_panel == is_user_cloud_admin or page_info.is_admin_panel is not defined %}
+{% if page_info %}
+{% if page_info.is_admin_panel is not defined or page_info.is_admin_panel ==
+is_user_cloud_admin %}
 <!-- FILE:templates/apps/dash.html -->
 <!-- this is a child template to display a panel in dash.html-->
 <!-- it takes parameters id and page_info from the parent -->
@@ -26,4 +28,5 @@
     <!--Start Cloud Admin View-->
   </div><!-- End .panel-collapse -->
 </div><!--end .panel-->
+{% endif %}
 {% endif %}
