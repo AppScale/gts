@@ -13,6 +13,7 @@ import sys
 import time
 import tq_lib
 
+from distutils.spawn import find_executable
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
@@ -395,7 +396,8 @@ class DistributedTaskQueue():
       return json.dumps({'error': True, 'reason': config_error.message})
    
     log_file = self.LOG_DIR + app_id + ".log"
-    command = ["/usr/local/bin/celery",
+    celery_bin = find_executable('celery')
+    command = [celery_bin,
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),

@@ -10,7 +10,13 @@ setup(
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=['cassandra-driver', 'celery', 'PyYaml', 'tornado'],
+  install_requires=[
+    'cassandra-driver',
+    'celery<4.0.0',
+    'PyYaml',
+    'tornado'
+  ],
+  extras_require={'celery_gui': ['flower']},
   classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
