@@ -598,7 +598,9 @@ class AppDashboardData():
 
       if app_names_to_add:
         apps_to_add = [AppStatus(id=app, name=app, url=app_names_and_urls[app])
-          for app in app_names_to_add]
+          for app in app_names_to_add if AppStatus(id=app, name=app,
+                                                   url=app_names_and_urls[
+                                                     app]) is not None]
         ndb.put_multi(apps_to_add)
 
       return app_names_and_urls
