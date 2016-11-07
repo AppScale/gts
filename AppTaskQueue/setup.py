@@ -26,6 +26,10 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale', 'appscale.taskqueue', 'appscale.taskqueue.brokers'],
-  scripts=glob.glob('scripts/*'),
+  entry_points={
+    'console_scripts': [
+      'appscale-taskqueue=appscale.taskqueue.appscale_taskqueue:main'
+    ]
+  },
   package_data={'appscale.taskqueue': ['templates/*']}
 )
