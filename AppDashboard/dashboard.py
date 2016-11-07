@@ -108,12 +108,11 @@ class AppDashboard(webapp2.RequestHandler):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     apps_user_is_admin_on = self.dstore.get_application_info()
     if not is_cloud_admin:
-      apps_user_is_admin_owns = self.helper.get_owned_apps()
+      apps_user_owns = self.helper.get_owned_apps()
       new_app_dict = {}
-      for app_name in apps_user_is_admin_owns:
+      for app_name in apps_user_owns:
         if app_name in apps_user_is_admin_on:
           new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
-      logging.info(new_app_dict)
       apps_user_is_admin_on = new_app_dict
 
     self.helper.update_cookie_app_list(apps_user_is_admin_on.keys(),
@@ -759,8 +758,16 @@ class AppsAsJSONPage(webapp2.RequestHandler):
   def get(self):
     """ Retrieves the cached information about applications running in this
     AppScale deployment as a JSON-encoded dict. """
-    self.response.out.write(json.dumps(
-      AppDashboardData().get_application_info()))
+    is_cloud_admin = AppDashboardHelper().is_user_cloud_admin()
+    apps_user_is_admin_on = AppDashboardData().get_application_info()
+    if not is_cloud_admin:
+      apps_user_owns = AppDashboardHelper().get_owned_apps()
+      new_app_dict = {}
+      for app_name in apps_user_owns:
+        if app_name in apps_user_is_admin_on:
+          new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
+      apps_user_is_admin_on = new_app_dict
+    self.response.out.write(json.dumps(apps_user_is_admin_on))
 
   def post(self, app_id):
     """ Saves profiling information about a Google App Engine application to the
