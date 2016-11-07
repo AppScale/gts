@@ -261,13 +261,96 @@ CRON
               "april" => "apr", "may" => "may", "june" => "jun",
               "july" => "jul", "august" => "aug", "september" => "sep",
               "october" => "oct", "november" => "nov",
-              "december" => "dec", "every" => "*" }
+              "december" => "dec", "every" => "*", "month" => "*"}
     result = []
     month_list = months.split(",")
     month_list.each{ |month|
       result << (table[month] || month)
     }
     return result.join(',')
+  end
+
+  def self.convert_messy_format_improved(schedule)
+    splitted = schedule.split
+
+    # Only 3, 5 or 7-token schedules are supported.
+    # Examples:
+    # every day 00:00
+    # every monday 09:00
+    # every monday of sep,oct,nov 17:00
+    # every 5 minutes from 10:00 to 14:00
+    unless splitted.length == 3 || splitted.length == 4 || splitted.length == 5 || splitted.length == 7
+      Djinn.log_error("bad format, length = #{splitted.length}")
+      return [""]
+    end
+
+    ord = splitted[0]
+    days_of_week = splitted[1]
+
+    if splitted.length == 3
+      months_of_year = "every"
+      time = splitted[2]
+      hour, min = time.split(":").map(&:to_i)
+    elsif splitted.length == 4
+      days_of_week = "day"
+      months_of_year = splitted[2]
+      time = splitted[3]
+      hour, min = time.split(":").map(&:to_i)
+    elsif splitted.length == 5
+      months_of_year = splitted[3]
+      time = splitted[4]
+      hour, min = time.split(":").map(&:to_i)
+    else    # schedule length = 7, e.g. every 7 minutes from 10:00 to 14:00
+      months_of_year = "every"
+      days_of_week = "day"
+
+      increment = splitted[1].to_i
+      increment_type = splitted[2]
+
+      # Split hour and minute and trim leading zeros.
+      # Start time is represented as t1 = h1:m1.
+      # End time is represented as t2 = h2:m2.
+      h1, m1 = splitted[4].split(":").map(&:to_i)
+      h2, m2 = splitted[6].split(":").map(&:to_i)
+
+      if h1 == h2 && m1 == m2   # e.g. every 5 minutes from 12:05 to 12:05
+        return []
+      end
+
+      if increment_type == "hours" && increment > 24
+        return []
+      end
+
+      if h1 < h2
+        hour = "#{h1}-#{h2}/#{increment}"
+      else
+        hour = "0-#{h2}/#{increment},#{h1}-23/#{increment}"
+      end
+
+      if m1 == m2
+        min = m1
+      elsif m1 < m2
+        min = "#{m1}-#{m2}/#{increment}"
+      else
+        min = "0-#{m2}/#{increment},#{m1}-59/#{increment}"
+      end
+    end
+
+    ord = fix_ords(ord)
+    days_of_week = fix_days(days_of_week)
+    months_of_year = fix_months(months_of_year)
+
+    cron_lines = Array.new
+    if ord == "every" || splitted[0].to_i
+      cron_lines.push("#{min} #{hour} * #{months_of_year} #{days_of_week}")
+    else    # Complex case, not implemented yet.
+      Djinn.log_error("Cannot set up cron route with ordinals, as AppScale" +
+        " does not support it. Ordinal was: #{ord}")
+      return [""]
+    end
+    Djinn.log_error(splitted)
+    # Djinn.log_error(cron_lines)
+    return cron_lines
   end
 
 
@@ -467,7 +550,7 @@ CRON
     if simple_format.length.zero? &&
        !schedule.include?("from 00:00 to 23:59")    # not simple format
       Djinn.log_debug("Messy format")
-      cron_lines = convert_messy_format(schedule)
+      cron_lines = convert_messy_format_improved(schedule)
     else
       Djinn.log_debug("Simple format: #{simple_format}")
       num = $1

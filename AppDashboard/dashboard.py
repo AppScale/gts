@@ -929,6 +929,8 @@ class CronPage(AppDashboard):
                      "url_command": "/cron/run?" + urllib.urlencode(query_params)}
                 )
 
+        logging.info(cron_jobs)
+
         self.render_page(page='cron', template_file=self.TEMPLATE, values={
             'mail_to': mail_to,
             'cron_jobs': cron_jobs
