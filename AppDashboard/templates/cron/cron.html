@@ -1,14 +1,9 @@
 <!-- FILE:templates/cron/cron.html -->
 <!--Body content-->
 <style>
-   table {border-collapse:collapse; table-layout:fixed; width:500px;}
-   table td {border:solid 5px #fab; width:1000px; word-wrap:break-word; border-color:gray}
+   table {border-collapse:collapse; table-layout:fixed;}
+   table td {border:solid 5px #fab; word-wrap:break-word; border-color:gray}
 </style>
-<script>
-    function run(command) {
-        alert('TEST')
-    }
-</script>
 
 <div id="content">
     <div class="heading">
@@ -25,10 +20,10 @@
                 </tr>
                 {% for cron_job in cron_jobs%}
                     <tr>
-                        <td id="command">{{cron_job['command']}}</td>
-                        <td>{{cron_job['comment']}}</td>
-                        <td>{{cron_job['frequency']}}</td>
-                        <td><a class="btn btn-small" href="{{cron_job['url_command']}})">Run</a></td>
+                        <td id="command" width="50%">{{cron_job['command']}}</td>
+                        <td align="center">{{cron_job['comment']}}</td>
+                        <td align="center">{{cron_job['frequency']}}</td>
+                        <td align="center"><a class="btn btn-small" href="{{cron_job['url_command']}})">Run</a></td>
                     </tr>
                 {% endfor %}
             </table>
