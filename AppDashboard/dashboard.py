@@ -106,12 +106,18 @@ class AppDashboard(webapp2.RequestHandler):
       values = {}
 
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    if is_cloud_admin:
-      apps_user_is_admin_on = self.dstore.get_application_info()
-    else:
-      apps_user_is_admin_on = self.helper.get_owned_apps()
-    self.helper.update_cookie_app_list(apps_user_is_admin_on, self.request, self.response)
+    apps_user_is_admin_on = self.dstore.get_application_info()
+    if not is_cloud_admin:
+      apps_user_is_admin_owns = self.helper.get_owned_apps()
+      new_app_dict = {}
+      for app_name in apps_user_is_admin_owns:
+        if app_name in apps_user_is_admin_on:
+          new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
+      logging.info(new_app_dict)
+      apps_user_is_admin_on = new_app_dict
 
+    self.helper.update_cookie_app_list(apps_user_is_admin_on.keys(),
+                                         self.request, self.response)
     template = jinja_environment.get_template(template_file)
     sub_vars = {
       'logged_in': self.helper.is_user_logged_in(),
@@ -189,7 +195,7 @@ class DashPage(AppDashboard):
     self.render_page(page='dash', template_file=self.TEMPLATE, values={
       'server_info' : self.dstore.get_status_info(),
       'dbinfo' : self.dstore.get_database_info(),
-      'apps' : self.dstore.get_application_info(),
+      'apps' : self.dstore.get_application_info().keys(),
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
@@ -1212,7 +1218,7 @@ class AjaxRenderPanel(AppDashboard):
     key_val = self.request.get('key_val')
     self.response.out.write(self.render_template(
       template_file='layouts/panel.html',
-      values={'page_info':self.dstore.build_dict()[key_val],
+      values={'page_info':self.dstore.get_panel_key_info(key_val),
               'id':key_val}))
 
 class AjaxSaveLayoutSettings(AppDashboard):
@@ -1223,9 +1229,9 @@ class AjaxSaveLayoutSettings(AppDashboard):
 
     nav = self.request.get("nav")
     panel = self.request.get("panel")
-    json_string = '{"nav":'+nav+',"panel":'+panel+"}"
+    saved_dict = {"nav": nav,"panel": panel}
     try:
-        self.dstore.set_dash_layout_settings(values=json_string)
+        self.dstore.set_dash_layout_settings(values=saved_dict)
         self.response.set_status(200)
         self.response.out.write("Saved")
     except Exception as err:
