@@ -1,3 +1,0 @@
-[pytest11]
-cacheprovider = pytest_cache
-
