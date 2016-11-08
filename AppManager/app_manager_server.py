@@ -226,10 +226,18 @@ def start_app(config):
     copy_successful = copy_modified_jars(config['app_name'])
     if not copy_successful:
       return BAD_PID
+
+    # The Java AppServer process can use ~120MB more than the heap size.
+    max_heap = config['max_memory'] - 140
+    if max_heap <= 0:
+      return BAD_PID
     start_cmd = create_java_start_cmd(
       config['app_name'],
       config['app_port'],
-      config['load_balancer_ip'])
+      config['load_balancer_ip'],
+      max_heap
+    )
+
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env(config['app_name']))
   else:
@@ -694,13 +702,14 @@ def copy_files_matching_pattern(file_path_pattern, dest):
   for file in glob.glob(file_path_pattern):
     shutil.copy(file, dest)
 
-def create_java_start_cmd(app_name, port, load_balancer_host):
+def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
   """ Creates the start command to run the java application server.
 
   Args:
     app_name: The name of the application to run
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
+    max_heap: An integer specifying the max heap size in MB.
   Returns:
     A string of the start command.
   """
@@ -714,6 +723,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host):
     "--port=" + str(port),
     #this jvm flag allows javax.email to connect to the smtp server
     "--jvm_flag=-Dsocket.permit_connect=true",
+    '--jvm_flag=-Xmx{}m'.format(max_heap),
     "--disable_update_check",
     "--address=" + appscale_info.get_private_ip(),
     "--datastore_path=" + db_location,
