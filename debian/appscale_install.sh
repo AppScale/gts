@@ -45,6 +45,7 @@ case "$1" in
         installappserverjava
         installtornado
         installcrontab
+        installcrondescriptor
         installpycrypto
         installflexmock
         installzookeeper

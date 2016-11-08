@@ -273,6 +273,12 @@ installcrontab()
     pipwrapper python-crontab
 }
 
+installcrondescriptor()
+{
+    pipwrapper cron-descriptor
+}
+
+
 installflexmock()
 {
     if [ "$DIST" = "precise" ]; then
