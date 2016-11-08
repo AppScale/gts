@@ -322,17 +322,33 @@ CRON
       end
 
       if h1 < h2
-        hour = "#{h1}-#{h2}/#{increment}"
+        if increment_type == "hours"
+          hour = "#{h1}-#{h2}/#{increment}"
+        else
+          hour = "#{h1}-#{h2}"
+        end
       else
-        hour = "0-#{h2}/#{increment},#{h1}-23/#{increment}"
+        if increment_type == "hours"
+          hour = "0-#{h2}/#{increment},#{h1}-23/#{increment}"
+        else
+          hour = "0-#{h2},#{h1}-23"
+        end
       end
 
       if m1 == m2
         min = m1
       elsif m1 < m2
-        min = "#{m1}-#{m2}/#{increment}"
+        if increment_type == "minutes"
+          min = "#{m1}-#{m2}/#{increment}"
+        else
+          min = "#{m1}-#{m2}"
+        end
       else
-        min = "0-#{m2}/#{increment},#{m1}-59/#{increment}"
+        if increment_type == "minutes"
+          min = "0-#{m2}/#{increment},#{m1}-59/#{increment}"
+        else
+          min = "0-#{m2},#{m1}-59"
+        end
       end
     end
 
