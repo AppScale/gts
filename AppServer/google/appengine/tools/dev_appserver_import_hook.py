@@ -802,7 +802,6 @@ class HardenedModulesHook(object):
       'posix',
       'posixpath',
       'pyexpat',
-      'pwd',
       'sha',
       'struct',
       'strxor',
@@ -1415,12 +1414,12 @@ class HardenedModulesHook(object):
             #  logging.debug(error_message)
             #  raise ImportError(error_message)
 
-          # if (file_type not in self._ENABLED_FILE_TYPES and
-          #     submodule not in self._white_list_c_modules):
-          #   error_message = ('Could not import "%s": Disallowed C-extension '
-          #                    'or built-in module' % submodule_fullname)
-          #   logging.debug(error_message)
-          #   raise ImportError(error_message)
+          if (file_type not in self._ENABLED_FILE_TYPES and
+              submodule not in self._white_list_c_modules):
+            error_message = ('Could not import "%s": Disallowed C-extension '
+                             'or built-in module' % submodule_fullname)
+            logging.debug(error_message)
+            raise ImportError(error_message)
 
           if (py27_optional and not py27_enabled and
               not pathname.startswith(self._app_code_path)):
