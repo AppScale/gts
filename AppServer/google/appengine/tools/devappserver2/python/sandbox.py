@@ -760,6 +760,7 @@ _WHITE_LIST_C_MODULES = [
     '_codecs_kr',
     '_codecs_tw',
     '_collections',  # Python 2.6 compatibility
+    'crontab',
     'crypt',
     'cPickle',
     'cStringIO',
@@ -789,6 +790,7 @@ _WHITE_LIST_C_MODULES = [
     'parser',
     'posix',  # Only indirectly through the os module.
     'pyexpat',
+    'pwd',
     '_random',
     '_sha256',  # Python2.5 compatibility
     '_sha512',  # Python2.5 compatibility
