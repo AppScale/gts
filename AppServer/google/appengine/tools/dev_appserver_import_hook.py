@@ -802,6 +802,7 @@ class HardenedModulesHook(object):
       'posix',
       'posixpath',
       'pyexpat',
+      'pwd',
       'sha',
       'struct',
       'strxor',
@@ -1408,18 +1409,18 @@ class HardenedModulesHook(object):
               pkg_pathname = os.path.join(pkg_pathname, '__init__.py')
             # AppScale: disables the whitelist and lets you import anything
             # installed, as long as it's in your path.
-            #if not FakeFile.IsFileAccessible(
-            #    pkg_pathname, py27_optional=py27_optional):
-            #  error_message = 'Access to module file denied: %s' % pathname
-            #  logging.debug(error_message)
-            #  raise ImportError(error_message)
+            if not FakeFile.IsFileAccessible(
+               pkg_pathname, py27_optional=py27_optional):
+             error_message = 'Access to module file denied: %s' % pathname
+             logging.debug(error_message)
+             raise ImportError(error_message)
 
-          if (file_type not in self._ENABLED_FILE_TYPES and
-              submodule not in self._white_list_c_modules):
-            error_message = ('Could not import "%s": Disallowed C-extension '
-                             'or built-in module' % submodule_fullname)
-            logging.debug(error_message)
-            raise ImportError(error_message)
+          # if (file_type not in self._ENABLED_FILE_TYPES and
+          #     submodule not in self._white_list_c_modules):
+          #   error_message = ('Could not import "%s": Disallowed C-extension '
+          #                    'or built-in module' % submodule_fullname)
+          #   logging.debug(error_message)
+          #   raise ImportError(error_message)
 
           if (py27_optional and not py27_enabled and
               not pathname.startswith(self._app_code_path)):

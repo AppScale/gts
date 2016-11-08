@@ -579,6 +579,7 @@ prepdashboard()
 {
     rm -rf ${APPSCALE_HOME}/AppDashboard/vendor
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor SOAPpy
+    pip install -t ${APPSCALE_HOME}/AppDashboard/vendor python-crontab
 }
 
 upgradepip()
