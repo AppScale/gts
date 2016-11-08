@@ -184,7 +184,7 @@ module TaskQueue
     start_cmd << ' --verbose' if verbose
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
-    env_vars = {}
+    env_vars = {:PATH => '$PATH:/usr/local/bin'}
     MonitInterface.start(:taskqueue, start_cmd, stop_cmd,
                          [TASKQUEUE_SERVER_INTERNAL_PORT], env_vars, start_cmd,
                          nil, nil, nil)

@@ -438,14 +438,6 @@ postinstallzookeeper()
     fi
 }
 
-installcelery()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper celery==3.1.23
-    fi
-    pipwrapper Flower
-}
-
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down.
@@ -548,7 +540,10 @@ buildgo()
 
 installtaskqueue()
 {
-    (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    # Fill in new dependencies.
+    # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
+    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
 }
 
 prepdashboard()
@@ -559,12 +554,10 @@ prepdashboard()
 
 upgradepip()
 {
-    # Pip 1.0 in Precise does not have --target, which is needed for preparing
-    # the dashboard. Pip 1.0 and 1.1 (Precise and Wheezy) upgrade a package's
-    # dependencies when --upgrade is specified. This is problematic for flower,
-    # which will fetch a newer version of celery than desired.
+    # Versions older than Pip 7 did not correctly parse install commands for
+    # local packages with optional dependencies.
     case "$DIST" in
-        precise|wheezy)
+        precise|wheezy|trusty)
             pipwrapper pip
             # Account for the change in the path to the pip binary.
             hash -r
