@@ -127,7 +127,7 @@ def enable_sandbox(config):
   for name in list(sys.modules):
     if not _should_keep_module(name):
       _removed_modules.append(sys.modules[name])
-      # del sys.modules[name]
+      del sys.modules[name]
 
   path_override_hook = PathOverrideImportHook(
       set(_THIRD_PARTY_LIBRARY_NAME_OVERRIDES.get(lib.name, lib.name)
@@ -192,7 +192,7 @@ def _find_shared_object_c_module():
 def _should_keep_module(name):
   """Returns True if the module should be retained after sandboxing."""
   return (name in ('__builtin__', 'sys', 'codecs', 'encodings', 'site',
-                   'google', 'crontab', 'pwd') or
+                   'google', 'crontab') or
           name.startswith('google.') or name.startswith('encodings.') or
 
           # Making mysql available is a hack to make the CloudSQL functionality
@@ -639,16 +639,14 @@ class ModuleOverridePolicy(object):
       if symbol in self.overrides:
         module_dict[symbol] = self.overrides[symbol]
       elif symbol in self.deletes:
-        pass
-        # del module_dict[symbol]
+        del module_dict[symbol]
       elif not (symbol in self.whitelist or
                 isinstance(module_dict[symbol], self.constant_types) or
                 (symbol.startswith('__') and symbol.endswith('__'))):
         if self.default_stub:
           module_dict[symbol] = self.default_stub
         elif not self.default_pass_through:
-          pass
-          # del module_dict[symbol]
+          del module_dict[symbol]
 
 _MODULE_OVERRIDE_POLICIES = {
     'os': ModuleOverridePolicy(
@@ -825,7 +823,7 @@ class BuiltinImportHook(object):
   """
 
   def find_module(self, fullname, unused_path=None):
-    if fullname in sys.builtin_module_names:
+    if fullname in sys.builtin_module_names and fullname not in _WHITE_LIST_C_MODULES:
       return self
     return None
 
