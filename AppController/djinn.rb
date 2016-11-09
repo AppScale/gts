@@ -3903,33 +3903,34 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
+  def build_taskqueue()
+    Djinn.log_info('Building uncommitted taskqueue changes')
+    if system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[celery_gui] > /dev/null 2>&1")
+      Djinn.log_info('Finished building taskqueue')
+    else
+      Djinn.log_error('Unable to build taskqueue')
+    end
+  end
+
+  def build_java_appserver()
+    Djinn.log_info('Building uncommitted Java AppServer changes')
+    unzip = "unzip -o #{APPSCALE_CACHE_DIR}/appengine-java-sdk-1.8.4.zip " +
+        "-d #{server_java} > /dev/null 2>&1"
+    install = "ant -f #{server_java}/build.xml install > /dev/null 2>&1"
+    clean = "ant -f #{server_java}/build.xml clean-build > /dev/null 2>&1"
+    if system(unzip) && system(install) && system(clean)
+      Djinn.log_info('Finished building Java AppServer')
+    else
+      Djinn.log_error('Unable to build Java AppServer')
+    end
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes()
     status = `git -C #{APPSCALE_HOME} status`
-
-    if status.include?('AppTaskQueue')
-      Djinn.log_info('Building uncommitted taskqueue changes')
-      if system('pip install --upgrade --no-deps ' +
-                "#{APPSCALE_HOME}/AppTaskQueue[celery_gui] > /dev/null 2>&1")
-        Djinn.log_info('Finished building taskqueue')
-      else
-        Djinn.log_error('Unable to build taskqueue')
-      end
-    end
-
-    server_java = "#{APPSCALE_HOME}/AppServer_Java"
-    if status.include?('AppServer_Java')
-      Djinn.log_info('Building uncommitted Java AppServer changes')
-      unzip = "unzip -o #{APPSCALE_CACHE_DIR}/appengine-java-sdk-1.8.4.zip " +
-        "-d #{server_java} > /dev/null 2>&1"
-      install = "ant -f #{server_java}/build.xml install > /dev/null 2>&1"
-      clean = "ant -f #{server_java}/build.xml clean-build > /dev/null 2>&1"
-      if system(unzip) && system(install) && system(clean)
-        Djinn.log_info('Finished building Java AppServer')
-      else
-        Djinn.log_error('Unable to build Java AppServer')
-      end
-    end
+    build_taskqueue if status.include?('AppTaskQueue')
+    build_java_appserver if status.include?('AppTaskQueue')
   end
 
   def spawn_and_setup_appengine()
