@@ -12,7 +12,6 @@ import tempfile
 import time
 import urllib
 
-
 from google.appengine.api.appcontroller_client import AppControllerClient
 from google.appengine.api import users
 
@@ -48,72 +47,58 @@ class AppDashboardHelper(object):
   permissions, and any Google App Engine applications that are running.
   """
 
-
   # A str that indicates the name of the cookie that the AppDashboard reads and
   # writes a user's information (their e-mail address, nickname, and list of
   # applications they own) to.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
-
   # A str that separates the four fields stored in the login cookie.
   LOGIN_COOKIE_FIELD_SEPARATOR = ':'
 
-
   # A str that separates apps in the app owner list field in the login cookie.
   LOGIN_COOKIE_APPS_SEPARATOR = ','
-
 
   # An int indicating which position (starting at zero) the app owner list is in
   # the login cookie.
   LOGIN_COOKIE_APPS_PART = 2
 
-
   # The port that the UserAppServer runs on, by default.
   UA_SERVER_PORT = 4343
-
 
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
   APP_DELIMITER = ":"
 
-
   # When querying the UserAppServer for a list of all the users that are
   # registered in the system, this character is used to separate them.
   USER_DELIMITER = ":"
-
 
   # Users have a list of authorizations (capabilities) that correspond to
   # actions they are allowed to perform in this AppScale deployment. The
   # UserAppServer joins that list with this character.
   USER_CAPABILITIES_DELIMITER = ':'
 
-
   # A regular expression that can be used to find out which Google App Engine
   # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
-
 
   # A regular expression that can be used to find out from the user's data in
   # the UserAppServer if they are a cloud-level administrator in this AppScale
   # cloud.
   CLOUD_ADMIN_REGEX = "is_cloud_admin:true"
 
-
   # A regular expression that can be used to get the user's nickname (everything
   # preceding the initial '@' symbol) from their e-mail address.
   USERNAME_FROM_EMAIL_REGEX = '\A(.*)@'
-
 
   # A regular expression that can be used to retrieve the SHA1-hashed password
   # stored in a user's data with the UserAppServer.
   USER_DATA_PASSWORD_REGEX = 'password:([0-9a-fA-F]+)'
 
-
   # A regular expression that can be used to see if the given user is actually
   # a valid user in our system. This is useful in cases when the UserAppServer
   # returns error messages instead of user names.
   ALL_USERS_NON_USER_REGEX = '^[_]+$'
-
 
   # The date and time that user tokens expire.
   # TODO: Since this value corresponds to a date in the past, investigate
@@ -162,11 +147,10 @@ class AppDashboardHelper(object):
     self.appcontroller = None
     self.uaserver = None
     self.cache = {
-      'get_role_info' : [],
-      'query_user_data' : {},
-      'user_caps' : {}
+      'get_role_info': [],
+      'query_user_data': {},
+      'user_caps': {}
     }
-
 
   def get_appcontroller_client(self, server_ip=MY_PUBLIC_IP):
     """ Retrieves our saved AppController connection, creating a new one if none
@@ -182,7 +166,6 @@ class AppDashboardHelper(object):
       self.appcontroller = AppControllerClient(server_ip, GLOBAL_SECRET_KEY)
     return self.appcontroller
 
-
   def get_uaserver(self):
     """ Retrieves our saved UserAppServer connection, creating a new one if none
     currently exist.
@@ -194,7 +177,6 @@ class AppDashboardHelper(object):
       self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(UA_SERVER_IP,
         self.UA_SERVER_PORT))
     return self.uaserver
-
 
   def get_user_capabilities(self, email):
     """ Queries the UserAppServer to learn what actions the named user is
@@ -219,7 +201,6 @@ class AppDashboardHelper(object):
       logging.exception(err)
       return []
 
-
   def get_status_info(self):
     """ Queries our local AppController to get server-level information about
     every server running in this AppScale deployment.
@@ -231,14 +212,13 @@ class AppDashboardHelper(object):
     """
     try:
       status_info = self.get_appcontroller_client().get_stats()
-      if status_info == True:
+      if status_info:
         return []
       else:
         return status_info
     except Exception as err:
       logging.exception(err)
       return []
-
 
   def get_host_with_role(self, role):
     """ Queries the AppController to find a host running the named role.
@@ -266,7 +246,6 @@ class AppDashboardHelper(object):
         return node['public_ip']
     return ''
 
-
   def get_head_node_ip(self):
     """ Queries the AppController to learn which machine runs the shadow
     service in this AppScale deployment.
@@ -276,7 +255,6 @@ class AppDashboardHelper(object):
       running the shadow service.
     """
     return self.get_host_with_role('shadow')
-
 
   def get_login_host(self):
     """ Queries the AppController to learn which machine runs the login
@@ -288,7 +266,6 @@ class AppDashboardHelper(object):
       running the login service.
     """
     return self.get_host_with_role('login')
-
 
   def get_app_ports(self, appname):
     """ Queries the UserAppServer to learn which port the named application runs
@@ -316,7 +293,6 @@ class AppDashboardHelper(object):
     return [int(result['hosts'].values()[0]['http']),
             int(result['hosts'].values()[0]['https'])]
 
-
   def shell_check(self, argument):
     """ Checks for special characters in arguments that are part of shell
     commands.
@@ -328,8 +304,7 @@ class AppDashboardHelper(object):
     """
     if '\'' in argument:
       raise BadConfigurationException("Single quotes (') are not allowed " + \
-        "in filenames.")
-
+                                      "in filenames.")
 
   def upload_app(self, filename, upload_file):
     """ Uploads an Google App Engine application into this AppScale deployment.
@@ -345,8 +320,9 @@ class AppDashboardHelper(object):
     """
     user = users.get_current_user()
     if not user:
-      raise AppHelperException("There was an error uploading your " \
-        "application. You must be logged in to upload applications.")
+      raise AppHelperException("There was an error uploading your "
+                               "application. You must be logged in to upload "
+                               "applications.")
     try:
       self.shell_check(filename)
       file_suffix = re.search("\.(.*)\Z", filename).group(1)
@@ -370,8 +346,8 @@ class AppDashboardHelper(object):
               'We could not find the reservation ID for your app. '
               'Please try uploading it again.')
           if status == AppUploadStatuses.COMPLETE:
-            return 'Application uploaded successfully. Please wait for the '\
-              'application to start running.'
+            return 'Application uploaded successfully. Please wait for the ' \
+                   'application to start running.'
         raise AppHelperException(
           'Unknown app upload status: {}'.format(status))
       finally:
@@ -392,8 +368,7 @@ class AppDashboardHelper(object):
         # format.
         failure_message = str(err)
       raise AppHelperException("There was an error uploading your application: "
-        "{0}".format(failure_message))
-
+                               "{0}".format(failure_message))
 
   def relocate_app(self, appid, http_port, https_port):
     """ Relocates a Google App Engine application to different ports.
@@ -405,24 +380,22 @@ class AppDashboardHelper(object):
       Returns:
         A str indicating that the application was relocated successfully.
       Raises:
-        AppHelperException: If the application was not uploaded successfully.
+        AppHelperException: If the application was not relocated successfully.
       """
     acc = self.get_appcontroller_client()
     try:
       relocate_info = acc.relocate_app(appid, http_port, https_port)
-      logging.info(relocate_info)
       # Returns:
-      #"OK" if the relocation occurred successfully, and a String containing
+      # "OK" if the relocation occurred successfully, and a String containing
       # the reason why the relocation failed in all other cases.
-      if(relocate_info!="OK"):
+      if relocate_info != "OK":
         logging.error("AppController returned: {0}".format(relocate_info))
-        return "Error attempting to relocate Application: {0}"\
+        return "Error attempting to relocate Application: {0}" \
           .format(relocate_info)
     except Exception as err:
       logging.exception(err)
       return "There was an error attempting to relocate the application."
     return "Application was relocated successfully."
-
 
   def delete_app(self, appname):
     """ Removes a Google App Engine application from this AppScale deployment.
@@ -445,8 +418,7 @@ class AppDashboardHelper(object):
       logging.exception(err)
       return "There was an error attempting to remove the application."
     return "Application removed successfully. Please wait for your app to " + \
-      "shut down."
-
+           "shut down."
 
   def does_app_exist(self, appname):
     """ Queries the UserAppServer to see if the named application id has been
@@ -460,15 +432,13 @@ class AppDashboardHelper(object):
     result = self.get_uaserver().does_app_exist(appname, GLOBAL_SECRET_KEY)
     return result.lower() == 'true'
 
-
   def is_user_logged_in(self):
     """ Checks to see if this user is logged in.
 
     Returns:
       True if the user is logged in, and False otherwise.
     """
-    return users.get_current_user() != None
-
+    return users.get_current_user() is not None
 
   def get_user_email(self):
     """ Get the logged in user's email.
@@ -481,7 +451,6 @@ class AppDashboardHelper(object):
       return user.email()
     else:
       return ''
-
 
   def get_owned_apps(self, email=None):
     """ Queries the UserAppServer to see which application ids the named user
@@ -507,7 +476,6 @@ class AppDashboardHelper(object):
       return user_data_match.group(1).split(self.APP_DELIMITER)
     return []
 
-
   def query_user_data(self, email):
     """ Searches through our cache or queries the UserAppServer for the data it
     stores for the given user.
@@ -529,7 +497,6 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
       return ''
-
 
   def is_user_cloud_admin(self, email=None):
     """ Checks if a user is a cloud administrator.
@@ -553,7 +520,6 @@ class AppDashboardHelper(object):
     else:
       return False
 
-
   def can_upload_apps(self, email=None):
     """ Checks if the user can upload Google App Engine applications via the
     AppDashboard.
@@ -573,9 +539,8 @@ class AppDashboardHelper(object):
       email = user.email()
     return 'upload_app' in self.get_user_capabilities(email)
 
-
   def create_new_user(self, email, password, response,
-    account_type='xmpp_user'):
+                      account_type='xmpp_user'):
     """ Creates a new user account, by making both a standard login and an
     XMPP login account.
 
@@ -594,7 +559,7 @@ class AppDashboardHelper(object):
       # First, create the standard account.
       encrypted_pass = LocalState.encrypt_password(email, password)
       result = uaserver.commit_new_user(email, encrypted_pass, account_type,
-        GLOBAL_SECRET_KEY)
+                                        GLOBAL_SECRET_KEY)
       if result != 'true':
         raise AppHelperException(result)
 
@@ -603,10 +568,10 @@ class AppDashboardHelper(object):
       username_regex = re.compile(self.USERNAME_FROM_EMAIL_REGEX)
       username = username_regex.match(email).groups()[0]
       xmpp_user = "{0}@{1}".format(username,
-        self.get_login_host())
+                                   self.get_login_host())
       xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
       result = uaserver.commit_new_user(xmpp_user, xmpp_pass, account_type,
-        GLOBAL_SECRET_KEY)
+                                        GLOBAL_SECRET_KEY)
       if result != 'true':
         raise AppHelperException(result)
 
@@ -654,13 +619,15 @@ class AppDashboardHelper(object):
     apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
     if AppDashboardHelper.USE_SHIBBOLETH:
       response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
-        value=self.get_cookie_value(email, apps),
-        domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN,
-        expires=datetime.datetime.now() + datetime.timedelta(days=1))
+                          value=self.get_cookie_value(email, apps),
+                          domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN,
+                          expires=datetime.datetime.now() + datetime.timedelta(
+                            days=1))
     else:
       response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
-        value=self.get_cookie_value(email, apps),
-        expires=datetime.datetime.now() + datetime.timedelta(days=1))
+                          value=self.get_cookie_value(email, apps),
+                          expires=datetime.datetime.now() + datetime.timedelta(
+                            days=1))
 
   def get_cookie_app_list(self, request):
     """ Look at the user's login cookie and return the list of apps that
@@ -736,7 +703,6 @@ class AppDashboardHelper(object):
     return urllib.quote("{1}{0}{2}{0}{3}{0}{4}".format(
       self.LOGIN_COOKIE_FIELD_SEPARATOR, email, nick, apps, hsh))
 
-
   def get_appengine_hash(self, email, nick, apps):
     """ Generates a hash of the user's credentials with the secret key, used to
     ensure that the user doesn't forge their cookie (as its value would fail to
@@ -753,8 +719,7 @@ class AppDashboardHelper(object):
       A str that is the SHA1 hash of the input values with the secret key.
     """
     return hashlib.sha1("{0}{1}{2}{3}".format(email, nick, apps,
-      GLOBAL_SECRET_KEY)).hexdigest()
-
+                                              GLOBAL_SECRET_KEY)).hexdigest()
 
   def create_token(self, token, email):
     """ Create a login token and save it in the UserAppServer.
@@ -768,10 +733,9 @@ class AppDashboardHelper(object):
     try:
       uaserver = self.get_uaserver()
       uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION,
-        GLOBAL_SECRET_KEY)
+                                GLOBAL_SECRET_KEY)
     except Exception as err:
       logging.exception(err)
-
 
   def logout_user(self, response):
     """ Remove the user's login cookie and invalidate the login token in
@@ -788,7 +752,7 @@ class AppDashboardHelper(object):
       self.create_token('invalid', user.email())
       if AppDashboardHelper.USE_SHIBBOLETH:
         response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
-          domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN)
+                               domain=AppDashboardHelper.SHIBBOLETH_COOKIE_DOMAIN)
       else:
         response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
 
@@ -818,7 +782,6 @@ class AppDashboardHelper(object):
     self.set_appserver_cookie(email, self.get_user_app_list(email), response)
     return True
 
-
   def list_all_users(self):
     """ Queries the UserAppServer and return a list of all users in the system.
 
@@ -832,15 +795,14 @@ class AppDashboardHelper(object):
       all_users_list = all_users.split(self.USER_DELIMITER)
       my_ip = self.get_head_node_ip()
       for usr in all_users_list:
-        if re.search('@' + my_ip + '$', usr): # Skip the XMPP user accounts.
+        if re.search('@' + my_ip + '$', usr):  # Skip the XMPP user accounts.
           continue
-        if re.search(self.ALL_USERS_NON_USER_REGEX, usr): # Skip non users.
+        if re.search(self.ALL_USERS_NON_USER_REGEX, usr):  # Skip non users.
           continue
         ret_list.append(usr)
     except Exception as err:
       logging.exception(err)
     return ret_list
-
 
   def list_all_users_permissions(self):
     """ Queries the UserAppServer and returns a list of all the users and the
@@ -855,7 +817,7 @@ class AppDashboardHelper(object):
       all_users_list = self.list_all_users()
       perm_items = self.get_all_permission_items()
       for user in all_users_list:
-        usr_cap = {'email' : user}
+        usr_cap = {'email': user}
         caps_list = self.get_user_capabilities(user)
         for perm in perm_items:
           if perm in caps_list:
@@ -867,7 +829,6 @@ class AppDashboardHelper(object):
       logging.exception(err)
     return ret_list
 
-
   def get_all_permission_items(self):
     """ Returns a list of the capabilities that users can be granted.
 
@@ -875,7 +836,6 @@ class AppDashboardHelper(object):
       A list of strs, where each str is the name of a capability.
     """
     return ['upload_app']
-
 
   def add_user_permissions(self, email, perm):
     """ Grants the named capability to the specified user.
@@ -897,7 +857,8 @@ class AppDashboardHelper(object):
         return True
 
       ret = uas.set_capabilities(email,
-        self.USER_CAPABILITIES_DELIMITER.join(new_caps), GLOBAL_SECRET_KEY)
+                                 self.USER_CAPABILITIES_DELIMITER.join(
+                                   new_caps), GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = new_caps
         return True
@@ -907,7 +868,6 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
       return False
-
 
   def remove_user_permissions(self, email, perm):
     """ Revokes a capability from the specified user.
@@ -928,7 +888,8 @@ class AppDashboardHelper(object):
         return True
 
       ret = uas.set_capabilities(email,
-        self.USER_CAPABILITIES_DELIMITER.join(caps_list), GLOBAL_SECRET_KEY)
+                                 self.USER_CAPABILITIES_DELIMITER.join(
+                                   caps_list), GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = caps_list
         return True
@@ -938,7 +899,6 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
       return False
-
 
   def gather_logs(self):
     """ Tells the AppController on this node to collect all log files we've
@@ -959,7 +919,6 @@ class AppDashboardHelper(object):
       logging.exception(err)
       return False, ""
 
-
   def run_groomer(self):
     """ Tells the AppController on this node to contact the machine running the
     Datastore on it, and instruct it to generate Kind statistics, for later
@@ -975,7 +934,6 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
       return str(err)
-
 
   def change_password(self, email, password):
     """ Instructs the UserAppServer to set the given user's password to the
@@ -996,7 +954,7 @@ class AppDashboardHelper(object):
     try:
       user_app_server = self.get_uaserver()
       ret = user_app_server.change_password(email, hashed_password,
-        GLOBAL_SECRET_KEY)
+                                            GLOBAL_SECRET_KEY)
       if ret == "true":
         return True, "The user password was successfully changed."
       else:

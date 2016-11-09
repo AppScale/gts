@@ -18,7 +18,7 @@ $(document).ready(function(){
         var newPanelID = "#" + $(this).attr("data-target");
         if(!$(newPanelID).length){
             $.ajax({
-                method: "post",
+                method: "get",
                 url: "/ajax/render/panel",
                 async: false,
                 data: {
@@ -48,7 +48,7 @@ $(document).ready(function(){
         });
         $.ajax({
             method: "post",
-            url:"/ajax/save/layout",
+            url:"/ajax/layout/save",
             data:{
                 nav:JSON.stringify(nav_array),
                 panel:JSON.stringify(panel_array)},
@@ -67,7 +67,7 @@ $(document).ready(function(){
     $("#reset-layout").click(function() {
         $.ajax({
             method:"post",
-            url:"/ajax/reset/layout",
+            url:"/ajax/layout/reset",
             success: function(result) {
                 if(result) {
                     $("#reset-layout").html("Reset");
