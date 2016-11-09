@@ -119,6 +119,14 @@ UPLOAD_APP_SCRIPT = `which appscale-upload-app`
 APPSCALE_CACHE_DIR = '/var/cache/appscale'
 
 
+# The domain that hosts packages for the build.
+PACKAGE_MIRROR_DOMAIN = 's3.amazonaws.com'
+
+
+# The location on the package mirror where the packages are stored.
+PACKAGE_MIRROR_PATH = '/appscale-build'
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -3916,10 +3924,23 @@ class Djinn
 
   def build_java_appserver()
     Djinn.log_info('Building uncommitted Java AppServer changes')
-    unzip = "unzip -o #{APPSCALE_CACHE_DIR}/appengine-java-sdk-1.8.4.zip " +
-        "-d #{server_java} > /dev/null 2>&1"
-    install = "ant -f #{server_java}/build.xml install > /dev/null 2>&1"
-    clean = "ant -f #{server_java}/build.xml clean-build > /dev/null 2>&1"
+
+    # Cache package if it doesn't exist.
+    java_sdk_archive = 'appengine-java-sdk-1.8.4.zip'
+    local_archive = "#{APPSCALE_CACHE_DIR}/#{java_sdk_archive}"
+    unless File.file?(local_archive)
+      Net::HTTP.start(PACKAGE_MIRROR_DOMAIN) do |http|
+        resp = http.get("#{PACKAGE_MIRROR_PATH}/#{java_sdk_archive}")
+        open(local_archive, 'wb') do |file|
+          file.write(resp.body)
+        end
+      end
+    end
+
+    java_server = "#{APPSCALE_HOME}/AppServer_Java"
+    unzip = "unzip -o #{local_archive} -d #{java_server} > /dev/null 2>&1"
+    install = "ant -f #{java_server}/build.xml install > /dev/null 2>&1"
+    clean = "ant -f #{java_server}/build.xml clean-build > /dev/null 2>&1"
     if system(unzip) && system(install) && system(clean)
       Djinn.log_info('Finished building Java AppServer')
     else
@@ -4150,9 +4171,17 @@ class Djinn
 
     if status.include?('AppServer_Java')
       Djinn.log_info("Building uncommitted Java AppServer changes on #{ip}")
+
+      java_sdk_archive = 'appengine-java-sdk-1.8.4.zip'
+      remote_archive = "#{APPSCALE_CACHE_DIR}/#{java_sdk_archive}"
+      mirrored_package = "http://#{PACKAGE_MIRROR_DOMAIN}" +
+        "#{PACKAGE_MIRROR_PATH}/#{java_sdk_archive}"
+      get_package = "if [ ! -f #{remote_archive} ]; " +
+        "then curl -o #{remote_archive} #{mirrored_package} ; fi"
+      system(%Q[ssh #{ssh_opts} root@#{ip} "#{get_package}" > /dev/null 2>&1])
+
       build = [
-        "unzip -o #{APPSCALE_CACHE_DIR}/appengine-java-sdk-1.8.4.zip " +
-          "-d #{server_java}",
+        "unzip -o #{remote_archive} -d #{server_java}",
         "ant -f #{server_java}/build.xml install",
         "ant -f #{server_java}/build.xml clean-build"
       ].join(' && ')
