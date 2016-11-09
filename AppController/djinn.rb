@@ -3905,8 +3905,9 @@ class Djinn
 
   def build_taskqueue()
     Djinn.log_info('Building uncommitted taskqueue changes')
+    extras = TaskQueue::OPTIONAL_FEATURES.join(',')
     if system('pip install --upgrade --no-deps ' +
-                  "#{APPSCALE_HOME}/AppTaskQueue[celery_gui] > /dev/null 2>&1")
+              "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
       Djinn.log_info('Finished building taskqueue')
     else
       Djinn.log_error('Unable to build taskqueue')
@@ -4137,8 +4138,9 @@ class Djinn
 
     if status.include?('AppTaskQueue')
       Djinn.log_info("Building uncommitted taskqueue changes on #{ip}")
+      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
       build_tq = 'pip install --upgrade --no-deps ' +
-        "#{APPSCALE_HOME}/AppTaskQueue[celery_gui]"
+        "#{APPSCALE_HOME}/AppTaskQueue[#{extras}]"
       if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_tq}" > /dev/null 2>&1])
         Djinn.log_info("Finished building taskqueue on #{ip}")
       else

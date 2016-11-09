@@ -57,6 +57,9 @@ module TaskQueue
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
 
+  # Optional features that can be installed for the taskqueue package.
+  OPTIONAL_FEATURES = ['celery_gui']
+
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
   #
