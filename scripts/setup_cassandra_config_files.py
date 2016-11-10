@@ -19,9 +19,9 @@ CASSANDRA_TEMPLATES = os.path.join(APPSCALE_HOME, 'AppDB', 'cassandra_env',
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(
     description="Creates Cassandra's Monit configuration files")
-  parser.add_argument('--local-ip',
+  parser.add_argument('--local-ip', required=True,
                       help='The private IP address of this machine.')
-  parser.add_argument('--master-ip',
+  parser.add_argument('--master-ip', required=True,
                       help='The private IP address of the database master.')
   args = parser.parse_args()
 
