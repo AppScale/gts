@@ -3037,6 +3037,21 @@ class Djinn
     @my_private_ip = new_private_ip
   end
 
+  # Writes any custom configuration data in /etc/appscale to ZooKeeper.
+  def set_custom_config()
+    begin
+      contents = File.read("#{APPSCALE_CONFIG_DIR}/cassandra")
+      cassandra_config = JSON.parse(contents)
+      ZKInterface.ensure_path('/appscale/config')
+      ZKInterface.set('/appscale/config/cassandra',
+                      JSON.dump(cassandra_config), false)
+      Djinn.log_info('Set custom cassandra configuration.')
+    rescue Errno::ENOENT
+      Djinn.log_debug('No custom cassandra configuration found.')
+    rescue JSON::ParserError
+      Djinn.log_error('Invalid JSON in custom cassandra configuration.')
+    end
+  end
 
   # Updates the file that says where all the ZooKeeper nodes are
   # located so that this node has the most up-to-date info if it needs to
@@ -3545,6 +3560,11 @@ class Djinn
         Djinn.log_info("Zookeeper already running.")
       end
     }
+
+    if my_node.is_shadow?
+      pick_zookeeper(@zookeeper_data)
+      set_custom_config
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       db_master = nil
