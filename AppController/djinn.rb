@@ -3547,6 +3547,12 @@ class Djinn
     }
 
     if my_node.is_db_master? or my_node.is_db_slave?
+      db_master = nil
+      @nodes.each { |node|
+        db_master = node.private_ip if node.jobs.include?('db_master')
+      }
+      setup_db_config_files(db_master)
+
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
         clear_datastore = @options['clear_datastore'].downcase == "true"
@@ -4147,9 +4153,6 @@ class Djinn
 
     slave_ips_newlined = slave_ips.join("\n")
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
-
-    # Invoke datastore helper function
-    setup_db_config_files(master_ip)
 
     update_hosts_info()
 
