@@ -212,10 +212,7 @@ class AppDashboardHelper(object):
     """
     try:
       status_info = self.get_appcontroller_client().get_stats()
-      if status_info:
-        return []
-      else:
-        return status_info
+      return status_info
     except Exception as err:
       logging.exception(err)
       return []
