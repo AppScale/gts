@@ -3039,18 +3039,19 @@ class Djinn
 
   # Writes any custom configuration data in /etc/appscale to ZooKeeper.
   def set_custom_config()
+    cassandra_config = {'num_tokens' => 256}
     begin
       contents = File.read("#{APPSCALE_CONFIG_DIR}/cassandra")
       cassandra_config = JSON.parse(contents)
-      ZKInterface.ensure_path('/appscale/config')
-      ZKInterface.set('/appscale/config/cassandra',
-                      JSON.dump(cassandra_config), false)
-      Djinn.log_info('Set custom cassandra configuration.')
     rescue Errno::ENOENT
       Djinn.log_debug('No custom cassandra configuration found.')
     rescue JSON::ParserError
       Djinn.log_error('Invalid JSON in custom cassandra configuration.')
     end
+    ZKInterface.ensure_path('/appscale/config')
+    ZKInterface.set('/appscale/config/cassandra', JSON.dump(cassandra_config),
+                    false)
+    Djinn.log_info('Set custom cassandra configuration.')
   end
 
   # Updates the file that says where all the ZooKeeper nodes are
