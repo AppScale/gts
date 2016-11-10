@@ -1,4 +1,8 @@
 $(document).ready(function(){
+    if ($("a[href='/users/login']").length) {
+        $("#main-content").attr("class", "clearfix col-sm-12 col-md-6" +
+            " col-lg-8");
+    }
     /*enable sortable areas*/
     $(".sortable").sortable({
         cursor:"move",
@@ -18,7 +22,7 @@ $(document).ready(function(){
         var newPanelID = "#" + $(this).attr("data-target");
         if(!$(newPanelID).length){
             $.ajax({
-                method: "get",
+                method: "post",
                 url: "/ajax/render/panel",
                 async: false,
                 data: {
@@ -48,7 +52,7 @@ $(document).ready(function(){
         });
         $.ajax({
             method: "post",
-            url:"/ajax/layout/save",
+            url:"/ajax/save/layout",
             data:{
                 nav:JSON.stringify(nav_array),
                 panel:JSON.stringify(panel_array)},
@@ -67,7 +71,7 @@ $(document).ready(function(){
     $("#reset-layout").click(function() {
         $.ajax({
             method:"post",
-            url:"/ajax/layout/reset",
+            url:"/ajax/reset/layout",
             success: function(result) {
                 if(result) {
                     $("#reset-layout").html("Reset");
