@@ -252,7 +252,7 @@ installappserverjava()
 
 installtornado()
 {
-    pipwrapper tornado
+    pipwrapper tornado==4.2.0
 }
 
 installflexmock()
