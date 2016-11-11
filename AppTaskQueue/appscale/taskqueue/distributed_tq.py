@@ -13,6 +13,7 @@ import sys
 import time
 import tq_lib
 
+from distutils.spawn import find_executable
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
@@ -395,7 +396,8 @@ class DistributedTaskQueue():
       return json.dumps({'error': True, 'reason': config_error.message})
    
     log_file = self.LOG_DIR + app_id + ".log"
-    command = ["/usr/local/bin/celery",
+    celery_bin = find_executable('celery')
+    command = [celery_bin,
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
@@ -411,7 +413,7 @@ class DistributedTaskQueue():
                              app_id + ".pid",
                "--statedb=" + TaskQueueConfig.CELERY_STATE_DIR + 'worker___' + \
                              app_id + ".db",
-               "--autoreload -Ofair"]
+               "-Ofair"]
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)
     watch = "celery-" + str(app_id)
@@ -696,6 +698,10 @@ class DistributedTaskQueue():
     countdown = int(headers['X-AppEngine-TaskETA']) - \
                 int(datetime.datetime.now().strftime("%s"))
     task_func = self.__get_task_function(request)
+
+    if not len(args["payload"]):
+      args["payload"] = ''
+
     task_func.apply_async(
       kwargs={'headers':headers, 'args':args},
       expires=args['expires'],

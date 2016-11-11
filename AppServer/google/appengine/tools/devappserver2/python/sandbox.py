@@ -133,11 +133,12 @@ def enable_sandbox(config):
       set(_THIRD_PARTY_LIBRARY_NAME_OVERRIDES.get(lib.name, lib.name)
           for lib in config.libraries).intersection(_C_MODULES))
   python_lib_paths.extend(path_override_hook.extra_sys_paths)
-  stubs.FakeFile.set_allowed_paths(
-      config.application_root,
-      python_lib_paths[1:] +
-      path_override_hook.extra_accessible_paths + ['/etc/cron.d/', '/var/apps/']
-  )
+
+  allowed_paths = python_lib_paths[1:] + path_override_hook.extra_accessible_paths
+  if config.app_id == "appscaledashboard":
+      allowed_paths += ['/etc/cron.d/', '/var/apps/']
+
+  stubs.FakeFile.set_allowed_paths(config.application_root, allowed_paths)
   stubs.FakeFile.set_skip_files(config.skip_files)
   stubs.FakeFile.set_static_files(config.static_files)
   __builtin__.file = stubs.FakeFile
