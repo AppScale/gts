@@ -10,7 +10,13 @@ setup(
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=['cassandra-driver', 'celery', 'PyYaml', 'tornado'],
+  install_requires=[
+    'cassandra-driver',
+    'celery<4.0.0',
+    'PyYaml',
+    'tornado'
+  ],
+  extras_require={'celery_gui': ['flower']},
   classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
@@ -20,6 +26,10 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale', 'appscale.taskqueue', 'appscale.taskqueue.brokers'],
-  scripts=glob.glob('scripts/*'),
+  entry_points={
+    'console_scripts': [
+      'appscale-taskqueue=appscale.taskqueue.appscale_taskqueue:main'
+    ]
+  },
   package_data={'appscale.taskqueue': ['templates/*']}
 )

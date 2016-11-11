@@ -220,6 +220,7 @@ class TestAppManager(unittest.TestCase):
     assert app_manager_server.extract_env_vars_from_xml('/file.xml') == {}
 
   def test_create_java_app_env(self):
+    app_manager_server.deployment_config = flexmock(get_config=lambda x: {})
     app_name = 'foo'
     flexmock(app_manager_server).should_receive('find_web_xml').and_return()
     flexmock(app_manager_server).should_receive('extract_env_vars_from_xml').\
@@ -233,7 +234,9 @@ class TestAppManager(unittest.TestCase):
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
     app_id = 'testapp'
-    cmd = app_manager_server.create_java_start_cmd(app_id, '20000', '127.0.0.2')
+    max_heap = 260
+    cmd = app_manager_server.create_java_start_cmd(
+      app_id, '20000', '127.0.0.2', max_heap)
     assert app_id in cmd
 
   def test_create_java_stop_cmd(self): 

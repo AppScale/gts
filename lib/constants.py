@@ -105,3 +105,9 @@ CONTROLLER_SERVICE = 'appscale-controller'
 
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
+
+# The number of seconds to wait before retrying some operations.
+SMALL_WAIT = 5
+
+# The number of seconds to wait before retrying some operations.
+TINY_WAIT = .1
