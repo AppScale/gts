@@ -60,7 +60,6 @@ def create_batch_tables(cluster, session):
     session: A cassandra-driver session.
   """
   logging.info('Trying to create batches')
-  cluster.refresh_schema_metadata()
   create_table = """
     CREATE TABLE IF NOT EXISTS batches (
       app text,
@@ -76,7 +75,6 @@ def create_batch_tables(cluster, session):
   session.execute(create_table)
 
   logging.info('Trying to create batch_status')
-  cluster.refresh_schema_metadata()
   create_table = """
     CREATE TABLE IF NOT EXISTS batch_status (
       app text,
@@ -142,7 +140,6 @@ def prime_cassandra(replication):
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
     logging.info('Trying to create {}'.format(table))
-    cluster.refresh_schema_metadata()
     session.execute(create_table)
 
   create_batch_tables(cluster, session)

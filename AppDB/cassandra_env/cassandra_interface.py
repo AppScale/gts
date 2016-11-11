@@ -702,7 +702,6 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
-    self.cluster.refresh_schema_metadata()
     statement = 'CREATE TABLE IF NOT EXISTS "{table}" ('\
         '{key} blob,'\
         '{column} text,'\
