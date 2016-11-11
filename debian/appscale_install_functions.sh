@@ -252,19 +252,8 @@ installappserverjava()
 
 installtornado()
 {
-    pipwrapper tornado
+    pipwrapper tornado==4.2.0
 }
-
-installcrontab()
-{
-    pipwrapper python-crontab
-}
-
-installcrondescriptor()
-{
-    pipwrapper cron-descriptor
-}
-
 
 installflexmock()
 {
