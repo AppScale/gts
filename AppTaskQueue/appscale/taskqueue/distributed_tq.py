@@ -13,6 +13,9 @@ import sys
 import time
 import tq_lib
 
+from cassandra import OperationTimedOut
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
 from distutils.spawn import find_executable
 from queue import InvalidLeaseRequest
 from queue import PullQueue
@@ -66,7 +69,16 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, id))
     )
   """
-  session.execute(create_table)
+  statement = SimpleStatement(create_table,
+                              retry_policy=FallthroughRetryPolicy)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_tasks_index')
   create_index_table = """
@@ -80,7 +92,16 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
-  session.execute(create_index_table)
+  statement = SimpleStatement(create_index_table,
+                              retry_policy=FallthroughRetryPolicy)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks_index.'
+      ' Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_tags index')
   create_index = """
@@ -106,7 +127,16 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
-  session.execute(create_leases_table)
+  statement = SimpleStatement(create_leases_table,
+                              retry_policy=FallthroughRetryPolicy)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_leases. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
 
 class TaskName(db.Model):

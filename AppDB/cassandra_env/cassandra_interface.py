@@ -713,11 +713,18 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       )
-    query = SimpleStatement(statement)
+    query = SimpleStatement(
+      statement, retry_policy=cassandra.policies.FallthroughRetryPolicy)
 
     try:
       self.session.execute(query)
-    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+    except cassandra.OperationTimedOut:
+      logging.warning('Encountered an operation timeout while creating a '
+                      'table. Waiting 1 minute for schema to settle.')
+      time.sleep(60)
+      raise AppScaleDBConnectionError('Exception during create_table')
+    except (error for error in dbconstants.TRANSIENT_CASSANDRA_ERRORS
+            if error != cassandra.OperationTimedOut):
       message = 'Exception during create_table'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)

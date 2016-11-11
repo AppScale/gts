@@ -13,6 +13,8 @@ import time
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
 from cassandra_env.cassandra_interface import INITIAL_CONNECT_RETRIES
 from cassandra_env.cassandra_interface import KEYSPACE
 from cassandra_env.cassandra_interface import ThriftColumn
@@ -72,7 +74,16 @@ def create_batch_tables(cluster, session):
       PRIMARY KEY ((app, transaction), namespace, path)
     )
   """
-  session.execute(create_table)
+  statement = SimpleStatement(create_table,
+                              retry_policy=FallthroughRetryPolicy)
+  try:
+    session.execute(statement)
+  except cassandra.OperationTimedOut:
+    logging.warning(
+      'Encountered an operation timeout while creating batches table. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logging.info('Trying to create batch_status')
   create_table = """
@@ -83,7 +94,16 @@ def create_batch_tables(cluster, session):
       PRIMARY KEY ((app), transaction)
     )
   """
-  session.execute(create_table)
+  statement = SimpleStatement(create_table,
+                              retry_policy=FallthroughRetryPolicy)
+  try:
+    session.execute(statement)
+  except cassandra.OperationTimedOut:
+    logging.warning(
+      'Encountered an operation timeout while creating batch_status table. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
 
 def prime_cassandra(replication):
@@ -139,8 +159,18 @@ def prime_cassandra(replication):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
+    statement = SimpleStatement(create_table,
+                                retry_policy=FallthroughRetryPolicy)
+
     logging.info('Trying to create {}'.format(table))
-    session.execute(create_table)
+    try:
+      session.execute(statement)
+    except cassandra.OperationTimedOut:
+      logging.warning(
+        'Encountered an operation timeout while creating {} table. '
+        'Waiting 1 minute for schema to settle.'.format(table))
+      time.sleep(60)
+      raise
 
   create_batch_tables(cluster, session)
   create_pull_queue_tables(cluster, session)
