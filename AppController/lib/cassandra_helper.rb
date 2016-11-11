@@ -79,10 +79,10 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
-def start_db_master(clear_datastore, needed)
+def start_db_master(clear_datastore, needed, desired)
   @state = "Starting up Cassandra seed node"
   Djinn.log_info(@state)
-  start_cassandra(clear_datastore, needed)
+  start_cassandra(clear_datastore, needed, desired)
 end
 
 
@@ -93,7 +93,7 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
-def start_db_slave(clear_datastore, needed)
+def start_db_slave(clear_datastore, needed, desired)
   seed_node = get_db_master.private_ip
   @state = "Waiting for Cassandra seed node at #{seed_node} to start"
   Djinn.log_info(@state)
@@ -108,7 +108,7 @@ def start_db_slave(clear_datastore, needed)
     sleep(SMALL_WAIT)
   end
 
-  start_cassandra(clear_datastore, needed)
+  start_cassandra(clear_datastore, needed, desired)
 end
 
 
@@ -117,7 +117,7 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
-def start_cassandra(clear_datastore, needed)
+def start_cassandra(clear_datastore, needed, desired)
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
     Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
@@ -136,14 +136,25 @@ def start_cassandra(clear_datastore, needed)
   Djinn.log_info('Waiting for Cassandra to start')
   sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   while true
-    output = `"#{NODETOOL}" status`
-    nodes_ready = 0
-    output.split("\n").each{ |line|
-      nodes_ready += 1 if line.start_with?('UN')
-    }
-    Djinn.log_debug("#{nodes_ready} nodes are up. #{needed} are needed.")
-    break if nodes_ready >= needed
+    ready = nodes_ready
+    Djinn.log_debug("#{ready} nodes are up. #{needed} are needed.")
+    break if ready >= needed
     sleep(SMALL_WAIT)
+  end
+
+  # Wait longer for all the nodes. This reduces errors during table creation.
+  begin
+    Timeout::timeout(60) {
+      while true
+        ready = nodes_ready
+        Djinn.log_debug("#{ready} nodes are up. #{desired} are desired.")
+        break if ready >= desired
+        sleep(SMALL_WAIT)
+      end
+    }
+  rescue Timeout::Error
+    Djinn.log_info('Not all database nodes are ready, but there are enough ' +
+                   'to achieve a quorum for every key.')
   end
 end
 
@@ -173,4 +184,15 @@ def needed_for_quorum(total_nodes, replication)
 
   can_fail = (replication/2.0 - 1).ceil
   return total_nodes - can_fail
+end
+
+
+# Returns the number of nodes in 'Up Normal' state.
+def nodes_ready()
+  output = `"#{NODETOOL}" status`
+  nodes_ready = 0
+  output.split("\n").each{ |line|
+    nodes_ready += 1 if line.start_with?('UN')
+  }
+  return nodes_ready
 end
