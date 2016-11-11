@@ -63,6 +63,7 @@
   <target name="update-api-jar" depends="compile, repack-sdk, update-api-jar-user">
     <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
+      <include name="com/google/appengine/api/blobstore/BlobInfoFactory.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
       <include name="com/google/appengine/api/datastore/DatastoreAttributes.class" />
     </jar>
@@ -76,6 +77,7 @@
   <target name="update-api-jar-user" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
+      <include name="com/google/appengine/api/blobstore/BlobInfoFactory.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
       <include name="com/google/appengine/api/datastore/DatastoreAttributes.class" />
     </jar>
