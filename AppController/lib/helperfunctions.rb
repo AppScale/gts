@@ -1216,8 +1216,8 @@ module HelperFunctions
     if self.does_image_have_location?(ip, "/etc/appscale", key)
       Djinn.log_debug("Image at #{ip} is an AppScale image.")
     else
-      fail_msg = "The image at #{ip} is not an AppScale image." +
-      " Please install AppScale on it and try again."
+      fail_msg = "The image at #{ip} is not an AppScale image. " +
+                 "Please install AppScale on it and try again."
       Djinn.log_debug(fail_msg)
       self.log_and_crash(fail_msg)
     end

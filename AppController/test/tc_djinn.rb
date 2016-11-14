@@ -143,12 +143,11 @@ class TestDjinn < Test::Unit::TestCase
     }])
 
     # Try passing in params that aren't the required type
-    bad_param = ""
     result_1 = djinn.set_parameters([], [], @secret)
     assert_equal(true, result_1.include?("Error: layout wasn't a String"))
 
-    result_2 = djinn.set_parameters("", bad_param, @secret)
-    assert_equal(true, result_2.include?("Error: layout is nil"))
+    result_2 = djinn.set_parameters("", "", @secret)
+    assert_equal(true, result_2.include?("Error: layout is empty"))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters

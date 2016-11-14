@@ -797,15 +797,18 @@ class Djinn
     begin
       locations = JSON.load(layout)
     rescue JSON::ParserError
-      Djinn.log_error("Error: got exception parsing JSON structure layout.")
+      msg = "Error: got exception parsing JSON structure layout."
+      Djinn.log_error(msg)
       return msg
     end
-    if locations.empty?
-      Djinn.log_error("Error: layout is empty.")
+    if locations.nil? || locations.empty?
+      msg = "Error: layout is empty."
+      Djinn.log_error(msg)
       return msg
     end
     if locations.class != Array
-      Djinn.log_error("Error: layout is not an Array.")
+      msg = "Error: layout is not an Array."
+      Djinn.log_error(msg)
       return msg
     end
     locations.each{ |node|
@@ -830,22 +833,25 @@ class Djinn
     # options is a JSON string that will be loaded into a Hash.
     if options.class != String
       msg = "Error: options wasn't a String, but was a " +
-        options.class.to_s
+            options.class.to_s
       Djinn.log_error(msg)
       return msg
     end
     begin
       @options = JSON.load(options)
     rescue JSON::ParserError
-      Djinn.log_error("Error: got exception parsing JSON options.")
+      msg = "Error: got exception parsing JSON options."
+      Djinn.log_error(msg)
       return msg
     end
-    if @options.empty?
-      Djinn.log_error(msg = "Error: @options is empty.")
+    if @options.nil? || @options.empty?
+        msg = "Error: @options is empty."
+      Djinn.log_error(msg)
       return msg
     end
     if @options.class != Hash
-      Djinn.log_error("Error: @options is not a Hash.")
+      msg = "Error: @options is not a Hash."
+      Djinn.log_error(msg)
       return msg
     end
 
