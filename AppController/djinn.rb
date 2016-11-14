@@ -845,7 +845,7 @@ class Djinn
       return msg
     end
     if @options.nil? || @options.empty?
-        msg = "Error: @options is empty."
+      msg = "Error: @options is empty."
       Djinn.log_error(msg)
       return msg
     end
