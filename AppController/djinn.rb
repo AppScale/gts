@@ -787,8 +787,8 @@ class Djinn
   def set_parameters(layout, options, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    # Few checks on the layout structure. It is suppose to be a JSON dump
-    # of an Array of Hash, containing the list of nodes of this deployment.
+    # Validate layout structure. It should be a JSON dump of an Array of
+    # Hashes. It contains the list of nodes of this deployment.
     if layout.class != String
       msg = "Error: layout wasn't a String, but was a " + layout.class.to_s
       Djinn.log_error(msg)
@@ -796,13 +796,16 @@ class Djinn
     end
     begin
       locations = JSON.load(layout)
-    rescue JSON::ParserError => e
-      locations = nil
-      Djinn.log_debug("Got exception parsing JSON structure layout.")
+    rescue JSON::ParserError
+      Djinn.log_error("Error: got exception parsing JSON structure layout.")
+      return msg
     end
-    if locations.nil? || locations.empty? || locations.class != Array
-      msg = "Error: layout is nil or not in the proper format."
-      Djinn.log_error(msg)
+    if locations.empty?
+      Djinn.log_error("Error: layout is empty.")
+      return msg
+    end
+    if locations.class != Array
+      Djinn.log_error("Error: layout is not an Array.")
       return msg
     end
     locations.each{ |node|
@@ -824,10 +827,7 @@ class Djinn
       end
     }
 
-    # options is an array that we're converting to hash tables, so we need
-    # to make sure that every key maps to a value e.g., ['foo', 'bar']
-    # becomes {'foo' => 'bar'} so we need to make sure that the array has
-    # an even number of elements.
+    # options is a JSON string that will be loaded into a Hash.
     if options.class != String
       msg = "Error: options wasn't a String, but was a " +
         options.class.to_s
@@ -836,13 +836,16 @@ class Djinn
     end
     begin
       @options = JSON.load(options)
-    rescue JSON::ParserError => e
-      @options = nil
-      Djinn.log_debug("Got exception parsing JSON options.")
+    rescue JSON::ParserError
+      Djinn.log_error("Error: got exception parsing JSON options.")
+      return msg
     end
-    if @options.nil? || @options.empty? || @options.class != Hash
-      msg = "Error: @options is nil or not in the proper format."
-      Djinn.log_error(msg)
+    if @options.empty?
+      Djinn.log_error(msg = "Error: @options is empty.")
+      return msg
+    end
+    if @options.class != Hash
+      Djinn.log_error("Error: @options is not a Hash.")
       return msg
     end
 
