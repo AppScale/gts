@@ -1291,7 +1291,7 @@ dashboard_pages = [
   ('/gather-logs', LogDownloader),
   ('/groomer', RunGroomer),
   ('/change-password', ChangePasswordPage),
-  ('/ajax/render/panel', AjaxRenderPanel),
+  ('/ajax/panel/render', AjaxRenderPanel),
   ('/ajax/layout/save', AjaxSaveLayoutSettings),
   ('/ajax/layout/reset', AjaxResetLayoutSettings)
 ]
