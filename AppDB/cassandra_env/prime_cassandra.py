@@ -27,6 +27,9 @@ from constants import LOG_FORMAT
 # The data layout version to set after removing the journal table.
 POST_JOURNAL_VERSION = 1.0
 
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
+
 
 def define_ua_schema(session):
   """ Populate the schema table for the UAServer.
@@ -74,8 +77,7 @@ def create_batch_tables(cluster, session):
       PRIMARY KEY ((app, transaction), namespace, path)
     )
   """
-  statement = SimpleStatement(create_table,
-                              retry_policy=FallthroughRetryPolicy)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
     session.execute(statement)
   except cassandra.OperationTimedOut:
@@ -94,8 +96,7 @@ def create_batch_tables(cluster, session):
       PRIMARY KEY ((app), transaction)
     )
   """
-  statement = SimpleStatement(create_table,
-                              retry_policy=FallthroughRetryPolicy)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
     session.execute(statement)
   except cassandra.OperationTimedOut:
@@ -159,8 +160,7 @@ def prime_cassandra(replication):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
-    statement = SimpleStatement(create_table,
-                                retry_policy=FallthroughRetryPolicy)
+    statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
 
     logging.info('Trying to create {}'.format(table))
     try:

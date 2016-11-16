@@ -17,6 +17,7 @@ from dbconstants import TxnActions
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
+from cassandra.policies import FallthroughRetryPolicy
 from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
@@ -311,6 +312,7 @@ class DatastoreProxy(AppDBInterface):
 
     self.hosts = appscale_info.get_db_ips()
     self.retry_policy = IdempotentRetryPolicy()
+    self.no_retries = FallthroughRetryPolicy()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
@@ -713,8 +715,7 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       )
-    query = SimpleStatement(
-      statement, retry_policy=cassandra.policies.FallthroughRetryPolicy)
+    query = SimpleStatement(statement, retry_policy=self.no_retries)
 
     try:
       self.session.execute(query)

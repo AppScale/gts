@@ -47,6 +47,9 @@ from cassandra_env.cassandra_interface import DatastoreProxy
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
+
 
 def create_pull_queue_tables(cluster, session):
   """ Create the required tables for pull queues.
@@ -69,8 +72,7 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, id))
     )
   """
-  statement = SimpleStatement(create_table,
-                              retry_policy=FallthroughRetryPolicy)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
     session.execute(statement)
   except OperationTimedOut:
@@ -92,8 +94,7 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
-  statement = SimpleStatement(create_index_table,
-                              retry_policy=FallthroughRetryPolicy)
+  statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
   try:
     session.execute(statement)
   except OperationTimedOut:
@@ -127,8 +128,7 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
-  statement = SimpleStatement(create_leases_table,
-                              retry_policy=FallthroughRetryPolicy)
+  statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
   try:
     session.execute(statement)
   except OperationTimedOut:
