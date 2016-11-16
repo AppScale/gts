@@ -144,7 +144,7 @@ def start_cassandra(clear_datastore, needed, desired)
 
   # Wait longer for all the nodes. This reduces errors during table creation.
   begin
-    Timeout::timeout(60) {
+    Timeout.timeout(60) {
       while true
         ready = nodes_ready
         Djinn.log_debug("#{ready} nodes are up. #{desired} are desired.")
