@@ -69,7 +69,10 @@ def setup_db_config_files(master_ip)
   local_ip = HelperFunctions.local_ip
   setup_script = "#{SETUP_CONFIG_SCRIPT} --local-ip #{local_ip} "\
                  "--master-ip #{master_ip}"
-  Djinn.log_run(setup_script)
+  until system(setup_script)
+    Djinn.log_warn('Error while setting up Cassandra configuration. Retrying.')
+    sleep(SMALL_WAIT)
+  end
 end
 
 

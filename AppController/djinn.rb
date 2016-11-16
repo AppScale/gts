@@ -3037,6 +3037,22 @@ class Djinn
     @my_private_ip = new_private_ip
   end
 
+  # Writes any custom configuration data in /etc/appscale to ZooKeeper.
+  def set_custom_config()
+    cassandra_config = {'num_tokens' => 256}
+    begin
+      contents = File.read("#{APPSCALE_CONFIG_DIR}/cassandra")
+      cassandra_config = JSON.parse(contents)
+    rescue Errno::ENOENT
+      Djinn.log_debug('No custom cassandra configuration found.')
+    rescue JSON::ParserError
+      Djinn.log_error('Invalid JSON in custom cassandra configuration.')
+    end
+    ZKInterface.ensure_path('/appscale/config')
+    ZKInterface.set('/appscale/config/cassandra', JSON.dump(cassandra_config),
+                    false)
+    Djinn.log_info('Set custom cassandra configuration.')
+  end
 
   # Updates the file that says where all the ZooKeeper nodes are
   # located so that this node has the most up-to-date info if it needs to
@@ -3546,7 +3562,18 @@ class Djinn
       end
     }
 
+    if my_node.is_shadow?
+      pick_zookeeper(@zookeeper_data)
+      set_custom_config
+    end
+
     if my_node.is_db_master? or my_node.is_db_slave?
+      db_master = nil
+      @nodes.each { |node|
+        db_master = node.private_ip if node.jobs.include?('db_master')
+      }
+      setup_db_config_files(db_master)
+
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
         clear_datastore = @options['clear_datastore'].downcase == "true"
@@ -4147,9 +4174,6 @@ class Djinn
 
     slave_ips_newlined = slave_ips.join("\n")
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
-
-    # Invoke datastore helper function
-    setup_db_config_files(master_ip)
 
     update_hosts_info()
 
