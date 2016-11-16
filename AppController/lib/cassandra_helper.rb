@@ -111,29 +111,8 @@ def start_db_slave(clear_datastore, needed, desired)
   start_cassandra(clear_datastore, needed, desired)
 end
 
-
-# Starts Cassandra, and waits for it to start the Thrift service locally.
-#
-# Args:
-#   clear_datastore: Remove any pre-existent data in the database.
-#   needed: The number of nodes required for quorum.
-def start_cassandra(clear_datastore, needed, desired)
-  if clear_datastore
-    Djinn.log_info("Erasing datastore contents")
-    Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
-  end
-
-  # Create Cassandra data directory.
-  Djinn.log_run("mkdir -p #{CASSANDRA_DATA_DIR}")
-  Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
-
-  start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
-  stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
-  MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
-                       PID_FILE, START_TIMEOUT)
-
-  # Ensure enough Cassandra nodes are available.
-  Djinn.log_info('Waiting for Cassandra to start')
+# Waits for enough database nodes to be up.
+def wait_for_desired_nodes(needed, desired)
   sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   while true
     ready = nodes_ready
@@ -156,6 +135,32 @@ def start_cassandra(clear_datastore, needed, desired)
     Djinn.log_info('Not all database nodes are ready, but there are enough ' +
                    'to achieve a quorum for every key.')
   end
+end
+
+# Starts Cassandra, and waits for enough nodes to be "Up Normal".
+#
+# Args:
+#   clear_datastore: Remove any pre-existent data in the database.
+#   needed: The number of nodes required for quorum.
+#   desired: The total number of database nodes.
+def start_cassandra(clear_datastore, needed, desired)
+  if clear_datastore
+    Djinn.log_info("Erasing datastore contents")
+    Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
+  end
+
+  # Create Cassandra data directory.
+  Djinn.log_run("mkdir -p #{CASSANDRA_DATA_DIR}")
+  Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
+
+  start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
+  stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
+  MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
+                       PID_FILE, START_TIMEOUT)
+
+  # Ensure enough Cassandra nodes are available.
+  Djinn.log_info('Waiting for Cassandra to start')
+  wait_for_desired_nodes(needed, desired)
 end
 
 # Kills Cassandra on this machine.
