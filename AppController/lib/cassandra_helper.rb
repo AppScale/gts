@@ -79,6 +79,7 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
+#   desired: The total number of database nodes.
 def start_db_master(clear_datastore, needed, desired)
   @state = "Starting up Cassandra seed node"
   Djinn.log_info(@state)
@@ -93,6 +94,7 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
+#   desired: The total number of database nodes.
 def start_db_slave(clear_datastore, needed, desired)
   seed_node = get_db_master.private_ip
   @state = "Waiting for Cassandra seed node at #{seed_node} to start"
