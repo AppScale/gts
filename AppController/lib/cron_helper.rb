@@ -380,6 +380,7 @@ CRON
             else
               last_of_hour = 60 - remainder
             end
+            last_of_hour = 59 if last_of_hour == 60
             mins = (first_of_hour..last_of_hour).step(increment).to_a.join(',')
             if !mins.empty?
               crons.push({"hour" => "#{h}", "min" => mins})
