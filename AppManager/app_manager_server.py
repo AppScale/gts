@@ -227,8 +227,9 @@ def start_app(config):
     if not copy_successful:
       return BAD_PID
 
-    # The Java AppServer process can use ~120MB more than the heap size.
-    max_heap = config['max_memory'] - 140
+    # Account for MaxPermSize (~170MB), the parent process (~50MB), and thread
+    # stacks (~20MB).
+    max_heap = config['max_memory'] - 250
     if max_heap <= 0:
       return BAD_PID
     start_cmd = create_java_start_cmd(
