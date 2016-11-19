@@ -25,10 +25,10 @@ help() {
         echo
 }
 
-# This script can only run on the login node.
+# This script can only run on the head node.
 am_i_login_node() {
-        if [ -e /etc/appscale/login_private_ip ]; then
-                LOGIN_IP="$(cat /etc/appscale/login_private_ip)"
+        if [ -e /etc/appscale/head_node_ip ]; then
+                LOGIN_IP="$(cat /etc/appscale/head_node_ip)"
                 for x in $(ip addr show|awk '/inet / {print $2}'|sed 's;/.*;;') ; do
                         [ "$LOGIN_IP" = "$x" ] && return 0
                 done

@@ -51,10 +51,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     @djinn.job
   end
 
-  def djinn_locations
-    @djinn.djinn_locations
-  end
-
   def on_init
     @djinn = Djinn.new
 
@@ -66,8 +62,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "relocate_app", "appid", "http_port", "https_port",
       "secret")
     add_method(@djinn, "kill", "stop_deployment", "secret")
-    add_method(@djinn, "set_parameters", "djinn_locations",
-      "database_credentials", "app_names", "secret")
+    add_method(@djinn, "set_parameters", "layout", "options", "secret")
     add_method(@djinn, "status", "secret")
     add_method(@djinn, "get_stats", "secret")
     add_method(@djinn, "get_stats_json", "secret")
