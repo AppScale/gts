@@ -17,6 +17,7 @@ from dbconstants import TxnActions
 from dbinterface import AppDBInterface
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
+from cassandra.policies import FallthroughRetryPolicy
 from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
@@ -311,6 +312,7 @@ class DatastoreProxy(AppDBInterface):
 
     self.hosts = appscale_info.get_db_ips()
     self.retry_policy = IdempotentRetryPolicy()
+    self.no_retries = FallthroughRetryPolicy()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
@@ -702,7 +704,6 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
-    self.cluster.refresh_schema_metadata()
     statement = 'CREATE TABLE IF NOT EXISTS "{table}" ('\
         '{key} blob,'\
         '{column} text,'\
@@ -714,11 +715,17 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       )
-    query = SimpleStatement(statement)
+    query = SimpleStatement(statement, retry_policy=self.no_retries)
 
     try:
       self.session.execute(query)
-    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+    except cassandra.OperationTimedOut:
+      logging.warning('Encountered an operation timeout while creating a '
+                      'table. Waiting 1 minute for schema to settle.')
+      time.sleep(60)
+      raise AppScaleDBConnectionError('Exception during create_table')
+    except (error for error in dbconstants.TRANSIENT_CASSANDRA_ERRORS
+            if error != cassandra.OperationTimedOut):
       message = 'Exception during create_table'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)

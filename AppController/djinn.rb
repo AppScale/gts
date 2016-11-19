@@ -3581,10 +3581,10 @@ class Djinn
         needed_nodes = needed_for_quorum(db_nodes,
                                          Integer(@options['replication']))
         if my_node.is_db_master?
-          start_db_master(clear_datastore, needed_nodes)
+          start_db_master(clear_datastore, needed_nodes, db_nodes)
           prime_database
         else
-          start_db_slave(clear_datastore, needed_nodes)
+          start_db_slave(clear_datastore, needed_nodes, db_nodes)
         end
       }
     end
