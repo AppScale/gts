@@ -869,11 +869,6 @@ class Djinn
         @options['keyname'])
     }
     @options = sanitize_credentials()
-    # Let's validate the layout has the needed roles. The following
-    # functions would crash if the role is not there.
-    get_db_master
-    get_shadow
-
 
     # Check that we got good parameters: we removed the unkown ones for
     # backward compatibilty.
