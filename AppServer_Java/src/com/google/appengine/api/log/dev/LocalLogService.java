@@ -11,7 +11,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
@@ -20,18 +19,12 @@ import java.util.logging.Handler;
 // AppScale imports
 import com.google.apphosting.api.ApiProxy.CallNotFoundException;
 import com.google.gson.Gson;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.io.InputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.HashMap;
-import java.util.Map;
-import javax.xml.bind.DatatypeConverter;
 
 @ServiceProvider(LocalRpcService.class)
 public class LocalLogService extends AbstractLocalRpcService
