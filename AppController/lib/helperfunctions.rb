@@ -1216,8 +1216,8 @@ module HelperFunctions
     if self.does_image_have_location?(ip, "/etc/appscale", key)
       Djinn.log_debug("Image at #{ip} is an AppScale image.")
     else
-      fail_msg = "The image at #{ip} is not an AppScale image." +
-      " Please install AppScale on it and try again."
+      fail_msg = "The image at #{ip} is not an AppScale image. " +
+                 "Please install AppScale on it and try again."
       Djinn.log_debug(fail_msg)
       self.log_and_crash(fail_msg)
     end
@@ -1371,28 +1371,6 @@ module HelperFunctions
     # tools to collect the status report or crashlog.
     Kernel.sleep(sleep) unless sleep.nil?
     abort(message)
-  end
-
-
-  # Copies the /etc/resolv.conf file to a backup file, and then removes all
-  # nameserver lookups from the current resolv.conf. We do this to avoid
-  # having to hop out to the nameserver to resolve each node's public and
-  # private IP address (which can be slow in Eucalyptus under heavy load).
-  def self.alter_etc_resolv()
-    self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
-
-    contents = self.read_file(RESOLV_CONF, chomp=false)
-    new_contents = ""
-    contents.split("\n").each { |line|
-      new_contents << line unless contents.include?("nameserver")
-    }
-    self.write_file(RESOLV_CONF, new_contents)
-  end
-
-
-  # Copies the backed-up resolv.conf file back to its original location.
-  def self.restore_etc_resolv()
-    self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
   end
 
 

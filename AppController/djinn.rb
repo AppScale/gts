@@ -458,7 +458,6 @@ class Djinn
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified.
   PARAMETERS_AND_CLASS = {
-    'alter_etc_resolv' => [ TrueClass, nil ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
     'appengine' => [ Fixnum, '2' ],
     'autoscale' => [ TrueClass, nil ],
@@ -475,9 +474,8 @@ class Djinn
     'gce_instance_type' => [ String, nil ],
     'gce_user' => [ String, nil ],
     'group' => [ String, nil ],
-    'hostname' => [ String, nil ],
+    'login' => [ String, nil ],
     'keyname' => [ String, nil ],
-    'ips' => [ String, nil ],
     'infrastructure' => [ String, nil ],
     'instance_type' => [ String, nil ],
     'machine' => [ String, nil ],
@@ -488,7 +486,6 @@ class Djinn
     'replication' => [ Fixnum, '1' ],
     'project' => [ String, nil ],
     'scp' => [ String, nil ],
-    'static_ip' => [ String, nil ],
     'table' => [ String, 'cassandra' ],
     'use_spot_instances' => [ TrueClass, nil ],
     'user_commands' => [ String, nil ],
@@ -783,9 +780,6 @@ class Djinn
       }
     end
 
-    if @options['alter_etc_resolv'].downcase == "true"
-      HelperFunctions.restore_etc_resolv()
-    end
     Djinn.log_info("---- Stopping AppController ----")
 
     return "OK"
@@ -795,54 +789,96 @@ class Djinn
   # Validates and sets the instance variables that Djinn needs before it can
   # begin configuring and deploying services on a given node (and if it is the
   # first Djinn, starting up the other Djinns).
-  def set_parameters(djinn_locations, database_credentials, apps, secret)
+  #
+  # Args:
+  #   layout: this is a JSON structure containing the nodes
+  #     informations (IPs, roles, instance ID etc...). These are the nodes
+  #     specified in the AppScalefile at startup time.
+  #   options: this is a Hash containing all the options and credentials
+  #     (for autoscaling) pertinent to this deployment.
+  def set_parameters(layout, options, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if djinn_locations.class != String
-      msg = "Error: djinn_locations wasn't a String, but was a " +
-        djinn_locations.class.to_s
+    # Validate layout structure. It should be a JSON dump of an Array of
+    # Hashes. It contains the list of nodes of this deployment.
+    if layout.class != String
+      msg = "Error: layout wasn't a String, but was a " + layout.class.to_s
       Djinn.log_error(msg)
       return msg
     end
-    locations = JSON.load(djinn_locations)
+    begin
+      locations = JSON.load(layout)
+    rescue JSON::ParserError
+      msg = "Error: got exception parsing JSON structure layout."
+      Djinn.log_error(msg)
+      return msg
+    end
+    if locations.nil? || locations.empty?
+      msg = "Error: layout is empty."
+      Djinn.log_error(msg)
+      return msg
+    end
+    if locations.class != Array
+      msg = "Error: layout is not an Array."
+      Djinn.log_error(msg)
+      return msg
+    end
+    locations.each{ |node|
+      if node.class != Hash
+        msg = "Error: node structure is not a Hash."
+        Djinn.log_error(msg)
+        return msg
+      end
+      if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
+        !node['instance_id']
+        msg = "Error: node layout is missing information #{node}."
+        Djinn.log_error(msg)
+        return msg
+      elsif node['public_ip'].empty? || node['private_ip'].empty? ||
+         node['jobs'].empty? || node['instance_id'].empty?
+        msg = "Error: node layout is missing information #{node}."
+        Djinn.log_error(msg)
+        return msg
+      end
+    }
 
-    if database_credentials.class != Array
-      msg = "Error: database_credentials wasn't an Array, but was a " +
-        database_credentials.class.to_s
+    # options is a JSON string that will be loaded into a Hash.
+    if options.class != String
+      msg = "Error: options wasn't a String, but was a " +
+            options.class.to_s
+      Djinn.log_error(msg)
+      return msg
+    end
+    begin
+      @options = JSON.load(options)
+    rescue JSON::ParserError
+      msg = "Error: got exception parsing JSON options."
+      Djinn.log_error(msg)
+      return msg
+    end
+    if @options.nil? || @options.empty?
+      msg = "Error: @options is empty."
+      Djinn.log_error(msg)
+      return msg
+    end
+    if @options.class != Hash
+      msg = "Error: @options is not a Hash."
       Djinn.log_error(msg)
       return msg
     end
 
-    if apps.class != Array
-      msg = "Error: apps wasn't an Array, but was a " + apps.class.to_s
-      Djinn.log_error(msg)
-      return msg
-    end
+    # Let's validate we have the needed options defined.
+    ['keyname', 'login', 'table'].each{ |key|
+      unless @options[key]
+        msg = "Error: cannot find #{key} in options!" unless @options[key]
+        Djinn.log_error(msg)
+        return msg
+      end
+    }
 
-    # credentials is an array that we're converting to
-    # hash tables, so we need to make sure that every key maps to a value
-    # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
-    # so we need to make sure that the array has an even number of elements
-    if database_credentials.length.odd?
-      msg = "Error: DB Credentials wasn't of even length: Len = " + \
-        "#{database_credentials.length}"
-      Djinn.log_error(msg)
-      return msg
-    end
-
-    possible_credentials = Hash[*database_credentials]
-    unless valid_format_for_credentials(possible_credentials)
-      return "Error: Credential format wrong"
-    end
-
-    keyname = possible_credentials["keyname"]
-    @options = possible_credentials
-    @app_names = apps
-
-    nodes = Djinn.convert_location_array_to_class(locations, keyname)
-    converted_nodes = convert_fqdns_to_ips(nodes)
     @state_change_lock.synchronize {
-      @nodes = converted_nodes
+      @nodes = Djinn.convert_location_array_to_class(locations,
+        @options['keyname'])
     }
     @options = sanitize_credentials()
 
@@ -957,10 +993,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    if @options['alter_etc_resolv'].downcase == "true"
-      HelperFunctions.alter_etc_resolv()
-    end
-
     @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
 
     begin
@@ -1009,7 +1041,6 @@ class Djinn
 
       stats['apps'].each { |app_name, is_loaded|
         next unless is_loaded
-        next if app_name == "none"
         stats_str << "    Information for application: #{app_name}\n"
         stats_str << "        Language            : "
         if @app_info_map[app_name]['language'].nil?
@@ -1643,8 +1674,6 @@ class Djinn
         @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
         @apps_loaded = @apps_loaded - [app_name]
         @app_names = @app_names - [app_name]
-        @apps_loaded << "none" if @apps_loaded.empty?
-        @app_names << "none" if @app_names.empty?
       }
 
       # To prevent future deploys from using the old application code, we
@@ -1783,10 +1812,7 @@ class Djinn
     end
 
     APPS_LOCK.synchronize {
-      # Since we have at least one application running, we don't need to
-      # display anymore 'none' as the list of running applications.
       @app_names |= apps
-      @app_names = @app_names - ["none"]
     }
     Djinn.log_debug("Done updating apps!")
 
@@ -1893,8 +1919,13 @@ class Djinn
     # nodes to start up.
     if my_node.is_shadow?
       build_uncommitted_changes
-      Djinn.log_info("Spawning/setting up other nodes.")
-      spawn_and_setup_appengine
+      Djinn.log_info("Preparing other nodes for this deployment.")
+
+      find_me_in_locations()
+      write_database_info()
+      update_firewall()
+
+      initialize_nodes_in_parallel(@nodes)
     end
 
     # Initialize the current server and starts all the API and essential
@@ -2016,9 +2047,9 @@ class Djinn
 
     online_users = []
 
-    login_node = get_login()
-    ip = login_node.public_ip
-    key = login_node.ssh_key
+    lb_node = get_load_balancer
+    ip = lb_node.public_ip
+    key = lb_node.ssh_key
     raw_list = `ssh -i #{key} -o StrictHostkeyChecking=no root@#{ip} 'ejabberdctl connected-users'`
     raw_list.split("\n").each { |userdata|
       online_users << userdata.split("/")[0]
@@ -2318,7 +2349,7 @@ class Djinn
         # already have info about the open nodes we want to use
         new_nodes = Djinn.convert_location_array_to_class(new_nodes_info,
           @options['keyname'])
-        vms_to_use << convert_fqdns_to_ips(new_nodes)
+        vms_to_use << new_nodes
         vms_to_use.flatten!
       end
     }
@@ -2355,7 +2386,6 @@ class Djinn
   def add_nodes(node_info)
     keyname = @options['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
-    new_nodes = convert_fqdns_to_ips(new_nodes)
 
     # Since an external thread can modify @nodes, let's put a lock around
     # it to prevent race conditions.
@@ -2522,26 +2552,17 @@ class Djinn
   # This method is the opposite of the previous method, and is needed when an
   # AppController wishes to pass node information to other AppControllers via
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
-  def self.convert_location_class_to_array(djinn_locations)
-    if djinn_locations.class != Array
-      @state = "Locations is not an Array, not a #{djinn_locations.class}."
+  def self.convert_location_class_to_json(layout)
+    if layout.class != Array
+      @state = "Locations is not an Array, but a #{layout.class}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
 
-    djinn_loc_array = []
-    djinn_locations.each { |location|
-      djinn_loc_array << location.to_hash
+    layout_array = []
+    layout.each { |location|
+      layout_array << location.to_hash
     }
-    return JSON.dump(djinn_loc_array)
-  end
-
-  def get_login()
-    @nodes.each { |node|
-      return node if node.is_login?
-    }
-
-    @state = "No login nodes found."
-    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
+    return JSON.dump(layout_array)
   end
 
   def get_shadow()
@@ -2585,12 +2606,13 @@ class Djinn
     return ae_nodes
   end
 
-  def get_load_balancer_ip()
+  def get_load_balancer()
     @nodes.each { |node|
-      if node.is_load_balancer?
-        return node.public_ip
-      end
+      return node if node.is_load_balancer?
     }
+
+    @state = "No load balancer nodes found."
+    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def valid_secret?(secret)
@@ -2601,27 +2623,6 @@ class Djinn
       Djinn.log_error(failed_match_msg)
     end
     return secret == @@secret
-  end
-
-  def get_public_ip(private_ip)
-    return private_ip unless is_cloud?
-
-    Djinn.log_debug("Looking for #{private_ip}")
-    private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
-    Djinn.log_debug("[converted] Looking for #{private_ip}")
-    @nodes.each { |node|
-      node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
-      node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
-
-      if node_private_ip == private_ip or node_public_ip == private_ip
-        return node_public_ip
-      end
-    }
-
-    Djinn.log_fatal("get public ip] Couldn't convert private " +
-      "IP #{private_ip} to a public address.")
-    HelperFunctions.log_and_crash("[get public ip] Couldn't convert private " +
-      "IP #{private_ip} to a public address.")
   end
 
   # Collects all AppScale-generated logs from all machines, and places them in
@@ -2875,7 +2876,7 @@ class Djinn
       instance_variables.each { |k|
         v = instance_variable_get(k)
         if k.to_s == "@nodes"
-          v = Djinn.convert_location_class_to_array(v)
+          v = Djinn.convert_location_class_to_json(v)
         elsif k == "@my_index" or k == "@api_status"
           # Don't back up @my_index - it's a node-specific pointer that
           # indicates which node is "our node" and thus should be regenerated
@@ -3009,18 +3010,8 @@ class Djinn
       end
     }
 
-    if @options['hostname'] == old_public_ip
-      @options['hostname'] = new_public_ip
-    end
-
-    unless is_cloud?
-      nodes = JSON.load(@options['ips'])
-      nodes.each { |node|
-        if node['ip'] == old_private_ip
-          node['ip'] == new_private_ip
-        end
-      }
-      @options['ips'] = JSON.dump(nodes)
+    if @options['login'] == old_public_ip
+      @options['login'] = new_public_ip
     end
 
     @app_info_map.each { |_app_id, app_info|
@@ -3050,6 +3041,22 @@ class Djinn
     @my_private_ip = new_private_ip
   end
 
+  # Writes any custom configuration data in /etc/appscale to ZooKeeper.
+  def set_custom_config()
+    cassandra_config = {'num_tokens' => 256}
+    begin
+      contents = File.read("#{APPSCALE_CONFIG_DIR}/cassandra")
+      cassandra_config = JSON.parse(contents)
+    rescue Errno::ENOENT
+      Djinn.log_debug('No custom cassandra configuration found.')
+    rescue JSON::ParserError
+      Djinn.log_error('Invalid JSON in custom cassandra configuration.')
+    end
+    ZKInterface.ensure_path('/appscale/config')
+    ZKInterface.set('/appscale/config/cassandra', JSON.dump(cassandra_config),
+                    false)
+    Djinn.log_info('Set custom cassandra configuration.')
+  end
 
   # Updates the file that says where all the ZooKeeper nodes are
   # located so that this node has the most up-to-date info if it needs to
@@ -3142,7 +3149,7 @@ class Djinn
         # database, depending on the verbosity and the deployment.
         if @options['controller_logs_to_dashboard'].downcase == "true"
           begin
-            url = URI.parse("https://#{get_load_balancer_ip()}:" +
+            url = URI.parse("https://#{get_load_balancer.public_ip}:" +
               "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
             http = Net::HTTP.new(url.host, url.port)
             http.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -3182,7 +3189,7 @@ class Djinn
       }
 
       begin
-        url = URI.parse("https://#{get_load_balancer_ip()}:" +
+        url = URI.parse("https://#{get_load_balancer.public_ip}:" +
           "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
@@ -3222,7 +3229,7 @@ class Djinn
         'port' => Integer(port)
       }]
 
-      url = URI.parse("https://#{get_load_balancer_ip()}:" +
+      url = URI.parse("https://#{get_load_balancer.public_ip}:" +
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
@@ -3391,58 +3398,8 @@ class Djinn
     return false if @nodes == []
     Djinn.log_debug("[got_all_data]: checking options.")
     return false if @options == {}
-    Djinn.log_debug("[got_all_data]: checking app_names.")
-    return false if @app_names == []
     Djinn.log_debug("[got_all_data]: done.")
     return true
-  end
-
-
-  # If running in a cloud environment, we may be dealing with public and
-  # private FQDNs instead of IP addresses, which makes it hard to find out
-  # which node is our node (since we find our node by IP). This method
-  # looks through all the nodes we currently know of and converts any private
-  # FQDNs we see to private IPs.
-  #
-  # Args:
-  #   nodes: An Array of DjinnJobDatas, where each item corresponds to a single
-  #     node in this AppScale deployment.
-  #
-  # Returns:
-  #   An Array of DjinnJobDatas, where each item may have its private FQDN
-  #   replaced with a private IP address.
-  def convert_fqdns_to_ips(nodes)
-    if is_cloud?
-      Djinn.log_debug("In a cloud deployment, so converting FQDNs -> IPs")
-    else
-      Djinn.log_debug("Not in a cloud deployment, so not converting FQDNs -> IPs")
-      return nodes
-    end
-
-    if @options['hostname'] =~ /#{FQDN_REGEX}/
-      begin
-        @options['hostname'] = HelperFunctions.convert_fqdn_to_ip(@options['hostname'])
-      rescue => e
-        HelperFunctions.log_and_crash("Failed to convert main hostname #{@options['hostname']}")
-      end
-    end
-
-    nodes.each { |node|
-      # Resolve the private FQDN to a private IP, but don't resolve the public
-      # FQDN, as that will just resolve to the private IP.
-
-      pri = node.private_ip
-      if pri =~ /#{FQDN_REGEX}/
-        begin
-          node.private_ip = HelperFunctions.convert_fqdn_to_ip(pri)
-        rescue => e
-          Djinn.log_info("Failed to convert IP: #{e.message}")
-          node.private_ip = node.public_ip
-        end
-      end
-    }
-
-    return nodes
   end
 
 
@@ -3489,21 +3446,10 @@ class Djinn
   end
 
 
-  # Checks to see if the credentials given to us (a Hash) have all the keys that
-  # other methods expect to see.
-  def valid_format_for_credentials(possible_credentials)
-    required_fields = ["table", "hostname", "ips", "keyname"]
-    required_fields.each { |field|
-      return false unless possible_credentials[field]
-    }
-
-    return true
-  end
-
   def sanitize_credentials()
     newoptions = {}
     @options.each { |key, val|
-      if ['ips', 'user_commands'].include?(key)
+      if key == 'user_commands'
         newoptions[key] = val
         next
       end
@@ -3559,7 +3505,18 @@ class Djinn
       end
     }
 
+    if my_node.is_shadow?
+      pick_zookeeper(@zookeeper_data)
+      set_custom_config
+    end
+
     if my_node.is_db_master? or my_node.is_db_slave?
+      db_master = nil
+      @nodes.each { |node|
+        db_master = node.private_ip if node.jobs.include?('db_master')
+      }
+      setup_db_config_files(db_master)
+
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
         clear_datastore = @options['clear_datastore'].downcase == "true"
@@ -3567,10 +3524,10 @@ class Djinn
         needed_nodes = needed_for_quorum(db_nodes,
                                          Integer(@options['replication']))
         if my_node.is_db_master?
-          start_db_master(clear_datastore, needed_nodes)
+          start_db_master(clear_datastore, needed_nodes, db_nodes)
           prime_database
         else
-          start_db_slave(clear_datastore, needed_nodes)
+          start_db_slave(clear_datastore, needed_nodes, db_nodes)
         end
       }
     end
@@ -3618,12 +3575,6 @@ class Djinn
     threads = []
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
-        if my_node.is_db_master?
-          if @options['clear_datastore'].downcase == "true"
-            erase_app_instance_info
-          end
-        end
-
         if my_node.is_db_master? or my_node.is_db_slave?
           start_groomer_service()
         end
@@ -3904,7 +3855,7 @@ class Djinn
   end
 
   def is_cloud?
-    !@options['infrastructure'].nil?
+    return ['ec2', 'euca', 'gce', 'azure'].include?(@options['infrastructure'])
   end
 
   def restore_from_db?
@@ -3955,79 +3906,10 @@ class Djinn
     build_java_appserver if status.include?('AppTaskQueue')
   end
 
-  def spawn_and_setup_appengine()
-    # should also make sure the tools are on the vm and the envvars are set
-    keyname = @options['keyname']
-
-    machines = JSON.load(@options['ips'])
-    appengine_info = spawn_appengine(machines)
-    Djinn.log_info("Nodes info after starting remotes: #{appengine_info.join(', ')}.")
-
-    @state = "Copying over needed files and starting the AppController on the other VMs"
-
-    appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
-    appengine_info = convert_fqdns_to_ips(appengine_info)
-    @state_change_lock.synchronize {
-      @nodes.concat(appengine_info)
-      @nodes.uniq!
-    }
-    find_me_in_locations()
-    write_database_info()
-    update_firewall()
-
-    initialize_nodes_in_parallel(appengine_info)
-  end
-
-  def spawn_appengine(machines)
-    Djinn.log_debug("Machines requested or available: #{machines.join(', ')}.")
-    appengine_info = []
-
-    if is_cloud?
-      # In cloud mode we need to spawn the instances, but we should check
-      # if the instances have been already spawned: we can do that
-      # comparing what we are requested and what we have in @nodes.
-      # Note: the tools doesn't include the headnode in machines.
-      if @nodes.length < (machines.length + 1)
-        @state = "Spawning up #{machines.length} virtual machines"
-        roles = machines.map { |node| node['jobs'] }
-        disks = machines.map { |node| node['disk'] }
-
-        Djinn.log_info("Starting #{machines.length} machines.")
-
-        imc = InfrastructureManagerClient.new(@@secret)
-        begin
-          appengine_info = imc.spawn_vms(machines.length, @options, roles, disks)
-        rescue FailedNodeException, AppScaleException => exception
-          @state = "Couldn't spawn #{machines.length} VMs " +
-            "with roles #{roles} because: #{exception.message}"
-          HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
-        end
-        Djinn.log_info("Spawned #{machines.length} virtual machines.")
-      else
-        Djinn.log_info("Not spawning new instances since we have the requested" +
-          " number already.")
-      end
-    else
-      # For cluster mode, we return a nodes structure with the correct
-      # values, since we already have the jobs and ips for the layout.
-      machines.each { |node|
-        appengine_info << {
-          'public_ip' => node['ip'],
-          'private_ip' => node['ip'],
-          'jobs' => node['jobs'],
-          'instance_id' => 'i-APPSCALE',
-          'disk' => nil
-        }
-      }
-    end
-
-    Djinn.log_debug("Received appengine info: #{appengine_info.join(', ')}.")
-    return appengine_info
-  end
-
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
+      next if slave.private_ip == my_node.private_ip
       threads << Thread.new {
         initialize_node(slave)
       }
@@ -4226,15 +4108,11 @@ class Djinn
     my_private = my_node.private_ip
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}\n")
 
-    head_node_ip = get_public_ip(@options['hostname'])
+    head_node_ip = get_shadow.public_ip
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_ip", "#{head_node_ip}\n")
 
-    login_ip = get_login.public_ip
+    login_ip = @options['login']
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_ip", "#{login_ip}\n")
-
-    login_private_ip = get_login.private_ip
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_private_ip", "#{login_private_ip}\n")
-
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_ip}\n")
 
     if @nodes.length  == 1
@@ -4245,9 +4123,6 @@ class Djinn
 
     slave_ips_newlined = slave_ips.join("\n")
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
-
-    # Invoke datastore helper function
-    setup_db_config_files(master_ip)
 
     update_hosts_info()
 
@@ -4287,8 +4162,7 @@ class Djinn
   # private IP.
   def write_apploadbalancer_location()
     login_file = "#{APPSCALE_CONFIG_DIR}/appdashboard_public_ip"
-    login_ip = get_login.public_ip()
-    HelperFunctions.write_file(login_file, login_ip)
+    HelperFunctions.write_file(login_file, @options['login'])
   end
 
 
@@ -4355,7 +4229,7 @@ class Djinn
 
     all_nodes = ""
     @nodes.each_with_index { |node, index|
-      all_nodes << "#{HelperFunctions.convert_fqdn_to_ip(node.private_ip)} appscale-image#{index}\n"
+      all_nodes << "#{node.private_ip} appscale-image#{index}\n"
     }
 
     new_etc_hosts = <<HOSTS
@@ -4389,12 +4263,10 @@ HOSTS
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ip = get_login.private_ip
+    login_ip = get_shadow.private_ip
 
     apps_to_check = @apps_loaded
     apps_to_check.each { |app|
-      next if app == "none"
-
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       running = false
@@ -4682,10 +4554,10 @@ HOSTS
     end
     Djinn.log_debug("Sending data to #{ip}.")
 
-    loc_array = Djinn.convert_location_class_to_array(@nodes)
-    options = @options.to_a.flatten
+    layout = Djinn.convert_location_class_to_json(@nodes)
+    options = JSON.dump(@options)
     begin
-      result = acc.set_parameters(loc_array, options, @app_names)
+      result = acc.set_parameters(layout, options)
     rescue FailedNodeException => e
       @state = "Couldn't set parameters on node at #{ip} for #{e.message}."
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
@@ -4861,7 +4733,7 @@ HOSTS
     # And now starts applications.
     @state = "Preparing to run AppEngine apps if needed."
 
-    apps_to_load = @app_names - @apps_loaded - ["none"]
+    apps_to_load = @app_names - @apps_loaded
     apps_to_load.each { |app|
       setup_appengine_application(app)
       maybe_start_taskqueue_worker(app)
@@ -4953,7 +4825,7 @@ HOSTS
         # Update the cron job for the app on the shadow.
         if my_node.is_shadow?
           if !info['nginx'].nil? and !info['language'].nil?
-            CronHelper.update_cron(get_load_balancer_ip(),
+            CronHelper.update_cron(get_load_balancer.public_ip,
               info['nginx'], info['language'], app)
           end
         end
@@ -5228,7 +5100,6 @@ HOSTS
       end
     end
 
-    @apps_loaded -= ["none"]
     @apps_loaded << app unless @apps_loaded.include?(app)
   end
 
@@ -5374,8 +5245,6 @@ HOSTS
   # are sitting in haproxy's queue, waiting to be served.
   def scale_appservers_within_nodes
     @apps_loaded.each { |app_name|
-      next if app_name == "none"
-
       initialize_scaling_info_for_app(app_name)
 
       # Always get scaling info, as that will send this info to the
@@ -5773,14 +5642,14 @@ HOSTS
     Djinn.log_info("Starting #{app_language} app #{app} on " +
       "#{@my_private_ip}:#{appengine_port}")
 
-    xmpp_ip = get_login.public_ip
+    xmpp_ip = @options['login']
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
       pid = app_manager.start_app(app, appengine_port,
-        get_load_balancer_ip(), app_language, xmpp_ip,
+        get_load_balancer.public_ip, app_language, xmpp_ip,
         HelperFunctions.get_app_env_vars(app),
-        Integer(@options['max_memory']), get_login.private_ip)
+        Integer(@options['max_memory']), get_shadow.private_ip)
     rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
         "with AppManager: #{error.message}")
@@ -5865,7 +5734,7 @@ HOSTS
     })
 
     begin
-      url = URI.parse("https://#{get_login.public_ip}:" +
+      url = URI.parse("https://#{get_shadow.private_ip}:" +
         "#{AppDashboard::LISTEN_SSL_PORT}/apps/json/#{app_id}")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
@@ -6125,7 +5994,7 @@ HOSTS
 
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
-    login_ip = get_login.public_ip
+    login_ip = @options['login']
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
@@ -6191,7 +6060,6 @@ HOSTS
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @apps_loaded.each { |app_name|
-          next if app_name == "none"
           if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
             Djinn.log_debug("#{app_name} not setup yet: skipping getting stats.")
             next

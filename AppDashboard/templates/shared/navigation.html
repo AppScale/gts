@@ -1,102 +1,106 @@
    <!-- FILE:templates/shared/navigation.html -->
-   <div id="header">
-        <div class="navbar">
-            <div class="navbar-inner">
-                <a id="appscale_logo" href="/"><img src="/images/appscale-logo.png?v=2"/></a>
-              <div class="container-fluid">
-                <div class="nav-no-collapse">
-                    <ul style="padding-right: 2.5%;" class="nav pull-right">
-                        {% if logged_in %}
-                          <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small silk-icon-exit" href="/users/logout"><span>Logout</span></a></h3><br />
-                        {% else %}
-                          <h3>
-                              <a class="btn btn-small btn-success silk-icon-enter" href="/users/login"><span>Login</span></a>
-                              {% if show_create_account %}
-                              <a class="btn btn-info btn-small entypo-icon-contact" href="/users/new"><span>Create Account</span></a>
-                              {% endif %}
-                          </h3>
-                        {% endif %}
-                    </ul><!--close drop down-->
-
-                </div><!-- /.nav-collapse -->
-              </div>
-            </div><!-- /navbar-inner -->
-          </div><!-- /navbar --> 
-
-    </div><!-- End #header -->
-
-    <div id="wrapper">
-
-        <!--Responsive navigation button-->  
-        <div class="resBtn">
-            <a href="#"><span class="icon16 minia-icon-list-3"></span></a>
+   <div id="header" class="row">
+    <div class="navbar navbar-default">
+      <div class="container-fluid">
+        <div class="navbar-header col-lg-2 col-md-3 col-sm-12">
+            <a class="navbar-brand" id="appscale_logo" aria-hidden="true" href="/"><img src="/images/appscale-logo.png?v=2"></a>
+            <h1 id="appscale_title"><a href="/">AppScale Dashboard</a></h1>
         </div>
+        <div class="col-lg-10 col-md-9 col-sm-12" style="padding-top: 2%;">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#mainNav">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+            </div>
+        <div id="mainNav" class="collapse navbar-collapse">
+          <ul id="nav-links" class="nav navbar-nav">
+          <li><a href="mailto:support@appscale.com">Send Feedback</a></li>
+          <li><a href="https://www.appscale.com/resources/tutorials/redmine" target="_blank">Submit Issue</a></li>
+          <li><a href="https://www.appscale.com/resources/docs/" target="_blank">View Docs</a></li>
+          {% if is_user_cloud_admin %}
+          <li><a href="http://webchat.freenode.net/?channels=appscale&amp;uio=d4" target="_blank">Live Support</a></li>
+          {% endif %}
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            {% if logged_in %}
+              <p>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small" href="/users/logout"><span class="glyphicon glyphicon-log-out"></span><span>Logout</span></a></p><br />
+            {% else %}
+              <div>
+                <a class="btn btn-small btn-success" href="/users/login"><span class="glyphicon glyphicon-log-in"></span>Login</a>
+                {% if show_create_account %}
+                <a class="btn btn-info btn-small" href="/users/new"><span class="glyphicon glyphicon-user"></span>Create Account</a>
+                {% endif %}
+              </div>
+            {% endif %}
+          </ul><!--close drop down-->
 
-        <!--Sidebar background-->
-        <div id="sidebarbg"></div>
-        <!--Sidebar content-->
-        <div id="sidebar">
-            <div class="sidenav">
+        </div><!-- /.nav-collapse -->
+        </div>
+      </div><!-- /navbar-inner -->
+      </div><!-- /navbar --> 
 
-                <div class="sidebar-widget" style="width: 210px; margin: 30px 0 0 0;">
-                </div><!-- End .sidenav-widget -->
+  </div><!-- End #header -->
 
-                <div align="center" class="mainnav">
-                    <ul>
-                        <li align="center" class="tab"><a class="btn btn-info" href="/status">Cloud Status</a> </li>
-                            {% if apps_user_is_admin_on or is_user_cloud_admin %}
-                              <li align="center" class="tab"><a class="btn btn-info" href="/apps">App Console</a></li>
-                              <li align="center" class="tab"><a class="btn btn-info" href="/logs">View Logs</a></li>
-                              <li align="center" class="tab"><a class="btn btn-info" href="{{ flower_url }}">TaskQueue Monitor</a></li>
-                            {% endif %}
-                            {% if is_user_cloud_admin %}
-                              <li align="center" class="tab"><a class="btn btn-info" href="{{ monit_url }}">Monit Dashboard</a></li>
-                              <li align="center" class="tab"><a class="btn btn-info" href="/authorize">Manage Users</a></li>
-                            {% endif %}
-                            {% if can_upload_apps %}
-                              <li align="center" class="tab"><a class="btn btn-info" href="/apps/new">Upload App</a></li>
-                              <li align="center" class="tab"><a class="btn btn-info" href="/apps/delete">Delete App</a></li>
-                            {% endif %}
-                    </ul>
-                </div>
-            </div><!-- End sidenav -->
+  <div id="wrapper" class="row"><!--closed in other templates-->
 
-        </div><!-- End #sidebar -->
-        <script>
-            $(document).ready(function() {
-                // Insert a new style that extends the height of the header to
-                // encompass the sidebar when .resBtn is clicked.
-                var newHeaderHeight = $('#header').height() + $('#sidebar').height();
-                var style = document.createElement('style');
-                style.type = 'text/css';
-                style.setAttribute('media', 'only screen and (max-width: 980px)');
-                var css = '#header.open { height: ' + newHeaderHeight + 'px; }';
-                if (style.styleSheet) style.styleSheet.cssText = css;
-                else style.appendChild(document.createTextNode(css));
-                var head = document.head || document.getElementsByTagName('head')[0];
-                head.appendChild(style);
-
-                // Take the extra height of .resBtn into account
-                var sidebarBtn = $('#wrapper').find('.resBtn');
-                newHeaderHeight += sidebarBtn.height();
-                var style = document.createElement('style');
-                style.type = 'text/css';
-                style.setAttribute('media', 'only screen and (max-width: 572px)');
-                // Insert after page load so it will not affect the height calculation
-                var css = '#header { height: 120px; }';
-                css += '#header.open { height: ' + newHeaderHeight + 'px; }';
-                if (style.styleSheet) style.styleSheet.cssText = css;
-                else style.appendChild(document.createTextNode(css));
-                var head = document.head || document.getElementsByTagName('head')[0];
-                head.appendChild(style);
-
-                sidebarBtn.click(function() {
-                    var selectors = $(this).add('#header, #sidebar');
-                    $(this).hasClass('open') ? selectors.removeClass('open') : selectors.addClass('open');
-                });
-            });
-        </script>
-    </div> <!--close wwrapper-->
+    <!--Sidebar content-->
+    <nav class="navbar col-lg-2 col-md-3" id="side-nav">
+      <div class="row">
+        <div class="navbar-header" style="float:right;">
+        <button type="button" class="glyphicon glyphicon-menu-hamburger navbar-toggle" data-toggle="collapse" data-target="#sideNav">
+        </button>
+        </div>
+      </div>
+      <div id="sideNav" class="collapse navbar-collapse row">
+        <ul class="nav nav-pills nav-stacked sortable" style="overflow:auto;width:100%;">
+          {% for navigation_dict in user_layout_pref.nav %}
+            {% for id,menu in navigation_dict.items() %}
+              {% for sub_menu_heading, submenu_list in menu.items() %}
+                <li class="panel panel-default">
+                  <!--sortable ui handle-->
+                  {% if page_name=="dash" %}
+                    <span class="glyphicon glyphicon-move"></span>
+                  {% endif %}
+                  <!--sub menu heading-->
+                  <a class="nav-heading-collapse" data-toggle="collapse" href="#{{ id }}">
+                      {{ sub_menu_heading }}</a>
+                  <div id="{{ id }}" class="panel-collapse collapse in">
+                      <div class="list-group">
+                        {% for menuitem_dict in submenu_list %}
+                          {% for dict_key, menuitem in menuitem_dict.items() %}
+                            <div align="center" class="list-group-item">
+                              <div class="btn-group">
+                              {% if page_name=="dash" %}
+                                {% if dict_key=="taskqueue" or dict_key=="monit" %}
+                                  <a class="btn btn-info" href="{{menuitem.link}}"
+                                     style="width:100%;">{{ menuitem.title }}</a>
+                                {% else %}
+                                  <a class="btn btn-info" href="{{menuitem.link}}"
+                                     style="width:85%;">{{ menuitem.title }}</a>
+                                  <a href="#" class="btn btn-info add-panel"
+                                     data-toggle="tooltip" title="Add {{ menuitem.title }} Panel"
+                                     data-target="{{ dict_key }}" style="width:15%;">
+                                      <span class="glyphicon glyphicon-pushpin"></span></a>
+                                {% endif %}
+                              {% else %}
+                                <a class="btn btn-info" href="{{menuitem.link}}"
+                                 style="width:100%;">{{ menuitem.title }}</a>
+                              {% endif %}
+                              </div>
+                            </div>
+                          {% endfor %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                </li>
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+    </nav>
 <!--Testing SFTP -->
 
 
