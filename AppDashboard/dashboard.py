@@ -1234,7 +1234,7 @@ class AjaxSaveLayoutSettings(AppDashboard):
 
     nav = self.request.get("nav")
     panel = self.request.get("panel")
-    saved_dict = {"nav": nav, "panel": panel}
+    saved_dict = {"nav": json.loads(nav), "panel": json.loads(panel)}
     try:
       self.dstore.set_dash_layout_settings(values=saved_dict)
       self.response.set_status(200)

@@ -32,6 +32,9 @@
 #mainNav .glyphicon {
     padding-right:0.5em;
 }
+#appscale_logo img {
+    max-height: 50px;
+}
 /*dashboard css*/
 #dash-panels .row-fluid {
     overflow-x:auto;
