@@ -22,7 +22,7 @@ $(document).ready(function(){
         var newPanelID = "#" + $(this).attr("data-target");
         if(!$(newPanelID).length){
             $.ajax({
-                method: "post",
+                method: "get",
                 url: "/ajax/panel/render",
                 async: false,
                 data: {

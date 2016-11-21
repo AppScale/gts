@@ -67,7 +67,7 @@ class AppControllerClient
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
     # Disable certificate verification.
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
-    @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
+    @conn.add_method("set_parameters", "layout", "options", "secret")
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
@@ -141,10 +141,10 @@ class AppControllerClient
   end
 
 
-  def set_parameters(locations, options, apps_to_start)
+  def set_parameters(layout, options)
     result = ""
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 
-      result = conn.set_parameters(locations, options, apps_to_start, @secret)
+      result = conn.set_parameters(layout, options, @secret)
     }  
     if result =~ /Error:/
       raise FailedNodeException.new("set_parameters returned #{result}.")
