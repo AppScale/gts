@@ -545,7 +545,8 @@ installtaskqueue()
 
 installdatastore()
 {
-    (cd ${APPSCALE_HOME}/AppDB && python setup.py install)
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
+    pip install ${APPSCALE_HOME}/AppDB
 }
 
 prepdashboard()
