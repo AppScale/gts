@@ -1012,9 +1012,12 @@ def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   logging.info('Starting UAServer')
 
+  global app_schema
+  global bindport
   global datastore_type
   global db
-  global bindport
+  global ERROR_CODES
+  global user_schema
 
   for ii in range(1, len(sys.argv)):
     if sys.argv[ii] in ("-h", "--help"):
