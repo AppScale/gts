@@ -1,4 +1,3 @@
-#!/usr/bin/python
 """
 Blobstore server for uploading blobs.
 See LICENSE file.
@@ -27,8 +26,8 @@ import tornado.web
 import urllib
 import urllib2
 
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from StringIO import StringIO
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -416,7 +415,10 @@ class UploadHandler(tornado.web.RequestHandler):
         return
 
 
-if __name__ == "__main__":
+def main():
+  global datastore_path
+  global deployment_config
+
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser()

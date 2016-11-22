@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 """ Top level server for backup and recovery. """
 
 import json
@@ -8,11 +7,11 @@ import tornado.httputil
 import tornado.ioloop
 import tornado.web
 
-from appscale.datastore.backup import backup_recovery_helper
-from appscale.datastore.backup.backup_service import BackupService
-from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
-from appscale.datastore.backup.br_constants import DEFAULT_PORT
-from appscale.datastore.backup.br_constants import HTTP_OK
+from ..backup import backup_recovery_helper
+from ..backup.backup_service import BackupService
+from ..backup.br_constants import BACKUP_DIR_LOCATION
+from ..backup.br_constants import DEFAULT_PORT
+from ..backup.br_constants import HTTP_OK
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -63,7 +62,3 @@ def main():
   http_server.bind(DEFAULT_PORT)
   http_server.start(0)
   tornado.ioloop.IOLoop.instance().start()
-
-
-if __name__ == "__main__":
-  main()

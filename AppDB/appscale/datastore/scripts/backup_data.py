@@ -1,14 +1,13 @@
-#!/usr/bin/env python2
-""" This process performs a backup of all the application entities for the given
-app ID to the local filesystem.
+""" This process performs a backup of all the application entities for the
+given app ID to the local filesystem.
 """
 import argparse
 import logging
 import sys
 
-from appscale.datastore.backup.datastore_backup import DatastoreBackup
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.zkappscale import zktransaction as zk
+from ..backup.datastore_backup import DatastoreBackup
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
@@ -72,7 +71,3 @@ def main():
     ds_backup.run()
   finally:
     zookeeper.close()
-
-
-if __name__ == "__main__":
-  main()

@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 """ Cassandra data backup. """
 
 import argparse
@@ -6,12 +5,12 @@ import logging
 import os
 import sys
 
-from appscale.datastore.backup.backup_exceptions import AmbiguousKeyException
-from appscale.datastore.backup.backup_exceptions import NoKeyException
-from appscale.datastore.backup.cassandra_backup import backup_data
-from appscale.datastore.backup.cassandra_backup import restore_data
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.unpackaged import INFRASTRUCTURE_MANAGER_DIR
+from ..backup.backup_exceptions import AmbiguousKeyException
+from ..backup.backup_exceptions import NoKeyException
+from ..backup.cassandra_backup import backup_data
+from ..backup.cassandra_backup import restore_data
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..unpackaged import INFRASTRUCTURE_MANAGER_DIR
 
 sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
@@ -20,7 +19,7 @@ sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils.utils import KEY_DIRECTORY
 
 
-if "__main__" == __name__:
+def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser(

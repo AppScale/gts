@@ -1,13 +1,11 @@
-#!/usr/bin/env python2
-
 import appscale_info
 import getopt
 import sys
 
-from appscale.datastore import appscale_datastore_batch
-from appscale.datastore.datastore_distributed import DatastoreDistributed
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.zkappscale import zktransaction as zk
+from .. import appscale_datastore_batch
+from ..datastore_distributed import DatastoreDistributed
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
+from ..zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import datastore_pb
@@ -42,13 +40,27 @@ def prettify_index(index, initial_indent=3):
   return output
 
 
-def main(app_id, db_type):
-  """ Updates a composite index after prompting the user.
+def main():
+  """ Updates a composite index after prompting the user. """
+  try:
+    opts, remainder = getopt.getopt(
+      sys.argv[1:], 't:a:', ['type=', 'app_id='])
+  except getopt.GetoptError:
+    usage()
+    sys.exit(1)
 
-  Args:
-    app_id: A string containing the application ID.
-    db_type: A string specifying which database backend to use.
-  """
+  db_type = None
+  app_id = None
+  for opt, arg in opts:
+    if opt in ('-t', '--type'):
+      db_type = arg
+    elif opt in ('-a', '--app_id'):
+      app_id = arg
+
+  if not db_type or not app_id:
+    usage()
+    sys.exit(1)
+
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
     getDatastore(db_type)
   zookeeper_locations = appscale_info.get_zk_locations_string()
@@ -81,26 +93,3 @@ def main(app_id, db_type):
   datastore_access.update_composite_index(app_id, selected_index)
 
   zookeeper.close()
-
-
-if __name__ == '__main__':
-  try:
-    opts, remainder = getopt.getopt(sys.argv[1:], 't:a:',
-      ['type=', 'app_id='])
-  except getopt.GetoptError:
-    usage()
-    sys.exit(1)
-
-  db_type = None
-  app_id = None
-  for opt, arg in opts:
-    if opt in ('-t', '--type'):
-      db_type = arg
-    elif opt in ('-a', '--app_id'):
-      app_id = arg
-
-  if not db_type or not app_id:
-    usage()
-    sys.exit(1)
-
-  main(app_id, db_type)

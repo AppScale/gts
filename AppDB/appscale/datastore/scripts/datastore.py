@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # See LICENSE file
 #
 """
@@ -17,15 +16,15 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-from appscale.datastore import dbconstants
-from appscale.datastore.appscale_datastore_batch import DatastoreFactory
-from appscale.datastore.datastore_distributed import DatastoreDistributed
-from appscale.datastore.utils import clean_app_id
-from appscale.datastore.utils import UnprocessedQueryResult
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.zkappscale import zktransaction
 from M2Crypto import SSL
+from .. import dbconstants
+from ..appscale_datastore_batch import DatastoreFactory
+from ..datastore_distributed import DatastoreDistributed
+from ..utils import clean_app_id
+from ..utils import UnprocessedQueryResult
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
+from ..zkappscale import zktransaction
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
@@ -685,7 +684,7 @@ pb_application = tornado.web.Application([
 ])
 
 
-def main(argv):
+def main():
   """ Starts a web service for handing datastore requests. """
 
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
@@ -701,6 +700,7 @@ def main(argv):
   is_encrypted = True
   verbose = False
 
+  argv = sys.argv[1:]
   try:
     opts, args = getopt.getopt(argv, "t:p:n:v:",
       ["type=", "port", "no_encryption", "verbose"])
@@ -753,7 +753,3 @@ def main(argv):
       print "Server interrupted by user, terminating..."
       zookeeper.close()
       sys.exit(1)
-
-
-if __name__ == '__main__':
-  main(sys.argv[1:])

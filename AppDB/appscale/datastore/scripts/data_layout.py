@@ -1,11 +1,9 @@
-#!/usr/bin/env python2
-
 import argparse
 
-from appscale.datastore.appscale_datastore_batch import DatastoreFactory
+from ..appscale_datastore_batch import DatastoreFactory
 
 
-if __name__ == '__main__':
+def main():
   parser = argparse.ArgumentParser(
     description='Checks if the data layout is valid')
   parser.add_argument('--db-type', help='The database type')

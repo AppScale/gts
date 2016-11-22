@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 """ This process performs a restore of all the application entities from a
 given restore.
 """
@@ -7,21 +6,21 @@ import logging
 import os
 import sys
 
-from appscale.datastore.backup.datastore_restore import DatastoreRestore
-from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
-from appscale.datastore.dbconstants import APP_ENTITY_TABLE
-from appscale.datastore.dbconstants import APP_KIND_SCHEMA
-from appscale.datastore.dbconstants import APP_KIND_TABLE
-from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
-from appscale.datastore.dbconstants import COMPOSITE_SCHEMA
-from appscale.datastore.dbconstants import COMPOSITE_TABLE
-from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
-from appscale.datastore.dbconstants import PROPERTY_SCHEMA
-from appscale.datastore.dbconstants import TRANSACTIONS_SCHEMA
-from appscale.datastore.dbconstants import TRANSACTIONS_TABLE
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.utils import fetch_and_delete_entities
-from appscale.datastore.zkappscale import zktransaction as zk
+from ..backup.datastore_restore import DatastoreRestore
+from ..dbconstants import APP_ENTITY_SCHEMA
+from ..dbconstants import APP_ENTITY_TABLE
+from ..dbconstants import APP_KIND_SCHEMA
+from ..dbconstants import APP_KIND_TABLE
+from ..dbconstants import ASC_PROPERTY_TABLE
+from ..dbconstants import COMPOSITE_SCHEMA
+from ..dbconstants import COMPOSITE_TABLE
+from ..dbconstants import DSC_PROPERTY_TABLE
+from ..dbconstants import PROPERTY_SCHEMA
+from ..dbconstants import TRANSACTIONS_SCHEMA
+from ..dbconstants import TRANSACTIONS_TABLE
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..utils import fetch_and_delete_entities
+from ..zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
@@ -145,7 +144,3 @@ def main():
     ds_restore.run()
   finally:
     zookeeper.close()
-
-
-if __name__ == "__main__":
-  main()

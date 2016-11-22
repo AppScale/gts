@@ -1,23 +1,22 @@
-#!/usr/bin/env python
 """ View all application entities. """
 
 import sys
 
-from appscale.datastore import appscale_datastore_batch
-from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
-from appscale.datastore.dbconstants import APP_ENTITY_TABLE
-from appscale.datastore.dbconstants import APP_KIND_SCHEMA
-from appscale.datastore.dbconstants import APP_KIND_TABLE
-from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
-from appscale.datastore.dbconstants import COMPOSITE_SCHEMA
-from appscale.datastore.dbconstants import COMPOSITE_TABLE
-from appscale.datastore.dbconstants import DATASTORE_METADATA_SCHEMA
-from appscale.datastore.dbconstants import DATASTORE_METADATA_TABLE
-from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
-from appscale.datastore.dbconstants import METADATA_SCHEMA
-from appscale.datastore.dbconstants import METADATA_TABLE
-from appscale.datastore.dbconstants import PROPERTY_SCHEMA
-from appscale.datastore.dbconstants import TERMINATING_STRING
+from .. import appscale_datastore_batch
+from ..dbconstants import APP_ENTITY_SCHEMA
+from ..dbconstants import APP_ENTITY_TABLE
+from ..dbconstants import APP_KIND_SCHEMA
+from ..dbconstants import APP_KIND_TABLE
+from ..dbconstants import ASC_PROPERTY_TABLE
+from ..dbconstants import COMPOSITE_SCHEMA
+from ..dbconstants import COMPOSITE_TABLE
+from ..dbconstants import DATASTORE_METADATA_SCHEMA
+from ..dbconstants import DATASTORE_METADATA_TABLE
+from ..dbconstants import DSC_PROPERTY_TABLE
+from ..dbconstants import METADATA_SCHEMA
+from ..dbconstants import METADATA_TABLE
+from ..dbconstants import PROPERTY_SCHEMA
+from ..dbconstants import TERMINATING_STRING
 
 _MAX_ENTITIES = 1000000
 
@@ -52,18 +51,18 @@ def view_all(entities, table, db):
   print
 
 
-def main(argv):
+def main():
   # Parse args.
   DB_TYPE="cassandra"
   first_key = ""
   last_key = ""
 
-  if len(argv) > 2:
+  if len(sys.argv) > 2:
     print "usage: appscale-view-all-records [app_id]"
     exit(1)
 
-  if len(argv) == 2:
-    first_key = argv[1]
+  if len(sys.argv) == 2:
+    first_key = sys.argv[1]
     last_key = first_key + TERMINATING_STRING
   
   # Fetch entities.
@@ -83,10 +82,3 @@ def main(argv):
     entities = get_entities(table, tables_to_schemas[table], 
                             db, first_key, last_key)
     view_all(entities, table, db)
-
-
-if __name__ == "__main__":
-  try:
-    main(sys.argv)
-  except:
-    raise

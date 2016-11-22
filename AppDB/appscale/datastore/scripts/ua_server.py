@@ -15,13 +15,13 @@ import SOAPpy
 import sys
 import time
 
-from appscale.datastore import appscale_datastore
-from appscale.datastore.dbconstants import AppScaleDBConnectionError
-from appscale.datastore.dbconstants import APPS_SCHEMA
-from appscale.datastore.dbconstants import APPS_TABLE
-from appscale.datastore.dbconstants import USERS_SCHEMA
-from appscale.datastore.dbconstants import USERS_TABLE
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from .. import appscale_datastore
+from ..dbconstants import AppScaleDBConnectionError
+from ..dbconstants import APPS_SCHEMA
+from ..dbconstants import APPS_TABLE
+from ..dbconstants import USERS_SCHEMA
+from ..dbconstants import USERS_TABLE
+from ..unpackaged import APPSCALE_LIB_DIR
 
 sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
@@ -1007,10 +1007,14 @@ def usage():
   print "      --port or -p for server port"
 
 
-if __name__ == "__main__":
+def main():
   """ Main function for running the server. """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   logging.info('Starting UAServer')
+
+  global datastore_type
+  global db
+  global bindport
 
   for ii in range(1, len(sys.argv)):
     if sys.argv[ii] in ("-h", "--help"):

@@ -1,12 +1,11 @@
-#!/usr/bin/env python2
 """ Create Cassandra keyspace and initial tables. """
 
 import argparse
 import logging
 import sys
 
-from appscale.datastore.cassandra_env import schema
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from ..cassandra_env import schema
+from ..unpackaged import APPSCALE_LIB_DIR
 
 sys.path.append(APPSCALE_LIB_DIR)
 from constants import LOG_FORMAT
@@ -15,7 +14,7 @@ from constants import LOG_FORMAT
 POST_JOURNAL_VERSION = 1.0
 
 
-if __name__ == "__main__":
+def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser()
