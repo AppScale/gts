@@ -21,7 +21,7 @@ CASSANDRA_EXECUTABLE = cassandra_interface.CASSANDRA_INSTALL_DIR \
 
 # The location on the local file system where we write the process ID
 # that Cassandra runs on.
-PID_FILE = "/var/appscale/appscale-cassandra.pid"
+PID_FILE = "/tmp/appscale-cassandra.pid"
 
 # The default port to connect to Cassandra.
 CASSANDRA_PORT = 9999
@@ -34,7 +34,8 @@ def start_service(service_name):
   logging.info("Starting " + service_name)
   watch_name = ""
   if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
-    start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
+    start_cmd = CASSANDRA_EXECUTABLE + " -p " + PID_FILE + " with timeout 60 " \
+                                                           "seconds "
     stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
     watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
     ports = [CASSANDRA_PORT]
