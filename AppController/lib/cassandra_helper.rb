@@ -19,10 +19,6 @@ CASSANDRA_DIR = "/opt/cassandra"
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
-# A directory containing Cassandra-related scripts and libraries.
-CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra_env"
-
-
 # The location of the script that sets up Cassandra's config files.
 SETUP_CONFIG_SCRIPT = "#{APPSCALE_HOME}/scripts/setup_cassandra_config_files.py"
 
@@ -32,7 +28,7 @@ NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
 
 
 # The location of the script that creates the initial tables.
-PRIME_SCRIPT = "#{CASSANDRA_ENV_DIR}/prime_cassandra.py"
+PRIME_SCRIPT = `which appscale-prime-cassandra`.chomp
 
 
 # The number of seconds Monit should allow Cassandra to take while starting up.

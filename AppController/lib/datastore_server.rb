@@ -61,7 +61,7 @@ module DatastoreServer
           "--no_encryption --type #{table}"
       start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-            "datastore_server.py #{port}"
+            "#{datastore_server} #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, [port],
                            env_vars, start_cmd, nil, nil, nil)
     }
@@ -116,7 +116,7 @@ module DatastoreServer
   
   # Return the name of the executable of the datastore server.
   def self.get_executable_name(table)
-    return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
+    return `which appscale-datastore`.chomp
   end
 
   # Tell each of the datastore servers on this node to disable writes.

@@ -22,9 +22,8 @@ from queue import PullQueue
 from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
-from unpackaged import APPSCALE_DATASTORE
-from unpackaged import APPSCALE_LIB_DIR
-from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .unpackaged import APPSCALE_LIB_DIR
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_LIB_DIR)
@@ -41,9 +40,6 @@ from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
-
-sys.path.append(APPSCALE_DATASTORE)
-from cassandra_env.cassandra_interface import DatastoreProxy
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
@@ -214,8 +210,12 @@ class DistributedTaskQueue():
   # A dict that tells celery to run tasks even though we are running as root.
   CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
 
-  def __init__(self):
-    """ DistributedTaskQueue Constructor. """
+  def __init__(self, db_access):
+    """ DistributedTaskQueue Constructor.
+
+    Args:
+      db_access: A DatastoreProxy object.
+    """
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
@@ -232,7 +232,7 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
-    self.db_access = DatastoreProxy()
+    self.db_access = db_access
 
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False

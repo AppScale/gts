@@ -1,6 +1,5 @@
 """ This script performs a data upgrade. """
 
-import cassandra
 import json
 import logging
 import math
@@ -9,6 +8,16 @@ import subprocess
 import sys
 import time
 
+from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import dbconstants
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
+from appscale.datastore.dbconstants import ID_KEY_LENGTH
+from appscale.datastore.dbconstants import TOMBSTONE
+from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
+from appscale.datastore.zkappscale.zktransaction import ZKInternalException
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 
@@ -17,19 +26,6 @@ import appscale_info
 from constants import APPSCALE_HOME
 from constants import CONTROLLER_SERVICE
 from constants import LOG_DIR
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-import appscale_datastore_batch
-import datastore_server
-import dbconstants
-
-from cassandra_env import cassandra_interface
-from datastore_server import ID_KEY_LENGTH
-from dbconstants import APP_ENTITY_SCHEMA
-from dbconstants import APP_ENTITY_TABLE
-from zkappscale import zktransaction as zk
-from zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
-from zkappscale.zktransaction import ZKInternalException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
 from utils import utils
@@ -292,7 +288,7 @@ def process_entity(entity, datastore, zookeeper):
   valid_entity = validate_row(app_id, entity, zookeeper, datastore)
 
   if (valid_entity is None or
-      valid_entity[key][APP_ENTITY_SCHEMA[0]] == datastore_server.TOMBSTONE):
+      valid_entity[key][APP_ENTITY_SCHEMA[0]] == TOMBSTONE):
     delete_entity_from_table(key, datastore)
     return
 

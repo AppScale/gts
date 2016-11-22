@@ -12,9 +12,10 @@ from datastore_upgrade import start_cassandra
 from datastore_upgrade import start_zookeeper
 from datastore_upgrade import write_to_json_file
 
+from appscale.datastore.dbconstants import AppScaleDBError
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import LOG_FORMAT
-from dbconstants import AppScaleDBError
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))

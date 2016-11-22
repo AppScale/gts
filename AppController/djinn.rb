@@ -1312,7 +1312,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Thread.new {
-      run_groomer_command = "#{PYTHON27} #{APPSCALE_HOME}/AppDB/groomer.py"
+      run_groomer_command = `which appscale-groomer`.chomp
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
@@ -3540,7 +3540,7 @@ class Djinn
     sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
 
     Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = "#{APPSCALE_HOME}/AppDB/scripts/appscale-data-layout"
+    layout_script = `which appscale-data-layout`.chomp
     unless system("#{layout_script} --db-type cassandra > /dev/null 2>&1")
       HelperFunctions.log_and_crash(
         'Unexpected data layout version. Please run "appscale upgrade".')
@@ -3656,7 +3656,7 @@ class Djinn
   #     after ten retries.
   def prime_database()
     table = @options['table']
-    prime_script = "#{APPSCALE_HOME}/AppDB/#{table}_env/prime_#{table}.py"
+    prime_script = `which appscale-prime-#{table}`.chomp
     replication = Integer(@options['replication'])
     retries = 10
     Djinn.log_info('Ensuring necessary tables have been created')
@@ -3787,11 +3787,10 @@ class Djinn
       env_vars['SIMPLEDB_SECRET_KEY'] = @options['SIMPLEDB_SECRET_KEY']
     end
 
-    soap_script = "#{APPSCALE_HOME}/AppDB/soap_server.py"
-    start_cmd = ["#{PYTHON27} #{soap_script}",
-            "-t #{table}"].join(' ')
+    soap_script = `which appscale-uaserver`.chomp
+    start_cmd = "#{soap_script} -t #{table}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{soap_script} #{PYTHON27}"
+          "#{soap_script} /usr/bin/python"
     port = UserAppClient::SERVER_PORT
 
     MonitInterface.start(:uaserver, start_cmd, stop_cmd, [port], env_vars,
@@ -3873,6 +3872,16 @@ class Djinn
     end
   end
 
+  def build_datastore()
+    Djinn.log_info('Building uncommitted datastore changes')
+    if system('pip install --upgrade --no-deps ' +
+              "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_info('Finished building datastore')
+    else
+      Djinn.log_error('Unable to build datastore')
+    end
+  end
+
   def build_java_appserver()
     Djinn.log_info('Building uncommitted Java AppServer changes')
 
@@ -3903,6 +3912,7 @@ class Djinn
   def build_uncommitted_changes()
     status = `git -C #{APPSCALE_HOME} status`
     build_taskqueue if status.include?('AppTaskQueue')
+    build_datastore if status.include?('AppDB')
     build_java_appserver if status.include?('AppTaskQueue')
   end
 
@@ -4048,6 +4058,16 @@ class Djinn
         Djinn.log_info("Finished building taskqueue on #{ip}")
       else
         Djinn.log_error("Unable to build taskqueue on #{ip}")
+      end
+    end
+
+    if status.include?('AppDB')
+      Djinn.log_info("Building uncommitted datastore changes on #{ip}")
+      build_ds = "pip install --upgrade --no-deps #{APPSCALE_HOME}/AppDB"
+      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_ds}" > /dev/null 2>&1])
+        Djinn.log_info("Finished building datastore on #{ip}")
+      else
+        Djinn.log_error("Unable to build datastore on #{ip}")
       end
     end
 
