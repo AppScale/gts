@@ -3872,6 +3872,16 @@ class Djinn
     end
   end
 
+  def build_datastore()
+    Djinn.log_info('Building uncommitted datastore changes')
+    if system('pip install --upgrade --no-deps ' +
+              "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_info('Finished building datastore')
+    else
+      Djinn.log_error('Unable to build datastore')
+    end
+  end
+
   def build_java_appserver()
     Djinn.log_info('Building uncommitted Java AppServer changes')
 
@@ -3902,6 +3912,7 @@ class Djinn
   def build_uncommitted_changes()
     status = `git -C #{APPSCALE_HOME} status`
     build_taskqueue if status.include?('AppTaskQueue')
+    build_datastore if status.include?('AppDB')
     build_java_appserver if status.include?('AppTaskQueue')
   end
 
@@ -4047,6 +4058,16 @@ class Djinn
         Djinn.log_info("Finished building taskqueue on #{ip}")
       else
         Djinn.log_error("Unable to build taskqueue on #{ip}")
+      end
+    end
+
+    if status.include?('AppDB')
+      Djinn.log_info("Building uncommitted datastore changes on #{ip}")
+      build_ds = "pip install --upgrade --no-deps #{APPSCALE_HOME}/AppDB"
+      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_ds}" > /dev/null 2>&1])
+        Djinn.log_info("Finished building datastore on #{ip}")
+      else
+        Djinn.log_error("Unable to build datastore on #{ip}")
       end
     end
 
