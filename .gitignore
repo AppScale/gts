@@ -6,3 +6,5 @@
 /AppServer_Java/appengine-java-sdk-repacked
 /AppTaskQueue/build
 /AppTaskQueue/dist
+/AppDB/build
+/AppDB/dist
