@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-
 """ A tornado web service for handling TaskQueue request from application
 servers. """
 
@@ -10,28 +8,26 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
+import distributed_tq
+
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
-from appscale.taskqueue import distributed_tq
-from appscale.taskqueue.rest_api import RESTLease
-from appscale.taskqueue.rest_api import RESTQueue
-from appscale.taskqueue.rest_api import RESTTask
-from appscale.taskqueue.rest_api import RESTTasks
-from appscale.taskqueue.unpackaged import APPSCALE_LIB_DIR
-from appscale.taskqueue.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.taskqueue.utils import logger
+from .rest_api import RESTLease
+from .rest_api import RESTQueue
+from .rest_api import RESTTask
+from .rest_api import RESTTasks
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
+from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 # Default port this service runs on.
 SERVER_PORT = 17446
 
 # Global for Distributed TaskQueue.
 task_queue = None
+
 
 class StopWorkerHandler(tornado.web.RequestHandler):
   """ Stops taskqueue workers for an app if they are running. """
@@ -46,6 +42,7 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     self.write(json_response)
     self.finish()
 
+
 class ReloadWorkerHandler(tornado.web.RequestHandler):
   """ Reloads taskqueue workers for an app. """
   @tornado.web.asynchronous
@@ -59,6 +56,7 @@ class ReloadWorkerHandler(tornado.web.RequestHandler):
     self.write(json_response)
     self.finish()
 
+
 class StartWorkerHandler(tornado.web.RequestHandler):
   """ Starts taskqueue workers for an app if they are not running. """
   @tornado.web.asynchronous
@@ -71,6 +69,7 @@ class StartWorkerHandler(tornado.web.RequestHandler):
     json_response = task_queue.start_worker(http_request_data)
     self.write(json_response)
     self.finish()
+
 
 class MainHandler(tornado.web.RequestHandler):
   """ Defines what to do when the webserver receives different types of HTTP
@@ -210,8 +209,17 @@ class MainHandler(tornado.web.RequestHandler):
 
     self.write(apiresponse.Encode())
 
+
 def main():
   """ Main function which initializes and starts the tornado server. """
+  parser = argparse.ArgumentParser(description='A taskqueue API server')
+  parser.add_argument('--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
+
+  if args.verbose:
+    logger.setLevel(logging.DEBUG)
+
   global task_queue
 
   db_access = DatastoreProxy()
@@ -247,14 +255,3 @@ def main():
     except KeyboardInterrupt:
       logger.warning('Server interrupted by user, terminating...')
       sys.exit(1)
-
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='A taskqueue API server')
-  parser.add_argument('--verbose', action='store_true',
-                      help='Output debug-level logging')
-  args = parser.parse_args()
-
-  if args.verbose:
-    logger.setLevel(logging.DEBUG)
-
-  main()

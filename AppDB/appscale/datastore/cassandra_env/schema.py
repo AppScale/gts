@@ -10,6 +10,8 @@ import cassandra_interface
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
@@ -21,6 +23,9 @@ import appscale_info
 
 # The data layout version to set after removing the journal table.
 POST_JOURNAL_VERSION = 1.0
+
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
 
 
 def define_ua_schema(session):
@@ -57,7 +62,6 @@ def create_batch_tables(cluster, session):
     session: A cassandra-driver session.
   """
   logging.info('Trying to create batches')
-  cluster.refresh_schema_metadata()
   create_table = """
     CREATE TABLE IF NOT EXISTS batches (
       app text,
@@ -70,10 +74,17 @@ def create_batch_tables(cluster, session):
       PRIMARY KEY ((app, transaction), namespace, path)
     )
   """
-  session.execute(create_table)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except cassandra.OperationTimedOut:
+    logging.warning(
+      'Encountered an operation timeout while creating batches table. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logging.info('Trying to create batch_status')
-  cluster.refresh_schema_metadata()
   create_table = """
     CREATE TABLE IF NOT EXISTS batch_status (
       app text,
@@ -82,7 +93,15 @@ def create_batch_tables(cluster, session):
       PRIMARY KEY ((app), transaction)
     )
   """
-  session.execute(create_table)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except cassandra.OperationTimedOut:
+    logging.warning(
+      'Encountered an operation timeout while creating batch_status table. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
 
 def prime_cassandra(replication):
@@ -138,9 +157,17 @@ def prime_cassandra(replication):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
+    statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+
     logging.info('Trying to create {}'.format(table))
-    cluster.refresh_schema_metadata()
-    session.execute(create_table)
+    try:
+      session.execute(statement)
+    except cassandra.OperationTimedOut:
+      logging.warning(
+        'Encountered an operation timeout while creating {} table. '
+        'Waiting 1 minute for schema to settle.'.format(table))
+      time.sleep(60)
+      raise
 
   create_batch_tables(cluster, session)
   create_pull_queue_tables(cluster, session)

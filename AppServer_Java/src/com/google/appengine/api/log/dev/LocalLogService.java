@@ -1,5 +1,9 @@
 package com.google.appengine.api.log.dev;
 
+import com.google.appengine.api.urlfetch.HTTPMethod;
+import com.google.appengine.api.urlfetch.HTTPRequest;
+import com.google.appengine.api.urlfetch.URLFetchService;
+import com.google.appengine.api.urlfetch.URLFetchServiceFactory;
 import com.google.appengine.repackaged.com.google.common.annotations.VisibleForTesting;
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService;
@@ -11,7 +15,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
@@ -20,18 +23,9 @@ import java.util.logging.Handler;
 // AppScale imports
 import com.google.apphosting.api.ApiProxy.CallNotFoundException;
 import com.google.gson.Gson;
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.InputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.HashMap;
-import java.util.Map;
-import javax.xml.bind.DatatypeConverter;
 
 @ServiceProvider(LocalRpcService.class)
 public class LocalLogService extends AbstractLocalRpcService
@@ -242,20 +236,12 @@ public class LocalLogService extends AbstractLocalRpcService
 
     try {
         String jsonData = gson.toJson(data);
-        String request = "https://" + System.getProperty("LOGIN_SERVER") + ":1443/logs/upload";
-        URL url = new URL(request); 
-        URLConnection connection = url.openConnection();
-        connection.setDoOutput(true);
+        URL url = new URL("https://" + System.getProperty("LOGIN_SERVER") + ":1443/logs/upload");
+        HTTPRequest request = new HTTPRequest(url, HTTPMethod.POST);
+        request.setPayload(jsonData.getBytes());
 
-        OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-
-        writer.write(jsonData);
-        writer.flush();
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-
-        writer.close();
-        reader.close();
+        URLFetchService fetcher = URLFetchServiceFactory.getURLFetchService();
+        fetcher.fetchAsync(request);
     } catch (IOException e) {
         System.out.println("[IOException] Failed to execute REST call to save log: " + e.getMessage());
     } catch (CallNotFoundException e) {

@@ -29,19 +29,6 @@ export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale versio
 
 PACKAGE_CACHE="/var/cache/appscale"
 
-# Default values for repositories.
-APPSCALE_MAPREDUCE="https://github.com/AppScale/appengine-mapreduce.git"
-APPSCALE_PIPELINE="https://github.com/AppScale/appengine-pipelines.git"
-APPSCALE_GCS_CLIENT="https://github.com/AppScale/appengine-gcs-client.git"
-APPSCALE_MR_BRANCH="appscale-compatible-mapreduce"
-APPSCALE_PL_BRANCH="appscale-compatible-pipeline"
-APPSCALE_GCS_BRANCH="appscale-compatible-gcs"
-
-# Current versions of the supported external libraries.
-GCS_VERSION="0.6"
-MAPREDUCE_VERSION="0.8.5"
-PIPELINE_VERSION="0.2.13"
-
 # Default directory for external library jars
 APPSCALE_EXT="/usr/share/appscale/ext/"
 
@@ -265,7 +252,7 @@ installappserverjava()
 
 installtornado()
 {
-    pipwrapper tornado
+    pipwrapper tornado==4.2.0
 }
 
 installflexmock()
@@ -448,14 +435,6 @@ postinstallzookeeper()
     fi
 }
 
-installcelery()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper celery==3.1.23
-    fi
-    pipwrapper Flower
-}
-
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down.
@@ -558,7 +537,10 @@ buildgo()
 
 installtaskqueue()
 {
-    (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    # Fill in new dependencies.
+    # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
+    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
 }
 
 installdatastore()
@@ -574,12 +556,10 @@ prepdashboard()
 
 upgradepip()
 {
-    # Pip 1.0 in Precise does not have --target, which is needed for preparing
-    # the dashboard. Pip 1.0 and 1.1 (Precise and Wheezy) upgrade a package's
-    # dependencies when --upgrade is specified. This is problematic for flower,
-    # which will fetch a newer version of celery than desired.
+    # Versions older than Pip 7 did not correctly parse install commands for
+    # local packages with optional dependencies.
     case "$DIST" in
-        precise|wheezy)
+        precise|wheezy|trusty)
             pipwrapper pip
             # Account for the change in the path to the pip binary.
             hash -r
@@ -587,78 +567,25 @@ upgradepip()
     esac
 }
 
-buildmapreduce()
+fetchclientjars()
 {
-    # This function compiles the AppScale compatible MapReduce, Pipeline and GCS client libraries, builds the
-    # jars and places them under /usr/share/appscale/ext/
-
-    # Clone the AppScale repositories for the libaries.
-    git clone -b ${APPSCALE_GCS_BRANCH} ${APPSCALE_GCS_CLIENT} appscale-gcs-client
-    git clone -b ${APPSCALE_PL_BRANCH} ${APPSCALE_PIPELINE} appscale-pipelines
-    git clone -b ${APPSCALE_MR_BRANCH} ${APPSCALE_MAPREDUCE} appscale-mapreduce
-
-    echo -n "Building AppScale Google Cloud Storage Client jar ..."
-    if ! (cd appscale-gcs-client/java && mvn compile); then
-        echo "Maven failed to compile the GCS client library!"
-        exit 1
-    fi
-
-    if ! (cd appscale-gcs-client/java/target/classes && jar -cvf appscale-gcs-client-${GCS_VERSION}.jar com/*); then
-        echo "Failed to create the GCS client jar!"
-        exit 1
-    fi
-
+    # This function fetches modified client jars for the MapReduce, Pipeline,
+    # and GCS APIs. You can compile them using Maven from the following repos:
+    # github.com/AppScale/appengine-mapreduce
+    # github.com/AppScale/appengine-pipelines
+    # github.com/AppScale/appengine-gcs-client
     mkdir -p ${APPSCALE_EXT}
 
-    # Copy the compiled gcs-client jar which is a dependency for the Pipeline and MapReduce library.
-    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar appscale-pipelines/java/
-    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar appscale-mapreduce/java/
-    cp appscale-gcs-client/java/target/classes/appscale-gcs-client-${GCS_VERSION}.jar ${APPSCALE_EXT}
+    MAPREDUCE_JAR="appscale-mapreduce-0.8.5.jar"
+    cachepackage ${MAPREDUCE_JAR} "93f5101fa6ec761b33f4bf2ac8449447"
 
-    # Maven install includes the local pre-compiled gcs-client as the dependency for the Pipeline library.
-    echo -n "Building AppScale Pipelines jar ..."
-    if ! (cd appscale-pipelines/java && mvn install:install-file -Dfile=appscale-gcs-client-${GCS_VERSION}.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=${GCS_VERSION} -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
-        echo "Failed to add GCS client jar as a dependency for Pipeline!"
-        exit 1
-    fi
+    PIPELINE_JAR="appscale-pipeline-0.2.13.jar"
+    cachepackage ${PIPELINE_JAR} "a6e4555c604a05897a48260429ce50c6"
 
-    if ! (cd appscale-pipelines/java && mvn compile); then
-        echo "Maven failed to compile the Pipeline library!"
-        exit 1
-    fi
+    GCS_JAR="appscale-gcs-client-0.6.jar"
+    cachepackage ${GCS_JAR} "a03671de058acc7ea41144976868765c"
 
-    if ! (cd appscale-pipelines/java/target/classes && jar -cvf appscale-pipeline-${PIPELINE_VERSION}.jar com/*); then
-        echo "Failed to create the Pipeline jar!"
-        exit 1
-    fi
-
-    # Copy the compiled Pipeline jar which is a dependency for the MapReduce library.
-    cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar appscale-mapreduce/java/
-    cp appscale-pipelines/java/target/classes/appscale-pipeline-${PIPELINE_VERSION}.jar ${APPSCALE_EXT}
-
-    # Maven install includes the local pre-compiled gcs-client and pipeline jars as the dependency for the
-    # MapReduce library.
-    echo -n "Building AppScale MapReduce jar ..."
-    if ! (cd appscale-mapreduce/java && mvn install:install-file -Dfile=appscale-gcs-client-${GCS_VERSION}.jar -DgroupId=appscale-gcs-sdk -DartifactId=appscale-gcs-client -Dversion=${GCS_VERSION} -Dpackaging=jar -DlocalRepositoryPath=gcs-lib/); then
-        echo "Failed to add GCS client jar as a dependency for MapReduce!"
-        exit 1
-    fi
-
-    if ! (cd appscale-mapreduce/java && mvn install:install-file -Dfile=appscale-pipeline-${PIPELINE_VERSION}.jar -DgroupId=appscale-pipeline-sdk -DartifactId=appscale-pipeline -Dversion=${PIPELINE_VERSION} -Dpackaging=jar -DlocalRepositoryPath=pipeline-lib/); then
-        echo "Failed to add Pipeline jar as a dependency for MapReduce!"
-        exit 1
-    fi
-
-    if ! (cd appscale-mapreduce/java && mvn compile); then
-        echo "Maven failed to compile the MapReduce library!"
-        exit 1
-    fi
-
-    if ! (cd appscale-mapreduce/java/target/classes && jar -cvf appscale-mapreduce-${MAPREDUCE_VERSION}.jar com/*); then
-        echo "Failed to create the MapReduce jar! "
-        exit 1
-    fi
-
-    cp appscale-mapreduce/java/target/classes/appscale-mapreduce-${MAPREDUCE_VERSION}.jar ${APPSCALE_EXT}
-    rm -r appscale-mapreduce/ appscale-gcs-client/ appscale-pipelines/
+    cp "${PACKAGE_CACHE}/${MAPREDUCE_JAR}" ${APPSCALE_EXT}
+    cp "${PACKAGE_CACHE}/${PIPELINE_JAR}" ${APPSCALE_EXT}
+    cp "${PACKAGE_CACHE}/${GCS_JAR}" ${APPSCALE_EXT}
 }

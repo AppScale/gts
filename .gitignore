@@ -2,3 +2,7 @@
 *.swp
 *.pyc
 *.idea
+*.egg-info
+/AppServer_Java/appengine-java-sdk-repacked
+/AppTaskQueue/build
+/AppTaskQueue/dist

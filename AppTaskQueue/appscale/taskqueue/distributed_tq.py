@@ -13,6 +13,10 @@ import sys
 import time
 import tq_lib
 
+from cassandra import OperationTimedOut
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
+from distutils.spawn import find_executable
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
@@ -39,6 +43,9 @@ from google.appengine.runtime import apiproxy_errors
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
+
 
 def create_pull_queue_tables(cluster, session):
   """ Create the required tables for pull queues.
@@ -61,8 +68,15 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, id))
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_table)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_tasks_index')
   create_index_table = """
@@ -76,14 +90,20 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_index_table)
+  statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks_index.'
+      ' Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
-  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   # This additional index is needed for groupByTag=true,tag=None queries
@@ -93,7 +113,6 @@ def create_pull_queue_tables(cluster, session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
-  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   logger.info('Trying to create pull_queue_leases')
@@ -105,8 +124,15 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_leases_table)
+  statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_leases. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
 
 class TaskName(db.Model):
@@ -395,7 +421,8 @@ class DistributedTaskQueue():
       return json.dumps({'error': True, 'reason': config_error.message})
    
     log_file = self.LOG_DIR + app_id + ".log"
-    command = ["/usr/local/bin/celery",
+    celery_bin = find_executable('celery')
+    command = [celery_bin,
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
