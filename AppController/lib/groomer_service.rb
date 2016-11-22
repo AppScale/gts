@@ -33,7 +33,7 @@ module GroomerService
   end
 
   def self.scriptname()
-    return "/usr/local/bin/appscale-groomer-service"
+    return `which appscale-groomer-service`.chomp
   end
 
 end

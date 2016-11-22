@@ -1312,7 +1312,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Thread.new {
-      run_groomer_command = "/usr/local/bin/appscale-groomer"
+      run_groomer_command = `which appscale-groomer`.chomp
       if my_node.is_db_master?
         Djinn.log_run(run_groomer_command)
       else
@@ -3540,7 +3540,7 @@ class Djinn
     sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
 
     Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = "/usr/local/bin/appscale-data-layout"
+    layout_script = `which appscale-data-layout`.chomp
     unless system("#{layout_script} --db-type cassandra > /dev/null 2>&1")
       HelperFunctions.log_and_crash(
         'Unexpected data layout version. Please run "appscale upgrade".')
@@ -3656,7 +3656,7 @@ class Djinn
   #     after ten retries.
   def prime_database()
     table = @options['table']
-    prime_script = "/usr/local/bin/appscale-prime-#{table}"
+    prime_script = `which appscale-prime-#{table}`.chomp
     replication = Integer(@options['replication'])
     retries = 10
     Djinn.log_info('Ensuring necessary tables have been created')
@@ -3787,7 +3787,7 @@ class Djinn
       env_vars['SIMPLEDB_SECRET_KEY'] = @options['SIMPLEDB_SECRET_KEY']
     end
 
-    soap_script = "/usr/local/bin/appscale-uaserver"
+    soap_script = `which appscale-uaserver`.chomp
     start_cmd = "#{soap_script} -t #{table}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{soap_script} /usr/bin/python"

@@ -45,6 +45,6 @@ module BlobServer
   end 
 
   def self.scriptname()
-    return "/usr/local/bin/appscale-blobstore-server"
+    return `which appscale-blobstore-server`.chomp
   end
 end

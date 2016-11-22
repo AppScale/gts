@@ -116,7 +116,7 @@ module DatastoreServer
   
   # Return the name of the executable of the datastore server.
   def self.get_executable_name(table)
-    return "/usr/local/bin/appscale-datastore"
+    return `which appscale-datastore`.chomp
   end
 
   # Tell each of the datastore servers on this node to disable writes.

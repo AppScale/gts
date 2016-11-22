@@ -29,7 +29,7 @@ module BackupRecoveryService
   end
 
   def self.scriptname()
-    return "/usr/local/bin/appscale-br-server"
+    return `which appscale-br-server`.chomp
   end
 end
 

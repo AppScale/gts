@@ -28,7 +28,7 @@ NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
 
 
 # The location of the script that creates the initial tables.
-PRIME_SCRIPT = "/usr/local/bin/appscale-prime-cassandra"
+PRIME_SCRIPT = `which appscale-prime-cassandra`.chomp
 
 
 # The number of seconds Monit should allow Cassandra to take while starting up.
