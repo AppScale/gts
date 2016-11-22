@@ -57,8 +57,8 @@ if __name__ == "__main__":
     for ip in relevant_ips:
       utils.ssh(ip, args.keyname, 'service monit start')
 
-    start_cassandra(args.database, args.db_master, args.keyname)
     start_zookeeper(args.zookeeper, args.keyname)
+    start_cassandra(args.database, args.db_master, args.keyname)
     datastore_upgrade.wait_for_quorum(
       args.keyname, len(args.database), args.replication)
     db_access = datastore_upgrade.get_datastore()
