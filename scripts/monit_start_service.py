@@ -34,8 +34,8 @@ def start_service(service_name):
   logging.info("Starting " + service_name)
   watch_name = ""
   if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
-    start_cmd = CASSANDRA_EXECUTABLE + " -p " + PID_FILE + " with timeout 60 " \
-                                                           "seconds "
+    cassandra_cmd = CASSANDRA_EXECUTABLE + " -p " + PID_FILE
+    start_cmd = 'su -c "{0}" cassandra'.format(cassandra_cmd)
     stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
     watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
     ports = [CASSANDRA_PORT]
