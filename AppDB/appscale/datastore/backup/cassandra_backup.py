@@ -5,19 +5,19 @@ import logging
 import os
 import subprocess
 import sys
-from subprocess import CalledProcessError
 import time
 
-from appscale.datastore.backup import backup_recovery_helper
-from appscale.datastore.backup.backup_exceptions import BRException
-from appscale.datastore.backup.br_constants import CASSANDRA_DATA_SUBDIRS
-from appscale.datastore.backup.br_constants import PADDING_PERCENTAGE
-from appscale.datastore.backup.br_constants import SERVICE_STOP_RETRIES
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.unpackaged import INFRASTRUCTURE_MANAGER_DIR
+from subprocess import CalledProcessError
+from . import backup_recovery_helper
+from .backup_exceptions import BRException
+from .br_constants import CASSANDRA_DATA_SUBDIRS
+from .br_constants import PADDING_PERCENTAGE
+from .br_constants import SERVICE_STOP_RETRIES
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
+from ..unpackaged import APPSCALE_LIB_DIR
+from ..unpackaged import INFRASTRUCTURE_MANAGER_DIR
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
