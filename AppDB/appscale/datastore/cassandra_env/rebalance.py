@@ -103,7 +103,7 @@ def equalize(node1, node2):
   keyname = keys[0].split('.')[0]
 
   to_move = abs(node1['load'] - node2['load']) / 2
-  mb_to_move = round(to_move / 2 / 1024 ** 2, 2)
+  mb_to_move = round(to_move / 1024 ** 2, 2)
   if node1['load'] > node2['load']:
     logging.info('Moving {} MiB from {} to {}'.format(
       mb_to_move, node1['ip'], node2['ip']))
