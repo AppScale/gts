@@ -4042,6 +4042,11 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
+    if dest_node.is_appengine?
+      Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
+      locations_json = "/root/.appscale/locations-#{@options['keyname']}.json"
+      HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
+    end
 
     # Run a build on modified directories so that changes will take effect.
     get_status = 'git -C appscale status'
