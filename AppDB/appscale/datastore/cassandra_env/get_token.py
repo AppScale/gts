@@ -103,7 +103,10 @@ def get_kind_averages(keys):
 
   kind_averages = {}
   for kind_id, kind in entities_by_kind.iteritems():
-    kind_averages[kind_id] = int(kind['size'] / kind['fetched'])
+    try:
+      kind_averages[kind_id] = int(kind['size'] / kind['fetched'])
+    except ZeroDivisionError:
+      kind_averages[kind_id] = 0
 
   return kind_averages
 

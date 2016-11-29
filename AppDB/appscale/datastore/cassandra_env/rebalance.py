@@ -83,10 +83,15 @@ def get_ring():
       'token': fields[7]
     })
 
+  assert len(ring) > 0
+
   # Calculate skew and diff for each node in ring.
   ideal_load = sum(node['load'] for node in ring) / len(ring)
   for index, node in enumerate(ring):
-    node['skew'] = abs(node['load'] - ideal_load) / ideal_load
+    try:
+      node['skew'] = abs(node['load'] - ideal_load) / ideal_load
+    except ZeroDivisionError:
+      node['skew'] = 0
     node['diff'] = abs(node['load'] - ring[index - 1]['load'])
 
   return ring
