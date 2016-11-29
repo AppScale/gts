@@ -1,27 +1,94 @@
 <!-- FILE:templates/apps/new.html -->
 <!--Body content-->
-<div id="content" class="clearfix">
-    <div class="contentwrapper"><!--Content wrapper-->
-        <!-- Build page from here: -->
-        <div class="row-fluid">
-          <div class="span12">
-            <div class="page-header">
-                <h1>App Console</h1>
-            </div><!--close header-->
-              <div class="row-fluid">
-                <div class="offset1 span8">
-                    <ul style="list-style:none;">
-                  {% if all_apps_this_user_owns %}
-                    {% for appid in all_apps_this_user_owns %}
-                      <li><a class="btn btn-large" href="/apps/stats?appid={{ appid }}">{{ appid }}</a></li>
+<div id="content">
+    {% set app_page_title="Application Statistics"%}
+    {% if standalone_app_page %}
+        <div class="page-header">
+            <h1>{{ app_page_title }}</h1>
+        </div><!--close header-->
+    {% endif %}
+    <!-- Build page from here: -->
+    <div class="row-fluid">
+        <div id='application_info'>
+            <h4><span class="icon12
+            icomoon-icon-cube"></span>Applications Running:</h4>
+            <!-- App Info Hook -->
+            <ul class="unstyled">
+                {% if apps_user_is_admin_on|length == 0 %}
+                    <li><span class="icon16 icomoon-icon-arrow-right-2"></span><a class="disabled btn">None Deployed</a></li>
+                {% else %}
+                    {% for app_name in apps_user_is_admin_on|sort %}
+                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
+                            {% if apps_user_is_admin_on[app_name] %}
+                                <a class="btn" href="{{ apps_user_is_admin_on[app_name][0] }}" target="_blank">{{ app_name }}</a>
+                                <a class="btn" href="{{ apps_user_is_admin_on[app_name][1] }}" target="_blank">https-{{ app_name }}</a>
+                            {% else %}
+                                <a class="btn disabled">{{ app_name }} (loading)</a>
+                            {% endif %}
+                        </li>
                     {% endfor %}
-                  {% else %}
-                      <li>No apps are currently uploaded that you are an administrator on.</li>
-                  {% endif %}
-                    </ul>
-                </div>
-              </div>
-        </div><!--close span6 -->
-        </div> <!-- end row fluid -->
-    </div> <!-- end content wrapper -->
+                {% endif %}
+            </ul></div>
+        <script>
+            window.setInterval(function() {
+                $.ajax({
+                    url: "/apps/json"
+                }).done(function(encoded_app_info) {
+                    apps = JSON.parse(encoded_app_info);
+                    apps_html='';
+                    app_stats_html='';
+                    // update our divs accordingly
+                    $('#application_info ul').empty();
+                    $('#app_stats_page').empty();
+                    if (jQuery.isEmptyObject(apps)) {
+                        apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span><a class="disabled btn">None Deployed</a></li>';
+                        app_stats_html += '<li>No apps are currently uploaded' +
+                                ' that you are an administrator on.</li>'
+                    } else {
+                        // get a list of sorted keys, so that we can present the app names in sorted order
+                        keys = []
+                        for (var key in apps) {
+                            keys.push(key)
+                        }
+                        sorted_keys = keys.sort();
+
+                        for (var index in sorted_keys) {
+                            key = sorted_keys[index];
+                            li_html = '<li><span class="icon16 ' +
+                                    'icomoon-icon-arrow-right-2"></span>';
+                            apps_html += li_html;
+                            app_stats_html += li_html;
+                            if (apps[key] == null) {
+                                apps_html += '<a class="btn disabled">' + key + ' (loading)</a>';
+                            } else {
+                                apps_html += '<a class="btn" href="' + apps[key][0] + '" target="_blank">' + key + '</a> ';
+                                apps_html += '<a class="btn" href="' + apps[key][1] + '" target="_blank">' +'https-'+ key + '</a>';
+                                app_stats_html += '<a class="btn btn-primary"' +
+                                        ' ' + 'href="/apps/stats?appid=' +
+                                        key + '">' + key + '</a>'
+                            }
+                            apps_html += '</li>';
+                            app_stats_html += '</li>';
+                        }
+                    }
+                    $('#application_info ul').html(apps_html);
+                    $('#app_stats_page').html(app_stats_html)
+                });
+            }, 10000);
+        </script>
+        <hr/>
+        <h4><span class="icon12
+        icomoon-icon-cube"></span>Application Statistics:</h4>
+        <ul class="unstyled" id="app_stats_page">
+      {% if apps_user_is_admin_on %}
+        {% for appid in apps_user_is_admin_on.keys() %}
+          <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
+              <a class="btn btn-primary" href="/apps/stats?appid={{ appid }}">{{ appid }}</a>
+          </li>
+        {% endfor %}
+      {% else %}
+          <li>No apps are currently uploaded that you are an administrator on.</li>
+      {% endif %}
+        </ul>
+    </div>
 </div> <!--end content-->

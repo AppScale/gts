@@ -21,6 +21,11 @@ class ConfigInaccessible(Exception):
   pass
 
 
+class InvalidConfig(Exception):
+  """ Indicates that a configuration option is invalid. """
+  pass
+
+
 class ConfigStates(object):
   """ Possible states for DeploymentConfig. """
   LOADING = 'loading'

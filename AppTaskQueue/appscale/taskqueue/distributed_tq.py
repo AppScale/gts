@@ -13,15 +13,17 @@ import sys
 import time
 import tq_lib
 
+from cassandra import OperationTimedOut
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
 from distutils.spawn import find_executable
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
-from unpackaged import APPSCALE_DATASTORE
-from unpackaged import APPSCALE_LIB_DIR
-from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .unpackaged import APPSCALE_LIB_DIR
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_LIB_DIR)
@@ -39,10 +41,10 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
 
-sys.path.append(APPSCALE_DATASTORE)
-from cassandra_env.cassandra_interface import DatastoreProxy
-
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
+
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
 
 
 def create_pull_queue_tables(cluster, session):
@@ -66,8 +68,15 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, id))
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_table)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_tasks_index')
   create_index_table = """
@@ -81,14 +90,20 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_index_table)
+  statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks_index.'
+      ' Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
-  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   # This additional index is needed for groupByTag=true,tag=None queries
@@ -98,7 +113,6 @@ def create_pull_queue_tables(cluster, session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
-  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   logger.info('Trying to create pull_queue_leases')
@@ -110,8 +124,15 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_leases_table)
+  statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_leases. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
 
 class TaskName(db.Model):
@@ -189,8 +210,12 @@ class DistributedTaskQueue():
   # A dict that tells celery to run tasks even though we are running as root.
   CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
 
-  def __init__(self):
-    """ DistributedTaskQueue Constructor. """
+  def __init__(self, db_access):
+    """ DistributedTaskQueue Constructor.
+
+    Args:
+      db_access: A DatastoreProxy object.
+    """
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
@@ -207,7 +232,7 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
-    self.db_access = DatastoreProxy()
+    self.db_access = db_access
 
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False

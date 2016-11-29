@@ -14,7 +14,7 @@ setup(
     'cassandra-driver',
     'celery<4.0.0',
     'PyYaml',
-    'tornado'
+    'tornado==4.2.0'
   ],
   extras_require={'celery_gui': ['flower']},
   classifiers=[

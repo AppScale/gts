@@ -2,12 +2,13 @@
 # Test for soap calls
 # Test each exit point on the soap calls
 
-import sys
 import os
-import helper_functions
-PYTHON_PATH = os.environ.get("PYTHONPATH")
-
 import SOAPpy
+import sys
+
+from appscale.datastore import helper_functions
+
+PYTHON_PATH = os.environ.get("PYTHONPATH")
 
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 if APPSCALE_HOME:

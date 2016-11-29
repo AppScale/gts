@@ -703,6 +703,21 @@ class ZKInterface
   end
 
 
+  # Recursively create a path if it doesn't exist.
+  def self.ensure_path(path)
+    # Remove preceding slash.
+    nodes = path.split('/')[1..-1]
+    i = 0
+    while i < nodes.length
+      node = '/' + nodes[0..i].join('/')
+      self.run_zookeeper_operation {
+        @@zk.create(:path => node)
+      }
+      i += 1
+    end
+  end
+
+
   def self.set(key, val, ephemeral)
     unless defined?(@@zk)
       raise FailedZooKeeperOperationException.new("ZKinterface has not " +

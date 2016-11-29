@@ -1,23 +1,16 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import os
-import sys
-import time
-import unittest
-
-from flexmock import flexmock
 import kazoo.client
 import kazoo.exceptions
 import kazoo.protocol
 import kazoo.protocol.states
+import time
+import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from dbconstants import *
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-from zkappscale import zktransaction as zk
-from zkappscale.zktransaction import ZKTransactionException
+from appscale.datastore.zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
+from flexmock import flexmock
 
 
 class TestZookeeperTransaction(unittest.TestCase):

@@ -2,26 +2,23 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 import datetime
-import os
 import sys
-import time
 import unittest
+
+from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import dbconstants
+from appscale.datastore import entity_utils
+from appscale.datastore import groomer
+from appscale.datastore import utils
+from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import appscale_datastore_batch
-import datastore_server
-import dbconstants
-import entity_utils
-import groomer
-
-from zkappscale.zktransaction import ZKTransactionException
 
 
 class FakeQuery():
@@ -32,6 +29,7 @@ class FakeQuery():
   def fetch(self, number):
     return [FakeEntity()]
 
+
 class FakeDatastore():
   def __init__(self):
     pass
@@ -41,11 +39,13 @@ class FakeDatastore():
   def batch_delete(self, table, row_keys):
     raise dbconstants.AppScaleDBConnectionError("Bad connection")
 
+
 class FakeDistributedDB():
   def __init__(self):
     pass
   def Query(self, model_class="kind", namespace=''):
     return FakeQuery()
+
 
 class FakeReference():
   def __init__(self):
@@ -54,6 +54,7 @@ class FakeReference():
     return "app_id"
   def name_space(self):
     return "namespace"
+
 
 class FakeEntity():
   def __init__(self):
@@ -72,6 +73,7 @@ class FakeEntity():
     return FakeReference()
   def query(self):
     return FakeQuery()
+
 
 class TestGroomer(unittest.TestCase):
   """
@@ -127,8 +129,7 @@ class TestGroomer(unittest.TestCase):
  
   def test_process_statistics(self):
     zookeeper = flexmock()
-    flexmock(datastore_server.DatastoreDistributed)\
-      .should_receive("get_entity_kind").and_return("kind")
+    flexmock(utils).should_receive("get_entity_kind").and_return("kind")
     
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
@@ -224,6 +225,7 @@ class TestGroomer(unittest.TestCase):
     dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
     dsg.DASHBOARD_DATA_MODELS = [FakeEntity]
     self.assertRaises(Exception, dsg.remove_old_dashboard_data)
+
 
 if __name__ == "__main__":
   unittest.main()    

@@ -4,18 +4,15 @@
 
 import argparse
 import glob
-import os
-import sys
 import time
 import unittest
+
+from appscale.datastore import appscale_datastore_batch
+from appscale.datastore import datastore_distributed
+from appscale.datastore.backup.datastore_restore import DatastoreRestore
+from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import appscale_datastore_batch
-import datastore_server
-from backup.scripts import restore_data as restore
-
-from zkappscale.zktransaction import ZKTransactionException
 
 class FakeArgumentParser(object):
   def __init__(self):
@@ -24,12 +21,18 @@ class FakeArgumentParser(object):
     return argparse.Namespace(app_id='app_id',
       backup_dir='some/dir', clear_datastore=False, debug=False)
 
+
 class FakeDatastore(object):
   def __init__(self):
     pass
+
   def range_query(self, table, schema, start, end, batch_size,
     start_inclusive=True, end_inclusive=True):
     return []
+
+  def valid_data_version(self):
+    return True
+
 
 class FakeZookeeper(object):
   def __init__(self):
@@ -43,7 +46,13 @@ FAKE_ENCODED_ENTITY = \
   {'guestbook27\x00\x00Guestbook:default_guestbook\x01Greeting:1\x01':
     {
       'txnID': '1',
-      'entity': 'j@j\x0bguestbook27r1\x0b\x12\tGuestbook"\x11default_guestbook\x0c\x0b\x12\x08Greeting\x18\xaa\xe7\xfb\x18\x0cr=\x1a\x06author \x00*1CJ\x07a@a.comR\tgmail.com\x90\x01\x00\x9a\x01\x15120912168209190119424Dr\x15\x08\x07\x1a\x04date \x00*\t\x08\xf6\xfc\xd2\x92\xa4\xa3\xc3\x02z\x17\x08\x0f\x1a\x07content \x00*\x08\x1a\x06111111\x82\x01 \x0b\x12\tGuestbook"\x11default_guestbook\x0c'
+      'entity': 'j@j\x0bguestbook27r1\x0b\x12\tGuestbook"\x11default_guestbook'
+                '\x0c\x0b\x12\x08Greeting\x18\xaa\xe7\xfb\x18\x0cr=\x1a\x06'
+                'author \x00*1CJ\x07a@a.comR\tgmail.com\x90\x01\x00\x9a\x01'
+                '\x15120912168209190119424Dr\x15\x08\x07\x1a\x04date \x00*\t'
+                '\x08\xf6\xfc\xd2\x92\xa4\xa3\xc3\x02z\x17\x08\x0f\x1a\x07'
+                'content \x00*\x08\x1a\x06111111\x82\x01 \x0b\x12\tGuestbook"'
+                '\x11default_guestbook\x0c'
     }
   }
 
@@ -53,13 +62,14 @@ p1
 .
 """
 
+
 class TestRestore(unittest.TestCase):
   """
   A set of test cases for the datastore restore thread.
   """
   def test_init(self):
     zookeeper = flexmock()
-    fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
+    fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
   def test_stop(self):
@@ -69,9 +79,9 @@ class TestRestore(unittest.TestCase):
     zookeeper = flexmock()
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
-    flexmock(datastore_server).should_receive(
+    flexmock(datastore_distributed).should_receive(
       'DatastoreDistributed').and_return()
-    fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
+    fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
     # Test with failure to get the restore lock.
@@ -94,7 +104,7 @@ class TestRestore(unittest.TestCase):
   def test_get_restore_lock(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_lock_with_path").and_return(True)
-    fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
+    fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
     # Test with successfully obtaining the restore lock.
@@ -110,7 +120,7 @@ class TestRestore(unittest.TestCase):
 
   def test_run_restore(self):
     zookeeper = flexmock()
-    fake_restore = flexmock(restore.DatastoreRestore('app_id', 'backup/dir',
+    fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
     flexmock(fake_restore.ds_distributed).should_receive(
@@ -132,6 +142,7 @@ class TestRestore(unittest.TestCase):
   def test_main(self):
     # TODO
     pass
+
 
 if __name__ == "__main__":
   unittest.main()

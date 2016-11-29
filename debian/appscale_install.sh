@@ -68,6 +68,7 @@ case "$1" in
         installapiclient
         buildgo
         installtaskqueue
+        installdatastore
         prepdashboard
         fetchclientjars
         ;;
