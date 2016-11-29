@@ -18,6 +18,7 @@ DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 SECRET_FILE=/etc/appscale/secret.key
 LOG_FILE=/var/log/appscale/controller-17443.log
+PATH=$PATH:/usr/local/bin
 . /lib/lsb/init-functions
 
 do_start()

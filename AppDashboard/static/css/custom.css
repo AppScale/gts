@@ -1829,13 +1829,6 @@ footer {
 .mll, .mhl, .mal {
   margin-left: 20px; }
 
-#appscale_logo {
-    position: absolute;
-    float: left;
-    top: 7px;
-    left: 2.5%;
-}
-
 .flot-container {
 	box-sizing: border-box;
 	width: 850px;
@@ -1864,14 +1857,7 @@ footer {
 }
 
 .legend table {
-	border-spacing: 5px;
-
-
-#appscale_logo {
-    position: absolute;
-    float: left;
-    top: 3px;
-    margin-left: 15px;
+  border-spacing: 5px;
 }
 
 .node_icons {
@@ -1921,4 +1907,36 @@ footer {
     -webkit-border-radius: 4px;
     -moz-border-radius: 4px;
     border-radius: 4px;
+}
+
+.box {
+    min-height:inherit;
+}
+#appscale_logo {
+    float:left;
+    position:inherit;
+    padding:0 .3em;
+}
+.mainnav .sortable {
+    width:100%;
+    overflow:auto;
+}
+.mainnav li a.glyphicon.btn {
+    padding: 4px;
+    float:right;
+    width: 10%;
+}
+.mainnav li a{
+	width:85%;
+	float:left;
+}
+.panel-group {
+    overflow:auto;
+}
+li .btn-group, .nav-heading-button {
+  width:100%;
+}
+.ui-state-highlight {
+  height:2em;
+  line-height:1.5em;
 }

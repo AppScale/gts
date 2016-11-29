@@ -15,9 +15,9 @@ module BackupRecoveryService
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
     bk_service = self.scriptname()
-    start_cmd = "/usr/bin/python2 #{bk_service}"
+    start_cmd = "#{bk_service}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{bk_service} /usr/bin/python2"
+          "#{bk_service} /usr/bin/python"
     MonitInterface.start(:backup_recovery_service, start_cmd, stop_cmd,
                          [BR_PORT], {}, start_cmd, nil, nil, nil)
   end
@@ -29,7 +29,7 @@ module BackupRecoveryService
   end
 
   def self.scriptname()
-    return "#{APPSCALE_HOME}/AppDB/backup/backup_recovery_service.py"
+    return `which appscale-br-server`.chomp
   end
 end
 

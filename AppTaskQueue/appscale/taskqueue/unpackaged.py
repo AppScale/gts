@@ -9,6 +9,3 @@ APPSCALE_LIB_DIR = os.path.join(APPSCALE_HOME, 'lib')
 
 # The location of the Python AppServer.
 APPSCALE_PYTHON_APPSERVER = os.path.join(APPSCALE_HOME, 'AppServer')
-
-# The location of the datastore package.
-APPSCALE_DATASTORE = os.path.join(APPSCALE_HOME, 'AppDB')

@@ -339,7 +339,6 @@ installcassandra()
     rm -rf ${APPSCALE_HOME}/AppDB/cassandra
 
     CASSANDRA_DIR="/opt/cassandra"
-    CASSANDRA_ENV="${APPSCALE_HOME}/AppDB/cassandra_env"
     mkdir -p ${CASSANDRA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
@@ -350,8 +349,6 @@ installcassandra()
         useradd cassandra
     fi
     chown -R cassandra ${CASSANDRA_DIR}
-
-    pipwrapper cassandra-driver
 }
 
 postinstallcassandra()
@@ -544,6 +541,12 @@ installtaskqueue()
     # Fill in new dependencies.
     # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
     pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+}
+
+installdatastore()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
+    pip install ${APPSCALE_HOME}/AppDB
 }
 
 prepdashboard()

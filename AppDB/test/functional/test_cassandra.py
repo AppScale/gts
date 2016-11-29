@@ -1,9 +1,6 @@
-import os
-import sys
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra_env"))
-import cassandra_interface
+from appscale.datastore.cassandra_env import cassandra_interface
 
 # Prereq: Cassandra must be running first 
 TEST1_TABLE = "TestTable1"

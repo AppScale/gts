@@ -2,14 +2,17 @@
 <!--Body content-->
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
-
+        {% set app_page_title="Log Viewer" %}
+        {% if standalone_app_page %}
+            <div class="page-header">
+                <h1>{{ app_page_title }}</h1>
+            </div><!--close header-->
+        {% endif %}
         <div class="heading">
 
-            <h3>Log Viewer</h3>                    
-
-            <div class="resBtnSearch">
-                <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-            </div>
+            <div class="title">
+                <h2><span id="icon" class="glyphicon glyphicon-list-alt"></span><span id="title">Log Viewer</span></h2>
+            </div><!-- end title -->
 
         </div><!-- End .heading-->
 
@@ -18,7 +21,7 @@
           <div class="span3"></div><!--spacing div-->
           <div class="span6">
             <div class="page-header">
-              <h1>View logs for a service:</h1>
+              <h3>View logs for a service:</h3>
             </div><!--close header-->
             {% if is_user_cloud_admin %}
             <ul style="list-style-type: none;">
@@ -32,8 +35,6 @@
                   <li><a class="btn btn-large" href="/logs/{{ service }}">{{ service }}</a></li>
               </ul>
               {% endfor %}
-            {% else %}
-              <p class="well">No logs are available at this time. Please check back later.</p>
             {% endif %}
           </div><!--close span6 -->
         <div class="span3"></div> <!--spacing div-->

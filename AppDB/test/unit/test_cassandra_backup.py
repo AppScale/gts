@@ -1,25 +1,23 @@
 #!/usr/bin/env python
 
-import os
 import re
 import sys
 import subprocess
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from backup import backup_exceptions
-from backup import cassandra_backup
+from appscale.datastore.backup import backup_exceptions
+from appscale.datastore.backup import cassandra_backup
+from appscale.datastore.cassandra_env.cassandra_interface import NODE_TOOL
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from appscale.datastore.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 
-sys.path.append(
-  os.path.join(os.path.dirname(__file__), '../../../InfrastructureManager'))
+sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils import utils
 
-from cassandra_env import shut_down_cassandra
-from cassandra_env.cassandra_interface import NODE_TOOL
 
 class TestCassandraBackup(unittest.TestCase):
   """ A set of test cases for the Cassandra backup. """
@@ -39,10 +37,6 @@ class TestCassandraBackup(unittest.TestCase):
 
   def test_restore_snapshots(self):
     pass
-
-  def test_shutdown_datastore(self):
-    flexmock(shut_down_cassandra).should_receive('run').times(1)
-    cassandra_backup.shutdown_datastore()
 
   def test_backup_data(self):
     db_ips = ['192.168.33.10', '192.168.33.11']
@@ -104,6 +98,7 @@ class TestCassandraBackup(unittest.TestCase):
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
 
     cassandra_backup.restore_data(path, keyname)
+
 
 if __name__ == "__main__":
   unittest.main()    

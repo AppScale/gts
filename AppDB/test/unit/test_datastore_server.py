@@ -1,35 +1,44 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import os
 import sys
 import unittest
 
+from appscale.datastore import dbconstants
+from appscale.datastore import utils
+from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import ID_KEY_LENGTH
+from appscale.datastore.dbconstants import JOURNAL_SCHEMA
+from appscale.datastore.dbconstants import TOMBSTONE
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  deletions_for_entity
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  index_deletions
+from appscale.datastore.cassandra_env.cassandra_interface import\
+  mutations_for_entity
+from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.utils import encode_index_pb
+from appscale.datastore.utils import get_entity_key
+from appscale.datastore.utils import get_entity_kind
+from appscale.datastore.utils import get_index_key_from_params
+from appscale.datastore.utils import get_index_kv_from_tuple
+from appscale.datastore.utils import get_kind_key
+from appscale.datastore.zkappscale.zktransaction import TX_TIMEOUT
+from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from cassandra.cluster import Cluster
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../lib'))
+sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
-import dbconstants
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
-from cassandra_env.cassandra_interface import DatastoreProxy
-from cassandra_env.cassandra_interface import deletions_for_entity
-from cassandra_env.cassandra_interface import index_deletions
-from cassandra_env.cassandra_interface import mutations_for_entity
-from datastore_server import DatastoreDistributed
-from datastore_server import ID_KEY_LENGTH
-from datastore_server import TOMBSTONE
-from dbconstants import APP_ENTITY_SCHEMA
-from dbconstants import JOURNAL_SCHEMA
-from zkappscale.zktransaction import TX_TIMEOUT
-from zkappscale.zktransaction import ZKTransactionException
 
 
 class Item(db.Model):
@@ -56,7 +65,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, None)
     item = Item(name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    self.assertEquals(dd.get_entity_kind(key), "Item")
+    self.assertEquals(get_entity_kind(key), "Item")
 
   def test_kind_key(self):
     db_batch = flexmock()
@@ -64,15 +73,15 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, None)
     item = Item(name="Dyan", _app="hello")
     key = db.model_to_protobuf(item)
-    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy\x00Item\x01Item:0000000000\x01")
+    self.assertEquals(get_kind_key("howdy", key.key().path()), "howdy\x00Item\x01Item:0000000000\x01")
 
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item1)
-    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy\x00Item\x01Item:Bob\x01")
+    self.assertEquals(get_kind_key("howdy", key.key().path()), "howdy\x00Item\x01Item:Bob\x01")
    
     item2 = Item(key_name="Frank", name="Frank", _app="hello", parent = item1)
     key = db.model_to_protobuf(item2)
-    self.assertEquals(dd.get_kind_key("howdy", key.key().path()),
+    self.assertEquals(get_kind_key("howdy", key.key().path()),
            "howdy\x00Item\x01Item:Bob\x01Item:Frank\x01")
 
   def test_get_entity_key(self):
@@ -81,7 +90,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, None)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    self.assertEquals(str(dd.get_entity_key("howdy", key.key().path())), "howdy\x00Item:Bob\x01")
+    self.assertEquals(str(get_entity_key("howdy", key.key().path())), "howdy\x00Item:Bob\x01")
 
   def test_validate_key(self):
     db_batch = flexmock()
@@ -108,7 +117,8 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('valid_data_version').and_return(True)
     dd = DatastoreDistributed(db_batch, None)
     params = ['a','b','c','d','e']
-    self.assertEquals(dd.get_index_key_from_params(params), "a\x00b\x00c\x00d\x00e")
+    self.assertEquals(get_index_key_from_params(params),
+                      "a\x00b\x00c\x00d\x00e")
 
   def test_get_index_kv_from_tuple(self):
     db_batch = flexmock()
@@ -119,7 +129,7 @@ class TestDatastoreServer(unittest.TestCase):
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
     tuples_list = [("a\x00b",key1),("a\x00b",key2)]
-    self.assertEquals(dd.get_index_kv_from_tuple(
+    self.assertEquals(get_index_kv_from_tuple(
       tuples_list), (['a\x00b\x00Item\x00name\x00\x9aBob\x01\x01\x00Item:Bob\x01', 
       'a\x00b\x00Item:Bob\x01'], 
       ['a\x00b\x00Item\x00name\x00\x9aSally\x01\x01\x00Item:Sally\x01', 
@@ -663,7 +673,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, None)
     flexmock(dd).should_receive("acquire_locks_for_trans").and_return({})
     flexmock(dd).should_receive("release_locks_for_nontrans").never()
-    flexmock(dd).should_receive("get_entity_kind").and_return("kind")
+    flexmock(utils).should_receive("get_entity_kind").and_return("kind")
     flexmock(dd).should_receive('delete_entities_txn')
     dd.dynamic_delete("appid", del_request)
 
@@ -956,7 +966,7 @@ class TestDatastoreServer(unittest.TestCase):
 
     dd = DatastoreDistributed(db_batch, None)
     prefix = dd.get_table_prefix(entity)
-    entity_key = dd.get_entity_key(prefix, entity.key().path())
+    entity_key = get_entity_key(prefix, entity.key().path())
     db_batch.should_receive('batch_get_entity').and_return({entity_key: {}})
     db_batch.should_receive('batch_mutate')
 
@@ -974,9 +984,8 @@ class TestDatastoreServer(unittest.TestCase):
 
     keys = [entity.key()]
     prefix = dd.get_table_prefix(entity.key())
-    entity_key = dd.get_entity_key(prefix, entity.key().path())
-    encoded_path = str(
-      dd.encode_index_pb(entity.key().path()))
+    entity_key = get_entity_key(prefix, entity.key().path())
+    encoded_path = str(encode_index_pb(entity.key().path()))
     txn_keys = [dd._SEPARATOR.join([app, txn_str, '', encoded_path])]
     txn_values = {
       txn_keys[0]: {
@@ -1008,8 +1017,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, None)
 
     entities = [entity]
-    encoded_path = str(
-      dd.encode_index_pb(entity.key().path()))
+    encoded_path = str(encode_index_pb(entity.key().path()))
     txn_keys = [dd._SEPARATOR.join([app, txn_str, '', encoded_path])]
     txn_values = {
       txn_keys[0]: {

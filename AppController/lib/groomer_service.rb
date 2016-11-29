@@ -18,7 +18,7 @@ module GroomerService
     groomer = self.scriptname()
     start_cmd = "/usr/bin/python2 #{groomer}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-      "#{groomer} /usr/bin/python2"
+      "#{groomer} /usr/bin/python"
     MonitInterface.start(:groomer_service, start_cmd, stop_cmd, [9999], {},
                          start_cmd, MAX_MEM, nil, nil)
     MonitInterface.start_file(:groomer_file_check,
@@ -33,7 +33,7 @@ module GroomerService
   end
 
   def self.scriptname()
-    return "#{APPSCALE_HOME}/AppDB/groomer_service.py"
+    return `which appscale-groomer-service`.chomp
   end
 
 end
