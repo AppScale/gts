@@ -726,16 +726,21 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             return;
         }
 
-        List addRequests = new ArrayList(request.addRequestSize());
+        String app = request.addRequests().get(0).getTransaction().getApp();
+        TaskQueuePb.TaskQueueBulkAddRequest bulkAddRequest = request.clone();
+        TaskQueuePb.TaskQueueBulkAddResponse bulkAddResponse = new TaskQueuePb.TaskQueueBulkAddResponse();
 
-        for (TaskQueuePb.TaskQueueAddRequest addRequest : request.addRequests())
+        // Prepend task URLs with host and port.
+        for (TaskQueuePb.TaskQueueAddRequest addRequest : bulkAddRequest.addRequests())
         {
-            addRequests.add(((TaskQueuePb.TaskQueueAddRequest)addRequest.clone()).clearTransaction());
+            String nginxHost = System.getProperty("NGINX_ADDR");
+            String nginxPort = System.getProperty("NGINX_PORT");
+            String fullTaskPath = "http://" + nginxHost + ":" + nginxPort + addRequest.getUrl();
+            addRequest.setUrl(fullTaskPath);
+            addRequest.setAppId(app);
         }
 
-        Profile profile = (Profile)this.profiles.get(((TaskQueuePb.TaskQueueAddRequest)request.addRequests().get(0)).getTransaction().getApp());
-        LiveTxn liveTxn = profile.getTxn(((TaskQueuePb.TaskQueueAddRequest)request.addRequests().get(0)).getTransaction().getHandle());
-        liveTxn.addActions(addRequests);
+        proxy.doPost(app, "AddActions", bulkAddRequest, bulkAddResponse);
     }
 
     private OnestoreEntity.CompositeIndex fetchMatchingIndex(List<OnestoreEntity.CompositeIndex> compIndexes, OnestoreEntity.Index indexToMatch)
@@ -927,25 +932,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
          * AppScale - Added proxy call
          */
         proxy.doPost(req.getApp(), "Commit", req, response);
-
-        synchronized (profile)
-        {
-            LiveTxn liveTxn = profile.removeTxn(req.getHandle());
-            /*
-             * AppScale removed if block
-             */
-            for (TaskQueuePb.TaskQueueAddRequest action : liveTxn.getActions())
-            {
-                try
-                {
-                    ApiProxy.makeSyncCall("taskqueue", "Add", action.toByteArray());
-                }
-                catch (ApiProxy.ApplicationException e)
-                {
-                    logger.log(Level.WARNING, "Transactional task: " + action + " has been dropped.", e);
-                }
-            }
-        }
         return response;
     }
 
