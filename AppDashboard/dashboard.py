@@ -1002,8 +1002,9 @@ class CronConsolePage(AppDashboard):
             except IOError as ioe:
                 logging.warning(ioe)
 
-        self.render_page(page='cron', template_file=self.TEMPLATE, values={
-            'apps_with_cron_yaml': apps_with_cron_yaml
+        self.render_app_page(page='cron', values={
+            'apps_with_cron_yaml': apps_with_cron_yaml,
+            'page_content': self.TEMPLATE
         })
 
 
@@ -1053,10 +1054,11 @@ class CronViewPage(AppDashboard):
                      "description": yaml_record.get("description", ""),
                      "url_command": url_command}
                 )
-        self.render_page(page='cron', template_file=self.TEMPLATE, values={
+        self.render_app_page(page='cron', values={
             'mail_to': mail_to,
             'cron_jobs': cron_jobs,
-            'warnings': warnings
+            'warnings': warnings,
+            'page_content': self.TEMPLATE
         })
 
 
