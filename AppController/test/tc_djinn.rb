@@ -132,6 +132,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive(:find_me_in_locations)
     }
     djinn = Djinn.new
 
