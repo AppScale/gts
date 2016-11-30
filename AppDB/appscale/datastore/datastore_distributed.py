@@ -237,9 +237,6 @@ class DatastoreDistributed():
       ttl=zktransaction.TX_TIMEOUT * 2
     )
 
-
-
-
   @staticmethod
   def get_ancestor_key_from_ent_key(ent_key):
     """ Get the key string for the ancestor portion of a composite key.
