@@ -724,9 +724,6 @@ class DistributedTaskQueue():
                 int(datetime.datetime.now().strftime("%s"))
     task_func = self.__get_task_function(request)
 
-    if not len(args["payload"]):
-      args["payload"] = ''
-
     task_func.apply_async(
       kwargs={'headers':headers, 'args':args},
       expires=args['expires'],

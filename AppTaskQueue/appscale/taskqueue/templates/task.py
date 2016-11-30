@@ -43,11 +43,7 @@ def QUEUE_NAME(headers, args):
       urlpath += "?" + url.query
 
     method = args['method']
-    now = datetime.datetime.now()
-    if not isinstance(args['expires'], datetime.datetime):
-      now = now.isoformat()
-
-    if args['expires'] <= now:
+    if args['expires'] <= datetime.datetime.now():
       # We do this check because the expires attribute in
       # celery is not passed to retried tasks. This is a
       # documented bug in celery.
