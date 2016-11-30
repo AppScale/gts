@@ -158,6 +158,8 @@ SCHEMA_TABLE_SCHEMA = ['schema']
 class TxnActions(object):
   DELETE = '0'
   PUT = '1'
+  GET = '2'
+  ENQUEUE_TASK = '3'
 
 
 ###############################
@@ -199,3 +201,7 @@ class AppScaleBadArg(Exception):
     self.value = value
   def __str__(self):
     return repr(self.value)
+
+class ExcessiveTasks(Exception):
+  """ Indicates that there are too many tasks for a transaction. """
+  pass

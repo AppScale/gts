@@ -5,6 +5,7 @@ import md5
 import random
 import sys
 import time
+import uuid
 
 import dbconstants
 import helper_functions
@@ -29,6 +30,10 @@ from .zkappscale import zktransaction
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
+from google.appengine.api.datastore_distributed import _MAX_ACTIONS_PER_TXN
+from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.api.taskqueue.taskqueue_distributed import\
+  TaskQueueServiceStub
 from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
@@ -118,6 +123,9 @@ class DatastoreDistributed():
 
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
+
+    # Maintain a stub object for each project using transactinal tasks.
+    self.taskqueue_stubs = {}
 
   def get_limit(self, query):
     """ Returns the limit that should be used for the given query.
@@ -3160,6 +3168,61 @@ class DatastoreDistributed():
       query_result.mutable_compiled_cursor().\
         CopyFrom(datastore_pb.CompiledCursor())
 
+  def dynamic_add_actions(self, app_id, request):
+    """ Adds tasks to enqueue upon committing the transaction.
+
+    Args:
+      app_id: A string specifying the application ID.
+      request: A protocol buffer AddActions request.
+    """
+    padded_txn = str(request.add_request(0).transaction().handle()).\
+      zfill(ID_KEY_LENGTH)
+
+    # Check if the tasks will exceed the limit. Though this method shouldn't
+    # be called concurrently for a given transaction under normal
+    # circumstances, this CAS should eventually be done under a lock.
+    start_key = '{app}{sep}{txn}{sep}'.format(
+      app=app_id, sep=self._SEPARATOR, txn=padded_txn)
+    end_key = '{start_key}{term}'.format(
+      start_key=start_key, term=self._TERM_STRING)
+    txn_rows = self.datastore_batch.range_query(
+      dbconstants.TRANSACTIONS_TABLE,
+      TRANSACTIONS_SCHEMA,
+      start_key,
+      end_key,
+      limit=None
+    )
+    task_ops = [
+      row for row in txn_rows
+      if row.values()[0][TRANSACTIONS_SCHEMA[0]] == TxnActions.ENQUEUE_TASK]
+    if len(task_ops) + request.add_request_size() > _MAX_ACTIONS_PER_TXN:
+      raise dbconstants.ExcessiveTasks(
+        'Only {} tasks can be added to a transaction'.format(_MAX_ACTIONS_PER_TXN))
+
+    txn_keys = []
+    txn_values = {}
+    for add_request in request.add_request_list():
+      add_request.clear_transaction()
+
+      # The path for the task entry doesn't matter as long as it's unique.
+      path = str(uuid.uuid4())
+
+      key = self._SEPARATOR.join([app_id, padded_txn, path])
+      txn_keys.append(key)
+      txn_values[key] = {
+        TRANSACTIONS_SCHEMA[0]: TxnActions.ENQUEUE_TASK,
+        TRANSACTIONS_SCHEMA[1]: add_request.Encode(),
+        TRANSACTIONS_SCHEMA[2]: ''
+      }
+
+    self.datastore_batch.batch_put_entity(
+      dbconstants.TRANSACTIONS_TABLE,
+      txn_keys,
+      TRANSACTIONS_SCHEMA,
+      txn_values,
+      ttl=zktransaction.TX_TIMEOUT * 2
+    )
+
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
 
@@ -3194,11 +3257,17 @@ class DatastoreDistributed():
     )
     composite_indices = [entity_pb.CompositeIndex(index)
                          for index in self.datastore_batch.get_indices(app)]
+    mutation_ops = [
+      row for row in txn_rows
+      if row.values()[0][TRANSACTIONS_SCHEMA[0]] != TxnActions.ENQUEUE_TASK]
+    task_ops = [
+      row for row in txn_rows
+      if row.values()[0][TRANSACTIONS_SCHEMA[0]] == TxnActions.ENQUEUE_TASK]
 
     # Fetch current values so we can remove old indices.
     txn_dict = {}
     entity_keys = []
-    for row in txn_rows:
+    for row in mutation_ops:
       txn_action = row.values()[0]
       operation = txn_action[TRANSACTIONS_SCHEMA[0]]
       txn_key = row.keys()[0]
@@ -3219,7 +3288,7 @@ class DatastoreDistributed():
 
     batch = []
     entity_changes = []
-    for row in txn_rows:
+    for row in mutation_ops:
       txn_action = row.values()[0]
       operation = txn_action[TRANSACTIONS_SCHEMA[0]]
       txn_key = row.keys()[0]
@@ -3247,6 +3316,37 @@ class DatastoreDistributed():
                                'old': current_value, 'new': entity})
 
     self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
+
+    # Process transactional tasks.
+    if not task_ops:
+      return
+
+    if app not in self.taskqueue_stubs:
+      # The host and port are used only for generating URLs.
+      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '', '')
+
+    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
+    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
+    for row in task_ops:
+      request_pb = row.values()[0][TRANSACTIONS_SCHEMA[1]]
+      request = taskqueue_service_pb.TaskQueueAddRequest(request_pb)
+      bulk_request.add_add_request().CopyFrom(request)
+
+    self.logger.debug(
+      'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
+    self.taskqueue_stubs[app]._RemoteSend(
+      bulk_request, bulk_response, 'BulkAdd')
+
+    # The transaction has already been committed, but enqueuing the tasks may
+    # fail. We need a way to enqueue the task with the condition that it
+    # executes only upon successful commit. For now, we just log the error.
+    if bulk_response.taskresult_size() != bulk_request.add_request_size():
+      self.logger.error('Unexpected number of task results: {} != {}'.format(
+        bulk_response.taskresult_size(), bulk_request.add_request_size()))
+
+    for task_result in bulk_response.taskresult_list():
+      if task_result.result() != taskqueue_service_pb.TaskQueueServiceError.OK:
+        self.logger.error(task_result)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
