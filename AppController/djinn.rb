@@ -4043,8 +4043,12 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     if dest_node.is_appengine?
-      Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
       locations_json = "/root/.appscale/locations-#{@options['keyname']}.json"
+      loop {
+        break if File.exists?(locations_json)
+        Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
+      }
+      Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
       HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
     end
 
