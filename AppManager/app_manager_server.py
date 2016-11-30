@@ -596,7 +596,6 @@ def create_python27_start_cmd(app_name,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
     "--uaserver_path " + db_location + ":"\
       + str(constants.UA_SERVER_PORT),
-    "--automatic_restart=yes",
     "--datastore_path " + db_location + ":"\
       + str(constants.DB_SERVER_PORT),
     "/var/apps/" + app_name + "/app",

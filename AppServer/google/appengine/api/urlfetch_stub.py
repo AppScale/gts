@@ -35,7 +35,6 @@ try:
 except ImportError:
   pass
 
-import functools
 import gzip
 import httplib
 import logging
@@ -376,20 +375,7 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
             connection_class = fancy_urllib.create_fancy_connection(
                 ca_certs=CERT_PATH)
           else:
-            # In Python 2.7 and >= 3.4 certificate validation is enabled by default,
-            #  so validate_certificate in that versions there not make sense. Fixing this.
-            # https://www.python.org/dev/peps/pep-0476/
-            # http://stackoverflow.com/questions/27835619/ssl-certificate-verify-failed-error
-            try:
-              import ssl
-              unverified_https_context = ssl._create_unverified_context()
-            except (ImportError, AttributeError):
-              # In case of ImportError, there is no ssl library
-              # In case of AttributeError, this version of Python is not implements PEP 476,
-              #  so we don't need to fix behavior
-              connection_class = httplib.HTTPSConnection
-            else:
-              connection_class = functools.partial(httplib.HTTPSConnection, context=unverified_https_context)
+            connection_class = httplib.HTTPSConnection
         else:
 
           error_msg = 'Redirect specified invalid protocol: "%s"' % protocol
