@@ -790,18 +790,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         synchronized (profile)
         {
-            if ((query.hasTransaction()) || (query.hasAncestor()))
-            {
-                if (query.hasTransaction())
-                {
-                    if (!app.equals(query.getTransaction().getApp()))
-                    {
-                        throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.INTERNAL_ERROR, "Can't query app " + app + "in a transaction on app " + query.getTransaction().getApp());
-                    }
-                    LiveTxn liveTxn = profile.getTxn(query.getTransaction().getHandle());
-                }
-            }
-
             DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
             proxy.doPost(app, "RunQuery", query, queryResult);
             int count;
@@ -913,20 +901,17 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.Transaction beginTransaction( LocalRpcService.Status status, DatastoreV3Pb.BeginTransactionRequest req )
     {
-        Profile profile = getOrCreateProfile(req.getApp());
         DatastoreV3Pb.Transaction txn = new DatastoreV3Pb.Transaction().setApp(req.getApp()).setHandle(this.transactionHandleProvider.getAndIncrement());
 
         /*
          * AppScale line replacement
          */
         proxy.doPost(req.getApp(), "BeginTransaction", req, txn);
-        profile.addTxn(txn.getHandle(), new LiveTxn(this.clock));
         return txn;
     }
 
     public DatastoreV3Pb.CommitResponse commit( LocalRpcService.Status status, DatastoreV3Pb.Transaction req )
     {
-        Profile profile = (Profile)this.profiles.get(req.getApp());
         DatastoreV3Pb.CommitResponse response = new DatastoreV3Pb.CommitResponse();
         /*
          * AppScale - Added proxy call
@@ -935,13 +920,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return response;
     }
 
-    /*
-     * AppScale body replaced CJK: Keeping removeTxn in this method b/c
-     * removeTxn in commit(..) above is kept
-     */
     public ApiBasePb.VoidProto rollback( LocalRpcService.Status status, DatastoreV3Pb.Transaction req )
     {
-        ((Profile)this.profiles.get(req.getApp())).removeTxn(req.getHandle());
         VoidProto response = new VoidProto();
         proxy.doPost(req.getApp(), "Rollback", req, response);
         return response;
@@ -1165,14 +1145,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         public void run()
         {
-            for (LocalDatastoreService.Profile profile : LocalDatastoreService.this.profiles.values())
-                /*
-                 * AppScale - changed from access$2100 to profile.getTxns()
-                 */
-                synchronized (profile.getTxns())
-                {
-                    LocalDatastoreService.pruneHasCreationTimeMap(LocalDatastoreService.this.clock.getCurrentTime(), LocalDatastoreService.this.maxTransactionLifetimeMs, profile.getTxns());
-                }
+            // This has no effect since this stub does not keep track of transaction state.
         }
     }
 
@@ -1192,45 +1165,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                 {
                     LocalDatastoreService.pruneHasCreationTimeMap(LocalDatastoreService.this.clock.getCurrentTime(), LocalDatastoreService.this.maxQueryLifetimeMs, profile.getQueries());
                 }
-        }
-    }
-
-    static class LiveTxn extends LocalDatastoreService.HasCreationTime
-    {
-        private final List<TaskQueuePb.TaskQueueAddRequest>                                                    actions      = new ArrayList();
-        private boolean                                                                                        failed       = false;
-
-        LiveTxn(Clock clock)
-        {
-            /*
-             * changed super() call below to include clocl.getCurrentTime()
-             */
-            super(clock.getCurrentTime());
-        }
-        
-        synchronized void addActions( Collection<TaskQueuePb.TaskQueueAddRequest> newActions )
-        {
-            checkFailed();
-            if (this.actions.size() + newActions.size() > 5L)
-            {
-                throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "Too many messages, maximum allowed: 5");
-            }
-
-            this.actions.addAll(newActions);
-        }
-
-        synchronized Collection<TaskQueuePb.TaskQueueAddRequest> getActions()
-        {
-            return new ArrayList(this.actions);
-        }
-
-        synchronized void close()
-        {
-        }
-
-        private void checkFailed()
-        {
-            if (this.failed) throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "transaction closed");
         }
     }
         
@@ -1326,7 +1260,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     static class Profile implements Serializable
     {
         private transient Map<Long, LocalDatastoreService.LiveQuery> queries;
-        private transient Map<Long, LocalDatastoreService.LiveTxn>   txns;
 
         public Profile()
         {
@@ -1357,33 +1290,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                 this.queries = new HashMap();
             }
             return this.queries;
-        }
-
-        public synchronized LocalDatastoreService.LiveTxn getTxn( long handle )
-        {
-            return (LocalDatastoreService.LiveTxn)LocalDatastoreService.safeGetFromExpiringMap(getTxns(), handle, "transaction has expired or is invalid");
-        }
-
-        public synchronized void addTxn( long handle, LocalDatastoreService.LiveTxn txn )
-        {
-            getTxns().put(Long.valueOf(handle), txn);
-        }
-
-        private synchronized LocalDatastoreService.LiveTxn removeTxn( long handle )
-        {
-            LocalDatastoreService.LiveTxn txn = getTxn(handle);
-            txn.close();
-            this.txns.remove(Long.valueOf(handle));
-            return txn;
-        }
-
-        private synchronized Map<Long, LocalDatastoreService.LiveTxn> getTxns()
-        {
-            if (this.txns == null)
-            {
-                this.txns = new HashMap();
-            }
-            return this.txns;
         }
     }
 }
