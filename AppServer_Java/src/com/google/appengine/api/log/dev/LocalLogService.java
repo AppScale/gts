@@ -32,7 +32,7 @@ public class LocalLogService extends AbstractLocalRpcService
 {
   public static final String PACKAGE = "logservice";
   private static final String DEFAULT_SERVER = "default";  
-  private static final ThreadLocal<Long> threadLocalRsponseSize = new ThreadLocal();
+  private static final ThreadLocal<Long> threadLocalResponseSize = new ThreadLocal();
 
   private final LinkedList<LogServicePb.RequestLog> logs = new LinkedList();
   private static final int MAX_NUM_LOGS = 1000;
@@ -154,17 +154,17 @@ public class LocalLogService extends AbstractLocalRpcService
 
   public synchronized void registerResponseSize(long responseSize)
   {
-    threadLocalRsponseSize.set(Long.valueOf(responseSize));
+    threadLocalResponseSize.set(Long.valueOf(responseSize));
   }
 
   @VisibleForTesting
   public synchronized Long getResponseSize() {
-    return (Long)threadLocalRsponseSize.get();
+    return (Long)threadLocalResponseSize.get();
   }
 
   public synchronized void clearResponseSize()
   {
-    threadLocalRsponseSize.remove();
+    threadLocalResponseSize.remove();
   }
 
   public void addRequestInfo(String appId, String versionId, String requestId, String ip, String nickname, long startTimeUsec, long endTimeUsec, String method, String resource, String httpVersion, String userAgent, boolean complete, Integer status, String referrer)
