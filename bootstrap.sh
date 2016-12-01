@@ -125,8 +125,9 @@ echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
 
-sleep 3
-(git --version || (apt-get update && apt-get install -y git))
+sleep 5
+apt-get update
+apt-get install -y git
 if [ ! -d appscale ]; then
         # We split the commands, to ensure it fails if branch doesn't
         # exists (Precise git will not fail otherwise).

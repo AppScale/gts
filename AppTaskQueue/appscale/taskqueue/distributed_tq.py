@@ -438,7 +438,7 @@ class DistributedTaskQueue():
                              app_id + ".pid",
                "--statedb=" + TaskQueueConfig.CELERY_STATE_DIR + 'worker___' + \
                              app_id + ".db",
-               "-Ofair"]
+               "--autoreload -Ofair"]
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)
     watch = "celery-" + str(app_id)
