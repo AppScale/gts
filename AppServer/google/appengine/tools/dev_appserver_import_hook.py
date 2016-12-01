@@ -1409,7 +1409,7 @@ class HardenedModulesHook(object):
               pkg_pathname = os.path.join(pkg_pathname, '__init__.py')
             # AppScale: disables the whitelist and lets you import anything
             # installed, as long as it's in your path.
-            # if not FakeFile.IsFileAccessible(
+            #if not FakeFile.IsFileAccessible(
             #    pkg_pathname, py27_optional=py27_optional):
             #  error_message = 'Access to module file denied: %s' % pathname
             #  logging.debug(error_message)
