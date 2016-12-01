@@ -4047,6 +4047,7 @@ class Djinn
       loop {
         break if File.exists?(locations_json)
         Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
+        Kernel.sleep(SMALL_WAIT)
       }
       Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
       HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
