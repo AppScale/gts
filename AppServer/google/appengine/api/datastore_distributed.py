@@ -194,7 +194,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     self.__queries = {}
 
-    self.__tx_actions = set()
+    self.__tx_actions = {}
 
     self.__cursor_id = 1
     self.__cursor_lock = threading.Lock()
@@ -560,7 +560,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """Send a begin transaction request from the datastore server. """
     request.set_app(self.__app_id)
     self._RemoteSend(request, transaction, "BeginTransaction")
-    self.__tx_actions = []
+    self.__tx_actions[transaction.handle()] = []
     return transaction
 
   def _Dynamic_AddActions(self, request, _):
@@ -570,7 +570,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       request: A taskqueue_service_pb.TaskQueueBulkAddRequest containing the
           tasks that should be created when the transaction is comitted.
     """
-    if ((len(self.__tx_actions) + request.add_request_size()) >
+    transaction = request.add_request_list()[0].transaction()
+    txn_actions = self.__tx_actions[transaction.handle()]
+    if ((len(txn_actions) + request.add_request_size()) >
         _MAX_ACTIONS_PER_TXN):
       raise apiproxy_errors.ApplicationError(
           datastore_pb.Error.BAD_REQUEST,
@@ -583,7 +585,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       clone.clear_transaction()
       new_actions.append(clone)
 
-    self.__tx_actions.extend(new_actions)
+    txn_actions.extend(new_actions)
 
 
   def _Dynamic_Commit(self, transaction, transaction_response):
@@ -595,7 +597,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     response = taskqueue_service_pb.TaskQueueAddResponse()
     try:
-      for action in self.__tx_actions:
+      for action in self.__tx_actions[transaction.handle()]:
         try:
           apiproxy_stub_map.MakeSyncCall(
               'taskqueue', 'Add', action, response)
@@ -604,13 +606,20 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
                           action, e)
 
     finally:
-      self.__tx_actions = []
+      try:
+        del self.__tx_actions[transaction.handle()]
+      except KeyError:
+        pass
    
   def _Dynamic_Rollback(self, transaction, transaction_response):
     """ Send a rollback request to the datastore server. """
     transaction.set_app(self.__app_id)
- 
-    self.__tx_actions = []
+
+    try:
+      del self.__tx_actions[transaction.handle()]
+    except KeyError:
+      pass
+
     self._RemoteSend(transaction, transaction_response, "Rollback")
  
     return transaction_response
