@@ -237,7 +237,7 @@ class AppDashboardData():
                                                   "logging"]},
                                                 {"app_console": lookup_dict[
                                                     "app_console"]},
-                                                {"cron", lookup_dict[
+                                                {"cron": lookup_dict[
                                                   "cron"]}]}
       return lookup_dict
     else:
