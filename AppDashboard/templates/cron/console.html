@@ -1,0 +1,27 @@
+<!-- FILE:templates/apps/new.html -->
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+        <!-- Build page from here: -->
+        <div class="row-fluid">
+          <div class="span12">
+            <div class="page-header">
+                <h1>Cron Console</h1>
+            </div><!--close header-->
+              <div class="row-fluid">
+                <div class="offset1 span8">
+                    <ul style="list-style:none;">
+                  {% if apps_with_cron_yaml %}
+                    {% for app_id in apps_with_cron_yaml %}
+                      <li><a class="btn btn-large" href="/cron/view?appid={{ app_id }}">{{ app_id }}</a></li>
+                    {% endfor %}
+                  {% else %}
+                      <li>No apps are currently uploaded that contain cron.yaml.</li>
+                  {% endif %}
+                    </ul>
+                </div>
+              </div>
+        </div><!--close span6 -->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->

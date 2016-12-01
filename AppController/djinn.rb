@@ -6132,4 +6132,17 @@ HOSTS
     return JSON.dump(all_stats)
   end
 
+
+  # Gets an application cron info.
+  #
+  # Args:
+  #   app_name: The application ID.
+  #   secret: The secret of this deployment.
+  # Returns:
+  #   An application cron info
+  def get_application_cron_info(app_name, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+    content = CronHelper.get_application_cron_info(app_name)
+    return JSON.dump(content)
+  end
 end

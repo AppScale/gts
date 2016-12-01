@@ -239,6 +239,15 @@ class AppControllerClient():
     return json.loads(self.call(self.MAX_RETRIES, self.server.get_stats_json,
       self.secret))
 
+  def get_application_cron_info(self, app_id):
+    """Queries the AppController to get application cron info (from cron.yaml and /etc/cron.d/).
+
+    Returns:
+      A dict that contains the cron.yaml and /etc/cron.d/appscale-#app_id files content
+    """
+    return json.loads(self.call(self.MAX_RETRIES, self.server.get_application_cron_info,
+      app_id, self.secret))
+
 
   def is_initialized(self):
     """Queries the AppController to see if it has started up all of the API
