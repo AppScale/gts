@@ -40,9 +40,11 @@ setup(
     'appscale-datastore=appscale.datastore.scripts.datastore:main',
     'appscale-delete-all-records='
       'appscale.datastore.scripts.delete_records:main',
+    'appscale-get-token=appscale.datastore.cassandra_env.get_token:main',
     'appscale-groomer=appscale.datastore.groomer:main',
     'appscale-groomer-service=appscale.datastore.scripts.groomer_service:main',
     'appscale-prime-cassandra=appscale.datastore.scripts.prime_cassandra:main',
+    'appscale-rebalance=appscale.datastore.cassandra_env.rebalance:main',
     'appscale-restore-data=appscale.datastore.scripts.restore_data:main',
     'appscale-uaserver=appscale.datastore.scripts.ua_server:main',
     'appscale-update-index=appscale.datastore.scripts.update_index:main',
