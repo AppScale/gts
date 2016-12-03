@@ -5359,7 +5359,7 @@ HOSTS
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if (@app_info_map[app_name]['appengine'].nil? ||
-        @app_info_map[app_name]['appengine'].length < @num_appengines)
+        @app_info_map[app_name]['appengine'].length < Integer(@num_appengines))
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
       @last_decision[app_name] = 0
       return :scale_up
@@ -5538,7 +5538,7 @@ HOSTS
 
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum @num_appengines.
-    if @app_info_map[app_name]['appengine'].length <= @num_appengines
+    if @app_info_map[app_name]['appengine'].length <= Integer(@num_appengines)
       Djinn.log_debug("We are already at the minimum number of AppServers for " +
         "#{app_name}: requesting to remove node.")
 
