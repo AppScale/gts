@@ -1456,8 +1456,21 @@ class Djinn
 
     # Some options may require special actions.
     newopts.each{ |key, val|
+      if key == "keyname"
+        Djinn.log_warn("Changing keyname can break your deployment!")
+      end
+      if key == "flower_password"
+        Djinn.log_warn("flower_password cannot be changed at runtime.")
+        next
+      end
       if key == "max_memory"
         Djinn.log_warn("max_memory will be enforced on new appservers only.")
+      end
+      if key == "min_images"
+        unless is_cloud?
+          Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
+        end
+        Djinn.log_warn("min_images shouldn't be changed at runtime.")
       end
       if key == "max_images"
         unless is_cloud?
@@ -1466,7 +1479,7 @@ class Djinn
       end
       if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
-        return
+        next
       end
       @options[key] = val
       Djinn.log_info("Successfully set #{key} to #{val}.")
