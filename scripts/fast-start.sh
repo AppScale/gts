@@ -37,6 +37,7 @@ usage() {
         echo "  --user <email>          administrator's email"
         echo "  --passwd <password>     administrator's password"
         echo "  --no-demo-app           don't start the demo application"
+        echo "  --src <path>          appscale src directory (Developers only)"
         echo
 }
 
@@ -82,6 +83,16 @@ while [ $# -gt 0 ]; do
         shift
         continue
     fi
+    if [ "$1" = "--src" ]; then
+        shift
+        if [ -z "$1" ]; then
+            usage
+            exit 1
+        fi
+        SRC_PATH="$1"
+        shift
+        continue
+    fi
     if [ "$1" = "--no-demo-app" ]; then
         shift
         USE_DEMO_APP="N"
@@ -96,6 +107,10 @@ if [ -n "$ADMIN_EMAIL" ]; then
     [ -n "${ADMIN_PASSWD}" ] || { echo "error: you need to specify password with admin email"; exit 1; }
 else
     [ -z "${ADMIN_PASSWD}" ] || { echo "error: you need to specify admin email with password"; exit 1; }
+fi
+
+if [ -n "$SRC_PATH" ]; then
+    [ -d "${SRC_PATH}" ] || { echo "Path ${SRC_PATH} does not exist"; exit 1; }
 fi
 
 # Let's try to detect the environment we are using.
@@ -211,6 +226,9 @@ if [ ! -e AppScalefile ]; then
     else
         echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
         echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
+    fi
+    if [ -n "$SRC_PATH" ]; then
+        echo "scp : \"${SRC_PATH}\"" >> AppScalefile
     fi
     echo "group : faststart-${PROVIDER}" >> AppScalefile
     echo "done."
