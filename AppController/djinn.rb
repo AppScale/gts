@@ -3961,7 +3961,7 @@ class Djinn
       # sure.
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
-      enable_root_login(ip, ssh_key, @options['gce_user'])
+      enable_root_login(ip, ssh_key, @options["gce_user"])
     elsif @options['infrastructure'] == 'azure'
       enable_root_login(ip, ssh_key, "azureuser")
     end
