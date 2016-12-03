@@ -186,12 +186,6 @@ class Djinn
   attr_accessor :my_index
 
 
-  # The number of dev_appservers that should run for every App Engine
-  # application.
-  attr_accessor :num_appengines
-
-
-
   # An Array that lists the CPU, disk, and memory usage of each machine in this
   # AppScale deployment. Used as a cache so that it does not need to be
   # generated in response to AppDashboard requests.
@@ -535,7 +529,6 @@ class Djinn
     @done_initializing = false
     @done_loading = false
     @state = "AppController just started"
-    @num_appengines = 1
     @all_stats = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
@@ -2094,8 +2087,10 @@ class Djinn
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
+        if my_node.is_shadow? and @options['autoscale'].downcase != "true"
+          Djinn.log_info("--- This deployment has autoscale disabled.")
+        end
         stats = JSON.parse(get_all_stats(secret))
-
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
@@ -3458,10 +3453,6 @@ class Djinn
   end
 
   def parse_options
-    if @options['appengine']
-      @num_appengines = Integer(@options['appengine'])
-    end
-
     # Set the proper log level.
     @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
 
@@ -5321,6 +5312,8 @@ HOSTS
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
   def scale_appservers_within_nodes
+    return if @options['autoscale'].downcase != "true"
+
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
@@ -5416,7 +5409,8 @@ HOSTS
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if (@app_info_map[app_name]['appengine'].nil? ||
-        @app_info_map[app_name]['appengine'].length < Integer(@num_appengines))
+        @app_info_map[app_name]['appengine'].length <
+        Integer(@options['appengine']))
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
       @last_decision[app_name] = 0
       return :scale_up
@@ -5594,8 +5588,8 @@ HOSTS
     end
 
     # See how many AppServers are running on each machine. We cannot scale
-    # if we already are at the requested minimum @num_appengines.
-    if @app_info_map[app_name]['appengine'].length <= Integer(@num_appengines)
+    # if we already are at the requested minimum.
+    if @app_info_map[app_name]['appengine'].length <= Integer(@options['appengine'])
       Djinn.log_debug("We are already at the minimum number of AppServers for " +
         "#{app_name}: requesting to remove node.")
 
