@@ -1405,12 +1405,10 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     properties = {}
-    instance_variables.each { |name|
-      name_without_at_sign = name[1..name.length-1]
+    @options.keys{ |key|
       begin
-        if name_without_at_sign =~ /\A#{property_regex}\Z/
-          value = instance_variable_get(name)
-          properties[name_without_at_sign] = value
+        if key =~ /\A#{property_regex}\Z/
+          properties[key] = @options[key]
         end
       rescue RegexpError
         Djinn.log_warn("get_property: got invalid regex (#{property_regex}).")
