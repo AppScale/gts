@@ -785,116 +785,118 @@ class Djinn
     return "OK"
   end
 
-
-  # Validates and sets the instance variables that Djinn needs before it can
-  # begin configuring and deploying services on a given node (and if it is the
-  # first Djinn, starting up the other Djinns).
+  # This method validates that the layout received is correct (both
+  # syntactically and logically).
   #
   # Args:
   #   layout: this is a JSON structure containing the nodes
   #     informations (IPs, roles, instance ID etc...). These are the nodes
   #     specified in the AppScalefile at startup time.
-  #   options: this is a Hash containing all the options and credentials
-  #     (for autoscaling) pertinent to this deployment.
-  def set_parameters(layout, options, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    # Validate layout structure. It should be a JSON dump of an Array of
-    # Hashes. It contains the list of nodes of this deployment.
+  #   keyname: the key of this deployment, needed to initialize
+  #     DjinnJobData.
+  #
+  # Returns:
+  #   A DjinnJobData array suitale to be used in @nodes.
+  #
+  # Exception:
+  #   AppScaleException: returns a message if the layout is not valid.
+  def check_layout(layout, keyname)
     if layout.class != String
       msg = "Error: layout wasn't a String, but was a " + layout.class.to_s
       Djinn.log_error(msg)
-      return msg
+      raise AppScaleException.new(msg)
     end
     begin
       locations = JSON.load(layout)
     rescue JSON::ParserError
       msg = "Error: got exception parsing JSON structure layout."
       Djinn.log_error(msg)
-      return msg
+      raise AppScaleException.new(msg)
     end
     if locations.nil? || locations.empty?
       msg = "Error: layout is empty."
       Djinn.log_error(msg)
-      return msg
+      raise AppScaleException.new(msg)
     end
     if locations.class != Array
       msg = "Error: layout is not an Array."
       Djinn.log_error(msg)
-      return msg
+      raise AppScaleException.new(msg)
     end
+    all_roles = []
     locations.each{ |node|
       if node.class != Hash
         msg = "Error: node structure is not a Hash."
         Djinn.log_error(msg)
-        return msg
+        raise AppScaleException.new(msg)
       end
       if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
         !node['instance_id']
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
+        raise AppScaleException.new(msg)
         return msg
       elsif node['public_ip'].empty? || node['private_ip'].empty? ||
          node['jobs'].empty? || node['instance_id'].empty?
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
-        return msg
+        raise AppScaleException.new(msg)
       end
-    }
-
-    # options is a JSON string that will be loaded into a Hash.
-    if options.class != String
-      msg = "Error: options wasn't a String, but was a " +
-            options.class.to_s
-      Djinn.log_error(msg)
-      return msg
-    end
-    begin
-      @options = JSON.load(options)
-    rescue JSON::ParserError
-      msg = "Error: got exception parsing JSON options."
-      Djinn.log_error(msg)
-      return msg
-    end
-    if @options.nil? || @options.empty?
-      msg = "Error: @options is empty."
-      Djinn.log_error(msg)
-      return msg
-    end
-    if @options.class != Hash
-      msg = "Error: @options is not a Hash."
-      Djinn.log_error(msg)
-      return msg
-    end
-
-    # Let's validate we have the needed options defined.
-    ['keyname', 'login', 'table'].each{ |key|
-      unless @options[key]
-        msg = "Error: cannot find #{key} in options!" unless @options[key]
+      if node['jobs'].class == String
+        all_roles << node['jobs']
+      elsif node['jobs'].class == Array
+        all_roles += node['jobs']
+      else
+        msg = "Error: node jobs is not String or Array for #{node}."
         Djinn.log_error(msg)
-        return msg
+        raise AppScaleException.new(msg)
       end
     }
 
-    @state_change_lock.synchronize {
-      @nodes = Djinn.convert_location_array_to_class(locations,
-        @options['keyname'])
+    # Now we can check if we have the needed roles to start the
+    # deployment.
+    all_roles.uniq!
+    ['appengine', 'shadow', 'load_balancer', 'login', 'zookeeper',
+      'memcache', 'db_master', 'taskqueue_master'].each{ |role|
+      unless all_roles.include?(role)
+        msg = "Error: layout is missing role #{role}."
+        Djinn.log_error(msg)
+        raise AppScaleException.new(msg)
     }
-    @options = sanitize_credentials()
 
-    # Check that we got good parameters: we removed the unkown ones for
-    # backward compatibilty.
-    options_to_delete = []
-    @options.each { |key, val|
-      # Is the parameter known?
-      if PARAMETERS_AND_CLASS.has_key?(key) == false
+    # Transform the hash into DjinnJobData and return it.
+    nodes = Djinn.convert_location_array_to_class(locations, keyname)
+    return nodes
+  end
+
+  # This method validate and set (if valid) the proper @options value.
+  #
+  # Args:
+  #   options: a Hash containing the property and the value to set it to.
+  #
+  # Returns:
+  #   A sanitized Hash of valid properties.
+  def check_options(options)
+    newoptions = {}
+    if options.class != Hash
+      Djinn.log_warn("check_options received a non-hash parameter.")
+      return newoptions
+    end
+
+    options.each { |name, val|
+      unless name.class == String
+        Djinn.log_warn("Received an invalid property name of class #{name.class}.")
+        next
+      end
+      key = name.gsub(NOT_EMAIL_REGEX, "")
+
+      # Let's check if the property is a known one.
+      unless PARAMETERS_AND_CLASS.has_key?(key)
         begin
-          msg = "Removing unknown parameter '" + key.to_s + "'."
+          Djinn.log_warn("Removing unknown parameter '" + key.to_s + "'.")
         rescue
-          msg = "Removing unknown parameter."
+          Djinn.log_warn("Removing unknown paramete.")
         end
-        Djinn.log_warn(msg)
-        options_to_delete.push(key)
         next
       end
 
@@ -911,11 +913,10 @@ class Djinn
           msg = "Removing parameter '" + key + "' with unknown value."
         end
         Djinn.log_warn(msg)
-        options_to_delete.push(key)
         next
       end
 
-      msg = "Converting '" + key + "' with value '" + val + "'."
+      msg = "Converting/checking '" + key + "' with value '" + val + "'."
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
@@ -926,7 +927,6 @@ class Djinn
           msg = "Warning: parameter '" + key + "' is not an integer (" +\
             val.to_s + "). Removing it."
           Djinn.log_warn(msg)
-          options_to_delete.push(key)
           next
         end
       end
@@ -938,18 +938,88 @@ class Djinn
       if PARAMETERS_AND_CLASS[key][0] == TrueClass or
         PARAMETERS_AND_CLASS[key][0] == Fixnum
         begin
-          @options[key] = val.to_s
+          newval = val.to_s
         rescue
           msg = "Warning: cannot convert '" + key + "' to string. Removing it."
           Djinn.log_warn(msg)
-          options_to_delete.push(key)
         end
         next
       end
+
+      # Strings may need to be sanitized.
+      if PARAMETERS_AND_CLASS[key][0] == String
+        # Some options shouldn't be sanitize.
+        if key == 'user_commands' or key == 'azure_app_secret_key'
+          newval = val
+        # Keys have a relaxed sanitization process.
+        elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
+          newval = val.gsub(NOT_FQDN_OR_PLUS_REGEX, "")
+        else
+          newval = val.gsub(NOT_FQDN_REGEX, "")
+        end
+      end
+
+      Djinn.log_debug("Accepted option #{key}:#{newval}.")
+      newoptions[key] = newval
     }
-    options_to_delete.each { |key|
-      @options.delete(key)
+
+    return newoptions
+  end
+
+  # Validates and sets the instance variables that Djinn needs before it can
+  # begin configuring and deploying services on a given node (and if it is the
+  # first Djinn, starting up the other Djinns).
+  #
+  # Args:
+  #   layout: this is a JSON structure containing the nodes
+  #     informations (IPs, roles, instance ID etc...). These are the nodes
+  #     specified in the AppScalefile at startup time.
+  #   options: this is a Hash containing all the options and credentials
+  #     (for autoscaling) pertinent to this deployment.
+  def set_parameters(layout, options, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    # options is a JSON string that will be loaded into a Hash.
+    if options.class != String
+      msg = "Error: options wasn't a String, but was a " +
+            options.class.to_s
+      Djinn.log_error(msg)
+      return msg
+    end
+    begin
+      opts = JSON.load(options)
+    rescue JSON::ParserError
+      msg = "Error: got exception parsing JSON options."
+      Djinn.log_error(msg)
+      return msg
+    end
+    if opts.nil? || opts.empty?
+      Djinn.log_warn("Empty options: using defaults (autoscale is not enabled).")
+    elsif opts.class != Hash
+      msg = "Error: options is not a Hash."
+      Djinn.log_error(msg)
+      return msg
+    else
+      @options = check_options(opts)
+    end
+
+    # Let's validate we have the needed options defined.
+    ['keyname', 'login', 'table'].each{ |key|
+      unless @options[key]
+        msg = "Error: cannot find #{key} in options!" unless @options[key]
+        Djinn.log_error(msg)
+        return msg
+      end
     }
+
+    begin
+      @state_change_lock.synchronize {
+        @nodes = check_layout(layout, @options['keyname'])
+      }
+    rescue AppScaleException => e
+      Djinn.log_error(e.message)
+      return e.message
+    end
 
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
@@ -1375,18 +1445,40 @@ class Djinn
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    Djinn.log_info("Attempting to set @#{property_name} to #{property_value}")
-
-    name_with_at_sign = "@#{property_name}"
-    begin
-      instance_variable_set(name_with_at_sign, property_value)
-    rescue NameError
-      Djinn.log_info("Failed to set @#{property_name}")
+    if property_name.class != String or property_value != String
+      Djinn.log_warn("set_property: received non String parameters.")
       return KEY_NOT_FOUND
     end
 
-    Djinn.log_info("Successfully set @#{property_name} to #{property_value}")
+    Djinn.log_info("Received request to change #{property_name} to #{property_value}.")
+    opts = {}
+    opts[property_name] = property_value
+    newops = check_options(opts)
+
+    # If we don't have any option to set, property was invalid.
+    if newopts.length == 0
+      Djinn.log_info("Failed to set #{property_name}")
+      return KEY_NOT_FOUND
+    end
+
+    # Some options may require special actions.
+    newopts.each{ |key, val|
+      if key == "max_memory"
+        Djinn.log_warn("max_memory will be enforced on new appservers only.")
+      end
+      if key == "max_images"
+        unless is_cloud?
+          Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
+        end
+      end
+      if key == "replication"
+        Djinn.log_warn("replication cannot be changed at runtime.")
+        return
+      end
+      @options[key] = val
+      Djinn.log_info("Successfully set #{key} to #{val}.")
+    }
+
     return 'OK'
   end
 
@@ -3445,41 +3537,6 @@ class Djinn
       "My local IPs are: #{all_local_ips.join(', ')}")
   end
 
-
-  def sanitize_credentials()
-    newoptions = {}
-    @options.each { |key, val|
-      if key == 'user_commands'
-        newoptions[key] = val
-        next
-      end
-
-      # Azure secret key contains an '=' and we do not need
-      # sanitization for it.
-      if 'azure_app_secret_key' == key
-        newoptions[key] = val
-        next
-      end
-
-      next unless key.class == String
-      newkey = key.gsub(NOT_EMAIL_REGEX, "")
-      if newkey.include? "_key" or newkey.include? "EC2_SECRET_KEY"
-        if val.class == String
-          newval = val.gsub(NOT_FQDN_OR_PLUS_REGEX, "")
-        else
-          newval = val
-        end
-      else
-        if val.class == String
-          newval = val.gsub(NOT_FQDN_REGEX, "")
-        else
-          newval = val
-        end
-      end
-      newoptions[newkey] = newval
-    }
-    return newoptions
-  end
 
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
