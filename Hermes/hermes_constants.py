@@ -76,9 +76,6 @@ UA_SERVER_PORT = 4343
 # The username for deploying the appscalesensor app.
 USER_EMAIL = "appscale_user@appscale.local"
 
-# The suffix for backup files from a ZK node.
-# The zk ID is populated at runtime.
-ZK_OBJECT_NAME = '/zookeeper/zk_node_{0}.tar.gz'
 
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
@@ -91,7 +88,4 @@ class HTTP_Codes(object):
 class TaskTypes(object):
   """ A class containing supported task types. """
   CASSANDRA_BACKUP = 'cassandra_backup'
-  ZOOKEEPER_BACKUP = 'zookeeper_backup'
-
   CASSANDRA_RESTORE = 'cassandra_restore'
-  ZOOKEEPER_RESTORE = 'zookeeper_restore'
