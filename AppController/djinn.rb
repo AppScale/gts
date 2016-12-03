@@ -3955,18 +3955,17 @@ class Djinn
     if ["ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
       user_name = "ubuntu"
-      enable_root_login(ip, ssh_key, user_name)
     elsif @options['infrastructure'] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
       # sure.
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
-
+      user_name = "appscale"
     elsif @options['infrastructure'] == 'azure'
       user_name = 'azureuser'
-      enable_root_login(ip, ssh_key, user_name)
     end
+    enable_root_login(ip, ssh_key, user_name)
 
     Kernel.sleep(SMALL_WAIT)
 
