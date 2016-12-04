@@ -1029,6 +1029,13 @@ class Djinn
       end
     }
 
+    # Set the proper log level.
+    if @options['verbose'].downcase == "true"
+      @@log.level = Logger::DEBUG
+    else
+      @@log.level = Logger::INFO
+    end
+
     # From here on we do more logical checks on the values we received.
     # The first one is to check that max and min are set appropriately.
     # Max and min needs to be at least the number of started nodes, it
@@ -1056,8 +1063,6 @@ class Djinn
       @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
       @options['ec2_url'] = @options['EC2_URL']
     end
-
-    @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
 
     begin
       @options['zone'] = JSON.load(@options['zone'])
@@ -1454,8 +1459,8 @@ class Djinn
       return KEY_NOT_FOUND
     end
 
-    # Some options may require special actions.
     newopts.each { |key, val|
+      # We give some extra information to the user about some properties.
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
       end
@@ -1470,7 +1475,6 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
         end
-        Djinn.log_warn("min_images shouldn't be changed at runtime.")
       end
       if key == "max_images"
         unless is_cloud?
@@ -1482,6 +1486,16 @@ class Djinn
         next
       end
       @options[key] = val
+
+      # Some options may require special actions.
+      if key == "verbose"
+        if @options['verbose'].downcase == "true"
+          @@log.level = Logger::DEBUG
+        else
+          @@log.level = Logger::INFO
+        end
+      end
+
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
 
@@ -3466,9 +3480,6 @@ class Djinn
   end
 
   def parse_options
-    # Set the proper log level.
-    @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
-
     keypath = @options['keyname'] + ".key"
     Djinn.log_debug("Keypath is #{keypath}, keyname is #{@options['keyname']}")
     my_key_dir = "#{APPSCALE_CONFIG_DIR}/keys/#{my_node.cloud}"
