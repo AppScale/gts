@@ -962,8 +962,8 @@ class Djinn
 
   def enforce_options()
     # Set the proper log level.
-    new.level = Logger::INFO
-    new.level = Logger::DEBUG if @options['verbose'].downcase == "true"
+    new_level = Logger::INFO
+    new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
     @@log.level = new_level if @@log.level != new_level
 
     # Make sure flower is running with the proper password.
