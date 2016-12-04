@@ -130,11 +130,9 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:get_all_local_ips).
       and_return(["127.0.0.1"])
 
-    flexmock(Djinn).new_instances { |instance|
-      instance.should_receive(:valid_secret?).and_return(true)
-      instance.should_receive(:find_me_in_locations)
-    }
     djinn = Djinn.new
+    flexmock(djinn).should_receive(:valid_secret?).and_return(true)
+    flexmock(djinn).should_receive(:find_me_in_locations)
 
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
@@ -178,8 +176,8 @@ class TestDjinn < Test::Unit::TestCase
       'instance_id' => 'instance_id'
     }])
 
-    udpsocket = flexmock(UDPSocket)
-    udpsocket.should_receive(:open).and_return("not any ips above")
+    djinn = Djinn.new
+    flexmock(djinn).should_receive(:find_me_in_locations).and_raise(Exception)
     assert_raises(Exception) {
       djinn.set_parameters(one_node_info, credentials, @secret)
     }
