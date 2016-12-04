@@ -1277,7 +1277,7 @@ class TestDjinn < Test::Unit::TestCase
     empty_hash = JSON.dump({})
     assert_equal(empty_hash, djinn.get_property("not-a-variable-name", @secret))
     expected_result = JSON.dump({'verbose' => 'True'})
-    assert_equal(expected_result, djinn.get_property('version', @secret))
+    assert_equal(expected_result, djinn.get_property('verbose', @secret))
   end
 
 
@@ -1317,7 +1317,7 @@ class TestDjinn < Test::Unit::TestCase
     # results in subsequent get calls seeing the correct value.
     assert_equal('OK', djinn.set_property('verbose', 'True', @secret))
     expected_result = JSON.dump({'verbose' => 'True'})
-    assert_equal(expected_result, djinn.get_property('version', @secret))
+    assert_equal(expected_result, djinn.get_property('verbose', @secret))
   end
 
 
