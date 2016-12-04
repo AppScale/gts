@@ -968,9 +968,7 @@ class Djinn
 
     # Make sure flower is running with the proper password.
     TaskQueue.stop_flower
-    if my_node.is_shadow?
-      TaskQueue.start_flower(@options['flower_password'])
-    end
+    TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
   end
 
   # Validates and sets the instance variables that Djinn needs before it can
@@ -1417,6 +1415,18 @@ class Djinn
   def get_property(property_regex, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
+    unless my_node.is_shadow?
+      # We need to send the call to the shadow.
+      Djinn.log_debug("Sending get_property for #{appid} to #{get_shadow}.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.get_property(property_regex)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to forward get_property call to #{get_shadow}.")
+        return NOT_READY
+      end
+    end
+
     Djinn.log_info("Received request to get properties matching #{property_regex}.")
     properties = {}
     @options.each{ |key, val|
@@ -1447,12 +1457,25 @@ class Djinn
   #   A String containing:
   #     - 'OK' if the value was successfully set.
   #     - KEY_NOT_FOUND if there is no instance variable with the given name.
+  #     - NOT_READY if this node is not shadow, and cannot talk to shadow.
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     if property_name.class != String or property_value.class != String
       Djinn.log_warn("set_property: received non String parameters.")
       return KEY_NOT_FOUND
+    end
+
+    unless my_node.is_shadow?
+      # We need to send the call to the shadow.
+      Djinn.log_debug("Sending set_property for #{appid} to #{get_shadow}.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.set_property(property_name, property_value)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to forward set_property call to #{get_shadow}.")
+        return NOT_READY
+      end
     end
 
     Djinn.log_info("Received request to change #{property_name} to #{property_value}.")
