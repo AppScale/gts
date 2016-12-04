@@ -454,7 +454,7 @@ class Djinn
   PARAMETERS_AND_CLASS = {
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
     'appengine' => [ Fixnum, '2' ],
-    'autoscale' => [ TrueClass, nil ],
+    'autoscale' => [ TrueClass, 'True' ],
     'clear_datastore' => [ TrueClass, 'False' ],
     'client_secrets' => [ String, nil ],
     'disks' => [ String, nil ],
@@ -2099,7 +2099,7 @@ class Djinn
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
-        if my_node.is_shadow? and @options['autoscale'].downcase != "true"
+        if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
         stats = JSON.parse(get_all_stats(secret))

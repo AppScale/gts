@@ -1250,16 +1250,33 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new()
 
+    # Let's populate the djinn first with some property.
+    credentials = JSON.dump({
+      'table' => 'cassandra',
+      'login' => 'public_ip',
+      'keyname' => 'appscale',
+      'verbose' => 'False'
+    })
+    one_node_info = JSON.dump([{
+      'public_ip' => 'public_ip',
+      'private_ip' => '1.2.3.4',
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
+      'instance_id' => 'instance_id'
+    }])
+    flexmock(Djinn).should_receive(:log_run).with(
+      "mkdir -p /opt/appscale/apps")
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4 ")
+    flexmock(djinn).should_receive("get_db_master").and_return
+    flexmock(djinn).should_receive("get_shadow").and_return
+    djinn.set_parameters(one_node_info, credentials, @secret)
+
     # First, make sure that using a regex that matches nothing returns an empty
-    # Hash.
+    # Hash, then test with a good property.
     empty_hash = JSON.dump({})
     assert_equal(empty_hash, djinn.get_property("not-a-variable-name", @secret))
-
-    # Next, we know that there's a variable called 'state'. Make sure that using
-    # it as the regex actually returns that variable (and only that).
-    djinn.state = "AppController is taking it easy today"
-    state_only = JSON.dump({'state' => djinn.state})
-    assert_equal(state_only, djinn.get_property('state', @secret))
+    assert_equal('False', djinn.get_property('version', @secret))
   end
 
 
