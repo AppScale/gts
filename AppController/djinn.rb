@@ -2872,15 +2872,13 @@ class Djinn
     local_state = {}
     APPS_LOCK.synchronize {
       local_state = {'@@secret' => @@secret }
-      instance_variables.each { |k|
-        # Save only variables we will restore.
-        next unless DEPLOYMENT_STATE.include?(k)
-
-        v = instance_variable_get(k)
-        if k.to_s == "@nodes"
-          v = Djinn.convert_location_class_to_json(v)
+      DEPLOYMENT_STATE.each { |var|
+        if var == "@nodes"
+          v = Djinn.convert_location_class_to_json(@nodes)
+        else
+          v = instance_variable_get(var)
         end
-        local_state[k] = v
+        local_state[var] = v
       }
     }
     Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
