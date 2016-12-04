@@ -145,9 +145,11 @@ class TestDjinn < Test::Unit::TestCase
 
     # Try passing in params that aren't the required type
     result_1 = djinn.set_parameters([], [], @secret)
-    assert_equal(true, result_1.include?("Error: layout wasn't a String"))
+    assert_equal(true, result_1.include?("Error: options wasn't a String"))
 
-    result_2 = djinn.set_parameters("", "", @secret)
+    better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
+      '1.1.1.1', 'table' => 'cassandra'})
+    result_2 = djinn.set_parameters("", better_credentials,  @secret)
     assert_equal(true, result_2.include?("Error: layout is empty"))
 
     # Now try credentials with an even number of items, but not all the
@@ -171,7 +173,8 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'jobs' => ['some_role'],
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
 
@@ -200,7 +203,8 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['some_role'],
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
 
@@ -1273,12 +1277,9 @@ class TestDjinn < Test::Unit::TestCase
 
     # Verify that setting a property that we allow users to set
     # results in subsequent get calls seeing the correct value.
-    djinn.state = "AppController is taking it easy today"
-    new_state = "AppController is back to work"
-    assert_equal('OK', djinn.set_property('state', new_state, @secret))
-
-    state_only = JSON.dump({'state' => new_state})
-    assert_equal(state_only, djinn.get_property('state', @secret))
+    assert_equal('OK', djinn.set_property('verbose', 'true', @secret))
+    result = djinn.get_property('verbose' @secret)
+    assert_equal('true', result)
   end
 
 

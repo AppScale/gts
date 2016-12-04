@@ -817,7 +817,7 @@ class Djinn
       raise AppScaleException.new(msg)
     end
     all_roles = []
-    locations.each{ |node|
+    locations.each { |node|
       if node.class != Hash
         msg = "Error: node structure is not a Hash."
         Djinn.log_error(msg)
@@ -850,11 +850,12 @@ class Djinn
     # deployment.
     all_roles.uniq!
     ['appengine', 'shadow', 'load_balancer', 'login', 'zookeeper',
-      'memcache', 'db_master', 'taskqueue_master'].each{ |role|
+      'memcache', 'db_master', 'taskqueue_master'].each { |role|
       unless all_roles.include?(role)
         msg = "Error: layout is missing role #{role}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
+      end
     }
 
     # Transform the hash into DjinnJobData and return it.
@@ -997,7 +998,7 @@ class Djinn
     end
 
     # Let's validate we have the needed options defined.
-    ['keyname', 'login', 'table'].each{ |key|
+    ['keyname', 'login', 'table'].each { |key|
       unless @options[key]
         msg = "Error: cannot find #{key} in options!" unless @options[key]
         Djinn.log_error(msg)
@@ -1117,7 +1118,7 @@ class Djinn
         else
           running = 0
           pending = 0
-          @app_info_map[app_name]['appengine'].each{ |location|
+          @app_info_map[app_name]['appengine'].each { |location|
              _host, port = location.split(":")
              if Integer(port) > 0
                running += 1
@@ -1453,7 +1454,7 @@ class Djinn
     end
 
     # Some options may require special actions.
-    newopts.each{ |key, val|
+    newopts.each { |key, val|
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
       end
@@ -1589,7 +1590,7 @@ class Djinn
       return NOT_READY unless lock_obtained
       output = `"#{NODETOOL}" status`
       ready = false
-      output.split("\n").each{ |line|
+      output.split("\n").each { |line|
         ready = true if line.start_with?('UN') && line.include?(primary_ip)
       }
       return "#{ready}"
@@ -1863,7 +1864,7 @@ class Djinn
       Djinn.log_debug("Apps to restart are #{apps_to_restart}.")
 
       # Next, check if the language of the application is correct.
-      apps.each{ |app|
+      apps.each { |app|
         if @app_info_map[app] && @app_info_map[app]['language'] &&
           @app_info_map[app]['language'] != get_app_language(app)
           failed_apps << app
@@ -5214,7 +5215,7 @@ HOSTS
 
         # Make sure we have the variables to look into: if we catch an app
         # early on, it may not have them.
-        %w(nginx nginx_https haproxy).each{ |key|
+        %w(nginx nginx_https haproxy).each { |key|
           next unless info[key]
           begin
             in_use = true if possibly_free_port == Integer(info[key])
@@ -5265,7 +5266,7 @@ HOSTS
       next if node_ip == my_node.private_ip
       healthy = false
 
-      @all_stats.each{ |stats|
+      @all_stats.each { |stats|
         if stats['private_ip'] == node_ip
           healthy = true
           break
@@ -6159,7 +6160,7 @@ HOSTS
               reqs_enqueued = 0
             else
 
-              @app_info_map[app_name]['appengine'].each{ |location|
+              @app_info_map[app_name]['appengine'].each { |location|
                 host, port = location.split(":")
                 if Integer(port) > 0
                   appservers += 1
