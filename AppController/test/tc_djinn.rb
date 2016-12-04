@@ -1255,7 +1255,7 @@ class TestDjinn < Test::Unit::TestCase
       'table' => 'cassandra',
       'login' => 'public_ip',
       'keyname' => 'appscale',
-      'verbose' => 'False'
+      'verbose' => 'True'
     })
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
@@ -1276,7 +1276,8 @@ class TestDjinn < Test::Unit::TestCase
     # Hash, then test with a good property.
     empty_hash = JSON.dump({})
     assert_equal(empty_hash, djinn.get_property("not-a-variable-name", @secret))
-    assert_equal('False', djinn.get_property('version', @secret))
+    expected_result = JSON.dump({'verbose' => 'True'})
+    assert_equal(expected_result, djinn.get_property('version', @secret))
   end
 
 
@@ -1286,15 +1287,37 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new()
 
+    # Let's populate the djinn first with some property.
+    credentials = JSON.dump({
+      'table' => 'cassandra',
+      'login' => 'public_ip',
+      'keyname' => 'appscale',
+      'verbose' => 'False'
+    })
+    one_node_info = JSON.dump([{
+      'public_ip' => 'public_ip',
+      'private_ip' => '1.2.3.4',
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
+      'instance_id' => 'instance_id'
+    }])
+    flexmock(Djinn).should_receive(:log_run).with(
+      "mkdir -p /opt/appscale/apps")
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4 ")
+    flexmock(djinn).should_receive("get_db_master").and_return
+    flexmock(djinn).should_receive("get_shadow").and_return
+    djinn.set_parameters(one_node_info, credentials, @secret)
+
     # Verify that setting a property that doesn't exist returns an error.
     assert_equal(Djinn::KEY_NOT_FOUND, djinn.set_property('not-a-real-key',
       'value', @secret))
 
     # Verify that setting a property that we allow users to set
     # results in subsequent get calls seeing the correct value.
-    assert_equal('OK', djinn.set_property('verbose', 'true', @secret))
-    result = djinn.get_property('verbose', @secret)
-    assert_equal('true', result)
+    assert_equal('OK', djinn.set_property('verbose', 'True', @secret))
+    expected_result = JSON.dump({'verbose' => 'True'})
+    assert_equal(expected_result, djinn.get_property('version', @secret))
   end
 
 

@@ -936,8 +936,8 @@ class Djinn
         rescue
           msg = "Warning: cannot convert '" + key + "' to string. Removing it."
           Djinn.log_warn(msg)
+          next
         end
-        next
       end
 
       # Strings may need to be sanitized.
@@ -1405,11 +1405,12 @@ class Djinn
   def get_property(property_regex, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
+    Djinn.log_info("Received request to get properties matching #{property_regex}.")
     properties = {}
-    @options.keys{ |key|
+    @options.each{ |key, val|
       begin
         if key =~ /\A#{property_regex}\Z/
-          properties[key] = @options[key]
+          properties[key] = val
         end
       rescue RegexpError
         Djinn.log_warn("get_property: got invalid regex (#{property_regex}).")
@@ -1437,7 +1438,7 @@ class Djinn
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-    if property_name.class != String or property_value != String
+    if property_name.class != String or property_value.class != String
       Djinn.log_warn("set_property: received non String parameters.")
       return KEY_NOT_FOUND
     end
@@ -1445,11 +1446,11 @@ class Djinn
     Djinn.log_info("Received request to change #{property_name} to #{property_value}.")
     opts = {}
     opts[property_name] = property_value
-    newops = check_options(opts)
+    newopts = check_options(opts)
 
     # If we don't have any option to set, property was invalid.
     if newopts.length == 0
-      Djinn.log_info("Failed to set #{property_name}")
+      Djinn.log_info("Failed to set property '#{property_name}'.")
       return KEY_NOT_FOUND
     end
 
