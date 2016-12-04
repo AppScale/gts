@@ -4511,6 +4511,7 @@ HOSTS
     Djinn.log_debug("Configuring AppController monit.")
     env = {
       'HOME' => '/root',
+      'PATH' => '$PATH:/usr/local/bin',
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
