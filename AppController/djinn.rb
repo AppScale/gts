@@ -2868,29 +2868,21 @@ class Djinn
   end
 
 
-
   def backup_appcontroller_state()
     local_state = {}
     APPS_LOCK.synchronize {
       local_state = {'@@secret' => @@secret }
       instance_variables.each { |k|
+        # Save only variables we will restore.
+        next unless DEPLOYMENT_STATE.include?(k)
+
         v = instance_variable_get(k)
         if k.to_s == "@nodes"
           v = Djinn.convert_location_class_to_json(v)
-        elsif k == "@my_index" or k == "@api_status"
-          # Don't back up @my_index - it's a node-specific pointer that
-          # indicates which node is "our node" and thus should be regenerated
-          # via find_me_in_locations.
-          # Also don't worry about @api_status - (used to be for deprecated
-          # API checker) it can take up a lot of space and can easily be
-          # regenerated with new data.
-          next
         end
-
         local_state[k] = v
       }
     }
-
     Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
