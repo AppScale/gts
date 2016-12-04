@@ -1498,10 +1498,6 @@ class Djinn
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
       end
-      if key == "flower_password"
-        Djinn.log_warn("flower_password cannot be changed at runtime.")
-        next
-      end
       if key == "max_memory"
         Djinn.log_warn("max_memory will be enforced on new appservers only.")
       end

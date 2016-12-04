@@ -178,6 +178,7 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn = Djinn.new
     flexmock(djinn).should_receive(:find_me_in_locations).and_raise(Exception)
+    flexmock(djinn).should_receive(:enforce_options).and_return()
     assert_raises(Exception) {
       djinn.set_parameters(one_node_info, credentials, @secret)
     }
@@ -189,6 +190,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive("enforce_options").and_return()
     }
     djinn = Djinn.new
 
@@ -1247,6 +1249,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_get_property
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive("enforce_options").and_return()
     }
     djinn = Djinn.new()
 
@@ -1284,6 +1287,7 @@ class TestDjinn < Test::Unit::TestCase
   def test_set_property
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive("enforce_options").and_return()
     }
     djinn = Djinn.new()
 
