@@ -1278,7 +1278,7 @@ class TestDjinn < Test::Unit::TestCase
     # Verify that setting a property that we allow users to set
     # results in subsequent get calls seeing the correct value.
     assert_equal('OK', djinn.set_property('verbose', 'true', @secret))
-    result = djinn.get_property('verbose' @secret)
+    result = djinn.get_property('verbose', @secret)
     assert_equal('true', result)
   end
 
