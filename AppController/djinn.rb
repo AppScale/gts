@@ -960,6 +960,19 @@ class Djinn
     return newoptions
   end
 
+  def enforce_options()
+    # Set the proper log level.
+    new.level = Logger::INFO
+    new.level = Logger::DEBUG if @options['verbose'].downcase == "true"
+    @@log.level = new_level if @@log.level != new_level
+
+    # Make sure flower is running with the proper password.
+    TaskQueue.stop_flower
+    if my_node.is_shadow?
+      TaskQueue.start_flower(@options['flower_password'])
+    end
+  end
+
   # Validates and sets the instance variables that Djinn needs before it can
   # begin configuring and deploying services on a given node (and if it is the
   # first Djinn, starting up the other Djinns).
@@ -1028,13 +1041,7 @@ class Djinn
          @options[key] = PARAMETERS_AND_CLASS[key][1]
       end
     }
-
-    # Set the proper log level.
-    if @options['verbose'].downcase == "true"
-      @@log.level = Logger::DEBUG
-    else
-      @@log.level = Logger::INFO
-    end
+    enforce_options
 
     # From here on we do more logical checks on the values we received.
     # The first one is to check that max and min are set appropriately.
@@ -1459,6 +1466,10 @@ class Djinn
       return KEY_NOT_FOUND
     end
 
+
+    # Let's keep an old copy of the options: we'll need them to check if
+    # something changed and we need to act.
+    old_options = @options.clone
     newopts.each { |key, val|
       # We give some extra information to the user about some properties.
       if key == "keyname"
@@ -1486,18 +1497,10 @@ class Djinn
         next
       end
       @options[key] = val
-
-      # Some options may require special actions.
-      if key == "verbose"
-        if @options['verbose'].downcase == "true"
-          @@log.level = Logger::DEBUG
-        else
-          @@log.level = Logger::INFO
-        end
-      end
-
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
+    # Act upon changes.
+    enforce_options unless old_options == @options
 
     return 'OK'
   end
@@ -3044,6 +3047,9 @@ class Djinn
     }
     Djinn.log_debug("Reload State : #{json_state}.")
 
+    # Let's keep an old copy of the options: we'll need them to check if
+    # something changed and we need to act.
+    old_options = @options.clone
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
       keyname = json_state['@options']['keyname']
@@ -3080,7 +3086,10 @@ class Djinn
 
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
-    find_me_in_locations()
+    find_me_in_locations
+
+    # Finally some @options may have changed.
+    enforce_options unless old_options == @options
 
     return true
   end
