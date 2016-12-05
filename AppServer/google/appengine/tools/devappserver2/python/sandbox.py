@@ -823,7 +823,8 @@ class BuiltinImportHook(object):
   """
 
   def find_module(self, fullname, unused_path=None):
-    if fullname in sys.builtin_module_names and fullname not in _WHITE_LIST_C_MODULES:
+    if (fullname in sys.builtin_module_names and
+        fullname not in _WHITE_LIST_C_MODULES):
       return self
     return None
 

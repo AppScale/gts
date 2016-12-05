@@ -301,10 +301,11 @@ CRON
   def self.convert_messy_format(schedule)
     splitted = schedule.split
 
-    # Only 3, 5 or 7-token schedules are supported.
+    # Only 3, 4, 5 or 7-token schedules are supported.
     # Examples:
     # every day 00:00
     # every monday 09:00
+    # 1 of month 00:00
     # every monday of sep,oct,nov 17:00
     # every 5 minutes from 10:00 to 14:00
     unless splitted.length == 3 || splitted.length == 4 || splitted.length == 5 || splitted.length == 7
@@ -392,53 +393,53 @@ CRON
         end
       else    # increment_type == minutes
         multiple_cron_entries = true
+        first_of_hour = m1    # First occurrence of the hour.
+        if h1 < h2            # minutes, h1 < h2
+          for h in (h1..h2)
+            remainder  = (60 - first_of_hour) % increment
+            if h == h2
+              last_of_hour = m2
+            else
+              last_of_hour = 60 - remainder
+            end
 
-        if h1 < h2
-          if m1 < 59
-            mins = "#{m1}-59/#{increment}"
-            crons.push({"hour" => "#{h1}", "min" => mins})
-          end
-          if h2 - h1 == 1
-            if m2 > 0
-              mins = "0-#{m2}/#{increment}"
-              crons.push({"hour" => "#{h1}", "min" => mins})
+            # Start the next entry at '0' since '60' is not a valid minute.
+            if last_of_hour == 60
+              last_of_hour = 59
+              remainder = increment
             end
-          else
-            mins = "*/#{increment}"
-            fh = h1 + 1
-            lh = h2 - 1
-            crons.push({"hour" => "#{fh}-#{lh}", "min" => mins})
 
-            if m2 > 0
-              mins = "0-#{m2}/#{increment}"
-              crons.push({"hour" => "#{h2}", "min" => mins})
+            mins = (first_of_hour..last_of_hour).step(increment).to_a.join(',')
+            if !mins.empty?
+              crons.push({"hour" => "#{h}", "min" => mins})
             end
+            first_of_hour = increment - remainder
           end
-        elsif h1 == h2        # minutes, h1 >= h2
-          if m1 > m2
-            if m2 > 0
-              crons.push({"hour" => "*", "min" => "0-#{m2}/#{increment}"})
-            end
-            if m1 < 59
-              crons.push({"hour" => "*", "min" => "#{m1}-59/#{increment}"})
-            end
-          else
-            crons.push({"hour" => "#{h1}", "min" => "#{m1}-#{m2}/#{increment}"})
-          end
-        else
-          if m1 < 59
-            crons.push({"hour" => "h1", "min" => "#{m1}-59/#{increment}"})
-          end
-          if h1 != 23
-            crons.push({"hour" => "#{h1}-23", "min" => "*/#{increment}"})
-          end
+        elsif h1 >= h2        # minutes, h1 >= h2
+          [{"fh" => h1, "lh" => 23},   # Batch 1 - before midnight
+           {"fh" => 0, "lh" => h2},    # Batch 2 - after midnight
+          ].each do |batch|
+            for h in (batch["fh"]..batch["lh"])
+              remainder = (60 - first_of_hour) % increment
+              last_of_hour = 60 - remainder
+              if last_of_hour == 60
+                last_of_hour = 59
+              end
+              if batch["fh"] == 0 && h == batch["lh"]
+                last_of_hour = m2
+              end
 
-          if m2 > 0
-            crons.push({"hour" => "#{h2}", "min" => "0-#{m2}/#{increment}"})
-          end
-          if h2 > 0
-            lh = h2 - 1
-            crons.push({"hour" => "0-#{lh}", "min" => "*/#{increment}"})
+              mins = (first_of_hour..last_of_hour).step(increment).to_a.join(',')
+              if !mins.empty?
+                crons.push({"hour" => "#{h}", "min" => mins})
+              end
+
+              # Set up next loop.
+              first_of_hour = 0   # If no remainder, start at the top.
+              if remainder != 0
+                first_of_hour = increment - remainder
+              end
+            end
           end
         end
       end

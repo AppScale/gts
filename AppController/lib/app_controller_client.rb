@@ -71,7 +71,6 @@ class AppControllerClient
     @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
-    @conn.add_method("read_app_crontab", "app_name", "secret")
     @conn.add_method("upload_app", "archived_file", "file_suffix", "email", "secret")
     @conn.add_method("update", "app_names", "secret")
     @conn.add_method("stop_app", "app_name", "secret")    
@@ -173,10 +172,6 @@ class AppControllerClient
 
   def get_stats()
     make_call(10, RETRY_ON_FAIL, "get_stats") { @conn.get_stats(@secret) }
-  end
-
-  def read_app_crontab(app_name)
-    make_call(10, RETRY_ON_FAIL, "read_app_crontab") { @conn.read_app_crontab(app_name, @secret) }
   end
 
   def upload_app(archived_file, file_suffix, email)
