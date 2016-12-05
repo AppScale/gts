@@ -984,103 +984,98 @@ class LogDownloader(AppDashboard):
 
 
 class CronConsolePage(AppDashboard):
-    TEMPLATE = "cron/console.html"
+  TEMPLATE = "cron/console.html"
 
-    def get(self):
-        is_cloud_admin = self.helper.is_user_cloud_admin()
-        if is_cloud_admin:
-            apps_user_is_admin_on = self.dstore.get_application_info().keys()
-        else:
-            apps_user_is_admin_on = self.helper.get_owned_apps()
+  def get(self):
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    if is_cloud_admin:
+      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+    else:
+      apps_user_is_admin_on = self.helper.get_owned_apps()
 
-        apps_with_cron_yaml = []
-        for app_id in apps_user_is_admin_on:
-          cron_info = self.helper.get_application_cron_info(app_id)
-          if cron_info.get("etc_crond_file", {}):
-            apps_with_cron_yaml.append(app_id)
+    apps_with_cron_yaml = []
+    for app_id in apps_user_is_admin_on:
+      cron_info = self.helper.get_application_cron_info(app_id)
+      if cron_info.get("etc_crond_file", {}):
+        apps_with_cron_yaml.append(app_id)
 
-        self.render_app_page(page='cron', values={
-            'apps_with_cron_yaml': apps_with_cron_yaml,
-            'page_content': self.TEMPLATE
-        })
+    self.render_app_page(page='cron', values={
+      'apps_with_cron_yaml': apps_with_cron_yaml,
+      'page_content': self.TEMPLATE
+    })
 
 
 class CronViewPage(AppDashboard):
-    PATH = "/cron/view"
-    TEMPLATE = "cron/viewer.html"
-    CROND_TEMPLATE = "/etc/cron.d/appscale-{app_id}"
-    CRON_YAML_PATH = "/var/apps/{0}/app/cron.yaml"
+  PATH = "/cron/view"
+  TEMPLATE = "cron/viewer.html"
+  CROND_TEMPLATE = "/etc/cron.d/appscale-{app_id}"
+  CRON_YAML_PATH = "/var/apps/{0}/app/cron.yaml"
 
-    def get(self):
-        app_id = self.request.get("appid")
+  def get(self):
+    app_id = self.request.get("appid")
+    mail_to = []
+    cron_jobs = []
+    warnings = []
+    cron_info = self.helper.get_application_cron_info(app_id)
 
-        mail_to = []
-        cron_jobs = []
-        warnings = []
+    yaml_file = cron_info.get("cron_yaml_file", [])
+    etc_crond_file = cron_info.get("etc_crond_file", "")
+    try:
+      crond_file = crontab.CronTab(tab=etc_crond_file, user=False)
+    except IOError as ioe:
+      logging.error(ioe)
+    else:
+      crond_records = defaultdict(list)
+      yaml_records = {}
+      for yaml_entry in yaml_file["cron"]:
+        url = yaml_entry["url"]
+        yaml_records[url] = yaml_entry
+        for crond_entry in crond_file:
+          if url in crond_entry.command:
+            crond_records[url].append(crond_entry)
+            logging.info(crond_entry)
 
-        cron_info = self.helper.get_application_cron_info(app_id)
+      if len(yaml_records) != len(crond_records):
+        warnings.append(
+          "One of the cron jobs from cron.yaml is missing in crond file for appid {0}."
+          "Look at controller logs for more information at /var/log/appscale/".format(app_id)
+        )
+        logging.info(warnings)
 
-        yaml_file = cron_info.get("cron_yaml_file", [])
-        etc_crond_file = cron_info.get("etc_crond_file", "")
-        try:
-            crond_file = crontab.CronTab(tab=etc_crond_file, user=False)
-        except IOError as ioe:
-            logging.error(ioe)
-        else:
-            logging.info("TEST")
-            crond_records = defaultdict(list)
-            yaml_records = {}
-            for yaml_entry in yaml_file["cron"]:
-                url = yaml_entry["url"]
-                yaml_records[url] = yaml_entry
-                for crond_entry in crond_file:
-                    if url in crond_entry.command:
-                        crond_records[url].append(crond_entry)
-                        logging.info(crond_entry)
+      for url, entries in crond_records.iteritems():
+        yaml_record = yaml_records.get(url, {})
+        query_params = {"url": url, "appid": app_id}
+        url_command = "/cron/run?" + urllib.urlencode(query_params)
+        cron_jobs.append(
+          {"url": url,
+           "frequency": yaml_record.get("schedule", ""),
+           "frequency_cron_format": ", ".join(str(e.slices) for e in entries),
+           "description": yaml_record.get("description", ""),
+           "url_command": url_command})
+      logging.info(cron_jobs)
 
-            if len(yaml_records) != len(crond_records):
-                warnings.append(
-                    "One of the cron jobs from cron.yaml is missing in crond file for appid {0}."
-                    "Look at controller logs for more information at /var/log/appscale/".format(app_id)
-                )
-                logging.info(warnings)
-
-            for url, entries in crond_records.iteritems():
-                yaml_record = yaml_records.get(url, {})
-                query_params = {"url": url, "appid": app_id}
-                url_command = "/cron/run?" + urllib.urlencode(query_params)
-                cron_jobs.append(
-                    {"url": url,
-                     "frequency": yaml_record.get("schedule", ""),
-                     "frequency_cron_format": ", ".join(str(e.slices) for e in entries),
-                     "description": yaml_record.get("description", ""),
-                     "url_command": url_command}
-                )
-
-        logging.info(cron_jobs)
-
-        self.render_app_page(page='cron', values={
-            'mail_to': mail_to,
-            'cron_jobs': cron_jobs,
-            'warnings': warnings,
-            'page_content': self.TEMPLATE
-        })
+      self.render_app_page(page='cron', values={
+        'mail_to': mail_to,
+        'cron_jobs': cron_jobs,
+        'warnings': warnings,
+        'page_content': self.TEMPLATE
+      })
 
 
 class CronRun(AppDashboard):
-    def get(self):
-        """ Instructs the AppController to collect logs across all machines, place
-        it in this app's static file directory, and renders a page that will wait
-        for the logs to become available before downloading it.
-        """
-        api_url = urllib.unquote(self.request.get("url"))
-        app_id = urllib.unquote(self.request.get("appid"))
-        if not api_url or not app_id:
-            return
+  def get(self):
+    """ Instructs the AppController to collect logs across all machines, place
+    it in this app's static file directory, and renders a page that will wait
+    for the logs to become available before downloading it.
+    """
+    api_url = urllib.unquote(self.request.get("url"))
+    app_id = urllib.unquote(self.request.get("appid"))
+    if not api_url or not app_id:
+      return
 
-        app_url = self.dstore.get_application_info()[app_id][1]
-        response = urllib.urlopen(app_url + api_url)
-        self.redirect("/cron/view?" + urllib.urlencode({"appid": app_id}), response)
+    app_url = self.dstore.get_application_info()[app_id][1]
+    response = urllib.urlopen(app_url + api_url)
+    self.redirect("/cron/view?" + urllib.urlencode({"appid": app_id}), response)
 
 
 class AppConsolePage(AppDashboard):
