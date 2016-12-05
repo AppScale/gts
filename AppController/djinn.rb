@@ -971,13 +971,14 @@ class Djinn
     TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
   end
 
-  # Validates and sets the instance variables that Djinn needs before it can
-  # begin configuring and deploying services on a given node (and if it is the
-  # first Djinn, starting up the other Djinns).
+  # This is the method needed to get the current layout and options for
+  # this deployment. The first AppController to receive this call is the
+  # shadow node. It will then forward these information to all other
+  # nodes.
   #
   # Args:
-  #   layout: this is a JSON structure containing the nodes
-  #     informations (IPs, roles, instance ID etc...). These are the nodes
+  #   layout: this is a JSON structure containing the node
+  #     information (IPs, roles, instance ID etc...). These are the nodes
   #     specified in the AppScalefile at startup time.
   #   options: this is a Hash containing all the options and credentials
   #     (for autoscaling) pertinent to this deployment.
