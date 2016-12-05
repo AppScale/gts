@@ -12,14 +12,13 @@ import urllib
 from socket import error as socket_error
 
 import hermes_constants
+
+from appscale.datastore.backup import backup_recovery_helper as BR
+from appscale.datastore.backup.br_constants import StorageTypes
 from custom_hermes_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../AppDB/backup/"))
-from backup_recovery_constants import StorageTypes
-import backup_recovery_helper as BR
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -36,6 +35,7 @@ TASK_STATUS_LOCK = threading.Lock()
 
 # A list of tasks that we report status for.
 REPORT_TASKS = ['backup', 'restore']
+
 
 class JSONTags(object):
   """ A class containing all JSON tags used for Hermes functionality. """
@@ -54,6 +54,7 @@ class JSONTags(object):
   TYPE = 'type'
   UNREACHABLE = 'unreachable'
 
+
 class NodeInfoTags(object):
   """ A class containing all the dict keys for node information on this
   AppScale deployment.
@@ -62,6 +63,7 @@ class NodeInfoTags(object):
   INDEX = 'index'
   NUM_NODES = 'num_nodes'
   ROLE = 'role'
+
 
 def create_request(url=None, method=None, body=None):
   """ Creates a tornado.httpclient.HTTPRequest with the given parameters.
@@ -79,6 +81,7 @@ def create_request(url=None, method=None, body=None):
     raise MissingRequestArgs
   return tornado.httpclient.HTTPRequest(url=url, method=method, body=body,
     validate_cert=False, request_timeout=hermes_constants.REQUEST_TIMEOUT)
+
 
 def urlfetch(request):
   """ Uses a Tornado HTTP client to perform HTTP requests.
@@ -105,6 +108,7 @@ def urlfetch(request):
 
   http_client.close()
   return result
+
 
 def urlfetch_async(request, callback=None):
   """ Uses a Tornado Async HTTP client to perform HTTP requests.
@@ -133,6 +137,7 @@ def urlfetch_async(request, callback=None):
   http_client.close()
   return result
 
+
 def get_br_service_url(node):
   """ Constructs the br_service url.
 
@@ -143,6 +148,7 @@ def get_br_service_url(node):
   """
   return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
     hermes_constants.BR_SERVICE_PATH)
+
 
 def get_deployment_id():
   """ Retrieves the deployment ID for this AppScale deployment.
@@ -159,6 +165,7 @@ def get_deployment_id():
     logging.exception("AppControllerException while querying for deployment "
       "ID.")
     return None
+
 
 def get_node_info():
   """ Creates a list of JSON objects that contain node information and are
@@ -199,6 +206,7 @@ def get_node_info():
 
   return nodes
 
+
 def create_br_json_data(role, type, bucket_name, index, storage):
   """ Creates a JSON object with the given parameters in the format that is
   supported by the backup_recovery_service.
@@ -223,15 +231,12 @@ def create_br_json_data(role, type, bucket_name, index, storage):
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
     data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
       hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
-  elif role == 'zk':
-    data[JSONTags.TYPE] = 'zookeeper_{0}'.format(type)
-    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-      hermes_constants.ZK_OBJECT_NAME.format(index))
   else:
     return None
 
   data[JSONTags.STORAGE] = storage
   return json.dumps(data)
+
 
 def delete_task_from_mem(task_id):
   """ Deletes a task and its status from memory.
@@ -244,6 +249,7 @@ def delete_task_from_mem(task_id):
   if task_id in TASK_STATUS.keys():
     del TASK_STATUS[task_id]
   TASK_STATUS_LOCK.release()
+
 
 def get_all_stats():
   """ Collects platform stats from all deployment nodes.
@@ -276,6 +282,7 @@ def get_all_stats():
       all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
 
   return all_stats
+
 
 def report_status(task, task_id, status):
   """ Sends a status report for the given task to the AppScale Portal.
@@ -310,6 +317,7 @@ def report_status(task, task_id, status):
     # rollback for failed tasks.
     delete_task_from_mem(task_id)
 
+
 def send_remote_request(request, result_queue):
   """ Sends out a task request to the appropriate host and stores the
   response in the designated queue.
@@ -320,6 +328,7 @@ def send_remote_request(request, result_queue):
   """
   logging.debug('Sending remote request: {0}'.format(request.body))
   result_queue.put(urlfetch(request))
+
 
 def backup_apps(storage, bucket):
   """ Triggers a backup of the source code of deployed apps.
@@ -335,6 +344,7 @@ def backup_apps(storage, bucket):
   if storage == StorageTypes.GCS:
     full_bucket_name = 'gs://{0}'.format(bucket)
   return BR.app_backup(storage, full_bucket_name=full_bucket_name)
+
 
 def restore_apps(storage, bucket):
   """ Triggers a restore of apps for the current deployment. Retrieves the

@@ -1,0 +1,22 @@
+<!-- FILE:templates/apps/database.html -->
+<div class="row-fluid">
+  <div class="box gradient">
+    {% set app_page_title="Database Information" %}
+    <div class="content">
+      <div id="database_info">
+        <h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
+        <!-- DB Hook -->
+        <ul class="unstyled">
+          <li id="db-img"><span class="icon16 icomoon-icon-arrow-right-2"></span><strong>Powered by
+            {% if dbinfo['table'] == 'cassandra' %}
+            <img id="Cassandra" src="/images/cassandra.jpg" alt="Cassandra"/>
+            {% endif %}
+          </strong></li>
+          <br />
+          <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- End .box -->
+</div>

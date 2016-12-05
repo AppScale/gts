@@ -95,8 +95,8 @@ case "$DIST" in
         "Wheezy due to the lack of official support for OpenJDK 8 in the "\
         "distro. Since a Java 8 runtime is needed for Cassandra, please "\
         "install one manually and change the JAVA path defined in "\
-        "AppDB/cassandra_env/templates/cassandra-env.sh before starting "\
-        "AppScale."
+        "AppDB/appscale/datastore/cassandra_env/templates/cassandra-env.sh "\
+        "before starting AppScale."
         read -p "Press [Enter] to continue build."
         ;;
 esac

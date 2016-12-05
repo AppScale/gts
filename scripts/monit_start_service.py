@@ -5,12 +5,11 @@ import os
 import subprocess
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-from cassandra_env import cassandra_interface
+from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.zkappscale import zktransaction as zk
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import APPSCALE_HOME
-from zkappscale import zktransaction as zk
 import monit_app_configuration
 import monit_interface
 
@@ -22,7 +21,7 @@ CASSANDRA_EXECUTABLE = cassandra_interface.CASSANDRA_INSTALL_DIR \
 
 # The location on the local file system where we write the process ID
 # that Cassandra runs on.
-PID_FILE = "/var/appscale/appscale-cassandra.pid"
+PID_FILE = "/tmp/appscale-cassandra.pid"
 
 # The default port to connect to Cassandra.
 CASSANDRA_PORT = 9999
@@ -35,7 +34,8 @@ def start_service(service_name):
   logging.info("Starting " + service_name)
   watch_name = ""
   if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
-    start_cmd = CASSANDRA_EXECUTABLE + " start -p " + PID_FILE
+    cassandra_cmd = CASSANDRA_EXECUTABLE + " -p " + PID_FILE
+    start_cmd = 'su -c "{0}" cassandra'.format(cassandra_cmd)
     stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
     watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
     ports = [CASSANDRA_PORT]
