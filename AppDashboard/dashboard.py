@@ -987,6 +987,8 @@ class CronConsolePage(AppDashboard):
   TEMPLATE = "cron/console.html"
 
   def get(self):
+    """ Shows deployed user applications that contain cron.yaml
+    """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if is_cloud_admin:
       apps_user_is_admin_on = self.dstore.get_application_info().keys()
@@ -1006,12 +1008,11 @@ class CronConsolePage(AppDashboard):
 
 
 class CronViewPage(AppDashboard):
-  PATH = "/cron/view"
   TEMPLATE = "cron/viewer.html"
-  CROND_TEMPLATE = "/etc/cron.d/appscale-{app_id}"
-  CRON_YAML_PATH = "/var/apps/{0}/app/cron.yaml"
 
   def get(self):
+    """ Shows active cron entries for given appid
+    """
     app_id = self.request.get("appid")
     mail_to = []
     cron_jobs = []
@@ -1040,7 +1041,7 @@ class CronViewPage(AppDashboard):
           "One of the cron jobs from cron.yaml is missing in crond file for appid {0}."
           "Look at controller logs for more information at /var/log/appscale/".format(app_id)
         )
-        logging.info(warnings)
+        logging.warning(warnings)
 
       for url, entries in crond_records.iteritems():
         yaml_record = yaml_records.get(url, {})
@@ -1049,7 +1050,7 @@ class CronViewPage(AppDashboard):
         cron_jobs.append(
           {"url": url,
            "frequency": yaml_record.get("schedule", ""),
-           "frequency_cron_format": ", ".join(str(e.slices) for e in entries),
+           "frequency_cron_format": "\n".join(str(entry.slices) for entry in entries),
            "description": yaml_record.get("description", ""),
            "url_command": url_command})
       logging.info(cron_jobs)
@@ -1064,9 +1065,8 @@ class CronViewPage(AppDashboard):
 
 class CronRun(AppDashboard):
   def get(self):
-    """ Instructs the AppController to collect logs across all machines, place
-    it in this app's static file directory, and renders a page that will wait
-    for the logs to become available before downloading it.
+    """ Runs specific cron job according to url param and
+    redirects user back to previous page.
     """
     api_url = urllib.unquote(self.request.get("url"))
     app_id = urllib.unquote(self.request.get("appid"))

@@ -17,12 +17,14 @@
                     <th>Cron job</th>
                     <th>Description</th>
                     <th>Frequency</th>
+                    <th>Generated crontab entry</th>
                 </tr>
                 {% for cron_job in cron_jobs%}
                     <tr>
                         <td id="command" width="30%">{{cron_job['url']}}</td>
                         <td>{{cron_job['description']}}</td>
-                        <td>{{cron_job['frequency']}} | {{cron_job['frequency_cron_format']}}</td>
+                        <td>{{cron_job['frequency']}}</td>
+                        <td style="white-space:pre-wrap">{{cron_job['frequency_cron_format']}}</td>
                         <td><a class="btn btn-small" href="{{cron_job['url_command']}}">Run</a></td>
                     </tr>
                 {% endfor %}
