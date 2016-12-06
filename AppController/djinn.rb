@@ -998,12 +998,6 @@ class Djinn
 
     @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
 
-    begin
-      @options['zone'] = JSON.load(@options['zone'])
-    rescue JSON::ParserError
-      Djinn.log_info("Fail to parse 'zone': ignoring it.")
-    end
-
     Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
     Djinn.log_debug("set_parameters: set @options to #{@options}.")
