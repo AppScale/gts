@@ -1000,7 +1000,7 @@ class Djinn
       return msg
     end
     if opts.nil? || opts.empty?
-      Djinn.log_warn("Empty options: using defaults (autoscale is not enabled).")
+      Djinn.log_info("Empty options: using defaults.")
     elsif opts.class != Hash
       msg = "Error: options is not a Hash."
       Djinn.log_error(msg)
