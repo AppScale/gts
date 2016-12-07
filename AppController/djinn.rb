@@ -5372,8 +5372,6 @@ HOSTS
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
   def scale_appservers_within_nodes
-    return if @options['autoscale'].downcase != "true"
-
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
@@ -5478,6 +5476,10 @@ HOSTS
       @last_decision[app_name] = 0
       return :scale_up
     end
+
+    # We only run @options['appengine'] AppServers per application if
+    # austoscale is disabled.
+    return :no_change if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
