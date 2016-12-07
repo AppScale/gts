@@ -458,7 +458,6 @@ class Djinn
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
     'appengine' => [ Fixnum, '2' ],
     'autoscale' => [ TrueClass, 'True' ],
-    'clear_datastore' => [ TrueClass, 'False' ],
     'client_secrets' => [ String, nil ],
     'disks' => [ String, nil ],
     'ec2_access_key' => [ String, nil ],
@@ -5469,9 +5468,12 @@ HOSTS
   def get_scaling_info_for_app(app_name, update_dashboard=true)
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
-    if (@app_info_map[app_name]['appengine'].nil? ||
-        @app_info_map[app_name]['appengine'].length <
-        Integer(@options['appengine']))
+    if @app_info_map[app_name]['appengine'].nil?
+      num_appengines = 0
+    else
+      num_appengines = @app_info_map[app_name]['appengine'].length unless
+    end
+    if num_appengines < Integer(@options['appengine'])
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
       @last_decision[app_name] = 0
       return :scale_up
