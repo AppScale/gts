@@ -5469,7 +5469,7 @@ HOSTS
     if @app_info_map[app_name]['appengine'].nil?
       num_appengines = 0
     else
-      num_appengines = @app_info_map[app_name]['appengine'].length unless
+      num_appengines = @app_info_map[app_name]['appengine'].length
     end
     if num_appengines < Integer(@options['appengine'])
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
