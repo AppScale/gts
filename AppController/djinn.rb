@@ -3590,7 +3590,7 @@ class Djinn
         if my_node.is_zookeeper?
           configure_zookeeper(@nodes, @my_index)
           begin
-            start_zookeeper(@options['clear_datastore'].downcase == "true")
+            start_zookeeper(false)
           rescue FailedZooKeeperOperationException
             @state = "Couldn't start Zookeeper."
             HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
@@ -3616,15 +3616,14 @@ class Djinn
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
-        clear_datastore = @options['clear_datastore'].downcase == "true"
         db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
         needed_nodes = needed_for_quorum(db_nodes,
                                          Integer(@options['replication']))
         if my_node.is_db_master?
-          start_db_master(clear_datastore, needed_nodes, db_nodes)
+          start_db_master(false, needed_nodes, db_nodes)
           prime_database
         else
-          start_db_slave(clear_datastore, needed_nodes, db_nodes)
+          start_db_slave(false, needed_nodes, db_nodes)
         end
       }
     end
@@ -3807,13 +3806,12 @@ class Djinn
   end
 
   def start_search_role()
-    Search.start_master(@options['clear_datastore'].downcase == "true")
+    Search.start_master(false)
   end
 
   def start_taskqueue_master()
-    clear_datastore = @options['clear_datastore'].downcase == "true"
     verbose = @options['verbose'].downcase == "true"
-    TaskQueue.start_master(clear_datastore, verbose)
+    TaskQueue.start_master(false, verbose)
     return true
   end
 
@@ -3825,9 +3823,8 @@ class Djinn
       master_ip = node.private_ip if node.is_taskqueue_master?
     }
 
-    clear_datastore = @options['clear_datastore'].downcase == "true"
     verbose = @options['verbose'].downcase == "true"
-    TaskQueue.start_slave(master_ip, clear_datastore, verbose)
+    TaskQueue.start_slave(master_ip, false, verbose)
     return true
   end
 
