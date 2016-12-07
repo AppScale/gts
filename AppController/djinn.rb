@@ -269,6 +269,9 @@ class Djinn
   # files are written to.
   APPSCALE_CONFIG_DIR = "/etc/appscale"
 
+  # The location on the local filesystem where AppScale metadata is stored
+  APPSCALE_METADATA_DIR = "/root/.appscale"
+
 
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
@@ -994,12 +997,6 @@ class Djinn
     end
 
     @@log.level = Logger::DEBUG if @options['verbose'].downcase == "true"
-
-    begin
-      @options['zone'] = JSON.load(@options['zone'])
-    rescue JSON::ParserError
-      Djinn.log_info("Fail to parse 'zone': ignoring it.")
-    end
 
     Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
@@ -4032,6 +4029,16 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
+    if dest_node.is_appengine?
+      locations_json = "#{APPSCALE_METADATA_DIR}/locations-#{@options['keyname']}.json"
+      loop {
+        break if File.exists?(locations_json)
+        Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
+        Kernel.sleep(SMALL_WAIT)
+      }
+      Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
+      HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
+    end
 
     # Run a build on modified directories so that changes will take effect.
     get_status = 'git -C appscale status'
@@ -4501,6 +4508,7 @@ HOSTS
     Djinn.log_debug("Configuring AppController monit.")
     env = {
       'HOME' => '/root',
+      'PATH' => '$PATH:/usr/local/bin',
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
