@@ -3079,22 +3079,13 @@ class Djinn
         end
       }
 
-      # We don't deal yet with the change of private IP.
+      # Check to see if our IP address has changed. If so, we need to update all
+      # of our internal state to use the new public and private IP anywhere the
+      # old ones were present.
       unless HelperFunctions.get_all_local_ips().include?(@my_private_ip)
-        all_local_ips = HelperFunctions.get_all_local_ips()
-        Djinn.log_info("IP detected #{all_local_ips}.")
-        HelperFunctions.log_and_crash("Detected unsupported change of private IP.")
-      end
-      if ["ec2", "euca", "gce"].include?(@options['infrastructure'])
-        new_public_ip = HelperFunctions.get_public_ip_from_metadata_service()
-        unless new_public_ip == @my_public_ip
-          Djinn.log_info("Public IP changed from #{new_public_ip} to #{@my_public_ip}.")
-          @options['login'] = new_public_ip if @options['login'] == @my_public_ip
-          @my_public_ip = new_public_ip
-
-          # Update info in zookeeper.
-          write_our_node_info
-        end
+        Djinn.log_info("IP changed old private:#{@my_private_ip} public:#{@my_public_ip}.")
+        update_state_with_new_local_ip()
+        Djinn.log_info("IP changed new private:#{@my_private_ip} public:#{@my_public_ip}.")
       end
       Djinn.log_debug("app_info_map after restore is #{@app_info_map}.")
     }
@@ -3107,6 +3098,79 @@ class Djinn
     enforce_options unless old_options == @options
 
     return true
+  end
+
+
+  # Updates all instance variables stored within the AppController with the new
+  # public and private IP addreses of this machine.
+  #
+  # The issue here is that an AppController may back up state when running, but
+  # when it is restored, its IP address changes (e.g., when taking AppScale down
+  # then starting it up on new machines in a cloud deploy). This method searches
+  # through internal AppController state to update any place where the old
+  # public and private IP addresses were used, replacing them with the new one.
+  def update_state_with_new_local_ip()
+    # First, find out this machine's private IP address. If multiple eth devices
+    # are present, use the same one we used last time.
+    all_local_ips = HelperFunctions.get_all_local_ips()
+    if all_local_ips.length < 1
+      Djinn.log_and_crash("Couldn't detect any IP address on this machine!")
+    end
+    new_private_ip = all_local_ips[0]
+
+    # Next, find out this machine's public IP address. In a cloud deployment, we
+    # have to rely on the metadata server, while in a cluster deployment, it's
+    # the same as the private IP.
+    if ["ec2", "euca", "gce"].include?(@options['infrastructure'])
+      new_public_ip = HelperFunctions.get_public_ip_from_metadata_service()
+    else
+      new_public_ip = new_private_ip
+    end
+
+    # Finally, replace anywhere that the old public or private IP addresses were
+    # used with the new one.
+    old_public_ip = @my_public_ip
+    old_private_ip = @my_private_ip
+
+    @nodes.each { |node|
+      if node.public_ip == old_public_ip
+        node.public_ip = new_public_ip
+      end
+
+      if node.private_ip == old_private_ip
+        node.private_ip = new_private_ip
+      end
+    }
+
+    if @options['login'] == old_public_ip
+      @options['login'] = new_public_ip
+    end
+
+    @app_info_map.each { |_app_id, app_info|
+      if app_info['appengine'].nil?
+        next
+      end
+
+      changed = false
+      new_app_info = []
+      app_info['appengine'].each { |location|
+        host, port = location.split(":")
+        if host == old_private_ip
+          host = new_private_ip
+          changed = true
+        end
+        new_app_info << "#{host}:#{port}"
+
+        if changed
+          app_info['appengine'] = new_app_info
+        end
+      }
+    }
+
+    @all_stats = []
+
+    @my_public_ip = new_public_ip
+    @my_private_ip = new_private_ip
   end
 
 
