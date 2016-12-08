@@ -475,20 +475,17 @@ module HelperFunctions
   #   An Array of Strings, each of which is an IP address bound to
   #     this virtual machine.
   def self.get_all_local_ips(remove_lo=true)
-    ifconfig = HelperFunctions.shell("ifconfig")
-    Djinn.log_debug("ifconfig returned the following: [#{ifconfig}]")
-
-    # Normally we would scan for 'inet addr:', but in non-English locales,
-    # 'addr' gets translated to the native language, which messes up that
-    # regex.
-    bound_addrs = ifconfig.scan(/inet .*?:(\d+.\d+.\d+.\d+) /).flatten
-
-    Djinn.log_debug("ifconfig reports bound IP addresses as " +
-      "[#{bound_addrs.join(', ')}]")
-    if remove_lo
-      bound_addrs.delete(LOCALHOST_IP)
-    end
-    return bound_addrs
+    addresses = []
+    Socket.ip_address_list { |addr|
+      if addr.afamily != Socket::AF_INET
+        Djinn.log_debug("Discarding non IPV4 address #{addr.ip_address}.")
+        next
+      end
+      addresses << addr.ip_address
+    }
+    addresses.delete(LOCALHOST_IP) if remove_lo
+    Djinn.log_debug("Found these IPV4 address #{addresses}.")
+    return addresses
   end
 
   
