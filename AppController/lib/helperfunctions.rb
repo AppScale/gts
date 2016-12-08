@@ -476,7 +476,7 @@ module HelperFunctions
   #     this virtual machine.
   def self.get_all_local_ips(remove_lo=true)
     addresses = []
-    Socket.ip_address_list { |addr|
+    Socket.ip_address_list.each { |addr|
       if addr.afamily != Socket::AF_INET
         Djinn.log_debug("Discarding non IPV4 address #{addr.ip_address}.")
         next
