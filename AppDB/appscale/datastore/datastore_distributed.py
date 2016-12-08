@@ -4,6 +4,7 @@ import logging
 import md5
 import random
 import sys
+import threading
 import time
 import uuid
 
@@ -3235,6 +3236,41 @@ class DatastoreDistributed():
     """
     return self.zookeeper.get_transaction_id(app_id, is_xg)
 
+  def enqueue_transactional_tasks(self, app, task_ops):
+    """ Send a BulkAdd request to the taskqueue service.
+
+    Args:
+      app: A string specifying an application ID.
+      task_ops: A list of results containing tasks to enqueue.
+    """
+    if app not in self.taskqueue_stubs:
+      # The host and port are used only for generating URLs, which have already
+      # been generated for the tasks.
+      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '', '')
+
+    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
+    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
+    for row in task_ops:
+      request_pb = row.values()[0][TRANSACTIONS_SCHEMA[1]]
+      request = taskqueue_service_pb.TaskQueueAddRequest(request_pb)
+      bulk_request.add_add_request().CopyFrom(request)
+
+    self.logger.debug(
+      'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
+    self.taskqueue_stubs[app]._RemoteSend(
+      bulk_request, bulk_response, 'BulkAdd')
+
+    # The transaction has already been committed, but enqueuing the tasks may
+    # fail. We need a way to enqueue the task with the condition that it
+    # executes only upon successful commit. For now, we just log the error.
+    if bulk_response.taskresult_size() != bulk_request.add_request_size():
+      self.logger.error('Unexpected number of task results: {} != {}'.format(
+        bulk_response.taskresult_size(), bulk_request.add_request_size()))
+
+    for task_result in bulk_response.taskresult_list():
+      if task_result.result() != taskqueue_service_pb.TaskQueueServiceError.OK:
+        self.logger.error(task_result)
+
   def apply_txn_changes(self, app, txn):
     """ Apply all operations in transaction table in a single batch.
 
@@ -3318,35 +3354,9 @@ class DatastoreDistributed():
     self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
 
     # Process transactional tasks.
-    if not task_ops:
-      return
-
-    if app not in self.taskqueue_stubs:
-      # The host and port are used only for generating URLs.
-      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '', '')
-
-    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
-    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    for row in task_ops:
-      request_pb = row.values()[0][TRANSACTIONS_SCHEMA[1]]
-      request = taskqueue_service_pb.TaskQueueAddRequest(request_pb)
-      bulk_request.add_add_request().CopyFrom(request)
-
-    self.logger.debug(
-      'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
-    self.taskqueue_stubs[app]._RemoteSend(
-      bulk_request, bulk_response, 'BulkAdd')
-
-    # The transaction has already been committed, but enqueuing the tasks may
-    # fail. We need a way to enqueue the task with the condition that it
-    # executes only upon successful commit. For now, we just log the error.
-    if bulk_response.taskresult_size() != bulk_request.add_request_size():
-      self.logger.error('Unexpected number of task results: {} != {}'.format(
-        bulk_response.taskresult_size(), bulk_request.add_request_size()))
-
-    for task_result in bulk_response.taskresult_list():
-      if task_result.result() != taskqueue_service_pb.TaskQueueServiceError.OK:
-        self.logger.error(task_result)
+    if task_ops:
+      threading.Thread(target=self.enqueue_transactional_tasks,
+                       args=(app, task_ops)).start()
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
