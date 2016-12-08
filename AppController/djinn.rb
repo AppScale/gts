@@ -3553,6 +3553,12 @@ class Djinn
       end
     }
 
+    if my_node.is_shadow?
+      pick_zookeeper(@zookeeper_data)
+      set_custom_config
+      start_log_server
+    end
+
     if my_node.is_db_master? or my_node.is_db_slave?
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
@@ -3853,6 +3859,29 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(my_node.private_ip, DatastoreServer::PROXY_PORT)
   end
 
+  # Starts the Log Server service on this machine
+  def start_log_server
+    log_server_pid = "#{APPSCALE_HOME}/LogService/logserver.pid"
+    start_cmd = "twistd --pidfile=#{log_server_pid} appscale-logserver"
+    stop_cmd = "/bin/bash -c '$(which kill) $(cat #{log_server_pid}'"
+    port = 7422
+    env = {
+        'APPSCALE_HOME' => APPSCALE_HOME,
+        'PYTHONPATH' => "#{APPSCALE_HOME}/LogService/"
+    }
+
+    MonitInterface.start(:log_service, start_cmd, stop_cmd, [port], env,
+                         start_cmd, nil, "#{log_server_pid}", nil)
+    Djinn.log_info("Started Log Server successfully!")
+  end
+
+
+  def stop_log_server
+    Djinn.log_info("Stopping Log Server")
+    MonitInterface.stop(:log_service)
+  end
+
+
   # Stops the Backup/Recovery service.
   def stop_backup_service()
     BackupRecoveryService.stop()
@@ -4085,6 +4114,7 @@ class Djinn
     server = "#{APPSCALE_HOME}/AppServer"
     server_java = "#{APPSCALE_HOME}/AppServer_Java"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
+    log_service = "#{APPSCALE_HOME}/LogService"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -4101,6 +4131,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
+    HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
   end
 
   def setup_config_files()
