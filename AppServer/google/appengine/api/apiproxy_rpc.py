@@ -27,7 +27,7 @@
 
 
 
-
+import os
 import sys
 import threading
 
@@ -177,9 +177,15 @@ class RealRPC(RPC):
 
   def _MakeCallImpl(self):
     """ Starts the thread which calls upon the service RPC."""
+    extra_args = {}
+    if self.package == 'urlfetch' or self.call == 'fetch':
+      os_environ = os.environ.copy()
+      extra_args = {'environ': os_environ}
+
     self._thread = threading.Thread(target=self.stub.MakeSyncCall,
                                     args=(self.package, self.call,
-                                    self.request, self.response))
+                                    self.request, self.response,),
+                                    kwargs=extra_args)
     self._thread.start()
     self._state = RPC.RUNNING
 

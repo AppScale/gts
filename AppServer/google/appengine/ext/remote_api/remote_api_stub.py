@@ -92,7 +92,7 @@ else:
   from google.appengine.runtime import apiproxy_errors
 
 from google.appengine.tools import appengine_rpc
-
+from google.appengine.api.urlfetch_stub import URLFetchServiceStub
 
 _REQUEST_ID_HEADER = 'HTTP_X_APPENGINE_REQUEST_ID'
 
@@ -596,6 +596,10 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
     services.remove('datastore_v3')
     datastore_stub = RemoteDatastoreStub(server, path)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
+  if 'urlfetch' in services:
+    services.remove('urlfetch')
+    stub = URLFetchServiceStub()
+    apiproxy_stub_map.apiproxy.RegisterStub('urlfetch', stub)
   stub = RemoteStub(server, path)
   for service in services:
     apiproxy_stub_map.apiproxy.RegisterStub(service, stub)

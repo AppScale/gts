@@ -130,10 +130,9 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:get_all_local_ips).
       and_return(["127.0.0.1"])
 
-    flexmock(Djinn).new_instances { |instance|
-      instance.should_receive(:valid_secret?).and_return(true)
-    }
     djinn = Djinn.new
+    flexmock(djinn).should_receive(:valid_secret?).and_return(true)
+    flexmock(djinn).should_receive(:find_me_in_locations)
 
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
@@ -144,9 +143,11 @@ class TestDjinn < Test::Unit::TestCase
 
     # Try passing in params that aren't the required type
     result_1 = djinn.set_parameters([], [], @secret)
-    assert_equal(true, result_1.include?("Error: layout wasn't a String"))
+    assert_equal(true, result_1.include?("Error: options wasn't a String"))
 
-    result_2 = djinn.set_parameters("", "", @secret)
+    better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
+      '1.1.1.1', 'table' => 'cassandra'})
+    result_2 = djinn.set_parameters("", better_credentials,  @secret)
     assert_equal(true, result_2.include?("Error: layout is empty"))
 
     # Now try credentials with an even number of items, but not all the
@@ -170,12 +171,14 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'jobs' => ['some_role'],
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
 
-    udpsocket = flexmock(UDPSocket)
-    udpsocket.should_receive(:open).and_return("not any ips above")
+    djinn = Djinn.new
+    flexmock(djinn).should_receive(:find_me_in_locations).and_raise(Exception)
+    flexmock(djinn).should_receive(:enforce_options).and_return()
     assert_raises(Exception) {
       djinn.set_parameters(one_node_info, credentials, @secret)
     }
@@ -187,6 +190,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive("enforce_options").and_return()
     }
     djinn = Djinn.new
 
@@ -199,7 +203,8 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['some_role'],
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
 
@@ -1244,27 +1249,69 @@ class TestDjinn < Test::Unit::TestCase
   def test_get_property
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive("enforce_options").and_return()
     }
     djinn = Djinn.new()
 
+    # Let's populate the djinn first with some property.
+    credentials = JSON.dump({
+      'table' => 'cassandra',
+      'login' => 'public_ip',
+      'keyname' => 'appscale',
+      'verbose' => 'True'
+    })
+    one_node_info = JSON.dump([{
+      'public_ip' => 'public_ip',
+      'private_ip' => '1.2.3.4',
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
+      'instance_id' => 'instance_id'
+    }])
+    flexmock(Djinn).should_receive(:log_run).with(
+      "mkdir -p /opt/appscale/apps")
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4 ")
+    flexmock(djinn).should_receive("get_db_master").and_return
+    flexmock(djinn).should_receive("get_shadow").and_return
+    djinn.set_parameters(one_node_info, credentials, @secret)
+
     # First, make sure that using a regex that matches nothing returns an empty
-    # Hash.
+    # Hash, then test with a good property.
     empty_hash = JSON.dump({})
     assert_equal(empty_hash, djinn.get_property("not-a-variable-name", @secret))
-
-    # Next, we know that there's a variable called 'state'. Make sure that using
-    # it as the regex actually returns that variable (and only that).
-    djinn.state = "AppController is taking it easy today"
-    state_only = JSON.dump({'state' => djinn.state})
-    assert_equal(state_only, djinn.get_property('state', @secret))
+    expected_result = JSON.dump({'verbose' => 'True'})
+    assert_equal(expected_result, djinn.get_property('verbose', @secret))
   end
 
 
   def test_set_property
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
+      instance.should_receive("enforce_options").and_return()
     }
     djinn = Djinn.new()
+
+    # Let's populate the djinn first with some property.
+    credentials = JSON.dump({
+      'table' => 'cassandra',
+      'login' => 'public_ip',
+      'keyname' => 'appscale',
+      'verbose' => 'False'
+    })
+    one_node_info = JSON.dump([{
+      'public_ip' => 'public_ip',
+      'private_ip' => '1.2.3.4',
+      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+        'load_balancer', 'login', 'zookeeper', 'memcache'],
+      'instance_id' => 'instance_id'
+    }])
+    flexmock(Djinn).should_receive(:log_run).with(
+      "mkdir -p /opt/appscale/apps")
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4 ")
+    flexmock(djinn).should_receive("get_db_master").and_return
+    flexmock(djinn).should_receive("get_shadow").and_return
+    djinn.set_parameters(one_node_info, credentials, @secret)
 
     # Verify that setting a property that doesn't exist returns an error.
     assert_equal(Djinn::KEY_NOT_FOUND, djinn.set_property('not-a-real-key',
@@ -1272,12 +1319,9 @@ class TestDjinn < Test::Unit::TestCase
 
     # Verify that setting a property that we allow users to set
     # results in subsequent get calls seeing the correct value.
-    djinn.state = "AppController is taking it easy today"
-    new_state = "AppController is back to work"
-    assert_equal('OK', djinn.set_property('state', new_state, @secret))
-
-    state_only = JSON.dump({'state' => new_state})
-    assert_equal(state_only, djinn.get_property('state', @secret))
+    assert_equal('OK', djinn.set_property('verbose', 'True', @secret))
+    expected_result = JSON.dump({'verbose' => 'True'})
+    assert_equal(expected_result, djinn.get_property('verbose', @secret))
   end
 
 
