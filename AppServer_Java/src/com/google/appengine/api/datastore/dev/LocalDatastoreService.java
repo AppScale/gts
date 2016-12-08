@@ -786,47 +786,47 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             query.addCompositeIndex(compositeIndex);
         }
         String app = query.getApp();
-        Profile profile = getOrCreateProfile(app);
 
-        synchronized (profile)
+        DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
+        proxy.doPost(app, "RunQuery", query, queryResult);
+        int count;
+        if (query.hasCount())
         {
-            DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
-            proxy.doPost(app, "RunQuery", query, queryResult);
-            int count;
-            if (query.hasCount())
-            {
-                count = query.getCount();
-            }
-            else if (query.hasLimit())
-            {
-                count = query.getLimit();
-            }
-            else
-            {
-                count = DEFAULT_BATCH_SIZE;
-            }
+            count = query.getCount();
+        }
+        else if (query.hasLimit())
+        {
+            count = query.getLimit();
+        }
+        else
+        {
+            count = DEFAULT_BATCH_SIZE;
+        }
 
-            LiveQuery liveQuery = new LiveQuery(query, queryResult.resultSize(), queryResult.getCompiledCursor(), this.clock);
-            if (query.isCompile())
-            {
-                queryResult.setCompiledQuery(liveQuery.compileQuery());
-            }
-            if (queryResult.isMoreResults())
+        LiveQuery liveQuery = new LiveQuery(query, queryResult.resultSize(), queryResult.getCompiledCursor(), this.clock);
+        if (query.isCompile())
+        {
+            queryResult.setCompiledQuery(liveQuery.compileQuery());
+        }
+        if (queryResult.isMoreResults())
+        {
+            Profile profile = getOrCreateProfile(app);
+            synchronized (profile)
             {
                 long cursor = this.queryId.getAndIncrement();
                 profile.addQuery(cursor, liveQuery);
                 queryResult.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
             }
-
-            for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
-            {
-                queryResult.addIndex(wrapIndexInCompositeIndex(app, index));
-            } 
-            /*
-             * AppScale - adding skipped results to the result, otherwise query counts are wrong	
-             */	
-            return queryResult;
         }
+
+        for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
+        {
+            queryResult.addIndex(wrapIndexInCompositeIndex(app, index));
+        }
+        /*
+         * AppScale - adding skipped results to the result, otherwise query counts are wrong
+         */
+        return queryResult;
     }
 
     private static <T> T safeGetFromExpiringMap( Map<Long, T> map, long key, String errorMsg )
