@@ -1,0 +1,1 @@
+../../../../../LogService/logging.capnp
