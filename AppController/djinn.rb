@@ -4170,7 +4170,11 @@ class Djinn
     head_node_ip = get_public_ip(@options['hostname'])
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_ip", "#{head_node_ip}\n")
 
-    login_ip = get_login.public_ip
+    head_node_private_ip = get_shadow.private_ip
+    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_private_ip",
+                               "#{head_node_private_ip}\n")
+
+    login_ip = @options['login']
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_ip", "#{login_ip}\n")
 
     login_private_ip = get_login.private_ip
