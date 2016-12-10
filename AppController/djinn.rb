@@ -2126,11 +2126,9 @@ class Djinn
       check_stopped_apps()
 
       # Login nodes may need to check/update nginx/haproxy.
-      if my_node.is_load_balancer?
-        APPS_LOCK.synchronize {
-          regenerate_routing_config()
-        }
-      end
+      APPS_LOCK.synchronize {
+        regenerate_routing_config() if my_node.is_load_balancer?
+      }
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -2841,7 +2839,7 @@ class Djinn
         return INVALID_REQUEST
       end
 
-      Djinn.log_debug("Adding AppServer for app #{app_id} at #{ip}:#{port}.")
+      Djinn.log_debug("Add routing for app #{app_id} at #{ip}:#{port}.")
 
       # Find and remove an entry for this AppServer node and app.
       match = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
@@ -2928,12 +2926,6 @@ class Djinn
         @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
         HAProxy.update_app_config(my_node.private_ip, app_id,
           @app_info_map[app_id])
-
-        # If we are out of AppServers, we need to stop the cron job for
-        # the application.
-        if @app_info_map[app_id]['appengine'].nil?
-          CronHelper.clear_app_crontab(app_id)
-        end
       else
         Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
       end
@@ -4432,9 +4424,11 @@ HOSTS
       end
 
       unless running
+        # If no AppServer is running, we clear the routing and the crons.
         Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
         Nginx.remove_app(app)
         HAProxy.remove_app(app)
+        CronHelper.clear_app_crontab(app)
         next
       end
 
@@ -5762,9 +5756,6 @@ HOSTS
       Djinn.log_info("Waiting for port file for app #{app}.")
       return false
     end
-
-    # TODO: What happens if the user updates their env vars between app
-    # deploys?
 
     appengine_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
     if appengine_port < 0
