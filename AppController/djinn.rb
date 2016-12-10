@@ -5599,8 +5599,7 @@ HOSTS
       }
     }
 
-    # Now let's prefer hosts that are not already running a copy of this
-    # app. Otherwise we select the host with the lowest load.
+    # We prefer hosts that are not already running a copy of this app.
     if available_hosts.keys[0] != nil
       appserver_to_use = []
       appengine_running = []
@@ -5621,13 +5620,9 @@ HOSTS
         }
       end
 
-      # If we didn't find any unused host, we will pick the least loaded.
-      if appserver_to_use.empty?
-        appserver_to_use = available_hosts.keys[0]
-        available_hosts.each { |host, load|
-          appserver_to_use = host if available_hosts[appserver_to_use] > load
-        }
-      end
+      # If we haven't decided on a host yet, we pick one at random.
+      appserver_to_use = available_hosts.sample if appserver_to_use.empty?
+
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
       @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
