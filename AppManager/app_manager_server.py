@@ -140,13 +140,23 @@ def convert_config_from_json(config):
   else:
     return None
 
-def add_routing(app, port):
-  """ Tells the AppController to begin routing traffic to an AppServer.
+def add_routing(app, port, watch):
+  """ Tells the AppController to begin routing traffic to an AppServer
+  once the application port is open.
 
   Args:
     app: A string that contains the application ID.
     port: A string that contains the port that the AppServer listens on.
+    watch: A string that contains the process that monit watch.
   """
+  logging.info("Waiting for application {} on port {} to be active.".
+    format(app, port))
+  if not wait_on_app(port):
+    logging.error("Application server did not come up in time, "
+      "removing monit watch")
+    monit_interface.stop(watch, is_group=False)
+    return
+
   acc = appscale_info.get_appcontroller_client()
   appserver_ip = appscale_info.get_private_ip()
 
@@ -264,18 +274,18 @@ def start_app(config):
     syslog_server,
     appscale_info.get_private_ip())
 
-  if not monit_interface.start(watch):
-    logging.error("Unable to start application server with monit")
-    return BAD_PID
+  # We want to tell monit to start the single process instead of the
+  # group, since monit can get slow if there are quite a few processes in
+  # the same group.
+  full_watch = "{}-{}".format(str(watch), str(config['app_port']))
+  if not monit_interface.start(full_watch, is_group=False):
+    logging.warning("Monit may have not started {}:{}".
+      format(str(config['app_name']), config['app_port']))
 
-  if not wait_on_app(int(config['app_port'])):
-    logging.error("Application server did not come up in time, "
-      "removing monit watch")
-    monit_interface.stop(watch)
-    return BAD_PID
-
+  # Since we are going to wait, possibly for a long time for the
+  # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
-    args=(config['app_name'], config['app_port'])).start()
+    args=(config['app_name'], config['app_port']), full_watch).start()
 
   if 'log_size' in config.keys():
     log_size = config['log_size']
@@ -288,7 +298,6 @@ def start_app(config):
   if not setup_logrotate(config['app_name'], watch, log_size):
     logging.error("Error while setting up log rotation for application: {}".
       format(config['app_name']))
-
 
   return 0
 
