@@ -285,7 +285,7 @@ def start_app(config):
   # Since we are going to wait, possibly for a long time for the
   # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
-    args=(config['app_name'], config['app_port'], full_watch).start()
+    args=(config['app_name'], config['app_port'], full_watch)).start()
 
   if 'log_size' in config.keys():
     log_size = config['log_size']
