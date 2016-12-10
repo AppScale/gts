@@ -2851,6 +2851,7 @@ class Djinn
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
       @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+      @unaccounted_appengines.delete("#{ip}:#{port}")
 
 
       # Now that we have at least one AppServer running, we can start the
