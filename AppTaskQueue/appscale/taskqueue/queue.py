@@ -551,6 +551,42 @@ class PullQueue(Queue):
     logger.debug('Leased {} tasks'.format(len(leased)))
     return leased
 
+  def total_tasks(self):
+    """ Get the total number of tasks in the queue.
+
+    Returns:
+      An integer specifying the number of tasks in the queue.
+    """
+    select_count = """
+      SELECT COUNT(*) FROM pull_queue_tasks
+      WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
+      AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
+    """
+    parameters = {'app': self.app, 'queue': self.name,
+                  'next_queue': next_key(self.name)}
+    return self.db_access.session.execute(select_count, parameters)[0].count
+
+  def oldest_eta(self):
+    """ Get the ETA of the oldest task
+
+    Returns:
+      A datetime object specifying the oldest ETA or None if there are no
+      tasks.
+    """
+    session = self.db_access.session
+    select_oldest = """
+      SELECT eta FROM pull_queue_tasks_index
+      WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+      AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
+      LIMIT 1
+    """
+    parameters = {'app': self.app, 'queue': self.name,
+                  'next_queue': next_key(self.name)}
+    try:
+      return session.execute(select_oldest, parameters)[0].eta
+    except IndexError:
+      return None
+
   def purge(self):
     """ Remove all tasks from queue.
 
@@ -862,26 +898,11 @@ class PullQueue(Queue):
     stats = {}
 
     if 'totalTasks' in fields:
-      select_count = """
-        SELECT COUNT(*) FROM pull_queue_tasks
-        WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
-        AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
-      """
-      parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': next_key(self.name)}
-      stats['totalTasks'] = session.execute(select_count, parameters)[0].count
+      stats['totalTasks'] = self.total_tasks()
 
     if 'oldestTask' in fields:
-      select_oldest = """
-        SELECT eta FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
-        LIMIT 1
-      """
-      parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': next_key(self.name)}
-      oldest_eta = session.execute(select_oldest, parameters)[0].eta
       epoch = datetime.datetime.utcfromtimestamp(0)
+      oldest_eta = self.oldest_eta() or epoch
       stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
 
     if 'leasedLastMinute' in fields:
