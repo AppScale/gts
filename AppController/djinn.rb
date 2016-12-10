@@ -533,6 +533,7 @@ class Djinn
     @state = "AppController just started"
     @all_stats = []
     @last_updated = 0
+    @unaccounted_appengines = {}
     @state_change_lock = Monitor.new()
 
     @initialized_apps = {}
@@ -4948,9 +4949,6 @@ HOSTS
       return
     end
 
-    # Only the shadow runs the application cron jobs.
-    CronHelper.clear_app_crontabs() unless my_node.is_shadow?
-
     to_start = []
     no_appservers = []
     my_apps = []
@@ -4991,16 +4989,15 @@ HOSTS
       next if my_apps.include?(appengine)
 
       # If the app needs to be started, but we have an AppServer not
-      # accounted for, we don't take action (ie we wait for headnode
-      # state to settle).
+      # accounted for, we don't take action in case we haven't picked up
+      # yet the change of state from the headnode. We save it with a
+      # timestampt to ensure we don't wait forever on it.
       app, _ = appengine.split(":")
-      time_to_delete = true
-      if @last_decision[app]
-        if Time.now.to_i - @last_decision[app] < APP_UPLOAD_TIMEOUT * RETRIES
-          time_to_delete = false
-        end
+      if @unaccounted_appengines[appengine].nil?
+        @unaccounted_appengines[appengine] = Time.now.to_i
       end
-      if to_start.include?(app) and !time_to_delete
+      been_here = Time.now.to_i - @unaccounted_appengines[appengine]
+      if to_start.include?(app) && been_here < APP_UPLOAD_TIMEOUT * RETRIES
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
@@ -5060,7 +5057,9 @@ HOSTS
           Djinn.log_info("Done restarting #{app_name}.")
         }
 
-        # We then start or terminate AppServers as needed.
+        # We then start or terminate AppServers as needed. We do it one a
+        # time since it's lenghty proposition and we want to revisit the
+        # decision each time.
         if !no_appservers[0].nil?
           app = no_appservers[0]
           Djinn.log_info("Starting first AppServer for app: #{app}.")
@@ -5077,6 +5076,7 @@ HOSTS
           Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
           app, port = to_end[0].split(":")
           ret = remove_appserver_process(app, port)
+          @unaccounted_appengines.delete(to_end[0])
           Djinn.log_debug("remove_appserver_process returned: #{ret}.")
         end
       }
