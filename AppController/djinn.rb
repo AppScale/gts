@@ -2850,6 +2850,12 @@ class Djinn
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
       @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+
+
+      # Now that we have at least one AppServer running, we can start the
+      # cron job of the application.
+      CronHelper.update_cron(get_load_balancer.public_ip,
+        @app_info_map[app_id]['nginx'], @app_info_map[app_id]['language'], app_id)
     }
 
     return "OK"
@@ -2920,6 +2926,12 @@ class Djinn
         @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
         HAProxy.update_app_config(my_node.private_ip, app_id,
           @app_info_map[app_id])
+
+        # If we are out of AppServers, we need to stop the cron job for
+        # the application.
+        if @app_info_map[app_id]['appengine'].nil?
+          CronHelper.clear_app_crontab(app_id)
+        end
       else
         Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
       end
@@ -4946,14 +4958,6 @@ HOSTS
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
         next unless info['appengine']
-
-        # Update the cron job for the app on the shadow.
-        if my_node.is_shadow?
-          if !info['nginx'].nil? and !info['language'].nil?
-            CronHelper.update_cron(get_load_balancer.public_ip,
-              info['nginx'], info['language'], app)
-          end
-        end
 
         Djinn.log_debug("Checking #{app} with appengine #{info}.")
         info['appengine'].each { |location|
