@@ -216,6 +216,7 @@ def start_app(config):
   env_vars['GOPATH'] = '/root/appscale/AppServer/gopath/'
   env_vars['GOROOT'] = '/root/appscale/AppServer/goroot/'
   watch = "app___" + config['app_name']
+  match_cmd = ""
 
   if config['language'] == constants.PYTHON27 or \
       config['language'] == constants.GO or \
@@ -247,6 +248,9 @@ def start_app(config):
       config['load_balancer_ip'],
       max_heap
     )
+    match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port'],
+      os.path.dirname(locate_dir("/var/apps/" + config['app_name'] + "/app/",
+      "WEB-INF")
 
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env(config['app_name']))
@@ -271,7 +275,8 @@ def start_app(config):
     env_vars,
     config['max_memory'],
     syslog_server,
-    appscale_info.get_private_ip())
+    appscale_info.get_private_ip(),
+    match_cmd=match_cmd)
 
   # We want to tell monit to start the single process instead of the
   # group, since monit can get slow if there are quite a few processes in
@@ -742,7 +747,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     "--APP_NAME=" + app_name,
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--NGINX_PORT=anything",
-    os.path.dirname(locate_dir("/var/apps/" + app_name +"/app/", "WEB-INF"))
+    os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
   ]
 
   return ' '.join(cmd)
