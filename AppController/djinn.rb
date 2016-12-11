@@ -5631,10 +5631,10 @@ HOSTS
 
       # If we haven't decided on a host yet, we pick one at random.
       if appserver_to_use.empty?
-        appserver_to_use = available_hosts[available_hosts.keys.sample]
+        appserver_to_use = available_hosts.keys.sample
       end
 
-      Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}")
+      Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
       @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
     else
