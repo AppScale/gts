@@ -1856,7 +1856,7 @@ class Djinn
   # Tell all nodes to restart some applications.
   #
   # Args:
-  #   apps_to_restart: An Array containgin the app_id to restart.
+  #   apps_to_restart: An Array containing the app_id to restart.
   def notify_restart_app_to_nodes(apps_to_restart)
     return if apps_to_restart.empty?
 
@@ -1880,12 +1880,12 @@ class Djinn
 
 
   # Start a new, or update an old version of applications. This method
-  # assumes that the applications tarballs have already been uploaded.
+  # assumes that the application tarball(s) have already been uploaded.
   # Only the leader will update the application, so the message is
   # forwarded if arrived to the wrong node.
   #
   # Args:
-  #   appst: An Array containgin the app_id to start or update.
+  #   apps: An Array containing the app_id to start or update.
   #   secret: A String containing the deployment secret.
   def update(apps, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -4999,8 +4999,8 @@ HOSTS
 
       # If the app needs to be started, but we have an AppServer not
       # accounted for, we don't take action in case we haven't picked up
-      # yet the change of state from the headnode. We save it with a
-      # timestampt to ensure we don't wait forever on it.
+      # yet the change of state from the shadow. We save it with a
+      # timestamp to ensure we don't wait forever on it.
       app, _ = appengine.split(":")
       if @unaccounted_appengines[appengine].nil?
         @unaccounted_appengines[appengine] = Time.now.to_i
