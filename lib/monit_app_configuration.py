@@ -70,7 +70,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
     if syslog_server:
       template = file_io.read(TEMPLATE_LOCATION_SYSLOG)
       template = template.format(watch=watch, start=start_cmd, stop=stop_cmd,
-        port=port, env-env, syslog_server=syslog_server, match=match_cmd)
+        port=port, env=env, syslog_server=syslog_server, match=match_cmd)
     else:
         template = file_io.read(TEMPLATE_LOCATION)
         template = template.format(watch=watch, start=start_cmd, stop=stop_cmd,
