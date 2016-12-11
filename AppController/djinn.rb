@@ -711,26 +711,12 @@ class Djinn
         Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
         return
       end
+      notify_restart_app_to_nodes([appid])
 
-      @nodes.each { |node|
-        if node.private_ip != my_node.private_ip
-          HelperFunctions.scp_file(port_file, port_file, node.private_ip,
-            node.ssh_key)
-        end
-        next unless node.is_appengine?
-        app_manager = AppManagerClient.new(node.private_ip)
-        begin
-          app_manager.restart_app_instances_for_app(appid,
-            @app_info_map[appid]['language'])
-        rescue FailedNodeException
-          Djinn.log_warn("#{appid} may have not restarted on #{node.private_ip} upon relocate.")
-        end
-      }
+      # Once we've relocated the app, we need to tell the XMPPReceiver about the
+      # app's new location.
+      MonitInterface.restart("xmpp-#{appid}")
     }
-
-    # Once we've relocated the app, we need to tell the XMPPReceiver about the
-    # app's new location.
-    MonitInterface.restart("xmpp-#{appid}")
 
     return "OK"
   end
@@ -1866,6 +1852,41 @@ class Djinn
     end
   end
 
+
+  # Tell all nodes to restart some applications.
+  #
+  # Args:
+  #   apps_to_restart: An Array containgin the app_id to restart.
+  def notify_restart_app_to_nodes(apps_to_restart)
+    return if apps_to_restart.empty?
+
+    Djinn.log_info("Notify nodes to restart #{apps_to_restart}.")
+    @nodes.each_index { |index|
+      result = ""
+      ip = @nodes[index].private_ip
+      if my_node.private_ip == ip
+        result = set_apps_to_restart(apps_to_restart, @@secret)
+      else
+        acc = AppControllerClient.new(ip, @@secret)
+        begin
+          result = acc.set_apps_to_restart(apps_to_restart)
+        rescue FailedNodeException
+          Djinn.log_warn("Couldn't tell #{ip} to restart #{apps_to_restart}.")
+        end
+      end
+      Djinn.log_debug("Set apps to restart at #{ip} returned #{result}.")
+    }
+  end
+
+
+  # Start a new, or update an old version of applications. This method
+  # assumes that the applications tarballs have already been uploaded.
+  # Only the leader will update the application, so the message is
+  # forwarded if arrived to the wrong node.
+  #
+  # Args:
+  #   appst: An Array containgin the app_id to start or update.
+  #   secret: A String containing the deployment secret.
   def update(apps, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -1924,23 +1945,7 @@ class Djinn
             "working on app #{appid} with #{e.message}.")
         end
       }
-
-      @nodes.each_index { |index|
-        result = ""
-        ip = @nodes[index].private_ip
-        if my_node.private_ip == ip
-          result = set_apps_to_restart(apps_to_restart, @@secret)
-        else
-          acc = AppControllerClient.new(ip, @@secret)
-          begin
-            result = acc.set_apps_to_restart(apps_to_restart)
-          rescue FailedNodeException
-            Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
-              "apps - skipping for now.")
-          end
-        end
-        Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
-      }
+      notify_restart_app_to_nodes(apps_to_restart)
     end
 
     APPS_LOCK.synchronize {
@@ -4877,6 +4882,13 @@ HOSTS
   # they are not accounted for) will be terminated and, potentially old
   # sources, will be removed.
   def check_stopped_apps()
+    # The running AppServers on this node must match the login node view.
+    # Only one thread talking to the AppManagerServer at a time.
+    if AMS_LOCK.locked?
+      Djinn.log_debug("Another thread already working with AppManager.")
+      return
+    end
+
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     Djinn.log_debug("Checking applications that have been stopped.")
     app_list = HelperFunctions.get_loaded_apps()
@@ -4899,24 +4911,26 @@ HOSTS
       end
 
       if my_node.is_appengine?
-        Djinn.log_debug("Calling AppManager to stop app #{app}.")
-        app_manager = AppManagerClient.new(my_node.private_ip)
-        begin
-          if app_manager.stop_app(app)
-            Djinn.log_info("Asked AppManager to shut down app #{app}.")
-          else
-            Djinn.log_warn("AppManager is unable to stop app #{app}.")
+        AMS_LOCK.synchronize {
+          Djinn.log_debug("Calling AppManager to stop app #{app}.")
+          app_manager = AppManagerClient.new(my_node.private_ip)
+          begin
+            if app_manager.stop_app(app)
+              Djinn.log_info("Asked AppManager to shut down app #{app}.")
+            else
+              Djinn.log_warn("AppManager is unable to stop app #{app}.")
+            end
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to talk to AppManager about stopping #{app}.")
           end
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to talk to AppManager about stopping #{app}.")
-        end
 
-        begin
-          ZKInterface.remove_app_entry(app, my_node.public_ip)
-        rescue FailedZooKeeperOperationException => except
-          Djinn.log_warn("check_stopped_apps: got exception talking to " +
-            "zookeeper: #{except.message}.")
-        end
+          begin
+            ZKInterface.remove_app_entry(app, my_node.public_ip)
+          rescue FailedZooKeeperOperationException => except
+            Djinn.log_warn("check_stopped_apps: got exception talking to " +
+              "zookeeper: #{except.message}.")
+          end
+        }
       end
 
       if my_node.is_shadow?
@@ -4940,7 +4954,7 @@ HOSTS
     # The running AppServers on this node must match the login node view.
     # Only one thread talking to the AppManagerServer at a time.
     if AMS_LOCK.locked?
-      Djinn.log_debug("Another thread already working with appmanager.")
+      Djinn.log_debug("Another thread already working with AppManager.")
       return
     end
 

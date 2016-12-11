@@ -147,6 +147,15 @@ def add_routing(app, port):
     app: A string that contains the application ID.
     port: A string that contains the port that the AppServer listens on.
   """
+  logging.info("Waiting for application {} on port {} to be active.".
+    format(str(app), str(port))
+  if not wait_on_app(port):
+    # In case the AppServer fails we let the AppController to detect it
+    # and remove it if it still show in monit.
+    logging.warning("AppServer did not come up in time, for {}:{}.".
+      format(str(app), str(port)))
+    return
+
   acc = appscale_info.get_appcontroller_client()
   appserver_ip = appscale_info.get_private_ip()
 
@@ -266,25 +275,17 @@ def start_app(config):
 
   # We want to tell monit to start the single process instead of the
   # group, since monit can get slow if there are quite a few processes in
-  # the same group. We also don't fail: if the process is registered with
-  # Monit we'll handle it.
+  # the same group.
   full_watch = "{}-{}".format(str(watch), str(config['app_port']))
   if not monit_interface.start(full_watch, is_group=False):
-    logging.warning("Monit may have not started {}:{}".
+    logging.warning("Monit was unable to start {}:{}".
       format(str(config['app_name']), config['app_port']))
-
-  logging.info("Waiting for application {} on port {} to be active.".
-    format(str(config['app_name']), str(config['app_port'])))
-  if not wait_on_app(str(config['app_port'])):
-    logging.error("Application server did not come up in time, "
-      "removing monit watch")
-    monit_interface.stop(full_watch, is_group=False)
     return BAD_PID
 
   # Since we are going to wait, possibly for a long time for the
   # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
-    args=(config['app_name'], config['app_port'], full_watch)).start()
+    args=(config['app_name'], config['app_port'])).start()
 
   if 'log_size' in config.keys():
     log_size = config['log_size']
