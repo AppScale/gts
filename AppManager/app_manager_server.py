@@ -248,9 +248,9 @@ def start_app(config):
       config['load_balancer_ip'],
       max_heap
     )
-    match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port'],
+    match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port']),
       os.path.dirname(locate_dir("/var/apps/" + config['app_name'] + "/app/",
-      "WEB-INF")
+      "WEB-INF")))
 
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env(config['app_name']))
