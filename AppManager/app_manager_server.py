@@ -140,23 +140,13 @@ def convert_config_from_json(config):
   else:
     return None
 
-def add_routing(app, port, watch):
-  """ Tells the AppController to begin routing traffic to an AppServer
-  once the application port is open.
+def add_routing(app, port):
+  """ Tells the AppController to begin routing traffic to an AppServer.
 
   Args:
     app: A string that contains the application ID.
     port: A string that contains the port that the AppServer listens on.
-    watch: A string that contains the process that monit watch.
   """
-  logging.info("Waiting for application {} on port {} to be active.".
-    format(app, port))
-  if not wait_on_app(port):
-    logging.error("Application server did not come up in time, "
-      "removing monit watch")
-    monit_interface.stop(watch, is_group=False)
-    return
-
   acc = appscale_info.get_appcontroller_client()
   appserver_ip = appscale_info.get_private_ip()
 
@@ -276,11 +266,20 @@ def start_app(config):
 
   # We want to tell monit to start the single process instead of the
   # group, since monit can get slow if there are quite a few processes in
-  # the same group.
+  # the same group. We also don't fail: if the process is registered with
+  # Monit we'll handle it.
   full_watch = "{}-{}".format(str(watch), str(config['app_port']))
   if not monit_interface.start(full_watch, is_group=False):
     logging.warning("Monit may have not started {}:{}".
       format(str(config['app_name']), config['app_port']))
+
+  logging.info("Waiting for application {} on port {} to be active.".
+    format(str(config['app_name']), str(config['app_port'])))
+  if not wait_on_app(str(config['app_port'])):
+    logging.error("Application server did not come up in time, "
+      "removing monit watch")
+    monit_interface.stop(full_watch, is_group=False)
+    return BAD_PID
 
   # Since we are going to wait, possibly for a long time for the
   # application to be ready, we do it in a thread.
