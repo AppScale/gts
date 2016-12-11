@@ -148,7 +148,7 @@ def add_routing(app, port):
     port: A string that contains the port that the AppServer listens on.
   """
   logging.info("Waiting for application {} on port {} to be active.".
-    format(str(app), str(port))
+    format(str(app), str(port)))
   if not wait_on_app(port):
     # In case the AppServer fails we let the AppController to detect it
     # and remove it if it still show in monit.
