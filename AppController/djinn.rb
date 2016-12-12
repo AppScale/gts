@@ -253,15 +253,10 @@ class Djinn
   USE_SSL = true
 
 
-  # A boolean that indicates whether or not we should turn the firewall on,
-  # and continuously keep it on. Should definitely be on for releases, and
-  # on whenever possible.
-  FIREWALL_IS_ON = true
-
-
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
   APPSCALE_CONFIG_DIR = "/etc/appscale"
+
 
   # The location on the local filesystem where AppScale metadata is stored
   APPSCALE_METADATA_DIR = "/root/.appscale"
@@ -336,44 +331,10 @@ class Djinn
   RETRIES = 5
 
 
-  # This is more number of retries for methods that take longer.
-  MAX_RETRIES = 10
-
-
-  # The position in the haproxy profiling information where the name of
-  # the service (e.g., the frontend or backend) is specified.
-  SERVICE_NAME_INDEX = 1
-
-
-  # The position in the haproxy profiling information where the number of
-  # enqueued requests is specified.
-  REQ_IN_QUEUE_INDEX = 2
-
-
-  # The position in the haproxy profiling information where the total number of
-  # requests seen for a given app is specified.
-  TOTAL_REQUEST_RATE_INDEX = 48
-
-
-  # Scales up the number of AppServers used to host an application if the
-  # request rate rises above this value.
-  SCALEUP_REQUEST_RATE_THRESHOLD = 5
-
-
-  # Scales down the number of AppServers used to host an application if the
-  # request rate falls below this value.
-  SCALEDOWN_REQUEST_RATE_THRESHOLD = 2
-
-
   # The minimum number of requests that have to sit in haproxy's wait queue for
   # an App Engine application before we will scale up the number of AppServers
   # that serve that application.
   SCALEUP_QUEUE_SIZE_THRESHOLD = 5
-
-
-  # The path to the file where we will store information about AppServer
-  # scaling decisions.
-  AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
 
 
   # A Float that determines how much CPU can be used before the autoscaler will
@@ -389,6 +350,7 @@ class Djinn
   # We need to leave some extra RAM available for the system to operate
   # safely.
   SAFE_MEM = 500
+
 
   # A regular expression that can be used to match any character that is not
   # acceptable to use in a hostname:port string, used to filter out unacceptable
@@ -434,6 +396,7 @@ class Djinn
   # quite ready to receive requests.
   NOT_UP_YET = "not-up-yet"
 
+
   # A String that is returned to callers of set_property that provide an invalid
   # instance variable name to set.
   KEY_NOT_FOUND = "No property exists with the given name."
@@ -442,6 +405,7 @@ class Djinn
   # A String indicating when we are looking for a Zookeeper connection to
   # become available.
   NO_ZOOKEEPER_CONNECTION = "No Zookeeper available: in isolated mode"
+
 
   # Where to put logs.
   LOG_FILE = "/var/log/appscale/controller-17443.log"
@@ -496,8 +460,10 @@ class Djinn
     'azure_group_tag' => [ String, nil ]
   }
 
+
   # Template used for rsyslog configuration files.
   RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
+
 
   # Instance variables that we need to restore from the head node.
   DEPLOYMENT_STATE = [
@@ -508,6 +474,7 @@ class Djinn
     "@options",
     "@last_decision"
   ]
+
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -2126,6 +2093,17 @@ class Djinn
 
       # Login nodes may need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
+        # Let's detect if some appserver terminated.
+        terminated = []
+        @apps_loaded.each{ |app|
+          locations = HAProxy.listed_servers(app)
+          locations.each{ |appserver|
+            unless @app_infp_map[app]['appengine'].nil?
+              next if @app_infp_map[app]['appengine'].include?(appserver)
+            end
+            terminated << appserver
+          }
+        }
         APPS_LOCK.synchronize {
           regenerate_routing_config()
         }
@@ -2995,9 +2973,7 @@ class Djinn
       all_ips.join(', '))
 
     # Re-run the filewall script here since we just wrote the all_ips file
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
+    Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
   end
 
 
@@ -4253,9 +4229,7 @@ class Djinn
     # use iptables to lock down outside traffic
     # nodes can talk to each other on any port
     # but only the outside world on certain ports
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
+    Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
   end
 
 
@@ -5406,56 +5380,6 @@ HOSTS
   end
 
 
-  # Retrieves HAProxy stats for the given app.
-  #
-  # Args:
-  #   app_name: The name of the app to get HAProxy stats for.
-  # Returns:
-  #   The total requests for the app, the requests enqueued and the
-  #    timestamp of stat collection.
-  def get_haproxy_stats(app_name)
-    Djinn.log_debug("Getting scaling info for application #{app_name}")
-
-    total_requests_seen = 0
-    total_req_in_queue = 0
-    time_requests_were_seen = 0
-
-    # Retrieve total and enqueued requests for the given app.
-    monitoring_info = Djinn.log_run("echo \"show info;show stat\" | " +
-      "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}")
-    Djinn.log_debug("HAProxy raw stats: #{monitoring_info}")
-
-    if monitoring_info.empty?
-      Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
-        "be running.")
-      return :no_change, :no_change, :no_backend
-    end
-
-    monitoring_info.each_line { |line|
-      parsed_info = line.split(',')
-      if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
-        next
-      end
-
-      service_name = parsed_info[SERVICE_NAME_INDEX]
-
-      if service_name == "FRONTEND"
-        total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
-        time_requests_were_seen = Time.now.to_i
-        Djinn.log_debug("#{app_name} #{service_name} Requests Seen " +
-          "#{total_requests_seen}")
-      end
-
-      if service_name == "BACKEND"
-        total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
-        Djinn.log_debug("#{app_name} #{service_name} Queued Currently " +
-          "#{total_req_in_queue}")
-      end
-    }
-
-    return total_requests_seen, total_req_in_queue, time_requests_were_seen
-  end
-
   # Queries haproxy to see how many requests are queued for a given application
   # and how many requests are served at a given time. Based on this information,
   # this method reports whether or not AppServers should be added, removed, or
@@ -5479,7 +5403,8 @@ HOSTS
     return :no_change if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
-    total_requests_seen, total_req_in_queue, time_requests_were_seen = get_haproxy_stats(app_name)
+    total_requests_seen, total_req_in_queue, time_requests_were_seen =
+      HAProxy.get_haproxy_stats(app_name)
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5828,6 +5753,24 @@ HOSTS
     if app_is_enabled == "false"
       return false
     end
+
+    # GAE applications should be able to clear their session within 30
+    # seconds. We will wait as much looking for a time with no sessions,
+    # then terminate it.
+    location = "#{my_node.private_ip}:#{port}"
+    res = 0
+    35.downto(0) {
+      res = HAProxy.ensure_no_pending_request(app_id, location)
+      if res < 0
+        Djinn.log_warn("Haproxy does not knonw about #{location}: trying to stop it.")
+      elsif res == 0
+        Djinn.log_info("No session for #{location}.")
+      else
+        Djinn.log_info("#{location} is serving sessions: will wait a bit before stopping it.")
+        Kernel.sleep(1)
+      end
+    }
+    Djinn.log_info("Terminating #{location} with #{res} current session(s).")
 
     begin
       result = app_manager.stop_app_instance(app_id, port)
@@ -6200,7 +6143,7 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-          total_reqs, reqs_enqueued, collection_time = get_haproxy_stats(app_name)
+          total_reqs, reqs_enqueued, collection_time = HAProxy.get_haproxy_stats(app_name)
           # Create the apps hash with useful information containing HAProxy stats.
           begin
             appservers = 0
