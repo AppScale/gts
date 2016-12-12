@@ -477,7 +477,7 @@ class DistributedTaskQueue():
       else:
         num_tasks = TaskName.all().\
           filter("state =", tq_lib.TASK_STATES.QUEUED).\
-          filter("queue =", queue).\
+          filter("queue =", queue_name).\
           filter("app_id =", app_id).count()
 
         # This is not supported for push queues yet.
