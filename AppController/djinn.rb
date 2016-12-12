@@ -711,7 +711,21 @@ class Djinn
         Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
         return
       end
-      notify_restart_app_to_nodes([appid])
+
+      @nodes.each { |node|
+        if node.private_ip != my_node.private_ip
+          HelperFunctions.scp_file(port_file, port_file, node.private_ip,
+            node.ssh_key)
+        end
+        next unless node.is_appengine?
+        app_manager = AppManagerClient.new(node.private_ip)
+        begin
+          app_manager.restart_app_instances_for_app(appid,
+            @app_info_map[appid]['language'])
+        rescue FailedNodeException
+          Djinn.log_warn("#{appid} may have not restarted on #{node.private_ip} upon relocate.")
+        end
+      }
 
       # Once we've relocated the app, we need to tell the XMPPReceiver about the
       # app's new location.
