@@ -3147,9 +3147,7 @@ class Djinn
     end
 
     @app_info_map.each { |_app_id, app_info|
-      if app_info['appengine'].nil?
-        next
-      end
+      next if app_info['appengine'].nil?
 
       changed = false
       new_app_info = []
@@ -3161,9 +3159,7 @@ class Djinn
         end
         new_app_info << "#{host}:#{port}"
 
-        if changed
-          app_info['appengine'] = new_app_info
-        end
+        app_info['appengine'] = new_app_info if changed
       }
     }
 
@@ -5564,29 +5560,61 @@ HOSTS
       return
     end
 
-    # All the available appengine servers.
-    appservers_running = get_all_appengine_nodes()
-
     # Select an appengine machine if it has enough resources to support
     # another AppServer for this app.
     available_hosts = {}
-    appservers_running.each { |host|
-      @all_stats.each { |node|
-        if node['private_ip'] == host
-          # The host needs to have normalized average load less than
-          # MAX_LOAD_AVG, current CPU usage less than 90% and enough
-          # memory to run an AppServer (and some safe extra).
-          if Float(node['free_memory']) > Integer(@options['max_memory']) + SAFE_MEM and
-              Float(node['cpu']) < MAX_CPU_FOR_APPSERVERS and
-              Float(node['load']) / Float(node['num_cpu']) < MAX_LOAD_AVG
-            available_hosts[host] = (Float(node['load']) / Float(node['num_cpu']))
-          else
-            Djinn.log_debug("#{host} is too busy: not using it to scale #{app_name}")
-          end
-          break         # We found the host's statistics.
+    appservers_running = get_all_appengine_nodes()
+
+    # We counts now the number of AppServers running on each node: we will
+    # need to consider the maximum amount of memory allocated to it, in
+    # order to not overprovision the appengine node.
+    appservers_count = {}
+    @app_info_map.each_pair { |appid, app_info|
+      next if app_info['appengine'].nil?
+      app_info['appengine'].each { |location|
+        host, port = location.split(":")
+        next if Integer(port) < 0
+        if appservers_count[host].nil?
+          appservers_count[host] = 1
+        else
+          appservers_count[host] += 1
         end
       }
     }
+
+    # Let's consider the last system load readings we have, to see if the
+    # node can run another AppServer.
+    appservers_running.each { |host|
+      @all_stats.each { |node|
+        next if node['private_ip'] != host
+
+        # Ensure we have enough memory for all running AppServers.
+        appservers[count] = 0 if appservers[count].nil?
+        if (appservers[count] + 1) * Integer(@options['max_memory']) <
+            Integer(node['total'] - SAFE_MEM)
+          Djinn.log_debug("#{host} doesn't have enough total memory.")
+          break
+        end
+
+        # Ensure the node has enough free memory at this time.
+        if Float(node['free_memory']) < Integer(@options['max_memory']) + SAFE_MEM
+          Djinn.log_debug("#{host} doesn't have enough free memory.")
+          break
+        end
+
+        # The host needs to have normalized average load less than
+        # MAX_LOAD_AVG, current CPU usage less than 90%.
+        if Float(node['cpu']) > MAX_CPU_FOR_APPSERVERS ||
+            Float(node['load']) / Float(node['num_cpu']) > MAX_LOAD_AVG
+          Djinn.log_debug("#{host} CPUs are too busy.")
+          break
+        end
+
+        available_hosts[host] = (Float(node['load']) / Float(node['num_cpu']))
+        break
+      }
+    }
+    Djinn.log_debug("Hosts avaiable to scale #{app}: #{available_hosts.keys}.")
 
     # Now let's prefer hosts that are not already running a copy of this
     # app. Otherwise we select the host with the lowest load.
