@@ -3001,29 +3001,19 @@ class Djinn
   end
 
 
-
   def backup_appcontroller_state()
     local_state = {}
     APPS_LOCK.synchronize {
       local_state = {'@@secret' => @@secret }
-      instance_variables.each { |k|
-        v = instance_variable_get(k)
-        if k.to_s == "@nodes"
-          v = Djinn.convert_location_class_to_json(v)
-        elsif k == "@my_index" or k == "@api_status"
-          # Don't back up @my_index - it's a node-specific pointer that
-          # indicates which node is "our node" and thus should be regenerated
-          # via find_me_in_locations.
-          # Also don't worry about @api_status - (used to be for deprecated
-          # API checker) it can take up a lot of space and can easily be
-          # regenerated with new data.
-          next
+      DEPLOYMENT_STATE.each { |var|
+        if var == "@nodes"
+          v = Djinn.convert_location_class_to_json(@nodes)
+        else
+          v = instance_variable_get(var)
         end
-
-        local_state[k] = v
+        local_state[var] = v
       }
     }
-
     Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
@@ -3123,7 +3113,10 @@ class Djinn
     # First, find out this machine's private IP address. If multiple eth devices
     # are present, use the same one we used last time.
     all_local_ips = HelperFunctions.get_all_local_ips()
-    new_private_ip = all_local_ips[@eth_interface]
+    if all_local_ips.length < 1
+      Djinn.log_and_crash("Couldn't detect any IP address on this machine!")
+    end
+    new_private_ip = all_local_ips[0]
 
     # Next, find out this machine's public IP address. In a cloud deployment, we
     # have to rely on the metadata server, while in a cluster deployment, it's
@@ -3179,6 +3172,7 @@ class Djinn
     @my_public_ip = new_public_ip
     @my_private_ip = new_private_ip
   end
+
 
   # Writes any custom configuration data in /etc/appscale to ZooKeeper.
   def set_custom_config()
@@ -3547,13 +3541,12 @@ class Djinn
     Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
 
     @nodes.each_with_index { |node, index|
-      all_local_ips.each_with_index { |ip, eth_interface|
+      all_local_ips.each { |ip|
         if ip == node.private_ip
           @my_index = index
           HelperFunctions.set_local_ip(node.private_ip)
           @my_public_ip = node.public_ip
           @my_private_ip = node.private_ip
-          @eth_interface = eth_interface
           return
         end
       }
