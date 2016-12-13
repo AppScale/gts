@@ -147,6 +147,15 @@ def add_routing(app, port):
     app: A string that contains the application ID.
     port: A string that contains the port that the AppServer listens on.
   """
+  logging.info("Waiting for application {} on port {} to be active.".
+    format(str(app), str(port)))
+  if not wait_on_app(port):
+    # In case the AppServer fails we let the AppController to detect it
+    # and remove it if it still show in monit.
+    logging.warning("AppServer did not come up in time, for {}:{}.".
+      format(str(app), str(port)))
+    return
+
   acc = appscale_info.get_appcontroller_client()
   appserver_ip = appscale_info.get_private_ip()
 
@@ -207,6 +216,7 @@ def start_app(config):
   env_vars['GOPATH'] = '/root/appscale/AppServer/gopath/'
   env_vars['GOROOT'] = '/root/appscale/AppServer/goroot/'
   watch = "app___" + config['app_name']
+  match_cmd = ""
 
   if config['language'] == constants.PYTHON27 or \
       config['language'] == constants.GO or \
@@ -238,6 +248,9 @@ def start_app(config):
       config['load_balancer_ip'],
       max_heap
     )
+    match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port']),
+      os.path.dirname(locate_dir("/var/apps/" + config['app_name'] + "/app/",
+      "WEB-INF")))
 
     stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env(config['app_name']))
@@ -262,18 +275,20 @@ def start_app(config):
     env_vars,
     config['max_memory'],
     syslog_server,
-    appscale_info.get_private_ip())
+    appscale_info.get_private_ip(),
+    match_cmd=match_cmd)
 
-  if not monit_interface.start(watch):
-    logging.error("Unable to start application server with monit")
+  # We want to tell monit to start the single process instead of the
+  # group, since monit can get slow if there are quite a few processes in
+  # the same group.
+  full_watch = "{}-{}".format(str(watch), str(config['app_port']))
+  if not monit_interface.start(full_watch, is_group=False):
+    logging.warning("Monit was unable to start {}:{}".
+      format(str(config['app_name']), config['app_port']))
     return BAD_PID
 
-  if not wait_on_app(int(config['app_port'])):
-    logging.error("Application server did not come up in time, "
-      "removing monit watch")
-    monit_interface.stop(watch)
-    return BAD_PID
-
+  # Since we are going to wait, possibly for a long time for the
+  # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
     args=(config['app_name'], config['app_port'])).start()
 
@@ -288,7 +303,6 @@ def start_app(config):
   if not setup_logrotate(config['app_name'], watch, log_size):
     logging.error("Error while setting up log rotation for application: {}".
       format(config['app_name']))
-
 
   return 0
 
@@ -733,7 +747,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     "--APP_NAME=" + app_name,
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--NGINX_PORT=anything",
-    os.path.dirname(locate_dir("/var/apps/" + app_name +"/app/", "WEB-INF"))
+    os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
   ]
 
   return ' '.join(cmd)
