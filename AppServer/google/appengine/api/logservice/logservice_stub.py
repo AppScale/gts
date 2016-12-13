@@ -25,7 +25,7 @@ import base64
 from Queue import Queue, Empty
 from collections import defaultdict
 
-import capnp
+import capnp # pylint: disable=unused-import
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.logservice import log_service_pb
@@ -34,6 +34,49 @@ from google.appengine.runtime import apiproxy_errors
 import logging_capnp
 
 _I_SIZE = struct.calcsize('I')
+
+
+def _cleanup_logserver_connection(connection):
+  try:
+    connection.close()
+  except socker.error:
+    pass
+
+def _fill_request_log(requestLog, log, include_app_logs):
+  log.set_request_id(requestLog.requestId)
+  log.set_app_id(requestLog.appId)
+  log.set_version_id(requestLog.versionId)
+  log.set_ip(requestLog.ip)
+  log.set_nickname(requestLog.nickname)
+  log.set_start_time(requestLog.startTime)
+  log.set_host(requestLog.host)
+  log.set_end_time(requestLog.endTime)
+  log.set_method(requestLog.method)
+  log.set_resource(requestLog.resource)
+  log.set_status(requestLog.status)
+  log.set_response_size(requestLog.responseSize)
+  log.set_http_version(requestLog.httpVersion)
+  log.set_user_agent(requestLog.userAgent)
+  log.set_url_map_entry(requestLog.urlMapEntry)
+  log.set_latency(requestLog.latency)
+  log.set_mcycles(requestLog.mcycles)
+  log.set_finished(requestLog.finished)
+
+  log.mutable_offset().set_request_id(base64.b64encode(requestLog.offset))
+  time_seconds = (requestLog.endTime or requestLog.startTime) / 10**6
+  date_string = time.strftime('%d/%b/%Y:%H:%M:%S %z',
+                              time.localtime(time_seconds))
+  log.set_combined('%s - %s [%s] "%s %s %s" %d %d - "%s"' %
+                   (requestLog.ip, requestLog.nickname, date_string,
+                    requestLog.method, requestLog.resource,
+                    requestLog.httpVersion, requestLog.status or 0,
+                    requestLog.responseSize or 0, requestLog.userAgent))
+  if include_app_logs:
+    for appLog in requestLog.appLogs:
+      line = log.add_line()
+      line.set_time(appLog.time)
+      line.set_level(appLog.level)
+      line.set_log_message(appLog.message)
 
 class LogServiceStub(apiproxy_stub.APIProxyStub):
   """Python stub for Log Service service."""
@@ -77,21 +120,15 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       try:
         client.connect(LogServiceStub._LOGSERVER_PATH)
         client.setblocking(blocking)
-        client.send('a%s%s' % (struct.pack('I', len(app_id)), app_id)) 
+        client.send('a%s%s' % (struct.pack('I', len(app_id)), app_id))
         return key, client
-      except socket.error, e:
+      except socket.error:
         return None, None
     return None, None
 
   def _release_logserver_connection(self, key, connection):
     queue = self._log_server[key]
     queue.put(connection)
-
-  def _cleanup_logserver_connection(self, connection):
-    try:
-      connection.close()
-    except socker.error:
-      pass
 
   def _send_to_logserver(self, app_id, packet):
     key, log_server = self._get_log_server(app_id, False)
@@ -100,7 +137,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         log_server.send(packet)
         self._release_logserver_connection(key, log_server)
       except socket.error, e:
-        self._cleanup_logserver_connection(key, log_server)
+        cleanup_logserver_connection(log_server)
         self._send_to_logserver(app_id, packet)
         
   def _query_log_server(self, app_id, packet):
@@ -122,7 +159,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         fh.close()
       self._release_logserver_connection(key, log_server)
     except socket.error, e:
-      self._cleanup_logserver_connection(key, log_server)
+      cleanup_logserver_connection(log_server)
       raise
 
   @staticmethod
@@ -159,7 +196,6 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       start_time: An int containing the start time in micro-seconds. If unset,
         the current time is used.
     """
-    major_version_id = version_id.split('.', 1)[0]
     if start_time is None:
       start_time = self._get_time_usec()
 
@@ -260,10 +296,10 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       buf = query.to_bytes()
       packet = 'q%s%s' % (struct.pack('I', len(buf)), buf)
       result_count = 0
-      for bytes in self._query_log_server(rl.appId, packet):
-        requestLog = logging_capnp.RequestLog.from_bytes(bytes)
+      for rlBytes in self._query_log_server(rl.appId, packet):
+        requestLog = logging_capnp.RequestLog.from_bytes(rlBytes)
         log = response.add_log()
-        self._fill_request_log(requestLog, log, request.include_app_logs())
+        _fill_request_log(requestLog, log, request.include_app_logs())
         result_count += 1
   
       if result_count == count:
@@ -272,42 +308,6 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       logging.exception("Failed to retrieve logs")
       raise apiproxy_errors.ApplicationError(
           log_service_pb.LogServiceError.INVALID_REQUEST)
-
-  def _fill_request_log(self, requestLog, log, include_app_logs):
-    log.set_request_id(requestLog.requestId)
-    log.set_app_id(requestLog.appId)
-    log.set_version_id(requestLog.versionId)
-    log.set_ip(requestLog.ip)
-    log.set_nickname(requestLog.nickname)
-    log.set_start_time(requestLog.startTime)
-    log.set_host(requestLog.host)
-    log.set_end_time(requestLog.endTime)
-    log.set_method(requestLog.method)
-    log.set_resource(requestLog.resource)
-    log.set_status(requestLog.status)
-    log.set_response_size(requestLog.responseSize)
-    log.set_http_version(requestLog.httpVersion)
-    log.set_user_agent(requestLog.userAgent)
-    log.set_url_map_entry(requestLog.urlMapEntry)
-    log.set_latency(requestLog.latency)
-    log.set_mcycles(requestLog.mcycles)
-    log.set_finished(requestLog.finished)
-    
-    log.mutable_offset().set_request_id(base64.b64encode(requestLog.offset))
-    time_seconds = (requestLog.endTime or requestLog.startTime) / 10**6
-    date_string = time.strftime('%d/%b/%Y:%H:%M:%S %z',
-                                time.localtime(time_seconds))
-    log.set_combined('%s - %s [%s] "%s %s %s" %d %d - "%s"' %
-                     (requestLog.ip, requestLog.nickname, date_string,
-                      requestLog.method, requestLog.resource,
-                      requestLog.httpVersion, requestLog.status or 0,
-                      requestLog.responseSize or 0, requestLog.userAgent))
-    if include_app_logs:
-      for appLog in requestLog.appLogs:
-        line = log.add_line()
-        line.set_time(appLog.time)
-        line.set_level(appLog.level)
-        line.set_log_message(appLog.message)
 
   def _Dynamic_SetStatus(self, unused_request, unused_response,
                          unused_request_id):

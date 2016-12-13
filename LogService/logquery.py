@@ -7,10 +7,8 @@ import logging
 import sys
 from urlparse import urlparse
 
-import capnp
+import capnp  # pylint: disable=unused-import
 import logging_capnp
-
-from io import BytesIO
 
 _I_SIZE = struct.calcsize('I')
 MAX_LOG_LINE_LENGTH = 120
@@ -23,7 +21,7 @@ def get_connection(args):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(url.path)
   else:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(url.netloc.split(':', 2))
   sock.send('a%s%s' % (struct.pack('I', len(args.app_id)), args.app_id))
   return sock
@@ -47,7 +45,7 @@ def output_http(record):
   date_string = time.strftime('%d/%b/%Y:%H:%M:%S %z',
                               time.localtime(time_seconds))
   print '%s: %s - %s [%s] "%s %s %s" %d %d - "%s"' % (
-        record.requestId, record.ip, record.nickname, date_string, record.method, record.resource, 
+        record.requestId, record.ip, record.nickname, date_string, record.method, record.resource,
         record.httpVersion, record.status or 0, record.responseSize or 0, record.userAgent)
 
 def output_appengine(record):
@@ -97,7 +95,7 @@ def log(args):
       sock.send('l%s%s' % (struct.pack('I', len(buf)), buf))
   finally:
     sock.close()
-    
+
 def query_or_follow(args):
   start = time.time()
   record_count = 0

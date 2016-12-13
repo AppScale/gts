@@ -32,7 +32,6 @@ programmatically access their request and application logs.
 
 import base64
 import cStringIO
-import logging
 import os
 import re
 import sys

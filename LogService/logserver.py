@@ -2,13 +2,12 @@ import struct
 import os
 import re
 import time
-from collections import defaultdict
 from cStringIO import StringIO
 
-import capnp
+import capnp  # pylint: disable=unused-import
 import logging_capnp
 
-from twisted.internet import reactor, protocol
+from twisted.internet import protocol
 from twisted.python import log
 
 MAX_LOG_FILE_SIZE = 1024 * 1024 * 1024
@@ -19,12 +18,12 @@ _PAGE_SIZE = 1000
 _ONE_BINARY = struct.pack('I', 1)
 
 def readLogRecord(handle, parse=False):
-  bytes = handle.read(_I_SIZE)
-  if not bytes:
+  buf = handle.read(_I_SIZE)
+  if not buf:
     return (None, None) if parse else None
-  length, = struct.unpack('I', bytes)
-  bytes = handle.read(length)
-  return (bytes, logging_capnp.RequestLog.from_bytes(bytes)) if parse else bytes
+  length, = struct.unpack('I', buf)
+  buf = handle.read(length)
+  return (buf, logging_capnp.RequestLog.from_bytes(buf)) if parse else buf
 
 def calculateOffset(log_file_id, position):
   return struct.pack('HI', log_file_id, position)
@@ -92,7 +91,6 @@ class AppLogFile(object):
       index_handle = self._requestIdIndexHandle
       handle = self._handle
     try:
-      results_found = 0
       index_handle.seek(0)
       while True:
         buf = index_handle.read(14000)
@@ -147,14 +145,14 @@ class AppLogFile(object):
         handle.close()
     pos = 0
     while pos < len(buf):
-      bytes = buf[pos:pos+_I_SIZE]
+      buf2 = buf[pos:pos+_I_SIZE]
       pos += _I_SIZE
-      if not bytes:
+      if not buf2:
         break
-      length, = struct.unpack('I', bytes)
-      bytes = buf[pos:pos+length]
+      length, = struct.unpack('I', buf2)
+      buf2 = buf[pos:pos+length]
       pos += length
-      yield bytes, logging_capnp.RequestLog.from_bytes(bytes)
+      yield buf2, logging_capnp.RequestLog.from_bytes(buf2)
 
 class AppRegistry(object):
 
@@ -306,7 +304,7 @@ class Protocol(protocol.Protocol):
         if alf.log_file_id == query_log_file_id and position > query_position:
           continue
       end_position = previousPosition if alf == previousALF else -1
-      for bytes, record in alf.iterrecords(position, end_position):
+      for buf, record in alf.iterrecords(position, end_position):
         if not oldestRecord or oldestRecord.startTime > record.startTime:
           oldestRecord = record
         if query.endTime and query.endTime < endTime:
@@ -327,7 +325,7 @@ class Protocol(protocol.Protocol):
           continue
         if query.startTime and query.startTime > record.startTime:
           continue
-        results.append((bytes, record))
+        results.append((buf, record))
       if query.startTime and oldestRecord.endTime < query.startTime:
         break
       if len(results) >= query.count:
