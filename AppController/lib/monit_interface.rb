@@ -32,7 +32,9 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit()
-    self.run_cmd("service monit start")
+    ret = system("service --status-all 2> /dev/null | grep monit | grep + > /dev/null")
+    self.run_cmd("service monit start") unless ret
+    return ret
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,

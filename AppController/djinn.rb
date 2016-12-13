@@ -2082,6 +2082,12 @@ class Djinn
 
     check_health = nil
     until @kill_sig_received do
+      # We want to ensure monit stays up all the time, since we rely on
+      # it for services and AppServers.
+      unless MonitInterface.start_monit()
+        Djinn.log_warn("Monit was not running: restarted it.")
+      end
+
       write_database_info()
       update_firewall()
       write_memcache_locations()
