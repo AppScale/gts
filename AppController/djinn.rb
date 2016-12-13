@@ -5623,10 +5623,15 @@ HOSTS
       @all_stats.each { |node|
         next if node['private_ip'] != host
 
+        # TODO: this is a temporary fix waiting for when we phase in
+        # get_all_stats. Since we don't have the total memory, we
+        # reconstruct it here.
+        total = (Float(node['free_memory'])*100)/(100-Float(node['memory'])
+
         # Ensure we have enough memory for all running AppServers.
         appservers[count] = 0 if appservers[count].nil?
         if (appservers[count] + 1) * Integer(@options['max_memory']) <
-            Integer(node['total'] - SAFE_MEM)
+            total - SAFE_MEM)
           Djinn.log_debug("#{host} doesn't have enough total memory.")
           break
         end
