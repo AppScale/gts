@@ -2145,9 +2145,11 @@ class Djinn
       check_stopped_apps()
 
       # Login nodes may need to check/update nginx/haproxy.
-      APPS_LOCK.synchronize {
-        regenerate_routing_config() if my_node.is_load_balancer?
-      }
+      if my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
+          regenerate_routing_config()
+        }
+      end
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -5081,7 +5083,7 @@ HOSTS
         }
 
         # We then start or terminate AppServers as needed. We do it one a
-        # time since it's lenghty proposition and we want to revisit the
+        # time since it's lengthy proposition and we want to revisit the
         # decision each time.
         if !no_appservers[0].nil?
           app = no_appservers[0]
