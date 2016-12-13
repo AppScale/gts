@@ -5626,12 +5626,12 @@ HOSTS
         # TODO: this is a temporary fix waiting for when we phase in
         # get_all_stats. Since we don't have the total memory, we
         # reconstruct it here.
-        total = (Float(node['free_memory'])*100)/(100-Float(node['memory'])
+        total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
 
         # Ensure we have enough memory for all running AppServers.
-        appservers[count] = 0 if appservers[count].nil?
-        if (appservers[count] + 1) * Integer(@options['max_memory']) <
-            total - SAFE_MEM)
+        appservers_count[node] = 0 if appservers_count[node].nil?
+        if (appservers_count[node] + 1) * Integer(@options['max_memory']) <
+            total - SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough total memory.")
           break
         end
@@ -5654,7 +5654,7 @@ HOSTS
         break
       }
     }
-    Djinn.log_debug("Hosts avaiable to scale #{app}: #{available_hosts.keys}.")
+    Djinn.log_debug("Hosts avaiable to scale #{app_name}: #{available_hosts.keys}.")
 
     # We prefer hosts that are not already running a copy of this app.
     if available_hosts.keys[0] != nil
