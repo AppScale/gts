@@ -32,7 +32,9 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit()
-    self.run_cmd("service monit start")
+    ret = system("service --status-all 2> /dev/null | grep monit | grep + > /dev/null")
+    self.run_cmd("service monit start") unless ret
+    return ret
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,
@@ -161,7 +163,7 @@ BOO
   end
 
   def self.is_running?(watch)
-    output = self.run_cmd("#{MONIT} summary | grep #{watch} | grep Running")
+    output = self.run_cmd("#{MONIT} summary | grep #{watch} | grep -E '(Running|Initializing)'")
     return (not output == "")
   end
 
@@ -171,7 +173,7 @@ BOO
   #   A list of application:port records.
   def self.running_appengines()
     appengines = []
-    output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
+    output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*(Running|Initializing)'")
     appengines_raw = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
     if appengines_raw
       appengines_raw.split("\n").each{ |appengine|
