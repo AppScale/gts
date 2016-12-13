@@ -206,6 +206,9 @@ class AppDashboardData():
                   "link": self.get_monit_url()},
         "taskqueue": {"title": "TaskQueue",
                       "link": self.get_flower_url()},
+        "cron": {"title": "Cron",
+                 "link": "/cron",
+                 "template": "cron/console.html"},
         "app_console": {"title": "Application Statistics",
                         "template": "apps/console.html",
                         "link": "/apps/"}
@@ -233,7 +236,9 @@ class AppDashboardData():
                                                 {"logging": lookup_dict[
                                                   "logging"]},
                                                 {"app_console": lookup_dict[
-                                                    "app_console"]}]}
+                                                    "app_console"]},
+                                                {"cron": lookup_dict[
+                                                  "cron"]}]}
       return lookup_dict
     else:
       return {}
