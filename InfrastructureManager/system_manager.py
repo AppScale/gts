@@ -22,6 +22,7 @@ class JSONTags(object):
   # Memory related JSON tags.
   MEMORY = "memory"
   AVAILABLE = "available"
+  TOTAL = "total"
   # SWAP related JSON tags.
   SWAP = "swap"
 
@@ -102,7 +103,8 @@ class SystemManager():
     mem_stats_dict = { JSONTags.MEMORY :
       {
         JSONTags.AVAILABLE : mem_stats.available,
-        JSONTags.USED : mem_stats.used
+        JSONTags.USED : mem_stats.used,
+        JSONTags.TOTAL : mem_stats.total
       }
     }
     logging.debug("Memory stats: {}".format(mem_stats_dict))
