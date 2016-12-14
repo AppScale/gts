@@ -237,9 +237,10 @@ module HAProxy
     if current != config
       File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
       HAProxy.regenerate_config()
+    else
+      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
     end
 
-    Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
     return true
   end
 
