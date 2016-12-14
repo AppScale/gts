@@ -4418,13 +4418,13 @@ HOSTS
           appservers << location
         }
         to_remove = []
-        @terminated[app].each{ |location, when|
+        @terminated[app].each { |location, when_detected|
           # Let's make sure it doesn't receive traffic, and see how many
           # sessions are still active.
           if HAProxy.ensure_no_pending_request(app, location) <= 0
             Djinn.log_info("#{location} has no more sessions: removing it.")
             to_remove << location
-          elsif Time.now.to_i > when + Integer(@option['appserver_timeout'])
+          elsif Time.now.to_i > when_detected + Integer(@option['appserver_timeout'])
             Djinn.log_info("#{location} has ran out of time: removing it.")
             to_remove << location
           else
