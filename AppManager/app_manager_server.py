@@ -394,7 +394,9 @@ def restart_app_instances_for_app(app_name, language):
     copy_modified_jars(app_name)
   logging.info("Restarting application %s" % app_name)
   watch = "app___" + app_name
-  return monit_interface.restart(watch)
+  monit_interface.stop(watch)
+  time.sleep(1)
+  return monit_interface.start(watch)
 
 def stop_app(app_name):
   """ Stops all process instances of a Google App Engine application on this
