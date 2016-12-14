@@ -206,14 +206,12 @@ module HAProxy
 
   # Updates the HAProxy config file for this App Engine application to
   # point to all the ports currently used by the application.
-  def self.update_app_config(private_ip, app_name, app_info)
-    listen_port = app_info['haproxy']
-
+  def self.update_app_config(private_ip, app_name, listen_port, appservers)
     # Add a prefix to the app name to avoid collisions with non-GAE apps
     full_app_name = "gae_#{app_name}"
 
     servers = []
-    app_info['appengine'].each { |location|
+    appservers.each { |location|
       # Ignore not-yet started appservers.
       host, port = location.split(":")
       next if Integer(port) < 0
@@ -400,7 +398,7 @@ CONFIG
   # This method returns the list of locations associated with a specific
   # application.
   #
-  def self.listed_servers(app)
+  def self.list_servers(app)
     full_app_name = "gae_#{app}"
 
     locations = []

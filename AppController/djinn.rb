@@ -421,6 +421,7 @@ class Djinn
   PARAMETERS_AND_CLASS = {
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
     'appengine' => [ Fixnum, '2' ],
+    'appserver_timeout' => [ Fixnum, '180' ],
     'autoscale' => [ TrueClass, 'True' ],
     'client_secrets' => [ String, nil ],
     'disks' => [ String, nil ],
@@ -500,8 +501,13 @@ class Djinn
     @state = "AppController just started"
     @all_stats = []
     @last_updated = 0
-    @unaccounted_appengines = {}
     @state_change_lock = Monitor.new()
+
+    # These two variables are used to keep track of terminated or
+    # unaccounted AppServers. Both needs some special cares, since we need
+    # to terminate or remove them after some time.
+    @unaccounted = {}
+    @terminated = {}
 
     @initialized_apps = {}
     @total_req_rate = {}
@@ -2120,14 +2126,14 @@ class Djinn
       # Login nodes may need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
         # Let's detect if some appserver terminated.
-        terminated = []
         @apps_loaded.each{ |app|
-          locations = HAProxy.listed_servers(app)
-          locations.each{ |appserver|
+          HAProxy.list_servers(app).each{ |appserver|
             unless @app_infp_map[app]['appengine'].nil?
               next if @app_infp_map[app]['appengine'].include?(appserver)
             end
-            terminated << appserver
+            @terminated[app] = {} if @terminated[app].nil?
+            @terminated[app][appserver] = Time.now.to_i
+            Djinn.log_info("Terminated AppServer #{appserver} will not received requests.")
           }
         }
         APPS_LOCK.synchronize {
@@ -2854,7 +2860,6 @@ class Djinn
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
       @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
-      @unaccounted_appengines.delete("#{ip}:#{port}")
 
 
       # Now that we have at least one AppServer running, we can start the
@@ -2929,8 +2934,6 @@ class Djinn
     APPS_LOCK.synchronize {
       if @app_info_map[app_id] and @app_info_map[app_id]['appengine']
         @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
-        HAProxy.update_app_config(my_node.private_ip, app_id,
-          @app_info_map[app_id])
       else
         Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
       end
@@ -4393,7 +4396,7 @@ HOSTS
     apps_to_check.each { |app|
       # Check that we have the application information needed to
       # regenerate the routing configuration.
-      running = false
+      appservers = []
       unless (@app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
               @app_info_map[app]['nginx_https'].nil? or
               @app_info_map[app]['haproxy'].nil? or
@@ -4408,16 +4411,30 @@ HOSTS
           "#{proxy_port}.")
 
         # Let's see if we already have any AppServers running for this
-        # application.
+        # application. We count also the ones we need to terminate.
         @app_info_map[app]['appengine'].each { |location|
-          host, port = location.split(":")
+          _, port = location.split(":")
           next if Integer(port) < 0
-          running = true
-          break
+          appservers << location
         }
+        to_remove = []
+        @terminated[app].each{ |location, when|
+          # Let's make sure it doesn't receive traffic, and see how many
+          # sessions are still active.
+          if HAProxy.ensure_no_pending_request(app, location) <= 0
+            Djinn.log_info("#{location} has no more sessions: removing it.")
+            to_remove << location
+          elsif Time.now.to_i > when + Integer(@option['appserver_timeout'])
+            Djinn.log_info("#{location} has ran out of time: removing it.")
+            to_remove << location
+          else
+            appservers << location
+          end
+        }
+        to_remove.each{ |location| @terminated[app].delete(location) }
       end
 
-      unless running
+      if appservers.empty?
         # If no AppServer is running, we clear the routing and the crons.
         Djinn.log_debug("Removing routing for #{app} since no appserver is running.")
         Nginx.remove_app(app)
@@ -4436,7 +4453,8 @@ HOSTS
         static_handlers = []
       end
 
-      HAProxy.update_app_config(my_private, app, @app_info_map[app])
+      HAProxy.update_app_config(my_private, app,
+        @app_info_map[app]['haproxy'], appservers)
 
       # If nginx config files have been updated, we communicate the app's
       # ports to the UserAppServer to make sure we have the latest info.
@@ -4977,6 +4995,7 @@ HOSTS
     my_apps.each { |appserver|
       app, _ = appserver.split(":")
       no_appservers.delete(app)
+      @unaccounted.delete(appserver)
     }
     Djinn.log_debug("Running AppServers on this node: #{my_apps}.") unless my_apps.empty?
 
@@ -4991,10 +5010,8 @@ HOSTS
       # yet the change of state from the shadow. We save it with a
       # timestamp to ensure we don't wait forever on it.
       app, _ = appengine.split(":")
-      if @unaccounted_appengines[appengine].nil?
-        @unaccounted_appengines[appengine] = Time.now.to_i
-      end
-      been_here = Time.now.to_i - @unaccounted_appengines[appengine]
+      @unaccounted[appengine] = Time.now.to_i if @unaccounted[appengine].nil?
+      been_here = Time.now.to_i - @unaccounted[appengine]
       if to_start.include?(app) && been_here < APP_UPLOAD_TIMEOUT * RETRIES
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
@@ -5006,6 +5023,26 @@ HOSTS
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
     Djinn.log_debug("AppServers to start: #{to_start}.") unless to_start.empty?
     Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
+
+    # Terminating will take quite a while, since we have to wait for the
+    # AppServer grace period timeout. We spawn it in a thread and let it
+    # go to termination.
+    if TERMINATE_LOCK.locked?
+      Djinn.log_debug("Another thread already working with AppManager.")
+    else
+      TERMINATE_LOCK.synchronize {
+        Thread.new {
+          Kernel.sleep(Integer(@option['appserver_timeout']) + DUTY_CYCLE*3)
+          to_end.each { |appserver|
+            Djinn.log_info("Terminate the following AppServer: #{appserver}.")
+            app, port = appserver.split(":")
+            AMS_LOCK.synchronize { ret = remove_appserver_process(app, port) }
+            Djinn.log_debug("remove_appserver_process returned: #{ret}.")
+            @unaccounted.delete(appserver)
+          }
+        }
+      }
+    end
 
     # Now we do the talking with the appmanagerserver. Since it may take
     # some time to start/stop apps, we do this in a thread. We do one
@@ -5074,7 +5111,7 @@ HOSTS
           Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
           app, port = to_end[0].split(":")
           ret = remove_appserver_process(app, port)
-          @unaccounted_appengines.delete(to_end[0])
+          @unaccounted.delete(to_end[0])
           Djinn.log_debug("remove_appserver_process returned: #{ret}.")
         end
       }
@@ -5775,24 +5812,6 @@ HOSTS
     if app_is_enabled == "false"
       return false
     end
-
-    # GAE applications should be able to clear their session within 30
-    # seconds. We will wait as much looking for a time with no sessions,
-    # then terminate it.
-    location = "#{my_node.private_ip}:#{port}"
-    res = 0
-    35.downto(0) {
-      res = HAProxy.ensure_no_pending_request(app_id, location)
-      if res < 0
-        Djinn.log_warn("Haproxy does not knonw about #{location}: trying to stop it.")
-      elsif res == 0
-        Djinn.log_info("No session for #{location}.")
-      else
-        Djinn.log_info("#{location} is serving sessions: will wait a bit before stopping it.")
-        Kernel.sleep(1)
-      end
-    }
-    Djinn.log_info("Terminating #{location} with #{res} current session(s).")
 
     begin
       result = app_manager.stop_app_instance(app_id, port)
