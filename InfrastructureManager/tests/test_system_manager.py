@@ -45,7 +45,7 @@ class TestInfrastructureManager(TestCase):
     flexmock(utils).should_receive("get_secret").and_return("fake secret")
 
     expected_keys = [
-      JSONTags.MEMORY, JSONTags.AVAILABLE, JSONTags.USED, JSONTags.TOTAL
+      JSONTags.MEMORY, JSONTags.AVAILABLE, JSONTags.USED
     ]
     actual = json.loads(SystemManager().get_memory_usage("fake secret"))
     actual_keys = [actual.keys()[0]]
