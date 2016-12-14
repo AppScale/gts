@@ -5661,17 +5661,16 @@ HOSTS
 
     # We prefer hosts that are not already running a copy of this app.
     appserver_to_use = nil
-    unless available_hosts.empty?
-        Djinn.log_debug("These hosts are running #{app_name}: #{appengine_running}.")
-        available_hosts.each { |host|
-          unless appengine_running.include?(host)
-            Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
-                "since it has no running AppServers for it.")
-            appserver_to_use = host
-            break
-          end
-        }
-      end
+    if !available_hosts.empty?
+      Djinn.log_debug("These hosts are running #{app_name}: #{appengine_running}.")
+      available_hosts.each { |host|
+        unless appengine_running.include?(host)
+          Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
+              "since it has no running AppServers for it.")
+          appserver_to_use = host
+          break
+        end
+      }
 
       # If we haven't decided on a host yet, we pick one at random.
       appserver_to_use = available_hosts.sample if appserver_to_use.empty?
