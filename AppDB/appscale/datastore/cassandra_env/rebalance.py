@@ -3,7 +3,8 @@ import logging
 import os
 import sys
 
-from subprocess import check_output
+from subprocess import (CalledProcessError,
+                        check_output)
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import KEYSPACE
 from ..unpackaged import APPSCALE_LIB_DIR
@@ -70,18 +71,21 @@ def get_ring():
   """
   ring_output = check_output([NODE_TOOL, 'ring', KEYSPACE])
   ring = []
+  index = 0
   for line in ring_output.splitlines():
     fields = line.split()
     if len(fields) != 8:
       continue
 
     ring.append({
+      'index': index,
       'ip': fields[0],
       'status': fields[2],
       'state': fields[3],
       'load': load_bytes(float(fields[4]), fields[5]),
       'token': fields[7]
     })
+    index += 1
 
   assert len(ring) > 0
 
@@ -160,7 +164,14 @@ def main():
     logging.info('All nodes within {}% of ideal load'.format(MAX_DRIFT * 100))
     return
 
-  # Pick two neighboring nodes with the largest difference in load.
-  max_diff_index = next(index for (index, node) in enumerate(ring)
-                        if node['diff'] == max(node['diff'] for node in ring))
-  equalize(ring[max_diff_index - 1], ring[max_diff_index])
+  # Pick two neighboring nodes with the largest difference in load. If the
+  # equalization process fails, try the next largest difference.
+  ring_by_diff = sorted(ring, key=lambda node: node['diff'], reverse=True)
+  for node in ring_by_diff:
+    try:
+      equalize(ring[node['index'] - 1], ring[node['index']])
+      # If data has been moved, the load needs to be re-evaluated. Load gets
+      # updated after 90 seconds.
+      break
+    except CalledProcessError:
+      continue
