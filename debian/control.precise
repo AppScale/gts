@@ -30,6 +30,7 @@ Architecture: any
 Depends: appscale-tools,
          appscale-tools,
          bzip2,
+         capnproto,
          curl, lsof, wget,
          dnsutils,
          ejabberd,
