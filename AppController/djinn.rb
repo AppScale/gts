@@ -5603,7 +5603,7 @@ HOSTS
     # need to consider the maximum amount of memory allocated to it, in
     # order to not overprovision the appengine node.
     appservers_count = {}
-    appengine_running = []
+    current_hosts = []
     @app_info_map.each_pair { |appid, app_info|
       next if app_info['appengine'].nil?
       app_info['appengine'].each { |location|
@@ -5617,7 +5617,7 @@ HOSTS
         # We also see which host is running the application we need to
         # scale. We will need later on to prefer hosts not running this
         # app.
-        appengine_running << host if app_name == appid
+        current_hosts << host if app_name == appid
       }
     }
 
@@ -5662,9 +5662,9 @@ HOSTS
     # We prefer hosts that are not already running a copy of this app.
     appserver_to_use = nil
     if !available_hosts.empty?
-      Djinn.log_debug("These hosts are running #{app_name}: #{appengine_running}.")
+      Djinn.log_debug("These hosts are running #{app_name}: #{current_hosts}.")
       available_hosts.each { |host|
-        unless appengine_running.include?(host)
+        unless current_hosts.include?(host)
           Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
               "since it has no running AppServers for it.")
           appserver_to_use = host
