@@ -5599,7 +5599,7 @@ HOSTS
     # another AppServer for this app.
     available_hosts = []
 
-    # We counts now the number of AppServers running on each node: we will
+    # We count now the number of AppServers running on each node: we will
     # need to consider the maximum amount of memory allocated to it, in
     # order to not overprovision the appengine node.
     appservers_count = {}
