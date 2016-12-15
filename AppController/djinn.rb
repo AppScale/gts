@@ -4369,11 +4369,11 @@ HOSTS
           @terminated[app].each { |location, when_detected|
             # Let's make sure it doesn't receive traffic, and see how many
             # sessions are still active.
-            if HAProxy.ensure_no_pending_request(app, location) <= 0
-              Djinn.log_info("#{location} has no more sessions: removing it.")
-              to_remove << location
-            elsif Time.now.to_i > when_detected + Integer(@options['appserver_timeout'])
+            if Time.now.to_i > when_detected + Integer(@options['appserver_timeout'])
               Djinn.log_info("#{location} has ran out of time: removing it.")
+              to_remove << location
+            elsif HAProxy.ensure_no_pending_request(app, location) <= 0
+              Djinn.log_info("#{location} has no more sessions: removing it.")
               to_remove << location
             else
               appservers << location
@@ -4969,15 +4969,20 @@ HOSTS
       # and then we terminate it. The time needs to be at least
       # 'appserver_timeout' for termination.
       app, _ = appengine.split(":")
-      @unaccounted[appengine] = Time.now.to_i if @unaccounted[appengine].nil?
+      if @unaccounted[appengine].nil?
+        Djinn.log_debug("Found unaccounted AppServer #{appengine} for #{app}.")
+        @unaccounted[appengine] = Time.now.to_i
+      end
       been_here = Time.now.to_i - @unaccounted[appengine]
-      if to_start.include?(app) && been_here < Integer(@options['appserver_timeout']) * 2
+      if been_here > Integer(@options['appserver_timeout']) * 2
+        Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
+        to_end << appengine
+        next
+      end
+      if to_start.include?(app)
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
-      else
-        Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
-        to_end << appengine
       end
     }
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
