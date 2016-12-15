@@ -463,17 +463,34 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb.\
-      TaskQueueFetchQueueStatsRequest(http_data)
-    response = taskqueue_service_pb.\
-      TaskQueueFetchQueueStatsResponse()
-    for queue in request.queue_name_list():
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest(http_data)
+    response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
+
+    for queue_name in request.queue_name_list():
+      queue = self.get_queue(app_id, queue_name)
       stats_response = response.add_queuestats()
-      count = TaskName.all().filter("state =", tq_lib.TASK_STATES.QUEUED).\
-        filter("queue =", queue).filter("app_id =", app_id).count()
-      stats_response.set_num_tasks(count)
-      stats_response.set_oldest_eta_usec(-1)
-    return (response.Encode(), 0, "")
+
+      if isinstance(queue, PullQueue):
+        num_tasks = queue.total_tasks()
+        oldest_eta = queue.oldest_eta()
+      else:
+        num_tasks = TaskName.all().\
+          filter("state =", tq_lib.TASK_STATES.QUEUED).\
+          filter("queue =", queue_name).\
+          filter("app_id =", app_id).count()
+
+        # This is not supported for push queues yet.
+        oldest_eta = None
+
+      # -1 is used to indicate an absence of a value.
+      oldest_eta_usec = (int((oldest_eta - epoch).total_seconds() * 1000000)
+                         if oldest_eta else -1)
+
+      stats_response.set_num_tasks(num_tasks)
+      stats_response.set_oldest_eta_usec(oldest_eta_usec)
+
+    return response.Encode(), 0, ""
 
   def purge_queue(self, app_id, http_data):
     """ 
