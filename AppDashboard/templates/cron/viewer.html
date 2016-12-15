@@ -1,0 +1,39 @@
+<!-- FILE:templates/cron/cron.html -->
+<!--Body content-->
+<style>
+   table {border-collapse:collapse; table-layout:fixed;}
+   table td {border:solid 5px #fab; word-wrap:break-word; border-color:gray}
+</style>
+
+<div id="content">
+    <div class="heading">
+        <h3>Cron viewer</h3>
+    </div>
+    <div class="row-fluid">
+        <div class="page-header">
+            <h1>View cron tasks:</h1>
+            <table>
+                <tr>
+                    <th>Cron job</th>
+                    <th>Description</th>
+                    <th>Frequency</th>
+                    <th>Generated crontab entry</th>
+                </tr>
+                {% for cron_job in cron_jobs%}
+                    <tr>
+                        <td id="command" width="30%">{{cron_job['url']}}</td>
+                        <td>{{cron_job['description']}}</td>
+                        <td>{{cron_job['frequency']}}</td>
+                        <td style="white-space:pre-wrap">{{cron_job['frequency_cron_format']}}</td>
+                        <td><a class="btn btn-small" href="{{cron_job['url_command']}}">Run</a></td>
+                    </tr>
+                {% endfor %}
+            </table>
+            <div>
+                {% for warning in warnings%}
+                    {{warning}}<br>
+                {% endfor %}
+            </div>
+        </div><!--close header-->
+    </div> <!-- end row fluid -->
+</div>

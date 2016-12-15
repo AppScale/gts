@@ -206,6 +206,21 @@ CRON
   end
 
 
+  # Gets an application cron info.
+  #
+  # Args:
+  #   app_name: A String that names the appid of this application.
+  def self.get_application_cron_info(app_name)
+    etc_crond_filename = "/etc/cron.d/appscale-#{app_name}"
+    etc_crond_file = File.exists?(etc_crond_filename) ? File.read(etc_crond_filename): ""
+    cron_yaml_filename = "#{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app/cron.yaml"
+    cron_yaml_file = YAML.load_file(cron_yaml_filename)
+    cron_yaml_file = cron_yaml_file ? cron_yaml_file: ""
+
+    return {"etc_crond_file" => etc_crond_file, "cron_yaml_file" => cron_yaml_file}
+  end
+
+
   # Converts the frequency of how often a Google App Engine cron job should run
   # to a format that cron understands.
   # TODO: This method does not correctly parse ordinals, as the ordinal
@@ -262,7 +277,7 @@ CRON
               "april" => "apr", "may" => "may", "june" => "jun",
               "july" => "jul", "august" => "aug", "september" => "sep",
               "october" => "oct", "november" => "nov",
-              "december" => "dec", "every" => "*" }
+              "december" => "dec", "every" => "*", "month" => "*"}
     result = []
     month_list = months.split(",")
     month_list.each{ |month|
@@ -270,7 +285,6 @@ CRON
     }
     return result.join(',')
   end
-
 
   # Takes a single cron line specified in the Google App Engine cron format
   # and converts it to one or more cron lines in standard cron format.
@@ -288,19 +302,21 @@ CRON
   def self.convert_messy_format(schedule)
     splitted = schedule.split
 
-    # Only 3, 5 or 7-token schedules are supported.
+    # Only 3, 4, 5 or 7-token schedules are supported.
     # Examples:
     # every day 00:00
     # every monday 09:00
+    # 1 of month 00:00
     # every monday of sep,oct,nov 17:00
     # every 5 minutes from 10:00 to 14:00
-    unless splitted.length == 3 || splitted.length == 5 || splitted.length == 7
+    unless splitted.length == 3 || splitted.length == 4 || splitted.length == 5 || splitted.length == 7
       Djinn.log_error("bad format, length = #{splitted.length}")
       return [""]
     end
 
     ord = splitted[0]
     days_of_week = splitted[1]
+    day_of_month = "*"
 
     multiple_cron_entries = false
     crons = Array.new
@@ -308,11 +324,17 @@ CRON
     if splitted.length == 3
       months_of_year = "every"
       time = splitted[2]
-      hour, min = time.split(":")
+      hour, min = time.split(":").map(&:to_i)
+    elsif splitted.length == 4
+      days_of_week = "day"
+      day_of_month = ord
+      months_of_year = splitted[2]
+      time = splitted[3]
+      hour, min = time.split(":").map(&:to_i)
     elsif splitted.length == 5
       months_of_year = splitted[3]
       time = splitted[4]
-      hour, min = time.split(":")
+      hour, min = time.split(":").map(&:to_i)
     else    # schedule length = 7, e.g. every 7 minutes from 10:00 to 14:00
       months_of_year = "every"
       days_of_week = "day"
@@ -435,6 +457,8 @@ CRON
       crons.each { |cron|
         cron_lines.push("#{cron["min"]} #{cron["hour"]} * #{months_of_year} #{days_of_week}")
       }
+    elsif ord != "every" && !multiple_cron_entries
+      cron_lines.push("#{min} #{hour} #{day_of_month} #{months_of_year} #{days_of_week}")
     else    # Complex case, not implemented yet.
       Djinn.log_error("Cannot set up cron route with ordinals, as AppScale" +
         " does not support it. Ordinal was: #{ord}")
@@ -529,6 +553,4 @@ CRON
       nil
     end
   end
-
-
 end

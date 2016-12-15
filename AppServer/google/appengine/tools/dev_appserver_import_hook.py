@@ -788,6 +788,7 @@ class HardenedModulesHook(object):
       'bz2',
       'cmath',
       'collections',
+      'crontab',
       'crypt',
       'cStringIO',
       'datetime',
@@ -801,6 +802,7 @@ class HardenedModulesHook(object):
       'posix',
       'posixpath',
       'pyexpat',
+      'pwd',
       'sha',
       'struct',
       'strxor',
@@ -855,12 +857,6 @@ class HardenedModulesHook(object):
     'future_builtins',
     'parser',
     'strop',
-
-
-
-
-
-
   ]
 
 
@@ -1570,17 +1566,6 @@ class HardenedModulesHook(object):
 
     try:
       try:
-
-
-
-
-
-
-
-
-
-
-
         return self._imp.load_module(submodule_fullname,
                                      source_file,
                                      pathname,
