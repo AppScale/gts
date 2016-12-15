@@ -2133,6 +2133,7 @@ class Djinn
             end
             @terminated[app] = {} if @terminated[app].nil?
             @terminated[app][appserver] = Time.now.to_i
+            delete_instance_from_dashboard(app, appserver)
             Djinn.log_info("Terminated AppServer #{appserver} will not received requests.")
           }
         }
@@ -2894,56 +2895,6 @@ class Djinn
       BlobServer::HAPROXY_PORT, BlobServer::NAME)
   end
 
-  # Instructs HAProxy to stop routing traffic for the named application to
-  # the AppServer at the given location.
-  #
-  # This method should be called at the AppController running the login role,
-  # as it is the only node that runs haproxy.
-  #
-  # Args:
-  #   app_id: A String that identifies the application that runs the AppServer
-  #     to remove.
-  #   ip: A String that identifies the private IP address where the AppServer
-  #     to remove runs.
-  #   port: A Fixnum that identifies the port where the AppServer was running
-  #     at ip.
-  #   secret: A String that is used to authenticate the caller.
-  #
-  # Returns:
-  #   "OK" if the removal was successful. In case of failures, the following
-  #   Strings may be returned:
-  #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
-  #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
-  #     remove AppServers from HAProxy config files).
-  def remove_appserver_from_haproxy(app_id, ip, port, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    unless my_node.is_shadow?
-       Djinn.log_debug("Sending remote_appserver_from_haproxy call for #{app_id} to shadow.")
-       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-       begin
-         return acc.remove_appserver_from_haproxy(app_id, ip, port)
-       rescue FailedNodeException => except
-         Djinn.log_warn("Failed to forward remote_appserver_from_haproxy" +
-            " call to shadow (#{get_shadow}).")
-         return NOT_READY
-       end
-    end
-
-    Djinn.log_info("Removing AppServer for app #{app_id} at #{ip}:#{port}")
-    APPS_LOCK.synchronize {
-      if @app_info_map[app_id] and @app_info_map[app_id]['appengine']
-        @app_info_map[app_id]['appengine'].delete("#{ip}:#{port}")
-      else
-        Djinn.log_debug("AppServer #{app_id} at #{ip}:#{port} is not known.")
-      end
-    }
-
-    # Tell the AppDashboard that the AppServer has been killed.
-    delete_instance_from_dashboard(app_id, "#{ip}:#{port}")
-
-    return "OK"
-  end
 
   # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
   def configure_uaserver()
@@ -4429,7 +4380,7 @@ HOSTS
             end
           }
           to_remove.each{ |location| @terminated[app].delete(location) }
-        }
+        end
       end
 
       if appservers.empty?
@@ -5369,8 +5320,7 @@ HOSTS
 
         to_terminate.each { |app, appservers|
           appservers.each { |appserver|
-            host, port = appserver.split(":")
-            remove_appserver_from_haproxy(app, host, port, @@secret)
+            @app_info_map[app]['appengine'].delete(appserver)
           }
         }
       }
@@ -6010,18 +5960,22 @@ HOSTS
 
     remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
 
+    to_remove = {}
     @app_info_map.each { |app_id, info|
-      if info['appengine'].nil?
-        next
-      end
+      next if info['appengine'].nil?
 
       info['appengine'].each { |location|
         host, port = location.split(":")
         if host == node_to_remove.private_ip
-          remove_appserver_from_haproxy(app_id, host, port, @@secret)
-          delete_instance_from_dashboard(app_id, "#{host}:#{port}")
+          to_remove[app] = [] if to_remove[app].nil?
+          to_remove[app] << location
         end
       }
+    }
+    to_remove.each { |app, locations|
+        locations.each { |location|
+          @app_info_map[app]['appengine'].delete(location)
+        }
     }
 
     imc = InfrastructureManagerClient.new(@@secret)

@@ -170,17 +170,6 @@ def add_routing(app, port):
   logging.info('Successfully established routing for {} on port {}'.
     format(app, port))
 
-def remove_routing(app, port):
-  """ Tells the AppController to stop routing traffic to an AppServer.
-
-  Args:
-    app: A string that contains the application ID.
-    port: A string that contains the port that the AppServer listens on.
-  """
-  acc = appscale_info.get_appcontroller_client()
-  appserver_ip = appscale_info.get_private_ip()
-  acc.remove_appserver_from_haproxy(app, appserver_ip, port)
-
 def start_app(config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
@@ -355,9 +344,6 @@ def stop_app_instance(app_name, port):
     logging.error("Unable to kill app process %s on port %d because of " \
       "invalid name for application" % (app_name, int(port)))
     return False
-
-  logging.info('Removing routing for {} on port {}'.format(app_name, port))
-  remove_routing(app_name, port)
 
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name + "-" + str(port)
