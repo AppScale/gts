@@ -4413,21 +4413,23 @@ HOSTS
           next if Integer(port) < 0
           appservers << location
         }
-        to_remove = []
-        @terminated[app].each { |location, when_detected|
-          # Let's make sure it doesn't receive traffic, and see how many
-          # sessions are still active.
-          if HAProxy.ensure_no_pending_request(app, location) <= 0
-            Djinn.log_info("#{location} has no more sessions: removing it.")
-            to_remove << location
-          elsif Time.now.to_i > when_detected + Integer(@option['appserver_timeout'])
-            Djinn.log_info("#{location} has ran out of time: removing it.")
-            to_remove << location
-          else
-            appservers << location
-          end
+        unless @terminated[app].nil?
+          to_remove = []
+          @terminated[app].each { |location, when_detected|
+            # Let's make sure it doesn't receive traffic, and see how many
+            # sessions are still active.
+            if HAProxy.ensure_no_pending_request(app, location) <= 0
+              Djinn.log_info("#{location} has no more sessions: removing it.")
+              to_remove << location
+            elsif Time.now.to_i > when_detected + Integer(@option['appserver_timeout'])
+              Djinn.log_info("#{location} has ran out of time: removing it.")
+              to_remove << location
+            else
+              appservers << location
+            end
+          }
+          to_remove.each{ |location| @terminated[app].delete(location) }
         }
-        to_remove.each{ |location| @terminated[app].delete(location) }
       end
 
       if appservers.empty?
@@ -5001,44 +5003,26 @@ HOSTS
       # Nothing to do if we already account for this AppServer.
       next if my_apps.include?(appengine)
 
-      # If the app needs to be started, but we have an AppServer not
-      # accounted for, we don't take action in case we haven't picked up
-      # yet the change of state from the shadow. We save it with a
-      # timestamp to ensure we don't wait forever on it.
+      # Here we have an AppServer which is not listed in @app_info_map. We
+      # have 2 options: it may be coming up and it's not registered yet,
+      # or it has been terminated. In either case, we give a grace period
+      # and then we terminate it. The time needs to be at least
+      # 'appserver_timeout' for termination.
       app, _ = appengine.split(":")
       @unaccounted[appengine] = Time.now.to_i if @unaccounted[appengine].nil?
       been_here = Time.now.to_i - @unaccounted[appengine]
-      if to_start.include?(app) && been_here < APP_UPLOAD_TIMEOUT * RETRIES
+      if to_start.include?(app) && been_here < Integer(@option['appserver_timeout']) * 2
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
       else
+        Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
         to_end << appengine
       end
     }
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
     Djinn.log_debug("AppServers to start: #{to_start}.") unless to_start.empty?
     Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
-
-    # Terminating will take quite a while, since we have to wait for the
-    # AppServer grace period timeout. We spawn it in a thread and let it
-    # go to termination.
-    if TERMINATE_LOCK.locked?
-      Djinn.log_debug("Another thread already working with AppManager.")
-    else
-      TERMINATE_LOCK.synchronize {
-        Thread.new {
-          Kernel.sleep(Integer(@option['appserver_timeout']) + DUTY_CYCLE*3)
-          to_end.each { |appserver|
-            Djinn.log_info("Terminate the following AppServer: #{appserver}.")
-            app, port = appserver.split(":")
-            AMS_LOCK.synchronize { ret = remove_appserver_process(app, port) }
-            Djinn.log_debug("remove_appserver_process returned: #{ret}.")
-            @unaccounted.delete(appserver)
-          }
-        }
-      }
-    end
 
     # Now we do the talking with the appmanagerserver. Since it may take
     # some time to start/stop apps, we do this in a thread. We do one
@@ -5047,13 +5031,9 @@ HOSTS
     Thread.new {
       AMS_LOCK.synchronize {
         Djinn.log_debug("Checking if any app need to be restarted.")
-
-        # We restart applications first if needed.
         apps_to_restart = []
         app_language = ""
-        APPS_LOCK.synchronize {
-          apps_to_restart = @apps_to_restart
-        }
+        APPS_LOCK.synchronize { apps_to_restart = @apps_to_restart }
 
         apps_to_restart.each { |app_name|
           Djinn.log_info("Got #{app_name} to restart (if applicable).")
@@ -5077,14 +5057,11 @@ HOSTS
             Djinn.log_warn("Failed to talk to app_manager to restart #{app_name}.")
             result = false
           end
-          unless result
-            Djinn.log_warn("Failed to restart app #{app_name}.")
-          end
+          Djinn.log_warn("Failed to restart app #{app_name}.") unless result
+
           maybe_reload_taskqueue_worker(app_name)
 
-          APPS_LOCK.synchronize {
-            @apps_to_restart.delete(app_name)
-          }
+          APPS_LOCK.synchronize { @apps_to_restart.delete(app_name) }
           Djinn.log_info("Done restarting #{app_name}.")
         }
 
