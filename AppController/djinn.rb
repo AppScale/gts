@@ -4352,7 +4352,7 @@ class Djinn
     search_ip = ""
     @nodes.each { |node|
       search_ip = node.private_ip if node.is_search?
-      break;
+      break
     }
     HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,  search_ip)
   end
