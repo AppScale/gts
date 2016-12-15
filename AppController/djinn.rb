@@ -2128,8 +2128,8 @@ class Djinn
         # Let's detect if some appserver terminated.
         @apps_loaded.each{ |app|
           HAProxy.list_servers(app).each{ |appserver|
-            unless @app_infp_map[app]['appengine'].nil?
-              next if @app_infp_map[app]['appengine'].include?(appserver)
+            unless @app_info_map[app]['appengine'].nil?
+              next if @app_info_map[app]['appengine'].include?(appserver)
             end
             @terminated[app] = {} if @terminated[app].nil?
             @terminated[app][appserver] = Time.now.to_i
@@ -4372,7 +4372,7 @@ HOSTS
             if HAProxy.ensure_no_pending_request(app, location) <= 0
               Djinn.log_info("#{location} has no more sessions: removing it.")
               to_remove << location
-            elsif Time.now.to_i > when_detected + Integer(@option['appserver_timeout'])
+            elsif Time.now.to_i > when_detected + Integer(@options['appserver_timeout'])
               Djinn.log_info("#{location} has ran out of time: removing it.")
               to_remove << location
             else
@@ -4404,6 +4404,15 @@ HOSTS
 
       HAProxy.update_app_config(my_private, app,
         @app_info_map[app]['haproxy'], appservers)
+      # We need to set the drain on haproxy on the terminated AppServers,
+      # since a reload of HAProxy would have reset them.
+      @apps_loaded.each{ |apps|
+        unless @terminated[app].nil?
+          @terminated[app].each { |location|
+            HAProxy.ensure_no_pending_request(app, location)
+          }
+        end
+      }
 
       # If nginx config files have been updated, we communicate the app's
       # ports to the UserAppServer to make sure we have the latest info.
@@ -4962,7 +4971,7 @@ HOSTS
       app, _ = appengine.split(":")
       @unaccounted[appengine] = Time.now.to_i if @unaccounted[appengine].nil?
       been_here = Time.now.to_i - @unaccounted[appengine]
-      if to_start.include?(app) && been_here < Integer(@option['appserver_timeout']) * 2
+      if to_start.include?(app) && been_here < Integer(@options['appserver_timeout']) * 2
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)

@@ -75,8 +75,8 @@ module HAProxy
 
 
   # The String haproxy return when we try to set a parameter on a
-  # non defined server.
-  NO_SERVER = "No such server."
+  # non defined server or backend.
+  NO_SUCH = "No such."
 
 
   def self.start()
@@ -426,29 +426,30 @@ CONFIG
   #   An Integer containing the number of current sessions, or -1 if the
   #     server is not known by haproxy.
   def self.ensure_no_pending_request(app, location)
-    full_app_name = "gae_#{app_name}"
-    Djinn.log_debug("We will put 0% weight to #{full_app_name}:#{location}.")
+    full_app_name = "gae_#{app}"
+    appserver = "#{full_app_name}-#{location}"
+    Djinn.log_debug("We will put 0% weight to #{appserver}.")
 
     # Let's set the weight to 0, and check if the server is actually know.
-    result = Djinn.log_run("echo \"set weight #{full_app_name}/#{location} 0%\" |" +
+    result = Djinn.log_run("echo \"set weight #{full_app_name}/#{appserver} 0%\" |" +
       " socat stdio unix-connect:/etc/haproxy/stats")
-    if result == NO_SERVER
-      Djinn.log_warn("Server #{full_app_name}/#{location} does not exists.")
+    if result.include?(NO_SUCH)
+      Djinn.log_warn("Server #{full_app_name}/#{appserver} does not exists.")
       return -1
     end
 
     # Retrieve the current sessions for this server.
     server_stat = Djinn.log_run("echo \"show stat\" | socat stdio " +
-      "unix-connect:/etc/haproxy/stats | grep \"#{full_app_name},#{location}\"")
+      "unix-connect:/etc/haproxy/stats | grep \"#{full_app_name},#{appserver}\"")
     if server_stat.empty? or server_stat.length > 1
       # We shouldn't be here, since we set the weight before.
-      Djinn.log_warn("Something wrong retrieving stat for #{full_app_name}/#{location}!")
+      Djinn.log_warn("Something wrong retrieving stat for #{full_app_name}/#{appserver}!")
       return -1
     end
 
     parsed_info = server_stat.split(',')
     current_sessions = parsed_info[CURRENT_SESSIONS]
-    Djinn.log_debug("Current sessions for #{full_app_name}/#{location} " +
+    Djinn.log_debug("Current sessions for #{full_app_name}/#{appserver} " +
       "is #{current_sessions}.")
     return current_sessions
   end
