@@ -32,6 +32,7 @@ from constants import LOG_FORMAT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
+from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
@@ -211,6 +212,9 @@ class MainHandler(tornado.web.RequestHandler):
     elif method == "DeleteIndex":
       response, errcode, errdetail = self.delete_index_request(app_id, 
                                                        http_request_data)
+    elif method == 'AddActions':
+      response, errcode, errdetail = self.add_actions_request(
+        app_id, http_request_data)
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
       errdetail = "Unknown datastore message" 
@@ -665,6 +669,35 @@ class MainHandler(tornado.web.RequestHandler):
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")
+
+  def add_actions_request(self, app_id, http_request_data):
+    """ High level function for adding transactional tasks.
+
+    Args:
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
+    Returns:
+      An encoded AddActions response.
+    """
+    global datastore_access
+
+    req_pb = taskqueue_service_pb.TaskQueueBulkAddRequest(http_request_data)
+    resp_pb = taskqueue_service_pb.TaskQueueBulkAddResponse()
+
+    if READ_ONLY:
+      logger.warning('Unable to add transactional tasks in read-only mode')
+      return (resp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
+        'Datastore is in read-only mode.')
+
+    try:
+      datastore_access.dynamic_add_actions(app_id, req_pb)
+      return resp_pb.Encode(), 0, ""
+    except dbconstants.ExcessiveTasks as error:
+      return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST, str(error))
+    except dbconstants.AppScaleDBConnectionError:
+      logger.exception('DB connection error')
+      return (resp_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              'Datastore connection error when adding transaction tasks.')
 
 
 def usage():

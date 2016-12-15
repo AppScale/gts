@@ -217,6 +217,22 @@ class AppDashboardHelper(object):
       logging.exception(err)
       return []
 
+  def get_application_cron_info(self, app_name):
+    """ Get an application cron info
+
+    Args:
+      app_name: A str containing the name of the app to be removed.
+    Returns:
+      A dict that contains the cron.yaml and /etc/cron.d/appscale-#app_id files content
+    """
+    try:
+      acc = self.get_appcontroller_client()
+      cron_info = acc.get_application_cron_info(app_name)
+    except Exception as err:
+      logging.exception(err)
+      return {}
+    return cron_info
+
   def get_host_with_role(self, role):
     """ Queries the AppController to find a host running the named role.
 

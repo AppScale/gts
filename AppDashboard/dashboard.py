@@ -10,6 +10,8 @@ Engine applications.
 # pylint: disable-msg=W0613
 
 import cgi
+from collections import defaultdict
+import crontab
 import datetime
 import jinja2
 import json
@@ -20,6 +22,7 @@ import sys
 import time
 import urllib
 import webapp2
+import yaml
 
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
@@ -42,7 +45,7 @@ jinja_environment = jinja2.Environment(
   loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
                                  os.sep + 'templates'))
 
-# The maximum number of datapoints we send to be rendered in a graph 
+# The maximum number of datapoints we send to be rendered in a graph
 # charting requests per second.
 MAX_REQUESTS_DATA_POINTS = 100
 
@@ -76,7 +79,7 @@ class AppDashboard(webapp2.RequestHandler):
 
   def __init__(self, request, response):
     """ Constructor.
-    
+
     Args:
       request: The webapp2.Request object that contains information about the
         current web request.
@@ -90,7 +93,7 @@ class AppDashboard(webapp2.RequestHandler):
   def render_template(self, template_file, values=None):
     """ Renders a template file with all variables loaded.
 
-    Args: 
+    Args:
       template_file: A str with the relative path to template file.
       values: A dict with key/value pairs used as variables in the jinja
         template files.
@@ -505,7 +508,7 @@ class AuthorizePage(AppDashboard):
 
   def parse_update_user_permissions(self):
     """ Update authorization matrix from form submission.
-    
+
     Returns:
       A str with message to be displayed to the user.
     """
@@ -927,7 +930,7 @@ class LogUploadPage(webapp2.RequestHandler):
       if key_name in entities_to_store:
         log_line = entities_to_store[key_name]
       else:
-        # Grab it from the datastore. 
+        # Grab it from the datastore.
         log_line = RequestLogLine.get_by_id(id=key_name)
       if not log_line:
         # This is the first log for this timestamp.
@@ -980,6 +983,101 @@ class LogDownloader(AppDashboard):
     })
 
 
+class CronConsolePage(AppDashboard):
+  TEMPLATE = "cron/console.html"
+
+  def get(self):
+    """ Shows deployed user applications that contain cron.yaml
+    """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    if is_cloud_admin:
+      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+    else:
+      apps_user_is_admin_on = self.helper.get_owned_apps()
+
+    apps_with_cron_yaml = []
+    for app_id in apps_user_is_admin_on:
+      cron_info = self.helper.get_application_cron_info(app_id)
+      if cron_info.get("etc_crond_file", {}):
+        apps_with_cron_yaml.append(app_id)
+
+    self.render_app_page(page='cron', values={
+      'apps_with_cron_yaml': apps_with_cron_yaml,
+      'page_content': self.TEMPLATE
+    })
+
+
+class CronViewPage(AppDashboard):
+  TEMPLATE = "cron/viewer.html"
+
+  def get(self):
+    """ Shows active cron entries for given appid
+    """
+    app_id = self.request.get("appid")
+    mail_to = []
+    cron_jobs = []
+    warnings = []
+    cron_info = self.helper.get_application_cron_info(app_id)
+
+    yaml_file = cron_info.get("cron_yaml_file", [])
+    etc_crond_file = cron_info.get("etc_crond_file", "")
+    try:
+      crond_file = crontab.CronTab(tab=etc_crond_file, user=False)
+    except IOError as ioe:
+      logging.error(ioe)
+    else:
+      crond_records = defaultdict(list)
+      yaml_records = {}
+      for yaml_entry in yaml_file["cron"]:
+        url = yaml_entry["url"]
+        yaml_records[url] = yaml_entry
+        for crond_entry in crond_file:
+          if url in crond_entry.command:
+            crond_records[url].append(crond_entry)
+            logging.info(crond_entry)
+
+      if len(yaml_records) != len(crond_records):
+        warnings.append(
+          "One of the cron jobs from cron.yaml is missing in crond file for appid {0}."
+          "Look at controller logs for more information at /var/log/appscale/".format(app_id)
+        )
+        logging.warning(warnings)
+
+      for url, entries in crond_records.iteritems():
+        yaml_record = yaml_records.get(url, {})
+        query_params = {"url": url, "appid": app_id}
+        url_command = "/cron/run?" + urllib.urlencode(query_params)
+        cron_jobs.append(
+          {"url": url,
+           "frequency": yaml_record.get("schedule", ""),
+           "frequency_cron_format": "\n".join(str(entry.slices) for entry in entries),
+           "description": yaml_record.get("description", ""),
+           "url_command": url_command})
+      logging.info(cron_jobs)
+
+      self.render_app_page(page='cron', values={
+        'mail_to': mail_to,
+        'cron_jobs': cron_jobs,
+        'warnings': warnings,
+        'page_content': self.TEMPLATE
+      })
+
+
+class CronRun(AppDashboard):
+  def get(self):
+    """ Runs specific cron job according to url param and
+    redirects user back to previous page.
+    """
+    api_url = urllib.unquote(self.request.get("url"))
+    app_id = urllib.unquote(self.request.get("appid"))
+    if not api_url or not app_id:
+      return
+
+    app_url = self.dstore.get_application_info()[app_id][1]
+    response = urllib.urlopen(app_url + api_url)
+    self.redirect("/cron/view?" + urllib.urlencode({"appid": app_id}), response)
+
+
 class AppConsolePage(AppDashboard):
   # The template to use for the app console page.
   TEMPLATE = "apps/console.html"
@@ -991,7 +1089,7 @@ class AppConsolePage(AppDashboard):
 
 
 class DatastoreStats(AppDashboard):
-  """ Class that returns datastore statistics in JSON such as the number of 
+  """ Class that returns datastore statistics in JSON such as the number of
   a certain entity kind and the amount of total bytes.
   """
   # The most number of data points we pass back to render in the dashboard.
@@ -1001,7 +1099,7 @@ class DatastoreStats(AppDashboard):
   MAX_DAYS_BACK = 30
 
   def get(self):
-    """ Handler for GET request for the datastore statistics. 
+    """ Handler for GET request for the datastore statistics.
 
     Returns:
       The JSON output for testing.
@@ -1026,7 +1124,7 @@ class DatastoreStats(AppDashboard):
 
   def convert_to_json(self, kind_entities):
     """ Converts KindStat entities to a json string.
-  
+
     Args:
       kind_entities: A list of stats.KindStat.
     Returns:
@@ -1041,7 +1139,7 @@ class DatastoreStats(AppDashboard):
 
 
 class RequestsStats(AppDashboard):
-  """ Class that returns request statistics in JSON relating to the number 
+  """ Class that returns request statistics in JSON relating to the number
   of requests an application gets per second.
   """
 
@@ -1060,13 +1158,13 @@ class RequestsStats(AppDashboard):
 
   @staticmethod
   def fetch_request_info(app_id):
-    """ Fetches request per second information from the datastore for 
+    """ Fetches request per second information from the datastore for
     a given application.
-  
+
     Args:
       app_id: A str, the application identifier.
     Returns:
-      A list of dictionaries filled with timestamps and number of 
+      A list of dictionaries filled with timestamps and number of
       requests per second.
     """
     query = RequestInfo.query(RequestInfo.app_id == app_id)
@@ -1288,6 +1386,9 @@ dashboard_pages = [
   ('/logs/upload', LogUploadPage),
   ('/logs/(.+)/(.+)', LogServiceHostPage),
   ('/logs/(.+)', LogServicePage),
+  ('/cron', CronConsolePage),
+  ('/cron/view', CronViewPage),
+  ('/cron/run', CronRun),
   ('/gather-logs', LogDownloader),
   ('/groomer', RunGroomer),
   ('/change-password', ChangePasswordPage),

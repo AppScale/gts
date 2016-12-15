@@ -191,7 +191,19 @@ class TestCronHelper < Test::Unit::TestCase
     actual = CronHelper.convert_messy_format(schedule)
     self.assert_equal(expected, actual)
 
-    # every 65 hours
+    # 1 of month 01:00
+    schedule = "1 of month 01:00"
+    expected = ["0 1 1 * *"]
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    # 2 of may 00:00
+    schedule = "2 of may 00:00"
+    expected = ["0 0 2 may *"]
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    # every 65 minutes
     schedule = "every 65 minutes from 12:26 to 03:10"
     expected = ["26 12 * * *",
                 "31 13 * * *",
