@@ -5396,18 +5396,26 @@ HOSTS
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
-      # Always get scaling info, as that will send this info to the
-      # AppDashboard for users to view.
-      case get_scaling_info_for_app(app_name)
-      when :scale_up
-        Djinn.log_debug("Considering scaling up app #{app_name}.")
-        try_to_scale_up(app_name)
-      when :scale_down
-        Djinn.log_debug("Considering scaling down app #{app_name}.")
-        try_to_scale_down(app_name)
-      else
-        Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
-      end
+      begin
+        # Always get scaling info, as that will send this info to the
+        # AppDashboard for users to view.
+        case get_scaling_info_for_app(app_name)
+        when :scale_up
+          Djinn.log_debug("Considering scaling up app #{app_name}.")
+          try_to_scale_up(app_name)
+        when :scale_down
+          Djinn.log_debug("Considering scaling down app #{app_name}.")
+          try_to_scale_down(app_name)
+        else
+          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
+        end
+
+        # Ensure we have the minimum number of AppServers requested.
+        num_appengines = 0
+        unless @app_info_map[app_name]['appengine'].nil?
+          num_appengines = @app_info_map[app_name]['appengine'].length
+        end
+      end while num_appengines < Integer(@options['appengine'])
     }
   end
 
@@ -5589,8 +5597,14 @@ HOSTS
       return
     end
 
-    # We scale only if the designed time is passed.
-    if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
+    # We scale only if the designed time is passed and we have the minimum
+    # number of AppServers running.
+    num_appengines = 0
+    unless @app_info_map[app_name]['appengine'].nil?
+      num_appengines = @app_info_map[app_name]['appengine'].length
+    end
+    if Integer(@options['appengine']) > num_appengines &&
+        Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
       return
     end
