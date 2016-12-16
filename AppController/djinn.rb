@@ -506,6 +506,10 @@ class Djinn
     @my_private_ip = nil
     @kill_sig_received = false
     @done_initializing = false
+    @done_terminating = false
+    @waiting_messages = []
+    @waiting_messages.extend(MonitorMixin)
+    @message_ready = @waiting_messages.new_cond
     @done_loading = false
     @state = "AppController just started"
     @all_stats = []
@@ -2166,6 +2170,105 @@ class Djinn
     end
   end
 
+  def is_appscale_terminated(secret)
+    begin
+      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+      return bad_secret unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+    end
+    return @done_terminating
+  end
+
+
+  def run_terminate(clean, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+    if my_node.is_shadow?
+      begin
+        bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+        return bad_secret unless valid_secret?(secret)
+      rescue Errno::ENOENT
+        # On appscale down, terminate may delete our secret key before we
+        # can check it here.
+        Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      end
+      Djinn.log_info("Received a stop request.")
+      Djinn.log_info("Stopping all other nodes.")
+      terminate_appscale_in_parallel(clean){|node| send_client_message(node)}
+      @done_terminating = true
+    end
+  end
+
+
+  def terminate_appscale(my_node, clean)
+    ip = my_node.private_ip
+    Djinn.log_info("Running terminate.rb on the node at IP address #{ip}")
+    ssh_key = my_node.ssh_key
+    Djinn.log_info("clean val: #{clean.downcase}")
+    extra_command = clean.downcase == 'true' ? ' clean' : ''
+    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+    output = HelperFunctions.run_remote_command(ip, "ruby " +
+        "/root/appscale/AppController/terminate.rb#{extra_command}",
+                                                ssh_key,
+                                                true)
+    status = output.chomp!("OK")==nil ? false : true
+    output += HelperFunctions.run_remote_command(ip, 'ps x', ssh_key, true)
+    Djinn.log_info("#{ip} terminated:#{status}\noutput:#{output}")
+    return {'ip'=>ip, 'status'=> status, 'output'=>output}
+  end
+
+
+  def terminate_appscale_in_parallel(clean)
+    # Let's stop all other nodes.
+    threads = []
+    @nodes.each { |node|
+      if node.private_ip != my_node.private_ip
+        threads << Thread.new {
+          Thread.current[:output] = terminate_appscale(node, clean)
+        }
+      end
+    }
+
+    threads.each do |t|
+      t.join
+      yield t[:output]
+    end
+
+    return "OK"
+  end
+
+
+  def send_client_message(message)
+    @waiting_messages.synchronize {
+      @waiting_messages.push(message)
+      Djinn.log_info(@waiting_messages)
+      @message_ready.signal
+    }
+  end
+
+
+  def receive_server_message(message_sender, secret)
+    begin
+      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+      return bad_secret unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+    end
+    if @done_terminating and @waiting_messages.empty?
+      return
+    end
+    @waiting_messages.synchronize {
+      @message_ready.wait_while {@waiting_messages.empty?}
+      message = JSON.dump(@waiting_messages)
+      @waiting_messages.clear
+      Djinn.log_info("client receiving: #{message}")
+      return message
+    }
+  end
 
   # Starts the InfrastructureManager service on this machine, which exposes
   # a SOAP interface by which we can dynamically add and remove nodes in this
