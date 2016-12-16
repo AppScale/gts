@@ -5396,7 +5396,7 @@ HOSTS
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
-      begin
+      loop do
         # Always get scaling info, as that will send this info to the
         # AppDashboard for users to view.
         case get_scaling_info_for_app(app_name)
@@ -5415,7 +5415,8 @@ HOSTS
         unless @app_info_map[app_name]['appengine'].nil?
           num_appengines = @app_info_map[app_name]['appengine'].length
         end
-      end while num_appengines < Integer(@options['appengine'])
+        break unless num_appengines < Integer(@options['appengine'])
+      end
     }
   end
 
