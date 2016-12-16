@@ -5598,8 +5598,9 @@ HOSTS
       return
     end
 
-    # We scale only if the designed time is passed and we have the minimum
-    # number of AppServers running.
+    # We do have a cooldown period after scaling, to ensure we give enough
+    # time to the system to react. We should ignore the cooldown period if
+    # we don't have the minimum number of AppServers for this application.
     num_appengines = 0
     unless @app_info_map[app_name]['appengine'].nil?
       num_appengines = @app_info_map[app_name]['appengine'].length
