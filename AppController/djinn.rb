@@ -5396,18 +5396,31 @@ HOSTS
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
-      # Always get scaling info, as that will send this info to the
-      # AppDashboard for users to view.
-      case get_scaling_info_for_app(app_name)
-      when :scale_up
-        Djinn.log_debug("Considering scaling up app #{app_name}.")
-        try_to_scale_up(app_name)
-      when :scale_down
-        Djinn.log_debug("Considering scaling down app #{app_name}.")
-        try_to_scale_down(app_name)
-      else
-        Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
-      end
+      begin
+
+        # Always get scaling info, as that will send this info to the
+        # AppDashboard for users to view.
+        case get_scaling_info_for_app(app_name)
+        when :scale_up
+          Djinn.log_debug("Considering scaling up app #{app_name}.")
+          try_to_scale_up(app_name)
+        when :scale_down
+          Djinn.log_debug("Considering scaling down app #{app_name}.")
+          try_to_scale_down(app_name)
+          break
+        else
+          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
+          break
+        end
+
+        if @app_info_map[app_name]['appengine'].nil?
+          num_appengines = 0
+        else
+          num_appengines = @app_info_map[app_name]['appengine'].length
+        end
+
+      # Try to scale up as quickly as possible at startup.
+      end while num_appengines < Integer(@options['appengine'])
     }
   end
 
