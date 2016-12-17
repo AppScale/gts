@@ -4029,7 +4029,7 @@ class Djinn
     status = `git -C #{APPSCALE_HOME} status`
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
-    build_java_appserver if status.include?('AppTaskQueue')
+    build_java_appserver if status.include?('AppServer_Java')
   end
 
   def initialize_nodes_in_parallel(node_info)
