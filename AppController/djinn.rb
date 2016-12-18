@@ -547,8 +547,9 @@ class Djinn
     # we have in this deployment.
     @zookeeper_data = []
 
-    # This variable is used to keep track of the list of memcache servers.
-    @memcache_contents = ""
+    # This variable is used to keep track of the location files we write
+    # when layout changes.
+    @locations_content = ""
 
     # The following variables are restored from the headnode ie they are
     # part of the common state of the running deployment.
@@ -2057,6 +2058,19 @@ class Djinn
     end
     parse_options()
 
+    # load datastore helper
+    # TODO: this should be the class or module
+    @state = "Setting up database configuration files"
+    table = @options['table']
+    # require db_file
+    begin
+      require "#{table}_helper"
+    rescue => e
+      backtrace = e.backtrace.join("\n")
+      HelperFunctions.log_and_crash("Unable to find #{table} helper." +
+        " Please verify datastore type: #{e}\n#{backtrace}")
+    end
+
     # We reset the kill signal received since we are starting now.
     @kill_sig_received = false
 
@@ -2072,9 +2086,9 @@ class Djinn
       build_uncommitted_changes
       Djinn.log_info("Preparing other nodes for this deployment.")
 
-      find_me_in_locations()
-      write_database_info()
-      update_firewall()
+      find_me_in_locations
+      write_database_info
+      update_firewall
 
       initialize_nodes_in_parallel(@nodes)
     end
@@ -2083,7 +2097,7 @@ class Djinn
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
     initialize_server
-    write_zookeeper_locations()
+    write_zookeeper_locations
     start_api_services
 
     # Now that we are done loading, we can set the monit job to check the
@@ -2108,10 +2122,10 @@ class Djinn
         Djinn.log_warn("Monit was not running: restarted it.")
       end
 
-      write_database_info()
-      update_firewall()
-      write_memcache_locations()
-      write_zookeeper_locations()
+      write_database_info
+      update_firewall
+      write_locations
+      write_zookeeper_locations
 
       # This call will block if we cannot reach a zookeeper node, but will
       # be very fast if we have an available connection. The function sets
@@ -3003,7 +3017,7 @@ class Djinn
     Nginx.reload()
   end
 
-  def write_database_info()
+  def write_database_info
     table = @options['table']
     replication = @options['replication']
     keyname = @options['keyname']
@@ -3223,7 +3237,7 @@ class Djinn
   # Updates the file that says where all the ZooKeeper nodes are
   # located so that this node has the most up-to-date info if it needs to
   # restore the data down the line.
-  def write_zookeeper_locations()
+  def write_zookeeper_locations
     zookeeper_data = { 'last_updated_at' => @last_updated,
       'locations' => []
     }
@@ -4137,7 +4151,7 @@ class Djinn
     controller = "#{APPSCALE_HOME}/AppController"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     lib = "#{APPSCALE_HOME}/lib"
-    loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
+    app_dashboard = "#{APPSCALE_HOME}/AppDashboard"
     scripts = "#{APPSCALE_HOME}/scripts"
     server = "#{APPSCALE_HOME}/AppServer"
     server_java = "#{APPSCALE_HOME}/AppServer_Java"
@@ -4150,7 +4164,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
     HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
-    HelperFunctions.shell("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
+    HelperFunctions.shell("rsync #{options} #{app_dashboard}/* root@#{ip}:#{app_dashboard}")
     HelperFunctions.shell("rsync #{options} --exclude='logs/*' #{appdb}/* root@#{ip}:#{appdb}")
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
@@ -4222,53 +4236,11 @@ class Djinn
   end
 
   def setup_config_files()
-    @state = "Setting up database configuration files"
-
-    master_ip = []
-    slave_ips = []
-
-    # load datastore helper
-    # TODO: this should be the class or module
-    table = @options['table']
-    # require db_file
-    begin
-      require "#{table}_helper"
-    rescue => e
-      backtrace = e.backtrace.join("\n")
-      HelperFunctions.log_and_crash("Unable to find #{table} helper." +
-        " Please verify datastore type: #{e}\n#{backtrace}")
-    end
-
-    @nodes.each { |node|
-      master_ip = node.private_ip if node.jobs.include?("db_master")
-      unless slave_ips.include? node.private_ip
-        slave_ips << node.private_ip if node.jobs.include?("db_slave")
-      end
-    }
-
-    Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
-
-    my_public = my_node.public_ip
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}\n")
-
-    my_private = my_node.private_ip
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}\n")
-
     head_node_ip = get_shadow.public_ip
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = @options['login']
     HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_ip", "#{login_ip}\n")
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_ip}\n")
-
-    if @nodes.length  == 1
-      Djinn.log_info("Only saw one machine, therefore my node is " +
-        "also a slave node")
-      slave_ips = [ my_private ]
-    end
-
-    slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slave_ips_newlined}\n")
 
     update_hosts_info()
 
@@ -4281,34 +4253,68 @@ class Djinn
   end
 
 
-  # Writes a file to the local filesystem that contains the IP addresses of
-  # all machines running memcached. AppServers read this file periodically to
-  # get an up-to-date list of the nodes running the memcache service, which can
-  # change if AppScale scales up or down.
-  def write_memcache_locations()
+  # Writes locations (IP addresses) for the various nodes fulfilling
+  # specific roles, in the local filesystems. These files will be updated
+  # as the deployment adds or removes nodes.
+  def write_locations
+    load_balancers_ips = []
     memcache_ips = []
+    taskqueue_ips = []
+    master_ips = []
+    slave_ips = []
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    login_ips = @options['login'].split(/[\s,]+/)
+
     @nodes.each { |node|
-      memcache_ips << node.private_ip if node.is_memcache?
+      load_balancers_ips << node.private_ip if node.is_load_balancer?
+      memcache_ips << node.private_ip if node.is_load_balancer?
+      taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
+        node.is_taskqueue_slave?
+      master_ips << node.private_ip if node.is_db_master?
+      unless slave_ips.include? node.private_ip
+        slave_ips << node.private_ip if node.is_db_slave?
+      end
     }
-    memcache_contents = memcache_ips.join("\n")
-    # We write the file only if something changed.
-    if memcache_contents != @memcache_contents
+    slaves_ips << masters_ips[0] if slaves_ips.emtpy?
+
+    memcache_content = memcache_ips.join("\n")
+    load_balancers_content = load_balancers_ips.join("\n")
+    taskqueue_content = taskqueue_ips.join("\n")
+    login_content = login_ips.join("\n")
+    master_content = master_ips.join("\n")
+    slaves_content = slave_ips.join("\n")
+
+    # If nothing changes since last time we wrote the locations file, we
+    # skip it.
+    new_content = memcache_content + load_balancers_content + taskqueue_content +
+      login_content + master_content + slaves_content + my_public + my_private
+    if new_content != @locations_content
+      Djinn.log_info("Load Balancers location: #{load_balancers_ips}.")
+      load_balancers_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
+      HelperFunctions.write_file(load_balancers_file, load_balancers_content)
+
+      Djinn.log_info("Deployment public name/IP(s): #{login_ips}.")
+      login_file = "#{APPSCALE_CONFIG_DIR}/appdashboard_public_ip"
+      HelperFunctions.write_file(login_file, login_content)
+
+      Djinn.log_info("Memcache locations: #{load_balancers_ips}.")
       memcache_file = "#{APPSCALE_CONFIG_DIR}/memcache_ips"
-      HelperFunctions.write_file(memcache_file, memcache_contents)
-      @memcache_contents = memcache_contents
-      Djinn.log_debug("Updated memcache servers to #{memcache_ips.join(', ')}")
+      HelperFunctions.write_file(memcache_file, memcache_content)
+
+      Djinn.log_info("Taskqueue locations: #{load_balancers_ips}.")
+      HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
+
+      Djinn.log_info("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slaves_content}")
+
+      Djinn.log_info("My public IP is #{my_public}, and my private is #{my_private}")
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}")
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}")
+
+      @locations_content = new_content
     end
-  end
-
-
-  # Writes a file to the local filesystem that contains the IP address
-  # of a machine that runs the AppDashboard. AppServers use this file
-  # to know where to send users to log in. Because users have to be able
-  # to access this IP address, we use the public IP here instead of the
-  # private IP.
-  def write_apploadbalancer_location()
-    login_file = "#{APPSCALE_CONFIG_DIR}/appdashboard_public_ip"
-    HelperFunctions.write_file(login_file, @options['login'])
   end
 
 
@@ -4353,16 +4359,6 @@ class Djinn
     HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,  search_ip)
   end
 
-  # Writes a file to the local file system that tells the taskqueue master
-  # all nodes which are taskqueue nodes.
-  def write_taskqueue_nodes_file()
-    taskqueue_ips = []
-    @nodes.each { |node|
-      taskqueue_ips << node.private_ip if node.is_taskqueue_master? or node.is_taskqueue_slave?
-    }
-    taskqueue_contents = taskqueue_ips.join("\n")
-    HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_contents)
-  end
 
   # Updates files on this machine with information about our hostname
   # and a mapping of where other machines are located.
@@ -4583,13 +4579,11 @@ HOSTS
       write_app_logrotate()
       Djinn.log_info("Copying logrotate script for centralized app logs")
     end
-    configure_db_nginx()
-    write_memcache_locations()
-    write_apploadbalancer_location()
-    find_nearest_taskqueue()
-    write_taskqueue_nodes_file()
-    write_search_node_file()
-    setup_config_files()
+    configure_db_nginx
+    write_locations
+    find_nearest_taskqueue
+    write_search_node_file
+    setup_config_files
   end
 
   # Sets up logrotate for this node's centralized app logs.

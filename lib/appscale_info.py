@@ -49,12 +49,16 @@ def get_all_ips():
   return filter(None, nodes)
 
 def get_login_ip():
-  """ Get the public IP of the head node.
+  """ Get the public IP of the head node. Since there can be more then one
+  public IP for this deployment, we return the first one. NOTE: it can
+  change if nodes crashes.
 
   Returns:
     String containing the public IP of the head node.
   """
-  return file_io.read(constants.LOGIN_IP_LOC).rstrip()
+  raw_ips = file_io.read(constants.LOGIN_IP_LOC)
+  ips = raw_ips.split('\n')
+  return ips[0]
 
 def get_private_ip():
   """ Get the private IP of the current machine.
