@@ -5396,7 +5396,12 @@ HOSTS
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
+      # We make sure we scale right away to minimum number of AppServers
+      # requested by the user. We can check form @last_decision if an
+      # AppServer was created/deleted.
       loop do
+        last_change = @last_decision[app_name]
+
         # Always get scaling info, as that will send this info to the
         # AppDashboard for users to view.
         case get_scaling_info_for_app(app_name)
@@ -5410,12 +5415,16 @@ HOSTS
           Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
         end
 
+        # No change means we are out of resources: we cannot scale at this
+        # time, we have to wait for more nodes.
+        break if last_change == @last_decision[app_name]
+
         # Ensure we have the minimum number of AppServers requested.
         num_appengines = 0
         unless @app_info_map[app_name]['appengine'].nil?
           num_appengines = @app_info_map[app_name]['appengine'].length
         end
-        break unless num_appengines < Integer(@options['appengine'])
+        break if num_appengines >= Integer(@options['appengine'])
       end
     }
   end
