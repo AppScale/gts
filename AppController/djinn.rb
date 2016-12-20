@@ -5397,7 +5397,7 @@ HOSTS
       initialize_scaling_info_for_app(app_name)
 
       # We make sure we scale right away to minimum number of AppServers
-      # requested by the user. We can check form @last_decision if an
+      # requested by the user. We can check from @last_decision if an
       # AppServer was created/deleted.
       loop do
         changed = false
