@@ -685,7 +685,7 @@ class Djinn
       end
 
       # Notify nodes, and remove any running AppServer of the application.
-      notify_restart_app_to_nodes([appsid])
+      notify_restart_app_to_nodes([appid])
 
       # Once we've relocated the app, we need to tell the XMPPReceiver about the
       # app's new location.
@@ -4988,7 +4988,7 @@ HOSTS
         to_end << appengine
         next
       end
-      if to_start.include?(app)
+      if to_start.include?(app) && been_here < DUTY_CYCLE * 3
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
