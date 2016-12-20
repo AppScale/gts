@@ -362,27 +362,6 @@ def stop_app_instance(app_name, port):
 
   return True
 
-def restart_app_instances_for_app(app_name, language):
-  """ Restarts all instances of a Google App Engine application on this machine.
-
-  Args:
-    app_name: The application ID corresponding to the app to restart.
-    language: The language the application is written in.
-  Returns:
-    True if successful, and False otherwise.
-  """
-  if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on because of " \
-      "invalid name for application" % (app_name))
-    return False
-  if language == "java":
-    remove_conflicting_jars(app_name)
-    copy_modified_jars(app_name)
-  logging.info("Restarting application %s" % app_name)
-  watch = "app___" + app_name
-  monit_interface.stop(watch)
-  time.sleep(1)
-  return monit_interface.start(watch)
 
 def stop_app(app_name):
   """ Stops all process instances of a Google App Engine application on this
@@ -802,7 +781,6 @@ if __name__ == "__main__":
   SERVER.registerFunction(start_app)
   SERVER.registerFunction(stop_app)
   SERVER.registerFunction(stop_app_instance)
-  SERVER.registerFunction(restart_app_instances_for_app)
 
   while 1:
     try:
