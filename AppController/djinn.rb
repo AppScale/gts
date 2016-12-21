@@ -4527,7 +4527,7 @@ HOSTS
 
     # Check if the device is already mounted (for example we restarted the
     # AppController).
-    if system("mount | grep -E '^#{device_name} ' 2>&1")
+    if system("mount | grep -E '^#{device_name} '  > /dev/null 2>&1")
       Djinn.log_info("Device #{device_name} is already mounted.")
       return
     end
