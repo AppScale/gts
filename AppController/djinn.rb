@@ -2111,14 +2111,6 @@ class Djinn
         update_node_info_cache()
         backup_appcontroller_state()
 
-        if check_health.nil?
-          check_health = Thread.new {
-            check_nodes_health()
-          }
-        elsif !check_health.alive?
-          check_health.join()
-          check_health = nil
-        end
         APPS_LOCK.synchronize {
           starts_new_apps_or_appservers()
           scale_appservers_within_nodes()
@@ -5238,73 +5230,6 @@ HOSTS
     return -1
   end
 
-  # This function checks if any node is to be considered down, and take
-  # appropriate actions. For example, if an appengine node is considered
-  # down, the AppServers running on it must be considered lost.
-  def check_nodes_health()
-    if @all_stats.empty?
-      Djinn.log_debug("Cannot check health since I don't have stats.")
-      return
-    end
-
-    faulty_nodes = []
-    @nodes.each { |node|
-      node_ip = node.private_ip
-      next if node_ip == my_node.private_ip
-      healthy = false
-
-      @all_stats.each { |stats|
-        if stats['private_ip'] == node_ip
-          healthy = true
-          break
-        end
-      }
-      next if healthy
-      Djinn.log_debug("Node at #{node_ip} is not in @all_stats!")
-
-      # We want to give the benefit of the doubt of the node presumed
-      # crashed: we try to talk to the AC directly to confirm if the node
-      # is effectively dead.
-      acc = AppControllerClient.new(node_ip, @@secret)
-      tries = RETRIES
-      begin
-        if acc.is_done_initializing? == true
-          Djinn.log_debug("The node at #{node_ip} is initialized.")
-          next
-        end
-      rescue FailedNodeException
-        tries -= 1
-        if tries > 0
-          Djinn.log_debug("node at #{node_ip} not responding: retrying.")
-          retry
-        end
-      end
-
-      Djinn.log_warn("Node at #{node_ip} is not responsive.")
-      faulty_nodes << node_ip
-    }
-
-    APPS_LOCK.synchronize {
-      faulty_nodes.each { |node_ip|
-        to_terminate = {}
-        @app_info_map.each { |app, info|
-          next unless info['appengine']
-          to_terminate[app] = []
-
-          info['appengine'].each { |location|
-            host, _port = location.split(":")
-            to_terminate[app] << location if node_ip == host
-          }
-        }
-
-        to_terminate.each { |app, appservers|
-          appservers.each { |appserver|
-            @app_info_map[app]['appengine'].delete(appserver)
-          }
-        }
-      }
-    }
-  end
 
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
