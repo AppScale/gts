@@ -427,7 +427,7 @@ CONFIG
     return locations
   end
 
-  # This method set the weight of the specified server (which needs to be
+  # This method sets the weight of the specified server (which needs to be
   # in haproxy) to 0 (that is no more new requests will be sent to the
   # server) and returns the number of current sessions handled by such
   # server.
