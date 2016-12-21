@@ -4527,7 +4527,7 @@ HOSTS
 
     # Check if the device is already mounted (for example we restarted the
     # AppController).
-    if system("mount | grep -E '^#{device_name}' 2>&1")
+    if system("mount | grep -E '^#{device_name} ' 2>&1")
       Djinn.log_info("Device #{device_name} is already mounted.")
       return
     end
@@ -4539,9 +4539,9 @@ HOSTS
       Djinn.log_info("Mounted persistent disk #{device_name}, without " +
         "needing to format it.")
     else
-      Djinn.log_info("Formatting persistent disk #{device_name}")
+      Djinn.log_info("Formatting persistent disk #{device_name}.")
       Djinn.log_run("mkfs.ext4 -F #{device_name}")
-      Djinn.log_info("Mounting persistent disk #{device_name}")
+      Djinn.log_info("Mounting persistent disk #{device_name}.")
       Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT}" +
         " 2>&1")
     end
