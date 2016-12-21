@@ -140,8 +140,8 @@ module HelperFunctions
 
 
   # Metadata service for Google and AWS
-  GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance/"
-  AWS_METADATA = "http://169.254.169.254/latest/meta-data/"
+  GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance"
+  AWS_METADATA = "http://169.254.169.254/latest/meta-data"
 
   def self.shell(cmd)
     return `#{cmd}`
