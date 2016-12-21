@@ -2129,27 +2129,15 @@ class Djinn
         next
       end
 
-      check_running_apps()
-      check_stopped_apps()
+      # Check the running, terminated, pending AppServers.
+      check_running_apps
 
-      # Login nodes may need to check/update nginx/haproxy.
-      if my_node.is_load_balancer?
-        # Let's detect if some AppServer terminated.
-        @apps_loaded.each{ |app|
-          HAProxy.list_servers(app).each{ |appserver|
-            unless @app_info_map[app]['appengine'].nil?
-              next if @app_info_map[app]['appengine'].include?(appserver)
-            end
-            @terminated[app] = {} if @terminated[app].nil?
-            @terminated[app][appserver] = Time.now.to_i
-            delete_instance_from_dashboard(app, appserver)
-            Djinn.log_info("Terminated AppServer #{appserver} will not received requests.")
-          }
-        }
-        APPS_LOCK.synchronize {
-          regenerate_routing_config()
-        }
-      end
+      # Detect applications that have been undeployed and terminate all
+      # running AppServers.
+      check_stopped_apps
+
+      # Load balancers and shadow need to check/update nginx/haproxy.
+      check_haproxy if my_node.is_load_balancer?
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -4918,6 +4906,30 @@ HOSTS
       maybe_stop_taskqueue_worker(app)
       Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
+  end
+
+
+  # LoadBalancers needs to do some extra work to drain AppServers before
+  # removing them, and to detect when AppServers failed or terminated.
+  def check_haproxy
+    @apps_loaded.each{ |app|
+      if my_node.is_shadow?
+        HAProxy.list_servers(app, true).each{ |appserver|
+          Djinn.log_warn("Detected failed AppServer for #{app}: #{appserver}.")
+          @app_info_map[app]['appengine'].delete(appserver)
+        }
+      end
+      HAProxy.list_servers(app).each{ |appserver|
+        unless @app_info_map[app]['appengine'].nil?
+          next if @app_info_map[app]['appengine'].include?(appserver)
+        end
+        @terminated[app] = {} if @terminated[app].nil?
+        @terminated[app][appserver] = Time.now.to_i
+        delete_instance_from_dashboard(app, appserver)
+        Djinn.log_info("Terminated AppServer #{appserver} will not received requests.")
+      }
+    }
+    APPS_LOCK.synchronize { regenerate_routing_config }
   end
 
   # All nodes will compare the list of AppServers they should be running,

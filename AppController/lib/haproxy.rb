@@ -69,6 +69,10 @@ module HAProxy
   CURRENT_SESSIONS = 4
 
 
+  # The position in the haproxy profiling information where the status of
+  # the specific server is specified.
+  SERVER_STATUS = 17
+
   # The position in the haproxy profiling information where the total
   # number of requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
@@ -398,7 +402,13 @@ CONFIG
   # This method returns the list of locations associated with a specific
   # application.
   #
-  def self.list_servers(app)
+  # Args:
+  #   app: A String containing the application ID.
+  #   down: A Boolean, when true we return only the AppServers that are
+  #     marked as DOWN, otherwise we return them all.
+  # Returns:
+  #   An Array of AppServers (ip:port).
+  def self.list_servers(app, down=false)
     full_app_name = "gae_#{app}"
 
     locations = []
@@ -408,6 +418,7 @@ CONFIG
       parsed_info = line.split(',')
       next if parsed_info[SERVICE_NAME_INDEX] == "FRONTEND"
       next if parsed_info[SERVICE_NAME_INDEX] == "BACKEND"
+      next if down && parsed_info[SERVER_STATUS] != "DOWN"
       locations << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
     }
     Djinn.log_debug("Haproxy: found these appserver for #{app}: #{locations}.")
