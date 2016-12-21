@@ -4558,7 +4558,6 @@ HOSTS
     end
     Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
     return
-    end
   end
 
   # This function performs basic setup ahead of starting the API services.
