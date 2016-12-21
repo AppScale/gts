@@ -2082,7 +2082,6 @@ class Djinn
     # statistics to the log.
     last_print = Time.now.to_i
 
-    check_health = nil
     until @kill_sig_received do
       # We want to ensure monit stays up all the time, since we rely on
       # it for services and AppServers.
@@ -5206,7 +5205,7 @@ HOSTS
         # These ports are allocated on the AppServers nodes.
         if info['appengine']
           info['appengine'].each { |location|
-            host, port = location.split(":")
+            _, port = location.split(":")
             in_use = true if possibly_free_port == Integer(port)
           }
         end

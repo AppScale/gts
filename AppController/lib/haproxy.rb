@@ -65,22 +65,23 @@ module HAProxy
 
 
   # The position in the haproxy profiling information where the number of
-  # current session is specified.
-  CURRENT_SESSIONS = 4
+  # current sessions is specified.
+  CURRENT_SESSIONS_INDEX = 4
 
 
   # The position in the haproxy profiling information where the status of
   # the specific server is specified.
-  SERVER_STATUS = 17
+  SERVER_STATUS_INDEX = 17
+
 
   # The position in the haproxy profiling information where the total
   # number of requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
 
 
-  # The String haproxy return when we try to set a parameter on a
+  # The String haproxy returns when we try to set a parameter on a
   # non defined server or backend.
-  NO_SUCH = "No such."
+  NO_SUCH = "No such"
 
 
   def self.start()
@@ -355,7 +356,7 @@ CONFIG
   #   app_name: The name of the app to get HAProxy stats for.
   # Returns:
   #   The total requests for the app, the requests enqueued and the
-  #    timestamp of stat collection.
+  #   timestamp of stat collection.
   def self.get_haproxy_stats(app_name)
     Djinn.log_debug("Getting scaling info for application #{app_name}")
 
@@ -376,7 +377,8 @@ CONFIG
 
     monitoring_info.each_line { |line|
       parsed_info = line.split(',')
-      # no request info here
+      # If we get short lines, are not part of the statistics returned by
+      # haproxy, so we skip them.
       next if parsed_info.length < TOTAL_REQUEST_RATE_INDEX
 
       service_name = parsed_info[SERVICE_NAME_INDEX]
@@ -418,7 +420,7 @@ CONFIG
       parsed_info = line.split(',')
       next if parsed_info[SERVICE_NAME_INDEX] == "FRONTEND"
       next if parsed_info[SERVICE_NAME_INDEX] == "BACKEND"
-      next if down && parsed_info[SERVER_STATUS] != "DOWN"
+      next if down && parsed_info[SERVER_STATUS_INDEX] != "DOWN"
       locations << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
     }
     Djinn.log_debug("Haproxy: found these appserver for #{app}: #{locations}.")
@@ -427,11 +429,11 @@ CONFIG
 
   # This method set the weight of the specified server (which needs to be
   # in haproxy) to 0 (that is no more new requests will be sent to the
-  # server) and return the number of current sessions handled by such
+  # server) and returns the number of current sessions handled by such
   # server.
   #
   # Args:
-  #   app: A String containint the application ID.
+  #   app: A String containing the application ID.
   #   location: A String with the host:port of the running appserver.
   # Returns:
   #   An Integer containing the number of current sessions, or -1 if the
@@ -441,7 +443,7 @@ CONFIG
     appserver = "#{full_app_name}-#{location}"
     Djinn.log_debug("We will put 0% weight to #{appserver}.")
 
-    # Let's set the weight to 0, and check if the server is actually know.
+    # Let's set the weight to 0, and check if the server is actually known by haproxy.
     result = Djinn.log_run("echo \"set weight #{full_app_name}/#{appserver} 0%\" |" +
       " socat stdio unix-connect:/etc/haproxy/stats")
     if result.include?(NO_SUCH)
@@ -459,7 +461,7 @@ CONFIG
     end
 
     parsed_info = server_stat.split(',')
-    current_sessions = parsed_info[CURRENT_SESSIONS]
+    current_sessions = parsed_info[CURRENT_SESSIONS_INDEX]
     Djinn.log_debug("Current sessions for #{full_app_name}/#{appserver} " +
       "is #{current_sessions}.")
     return current_sessions
