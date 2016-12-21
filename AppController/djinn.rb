@@ -5396,17 +5396,35 @@ HOSTS
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
-      # Always get scaling info, as that will send this info to the
-      # AppDashboard for users to view.
-      case get_scaling_info_for_app(app_name)
-      when :scale_up
-        Djinn.log_debug("Considering scaling up app #{app_name}.")
-        try_to_scale_up(app_name)
-      when :scale_down
-        Djinn.log_debug("Considering scaling down app #{app_name}.")
-        try_to_scale_down(app_name)
-      else
-        Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
+      # We make sure we scale right away to minimum number of AppServers
+      # requested by the user. We can check from @last_decision if an
+      # AppServer was created/deleted.
+      loop do
+        changed = false
+
+        # Always get scaling info, as that will send this info to the
+        # AppDashboard for users to view.
+        case get_scaling_info_for_app(app_name)
+        when :scale_up
+          Djinn.log_debug("Considering scaling up app #{app_name}.")
+          changed = try_to_scale_up(app_name)
+        when :scale_down
+          Djinn.log_debug("Considering scaling down app #{app_name}.")
+          changed = try_to_scale_down(app_name)
+        else
+          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
+        end
+
+        # No change means we are out of resources: we cannot scale at this
+        # time, we have to wait for more nodes.
+        break unless changed
+
+        # Ensure we have the minimum number of AppServers requested.
+        num_appengines = 0
+        unless @app_info_map[app_name]['appengine'].nil?
+          num_appengines = @app_info_map[app_name]['appengine'].length
+        end
+        break if num_appengines >= Integer(@options['appengine'])
       end
     }
   end
@@ -5582,17 +5600,31 @@ HOSTS
   end
 
 
+  # Try to add an AppServer for the specified application, ensuring
+  # that a minimum number of AppServers is always kept.
+  #
+  # Args:
+  #   app_name: A String containing the application ID.
+  # Returns:
+  #   A boolean indicating if a new AppServer was requested.
   def try_to_scale_up(app_name)
     if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
       Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
         "hosting it anymore.")
-      return
+      return false
     end
 
-    # We scale only if the designed time is passed.
-    if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
+    # We do have a cooldown period after scaling, to ensure we give enough
+    # time to the system to react. We should ignore the cooldown period if
+    # we don't have the minimum number of AppServers for this application.
+    num_appengines = 0
+    unless @app_info_map[app_name]['appengine'].nil?
+      num_appengines = @app_info_map[app_name]['appengine'].length
+    end
+    if Integer(@options['appengine']) > num_appengines &&
+        Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
-      return
+      return false
     end
 
     # Select an appengine machine if it has enough resources to support
@@ -5678,26 +5710,35 @@ HOSTS
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
       @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
+      return true
     else
       Djinn.log_info("No AppServer available to scale #{app_name}")
       # If we're this far, no room is available for AppServers, so try to add a
       # new node instead.
       ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
+      return false
     end
   end
 
 
+  # Try to remove an AppServer for the specified application, ensuring
+  # that a minimum number of AppServers is always kept.
+  #
+  # Args:
+  #   app_name: A String containing the application ID.
+  # Returns:
+  #   A boolean indicating if an AppServer was removed.
   def try_to_scale_down(app_name)
     if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
       Djinn.log_debug("Not scaling down app #{app_name}, since we aren't " +
         "hosting it anymore.")
-      return
+      return false
     end
 
     # We scale only if the designed time is passed.
     if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale down app #{app_name}")
-      return
+      return false
     end
 
     # See how many AppServers are running on each machine. We cannot scale
@@ -5708,7 +5749,7 @@ HOSTS
 
       # If we're this far, nobody can scale down, so try to remove a node instead.
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
-      return
+      return false
     end
 
     # We pick a randon appengine that run the application.  Smarter
@@ -5721,6 +5762,7 @@ HOSTS
 
     @app_info_map[app_name]['appengine'].delete("#{appserver_to_use}:#{port}")
     @last_decision[app_name] = Time.now.to_i
+    return true
   end
 
   # This function unpacks an application tarball if needed. A removal of
