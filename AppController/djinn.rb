@@ -4499,60 +4499,65 @@ HOSTS
 
   # If we are in cloud mode, we should mount any volume containing our
   # local state.
-  def mount_persistent_storage()
-    if my_node.disk
-      imc = InfrastructureManagerClient.new(@@secret)
-      begin
-        device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to InfrastructureManager while attaching disk")
-        # TODO: this logic (and the following) to retry forever is not
-        # healhy.
-        Kernel.sleep(SMALL_WAIT)
-        retry
-      end
-      loop {
-        if File.exists?(device_name)
-          Djinn.log_info("Device #{device_name} exists - mounting it.")
-          break
-        else
-          Djinn.log_info("Device #{device_name} does not exist - waiting for " +
-            "it to exist.")
-          Kernel.sleep(SMALL_WAIT)
-        end
-      }
+  def mount_persistent_storage
+    # If we don't have any disk to attach, we are done.
+    return unless my_node.disk
 
-      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}")
-      mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
-        "#{PERSISTENT_MOUNT_POINT} 2>&1")
-      if mount_output.empty?
-        Djinn.log_info("Mounted persistent disk #{device_name}, without " +
-          "needing to format it.")
-        Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
-
-        # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
-        # Make sure there is data present there and that it points to our
-        # persistent disk.
-        if File.directory?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
-          Djinn.log_run("rm -rf /var/lib/rabbitmq")
-        else
-          Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
-        end
-        Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
-        return
-      end
-
-      Djinn.log_info("Formatting persistent disk #{device_name}")
-      Djinn.log_run("mkfs.ext4 -F #{device_name}")
-
-      Djinn.log_info("Mounting persistent disk #{device_name}")
-      Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT} " +
-        "2>&1")
-      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
-
-      Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
-      Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
+    imc = InfrastructureManagerClient.new(@@secret)
+    begin
+      device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to talk to InfrastructureManager while attaching disk")
+      # TODO: this logic (and the following) to retry forever is not
+      # healhy.
+      Kernel.sleep(SMALL_WAIT)
+      retry
     end
+    loop {
+      if File.exists?(device_name)
+        Djinn.log_info("Device #{device_name} exists - mounting it.")
+        break
+      else
+        Djinn.log_info("Device #{device_name} does not exist - waiting for " +
+          "it to exist.")
+        Kernel.sleep(SMALL_WAIT)
+      end
+    }
+    Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}")
+
+    # Check if the device is already mounted (for example we restarted the
+    # AppController).
+    if system("mount | grep -E '^#{device_name} '  > /dev/null 2>&1")
+      Djinn.log_info("Device #{device_name} is already mounted.")
+      return
+    end
+
+    # We need to mount and possibly format the disk.
+    mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
+      "#{PERSISTENT_MOUNT_POINT} 2>&1")
+    if mount_output.empty?
+      Djinn.log_info("Mounted persistent disk #{device_name}, without " +
+        "needing to format it.")
+    else
+      Djinn.log_info("Formatting persistent disk #{device_name}.")
+      Djinn.log_run("mkfs.ext4 -F #{device_name}")
+      Djinn.log_info("Mounting persistent disk #{device_name}.")
+      Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT}" +
+        " 2>&1")
+    end
+
+    Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+
+    # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
+    # Make sure there is data present there and that it points to our
+    # persistent disk.
+    if File.directory?("#{PERSISTENT_MOUNT_POINT}/rabbitmq")
+      Djinn.log_run("rm -rf /var/lib/rabbitmq")
+    else
+      Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
+    end
+    Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
+    return
   end
 
   # This function performs basic setup ahead of starting the API services.
