@@ -453,9 +453,9 @@ class GCEAgent(BaseAgent):
     for disk in disks:
       path = disk['source'].split('/')
       if project == path[-5] and zone == path[-3] and disk_name == path[-1]:
-        mount_point = '/dev/{}'.format(disk['deviceName'])
-        utils.log('Disk is already attached at {}'.format(mount_point))
-        return mount_point
+        device_name = '/dev/{}'.format(disk['deviceName'])
+        utils.log('Disk is already attached at {}'.format(device_name))
+        return device_name
 
     request = gce_service.instances().attachDisk(
       project=project,
