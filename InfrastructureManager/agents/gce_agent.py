@@ -445,6 +445,18 @@ class GCEAgent(BaseAgent):
     auth_http = credentials.authorize(http)
     project = parameters[self.PARAM_PROJECT]
     zone = parameters[self.PARAM_ZONE]
+
+    # If the disk is already attached, return the mount point.
+    request = gce_service.instances().get(project=project, zone=zone,
+                                          instance=instance_id)
+    disks = request.execute(auth_http)['disks']
+    for disk in disks:
+      path = disk['source'].split('/')
+      if project == path[-5] and zone == path[-3] and disk_name == path[-1]:
+        device_name = '/dev/{}'.format(disk['deviceName'])
+        utils.log('Disk is already attached at {}'.format(device_name))
+        return device_name
+
     request = gce_service.instances().attachDisk(
       project=project,
       zone=zone,
