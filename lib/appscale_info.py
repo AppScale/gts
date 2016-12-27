@@ -26,8 +26,9 @@ def read_file_contents(path):
 
 def get_appcontroller_client():
   """ Returns an AppControllerClient instance for this deployment. """
-  head_node_ip_file = '/etc/appscale/head_node_ip'
-  head_node = read_file_contents(head_node_ip_file).rstrip('\n')
+  raw_ips = file_io.read('/etc/appscale/load_balancer_ips')
+  ips = raw_ips.split('\n')
+  head_node = ips[0]
 
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)

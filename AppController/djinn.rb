@@ -2058,8 +2058,8 @@ class Djinn
     end
     parse_options()
 
-    # load datastore helper
-    # TODO: this should be the class or module
+    # Load datastore helper.
+    # TODO: this should be the class or module.
     @state = "Setting up database configuration files"
     table = @options['table']
     # require db_file
@@ -4236,12 +4236,6 @@ class Djinn
   end
 
   def setup_config_files()
-    head_node_ip = get_shadow.public_ip
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_ip", "#{head_node_ip}\n")
-
-    login_ip = @options['login']
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/login_ip", "#{login_ip}\n")
-
     update_hosts_info()
 
     # use iptables to lock down outside traffic
@@ -4295,14 +4289,14 @@ class Djinn
       HelperFunctions.write_file(load_balancers_file, load_balancers_content)
 
       Djinn.log_info("Deployment public name/IP(s): #{login_ips}.")
-      login_file = "#{APPSCALE_CONFIG_DIR}/appdashboard_public_ip"
+      login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
-      Djinn.log_info("Memcache locations: #{load_balancers_ips}.")
+      Djinn.log_info("Memcache locations: #{memcache_content}.")
       memcache_file = "#{APPSCALE_CONFIG_DIR}/memcache_ips"
-      HelperFunctions.write_file(memcache_file, memcache_content)
+      HelperFunctions.write_file(memcache_file, memcache_ips)
 
-      Djinn.log_info("Taskqueue locations: #{load_balancers_ips}.")
+      Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
       Djinn.log_info("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
