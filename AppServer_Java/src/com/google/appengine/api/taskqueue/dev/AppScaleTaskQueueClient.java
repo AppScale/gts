@@ -42,7 +42,7 @@ public class AppScaleTaskQueueClient {
     private final String SERVICE_NAME = "taskqueue";
     private final String PROTOCOL_BUFFER_HEADER = "ProtocolBufferType";
     private final String PROTOCOL_BUFFER_VALUE = "Request";
-    private final String TASKQUEUE_IP_FILE = "/etc/appscale/rabbitmq_ip";
+    private final String TASKQUEUE_IP_FILE = "/etc/appscale/taskqueue_nodes";
     private DefaultHttpClient client = null;
     private String url = null;
     private String appId = null;

@@ -1825,7 +1825,7 @@ class Djinn
   def maybe_stop_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
       Djinn.log_info("Stopping TaskQueue workers for app #{app}")
-      tqc = TaskQueueClient.new()
+      tqc = TaskQueueClient.new(my_node.private_ip)
       begin
         result = tqc.stop_worker(app)
         Djinn.log_info("Stopped TaskQueue workers for app #{app}: #{result}")
@@ -1841,7 +1841,7 @@ class Djinn
   #   app: The application ID.
   def maybe_start_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new()
+      tqc = TaskQueueClient.new(my_node.provate_ip)
       begin
         result = tqc.start_worker(app)
         Djinn.log_info("Starting TaskQueue worker for app #{app}: #{result}")
@@ -1857,7 +1857,7 @@ class Djinn
   #   app: The application ID.
   def maybe_reload_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new()
+      tqc = TaskQueueClient.new(my_node.private_ip)
       begin
         result = tqc.reload_worker(app)
         Djinn.log_info("Checking TaskQueue worker for app #{app}: #{result}")
@@ -4260,11 +4260,15 @@ class Djinn
     my_private = my_node.private_ip
     login_ips = @options['login'].split(/[\s,]+/)
 
+    # Put ourselves as first option, if we are a taskqueue node.
+    if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+      taskqueue_ips << my_private
+    end
     @nodes.each { |node|
       load_balancers_ips << node.private_ip if node.is_load_balancer?
       memcache_ips << node.private_ip if node.is_load_balancer?
-      taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
-        node.is_taskqueue_slave?
+      taskqueue_ips << node.private_ip if (node.is_taskqueue_master? ||
+        node.is_taskqueue_slave?) && !taskqueue_ips.include?(node.private_ip)
       master_ips << node.private_ip if node.is_db_master?
       unless slave_ips.include? node.private_ip
         slave_ips << node.private_ip if node.is_db_slave?
@@ -4311,36 +4315,6 @@ class Djinn
     end
   end
 
-
-  # Writes a file to the local filesystem that contains the IP
-  # address of the 'nearest' machine running the TaskQueue service.
-  # 'Nearest' is defined as being this node's IP if our node runs TQ,
-  # or a random node that runs TQ otherwise.
-  def find_nearest_taskqueue()
-    rabbitmq_ip = nil
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      rabbitmq_ip = my_node.private_ip
-    end
-
-    if rabbitmq_ip.nil?
-      rabbitmq_ips = []
-      @nodes.each { |node|
-        if node.is_taskqueue_master? or node.is_taskqueue_slave?
-          rabbitmq_ips << node.private_ip
-        end
-      }
-      Djinn.log_debug("TaskQueue servers are at #{rabbitmq_ips.join(', ')}")
-
-      # pick one at random
-      rabbitmq_ip = rabbitmq_ips.sort_by { rand }[0]
-    end
-
-    Djinn.log_debug("AppServers on this node will connect to TaskQueue " +
-      "at #{rabbitmq_ip}")
-    rabbitmq_file = "#{APPSCALE_CONFIG_DIR}/rabbitmq_ip"
-    rabbitmq_contents = rabbitmq_ip
-    HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
-  end
 
   # Write the location of where SOLR and the search server are located
   # if they are configured.
@@ -4580,7 +4554,6 @@ HOSTS
     end
     configure_db_nginx
     write_locations
-    find_nearest_taskqueue
     write_search_node_file
     setup_config_files
   end
