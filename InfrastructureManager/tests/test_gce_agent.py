@@ -248,7 +248,8 @@ class TestGCEAgent(TestCase):
     fake_instances.should_receive('get').and_return(fake_attach_disk_request)
 
     attach_disk_info = {
-      'status' : 'DONE'
+      'status': 'DONE',
+      'disks': None
     }
 
     fake_attach_disk_request.should_receive('execute').with_args(
