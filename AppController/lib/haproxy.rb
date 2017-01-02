@@ -401,30 +401,33 @@ CONFIG
   end
 
 
-  # This method returns the list of locations associated with a specific
-  # application.
+  # This method returns the list of running and failed AppServers
+  # associated with a specific application.
   #
   # Args:
   #   app: A String containing the application ID.
-  #   down: A Boolean, when true we return only the AppServers that are
-  #     marked as DOWN, otherwise we return them all.
   # Returns:
-  #   An Array of AppServers (ip:port).
+  #   An Array of running AppServers (ip:port).
+  #   An Array of failed (marked as DOWN) AppServers (ip:port).
   def self.list_servers(app, down=false)
     full_app_name = "gae_#{app}"
-
-    locations = []
+    running = []
+    failed = []
     servers = Djinn.log_run("echo \"show stat\" | socat stdio " +
       "unix-connect:/etc/haproxy/stats | grep \"#{full_app_name}\"")
     servers.each_line{ |line|
       parsed_info = line.split(',')
       next if parsed_info[SERVICE_NAME_INDEX] == "FRONTEND"
       next if parsed_info[SERVICE_NAME_INDEX] == "BACKEND"
-      next if down && parsed_info[SERVER_STATUS_INDEX] != "DOWN"
-      locations << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
+      if parsed_info[SERVER_STATUS_INDEX] == "DOWN"
+        failed << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
+      else
+        running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
+      end
     }
-    Djinn.log_debug("Haproxy: found these appserver for #{app}: #{locations}.")
-    return locations
+    Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
+    Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")
+    return running, failed
   end
 
   # This method sets the weight of the specified server (which needs to be
