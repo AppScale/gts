@@ -244,11 +244,14 @@ class TestGCEAgent(TestCase):
     fake_gce = flexmock(name='fake_gce')
     fake_gce.should_receive('instances').and_return(fake_instances)
 
+    fake_attach_disk_request = flexmock(name='fake_attach_disk_request')
+    fake_instances.should_receive('get').and_return(fake_attach_disk_request)
+
     attach_disk_info = {
-      'status' : 'DONE'
+      'status': 'DONE',
+      'disks': []
     }
 
-    fake_attach_disk_request = flexmock(name='fake_attach_disk_request')
     fake_attach_disk_request.should_receive('execute').with_args(
       fake_authorized_http).and_return(attach_disk_info)
 
