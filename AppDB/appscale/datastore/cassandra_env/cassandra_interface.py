@@ -19,6 +19,7 @@ from cassandra.query import ValueSequence
 from .. import dbconstants
 from .. import helper_functions
 from ..dbconstants import AppScaleDBConnectionError
+from ..dbconstants import Operations
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
 from ..unpackaged import APPSCALE_LIB_DIR
@@ -97,29 +98,29 @@ def deletions_for_entity(entity, composite_indices=()):
   for entry in asc_rows:
     deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   dsc_rows = get_index_kv_from_tuple(
     [(prefix, entity)], reverse=True)
   for entry in dsc_rows:
     deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   for key in get_composite_indexes_rows([entity], composite_indices):
     deletions.append({'table': dbconstants.COMPOSITE_TABLE,
                       'key': key,
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   entity_key = get_entity_key(prefix, entity.key().path())
   deletions.append({'table': dbconstants.APP_ENTITY_TABLE,
                     'key': entity_key,
-                    'operation': TxnActions.DELETE})
+                    'operation': Operations.DELETE})
 
   kind_key = get_kind_key(prefix, entity.key().path())
   deletions.append({'table': dbconstants.APP_KIND_TABLE,
                     'key': kind_key,
-                    'operation': TxnActions.DELETE})
+                    'operation': Operations.DELETE})
 
   return deletions
 
@@ -163,14 +164,14 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
       [app_id, namespace, kind, prop.name(), value, entity_key])
     deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': key,
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
     reverse_key = dbconstants.KEY_DELIMITER.join(
       [app_id, namespace, kind, prop.name(),
        helper_functions.reverse_lex(value), entity_key])
     deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': reverse_key,
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   changed_prop_names = set(changed_props.keys())
   for index in composite_indices:
@@ -187,7 +188,7 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
     for entry in (old_entries - new_entries):
       deletions.append({'table': dbconstants.COMPOSITE_TABLE,
                         'key': entry,
-                        'operation': TxnActions.DELETE})
+                        'operation': Operations.DELETE})
 
   return deletions
 
@@ -218,7 +219,7 @@ def mutations_for_entity(entity, txn, current_value=None,
                   dbconstants.APP_ENTITY_SCHEMA[1]: str(txn)}
   mutations.append({'table': dbconstants.APP_ENTITY_TABLE,
                     'key': entity_key,
-                    'operation': TxnActions.PUT,
+                    'operation': Operations.PUT,
                     'values': entity_value})
 
   reference_value = {'reference': entity_key}
@@ -226,27 +227,27 @@ def mutations_for_entity(entity, txn, current_value=None,
   kind_key = get_kind_key(prefix, entity.key().path())
   mutations.append({'table': dbconstants.APP_KIND_TABLE,
                     'key': kind_key,
-                    'operation': TxnActions.PUT,
+                    'operation': Operations.PUT,
                     'values': reference_value})
 
   asc_rows = get_index_kv_from_tuple([(prefix, entity)])
   for entry in asc_rows:
     mutations.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.PUT,
+                      'operation': Operations.PUT,
                       'values': reference_value})
 
   dsc_rows = get_index_kv_from_tuple([(prefix, entity)], reverse=True)
   for entry in dsc_rows:
     mutations.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.PUT,
+                      'operation': Operations.PUT,
                       'values': reference_value})
 
   for key in get_composite_indexes_rows([entity], composite_indices):
     mutations.append({'table': dbconstants.COMPOSITE_TABLE,
                       'key': key,
-                      'operation': TxnActions.PUT,
+                      'operation': Operations.PUT,
                       'values': reference_value})
 
   return mutations
@@ -479,7 +480,7 @@ class DatastoreProxy(AppDBInterface):
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
-      if mutation['operation'] == TxnActions.PUT:
+      if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
         values = mutation['values']
@@ -488,7 +489,7 @@ class DatastoreProxy(AppDBInterface):
             prepared_statements['insert'][table],
             (bytearray(mutation['key']), column, bytearray(values[column]))
           )
-      elif mutation['operation'] == TxnActions.DELETE:
+      elif mutation['operation'] == Operations.DELETE:
         if table not in prepared_statements['delete']:
           prepared_statements['delete'][table] = self.prepare_delete(table)
         batch.add(
@@ -513,7 +514,7 @@ class DatastoreProxy(AppDBInterface):
     statements_and_params = []
     for mutation in mutations:
       table = mutation['table']
-      if mutation['operation'] == TxnActions.PUT:
+      if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
         values = mutation['values']
@@ -522,7 +523,7 @@ class DatastoreProxy(AppDBInterface):
                     bytearray(values[column]))
           statements_and_params.append(
             (prepared_statements['insert'][table], params))
-      elif mutation['operation'] == TxnActions.DELETE:
+      elif mutation['operation'] == Operations.DELETE:
         if table not in prepared_statements['delete']:
           prepared_statements['delete'][table] = self.prepare_delete(table)
         params = (bytearray(mutation['key']),)

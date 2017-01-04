@@ -162,6 +162,12 @@ class TxnActions(object):
   ENQUEUE_TASK = '3'
 
 
+class Operations(object):
+  """ Possible datastore operations on entities. """
+  PUT = 'put'
+  DELETE = 'delete'
+
+
 ###############################
 # Generic Datastore Exceptions
 ###############################
