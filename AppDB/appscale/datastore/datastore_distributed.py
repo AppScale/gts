@@ -15,6 +15,7 @@ from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import TRANSACTIONS_SCHEMA
 from .dbconstants import TxnActions
+from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
@@ -1237,7 +1238,7 @@ class DatastoreDistributed():
       # Pad the number of references to fetch to increase the likelihood of
       # getting all the valid references that we need.
       if not added_padding:
-        to_fetch += zktransaction.MAX_GROUPS_FOR_XG
+        to_fetch += dbconstants.MAX_GROUPS_FOR_XG
         added_padding = True
 
   def __extract_entities(self, kv):
@@ -1671,7 +1672,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zktransaction.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + dbconstants.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
@@ -1863,7 +1864,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zktransaction.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + dbconstants.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} references invalid. Fetching {} more references.'
         .format(invalid_refs, current_limit))
@@ -2696,7 +2697,7 @@ class DatastoreDistributed():
 
       # Pad the limit to increase the likelihood of fetching all the valid
       # references that we need.
-      current_limit = invalid_refs + zktransaction.MAX_GROUPS_FOR_XG
+      current_limit = invalid_refs + dbconstants.MAX_GROUPS_FOR_XG
 
       self.logger.debug('{} entities do not match query. '
         'Fetching {} more references.'.format(invalid_refs, current_limit))

@@ -3,6 +3,7 @@ import threading
 import time
 import unittest
 
+from appscale.datastore import dbconstants
 from appscale.datastore.zkappscale import zktransaction
 from test import test_support
 
@@ -305,7 +306,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_gcsimple(self):
     # timeout very fast
 #    self.zk.stopGC()
-    zktransaction.TX_TIMEOUT = 1
+    dbconstants.MAX_TX_DURATION = 1
     zktransaction.GC_INTERVAL = 1
 #    self.zk.setRollbackFunction(self.__rollbackReceiver)
     # restart gc thread
@@ -340,7 +341,7 @@ class TestZKTransaction(unittest.TestCase):
 
     # revert settings
 #    self.zk.stopGC()
-    zktransaction.TX_TIMEOUT = 30
+    dbconstants.MAX_TX_DURATION = 30
     zktransaction.GC_INTERVAL = 30
 #    self.zk.setRollbackFunction(None)
     self.zk.startGC()
@@ -348,7 +349,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_gcwithkeylist(self):
     # timeout very fast
 #    self.zk.stopGC()
-    zktransaction.TX_TIMEOUT = 1
+    dbconstants.MAX_TX_DURATION = 1
     zktransaction.GC_INTERVAL = 1
 #    self.zk.setRollbackFunction(self.__rollbackReceiver)
     # restart gc thread
@@ -387,7 +388,7 @@ class TestZKTransaction(unittest.TestCase):
 
     # revert settings
 #    self.zk.stopGC()
-    zktransaction.TX_TIMEOUT = 30
+    dbconstants.MAX_TX_DURATION = 30
     zktransaction.GC_INTERVAL = 30
 #    self.zk.setRollbackFunction(None)
     self.zk.startGC()
@@ -395,7 +396,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_gcreleaselock(self):
     # timeout very fast
 #    self.zk.stopGC()
-    zktransaction.TX_TIMEOUT = 1
+    dbconstants.MAX_TX_DURATION = 1
     zktransaction.GC_INTERVAL = 1
 #    self.zk.setRollbackFunction(self.__rollbackReceiver)
     # restart gc thread
@@ -419,7 +420,7 @@ class TestZKTransaction(unittest.TestCase):
 
     # revert settings
 #    self.zk.stopGC()
-    zktransaction.TX_TIMEOUT = 30
+    dbconstants.MAX_TX_DURATION = 30
     zktransaction.GC_INTERVAL = 30
 #    self.zk.setRollbackFunction(None)
     self.zk.startGC()

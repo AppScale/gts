@@ -26,7 +26,6 @@ from appscale.datastore.utils import get_entity_kind
 from appscale.datastore.utils import get_index_key_from_params
 from appscale.datastore.utils import get_index_kv_from_tuple
 from appscale.datastore.utils import get_kind_key
-from appscale.datastore.zkappscale.zktransaction import TX_TIMEOUT
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from cassandra.cluster import Cluster
 from flexmock import flexmock

@@ -29,8 +29,16 @@ ID_KEY_LENGTH = 10
 # The character between the kind and the ID/name of an entity.
 ID_SEPARATOR = ":"
 
+# Maximum number of groups allowed in cross group transactions.
+MAX_GROUPS_FOR_XG = 25
+
 # The maximum number of composite indexes an application can have.
 MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
+
+# The maximum number of seconds a transaction can take. In GAE, transactions
+# "have a maximum duration of 60 seconds with a 10 second idle expiration time
+# after 30 seconds." The 10-second idle check is not yet implemented.
+MAX_TX_DURATION = 60
 
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
