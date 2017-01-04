@@ -253,6 +253,12 @@ class Djinn
   USE_SSL = true
 
 
+  # A boolean that indicates whether or not we should turn the firewall on,
+  # and continuously keep it on. Should definitely be on for releases, and
+  # on whenever possible.
+  FIREWALL_IS_ON = true
+
+
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
   APPSCALE_CONFIG_DIR = "/etc/appscale"
@@ -2128,9 +2134,11 @@ class Djinn
       check_stopped_apps
 
       # Load balancers and shadow need to check/update nginx/haproxy.
-      APPS_LOCK.synchronize {
-        check_haproxy if my_node.is_load_balancer?
-      }
+      if my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
+          check_haproxy if my_node.is_load_balancer?
+        }
+      end
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -2950,7 +2958,9 @@ class Djinn
       all_ips.join(', '))
 
     # Re-run the filewall script here since we just wrote the all_ips file
-    Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    if FIREWALL_IS_ON
+      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    end
   end
 
 
@@ -4195,7 +4205,9 @@ class Djinn
     # use iptables to lock down outside traffic
     # nodes can talk to each other on any port
     # but only the outside world on certain ports
-    Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    if FIREWALL_IS_ON
+      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    end
   end
 
 
