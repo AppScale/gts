@@ -52,7 +52,7 @@ module TaskQueue
   MAX_WAIT_FOR_RABBITMQ = 30
 
   # How many times to retry starting rabbitmq on a slave.
-  RABBIT_START_RETRY = 1000
+  RABBIT_START_RETRY = 10
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
@@ -79,7 +79,7 @@ module TaskQueue
 
     # First, start up RabbitMQ.
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
-    start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_taskqueue_secret()}"
+    start_cmd = "/usr/sbin/rabbitmq-server -detached"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
     MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, [9999], nil,
@@ -135,10 +135,10 @@ module TaskQueue
     end
 
     start_cmds = [
-      # Restarting the RabbitMQ server ensures that we read the correct cookie.
-      "service rabbitmq-server restart",
+      # Start the server in detatched mode, then join the cluster with the
+      # master node.
+      "/usr/sbin/rabbitmq-server -detached",
       "/usr/sbin/rabbitmqctl stop_app",
-      # Read master hostname given the master IP.
       "/usr/sbin/rabbitmqctl join_cluster rabbit@#{master_tq_host}",
       "/usr/sbin/rabbitmqctl start_app"
     ]
@@ -224,7 +224,6 @@ module TaskQueue
   # to ensure that we start up RabbitMQ without left-over state from previous
   # runs.
   def self.erase_local_files()
-    Djinn.log_run("rm -rf /var/log/rabbitmq/*")
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
     Djinn.log_run("rm -rf /etc/appscale/celery/")
     Djinn.log_run("rm -rf #{CELERY_STATE_DIR}/*")
