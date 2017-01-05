@@ -25,7 +25,9 @@ from ..dbconstants import Operations
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
 from ..unpackaged import APPSCALE_LIB_DIR
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..utils import clean_app_id
+from ..utils import create_key
 from ..utils import encode_index_pb
 from ..utils import get_composite_index_keys
 from ..utils import get_composite_indexes_rows
@@ -37,6 +39,9 @@ from ..utils import tx_partition
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.taskqueue import taskqueue_service_pb
 
 
 # The directory Cassandra is installed to.
@@ -1096,3 +1101,41 @@ class DatastoreProxy(AppDBInterface):
       message = 'Exception while adding tasks in a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
+
+  def get_transaction_metadata(self, app, txid):
+    """ Fetch transaction state.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+    Returns:
+      A dictionary containing transaction state.
+    """
+    select = """
+      SELECT namespace, operation, path, start_time, is_xg, entity, task
+      FROM transactions
+      WHERE txid_hash = %(txid_hash)s
+    """
+    parameters = {'txid_hash': tx_partition(app, txid)}
+    try:
+      results = self.session.execute(select, parameters)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while inserting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+    metadata = {'puts': {}, 'deletes': [], 'tasks': []}
+    for result in results:
+      if result.operation == TxnActions.START:
+        metadata['start'] = result.start_time
+        metadata['is_xg'] = result.is_xg
+      if result.operation == TxnActions.MUTATE:
+        key = create_key(app, result.namespace, result.path)
+        if result.entity is None:
+          metadata['deletes'].append(key)
+        else:
+          metadata['puts'][key.Encode()] = result.entity
+      if result.operation == TxnActions.ENQUEUE_TASK:
+        metadata['tasks'].append(
+          taskqueue_service_pb.TaskQueueAddRequest(result.task))
+    return metadata

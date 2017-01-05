@@ -1,4 +1,5 @@
 import array
+import datetime
 import itertools
 import logging
 import md5
@@ -19,12 +20,14 @@ from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
+from .utils import encode_entity_table_key
 from .utils import encode_index_pb
 from .utils import get_composite_index_keys
 from .utils import get_entity_key
 from .utils import get_entity_kind
 from .utils import get_index_key_from_params
 from .utils import get_kind_key
+from .utils import group_for_key
 from .utils import reference_property_to_reference
 from .utils import UnprocessedQueryCursor
 from .zkappscale import zktransaction
@@ -3176,87 +3179,77 @@ class DatastoreDistributed():
 
     Args:
       app: A string containing an application ID.
-      txn: A transaction ID handler.
+      txn: An integer specifying a transaction ID.
     """
-    padded_txn = str(txn).zfill(ID_KEY_LENGTH)
-    start_key = '{app}{sep}{txn}{sep}'.format(
-      app=app, sep=self._SEPARATOR, txn=padded_txn)
-    end_key = '{start_key}{term}'.format(
-      start_key=start_key, term=self._TERM_STRING)
+    metadata = self.datastore_batch.get_transaction_metadata(app, txn)
 
-    txn_rows = self.datastore_batch.range_query(
-      dbconstants.TRANSACTIONS_TABLE,
-      TRANSACTIONS_SCHEMA,
-      start_key,
-      end_key,
-      limit=None
-    )
+    # If too much time has passed, the transaction cannot be committed.
+    if 'start' not in metadata:
+      raise dbconstants.TxTimeoutException('Unable to find transaction')
+
+    tx_duration = datetime.datetime.utcnow() - metadata['start']
+    if (tx_duration > datetime.timedelta(seconds=MAX_TX_DURATION)):
+      raise dbconstants.TxTimeoutException('Transaction timed out')
+
+    # If there were no changes, the transaction is complete.
+    if (len(metadata['puts']) + len(metadata['deletes']) +
+        len(metadata['tasks']) == 0):
+      return
+
+    # Fail if there are too many groups involved in the transaction.
+    groups_put = {group_for_key(key).Encode() for key in metadata['puts']}
+    groups_deleted = {group_for_key(key).Encode()
+                      for key in metadata['deletes']}
+    if len(groups_put | groups_deleted) > dbconstants.MAX_GROUPS_FOR_XG:
+      raise dbconstants.TooManyGroupsException(
+        'Too many groups in transaction')
+
     composite_indices = [entity_pb.CompositeIndex(index)
                          for index in self.datastore_batch.get_indices(app)]
-    mutation_ops = [
-      row for row in txn_rows
-      if row.values()[0][TRANSACTIONS_SCHEMA[0]] != TxnActions.ENQUEUE_TASK]
-    task_ops = [
-      row for row in txn_rows
-      if row.values()[0][TRANSACTIONS_SCHEMA[0]] == TxnActions.ENQUEUE_TASK]
 
     # Fetch current values so we can remove old indices.
-    txn_dict = {}
-    entity_keys = []
-    for row in mutation_ops:
-      txn_action = row.values()[0]
-      operation = txn_action[TRANSACTIONS_SCHEMA[0]]
-      txn_key = row.keys()[0]
-
-      if operation == TxnActions.DELETE:
-        entity_key = txn_action[TRANSACTIONS_SCHEMA[1]]
-        entity_keys.append(entity_key)
-        txn_dict[txn_key] = {'key': entity_key}
-      elif operation == TxnActions.PUT:
-        entity = entity_pb.EntityProto(txn_action[TRANSACTIONS_SCHEMA[1]])
-        prefix = self.get_table_prefix(entity)
-        entity_key = get_entity_key(prefix, entity.key().path())
-        txn_dict[txn_key] = {'entity': entity, 'key': entity_key}
-        entity_keys.append(entity_key)
-
+    entity_table_keys = [encode_entity_table_key(key)
+                         for key, _ in metadata['puts'].iteritems()]
+    entity_table_keys.extend([encode_entity_table_key(key)
+                              for key in metadata['deletes']])
     current_values = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
+      dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
 
     batch = []
     entity_changes = []
-    for row in mutation_ops:
-      txn_action = row.values()[0]
-      operation = txn_action[TRANSACTIONS_SCHEMA[0]]
-      txn_key = row.keys()[0]
-      entity_key = txn_dict[txn_key]['key']
-
+    for key, encoded_entity in metadata['puts'].iteritems():
+      entity_table_key = encode_entity_table_key(key)
       current_value = None
-      if current_values[entity_key]:
+      if current_values[entity_table_key]:
         current_value = entity_pb.EntityProto(
-          current_values[entity_key][APP_ENTITY_SCHEMA[0]])
+          current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
 
-      if operation == TxnActions.DELETE and current_value is not None:
-        deletions = cassandra_interface.deletions_for_entity(
-          current_value, composite_indices)
-        batch.extend(deletions)
+      entity = entity_pb.EntityProto(encoded_entity)
+      mutations = cassandra_interface.mutations_for_entity(
+        entity, txn, current_value, composite_indices)
+      batch.extend(mutations)
 
-        entity_changes.append({'key': current_value.key(),
-                               'old': current_value, 'new': None})
-      elif operation == TxnActions.PUT:
-        entity = txn_dict[txn_key]['entity']
-        mutations = cassandra_interface.mutations_for_entity(
-          entity, txn, current_value, composite_indices)
-        batch.extend(mutations)
+      entity_changes.append({'key': key, 'old': current_value, 'new': entity})
 
-        entity_changes.append({'key': entity.key(),
-                               'old': current_value, 'new': entity})
+    for key in metadata['deletes']:
+      entity_table_key = encode_entity_table_key(key)
+      if not current_values[entity_table_key]:
+        continue
+
+      current_value = entity_pb.EntityProto(
+        current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
+
+      deletions = cassandra_interface.deletions_for_entity(
+        current_value, composite_indices)
+      batch.extend(deletions)
+      entity_changes.append({'key': key, 'old': current_value, 'new': None})
 
     self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
 
     # Process transactional tasks.
-    if task_ops:
+    if metadata['tasks']:
       threading.Thread(target=self.enqueue_transactional_tasks,
-                       args=(app, task_ops)).start()
+                       args=(app, metadata['tasks'])).start()
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
@@ -3273,6 +3266,8 @@ class DatastoreDistributed():
 
     try:
       self.apply_txn_changes(app_id, txn_id)
+    except dbconstants.TxTimeoutException as timeout:
+      return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
       self.logger.exception('DB connection error during {}'.
                             format(http_request_data))

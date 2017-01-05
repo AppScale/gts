@@ -216,6 +216,14 @@ class AppScaleBadArg(Exception):
   def __str__(self):
     return repr(self.value)
 
+class TooManyGroupsException(Exception):
+  """ Indicates that there are too many groups involved in a transaction. """
+  pass
+
 class ExcessiveTasks(Exception):
   """ Indicates that there are too many tasks for a transaction. """
+  pass
+
+class TxTimeoutException(Exception):
+  """ Indicates that the transaction started too long ago. """
   pass
