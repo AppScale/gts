@@ -4,6 +4,7 @@
  Cassandra Interface for AppScale
 """
 import cassandra
+import datetime
 import logging
 import sys
 import time
@@ -943,6 +944,35 @@ class DatastoreProxy(AppDBInterface):
       return False
 
     return version is not None and float(version) == EXPECTED_DATA_VERSION
+
+  def start_transaction(self, app, txid, is_xg):
+    """ Persist transaction metadata.
+
+    Args:
+      app: A string containing an application ID.
+      txid: An integer specifying the transaction ID.
+      is_xg: A boolean specifying that the transaction is cross-group.
+    """
+    insert = """
+      INSERT INTO transactions (txid_hash, operation, namespace, path,
+                                start_time, is_xg)
+      VALUES (%(txid_hash)s, %(operation)s, %(namespace)s, %(path)s,
+              %(start_time)s, %(is_xg)s)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2)
+    parameters = {'txid_hash': tx_partition(app, txid),
+                  'operation': TxnActions.START,
+                  'namespace': '',
+                  'path': bytearray(''),
+                  'start_time': datetime.datetime.utcnow(),
+                  'is_xg': is_xg}
+
+    try:
+      self.session.execute(insert, parameters)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while starting a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
 
   def put_entities_tx(self, app, txid, entities):
     """ Update transaction metadata with new put operations.

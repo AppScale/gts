@@ -3167,7 +3167,9 @@ class DatastoreDistributed():
     Returns:
       A long representing a unique transaction ID.
     """
-    return self.zookeeper.get_transaction_id(app_id, is_xg)
+    txid = self.zookeeper.get_transaction_id(app_id, is_xg)
+    self.datastore_batch.start_transaction(app_id, txid, is_xg)
+    return txid
 
   def enqueue_transactional_tasks(self, app, task_ops):
     """ Send a BulkAdd request to the taskqueue service.
