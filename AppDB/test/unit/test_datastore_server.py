@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import datetime
 import sys
 import unittest
 
@@ -665,13 +666,13 @@ class TestDatastoreServer(unittest.TestCase):
     del_request.should_receive("has_transaction").and_return(True).twice()
     transaction = flexmock()
     transaction.should_receive("handle").and_return(1)
-    del_request.should_receive("transaction").and_return(transaction).once()
+    del_request.should_receive("transaction").and_return(transaction)
     del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(db_batch, None)
     flexmock(dd).should_receive("acquire_locks_for_trans").and_return({})
     flexmock(dd).should_receive("release_locks_for_nontrans").never()
     flexmock(utils).should_receive("get_entity_kind").and_return("kind")
-    flexmock(dd).should_receive('delete_entities_txn')
+    db_batch.should_receive('delete_entities_tx')
     dd.dynamic_delete("appid", del_request)
 
     del_request = flexmock()
@@ -953,11 +954,14 @@ class TestDatastoreServer(unittest.TestCase):
     entity = self.get_new_entity_proto(app, *self.BASIC_ENTITY[1:])
 
     db_batch = flexmock()
+    db_batch.should_receive('get_transaction_metadata').and_return({
+      'puts': {entity.key().Encode(): entity.Encode()},
+      'deletes': [],
+      'tasks': [],
+      'start': datetime.datetime.utcnow(),
+      'is_xg': False,
+    })
     db_batch.should_receive('valid_data_version').and_return(True)
-    db_batch.should_receive('range_query').and_return([{
-      'txn_entity_1': {'operation': dbconstants.TxnActions.PUT,
-                       'operand': entity.Encode()}
-    }])
 
     db_batch.should_receive('get_indices').and_return([])
 
