@@ -3214,7 +3214,8 @@ class DatastoreDistributed():
 
     batch = []
     entity_changes = []
-    for key, encoded_entity in metadata['puts'].iteritems():
+    for encoded_key, encoded_entity in metadata['puts'].iteritems():
+      key = entity_pb.Reference(encoded_key)
       entity_table_key = encode_entity_table_key(key)
       current_value = None
       if current_values[entity_table_key]:
