@@ -1,0 +1,78 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          appscale-controller
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# X-Interactive:     false
+# Short-Description: Init script for AppScale AppController.
+# Description:       Start/stop script for AppScale AppController. 
+### END INIT INFO
+
+DESC="AppScale Controller"
+DIR=/root/appscale/AppController
+DAEMON=$DIR/djinnServer.rb
+DAEMON_NAME=appscale-controller
+DAEMON_USER=root
+PIDFILE=/var/run/$DAEMON_NAME.pid
+SECRET_FILE=/etc/appscale/secret.key
+LOG_FILE=/var/log/appscale/controller-17443.log
+PATH=$PATH:/usr/local/bin
+. /lib/lsb/init-functions
+
+do_start()
+{
+   if [ ! -e $SECRET_FILE ]; then
+     log_begin_msg "AppScale not configured: not starting."
+     exit 0
+   fi
+
+   # If we start from boot, we need to clear the monit state. The
+   # AppController will rebuild it.
+   rm -rf /etc/monit/conf.d/appscale*cfg
+
+   log_daemon_msg "Starting system $DAEMON_NAME daemon"
+   start-stop-daemon --start --background --pidfile $PIDFILE\
+     --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
+     "$DAEMON >> $LOG_FILE 2>&1"
+   log_end_msg $?
+}
+
+do_stop()
+{
+   log_daemon_msg "Stopping system $DAEMON_NAME daemon"
+   start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   log_end_msg $?
+}
+
+case "$1" in
+ 
+    start)
+        if status_of_proc "$DAEMON_NAME" "$DAEMON" > /dev/null; then
+                echo "$DAEMON_NAME already running."
+                exit 0
+        fi
+        do_${1}
+        ;;
+        
+    stop)
+        do_stop
+        ;;
+        
+    restart|reload|force-reload)
+        do_stop
+        do_start
+        ;;
+ 
+    status)
+        status_of_proc "$DAEMON" "$DAEMON_NAME" && exit 0 || exit $?
+        ;;
+
+    *)
+        echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"
+        exit 1
+        ;;
+ 
+esac
+exit 0
