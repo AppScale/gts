@@ -689,7 +689,7 @@ class DatastoreDistributed():
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys:
-        txnid = self.setup_transaction(app_id, is_xg=False)
+        txnid = self.zookeeper.get_transaction_id(app_id, is_xg=False)
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
     except zktransaction.ZKTransactionException as zkte:
