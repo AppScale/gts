@@ -1916,11 +1916,14 @@ class Djinn
       apps_to_restart.delete(app)
       stop_app(app, @@secret)
       Djinn.log_error("Disabled #{app} since language doesn't match our record.")
+      return "false: wrong language."
     }
 
     # Next, restart any apps that have new code uploaded.
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
+        # Make sure we have the latest code deployed.
+        setup_app_dir(appid, true)
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
