@@ -207,7 +207,7 @@ module TaskQueue
   # Returns
   #   A Boolean indicating if RabbitMQ is part of the master cluster.
   def self.check_taskqueue_server(master_tq)
-    return system("#{RABBIT_CTL} cluster_status | grep rabbit@#{master_tq} > /dev/null")
+    return system("#{RABBIT_CTL} cluster_status | sed -n '/{running_nodes,/,/{partitions,/p' | grep rabbit@#{master_tq} > /dev/null")
   end
 
 
