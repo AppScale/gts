@@ -31,9 +31,11 @@ from ..utils import get_entity_key
 from ..utils import get_entity_kind
 from ..utils import get_index_kv_from_tuple
 from ..utils import get_kind_key
+from ..utils import tx_partition
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
+
 
 # The directory Cassandra is installed to.
 CASSANDRA_INSTALL_DIR = '/opt/cassandra'
@@ -941,3 +943,66 @@ class DatastoreProxy(AppDBInterface):
       return False
 
     return version is not None and float(version) == EXPECTED_DATA_VERSION
+
+  def put_entities_tx(self, app, txid, entities):
+    """ Update transaction metadata with new put operations.
+
+    Args:
+      app: A string containing an application ID.
+      txid: An integer specifying the transaction ID.
+      entities: A list of entities that will be put upon commit.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
+      VALUES (?, ?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for entity in entities:
+      args = (tx_partition(app, txid),
+              TxnActions.MUTATE,
+              entity.key().name_space(),
+              bytearray(entity.key().path().Encode()),
+              bytearray(entity.Encode()))
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while putting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def delete_entities_tx(self, app, txid, entity_keys):
+    """ Update transaction metadata with new delete operations.
+
+    Args:
+      app: A string containing an application ID.
+      txid: An integer specifying the transaction ID.
+      entity_keys: A list of entity keys that will be deleted upon commit.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
+      VALUES (?, ?, ?, ?, ?)
+      USING TTL 120
+    """)
+
+    for key in entity_keys:
+      # The None value overwrites previous puts.
+      args = (tx_partition(app, txid),
+              TxnActions.MUTATE,
+              key.name_space(),
+              bytearray(key.path().Encode()),
+              None)
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while deleting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)

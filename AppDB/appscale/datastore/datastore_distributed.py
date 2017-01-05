@@ -214,39 +214,6 @@ class DatastoreDistributed():
 
     return self._SEPARATOR.join([app_id, namespace])
 
-  def put_entities_txn(self, entities, txn_hash, app):
-    """ Updates the transaction table.
-
-    Args:
-      entities: A list of entity objects.
-      txn_hash: A mapping of root keys to transaction IDs.
-      app: A string containing the application ID.
-    """
-    self.logger.debug('Inserting {} entities in transaction with hash {}'.
-                      format(len(entities), txn_hash))
-    txn_values = {}
-    txn_keys = []
-
-    for entity in entities:
-      namespace = entity.key().name_space()
-      path = entity.key().path()
-      root_key = self.get_root_key(app, namespace, path.element_list())
-      txn = str(txn_hash[root_key]).zfill(ID_KEY_LENGTH)
-      encoded_path = str(encode_index_pb(path))
-      key = self._SEPARATOR.join([app, txn, namespace, encoded_path])
-      txn_keys.append(key)
-      txn_values[key] = {TRANSACTIONS_SCHEMA[0]: TxnActions.PUT,
-                         TRANSACTIONS_SCHEMA[1]: entity.Encode(),
-                         TRANSACTIONS_SCHEMA[2]: ''}
-
-    self.datastore_batch.batch_put_entity(
-      dbconstants.TRANSACTIONS_TABLE,
-      txn_keys,
-      TRANSACTIONS_SCHEMA,
-      txn_values,
-      ttl=zktransaction.TX_TIMEOUT * 2
-    )
-
   @staticmethod
   def get_ancestor_key_from_ent_key(ent_key):
     """ Get the key string for the ancestor portion of a composite key.
@@ -596,39 +563,6 @@ class DatastoreDistributed():
                        'old': current_value, 'new': None}
       self.datastore_batch.batch_mutate(app, batch, [entity_change], txn)
 
-  def delete_entities_txn(self, app, keys, txn_hash):
-    """ Updates the transaction table with entities to delete.
-
-    Args:
-      app: A string containing the application ID.
-      keys: A list of keys.
-      txn_hash: A mapping of root keys to transaction IDs.
-    """
-    txn_values = {}
-    txn_keys = []
-    for key in keys:
-      namespace = key.name_space()
-      path = key.path()
-      root_key = self.get_root_key(app, namespace, path.element_list())
-      txn = str(txn_hash[root_key]).zfill(ID_KEY_LENGTH)
-      encoded_path = str(encode_index_pb(path))
-      txn_key = self._SEPARATOR.join([app, txn, namespace, encoded_path])
-      txn_keys.append(txn_key)
-
-      prefix = self.get_table_prefix(key)
-      entity_key = get_entity_key(prefix, key.path())
-      txn_values[txn_key] = {TRANSACTIONS_SCHEMA[0]: TxnActions.DELETE,
-                             TRANSACTIONS_SCHEMA[1]: entity_key,
-                             TRANSACTIONS_SCHEMA[2]: ''}
-
-    self.datastore_batch.batch_put_entity(
-      dbconstants.TRANSACTIONS_TABLE,
-      txn_keys,
-      TRANSACTIONS_SCHEMA,
-      txn_values,
-      ttl=zktransaction.TX_TIMEOUT * 2
-    )
-
   def dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore.
     
@@ -677,7 +611,8 @@ class DatastoreDistributed():
       if put_request.has_transaction():
         txn_hash = self.acquire_locks_for_trans(
           entities, put_request.transaction().handle())
-        self.put_entities_txn(entities, txn_hash, app_id)
+        txid = put_request.transaction().handle()
+        self.datastore_batch.put_entities_tx(app_id, txid, entities)
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
           retries=self.NON_TRANS_LOCK_RETRY_COUNT)
@@ -968,11 +903,8 @@ class DatastoreDistributed():
           filtered_indexes.append(index)
 
     if delete_request.has_transaction():
-      self.delete_entities_txn(
-        app_id,
-        keys,
-        txn_hash
-      )
+      txid = delete_request.transaction().handle()
+      self.datastore_batch.delete_entities_tx(app_id, txid, keys)
     else:
       self.delete_entities(
         app_id,
