@@ -162,12 +162,12 @@ TRANSACTIONS_SCHEMA = [
 SCHEMA_TABLE_SCHEMA = ['schema']
 
 
-# Possible values in the 'action' column of the transaction table.
 class TxnActions(object):
-  DELETE = '0'
-  PUT = '1'
-  GET = '2'
-  ENQUEUE_TASK = '3'
+  """ Possible values in the 'action' column of the transaction table. """
+  START = 0
+  GET = 1
+  MUTATE = 2
+  ENQUEUE_TASK = 3
 
 
 class Operations(object):
