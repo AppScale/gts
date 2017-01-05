@@ -2113,6 +2113,18 @@ class Djinn
       write_memcache_locations()
       write_zookeeper_locations()
 
+      # Each TaskQueue node need to check on rabbitmq.
+      if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
+        master_tq = "appscale-image"
+        @nodes.each_with_index { |node, index|
+          if node.is_taskqueue_master?
+            master_tq += index.to_s
+            break
+          end
+        }
+        TaskQueue.check_taskqueue_server(master_tq)
+      end
+
       # This call will block if we cannot reach a zookeeper node, but will
       # be very fast if we have an available connection. The function sets
       # the state in case we are looking for a zookeeper server.

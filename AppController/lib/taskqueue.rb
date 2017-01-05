@@ -180,6 +180,19 @@ module TaskQueue
     }
   end
 
+
+  # Slaves TaskQueue sometimes has trouble to join the master, in
+  # particular if nodes goes up/down or there are a lot of TaskQueue
+  # nodes. This method ensure that the TaskQueue slave is in the same
+  # cluster as the matser, and restart the node if not.
+  def self.check_taskqueue_server(master_tq)
+    unless system("rabbitmqctl cluster_status|grep rabbit@#{master_tq} > /dev/null")
+      Djinn.log_info("Restarting rabbitmq to join master's cluster.")
+      MonitInterface.restart(:rabbitmq)
+    end
+  end
+
+
   # Starts the AppScale TaskQueue server.
   def self.start_taskqueue_server(verbose)
     Djinn.log_debug("Starting taskqueue_server on this node")
@@ -250,6 +263,4 @@ module TaskQueue
   def self.stop_flower()
     MonitInterface.stop(:flower)
   end
-
-
 end
