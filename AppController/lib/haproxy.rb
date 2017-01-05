@@ -81,7 +81,7 @@ module HAProxy
 
   # The String haproxy returns when we try to set a parameter on a
   # non defined server or backend.
-  NO_SUCH = "No such"
+  HAPROXY_ERROR_PREFIX = "No such"
 
 
   def self.start()
@@ -449,7 +449,7 @@ CONFIG
     # Let's set the weight to 0, and check if the server is actually known by haproxy.
     result = Djinn.log_run("echo \"set weight #{full_app_name}/#{appserver} 0%\" |" +
       " socat stdio unix-connect:/etc/haproxy/stats")
-    if result.include?(NO_SUCH)
+    if result.include?(HAPROXY_ERROR_PREFIX)
       Djinn.log_warn("Server #{full_app_name}/#{appserver} does not exists.")
       return -1
     end
