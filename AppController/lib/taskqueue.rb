@@ -22,13 +22,13 @@ module TaskQueue
   # The default name of the service.
   NAME = "TaskQueue"
 
-  # AppScale install directory  
+  # AppScale install directory.
   APPSCALE_HOME = ENV["APPSCALE_HOME"]
 
   # The port that the RabbitMQ server runs on, by default.
-  SERVER_PORT = 5672 
- 
-  # The port where the TaskQueue server runs on, by default. 
+  SERVER_PORT = 5672
+
+  # The port where the TaskQueue server runs on, by default.
   TASKQUEUE_SERVER_INTERNAL_PORT = 17446
 
   # HAProxy port for TaskQueue REST API endpoints.
@@ -43,7 +43,13 @@ module TaskQueue
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
 
-  # The location of the taskqueue server script. This service controls 
+  # The RabbitMQ server.
+  RABBIT_SERVER = "/usr/sbin/rabbitmq-server"
+
+  # Command line tool for RabbitMQ.
+  RABBIT_CTL = "/usr/sbin/rabbitmqctl"
+
+  # The location of the taskqueue server script. This service controls
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
   TASKQUEUE_SERVER_SCRIPT = `which appscale-taskqueue`.chomp
@@ -59,6 +65,16 @@ module TaskQueue
 
   # Optional features that can be installed for the taskqueue package.
   OPTIONAL_FEATURES = ['celery_gui']
+
+  # Starts the rabbitmq server.
+  def self.start_rabbitmq()
+    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
+    start_cmd = "#{RABBIT_SERVER} -detached"
+    stop_cmd = "#{RABBIT_CTL} stop"
+    match_cmd = "sname rabbit"
+    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, [9999], nil,
+                         match_cmd, nil, nil, nil)
+  end
 
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
@@ -78,12 +94,7 @@ module TaskQueue
     end
 
     # First, start up RabbitMQ.
-    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
-    start_cmd = "/usr/sbin/rabbitmq-server -detached"
-    stop_cmd = "/usr/sbin/rabbitmqctl stop"
-    match_cmd = "sname rabbit"
-    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, [9999], nil,
-                         match_cmd, nil, nil, nil)
+    start_rabbitmq
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -95,7 +106,7 @@ module TaskQueue
   # Starts a service that we refer to as a "rabbitmq slave". Since all nodes in
   # RabbitMQ are equal, this name isn't exactly fair, so what this role means
   # here is "start a RabbitMQ server and connect it to the server on the machine
-  # playing the 'rabbitmq_master' role." We also start taskqueue servers on 
+  # playing the 'rabbitmq_master' role." We also start taskqueue servers on
   # all taskqueue nodes.
   #
   # Args:
@@ -114,13 +125,15 @@ module TaskQueue
       Djinn.log_debug("Not erasing RabbitMQ state")
     end
 
-    # Wait for RabbitMQ on master node to come up
+    # Wait for RabbitMQ on master node to come up.
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
-    # Start the server, reset it to join the head node. To do this we need
-    # the hostname of the master node. We go through few options:
+    # Then start RabbitMQ.
+    start_rabbitmq
+
+    # We need the hostname of the master node. We go through few options:
     # - the old one is to look into /etc/hosts for it
     # - another one is to just try to resolve it
     # - finally we give up and use the IP address
@@ -134,62 +147,67 @@ module TaskQueue
       end
     end
 
-    start_cmds = [
-      # Start the server in detatched mode, then join the cluster with the
-      # master node.
-      "/usr/sbin/rabbitmq-server -detached",
-      "/usr/sbin/rabbitmqctl stop_app",
-      "/usr/sbin/rabbitmqctl join_cluster rabbit@#{master_tq_host}",
-      "/usr/sbin/rabbitmqctl start_app"
-    ]
-    full_cmd = "#{start_cmds.join('; ')}"
-    stop_cmd = "/usr/sbin/rabbitmqctl stop"
-    match_cmd = "sname rabbit"
-
+    # We now try to join the master's RabbitMQ cluster. We try in a few
+    # ways: the first one is the simple join, that should work in ideal
+    # condition. The update_cluster_nodes may be needed if the node was
+    # part of the cluster, and it simply needs to rejoin now. The third
+    # one force a reset and a join: this should take care of partitions.
     tries_left = RABBIT_START_RETRY
     loop {
-      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, [9999], nil,
-                           match_cmd, nil, nil, nil)
-      Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
-      begin
-        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
-          HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
-          Djinn.log_debug("Done starting rabbitmq_slave on this node")
-
-          Djinn.log_debug("Starting TaskQueue server on slave node")
-          start_taskqueue_server(verbose)
-          Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
-          HelperFunctions.sleep_until_port_is_open("localhost", 
-                                                   TASKQUEUE_SERVER_INTERNAL_PORT)
-          Djinn.log_debug("Done waiting for TaskQueue server")
-          return
-        end
-      rescue Timeout::Error
-        tries_left -= 1
-        Djinn.log_warn("Waited for RabbitMQ to start, but timed out. " +
-          "Retries left #{tries_left}.")
-        Djinn.log_run("ps ax | grep rabbit | grep -v grep | awk '{print $1}' | xargs kill -9")
-        if clear_data
-          self.erase_local_files()
-        end
+      if check_taskqueue_server(master_tq_host)
+        Djinn.log_info("We are part of #{master_tq_host} rabbitmq cluster.")
+        break
       end
-      if tries_left.zero?
-        Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up")
+
+      Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster."
+      Djinn.log_run("#{RABBIT_CTL} stop_app")
+      Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+      Djinn.log_run("#{RABBIT_CTL} start_app")
+      break if check_taskqueue_server(master_tq_host)
+
+      Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}."
+      Djinn.log_run("#{RABBIT_CTL} stop_app")
+      Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
+      Djinn.log_run("#{RABBIT_CTL} start_app")
+      break if check_taskqueue_server(master_tq_host)
+
+      Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster."
+      Djinn.log_run("#{RABBIT_CTL} stop_app")
+      Djinn.log_run("#{RABBIT_CTL} force_reset")
+      Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+      Djinn.log_run("#{RABBIT_CTL} start_app")
+      break if check_taskqueue_server(master_tq_host)
+
+      # If we couldn't join the master's cluster, let's back-off a bit and
+      # retry for a little while.
+      tries_left -= 1
+      if tries_left > 0
+        Djinn.log_Warn("Retrying to join #{master_tq_host} rabbitmq cluster.")
+        Kernel.sleep(rand(RABBIT_START_RETRY))
+      else
+        Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up.")
         abort
       end
     }
+    Djinn.log_debug("Starting TaskQueue server on slave node")
+    start_taskqueue_server(verbose)
+    Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
+    HelperFunctions.sleep_until_port_is_open("localhost",
+                                             TASKQUEUE_SERVER_INTERNAL_PORT)
+    Djinn.log_debug("Done waiting for TaskQueue server")
+    return
   end
-
 
   # Slaves TaskQueue sometimes has trouble to join the master, in
   # particular if nodes goes up/down or there are a lot of TaskQueue
-  # nodes. This method ensure that the TaskQueue slave is in the same
-  # cluster as the matser, and restart the node if not.
+  # nodes.
+  #
+  # Args
+  #   master_tq: A String with the hostname of the taskqueue master node.
+  # Returns
+  #   A Boolean indicating if RabbitMQ is part of the master cluster.
   def self.check_taskqueue_server(master_tq)
-    unless system("rabbitmqctl cluster_status|grep rabbit@#{master_tq} > /dev/null")
-      Djinn.log_info("Restarting rabbitmq to join master's cluster.")
-      MonitInterface.restart(:rabbitmq)
-    end
+    return system("#{RABBIT_CTL} cluster_status | grep rabbit@#{master_tq} > /dev/null")
   end
 
 
@@ -226,7 +244,7 @@ module TaskQueue
 
   # Erlang processes use a secret value as a password to authenticate between
   # one another. Since this is pretty much the same thing we do in AppScale
-  # with our secret key, use the same key here but hashed as to not reveal the 
+  # with our secret key, use the same key here but hashed as to not reveal the
   # actual key.
   def self.write_cookie()
     HelperFunctions.write_file(COOKIE_FILE, HelperFunctions.get_taskqueue_secret())
