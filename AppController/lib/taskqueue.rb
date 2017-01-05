@@ -159,19 +159,19 @@ module TaskQueue
         break
       end
 
-      Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster."
+      Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster.")
       Djinn.log_run("#{RABBIT_CTL} stop_app")
       Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
       Djinn.log_run("#{RABBIT_CTL} start_app")
       break if check_taskqueue_server(master_tq_host)
 
-      Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}."
+      Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}.")
       Djinn.log_run("#{RABBIT_CTL} stop_app")
       Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
       Djinn.log_run("#{RABBIT_CTL} start_app")
       break if check_taskqueue_server(master_tq_host)
 
-      Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster."
+      Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster.")
       Djinn.log_run("#{RABBIT_CTL} stop_app")
       Djinn.log_run("#{RABBIT_CTL} force_reset")
       Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
