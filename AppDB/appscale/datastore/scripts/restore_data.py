@@ -16,8 +16,6 @@ from ..dbconstants import COMPOSITE_SCHEMA
 from ..dbconstants import COMPOSITE_TABLE
 from ..dbconstants import DSC_PROPERTY_TABLE
 from ..dbconstants import PROPERTY_SCHEMA
-from ..dbconstants import TRANSACTIONS_SCHEMA
-from ..dbconstants import TRANSACTIONS_TABLE
 from ..unpackaged import APPSCALE_LIB_DIR
 from ..utils import fetch_and_delete_entities
 from ..zkappscale import zktransaction as zk
@@ -121,8 +119,7 @@ def main():
         ASC_PROPERTY_TABLE: PROPERTY_SCHEMA,
         DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
         COMPOSITE_TABLE: COMPOSITE_SCHEMA,
-        APP_KIND_TABLE: APP_KIND_SCHEMA,
-        TRANSACTIONS_TABLE: TRANSACTIONS_SCHEMA
+        APP_KIND_TABLE: APP_KIND_SCHEMA
       }
       for table, schema in tables_to_clear.items():
         fetch_and_delete_entities('cassandra', table, schema, args.app_id, False)

@@ -14,7 +14,6 @@ import helper_functions
 
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
-from .dbconstants import TRANSACTIONS_SCHEMA
 from .dbconstants import TxnActions
 from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
