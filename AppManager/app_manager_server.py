@@ -170,17 +170,6 @@ def add_routing(app, port):
   logging.info('Successfully established routing for {} on port {}'.
     format(app, port))
 
-def remove_routing(app, port):
-  """ Tells the AppController to stop routing traffic to an AppServer.
-
-  Args:
-    app: A string that contains the application ID.
-    port: A string that contains the port that the AppServer listens on.
-  """
-  acc = appscale_info.get_appcontroller_client()
-  appserver_ip = appscale_info.get_private_ip()
-  acc.remove_appserver_from_haproxy(app, appserver_ip, port)
-
 def start_app(config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
@@ -356,9 +345,6 @@ def stop_app_instance(app_name, port):
       "invalid name for application" % (app_name, int(port)))
     return False
 
-  logging.info('Removing routing for {} on port {}'.format(app_name, port))
-  remove_routing(app_name, port)
-
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name + "-" + str(port)
   if not monit_interface.stop(watch, is_group=False):
@@ -376,27 +362,6 @@ def stop_app_instance(app_name, port):
 
   return True
 
-def restart_app_instances_for_app(app_name, language):
-  """ Restarts all instances of a Google App Engine application on this machine.
-
-  Args:
-    app_name: The application ID corresponding to the app to restart.
-    language: The language the application is written in.
-  Returns:
-    True if successful, and False otherwise.
-  """
-  if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on because of " \
-      "invalid name for application" % (app_name))
-    return False
-  if language == "java":
-    remove_conflicting_jars(app_name)
-    copy_modified_jars(app_name)
-  logging.info("Restarting application %s" % app_name)
-  watch = "app___" + app_name
-  monit_interface.stop(watch)
-  time.sleep(1)
-  return monit_interface.start(watch)
 
 def stop_app(app_name):
   """ Stops all process instances of a Google App Engine application on this
@@ -816,7 +781,6 @@ if __name__ == "__main__":
   SERVER.registerFunction(start_app)
   SERVER.registerFunction(stop_app)
   SERVER.registerFunction(stop_app_instance)
-  SERVER.registerFunction(restart_app_instances_for_app)
 
   while 1:
     try:

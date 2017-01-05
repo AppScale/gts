@@ -87,8 +87,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "add_routing_for_appserver", "app_id", "ip", "port",
       "secret")
     add_method(@djinn, "add_routing_for_blob_server", "secret")
-    add_method(@djinn, "remove_appserver_from_haproxy", "app_id", "ip", "port",
-      "secret")
     add_method(@djinn, "run_groomer", "secret")
     add_method(@djinn, "get_property", "property_regex", "secret")
     add_method(@djinn, "set_property", "property_name", "property_value",

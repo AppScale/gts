@@ -70,8 +70,6 @@ class TestDjinn < Test::Unit::TestCase
       @secret))
     assert_equal(BAD_SECRET_MSG, djinn.add_routing_for_appserver(@app, 'baz',
       'baz', @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.remove_appserver_from_haproxy(@app,
-      'baz', 'baz', @secret))
     assert_equal(BAD_SECRET_MSG, djinn.run_groomer(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_property('baz', @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_property('baz', 'qux', @secret))

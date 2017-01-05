@@ -258,19 +258,12 @@ class TestAppManager(unittest.TestCase):
     self.assertFalse(app_manager_server.stop_app_instance(app_id, port))
 
     flexmock(misc).should_receive('is_app_name_valid').and_return(True)
-    flexmock(app_manager_server).should_receive('remove_routing')
     flexmock(monit_interface).should_receive('stop').and_return(False)
     self.assertFalse(app_manager_server.stop_app_instance(app_id, port))
 
     flexmock(monit_interface).should_receive('stop').and_return(True)
     flexmock(os).should_receive('remove')
     self.assertTrue(app_manager_server.stop_app_instance(app_id, port))
-
-  def test_restart_app_instances_for_app(self):
-    flexmock(subprocess).should_receive('call').\
-      and_return(0)
-    actual = app_manager_server.restart_app_instances_for_app('test', 'python')
-    self.assertEquals(True, actual)
 
   def test_stop_app(self):
     flexmock(monit_interface).should_receive('stop').\
