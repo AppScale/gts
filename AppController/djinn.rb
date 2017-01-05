@@ -1916,7 +1916,6 @@ class Djinn
       apps_to_restart.delete(app)
       stop_app(app, @@secret)
       Djinn.log_error("Disabled #{app} since language doesn't match our record.")
-      return "false: wrong language."
     }
 
     # Next, restart any apps that have new code uploaded.
