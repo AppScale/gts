@@ -8,6 +8,7 @@ import datetime
 import logging
 import sys
 import time
+import uuid
 
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
@@ -1034,5 +1035,64 @@ class DatastoreProxy(AppDBInterface):
       self.session.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while deleting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def transactional_tasks_count(self, app, txid):
+    """ Count the number of existing tasks associated with the transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+    Returns:
+      An integer specifying the number of existing tasks.
+    """
+    select = """
+      SELECT count(*) FROM transactions
+      WHERE txid_hash = %(txid_hash)s
+      AND operation = %(operation)s
+    """
+    parameters = {'txid_hash': tx_partition(app, txid),
+                  'operation': TxnActions.ENQUEUE_TASK}
+    try:
+      return self.session.execute(select, parameters)[0].count
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while fetching task count'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def add_transactional_tasks(self, app, txid, tasks):
+    """ Add tasks to be enqueued upon the completion of a transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+      tasks: A list of TaskQueueAddRequest objects.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path, task)
+      VALUES (?, ?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for task in tasks:
+      task.clear_transaction()
+
+      # The path for the task entry doesn't matter as long as it's unique.
+      path = bytearray(str(uuid.uuid4()))
+
+      args = (tx_partition(app, txid),
+              TxnActions.ENQUEUE_TASK,
+              '',
+              path,
+              task.Encode())
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while adding tasks in a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)

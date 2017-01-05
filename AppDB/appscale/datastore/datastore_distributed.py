@@ -3109,53 +3109,20 @@ class DatastoreDistributed():
       app_id: A string specifying the application ID.
       request: A protocol buffer AddActions request.
     """
-    padded_txn = str(request.add_request(0).transaction().handle()).\
-      zfill(ID_KEY_LENGTH)
+    txid = request.add_request(0).transaction().handle()
 
     # Check if the tasks will exceed the limit. Though this method shouldn't
     # be called concurrently for a given transaction under normal
     # circumstances, this CAS should eventually be done under a lock.
-    start_key = '{app}{sep}{txn}{sep}'.format(
-      app=app_id, sep=self._SEPARATOR, txn=padded_txn)
-    end_key = '{start_key}{term}'.format(
-      start_key=start_key, term=self._TERM_STRING)
-    txn_rows = self.datastore_batch.range_query(
-      dbconstants.TRANSACTIONS_TABLE,
-      TRANSACTIONS_SCHEMA,
-      start_key,
-      end_key,
-      limit=None
-    )
-    task_ops = [
-      row for row in txn_rows
-      if row.values()[0][TRANSACTIONS_SCHEMA[0]] == TxnActions.ENQUEUE_TASK]
-    if len(task_ops) + request.add_request_size() > _MAX_ACTIONS_PER_TXN:
-      raise dbconstants.ExcessiveTasks(
-        'Only {} tasks can be added to a transaction'.format(_MAX_ACTIONS_PER_TXN))
+    existing_tasks = self.datastore_batch.transactional_tasks_count(
+      app_id, txid)
+    if existing_tasks > _MAX_ACTIONS_PER_TXN:
+      message = 'Only {} tasks can be added to a transaction'.\
+        format(_MAX_ACTIONS_PER_TXN)
+      raise dbconstants.ExcessiveTasks(message)
 
-    txn_keys = []
-    txn_values = {}
-    for add_request in request.add_request_list():
-      add_request.clear_transaction()
-
-      # The path for the task entry doesn't matter as long as it's unique.
-      path = str(uuid.uuid4())
-
-      key = self._SEPARATOR.join([app_id, padded_txn, path])
-      txn_keys.append(key)
-      txn_values[key] = {
-        TRANSACTIONS_SCHEMA[0]: TxnActions.ENQUEUE_TASK,
-        TRANSACTIONS_SCHEMA[1]: add_request.Encode(),
-        TRANSACTIONS_SCHEMA[2]: ''
-      }
-
-    self.datastore_batch.batch_put_entity(
-      dbconstants.TRANSACTIONS_TABLE,
-      txn_keys,
-      TRANSACTIONS_SCHEMA,
-      txn_values,
-      ttl=zktransaction.TX_TIMEOUT * 2
-    )
+    self.datastore_batch.add_tasks(app_id, request.transaction().handle(),
+                                   request.add_request_list())
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
@@ -3171,12 +3138,12 @@ class DatastoreDistributed():
     self.datastore_batch.start_transaction(app_id, txid, is_xg)
     return txid
 
-  def enqueue_transactional_tasks(self, app, task_ops):
+  def enqueue_transactional_tasks(self, app, tasks):
     """ Send a BulkAdd request to the taskqueue service.
 
     Args:
       app: A string specifying an application ID.
-      task_ops: A list of results containing tasks to enqueue.
+      task_ops: A list of tasks.
     """
     if app not in self.taskqueue_stubs:
       # The host and port are used only for generating URLs, which have already
@@ -3185,10 +3152,8 @@ class DatastoreDistributed():
 
     bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    for row in task_ops:
-      request_pb = row.values()[0][TRANSACTIONS_SCHEMA[1]]
-      request = taskqueue_service_pb.TaskQueueAddRequest(request_pb)
-      bulk_request.add_add_request().CopyFrom(request)
+    for task in tasks:
+      bulk_request.add_add_request().CopyFrom(task)
 
     self.logger.debug(
       'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
