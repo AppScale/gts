@@ -8,7 +8,6 @@ from appscale.datastore import dbconstants
 from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
-from appscale.datastore.dbconstants import ID_KEY_LENGTH
 from appscale.datastore.dbconstants import JOURNAL_SCHEMA
 from appscale.datastore.dbconstants import TOMBSTONE
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
@@ -20,7 +19,6 @@ from appscale.datastore.cassandra_env.cassandra_interface import\
   mutations_for_entity
 from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.utils import encode_index_pb
 from appscale.datastore.utils import get_entity_key
 from appscale.datastore.utils import get_entity_kind
 from appscale.datastore.utils import get_index_key_from_params

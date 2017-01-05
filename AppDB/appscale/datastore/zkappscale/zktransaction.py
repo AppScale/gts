@@ -12,10 +12,10 @@ import threading
 import time
 import urllib
 
-from appscale.datastore.cassandra_env import cassandra_interface
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
+from ..cassandra_env import cassandra_interface
 from ..dbconstants import (MAX_GROUPS_FOR_XG,
                            MAX_TX_DURATION)
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import ZookeeperError
 
