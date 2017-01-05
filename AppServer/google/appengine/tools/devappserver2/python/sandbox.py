@@ -122,18 +122,20 @@ def enable_sandbox(config):
   for path in sys.path:
     if any(module_path.startswith(path) for module_path in module_paths):
       python_lib_paths.append(path)
+
   python_lib_paths.extend(_enable_libraries(config.libraries))
   for name in list(sys.modules):
     if not _should_keep_module(name):
       _removed_modules.append(sys.modules[name])
       del sys.modules[name]
+
   path_override_hook = PathOverrideImportHook(
       set(_THIRD_PARTY_LIBRARY_NAME_OVERRIDES.get(lib.name, lib.name)
           for lib in config.libraries).intersection(_C_MODULES))
   python_lib_paths.extend(path_override_hook.extra_sys_paths)
-  stubs.FakeFile.set_allowed_paths(config.application_root,
-                                   python_lib_paths[1:] +
-                                   path_override_hook.extra_accessible_paths)
+
+  allowed_paths = python_lib_paths[1:] + path_override_hook.extra_accessible_paths
+  stubs.FakeFile.set_allowed_paths(config.application_root, allowed_paths)
   stubs.FakeFile.set_skip_files(config.skip_files)
   stubs.FakeFile.set_static_files(config.static_files)
   __builtin__.file = stubs.FakeFile
@@ -188,7 +190,7 @@ def _find_shared_object_c_module():
 def _should_keep_module(name):
   """Returns True if the module should be retained after sandboxing."""
   return (name in ('__builtin__', 'sys', 'codecs', 'encodings', 'site',
-                   'google') or
+                   'google', 'crontab', 'pwd') or
           name.startswith('google.') or name.startswith('encodings.') or
 
           # Making mysql available is a hack to make the CloudSQL functionality
@@ -756,6 +758,7 @@ _WHITE_LIST_C_MODULES = [
     '_codecs_kr',
     '_codecs_tw',
     '_collections',  # Python 2.6 compatibility
+    'crontab',
     'crypt',
     'cPickle',
     'cStringIO',
@@ -785,6 +788,7 @@ _WHITE_LIST_C_MODULES = [
     'parser',
     'posix',  # Only indirectly through the os module.
     'pyexpat',
+    'pwd',
     '_random',
     '_sha256',  # Python2.5 compatibility
     '_sha512',  # Python2.5 compatibility

@@ -1,18 +1,23 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
-import os
-import time
-import unittest 
+import sys
+import unittest
 
-import appscale_datastore_batch
-import datastore_server
+from appscale.datastore import appscale_datastore_batch
+from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
+from appscale.datastore.dbconstants import APP_ENTITY_TABLE
+from appscale.datastore.dbconstants import APP_ID_SCHEMA
+from appscale.datastore.dbconstants import APP_ID_TABLE
+from appscale.datastore.dbconstants import APP_KIND_SCHEMA
+from appscale.datastore.dbconstants import APP_KIND_TABLE
+from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
+from appscale.datastore.dbconstants import PROPERTY_SCHEMA
+from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 
-from dbconstants import *
-
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import datastore
-from google.appengine.api import datastore_types
-from google.appengine.datastore import datastore_index
 from google.appengine.datastore import entity_pb
-from google.appengine.datastore import datastore_query
 
 # The separator of the namespace
 NAMESPACE_SEP = '/'
@@ -23,7 +28,7 @@ DB = "cassandra"
 class ValidateIDCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
   def runTest(self):
     self.app_datastore.ValidateAppId("hi")
   def tearDown(self):
@@ -32,7 +37,7 @@ class ValidateIDCase(unittest.TestCase):
 class GetIndexKeyCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
   def runTest(self):
     assert self.app_datastore.GetIndexKey("hi","bye","nye","guy") \
            == "hi/bye/nye/guy"
@@ -43,7 +48,7 @@ class GetPrefixCase(unittest.TestCase):
   def setUp(self):
     global datastore_batch
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
   def runTest(self):
     assert self.app_datastore.GetTablePrefix(('hi1','bye1')) == "hi1/bye1"
   def tearDown(self):
@@ -52,7 +57,7 @@ class GetPrefixCase(unittest.TestCase):
 class ConfigureNamespaceCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
   def runTest(self):
     assert self.app_datastore.GetTablePrefix(("hi","bye")) == "hi/bye"
 
@@ -62,7 +67,7 @@ class ConfigureNamespaceCase(unittest.TestCase):
 class InsertEntityCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
   def runTest(self):
     entities = []
     for ii in range(0,10):
@@ -112,7 +117,7 @@ class InsertEntityCase(unittest.TestCase):
 class InsertEntityGroupCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     prev = None
     for ii in range(0,4):
@@ -160,7 +165,7 @@ class InsertEntityGroupCase(unittest.TestCase):
 class InsertEntityIndexCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     for ii in range(0,3):
       entity = datastore.Entity("TestKind", 
@@ -221,7 +226,7 @@ class InsertEntityIndexCase(unittest.TestCase):
 class InsertGroupEntityIndexCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     prev = None
     for ii in range(0,3):
@@ -271,7 +276,7 @@ class AllocateIDsCase(unittest.TestCase):
   def setUp(self): 
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
     datastore_batch.batch_delete(APP_ID_TABLE, ["a/a"], APP_ID_SCHEMA)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
   def runTest(self):
     s, e = self.app_datastore.AllocateIds("a/a", 1000)
     assert s == 10000 and e == 10999
@@ -285,7 +290,7 @@ class AllocateIDsCase(unittest.TestCase):
 class InsertAndDeleteIndexesCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     prev = None
     for ii in range(0,3):
@@ -320,7 +325,7 @@ class InsertAndDeleteIndexesCase(unittest.TestCase):
 class PutCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     prev = None
     for ii in range(0,3):
@@ -380,7 +385,7 @@ class PutCase(unittest.TestCase):
 class GetCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     self.keys = []
     prev = None
@@ -410,7 +415,7 @@ class GetCase(unittest.TestCase):
 class KindQueryCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
+    self.app_datastore = DatastoreDistributed(datastore_batch)
     self.entities = []
     self.keys = []
     self.entities2 = []

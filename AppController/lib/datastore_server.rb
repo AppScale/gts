@@ -35,7 +35,7 @@ module DatastoreServer
 
   # The name that nginx should use as the identifier for the DatastoreServer when it
   # we write its configuration files.
-  NAME = "as_datastore_server"
+  NAME = "appscale-datastore_server"
 
   # If we fail to get the number of processors we set our default number of 
   # datastore servers to this value.
@@ -61,9 +61,9 @@ module DatastoreServer
           "--no_encryption --type #{table}"
       start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-            "datastore_server.py #{port}"
+            "#{datastore_server} #{port}"
       MonitInterface.start(:datastore_server, start_cmd, stop_cmd, [port],
-                           env_vars, start_cmd, nil, nil)
+                           env_vars, start_cmd, nil, nil, nil)
     }
   end
 
@@ -116,7 +116,7 @@ module DatastoreServer
   
   # Return the name of the executable of the datastore server.
   def self.get_executable_name(table)
-    return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
+    return `which appscale-datastore`.chomp
   end
 
   # Tell each of the datastore servers on this node to disable writes.

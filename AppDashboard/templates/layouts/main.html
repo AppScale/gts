@@ -31,17 +31,14 @@
 
     <!-- Core stylesheets do not remove -->
     <link href="/css/morris.css" rel="stylesheet" type="text/css" />
-    <link href="/css/bootstrap/bootstrap.css" rel="stylesheet" type="text/css" />
-    <link href="/css/bootstrap/bootstrap-responsive.css" rel="stylesheet" type="text/css" />
+    <!-- Latest compiled and minified CSS -->
+    <link href="/css/bootstrap/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="/css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
     <link href="/css/icons.css" rel="stylesheet" type="text/css" />
 
 
-    <!-- Main stylesheets -->
-    <link href="/css/main.css?v=2" rel="stylesheet" type="text/css" />
-
-    <!-- Custom stylesheets ( Put your own changes here ) -->
-    <link href="/css/custom.css?v=2" rel="stylesheet" type="text/css" />
+    <!-- Main stylesheet -->
+    <link href="/css/Styles.css" rel="stylesheet" type="text/css" />
     
     <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
     <!--[if lt IE 9]>
@@ -49,6 +46,10 @@
     <![endif]-->
 
     <script type="text/javascript" src="/js/jquery.min.js"></script>
+
+    <script src="/js/jquery-1.12.4.js"></script>
+  	<script src="/js/jquery-ui.js"></script>
+    <link rel="stylesheet" href="/css/jquery-ui.css">
     <!-- Le fav and touch icons -->
     <link rel="shortcut icon" href="/images/favicon.ico" />
     <link rel="apple-touch-icon-precomposed" sizes="144x144" href="images/apple-touch-icon-144-precomposed.png" />
@@ -68,6 +69,7 @@
 
     </head>
   <body>
+    <div class="container-fluid">
     {% if page_name != 'users' %}
 	  {{ shared_navigation }}
     {% endif %}
@@ -77,7 +79,7 @@
     <!-- Le javascript
     ================================================== -->
     <!-- Important plugins put in all pages -->
-    <script type="text/javascript" src="/js/bootstrap/bootstrap.js"></script>  
+    <script type="text/javascript" src="/js/bootstrap/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.cookie.js"></script>
     <script type="text/javascript" src="/js/jquery.mousewheel.js"></script>
     <script type="text/javascript" src="/js/bootstrapSwitch.js"></script>
@@ -105,7 +107,7 @@
          $('#unknown_role').tooltip()
 	</script>
     {% endif %}
-
+    </div>
 
   </body>
 </html>

@@ -5,6 +5,7 @@
 require 'base64'
 require 'digest/sha1'
 require 'fileutils'
+require 'net/http'
 require 'openssl'
 require 'socket'
 require 'timeout'
@@ -140,8 +141,8 @@ module HelperFunctions
 
 
   # Metadata service for Google and AWS
-  GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance/"
-  AWS_METADATA = "http://169.254.169.254/latest/meta-data/"
+  GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance"
+  AWS_METADATA = "http://169.254.169.254/latest/meta-data"
 
   def self.shell(cmd)
     return `#{cmd}`
@@ -295,7 +296,7 @@ module HelperFunctions
         retry
       end
     rescue => except
-      Djinn.log_warn("[is_port_open]: got #{except.message}.")
+      Djinn.log_warn("[is_port_open](#{ip}, #{port}): got #{except.message}.")
     end
   
     return false
@@ -1216,8 +1217,8 @@ module HelperFunctions
     if self.does_image_have_location?(ip, "/etc/appscale", key)
       Djinn.log_debug("Image at #{ip} is an AppScale image.")
     else
-      fail_msg = "The image at #{ip} is not an AppScale image." +
-      " Please install AppScale on it and try again."
+      fail_msg = "The image at #{ip} is not an AppScale image. " +
+                 "Please install AppScale on it and try again."
       Djinn.log_debug(fail_msg)
       self.log_and_crash(fail_msg)
     end
@@ -1374,28 +1375,6 @@ module HelperFunctions
   end
 
 
-  # Copies the /etc/resolv.conf file to a backup file, and then removes all
-  # nameserver lookups from the current resolv.conf. We do this to avoid
-  # having to hop out to the nameserver to resolve each node's public and
-  # private IP address (which can be slow in Eucalyptus under heavy load).
-  def self.alter_etc_resolv()
-    self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
-
-    contents = self.read_file(RESOLV_CONF, chomp=false)
-    new_contents = ""
-    contents.split("\n").each { |line|
-      new_contents << line unless contents.include?("nameserver")
-    }
-    self.write_file(RESOLV_CONF, new_contents)
-  end
-
-
-  # Copies the backed-up resolv.conf file back to its original location.
-  def self.restore_etc_resolv()
-    self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
-  end
-
-
   # Contacts the Metadata Service running in Amazon Web Services, or
   # Google Compute Engine or any other supported public cloud,  to
   # determine the public FQDN associated with this virtual machine.
@@ -1407,15 +1386,23 @@ module HelperFunctions
   #   A String containing the public IP that traffic can be sent to that
   #   reaches this machine.
   def self.get_public_ip_from_metadata_service()
-    aws_ip = `curl -L -s #{AWS_METADATA}/public-ipv4`
-    unless aws_ip.empty?
-      Djinn.log_debug("Detected AWS public ip: #{aws_ip}.")
-      return aws_ip
+    url = URI.parse("#{AWS_METADATA}/public-ipv4")
+    request = Net::HTTP::Get.new(url.path)
+    response = Net::HTTP.start(url.host) { |http| http.request(request) }
+    if response.code == '200'
+      Djinn.log_debug("Detected AWS public ip: #{response.body}.")
+      return response.body
     end
-    gce_ip = `curl -L -s #{GCE_METADATA}/network-interfaces/0/access-configs/0/external-ip`
-    unless gce_ip.empty?
-      Djinn.log_debug("Detected GCE public ip: #{gce_ip}.")
-      return gce_ip
+
+    url = URI.parse(
+      "#{GCE_METADATA}/network-interfaces/0/access-configs/0/external-ip")
+    request = Net::HTTP::Get.new(url.path)
+    # Google requires an extra header when requesting metadata.
+    request.add_field('Metadata-Flavor', 'Google')
+    response = Net::HTTP.start(url.host) { |http| http.request(request) }
+    if response.code == '200'
+      Djinn.log_debug("Detected GCE public ip: #{response.body}.")
+      return response.body
     end
   end
 

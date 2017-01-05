@@ -32,15 +32,17 @@ module MonitInterface
   MONIT = "/usr/bin/monit"
 
   def self.start_monit()
-    self.run_cmd("service monit start")
+    ret = system("service --status-all 2> /dev/null | grep monit | grep + > /dev/null")
+    self.run_cmd("service monit start") unless ret
+    return ret
   end
   
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,
-    pidfile)
+    pidfile, timeout)
 
     ports.each { |port|
       self.write_monit_config(watch, start_cmd, stop_cmd, port,
-        env_vars, match_cmd, mem, pidfile)
+        env_vars, match_cmd, mem, pidfile, timeout)
     }
 
     self.run_cmd("#{MONIT} start -g #{watch}")
@@ -102,7 +104,7 @@ BOO
 
 
   def self.write_monit_config(watch, start_cmd, stop_cmd, port,
-    env_vars, match_cmd, mem, pidfile)
+    env_vars, match_cmd, mem, pidfile, timeout)
 
     # Monit doesn't support environment variables in its DSL, so if the caller
     # wants environment variables passed to the app, we have to collect them and
@@ -125,10 +127,14 @@ BOO
 
     match_str = %Q[MATCHING "#{match_cmd}"]
     match_str = "PIDFILE #{pidfile}" unless pidfile.nil?
+
+    start_line = %Q[start program = "#{full_start_command}"]
+    start_line += " with timeout #{timeout} seconds" unless timeout.nil?
+
     contents = <<BOO
 CHECK PROCESS #{watch}-#{port} #{match_str}
   group #{watch}
-  start program = "#{full_start_command}"
+  #{start_line}
   stop program = "#{stop_cmd}"
 BOO
     # If we have a valid 'mem' option, set the max memory for this
@@ -157,7 +163,7 @@ BOO
   end
 
   def self.is_running?(watch)
-    output = self.run_cmd("#{MONIT} summary | grep #{watch} | grep Running")
+    output = self.run_cmd("#{MONIT} summary | grep #{watch} | grep -E '(Running|Initializing)'")
     return (not output == "")
   end
 
@@ -167,7 +173,7 @@ BOO
   #   A list of application:port records.
   def self.running_appengines()
     appengines = []
-    output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*Running'")
+    output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*(Running|Initializing)'")
     appengines_raw = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
     if appengines_raw
       appengines_raw.split("\n").each{ |appengine|

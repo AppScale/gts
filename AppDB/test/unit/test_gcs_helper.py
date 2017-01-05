@@ -5,25 +5,26 @@ import logging
 import os
 import requests
 import subprocess
-import sys
 import unittest
 import urllib
-from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../backup/"))
-import backup_recovery_helper
-import gcs_helper
+from appscale.datastore.backup import backup_recovery_helper
+from appscale.datastore.backup import gcs_helper
+from flexmock import flexmock
 
 FakeInvalidGCSPath = 'gs://'
 FakeGCSPath = 'gs://foo/bar/baz.tar.gz'
+
 
 class FakeInvalidResponse(object):
   def __init__(self):
     self.headers = {}
 
+
 class FakeResponse(object):
   def __init__(self):
     self.headers = {'Location': 'some/location'}
+
 
 class TestGCSHelper(unittest.TestCase):
   """ A set of test cases for the GCS helper. """
@@ -138,6 +139,7 @@ class TestGCSHelper(unittest.TestCase):
 
   def test_gcs_put_request(self):
     pass
+
 
 if __name__ == "__main__":
   unittest.main()    

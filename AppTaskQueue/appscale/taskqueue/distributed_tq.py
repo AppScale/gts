@@ -7,21 +7,24 @@ import base64
 import datetime
 import hashlib
 import json
-import logging
 import os
 import socket
 import sys
 import time
 import tq_lib
 
+from cassandra import OperationTimedOut
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
+from distutils.spawn import find_executable
 from queue import InvalidLeaseRequest
 from queue import PullQueue
 from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
-from unpackaged import APPSCALE_DATASTORE
-from unpackaged import APPSCALE_LIB_DIR
-from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .unpackaged import APPSCALE_LIB_DIR
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
+from .utils import logger
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
@@ -38,10 +41,10 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
 
-sys.path.append(APPSCALE_DATASTORE)
-from cassandra_env.cassandra_interface import DatastoreProxy
-
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
+
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
 
 
 def create_pull_queue_tables(cluster, session):
@@ -51,7 +54,7 @@ def create_pull_queue_tables(cluster, session):
     cluster: A cassandra-driver cluster.
     session: A cassandra-driver session.
   """
-  logging.info('Trying to create pull_queue_tasks')
+  logger.info('Trying to create pull_queue_tasks')
   create_table = """
     CREATE TABLE IF NOT EXISTS pull_queue_tasks (
       app text,
@@ -65,10 +68,17 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, id))
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_table)
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
-  logging.info('Trying to create pull_queue_tasks_index')
+  logger.info('Trying to create pull_queue_tasks_index')
   create_index_table = """
     CREATE TABLE IF NOT EXISTS pull_queue_tasks_index (
       app text,
@@ -80,27 +90,32 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, eta), id)
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_index_table)
+  statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_tasks_index.'
+      ' Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
-  logging.info('Trying to create pull_queue_tags index')
+  logger.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
-  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
   # This additional index is needed for groupByTag=true,tag=None queries
   # because Cassandra can only do '=' queries on secondary indices.
-  logging.info('Trying to create pull_queue_tag_exists index')
+  logger.info('Trying to create pull_queue_tag_exists index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
-  cluster.refresh_schema_metadata()
   session.execute(create_index)
 
-  logging.info('Trying to create pull_queue_leases')
+  logger.info('Trying to create pull_queue_leases')
   create_leases_table = """
     CREATE TABLE IF NOT EXISTS pull_queue_leases (
       app text,
@@ -109,8 +124,15 @@ def create_pull_queue_tables(cluster, session):
       PRIMARY KEY ((app, queue, leased))
     )
   """
-  cluster.refresh_schema_metadata()
-  session.execute(create_leases_table)
+  statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except OperationTimedOut:
+    logger.warning(
+      'Encountered an operation timeout while creating pull_queue_leases. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
 
 class TaskName(db.Model):
@@ -188,8 +210,12 @@ class DistributedTaskQueue():
   # A dict that tells celery to run tasks even though we are running as root.
   CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
 
-  def __init__(self):
-    """ DistributedTaskQueue Constructor. """
+  def __init__(self, db_access):
+    """ DistributedTaskQueue Constructor.
+
+    Args:
+      db_access: A DatastoreProxy object.
+    """
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
@@ -206,7 +232,7 @@ class DistributedTaskQueue():
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
-    self.db_access = DatastoreProxy()
+    self.db_access = db_access
 
     # Flag to see if code needs to be reloaded.
     self.__force_reload = False
@@ -265,7 +291,7 @@ class DistributedTaskQueue():
     """
     request = self.__parse_json_and_validate_tags(
       json_request, self.STOP_WORKERS_TAGS)
-    logging.info("Stopping worker: {0}".format(request))
+    logger.info("Stopping worker: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
 
@@ -309,7 +335,7 @@ class DistributedTaskQueue():
     """
     request = self.__parse_json_and_validate_tags(json_request,  
                                          self.SETUP_WORKERS_TAGS)
-    logging.info("Reload worker request: {0}".format(request))
+    logger.info("Reload worker request: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
 
@@ -324,7 +350,7 @@ class DistributedTaskQueue():
     except (ValueError, NameError) as config_error:
       return json.dumps({'error': True, 'reason': config_error.message})
     except Exception as config_error:
-      logging.exception('Unknown exception')
+      logger.exception('Unknown exception')
       return json.dumps({'error': True, 'reason': config_error.message})
 
     reload_workers = False
@@ -335,7 +361,7 @@ class DistributedTaskQueue():
         continue
 
       if name not in new_queues:
-        logging.info('Deleting queue for {}: {}'.format(app_id, name))
+        logger.info('Deleting queue for {}: {}'.format(app_id, name))
         reload_workers = True
 
     # Create any new push queues and update ones that have changed.
@@ -344,13 +370,13 @@ class DistributedTaskQueue():
         continue
 
       if name not in cached_queues:
-        logging.info('Creating queue for {}: {}'.format(app_id, name))
+        logger.info('Creating queue for {}: {}'.format(app_id, name))
         reload_workers = True
         continue
 
       if queue != cached_queues[name]:
-        logging.info('Reloading queue for {}: {}'.format(app_id, name))
-        logging.debug('Old: {}\nNew: {}'.format(cached_queues[name], queue))
+        logger.info('Reloading queue for {}: {}'.format(app_id, name))
+        logger.debug('Old: {}\nNew: {}'.format(cached_queues[name], queue))
         reload_workers = True
 
     if reload_workers:
@@ -358,7 +384,7 @@ class DistributedTaskQueue():
       self.start_worker(json_request)
       self.__force_reload = True
     else:
-      logging.info('Not reloading queues')
+      logger.info('Not reloading queues')
 
     self.__queue_info_cache[app_id] = new_queues
 
@@ -376,7 +402,7 @@ class DistributedTaskQueue():
     """
     request = self.__parse_json_and_validate_tags(json_request,  
                                          self.SETUP_WORKERS_TAGS)
-    logging.info("Start worker request: {0}".format(request))
+    logger.info("Start worker request: {0}".format(request))
     if 'error' in request:
       return json.dumps(request)
 
@@ -391,11 +417,12 @@ class DistributedTaskQueue():
     except (ValueError, NameError) as config_error:
       return json.dumps({'error': True, 'reason': config_error.message})
     except Exception as config_error:
-      logging.exception('Unknown exception')
+      logger.exception('Unknown exception')
       return json.dumps({'error': True, 'reason': config_error.message})
    
     log_file = self.LOG_DIR + app_id + ".log"
-    command = ["/usr/local/bin/celery",
+    celery_bin = find_executable('celery')
+    command = [celery_bin,
                "worker",
                "--app=" + \
                     TaskQueueConfig.get_celery_worker_module_name(app_id),
@@ -436,17 +463,34 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb.\
-      TaskQueueFetchQueueStatsRequest(http_data)
-    response = taskqueue_service_pb.\
-      TaskQueueFetchQueueStatsResponse()
-    for queue in request.queue_name_list():
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest(http_data)
+    response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
+
+    for queue_name in request.queue_name_list():
+      queue = self.get_queue(app_id, queue_name)
       stats_response = response.add_queuestats()
-      count = TaskName.all().filter("state =", tq_lib.TASK_STATES.QUEUED).\
-        filter("queue =", queue).filter("app_id =", app_id).count()
-      stats_response.set_num_tasks(count)
-      stats_response.set_oldest_eta_usec(-1)
-    return (response.Encode(), 0, "")
+
+      if isinstance(queue, PullQueue):
+        num_tasks = queue.total_tasks()
+        oldest_eta = queue.oldest_eta()
+      else:
+        num_tasks = TaskName.all().\
+          filter("state =", tq_lib.TASK_STATES.QUEUED).\
+          filter("queue =", queue_name).\
+          filter("app_id =", app_id).count()
+
+        # This is not supported for push queues yet.
+        oldest_eta = None
+
+      # -1 is used to indicate an absence of a value.
+      oldest_eta_usec = (int((oldest_eta - epoch).total_seconds() * 1000000)
+                         if oldest_eta else -1)
+
+      stats_response.set_num_tasks(num_tasks)
+      stats_response.set_oldest_eta_usec(oldest_eta_usec)
+
+    return response.Encode(), 0, ""
 
   def purge_queue(self, app_id, http_data):
     """ 
@@ -583,14 +627,18 @@ class DistributedTaskQueue():
             taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_MODE)
           error_found = True
 
-        task_info = {'payloadBase64': base64.b64encode(add_request.body()),
+        encoded_payload = base64.urlsafe_b64encode(add_request.body())
+        task_info = {'payloadBase64': encoded_payload,
                      'leaseTimestamp': add_request.eta_usec()}
         if add_request.has_task_name():
           task_info['id'] = add_request.task_name()
         if add_request.has_tag():
           task_info['tag'] = add_request.tag()
-        queue.add_task(Task(task_info))
+
+        new_task = Task(task_info)
+        queue.add_task(new_task)
         task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+        task_result.set_chosen_task_name(new_task.id)
         continue
 
       result = tq_lib.verify_task_queue_add_request(add_request.app_id(),
@@ -663,19 +711,19 @@ class DistributedTaskQueue():
     """
     task_name = request.task_name()
     item = TaskName.get_by_key_name(task_name)
-    logging.debug("Task name {0}".format(task_name))
+    logger.debug("Task name {0}".format(task_name))
     if item:
-      logging.warning("Task already exists")
+      logger.warning("Task already exists")
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
     else:
       new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
         queue=request.queue_name(), app_id=request.app_id())
-      logging.debug("Creating entity {0}".format(str(new_name)))
+      logger.debug("Creating entity {0}".format(str(new_name)))
       try:
         db.put(new_name)
       except datastore_errors.InternalError, internal_error:
-        logging.error(str(internal_error))
+        logger.error(str(internal_error))
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR)
 
@@ -723,18 +771,18 @@ class DistributedTaskQueue():
         reload(task_module)
         time_taken = time.time() - start
         self.__force_reload = False
-        logging.info("Reloading module for {0} took {1} seconds.".\
+        logger.info("Reloading module for {0} took {1} seconds.".\
           format(request.app_id(), time_taken))
 
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
     except AttributeError, attribute_error:
-      logging.exception(attribute_error)
+      logger.exception(attribute_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
     except ImportError, import_error:
-      logging.exception(import_error)
+      logger.exception(import_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
 
@@ -772,10 +820,10 @@ class DistributedTaskQueue():
         self.__queue_info_cache[app_id] = TaskQueueConfig(
           app_id, self.db_access).queues
       except (ValueError, NameError):
-        logging.exception('Unable to load queues for {}. Using defaults.'\
+        logger.exception('Unable to load queues for {}. Using defaults.'\
           .format(app_id))
       except Exception:
-        logging.exception('Unknown exception')
+        logger.exception('Unknown exception')
   
     # Use queue defaults.
     if (app_id in self.__queue_info_cache and

@@ -7,7 +7,7 @@ require 'monit_interface'
 
 # A String that indicates where we write the process ID that Cassandra runs
 # on at this machine.
-PID_FILE = "/var/appscale/appscale-cassandra.pid"
+PID_FILE = "/tmp/appscale-cassandra.pid"
 
 
 # A String that indicates where we install Cassandra on this machine.
@@ -19,10 +19,6 @@ CASSANDRA_DIR = "/opt/cassandra"
 CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra"
 
 
-# A directory containing Cassandra-related scripts and libraries.
-CASSANDRA_ENV_DIR = "#{APPSCALE_HOME}/AppDB/cassandra_env"
-
-
 # The location of the script that sets up Cassandra's config files.
 SETUP_CONFIG_SCRIPT = "#{APPSCALE_HOME}/scripts/setup_cassandra_config_files.py"
 
@@ -32,7 +28,15 @@ NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool"
 
 
 # The location of the script that creates the initial tables.
-PRIME_SCRIPT = "#{CASSANDRA_ENV_DIR}/prime_cassandra.py"
+PRIME_SCRIPT = `which appscale-prime-cassandra`.chomp
+
+
+# The number of seconds Monit should allow Cassandra to take while starting up.
+START_TIMEOUT = 60
+
+
+# The location of the Cassandra data directory.
+CASSANDRA_DATA_DIR = "/opt/appscale/cassandra"
 
 
 # Determines if a UserAppServer should run on this machine.
@@ -61,7 +65,10 @@ def setup_db_config_files(master_ip)
   local_ip = HelperFunctions.local_ip
   setup_script = "#{SETUP_CONFIG_SCRIPT} --local-ip #{local_ip} "\
                  "--master-ip #{master_ip}"
-  Djinn.log_run(setup_script)
+  until system(setup_script)
+    Djinn.log_warn('Error while setting up Cassandra configuration. Retrying.')
+    sleep(SMALL_WAIT)
+  end
 end
 
 
@@ -71,10 +78,11 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
-def start_db_master(clear_datastore, needed)
+#   desired: The total number of database nodes.
+def start_db_master(clear_datastore, needed, desired)
   @state = "Starting up Cassandra seed node"
   Djinn.log_info(@state)
-  start_cassandra(clear_datastore, needed)
+  start_cassandra(clear_datastore, needed, desired)
 end
 
 
@@ -85,7 +93,8 @@ end
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
-def start_db_slave(clear_datastore, needed)
+#   desired: The total number of database nodes.
+def start_db_slave(clear_datastore, needed, desired)
   seed_node = get_db_master.private_ip
   @state = "Waiting for Cassandra seed node at #{seed_node} to start"
   Djinn.log_info(@state)
@@ -100,40 +109,59 @@ def start_db_slave(clear_datastore, needed)
     sleep(SMALL_WAIT)
   end
 
-  start_cassandra(clear_datastore, needed)
+  start_cassandra(clear_datastore, needed, desired)
 end
 
+# Waits for enough database nodes to be up.
+def wait_for_desired_nodes(needed, desired)
+  sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
+  while true
+    ready = nodes_ready
+    Djinn.log_debug("#{ready} nodes are up. #{needed} are needed.")
+    break if ready >= needed
+    sleep(SMALL_WAIT)
+  end
 
-# Starts Cassandra, and waits for it to start the Thrift service locally.
+  # Wait longer for all the nodes. This reduces errors during table creation.
+  begin
+    Timeout.timeout(60) {
+      while true
+        ready = nodes_ready
+        Djinn.log_debug("#{ready} nodes are up. #{desired} are desired.")
+        break if ready >= desired
+        sleep(SMALL_WAIT)
+      end
+    }
+  rescue Timeout::Error
+    Djinn.log_info('Not all database nodes are ready, but there are enough ' +
+                   'to achieve a quorum for every key.')
+  end
+end
+
+# Starts Cassandra, and waits for enough nodes to be "Up Normal".
 #
 # Args:
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
-def start_cassandra(clear_datastore, needed)
-  Djinn.log_run("pkill ThriftBroker")
+#   desired: The total number of database nodes.
+def start_cassandra(clear_datastore, needed, desired)
   if clear_datastore
     Djinn.log_info("Erasing datastore contents")
-    Djinn.log_run("rm -rf /opt/appscale/cassandra*")
-    Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
+    Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
   end
 
-  start_cmd = "#{CASSANDRA_EXECUTABLE} start -p #{PID_FILE}"
-  stop_cmd = "/bin/bash -c 'kill -s SIGTERM `cat #{PID_FILE}`'"
+  # Create Cassandra data directory.
+  Djinn.log_run("mkdir -p #{CASSANDRA_DATA_DIR}")
+  Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
+
+  start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
+  stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
   MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
-                       PID_FILE)
+                       PID_FILE, START_TIMEOUT)
 
   # Ensure enough Cassandra nodes are available.
-  sleep(SMALL_WAIT) until system("#{NODETOOL} status")
-  while true
-    output = `"#{NODETOOL}" status`
-    nodes_ready = 0
-    output.split("\n").each{ |line|
-      nodes_ready += 1 if line.start_with?('UN')
-    }
-    Djinn.log_debug("#{nodes_ready} nodes are up. #{needed} are needed.")
-    break if nodes_ready >= needed
-    sleep(SMALL_WAIT)
-  end
+  Djinn.log_info('Waiting for Cassandra to start')
+  wait_for_desired_nodes(needed, desired)
 end
 
 # Kills Cassandra on this machine.
@@ -162,4 +190,15 @@ def needed_for_quorum(total_nodes, replication)
 
   can_fail = (replication/2.0 - 1).ceil
   return total_nodes - can_fail
+end
+
+
+# Returns the number of nodes in 'Up Normal' state.
+def nodes_ready()
+  output = `"#{NODETOOL}" status`
+  nodes_ready = 0
+  output.split("\n").each{ |line|
+    nodes_ready += 1 if line.start_with?('UN')
+  }
+  return nodes_ready
 end

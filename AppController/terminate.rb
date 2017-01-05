@@ -12,7 +12,7 @@ module TerminateHelper
     `rm -f #{APPSCALE_CONFIG_DIR}/secret.key`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
-    `rm -f /etc/nginx/sites-enabled/*.conf`
+    `rm -f /etc/nginx/sites-enabled/appscale-*.conf`
     `rm -f /etc/haproxy/sites-enabled/*.cfg`
     `service nginx reload`
     # Stop and then remove the service we configured with monit.

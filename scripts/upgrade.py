@@ -12,9 +12,10 @@ from datastore_upgrade import start_cassandra
 from datastore_upgrade import start_zookeeper
 from datastore_upgrade import write_to_json_file
 
+from appscale.datastore.dbconstants import AppScaleDBError
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import LOG_FORMAT
-from dbconstants import AppScaleDBError
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
@@ -56,8 +57,8 @@ if __name__ == "__main__":
     for ip in relevant_ips:
       utils.ssh(ip, args.keyname, 'service monit start')
 
-    start_cassandra(args.database, args.db_master, args.keyname)
     start_zookeeper(args.zookeeper, args.keyname)
+    start_cassandra(args.database, args.db_master, args.keyname)
     datastore_upgrade.wait_for_quorum(
       args.keyname, len(args.database), args.replication)
     db_access = datastore_upgrade.get_datastore()

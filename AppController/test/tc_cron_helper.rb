@@ -91,6 +91,11 @@ class TestCronHelper < Test::Unit::TestCase
     # Test format:
     # every N (hours|mins|minutes) "from" (time) "to" (time)
 
+    schedule = 'every 2 hours from 10:00 to 14:00'
+    expected = ['0 10-14/2 * * *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
     # increment_type = hours, h1 < h2, m1 < m2
     schedule = "every 7 hours from 04:30 to 10:50"
     expected = ["30 4-10/7 * * *"]
@@ -186,7 +191,19 @@ class TestCronHelper < Test::Unit::TestCase
     actual = CronHelper.convert_messy_format(schedule)
     self.assert_equal(expected, actual)
 
-    # every 65 hours
+    # 1 of month 01:00
+    schedule = "1 of month 01:00"
+    expected = ["0 1 1 * *"]
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    # 2 of may 00:00
+    schedule = "2 of may 00:00"
+    expected = ["0 0 2 may *"]
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    # every 65 minutes
     schedule = "every 65 minutes from 12:26 to 03:10"
     expected = ["26 12 * * *",
                 "31 13 * * *",
@@ -208,6 +225,46 @@ class TestCronHelper < Test::Unit::TestCase
     # same t1 and t2
     schedule = "every 11 minutes from 12:01 to 12:01"
     expected = []
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    # Every 5 minutes from 5-19.
+    schedule = 'every 5 minutes from 5:00 to 19:00'
+    expected = [
+      '0,5,10,15,20,25,30,35,40,45,50,55 5 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 6 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 7 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 8 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 9 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 10 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 11 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 12 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 13 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 14 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 15 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 16 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 17 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 18 * * *',
+      '0 19 * * *'
+    ]
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    # Every 5 minutes from 19-5.
+    schedule = 'every 5 minutes from 19:00 to 5:00'
+    expected = [
+      '0,5,10,15,20,25,30,35,40,45,50,55 19 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 20 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 21 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 22 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 23 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 0 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 1 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 2 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 3 * * *',
+      '0,5,10,15,20,25,30,35,40,45,50,55 4 * * *',
+      '0 5 * * *'
+    ]
     actual = CronHelper.convert_messy_format(schedule)
     self.assert_equal(expected, actual)
   end

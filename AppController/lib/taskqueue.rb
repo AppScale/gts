@@ -46,7 +46,7 @@ module TaskQueue
   # The location of the taskqueue server script. This service controls 
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = '/usr/local/bin/appscale-taskqueue'
+  TASKQUEUE_SERVER_SCRIPT = `which appscale-taskqueue`.chomp
 
   # The longest we'll wait for RabbitMQ to come up in seconds.
   MAX_WAIT_FOR_RABBITMQ = 30
@@ -56,6 +56,9 @@ module TaskQueue
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
+
+  # Optional features that can be installed for the taskqueue package.
+  OPTIONAL_FEATURES = ['celery_gui']
 
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
@@ -80,7 +83,7 @@ module TaskQueue
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
     MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, [9999], nil,
-                         match_cmd, nil, nil)
+                         match_cmd, nil, nil, nil)
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -146,7 +149,7 @@ module TaskQueue
     tries_left = RABBIT_START_RETRY
     loop {
       MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, [9999], nil,
-                           match_cmd, nil, nil)
+                           match_cmd, nil, nil, nil)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
@@ -184,10 +187,10 @@ module TaskQueue
     start_cmd << ' --verbose' if verbose
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
-    env_vars = {}
+    env_vars = {:PATH => '$PATH:/usr/local/bin'}
     MonitInterface.start(:taskqueue, start_cmd, stop_cmd,
                          [TASKQUEUE_SERVER_INTERNAL_PORT], env_vars, start_cmd,
-                         nil, nil)
+                         nil, nil, nil)
     Djinn.log_debug("Done starting taskqueue_server on this node")
   end
 
@@ -235,11 +238,12 @@ module TaskQueue
   # Args:
   #   flower_password: A String that is used as the password to log into flower.
   def self.start_flower(flower_password)
-    start_cmd = "/usr/local/bin/flower --basic_auth=appscale:#{flower_password}"
+    flower_cmd = `which flower`.chomp
+    start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "flower #{flower_password}"
     MonitInterface.start(:flower, start_cmd, stop_cmd, [FLOWER_SERVER_PORT],
-                         nil, start_cmd, nil, nil)
+                         nil, start_cmd, nil, nil, nil)
   end
 
 

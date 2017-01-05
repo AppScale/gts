@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -138,6 +139,7 @@ class TestAppManager(unittest.TestCase):
     flexmock(threading).should_receive('Thread').\
       and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
+    flexmock(os).should_receive('listdir').and_return([])
     self.assertEqual(0, app_manager_server.start_app(configuration))
 
   def test_start_app_failed_copy_java(self):
@@ -218,6 +220,7 @@ class TestAppManager(unittest.TestCase):
     assert app_manager_server.extract_env_vars_from_xml('/file.xml') == {}
 
   def test_create_java_app_env(self):
+    app_manager_server.deployment_config = flexmock(get_config=lambda x: {})
     app_name = 'foo'
     flexmock(app_manager_server).should_receive('find_web_xml').and_return()
     flexmock(app_manager_server).should_receive('extract_env_vars_from_xml').\
@@ -231,7 +234,9 @@ class TestAppManager(unittest.TestCase):
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
     app_id = 'testapp'
-    cmd = app_manager_server.create_java_start_cmd(app_id, '20000', '127.0.0.2')
+    max_heap = 260
+    cmd = app_manager_server.create_java_start_cmd(
+      app_id, '20000', '127.0.0.2', max_heap)
     assert app_id in cmd
 
   def test_create_java_stop_cmd(self): 
@@ -297,13 +302,15 @@ class TestAppManager(unittest.TestCase):
     flexmock(subprocess).should_receive('call').and_return(0)
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
+    flexmock(shutil).should_receive('copy').and_return()
     self.assertEqual(True, app_manager_server.copy_modified_jars(app_name))  
   
   def test_copy_modified_jars_fail_case_1(self):
     app_name = 'test'
-    flexmock(subprocess).should_receive('call').and_return(0).and_return(1)
+    flexmock(subprocess).should_receive('call').and_return(0)
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
+    flexmock(shutil).should_receive('copy').and_raise(IOError)
     self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
 
   def test_copy_modified_jars_fail_case_2(self):

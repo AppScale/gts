@@ -29,6 +29,8 @@ export APPSCALE_VERSION=$(grep AppScale "$VERSION_FILE" | sed 's/AppScale versio
 
 PACKAGE_CACHE="/var/cache/appscale"
 
+# Default directory for external library jars
+APPSCALE_EXT="/usr/share/appscale/ext/"
 
 pipwrapper ()
 {
@@ -154,6 +156,7 @@ root            hard    nofile           200000
 root            soft    nofile           200000
 *               hard    nofile           200000
 *               soft    nofile           200000
+*               -       nproc            32768
 EOF
 }
 
@@ -249,7 +252,7 @@ installappserverjava()
 
 installtornado()
 {
-    pipwrapper tornado
+    pipwrapper tornado==4.2.0
 }
 
 installflexmock()
@@ -306,7 +309,6 @@ installphp54()
 
 postinstallnginx()
 {
-    cp -v ${APPSCALE_HOME}/AppDashboard/setup/load-balancer.conf /etc/nginx/sites-enabled/
     rm -fv /etc/nginx/sites-enabled/default
     chmod +x /root
 }
@@ -327,33 +329,26 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=2.2.7
+    CASSANDRA_VER=3.7
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="40f6e3851ec26467c33372a4fb1d9854"
+    CASSANDRA_PACKAGE_MD5="39968c48cbb2a333e525f852db59fb48"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.
     rm -rf ${APPSCALE_HOME}/AppDB/cassandra
 
     CASSANDRA_DIR="/opt/cassandra"
-    CASSANDRA_ENV="${APPSCALE_HOME}/AppDB/cassandra_env"
     mkdir -p ${CASSANDRA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
-    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} ${CASSANDRA_DIR}/cassandra
+    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} \
+        ${CASSANDRA_DIR}/cassandra
 
-    chmod -v +x ${CASSANDRA_DIR}/cassandra/bin/cassandra
-    cp -v ${CASSANDRA_ENV}/templates/cassandra-env.sh\
-        ${CASSANDRA_DIR}/cassandra/conf
-    mkdir -p /var/lib/cassandra
-    # TODO only grant the cassandra user access.
-    chmod 777 /var/lib/cassandra
-
-    pipwrapper cassandra-driver
-
-    # Create separate log directory.
-    mkdir -pv /var/log/appscale/cassandra
+    if ! id -u cassandra &> /dev/null ; then
+        useradd cassandra
+    fi
+    chown -R cassandra ${CASSANDRA_DIR}
 }
 
 postinstallcassandra()
@@ -438,14 +433,6 @@ postinstallzookeeper()
         # Let's add a rotation directive.
         echo "log4j.appender.ROLLINGFILE.MaxBackupIndex=3" >> /etc/zookeeper/conf/log4j.properties
     fi
-}
-
-installcelery()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper celery==3.1.23
-    fi
-    pipwrapper Flower
 }
 
 postinstallrabbitmq()
@@ -536,7 +523,7 @@ installpsutil()
 installapiclient()
 {
     # The InfrastructureManager requires the Google API client.
-    pipwrapper google-api-python-client
+    pipwrapper google-api-python-client==1.5.4
 }
 
 installpycapnp()
@@ -563,26 +550,57 @@ buildgo()
 
 installtaskqueue()
 {
-    (cd ${APPSCALE_HOME}/AppTaskQueue && python setup.py install)
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    # Fill in new dependencies.
+    # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
+    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+}
+
+installdatastore()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
+    pip install ${APPSCALE_HOME}/AppDB
 }
 
 prepdashboard()
 {
     rm -rf ${APPSCALE_HOME}/AppDashboard/vendor
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor SOAPpy
+    pip install -t ${APPSCALE_HOME}/AppDashboard/vendor python-crontab
 }
 
 upgradepip()
 {
-    # Pip 1.0 in Precise does not have --target, which is needed for preparing
-    # the dashboard. Pip 1.0 and 1.1 (Precise and Wheezy) upgrade a package's
-    # dependencies when --upgrade is specified. This is problematic for flower,
-    # which will fetch a newer version of celery than desired.
+    # Versions older than Pip 7 did not correctly parse install commands for
+    # local packages with optional dependencies.
     case "$DIST" in
-        precise|wheezy)
+        precise|wheezy|trusty)
             pipwrapper pip
             # Account for the change in the path to the pip binary.
             hash -r
             ;;
     esac
+}
+
+fetchclientjars()
+{
+    # This function fetches modified client jars for the MapReduce, Pipeline,
+    # and GCS APIs. You can compile them using Maven from the following repos:
+    # github.com/AppScale/appengine-mapreduce
+    # github.com/AppScale/appengine-pipelines
+    # github.com/AppScale/appengine-gcs-client
+    mkdir -p ${APPSCALE_EXT}
+
+    MAPREDUCE_JAR="appscale-mapreduce-0.8.5.jar"
+    cachepackage ${MAPREDUCE_JAR} "93f5101fa6ec761b33f4bf2ac8449447"
+
+    PIPELINE_JAR="appscale-pipeline-0.2.13.jar"
+    cachepackage ${PIPELINE_JAR} "a6e4555c604a05897a48260429ce50c6"
+
+    GCS_JAR="appscale-gcs-client-0.6.jar"
+    cachepackage ${GCS_JAR} "a03671de058acc7ea41144976868765c"
+
+    cp "${PACKAGE_CACHE}/${MAPREDUCE_JAR}" ${APPSCALE_EXT}
+    cp "${PACKAGE_CACHE}/${PIPELINE_JAR}" ${APPSCALE_EXT}
+    cp "${PACKAGE_CACHE}/${GCS_JAR}" ${APPSCALE_EXT}
 }

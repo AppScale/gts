@@ -52,7 +52,6 @@ case "$1" in
         installcassandra
         postinstallcassandra
         postinstallrabbitmq
-        installcelery
         installsolr
         installservice
         postinstallservice
@@ -68,7 +67,9 @@ case "$1" in
         installapiclient
         buildgo
         installtaskqueue
+        installdatastore
         preplogserver
         prepdashboard
+        fetchclientjars
         ;;
 esac

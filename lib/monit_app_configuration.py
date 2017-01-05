@@ -57,20 +57,28 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={},
   # because the template script itself uses {}. If we do not sub for them 
   # a key error is raised by template.format().
   template = ""
+
+  # If the match is not specified, we will match the starting commands.
+  if not match_cmd:
+    match_cmd = start_cmd
+
+  # During upgrade we need to disable the memory usage rule.
+  if upgrade_flag:
+    max_memory = 0
+
   for port in ports:
     if syslog_server:
       template = file_io.read(TEMPLATE_LOCATION_SYSLOG)
-      template = template.format(watch, start_cmd, stop_cmd, port, env,
-        max_memory, syslog_server)
+      template = template.format(watch=watch, start=start_cmd, stop=stop_cmd,
+        port=port, env=env, syslog_server=syslog_server, match=match_cmd)
     else:
-      if upgrade_flag:
-        template = file_io.read(TEMPLATE_LOCATION_FOR_UPGRADE)
-        template = template.format(watch=watch, start=start_cmd, stop=stop_cmd,
-          port=port, match=match_cmd, env=env, memory=max_memory)
-      else:
         template = file_io.read(TEMPLATE_LOCATION)
-        template = template.format(watch, start_cmd, stop_cmd, port, env,
-          max_memory)
+        template = template.format(watch=watch, start=start_cmd, stop=stop_cmd,
+          port=port, match=match_cmd, env=env)
+
+    if max_memory > 0:
+      template += "  if totalmem > {} MB for 10 cycles then restart\n".\
+        format(max_memory)
 
     if host:
       template += "  if failed host {} port {} then restart\n".\

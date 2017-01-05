@@ -1,6 +1,5 @@
 import datetime
 import json
-import logging
 import re
 import sys
 
@@ -9,6 +8,7 @@ from cassandra.query import SimpleStatement
 from task import InvalidTaskInfo
 from task import Task
 from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
@@ -310,6 +310,7 @@ class PullQueue(Queue):
       parameters['tag'] = ''
     parameters['tag_exists'] = parameters['tag'] != ''
     self.db_access.session.execute(insert_index, parameters)
+    logger.debug('Added task: {}'.format(task))
 
   def get_task(self, task, omit_payload=False):
     """ Gets a task from the queue.
@@ -501,8 +502,8 @@ class PullQueue(Queue):
       raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
                                 .format(self.MAX_LEASE_TIME))
 
-    logging.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
-                  format(num_tasks, lease_seconds, group_by_tag, tag))
+    logger.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
+                 format(num_tasks, lease_seconds, group_by_tag, tag))
     new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
@@ -513,9 +514,16 @@ class PullQueue(Queue):
     # Fetch available tasks and try to lease them until the requested number
     # has been leased or until the index has been exhausted.
     leased = []
+    leased_ids = set()
     indices_seen = set()
     while True:
       results = self._query_available_tasks(num_tasks, group_by_tag, tag)
+
+      # The following prevents any task from being leased multiple times in the
+      # same request. If the lease time is very small, it's possible for the
+      # lease to expire while results are still being fetched.
+      results = [result for result in results if result.id not in leased_ids]
+
       # If there are no more available tasks, return whatever has been leased.
       if not results:
         break
@@ -533,13 +541,51 @@ class PullQueue(Queue):
           continue
 
         leased.append(task)
+        leased_ids.add(task.id)
         if len(leased) >= num_tasks:
           satisfied_request = True
           break
       if satisfied_request:
         break
 
+    logger.debug('Leased {} tasks'.format(len(leased)))
     return leased
+
+  def total_tasks(self):
+    """ Get the total number of tasks in the queue.
+
+    Returns:
+      An integer specifying the number of tasks in the queue.
+    """
+    select_count = """
+      SELECT COUNT(*) FROM pull_queue_tasks
+      WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
+      AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
+    """
+    parameters = {'app': self.app, 'queue': self.name,
+                  'next_queue': next_key(self.name)}
+    return self.db_access.session.execute(select_count, parameters)[0].count
+
+  def oldest_eta(self):
+    """ Get the ETA of the oldest task
+
+    Returns:
+      A datetime object specifying the oldest ETA or None if there are no
+      tasks.
+    """
+    session = self.db_access.session
+    select_oldest = """
+      SELECT eta FROM pull_queue_tasks_index
+      WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
+      AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
+      LIMIT 1
+    """
+    parameters = {'app': self.app, 'queue': self.name,
+                  'next_queue': next_key(self.name)}
+    try:
+      return session.execute(select_oldest, parameters)[0].eta
+    except IndexError:
+      return None
 
   def purge(self):
     """ Remove all tasks from queue.
@@ -713,7 +759,7 @@ class PullQueue(Queue):
     if not result.applied:
       # Since nothing else should be able to lease this task, this should
       # never happen. If for some reason it does, lease the task anyway.
-      logging.warning(
+      logger.warning(
         'Transaction check failed when updating retry_count: {}'.format(task))
 
     self._update_index(index, task)
@@ -852,26 +898,11 @@ class PullQueue(Queue):
     stats = {}
 
     if 'totalTasks' in fields:
-      select_count = """
-        SELECT COUNT(*) FROM pull_queue_tasks
-        WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
-        AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
-      """
-      parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': next_key(self.name)}
-      stats['totalTasks'] = session.execute(select_count, parameters)[0].count
+      stats['totalTasks'] = self.total_tasks()
 
     if 'oldestTask' in fields:
-      select_oldest = """
-        SELECT eta FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
-        LIMIT 1
-      """
-      parameters = {'app': self.app, 'queue': self.name,
-                    'next_queue': next_key(self.name)}
-      oldest_eta = session.execute(select_oldest, parameters)[0].eta
       epoch = datetime.datetime.utcfromtimestamp(0)
+      oldest_eta = self.oldest_eta() or epoch
       stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
 
     if 'leasedLastMinute' in fields:

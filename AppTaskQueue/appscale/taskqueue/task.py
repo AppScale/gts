@@ -66,7 +66,20 @@ class Task(object):
     self.retry_count = 0
 
     if 'payloadBase64' in task_info:
-      self.payloadBase64 = task_info['payloadBase64']
+      encoded_payload = task_info['payloadBase64']
+
+      # Google's REST API adds missing padding.
+      missing_padding = 4 - (len(encoded_payload) % 4)
+      encoded_payload += '=' * missing_padding
+
+      # This decode/encode step is performed in order to match Google's
+      # behavior in cases where the given payload does not have the correct
+      # padding. It can be removed if we start storing the payload as binary
+      # blobs. The conversion from unicode string to byte string is needed
+      # because urlsafe_b64decode chokes on some invalid base64 that Google
+      # accepts.
+      payload = base64.urlsafe_b64decode(encoded_payload.encode('utf8'))
+      self.payloadBase64 = base64.urlsafe_b64encode(payload)
 
     if 'id' in task_info and task_info['id']:
       self.id = task_info['id']
@@ -193,7 +206,7 @@ class Task(object):
     task_pb.set_eta_usec(
       int((self.get_eta() - epoch).total_seconds()) * 1000000)
     task_pb.set_retry_count(self.retry_count)
-    task_pb.set_body(base64.b64decode(self.payloadBase64))
+    task_pb.set_body(base64.urlsafe_b64decode(self.payloadBase64))
     try:
       task_pb.set_tag(self.tag)
     except AttributeError:

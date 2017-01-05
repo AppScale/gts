@@ -58,7 +58,7 @@ module Nginx
     stop_cmd = "#{service_bin} nginx stop"
     match_cmd = "nginx: (.*) process"
     MonitInterface.start(:nginx, start_cmd, stop_cmd, [9999], nil, match_cmd,
-                         nil, nil)
+                         nil, nil, nil)
   end
 
   def self.stop()
@@ -287,7 +287,8 @@ server {
 }
 CONFIG
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH,
+                            "appscale-#{app_name}.#{CONFIG_EXTENSION}")
 
     # Let's reload and overwrite only if something changed.
     current = ""
@@ -314,7 +315,7 @@ CONFIG
   end 
 
   def self.remove_app(app_name)
-    config_name = "#{app_name}.#{CONFIG_EXTENSION}"
+    config_name = "appscale-#{app_name}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload()
   end
@@ -323,9 +324,18 @@ CONFIG
   def self.clear_sites_enabled()
     if File.directory?(SITES_ENABLED_PATH)
       sites = Dir.entries(SITES_ENABLED_PATH)
-      # Remove any files that are not configs
-      sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
-      full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
+
+      # Only remove AppScale-related config files.
+      to_remove = []
+      sites.each { |site|
+        if site.end_with?(CONFIG_EXTENSION) && site.start_with?('appscale-')
+          to_remove.push(site)
+        end
+      }
+
+      full_path_sites = to_remove.map { |site|
+        File.join(SITES_ENABLED_PATH, site)
+      }
       FileUtils.rm_f full_path_sites
       Nginx.reload()
     end
@@ -468,7 +478,7 @@ server {
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "as_uaserver.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, "appscale-uaserver.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
@@ -515,7 +525,7 @@ server {
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "as_taskqueue.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, "appscale-taskqueue.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
@@ -562,14 +572,15 @@ CONFIG
       FileUtils.mkdir_p SITES_ENABLED_PATH
     end
 
-    # copy over certs for ssl
-    # just copy files once to keep certificate as static.
-    unless File.exists?("#{NGINX_PATH}/mykey.pem")
-      HelperFunctions.shell("cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}")
-    end
-    unless File.exists?("#{NGINX_PATH}/mycert.pem")
-      HelperFunctions.shell("cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}")
-    end
+    # Copy certs for ssl. Just copy files once to keep the certificate static.
+    ['mykey.pem', 'mycert.pem'].each { |cert_file|
+      unless File.exist?("#{NGINX_PATH}/#{cert_file}") &&
+          !File.zero?("#{NGINX_PATH}/#{cert_file}")
+        FileUtils.cp("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_file}",
+                     "#{NGINX_PATH}/#{cert_file}")
+      end
+    }
+
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
 

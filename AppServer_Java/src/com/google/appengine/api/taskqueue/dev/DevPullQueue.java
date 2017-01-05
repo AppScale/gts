@@ -77,8 +77,24 @@ public class DevPullQueue extends DevQueue {
         return addResponse;
     }
 
+    synchronized TaskQueuePb.TaskQueueDeleteResponse deleteTask(TaskQueuePb.TaskQueueDeleteRequest deleteRequest) {
+        String queueName = deleteRequest.getQueueName();
+        if (!queueName.equals(getQueueName())) {
+            throw new ApiProxy.ApplicationException(
+                    TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_REQUEST.getValue());
+        }
+
+        logger.log(Level.FINE, "PullQueue: Sending DeleteRequest to TaskQueue server for " + queueName);
+        TaskQueuePb.TaskQueueDeleteResponse deleteResponse = client.delete(deleteRequest);
+
+        return deleteResponse;
+    }
+
+    // Abstract method needs to be overriden here.
     boolean deleteTask(String taskName) {
-        return this.taskMap.remove(taskName) != null;
+        throw new ApiProxy.ApplicationException(
+            TaskQueuePb.TaskQueueServiceError.ErrorCode.INTERNAL_ERROR.getValue(),
+            "Not implemented");
     }
 
     synchronized TaskQueuePb.TaskQueuePurgeQueueResponse purge(TaskQueuePb.TaskQueuePurgeQueueRequest purgeRequest) {
@@ -215,27 +231,8 @@ public class DevPullQueue extends DevQueue {
     }
 
     synchronized TaskQueuePb.TaskQueueModifyTaskLeaseResponse modifyTaskLease(TaskQueuePb.TaskQueueModifyTaskLeaseRequest request) {
-        TaskQueuePb.TaskQueueModifyTaskLeaseResponse response = new TaskQueuePb.TaskQueueModifyTaskLeaseResponse();
-
-        TaskQueuePb.TaskQueueAddRequest task = (TaskQueuePb.TaskQueueAddRequest) this.taskMap.get(request.getTaskName());
-
-        if (task == null) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.UNKNOWN_TASK.getValue());
-        }
-
-        if (task.getEtaUsec() != request.getEtaUsec()) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_LEASE_EXPIRED.getValue());
-        }
-
-        long timeNowUsec = System.currentTimeMillis() * (long) oneSecondInMilli;
-        if (task.getEtaUsec() < timeNowUsec) {
-            throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_LEASE_EXPIRED.getValue());
-        }
-
-        long requestLeaseUsec = (long) (request.getLeaseSeconds() * oneThousandSecondsInMilli);
-        long etaUsec = timeNowUsec + requestLeaseUsec;
-        task.setEtaUsec(etaUsec);
-        response.setUpdatedEtaUsec(etaUsec);
+        logger.log(Level.FINE, "PullQueue: Sending modifyTaskLeaseRequest to TaskQueue server for " + request.getTaskName());
+        TaskQueuePb.TaskQueueModifyTaskLeaseResponse response = client.modifyLease(request);
         return response;
     }
 }

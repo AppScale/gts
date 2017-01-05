@@ -29,7 +29,7 @@
 from __future__ import with_statement
 
 
-
+import os
 import random
 import threading
 
@@ -84,7 +84,7 @@ class APIProxyStub(object):
     """
     return apiproxy_rpc.RealRPC(stub=self)
 
-  def MakeSyncCall(self, service, call, request, response, request_id=None):
+  def MakeSyncCall(self, service, call, request, response, request_id=None, environ=None):
     """The main RPC entry point.
 
     Args:
@@ -96,6 +96,9 @@ class APIProxyStub(object):
       request_id: A unique string identifying the request associated with the
           API call.
     """
+    if environ and service == 'urlfetch' and call == 'Fetch':
+      os.environ.update(environ)
+
     assert service == self.__service_name, ('Expected "%s" service name, '
                                             'was "%s"' % (self.__service_name,
                                                           service))
