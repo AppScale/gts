@@ -206,7 +206,7 @@ module TaskQueue
       # retry for a little while.
       tries_left -= 1
       if tries_left > 0
-        Djinn.log_Warn("Retrying to join #{master_tq_host} rabbitmq cluster.")
+        Djinn.log_warn("Retrying to join #{master_tq_host} rabbitmq cluster.")
         Kernel.sleep(RABBIT_WAIT)
       else
         Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up.")
