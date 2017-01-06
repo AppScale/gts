@@ -163,35 +163,41 @@ module TaskQueue
       end
 
       Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster.")
-      Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
-        Djinn.log_run("#{RABBIT_CTL} stop_app")
-        Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
-        Djinn.log_run("#{RABBIT_CTL} start_app")
-        Kernel.sleep(RABBIT_WAIT)
-        break if check_taskqueue_server(master_tq_host)
+      begin
+        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+          Djinn.log_run("#{RABBIT_CTL} stop_app")
+          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBIT_CTL} start_app")
+          Kernel.sleep(RABBIT_WAIT)
+          break if check_taskqueue_server(master_tq_host)
+        end
       rescue Timeout::Error
         Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
       end
 
       Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}.")
-      Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
-        Djinn.log_run("#{RABBIT_CTL} stop_app")
-        Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
-        Djinn.log_run("#{RABBIT_CTL} start_app")
-        Kernel.sleep(RABBIT_WAIT)
-        break if check_taskqueue_server(master_tq_host)
+      begin
+        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+          Djinn.log_run("#{RABBIT_CTL} stop_app")
+          Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBIT_CTL} start_app")
+          Kernel.sleep(RABBIT_WAIT)
+          break if check_taskqueue_server(master_tq_host)
+        end
       rescue Timeout::Error
         Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
       end
 
       Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster.")
-      Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
-        Djinn.log_run("#{RABBIT_CTL} stop_app")
-        Djinn.log_run("#{RABBIT_CTL} force_reset")
-        Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
-        Djinn.log_run("#{RABBIT_CTL} start_app")
-        Kernel.sleep(RABBIT_WAIT)
-        break if check_taskqueue_server(master_tq_host)
+      begin
+        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+          Djinn.log_run("#{RABBIT_CTL} stop_app")
+          Djinn.log_run("#{RABBIT_CTL} force_reset")
+          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBIT_CTL} start_app")
+          Kernel.sleep(RABBIT_WAIT)
+          break if check_taskqueue_server(master_tq_host)
+        end
       rescue Timeout::Error
         Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
       end
