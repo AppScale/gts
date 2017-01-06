@@ -1,5 +1,8 @@
 import itertools
 import logging
+import mmh3
+import re
+import struct
 import sys
 import time
 
@@ -18,6 +21,9 @@ from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
+
+# A regex that matches entity IDs that were likely generated automatically.
+PATH_ELEMENT_ID_RE = re.compile('^[0-9]{10}$')
 
 
 def clean_app_id(app_id):
@@ -544,3 +550,67 @@ def get_kind_key(prefix, key_path):
   encoded_path += dbconstants.KIND_SEPARATOR
 
   return prefix + dbconstants.KEY_DELIMITER + encoded_path
+
+
+def group_for_key(key):
+  """ Extract the root path for a given key.
+
+  Args:
+    key: An encoded or decoded Reference object.
+  Returns:
+    A Reference object containing the root key.
+  """
+  if not isinstance(key, entity_pb.Reference):
+    key = entity_pb.Reference(key)
+  first_element = key.path().element(0)
+  key.path().clear_element()
+  element = key.path().add_element()
+  element.MergeFrom(first_element)
+  return key
+
+
+def tx_partition(app, txid):
+  """ Return a blob hash for a given application and transaction ID.
+
+  Args:
+    app: A string specifying the application ID.
+    txid: An integer specifying the transaction ID.
+  Returns:
+    A bytearray that can be used as the transaction partition key.
+  """
+  murmur_int = mmh3.hash64(app + str(txid))[0]
+  # Distribute the integer range evenly across the byte ordered token range.
+  return bytearray(struct.pack('<q', murmur_int))
+
+
+def encode_entity_table_key(key):
+  """ Create a key that can be used for the entities table.
+
+  Args:
+    key: An encoded or decoded Reference object.
+  Returns:
+    A string containing an entities table key.
+  """
+  if not isinstance(key, entity_pb.Reference):
+    key = entity_pb.Reference(key)
+
+  prefix = dbconstants.KEY_DELIMITER.join([key.app(), key.name_space()])
+  return get_entity_key(prefix, key.path())
+
+
+def create_key(app, namespace, path):
+  """ Create Reference object from app, namespace, and path.
+
+  Args:
+    app: A string specifying an application ID.
+    namespace: A string specifying the namespace.
+    path: An encoded Path object.
+  Returns:
+    A Reference object.
+  """
+  key = entity_pb.Reference()
+  key.set_app(app)
+  key.set_name_space(namespace)
+  key_path = key.mutable_path()
+  key_path.MergeFromString(path)
+  return key

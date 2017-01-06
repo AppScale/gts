@@ -12,8 +12,10 @@ import threading
 import time
 import urllib
 
-from appscale.datastore.cassandra_env import cassandra_interface
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
+from ..cassandra_env import cassandra_interface
+from ..dbconstants import (MAX_GROUPS_FOR_XG,
+                           MAX_TX_DURATION)
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import ZookeeperError
 
@@ -36,11 +38,6 @@ class BatchInProgress(Exception):
 # A list that indicates that the Zookeeper node to create should be readable
 # and writable by anyone.
 ZOO_ACL_OPEN = None
-
-# The maximum number of seconds a transaction can take. In GAE, transactions
-# "have a maximum duration of 60 seconds with a 10 second idle expiration time
-# after 30 seconds." The 10-second idle check is not yet implemented.
-TX_TIMEOUT = 60
 
 # The number of seconds to wait between invocations of the transaction
 # garbage collector.
@@ -102,9 +99,6 @@ DS_RESTORE_LOCK_PATH = "/appscale_datastore_restore"
 
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
-
-# Maximum number of groups allowed in cross group transactions.
-MAX_GROUPS_FOR_XG = 25
 
 # The separator value for the lock list when using XG transactions.
 LOCK_LIST_SEPARATOR = "!XG_LIST!"
@@ -1603,7 +1597,7 @@ class ZKTransaction:
         txtime = float(self.run_with_retry(self.handle.get, txpath)[0])
         # If the timeout plus our current time is in the future, then
         # we have not timed out yet.
-        if txtime + TX_TIMEOUT < time.time():
+        if txtime + MAX_TX_DURATION < time.time():
           transaction = long(txid.lstrip(APP_TX_PREFIX))
           try:
             self.resolve_batch(app_id, transaction)

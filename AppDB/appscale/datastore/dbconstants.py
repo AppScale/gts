@@ -29,8 +29,16 @@ ID_KEY_LENGTH = 10
 # The character between the kind and the ID/name of an entity.
 ID_SEPARATOR = ":"
 
+# Maximum number of groups allowed in cross group transactions.
+MAX_GROUPS_FOR_XG = 25
+
 # The maximum number of composite indexes an application can have.
 MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
+
+# The maximum number of seconds a transaction can take. In GAE, transactions
+# "have a maximum duration of 60 seconds with a 10 second idle expiration time
+# after 30 seconds." The 10-second idle check is not yet implemented.
+MAX_TX_DURATION = 60
 
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
@@ -58,7 +66,6 @@ APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
 METADATA_TABLE = "METADATA__"
 DATASTORE_METADATA_TABLE = "DATASTORE_METADATA__"
-TRANSACTIONS_TABLE = 'TRANSACTIONS__'
 SCHEMA_TABLE = '__key__'
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
@@ -71,8 +78,7 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   USERS_TABLE,
                   APPS_TABLE,
                   SCHEMA_TABLE,
-                  DATASTORE_METADATA_TABLE,
-                  TRANSACTIONS_TABLE]
+                  DATASTORE_METADATA_TABLE]
 
 ###########################################
 # DB schemas for version 1 of the datastore
@@ -144,22 +150,22 @@ APPS_SCHEMA = [
 DATASTORE_METADATA_SCHEMA = [
   "version"]
 
-TRANSACTIONS_SCHEMA = [
-  'operation',
-  'operand',
-  'exclude_indices'
-]
-
 # All schema information for the keyspace is stored in the schema table.
 SCHEMA_TABLE_SCHEMA = ['schema']
 
 
-# Possible values in the 'action' column of the transaction table.
 class TxnActions(object):
-  DELETE = '0'
-  PUT = '1'
-  GET = '2'
-  ENQUEUE_TASK = '3'
+  """ Possible values in the 'action' column of the transaction table. """
+  START = 0
+  GET = 1
+  MUTATE = 2
+  ENQUEUE_TASK = 3
+
+
+class Operations(object):
+  """ Possible datastore operations on entities. """
+  PUT = 'put'
+  DELETE = 'delete'
 
 
 ###############################
@@ -202,6 +208,14 @@ class AppScaleBadArg(Exception):
   def __str__(self):
     return repr(self.value)
 
+class TooManyGroupsException(Exception):
+  """ Indicates that there are too many groups involved in a transaction. """
+  pass
+
 class ExcessiveTasks(Exception):
   """ Indicates that there are too many tasks for a transaction. """
+  pass
+
+class TxTimeoutException(Exception):
+  """ Indicates that the transaction started too long ago. """
   pass
