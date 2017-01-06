@@ -2737,19 +2737,6 @@ class Djinn
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
-  def self.get_db_master_ip()
-    masters_file = File.expand_path("#{APPSCALE_CONFIG_DIR}/masters")
-    master_ip = HelperFunctions.read_file(masters_file)
-    return master_ip
-  end
-
-  def self.get_db_slave_ips()
-    slaves_file = File.expand_path("#{APPSCALE_CONFIG_DIR}/slaves")
-    slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
-    slave_ips = [] if slave_ips == [""]
-    return slave_ips
-  end
-
   def get_all_appengine_nodes()
     ae_nodes = []
     @nodes.each { |node|
@@ -4191,8 +4178,8 @@ class Djinn
     memcache_ips << '\n'
     slave_ips << '\n'
     taskqueue_ips << '\n'
-    search_ips << '\n'
     slave_ips << master_ips[0] if slave_ips.empty?
+    search_ips << '\n'
     slave_ips << '\n'
 
     # Turn the arrays into string.
