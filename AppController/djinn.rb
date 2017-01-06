@@ -268,6 +268,11 @@ class Djinn
   APPSCALE_METADATA_DIR = "/root/.appscale"
 
 
+  # The number of TaskQueue slave that will be of disc type. All others
+  # will be ram.
+  TASKQUEUE_DISC = 5
+
+
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
   TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes"
@@ -3763,20 +3768,23 @@ class Djinn
 
   def start_taskqueue_master()
     verbose = @options['verbose'].downcase == "true"
-    TaskQueue.start_master(false, verbose)
+    TaskQueue.start_master(verbose)
     return true
   end
 
 
   def start_taskqueue_slave()
-    # All slaves connect to the master to start
+    # All slaves connect to the master to start. Only TASKQUEUE_DISC will
+    # be of disc type.
     master_ip = nil
+    how_many_tq = 0
     @nodes.each { |node|
       master_ip = node.private_ip if node.is_taskqueue_master?
+      how_many_tq += 1 if node.is_taskqueue_master? || node.is_taskqueue_slave?
     }
 
     verbose = @options['verbose'].downcase == "true"
-    TaskQueue.start_slave(master_ip, false, verbose)
+    TaskQueue.start_slave(master_ip, verbose, how_many_tq < TASKQUEUE_DISC)
     return true
   end
 

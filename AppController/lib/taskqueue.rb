@@ -83,18 +83,10 @@ module TaskQueue
   # service that other nodes can rely on to be running the taskqueue server.
   #
   # Args:
-  #   clear_data: A boolean that indicates whether or not RabbitMQ state should
-  #     be erased before starting RabbitMQ.
-  def self.start_master(clear_data, verbose)
+  #   verbose: A boolean that indicates if to be verbose.
+  def self.start_master(verbose)
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
-
-    if clear_data
-      Djinn.log_debug("Erasing RabbitMQ state")
-      self.erase_local_files()
-    else
-      Djinn.log_debug("Not erasing RabbitMQ state")
-    end
 
     # First, start up RabbitMQ.
     start_rabbitmq
@@ -103,6 +95,43 @@ module TaskQueue
     start_taskqueue_server(verbose)
     HelperFunctions.sleep_until_port_is_open("localhost",
                                              TASKQUEUE_SERVER_INTERNAL_PORT)
+  end
+
+
+  # Interacts with RabbitMQ, instructing to join the master's cluster, in
+  # different ways.
+  #
+  # Args
+  #   type: One of :join :update :reset_join, to indicate how to join the
+  #     cluster.
+  #   master_tq_host: The hostname of the master TaskQueue node.
+  #   disc_type: A boolean indicating if this is a disc node.
+  # Returns
+  #   A Boolean indicating if all was good, of some failure happened.
+  def self.join_cluster(type, master_tq_host, disc_type)
+    node_type =  "--ram"
+    node_type = "" if disc_type
+
+    Djinn.log_info("Trying to #{type} #{master_tq_host} rabbitmq cluster.")
+    begin
+      Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Djinn.log_run("#{RABBIT_CTL} stop_app")
+        case type
+        when :join
+          Djinn.log_run("#{RABBIT_CTL} join_cluster #{node_type} rabbit@#{master_tq_host}")
+        when :update
+          Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
+        else
+          Djinn.log_run("#{RABBIT_CTL} force_reset")
+          Djinn.log_run("#{RABBIT_CTL} join_cluster #{node_type} rabbit@#{master_tq_host}")
+        end
+        Djinn.log_run("#{RABBIT_CTL} start_app")
+      end
+    rescue Timeout::Error
+      Djinn.log_warn("Timed out trying to #{type} rabbitmq cluster.")
+      return false
+    end
+    return true
   end
 
 
@@ -115,21 +144,13 @@ module TaskQueue
   # Args:
   #   master_ip: A String naming the IP address or FQDN where RabbitMQ is
   #     already running.
-  #   clear_data: A boolean that indicates whether or not RabbitMQ state should
-  #     be erased before starting up RabbitMQ.
-  def self.start_slave(master_ip, clear_data, verbose)
+  #   disc_type: A boolean indicating if this is a disc type node.
+  #   verbose: A boolean that indicates whether or not to be verbose.
+  def self.start_slave(master_ip, disc_type, verbose)
     Djinn.log_info("Starting TaskQueue Slave")
     self.write_cookie()
 
-    if clear_data
-      Djinn.log_debug("Erasing RabbitMQ state")
-      self.erase_local_files()
-    else
-      Djinn.log_debug("Not erasing RabbitMQ state")
-    end
-
     # Wait for RabbitMQ on master node to come up.
-    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
@@ -157,49 +178,16 @@ module TaskQueue
     # one force a reset and a join: this should take care of partitions.
     tries_left = RABBIT_START_RETRY
     loop {
-      if check_taskqueue_server(master_tq_host)
-        Djinn.log_info("We are part of #{master_tq_host} rabbitmq cluster.")
-        break
-      end
+      break if check_taskqueue_server(master_tq_host)
 
-      Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster.")
-      begin
-        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
-          Djinn.log_run("#{RABBIT_CTL} stop_app")
-          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
-          Djinn.log_run("#{RABBIT_CTL} start_app")
-          Kernel.sleep(RABBIT_WAIT)
-          break if check_taskqueue_server(master_tq_host)
-        end
-      rescue Timeout::Error
-        Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
+      if join_cluster(:join, master_tq_host, disc_type)
+        break if check_taskqueue_server(master_tq_host)
       end
-
-      Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}.")
-      begin
-        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
-          Djinn.log_run("#{RABBIT_CTL} stop_app")
-          Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
-          Djinn.log_run("#{RABBIT_CTL} start_app")
-          Kernel.sleep(RABBIT_WAIT)
-          break if check_taskqueue_server(master_tq_host)
-        end
-      rescue Timeout::Error
-        Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
+      if join_cluster(:update, master_tq_host, disc_type)
+        break if check_taskqueue_server(master_tq_host)
       end
-
-      Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster.")
-      begin
-        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
-          Djinn.log_run("#{RABBIT_CTL} stop_app")
-          Djinn.log_run("#{RABBIT_CTL} force_reset")
-          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
-          Djinn.log_run("#{RABBIT_CTL} start_app")
-          Kernel.sleep(RABBIT_WAIT)
-          break if check_taskqueue_server(master_tq_host)
-        end
-      rescue Timeout::Error
-        Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
+      if join_cluster(:reset_join, master_tq_host, disc_type)
+        break if check_taskqueue_server(master_tq_host)
       end
 
       # If we couldn't join the master's cluster, let's back-off a bit and
@@ -213,6 +201,7 @@ module TaskQueue
         abort
       end
     }
+
     Djinn.log_debug("Starting TaskQueue server on slave node")
     start_taskqueue_server(verbose)
     Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
