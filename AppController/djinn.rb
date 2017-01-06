@@ -4171,16 +4171,15 @@ class Djinn
     }
 
     # Add an end-of-line so the file is more readable.
-    all_ips << '\n'
-    load_balancer_ips << '\n'
-    login_ips << '\n'
-    master_ips << '\n'
-    memcache_ips << '\n'
-    slave_ips << '\n'
-    taskqueue_ips << '\n'
+    all_ips << "\n"
+    load_balancer_ips << "\n"
+    login_ips << "\n"
+    master_ips << "\n"
+    memcache_ips << "\n"
+    taskqueue_ips << "\n"
+    search_ips << "\n"
     slave_ips << master_ips[0] if slave_ips.empty?
-    search_ips << '\n'
-    slave_ips << '\n'
+    slave_ips << "\n"
 
     # Turn the arrays into string.
     all_ips_content = all_ips.join("\n")
