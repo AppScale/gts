@@ -60,6 +60,9 @@ module TaskQueue
   # How many times to retry starting rabbitmq on a slave.
   RABBIT_START_RETRY = 10
 
+  # Small wait time to wait for RabbitMQ to settle.
+  RABBIT_WAIT = 3
+
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
 
@@ -160,30 +163,45 @@ module TaskQueue
       end
 
       Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster.")
-      Djinn.log_run("#{RABBIT_CTL} stop_app")
-      Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
-      Djinn.log_run("#{RABBIT_CTL} start_app")
-      break if check_taskqueue_server(master_tq_host)
+      Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Djinn.log_run("#{RABBIT_CTL} stop_app")
+        Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+        Djinn.log_run("#{RABBIT_CTL} start_app")
+        Kernel.sleep(RABBIT_WAIT)
+        break if check_taskqueue_server(master_tq_host)
+      rescue Timeout::Error
+        Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
+      end
 
       Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}.")
-      Djinn.log_run("#{RABBIT_CTL} stop_app")
-      Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
-      Djinn.log_run("#{RABBIT_CTL} start_app")
-      break if check_taskqueue_server(master_tq_host)
+      Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Djinn.log_run("#{RABBIT_CTL} stop_app")
+        Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
+        Djinn.log_run("#{RABBIT_CTL} start_app")
+        Kernel.sleep(RABBIT_WAIT)
+        break if check_taskqueue_server(master_tq_host)
+      rescue Timeout::Error
+        Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
+      end
 
       Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster.")
-      Djinn.log_run("#{RABBIT_CTL} stop_app")
-      Djinn.log_run("#{RABBIT_CTL} force_reset")
-      Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
-      Djinn.log_run("#{RABBIT_CTL} start_app")
-      break if check_taskqueue_server(master_tq_host)
+      Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Djinn.log_run("#{RABBIT_CTL} stop_app")
+        Djinn.log_run("#{RABBIT_CTL} force_reset")
+        Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+        Djinn.log_run("#{RABBIT_CTL} start_app")
+        Kernel.sleep(RABBIT_WAIT)
+        break if check_taskqueue_server(master_tq_host)
+      rescue Timeout::Error
+        Djinn.log_warn("Timed out trying to join rabbitmq cluster.")
+      end
 
       # If we couldn't join the master's cluster, let's back-off a bit and
       # retry for a little while.
       tries_left -= 1
       if tries_left > 0
         Djinn.log_Warn("Retrying to join #{master_tq_host} rabbitmq cluster.")
-        Kernel.sleep(rand(RABBIT_START_RETRY))
+        Kernel.sleep(RABBIT_WAIT)
       else
         Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up.")
         abort
