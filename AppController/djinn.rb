@@ -4169,27 +4169,17 @@ class Djinn
       taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
         node.is_taskqueue_slave?
     }
-
-    # Add an end-of-line so the file is more readable.
-    all_ips << "\n"
-    load_balancer_ips << "\n"
-    login_ips << "\n"
-    master_ips << "\n"
-    memcache_ips << "\n"
-    taskqueue_ips << "\n"
-    search_ips << "\n"
     slave_ips << master_ips[0] if slave_ips.empty?
-    slave_ips << "\n"
 
     # Turn the arrays into string.
-    all_ips_content = all_ips.join("\n")
-    memcache_content = memcache_ips.join("\n")
-    load_balancer_content = load_balancer_ips.join("\n")
-    taskqueue_content = taskqueue_ips.join("\n")
-    login_content = login_ips.join("\n")
-    master_content = master_ips.join("\n")
-    search_content = slave_ips.join("\n")
-    slaves_content = slave_ips.join("\n")
+    all_ips_content = all_ips.join("\n") + "\n"
+    memcache_content = memcache_ips.join("\n") + "\n"
+    load_balancer_content = load_balancer_ips.join("\n") + "\n"
+    taskqueue_content = taskqueue_ips.join("\n") + "\n"
+    login_content = login_ips.join("\n") + "\n"
+    master_content = master_ips.join("\n") + "\n"
+    search_content = slave_ips.join("\n") + "\n"
+    slaves_content = slave_ips.join("\n") + "\n"
 
     new_content = all_ips_content + login_content + load_balancer_content +
       master_content + memcache_content + my_public + my_private +
@@ -4217,14 +4207,14 @@ class Djinn
       login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
-      Djinn.log_info("Memcache locations: #{memcache_content}.")
+      Djinn.log_info("Memcache locations: #{memcache_ips}.")
       memcache_file = "#{APPSCALE_CONFIG_DIR}/memcache_ips"
-      HelperFunctions.write_file(memcache_file, memcache_ips)
+      HelperFunctions.write_file(memcache_file, memcache_content)
 
       Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
-      Djinn.log_info("Master is at #{master_ips}, slaves are at #{slave_ips.join(', ')}.")
+      Djinn.log_info("Master is at #{master_ips}, slaves are at #{slave_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slaves_content}")
 
