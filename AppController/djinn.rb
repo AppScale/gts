@@ -2958,16 +2958,7 @@ class Djinn
 
 
   def update_firewall()
-    all_ips = []
-    @nodes.each { |node|
-      (all_ips << node.private_ip) unless all_ips.include? node.private_ip
-    }
-    all_ips << "\n"
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips.join("\n"))
-    Djinn.log_debug("Letting the following IPs through the firewall: " +
-      all_ips.join(', '))
-
-    # Re-run the filewall script here since we just wrote the all_ips file
+    Djinn.log_debug("Resetting firewall.")
     if FIREWALL_IS_ON
       Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
     end
@@ -4163,45 +4154,70 @@ class Djinn
   # specific roles, in the local filesystems. These files will be updated
   # as the deployment adds or removes nodes.
   def write_locations
+    all_ips = []
     load_balancer_ips = []
-    memcache_ips = []
-    taskqueue_ips = []
+    login_ips = @options['login'].split(/[\s,]+/)
     master_ips = []
+    memcache_ips = []
+    num_of_nodes = @nodes.length.to_s
+    search_ips = []
     slave_ips = []
+    taskqueue_ips = []
+
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ips = @options['login'].split(/[\s,]+/)
-    num_of_nodes = @nodes.length.to_s
 
     # Put ourselves as first option, if we are a taskqueue node.
     if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
       taskqueue_ips << my_private
     end
+
+    # Populate the appropriate list.
     @nodes.each { |node|
+      all_ips << node.private_ip
       load_balancer_ips << node.private_ip if node.is_load_balancer?
-      memcache_ips << node.private_ip if node.is_load_balancer?
-      taskqueue_ips << node.private_ip if (node.is_taskqueue_master? ||
-        node.is_taskqueue_slave?) && !taskqueue_ips.include?(node.private_ip)
       master_ips << node.private_ip if node.is_db_master?
+      memcache_ips << node.private_ip if node.is_load_balancer?
+      search_ips = node.private_ip if node.is_search?
       unless slave_ips.include? node.private_ip
         slave_ips << node.private_ip if node.is_db_slave?
       end
+      taskqueue_ips << node.private_ip if (node.is_taskqueue_master? ||
+        node.is_taskqueue_slave?) && !taskqueue_ips.include?(node.private_ip)
     }
-    slaves_ips << masters_ips[0] if slaves_ips.emtpy?
 
+    # Add an end-of-line so the file is more readable.
+    all_ips << '\n'
+    load_balancer_ips << '\n'
+    login_ips << '\n'
+    master_ips << '\n'
+    memcache_ips << '\n'
+    slave_ips << '\n'
+    taskqueue_ips << '\n'
+    search_ips << '\n'
+    slave_ips << master_ips[0] if slave_ips.empty?
+    slave_ips << '\n'
+
+    # Turn the arrays into string.
+    all_ips_content = all_ips.join("\n")
     memcache_content = memcache_ips.join("\n")
     load_balancer_content = load_balancer_ips.join("\n")
     taskqueue_content = taskqueue_ips.join("\n")
     login_content = login_ips.join("\n")
     master_content = master_ips.join("\n")
+    search_content = slave_ips.join("\n")
     slaves_content = slave_ips.join("\n")
+
+    new_content = all_ips_content + login_content + load_balancer_content +
+      master_content + memcache_content + my_public + my_private +
+      num_of_nodes + taskqueue_content + search_content + slaves_content
 
     # If nothing changes since last time we wrote the locations file, we
     # skip it.
-    new_content = memcache_content + load_balancer_content +
-      taskqueue_content + login_content + master_content + slaves_content +
-      my_public + my_private + num_of_nodes
     if new_content != @locations_content
+      Djinn.log_info("All private IPs: #{all_ips}.")
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
+
       Djinn.log_info("Load Balancers location: #{load_balancer_ips}.")
       load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
       HelperFunctions.write_file(load_balancer_file, load_balancer_content)
@@ -4217,7 +4233,7 @@ class Djinn
       Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
-      Djinn.log_info("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}.")
+      Djinn.log_info("Master is at #{master_ips}, slaves are at #{slave_ips.join(', ')}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slaves_content}")
 
@@ -4227,20 +4243,13 @@ class Djinn
 
       Djinn.log_info("Writing num_of_nodes as #{num_of_nodes}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
+
+
+      Djinn.log_info("Search service locations: #{search_ips}.")
+      HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE, search_content)
+
       @locations_content = new_content
     end
-  end
-
-
-  # Write the location of where SOLR and the search server are located
-  # if they are configured.
-  def write_search_node_file()
-    search_ip = ""
-    @nodes.each { |node|
-      search_ip = node.private_ip if node.is_search?
-      break
-    }
-    HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,  search_ip)
   end
 
 
@@ -4494,7 +4503,6 @@ HOSTS
     end
     configure_db_nginx
     write_locations
-    write_search_node_file
 
     update_hosts_info
     if FIREWALL_IS_ON
