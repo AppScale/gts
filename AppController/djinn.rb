@@ -4167,10 +4167,6 @@ class Djinn
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-    # Put ourselves as first option, if we are a taskqueue node.
-    if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
-      taskqueue_ips << my_private
-    end
 
     # Populate the appropriate list.
     @nodes.each { |node|
@@ -4185,6 +4181,12 @@ class Djinn
       taskqueue_ips << node.private_ip if (node.is_taskqueue_master? ||
         node.is_taskqueue_slave?) && !taskqueue_ips.include?(node.private_ip)
     }
+    # For the taskqueue, let's shuffle the entries, and then put ourselves
+    # as first option, if we are a taskqueue node.
+    taskqueue_ips.shuffle!
+    if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+      taskqueue_ips.unshift(my_private)
+    end
 
     # Add an end-of-line so the file is more readable.
     all_ips << '\n'
