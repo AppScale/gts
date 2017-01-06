@@ -1807,7 +1807,7 @@ class Djinn
   #   app: The application ID.
   def maybe_start_taskqueue_worker(app)
     if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new(my_node.provate_ip)
+      tqc = TaskQueueClient.new(my_node.private_ip)
       begin
         result = tqc.start_worker(app)
         Djinn.log_info("Starting TaskQueue worker for app #{app}: #{result}")
@@ -2067,17 +2067,17 @@ class Djinn
     # start attaching any permanent disk we may have associated with us.
     mount_persistent_storage
 
+    find_me_in_locations
+    write_database_info
+    update_firewall
+
     # If we are the headnode, we may need to start/setup all other nodes.
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
       build_uncommitted_changes
+
       Djinn.log_info("Preparing other nodes for this deployment.")
-
-      find_me_in_locations
-      write_database_info
-      update_firewall
-
       initialize_nodes_in_parallel(@nodes)
     end
 
@@ -2085,7 +2085,6 @@ class Djinn
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
     initialize_server
-    write_zookeeper_locations
     start_api_services
 
     # Now that we are done loading, we can set the monit job to check the
@@ -2947,7 +2946,7 @@ class Djinn
     Nginx.reload()
   end
 
-  def write_database_info
+  def write_database_info()
     table = @options['table']
     replication = @options['replication']
     keyname = @options['keyname']
@@ -2955,9 +2954,6 @@ class Djinn
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
-
-    num_of_nodes = @nodes.length
-    HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
   end
 
 
@@ -3167,7 +3163,7 @@ class Djinn
   # Updates the file that says where all the ZooKeeper nodes are
   # located so that this node has the most up-to-date info if it needs to
   # restore the data down the line.
-  def write_zookeeper_locations
+  def write_zookeeper_locations()
     zookeeper_data = { 'last_updated_at' => @last_updated,
       'locations' => []
     }
@@ -3487,9 +3483,6 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
-
-    write_database_info()
-    update_firewall()
   end
 
   def got_all_data()
@@ -4165,23 +4158,12 @@ class Djinn
     end
   end
 
-  def setup_config_files()
-    update_hosts_info()
-
-    # use iptables to lock down outside traffic
-    # nodes can talk to each other on any port
-    # but only the outside world on certain ports
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
-  end
-
 
   # Writes locations (IP addresses) for the various nodes fulfilling
   # specific roles, in the local filesystems. These files will be updated
   # as the deployment adds or removes nodes.
   def write_locations
-    load_balancers_ips = []
+    load_balancer_ips = []
     memcache_ips = []
     taskqueue_ips = []
     master_ips = []
@@ -4189,13 +4171,14 @@ class Djinn
     my_public = my_node.public_ip
     my_private = my_node.private_ip
     login_ips = @options['login'].split(/[\s,]+/)
+    num_of_nodes = @nodes.length.to_s
 
     # Put ourselves as first option, if we are a taskqueue node.
     if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
       taskqueue_ips << my_private
     end
     @nodes.each { |node|
-      load_balancers_ips << node.private_ip if node.is_load_balancer?
+      load_balancer_ips << node.private_ip if node.is_load_balancer?
       memcache_ips << node.private_ip if node.is_load_balancer?
       taskqueue_ips << node.private_ip if (node.is_taskqueue_master? ||
         node.is_taskqueue_slave?) && !taskqueue_ips.include?(node.private_ip)
@@ -4207,7 +4190,7 @@ class Djinn
     slaves_ips << masters_ips[0] if slaves_ips.emtpy?
 
     memcache_content = memcache_ips.join("\n")
-    load_balancers_content = load_balancers_ips.join("\n")
+    load_balancer_content = load_balancer_ips.join("\n")
     taskqueue_content = taskqueue_ips.join("\n")
     login_content = login_ips.join("\n")
     master_content = master_ips.join("\n")
@@ -4215,12 +4198,13 @@ class Djinn
 
     # If nothing changes since last time we wrote the locations file, we
     # skip it.
-    new_content = memcache_content + load_balancers_content + taskqueue_content +
-      login_content + master_content + slaves_content + my_public + my_private
+    new_content = memcache_content + load_balancer_content +
+      taskqueue_content + login_content + master_content + slaves_content +
+      my_public + my_private + num_of_nodes
     if new_content != @locations_content
-      Djinn.log_info("Load Balancers location: #{load_balancers_ips}.")
-      load_balancers_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
-      HelperFunctions.write_file(load_balancers_file, load_balancers_content)
+      Djinn.log_info("Load Balancers location: #{load_balancer_ips}.")
+      load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
+      HelperFunctions.write_file(load_balancer_file, load_balancer_content)
 
       Djinn.log_info("Deployment public name/IP(s): #{login_ips}.")
       login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
@@ -4233,14 +4217,16 @@ class Djinn
       Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
-      Djinn.log_info("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
+      Djinn.log_info("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slaves_content}")
 
-      Djinn.log_info("My public IP is #{my_public}, and my private is #{my_private}")
+      Djinn.log_info("My public IP is #{my_public}, and my private is #{my_private}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}")
 
+      Djinn.log_info("Writing num_of_nodes as #{num_of_nodes}.")
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
       @locations_content = new_content
     end
   end
@@ -4265,7 +4251,6 @@ class Djinn
     if system("grep docker /proc/1/cgroup > /dev/null")
       return
     end
-
 
     all_nodes = ""
     @nodes.each_with_index { |node, index|
@@ -4489,7 +4474,6 @@ HOSTS
     else
       Djinn.log_info("HAProxy already configured.")
     end
-
     if not Nginx.is_running?
       Nginx.initialize_config()
       Nginx.start()
@@ -4501,17 +4485,22 @@ HOSTS
     # As per trusty's version of haproxy, we need to have a listening
     # socket for the daemon to start: we do use the uaserver to configured
     # a default route.
-    configure_uaserver()
+    configure_uaserver
 
     # Volume is mounted, let's finish the configuration of static files.
-    if my_node.is_shadow? and not my_node.is_appengine?
+    if my_node.is_shadow? && !my_node.is_appengine?
       write_app_logrotate()
       Djinn.log_info("Copying logrotate script for centralized app logs")
     end
     configure_db_nginx
     write_locations
     write_search_node_file
-    setup_config_files
+
+    update_hosts_info
+    if FIREWALL_IS_ON
+      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    end
+    write_zookeeper_locations
   end
 
   # Sets up logrotate for this node's centralized app logs.
