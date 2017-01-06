@@ -2639,7 +2639,9 @@ class Djinn
   #   app_id: A String containing the app ID.
   #   message: A String containing the message to log.
   def self.log_app_error(app_id, message)
-    Syslog.open("app___#{app_id}") { |s| s.err message }
+    Syslog.open("app___#{app_id}", Syslog::LOG_PID, Syslog::LOG_USER) { |s|
+      s.err message
+    }
   end
 
   # Appends this log message to a buffer, which will be periodically sent to
