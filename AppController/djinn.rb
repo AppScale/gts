@@ -2110,7 +2110,6 @@ class Djinn
 
       write_database_info
       update_firewall
-      write_locations
       write_zookeeper_locations
 
       # This call will block if we cannot reach a zookeeper node, but will
@@ -2959,6 +2958,10 @@ class Djinn
 
   def update_firewall()
     Djinn.log_debug("Resetting firewall.")
+
+    # We force the write of locations, to ensure we have an up-to-date
+    # list of nodes in the firewall.
+    write_locations
     if FIREWALL_IS_ON
       Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
     end
@@ -4173,20 +4176,12 @@ class Djinn
       all_ips << node.private_ip
       load_balancer_ips << node.private_ip if node.is_load_balancer?
       master_ips << node.private_ip if node.is_db_master?
-      memcache_ips << node.private_ip if node.is_load_balancer?
+      memcache_ips << node.private_ip if node.is_memcache?
       search_ips = node.private_ip if node.is_search?
-      unless slave_ips.include? node.private_ip
-        slave_ips << node.private_ip if node.is_db_slave?
-      end
-      taskqueue_ips << node.private_ip if (node.is_taskqueue_master? ||
-        node.is_taskqueue_slave?) && !taskqueue_ips.include?(node.private_ip)
+      slave_ips << node.private_ip if node.is_db_slave?
+      taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
+        node.is_taskqueue_slave?
     }
-    # For the taskqueue, let's shuffle the entries, and then put ourselves
-    # as first option, if we are a taskqueue node.
-    taskqueue_ips.shuffle!
-    if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
-      taskqueue_ips.unshift(my_private)
-    end
 
     # Add an end-of-line so the file is more readable.
     all_ips << '\n'
@@ -4217,6 +4212,14 @@ class Djinn
     # If nothing changes since last time we wrote the locations file, we
     # skip it.
     if new_content != @locations_content
+      # For the taskqueue, let's shuffle the entries, and then put
+      # ourselves as first option, if we are a taskqueue node.
+      taskqueue_ips.shuffle!
+      if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+        taskqueue_ips.delete(my_private)
+        taskqueue_ips.unshift(my_private)
+      end
+
       Djinn.log_info("All private IPs: #{all_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
 
@@ -4245,7 +4248,6 @@ class Djinn
 
       Djinn.log_info("Writing num_of_nodes as #{num_of_nodes}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
-
 
       Djinn.log_info("Search service locations: #{search_ips}.")
       HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE, search_content)
@@ -4496,10 +4498,10 @@ HOSTS
     # As per trusty's version of haproxy, we need to have a listening
     # socket for the daemon to start: we do use the uaserver to configured
     # a default route.
-    configure_uaserver
+    configure_uaserver()
 
     # Volume is mounted, let's finish the configuration of static files.
-    if my_node.is_shadow? && !my_node.is_appengine?
+    if my_node.is_shadow? and not my_node.is_appengine?
       write_app_logrotate()
       Djinn.log_info("Copying logrotate script for centralized app logs")
     end
