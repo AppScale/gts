@@ -1921,6 +1921,8 @@ class Djinn
     # Next, restart any apps that have new code uploaded.
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
+        # Make sure we have the latest code deployed.
+        setup_app_dir(appid, true)
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
