@@ -905,7 +905,11 @@ class DatastoreDistributed():
       ZKTransactionException: If a lock was unable to get acquired.
     """ 
     keys = get_request.key_list()
-    self.logger.debug('Fetching {} entity keys'.format(len(keys)))
+    if len(keys) < 5:
+      self.logger.debug('Get:\n{}'.format(get_request))
+    else:
+      self.logger.debug('Get: {} keys'.format(len(keys)))
+
     if get_request.has_transaction():
       root_key = self.get_root_key_from_entity_key(keys[0])
       txnid = get_request.transaction().handle()
@@ -923,8 +927,6 @@ class DatastoreDistributed():
       if r in results and APP_ENTITY_SCHEMA[0] in results[r]:
         group.mutable_entity().CopyFrom(
           entity_pb.EntityProto(results[r][APP_ENTITY_SCHEMA[0]]))
-        if len(keys) == 1:
-          self.logger.debug('Entity: {}'.format(group))
 
   def dynamic_delete(self, app_id, delete_request):
     """ Deletes a set of rows.
