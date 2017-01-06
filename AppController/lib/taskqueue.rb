@@ -164,7 +164,7 @@ module TaskQueue
 
       Djinn.log_info("Trying to join #{master_tq_host} rabbitmq cluster.")
       begin
-        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
           Djinn.log_run("#{RABBIT_CTL} stop_app")
           Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
           Djinn.log_run("#{RABBIT_CTL} start_app")
@@ -177,7 +177,7 @@ module TaskQueue
 
       Djinn.log_info("Getting rabbitmq cluster nodes from #{master_tq_host}.")
       begin
-        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
           Djinn.log_run("#{RABBIT_CTL} stop_app")
           Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
           Djinn.log_run("#{RABBIT_CTL} start_app")
@@ -190,7 +190,7 @@ module TaskQueue
 
       Djinn.log_info("Resetting and joining #{master_tq_host} rabbitmq cluster.")
       begin
-        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
           Djinn.log_run("#{RABBIT_CTL} stop_app")
           Djinn.log_run("#{RABBIT_CTL} force_reset")
           Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
