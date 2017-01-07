@@ -528,6 +528,10 @@ class Djinn
     # This variable is used to keep track of the list of memcache servers.
     @memcache_contents = ""
 
+    # This variable keeps track of the state we read/write to zookeeper,
+    # to avoid actions if nothing changed.
+    @appcontroller_state = ""
+
     # The following variables are restored from the headnode ie they are
     # part of the common state of the running deployment.
     @app_info_map = {}
@@ -2981,6 +2985,11 @@ class Djinn
         local_state[var] = v
       }
     }
+    if @appcontroller_state == local_state.to_s
+      Djinn.log_debug("backup_appcontroller_state: no changes.")
+      return
+    end
+
     Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
@@ -2989,6 +2998,7 @@ class Djinn
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " +
         "appcontroller state with #{e.message}.")
     end
+    @appcontroller_state = local_state.to_s
   end
 
   # Restores the state of each of the instance variables that the AppController
@@ -2998,7 +3008,6 @@ class Djinn
   # Returns:
   #   A boolean to indicate if we were able to restore the state.
   def restore_appcontroller_state()
-    Djinn.log_debug("Reloading deployment state.")
     json_state=""
 
     unless File.exists?(ZK_LOCATIONS_FILE)
@@ -3018,7 +3027,12 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    Djinn.log_debug("Reload State : #{json_state}.")
+    if @appcontroller_state == json_state
+      Djinn.log_debug("Reload state: no changes.")
+      return
+    end
+
+    Djinn.log_debug("Reload state : #{json_state}.")
 
     # Let's keep an old copy of the options: we'll need them to check if
     # something changed and we need to act.
@@ -3063,6 +3077,8 @@ class Djinn
 
     # Finally some @options may have changed.
     enforce_options unless old_options == @options
+
+    @appcontroller_state = json_state
 
     return true
   end
