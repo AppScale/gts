@@ -4335,6 +4335,18 @@ HOSTS
   end
 
 
+  # Reset the drain flags on HAProxy for to-be-terminated AppServers.
+  def reset_drain
+    @apps_loaded.each{ |app|
+      unless @terminated[app].nil?
+        @terminated[app].each { |location|
+          HAProxy.ensure_no_pending_request(app, location)
+        }
+      end
+    }
+  end
+
+
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4429,13 +4441,7 @@ HOSTS
       # since a reload of HAProxy would have reset them. We do it for each
       # app in order to minimize the window or a terminated AppServer been
       # re-instead as active by HAProxy.
-      @apps_loaded.each{ |running|
-        unless @terminated[running].nil?
-          @terminated[running].each { |location|
-            HAProxy.ensure_no_pending_request(running, location)
-          }
-        end
-      }
+      reset_drain
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
   end
@@ -4884,7 +4890,11 @@ HOSTS
       if my_node.is_load_balancer?
         stop_xmpp_for_app(app)
         Nginx.remove_app(app)
+
+        # Since the removal of an app from HAProxy can cause a reset of
+        # the drain flags, let's set them again.
         HAProxy.remove_app(app)
+        reset_drain
       end
 
       if my_node.is_appengine?
