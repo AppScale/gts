@@ -171,33 +171,32 @@ module HAProxy
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
   # a `file include` option we emulate that functionality here.
   def self.regenerate_config()
-    conf = File.open(MAIN_CONFIG_FILE,"w+")
-
-    # Start by writing in the base file
-    File.open(BASE_CONFIG_FILE, "r") do |base|
-      conf.write(base.read())
-    end
-
-    sites = Dir.entries(SITES_ENABLED_PATH)
     # Remove any files that are not configs
+    sites = Dir.entries(SITES_ENABLED_PATH)
     sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
-
     sites.sort!
 
-    # Append each one of the configs into the main one
+    # Build the configuration in memory first.
+    config = File.read(BASE_CONFIG_FILE)
     sites.each do |site|
-      conf.write("\n")
-      File.open(File.join(SITES_ENABLED_PATH, site), "r") do |site_config|
-        conf.write(site_config.read())
-      end
-      conf.write("\n")
+      config << "\n"
+      config << File.read(File.join(SITES_ENABLED_PATH, site))
+      config << "\n"
     end
 
-    conf.close()
-    # Reload haproxy since we changed the config, restarting causes connections
-    # to be cut which shows users a nginx 404
-    HAProxy.reload()
+    # We overwrite only if something changed.
+    current = ""
+    current = File.read(MAIN_CONFIG_FILE)  if File.exists?(MAIN_CONFIG_FILE)
+    if current == config
+      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
+      return
+    end
+
+    # Update config file and restart haproxy.
+    File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
+    HAProxy.reload
   end
+
 
   # Generate the server configuration line for the provided inputs. GAE applications
   # that are thread safe will have a higher connection limit.
@@ -208,6 +207,7 @@ module HAProxy
       return "  server #{app_name}-#{location} #{location} #{SERVER_OPTIONS}"
     end
   end
+
 
   # Updates the HAProxy config file for this App Engine application to
   # point to all the ports currently used by the application.

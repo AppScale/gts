@@ -4345,8 +4345,7 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = get_shadow.private_ip
 
-    apps_to_check = @apps_loaded
-    apps_to_check.each { |app|
+    @apps_loaded.each { |app|
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       appservers = []
@@ -4393,48 +4392,50 @@ HOSTS
         # If no AppServer is running, we clear the routing and the crons.
         Djinn.log_debug("Removing routing for #{app} since no AppServer is running.")
         Nginx.remove_app(app)
-        HAProxy.remove_app(app)
         CronHelper.clear_app_crontab(app)
-        next
+        HAProxy.remove_app(app)
+      else
+        begin
+          static_handlers = HelperFunctions.parse_static_data(app)
+        rescue => except
+          # This specific exception may be a JSON parse error.
+          error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
+            "Exception of #{except.class} with message #{except.message}"
+          place_error_app(app, error_msg, app_language)
+          static_handlers = []
+        end
+
+        # If nginx config files have been updated, we communicate the app's
+        # ports to the UserAppServer to make sure we have the latest info.
+        if Nginx.write_fullproxy_app_config(app, http_port, https_port,
+            my_public, my_private, proxy_port, static_handlers, login_ip,
+            app_language)
+          uac = UserAppClient.new(my_node.private_ip, @@secret)
+          begin
+            if uac.add_instance(app, my_public, http_port, https_port)
+              Djinn.log_info("Committed application info for #{app} " +
+                "to user_app_server")
+            end
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
+          end
+        end
+
+        HAProxy.update_app_config(my_private, app,
+          @app_info_map[app]['haproxy'], appservers)
       end
 
-      begin
-        static_handlers = HelperFunctions.parse_static_data(app)
-      rescue => except
-        # This specific exception may be a JSON parse error.
-        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-          "Exception of #{except.class} with message #{except.message}"
-        place_error_app(app, error_msg, app_language)
-        static_handlers = []
-      end
-
-      HAProxy.update_app_config(my_private, app,
-        @app_info_map[app]['haproxy'], appservers)
       # We need to set the drain on haproxy on the terminated AppServers,
-      # since a reload of HAProxy would have reset them.
-      @apps_loaded.each{ |apps|
-        unless @terminated[app].nil?
-          @terminated[app].each { |location|
-            HAProxy.ensure_no_pending_request(app, location)
+      # since a reload of HAProxy would have reset them. We do it for each
+      # app in order to minimize the window or a terminated AppServer been
+      # re-instead as active by HAProxy.
+      @apps_loaded.each{ |running|
+        unless @terminated[running].nil?
+          @terminated[running].each { |location|
+            HAProxy.ensure_no_pending_request(running, location)
           }
         end
       }
-
-      # If nginx config files have been updated, we communicate the app's
-      # ports to the UserAppServer to make sure we have the latest info.
-      if Nginx.write_fullproxy_app_config(app, http_port, https_port,
-          my_public, my_private, proxy_port, static_handlers, login_ip,
-          app_language)
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        begin
-          if uac.add_instance(app, my_public, http_port, https_port)
-            Djinn.log_info("Committed application info for #{app} " +
-              "to user_app_server")
-          end
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
-        end
-      end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
   end
