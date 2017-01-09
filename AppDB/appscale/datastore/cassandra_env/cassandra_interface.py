@@ -640,7 +640,6 @@ class DatastoreProxy(AppDBInterface):
       txn: A transaction ID handler.
     """
     size = batch_size(mutations)
-    self.logger.debug('batch_size: {}'.format(size))
     if size > LARGE_BATCH_THRESHOLD:
       self._large_batch(app, mutations, entity_changes, txn)
     else:
