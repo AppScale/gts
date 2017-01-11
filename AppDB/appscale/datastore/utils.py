@@ -562,11 +562,17 @@ def group_for_key(key):
   """
   if not isinstance(key, entity_pb.Reference):
     key = entity_pb.Reference(key)
+
   first_element = key.path().element(0)
-  key.path().clear_element()
-  element = key.path().add_element()
+
+  # Avoid modifying the original object.
+  key_copy = entity_pb.Reference()
+  key_copy.CopyFrom(key)
+
+  key_copy.path().clear_element()
+  element = key_copy.path().add_element()
   element.MergeFrom(first_element)
-  return key
+  return key_copy
 
 
 def tx_partition(app, txid):
