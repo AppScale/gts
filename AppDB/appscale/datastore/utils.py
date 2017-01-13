@@ -1,7 +1,6 @@
 import itertools
 import logging
 import mmh3
-import re
 import struct
 import sys
 import time
@@ -21,9 +20,6 @@ from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
-
-# A regex that matches entity IDs that were likely generated automatically.
-PATH_ELEMENT_ID_RE = re.compile('^[0-9]{10}$')
 
 
 def clean_app_id(app_id):
