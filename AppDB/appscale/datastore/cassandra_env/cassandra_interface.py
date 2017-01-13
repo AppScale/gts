@@ -1070,8 +1070,8 @@ class DatastoreProxy(AppDBInterface):
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
       VALUES (?, ?, ?, ?, ?)
-      USING TTL 120
-    """)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
 
     for key in entity_keys:
       # The None value overwrites previous puts.
