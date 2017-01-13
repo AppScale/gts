@@ -553,9 +553,9 @@ class DatastoreDistributed():
     """ Deletes the entities and the indexes associated with them.
 
     Args:
-      app: A string containing the application ID.
-      keys: A list of keys to be deleted.
-      txn_hash: A mapping of root keys to transaction IDs.
+      group: An entity group Reference object.
+      txid: An integer specifying a transaction ID.
+      keys: An interable containing entity Reference objects.
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
     entity_keys = []
