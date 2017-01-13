@@ -4439,8 +4439,8 @@ HOSTS
 
       # We need to set the drain on haproxy on the terminated AppServers,
       # since a reload of HAProxy would have reset them. We do it for each
-      # app in order to minimize the window or a terminated AppServer been
-      # re-instead as active by HAProxy.
+      # app in order to minimize the window of a terminated AppServer
+      # being reinstead as active by HAProxy.
       reset_drain
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
