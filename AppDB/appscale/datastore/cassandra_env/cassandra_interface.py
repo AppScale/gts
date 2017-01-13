@@ -43,6 +43,7 @@ import appscale_info
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.datastore import entity_pb
 
 
 # The directory Cassandra is installed to.
@@ -1157,6 +1158,39 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  def record_reads(self, app, txid, group_keys):
+    """ Keep track of which entity groups were read in a transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+      group_keys: An iterable containing Reference objects.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path)
+      VALUES (?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for group_key in group_keys:
+      if not isinstance(group_key, entity_pb.Reference):
+        group_key = entity_pb.Reference(group_key)
+
+      args = (tx_partition(app, txid),
+              TxnActions.GET,
+              group_key.name_space(),
+              bytearray(group_key.path().Encode()))
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while recording reads in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
   def get_transaction_metadata(self, app, txid):
     """ Fetch transaction state.
 
@@ -1180,7 +1214,7 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-    metadata = {'puts': {}, 'deletes': [], 'tasks': []}
+    metadata = {'puts': {}, 'deletes': [], 'tasks': [], 'reads': set()}
     for result in results:
       if result.operation == TxnActions.START:
         metadata['start'] = result.start_time
@@ -1196,6 +1230,9 @@ class DatastoreProxy(AppDBInterface):
           metadata['deletes'].append(key)
         else:
           metadata['puts'][key.Encode()] = result.entity
+      if result.operation == TxnActions.GET:
+        group_key = create_key(app, result.namespace, result.path)
+        metadata['reads'].add(group_key.Encode())
       if result.operation == TxnActions.ENQUEUE_TASK:
         metadata['tasks'].append(
           taskqueue_service_pb.TaskQueueAddRequest(result.task))

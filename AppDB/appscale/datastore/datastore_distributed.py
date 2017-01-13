@@ -857,8 +857,13 @@ class DatastoreDistributed():
         self.logger.warning('Concurrent transaction: {}'.format(txnid))
         self.zookeeper.notify_failed_transaction(app_id, txnid)
         raise zkte
-   
-    results, row_keys = self.fetch_keys(keys)
+      results, row_keys = self.fetch_keys(keys)
+      fetched_groups = {group_for_key(key).Encode() for key in keys}
+      self.datastore_batch.record_reads(
+        app_id, get_request.transaction().handle(), fetched_groups)
+    else:
+      results, row_keys = self.fetch_keys(keys)
+
     result_count = 0
     for r in row_keys:
       group = get_response.add_entity() 
@@ -1239,14 +1244,15 @@ class DatastoreDistributed():
         start_inclusive = self._ENABLE_INCLUSIVITY
 
     limit = self._MAXIMUM_RESULTS
-    unordered = self.fetch_from_entity_table(startrow,
-                                             endrow,
-                                             limit, 
-                                             0, 
-                                             start_inclusive, 
-                                             end_inclusive, 
-                                             query, 
-                                             txn_id)
+
+    unordered = self.fetch_from_entity_table(
+      startrow, endrow, limit, 0, start_inclusive, end_inclusive, query,
+      txn_id)
+
+    if query.has_transaction():
+      self.datastore_batch.record_reads(
+        query.app(), query.transaction().handle(), [group_for_key(ancestor)])
+
     kind = None
     if query.has_kind():
       kind = query.kind()
@@ -1316,18 +1322,19 @@ class DatastoreDistributed():
       return []
 
     limit = self.get_limit(query)
-    results = self.fetch_from_entity_table(startrow,
-                                        endrow,
-                                        limit, 
-                                        0, 
-                                        start_inclusive, 
-                                        end_inclusive, 
-                                        query, 
-                                        txn_id)
+
+    unordered = self.fetch_from_entity_table(
+      startrow, endrow, limit, 0, start_inclusive, end_inclusive, query,
+      txn_id)
+
+    if query.has_transaction():
+      self.datastore_batch.record_reads(
+        query.app(), query.transaction().handle(), [group_for_key(ancestor)])
+
     kind = None
     if query.kind():
       kind = query.kind()
-    return self.__multiorder_results(results, order_info, kind)
+    return self.__multiorder_results(unordered, order_info, kind)
 
   def fetch_from_entity_table(self, 
                               startrow,
