@@ -873,6 +873,11 @@ class PullQueue(Queue):
 
     if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):
       self._delete_task_and_index(task)
+      return
+
+    # If the index does not match the task, update it.
+    if task.leaseTimestamp != index.eta:
+      self._update_index(index, task)
 
   def _update_stats(self):
     """ Write queue metadata for keeping track of statistics. """
