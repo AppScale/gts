@@ -4,6 +4,7 @@ import re
 import sys
 
 from cassandra.query import BatchStatement
+from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from task import InvalidTaskInfo
 from task import Task
@@ -330,9 +331,11 @@ class PullQueue(Queue):
       FROM pull_queue_tasks
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
     """.format(payload=payload)
+    statement = SimpleStatement(select_task,
+                                consistency_level=ConsistencyLevel.SERIAL)
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
     try:
-      response = self.db_access.session.execute(select_task, parameters)[0]
+      response = self.db_access.session.execute(statement, parameters)[0]
     except IndexError:
       return None
 
