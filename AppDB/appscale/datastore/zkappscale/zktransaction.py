@@ -16,9 +16,10 @@ from ..cassandra_env import cassandra_interface
 from ..dbconstants import (MAX_GROUPS_FOR_XG,
                            MAX_TX_DURATION)
 from ..unpackaged import APPSCALE_PYTHON_APPSERVER
-from kazoo.exceptions import NoNodeError
-from kazoo.exceptions import KazooException
-from kazoo.exceptions import ZookeeperError
+
+from kazoo.exceptions import (NoNodeError,
+                              KazooException,
+                              ZookeeperError)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
