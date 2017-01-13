@@ -489,6 +489,17 @@ class DatastoreProxy(AppDBInterface):
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
+
+      if table == 'group_updates':
+        key = mutation['key']
+        insert = """
+          INSERT INTO group_updates (group, last_update)
+          VALUES (%(group)s, %(last_update)s)
+        """
+        parameters = {'group': key, 'last_update': mutation['last_update']}
+        batch.add(insert, parameters)
+        continue
+
       if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
@@ -523,6 +534,17 @@ class DatastoreProxy(AppDBInterface):
     statements_and_params = []
     for mutation in mutations:
       table = mutation['table']
+
+      if table == 'group_updates':
+        key = mutation['key']
+        insert = """
+          INSERT INTO group_updates (group, last_update)
+          VALUES (%(group)s, %(last_update)s)
+        """
+        parameters = {'group': key, 'last_update': mutation['last_update']}
+        statements_and_params.append((SimpleStatement(insert), parameters))
+        continue
+
       if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
@@ -949,6 +971,31 @@ class DatastoreProxy(AppDBInterface):
       return False
 
     return version is not None and float(version) == EXPECTED_DATA_VERSION
+
+  def group_updates(self, groups):
+    """ Fetch the latest transaction IDs for each group.
+
+    Args:
+      groups: An interable containing encoded Reference objects.
+    Returns:
+      A set of integers specifying transaction IDs.
+    """
+    futures = []
+    for group in groups:
+      query = 'SELECT * FROM group_updates WHERE group=%s'
+      futures.append(self.session.execute_async(query, [bytearray(group)]))
+
+    updates = set()
+    for future in futures:
+      rows = future.result()
+      try:
+        result = rows[0]
+      except IndexError:
+        continue
+
+      updates.add(result.last_update)
+
+    return updates
 
   def start_transaction(self, app, txid, is_xg):
     """ Persist transaction metadata.

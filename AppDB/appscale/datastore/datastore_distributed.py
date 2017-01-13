@@ -559,9 +559,11 @@ class DatastoreDistributed():
       batch = cassandra_interface.deletions_for_entity(
         current_value, composite_indexes)
 
-      entity_change = {'key': current_value.key(),
-                       'old': current_value, 'new': None}
-      self.datastore_batch.batch_mutate(app, batch, [entity_change], txn)
+      batch.append({'table': 'group_updates',
+                    'key': bytearray(group.Encode()),
+                    'last_update': txid})
+
+      self.datastore_batch._normal_batch(batch)
 
   def dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore.
@@ -3201,7 +3203,9 @@ class DatastoreDistributed():
     groups_put = {group_for_key(key).Encode() for key in metadata['puts']}
     groups_deleted = {group_for_key(key).Encode()
                       for key in metadata['deletes']}
-    if len(groups_put | groups_deleted) > dbconstants.MAX_GROUPS_FOR_XG:
+    groups_mutated = groups_put | groups_deleted
+    tx_groups = groups_mutated | metadata['reads']
+    if len(tx_groups) > dbconstants.MAX_GROUPS_FOR_XG:
       raise dbconstants.TooManyGroupsException(
         'Too many groups in transaction')
 
@@ -3245,6 +3249,10 @@ class DatastoreDistributed():
         current_value, composite_indices)
       batch.extend(deletions)
       entity_changes.append({'key': key, 'old': current_value, 'new': None})
+      for group in groups_mutated:
+        batch.append(
+          {'table': 'group_updates', 'key': bytearray(group),
+           'last_update': txn})
 
     self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
 
