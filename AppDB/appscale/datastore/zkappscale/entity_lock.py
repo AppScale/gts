@@ -17,7 +17,7 @@ from kazoo.retry import (
 # The ZooKeeper node that contains lock entries for an entity group.
 LOCK_PATH_TEMPLATE = '/appscale/apps/{project}/locks/{namespace}/{group}'
 
-# The number of seconds to wait before
+# The number of seconds to wait for a lock before raising a timeout error.
 LOCK_TIMEOUT = 10
 
 
@@ -97,7 +97,7 @@ class EntityLock(object):
     self.wake_event.set()
 
   def acquire(self):
-    """ Acquire the lock. By defaults blocks and waits forever.
+    """ Acquire the lock. By default blocks and waits forever.
 
     Returns:
       A boolean indicating whether or not the lock was acquired.
