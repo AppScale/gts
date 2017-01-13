@@ -16,6 +16,7 @@ from ..cassandra_env import cassandra_interface
 from ..dbconstants import (MAX_GROUPS_FOR_XG,
                            MAX_TX_DURATION)
 from ..unpackaged import APPSCALE_PYTHON_APPSERVER
+from kazoo.exceptions import NoNodeError
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import ZookeeperError
 
@@ -893,6 +894,20 @@ class ZKTransaction:
       self.reestablish_connection()
       raise ZKTransactionException("Couldn't get updated key list for appid " \
         "{0}, txid {1}".format(app_id, txid))
+
+  def remove_tx_node(self, app_id, txid):
+    """ Remove a transaction's sequence node.
+
+    Args:
+      app_id: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+    """
+    txpath = self.get_transaction_path(app_id, txid)
+    try:
+      self.run_with_retry(self.handle.delete, txpath, -1, True)
+    except NoNodeError:
+      return
+
 
   def release_lock(self, app_id, txid):
     """ Releases all locks acquired during this transaction.
