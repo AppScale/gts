@@ -6,6 +6,7 @@
 import cassandra
 import datetime
 import logging
+import struct
 import sys
 import time
 import uuid
@@ -997,19 +998,26 @@ class DatastoreProxy(AppDBInterface):
 
     return updates
 
-  def start_transaction(self, app, txid, is_xg):
+  def start_transaction(self, app, txid, is_xg, in_progress):
     """ Persist transaction metadata.
 
     Args:
       app: A string containing an application ID.
       txid: An integer specifying the transaction ID.
       is_xg: A boolean specifying that the transaction is cross-group.
+      in_progress: An iterable containing transaction IDs.
     """
+    if in_progress:
+      in_progress_bin = bytearray(
+        struct.pack('q' * len(in_progress), *in_progress))
+    else:
+      in_progress_bin = None
+
     insert = """
       INSERT INTO transactions (txid_hash, operation, namespace, path,
-                                start_time, is_xg)
+                                start_time, is_xg, in_progress)
       VALUES (%(txid_hash)s, %(operation)s, %(namespace)s, %(path)s,
-              %(start_time)s, %(is_xg)s)
+              %(start_time)s, %(is_xg)s, %(in_progress)s)
       USING TTL {ttl}
     """.format(ttl=dbconstants.MAX_TX_DURATION * 2)
     parameters = {'txid_hash': tx_partition(app, txid),
@@ -1017,7 +1025,8 @@ class DatastoreProxy(AppDBInterface):
                   'namespace': '',
                   'path': bytearray(''),
                   'start_time': datetime.datetime.utcnow(),
-                  'is_xg': is_xg}
+                  'is_xg': is_xg,
+                  'in_progress': in_progress_bin}
 
     try:
       self.session.execute(insert, parameters)
@@ -1158,7 +1167,8 @@ class DatastoreProxy(AppDBInterface):
       A dictionary containing transaction state.
     """
     select = """
-      SELECT namespace, operation, path, start_time, is_xg, entity, task
+      SELECT namespace, operation, path, start_time, is_xg, in_progress,
+             entity, task
       FROM transactions
       WHERE txid_hash = %(txid_hash)s
     """
@@ -1175,6 +1185,11 @@ class DatastoreProxy(AppDBInterface):
       if result.operation == TxnActions.START:
         metadata['start'] = result.start_time
         metadata['is_xg'] = result.is_xg
+        metadata['in_progress'] = set()
+        if metadata['in_progress'] is not None:
+          metadata['in_progress'] = set(
+            struct.unpack('q' * int(len(result.in_progress) / 8),
+                          result.in_progress))
       if result.operation == TxnActions.MUTATE:
         key = create_key(app, result.namespace, result.path)
         if result.entity is None:

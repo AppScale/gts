@@ -1580,3 +1580,20 @@ class ZKTransaction:
         self.reestablish_connection()
         return 
     self.logger.debug('Lock GC took {} seconds.'.format(time.time() - start))
+
+  def get_current_transactions(self, project):
+    """ Fetch a list of open transactions for a given project.
+
+    Args:
+      project: A string containing a project ID.
+    Returns:
+      A list of integers specifying transaction IDs.
+    """
+    project_path = PATH_SEPARATOR.join([APPS_PATH, project])
+    txrootpath = PATH_SEPARATOR.join([project_path, APP_TX_PATH])
+    try:
+      txlist = self.run_with_retry(self.handle.get_children, txrootpath)
+    except kazoo.exceptions.NoNodeError:
+      # there is no transaction yet.
+      return []
+    return [int(txid.lstrip(APP_TX_PREFIX)) for txid in txlist]
