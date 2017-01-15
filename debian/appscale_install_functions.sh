@@ -526,13 +526,23 @@ installapiclient()
     pipwrapper google-api-python-client==1.5.4
 }
 
-buildgo()
+installgosdk()
 {
-    GOROOT_DIR=${APPSCALE_HOME_RUNTIME}/AppServer/goroot
-    export GOROOT=${GOROOT_DIR}
-    GO_VERSION=`cat ${GOROOT_DIR}/VERSION`
-    echo "Building ${GO_VERSION} ..."
-    (cd ${GOROOT_DIR}/src && ./make.bash)
+    if [ ${UNAME_MACHINE} = "x86_64" ]; then
+        GO_SDK_PACKAGE="go_appengine_sdk_linux_amd64-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="b5c1a3eab1ba69993c3a35661ec3043d"
+    else
+        GO_SDK_PACKAGE="go_appengine_sdk_linux_386-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="b6aad6a3cb2506dfe1067e06fb93f9fb"
+    fi
+
+    EXTRAS_DIR="/opt"
+    cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
+
+    echo "Extracting Go SDK"
+    # Remove existing SDK directory in case it's old.
+    rm -rf ${EXTRAS_DIR}/go_appengine
+    unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${EXTRAS_DIR}
 }
 
 installtaskqueue()

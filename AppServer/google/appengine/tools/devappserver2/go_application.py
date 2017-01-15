@@ -27,12 +27,11 @@ import sys
 import subprocess
 import tempfile
 
-import google
 from google.appengine.tools.devappserver2 import errors
 from google.appengine.tools.devappserver2 import safe_subprocess
 
 
-_SDKROOT = os.path.dirname(os.path.dirname(google.__file__))
+_SDKROOT = os.path.join('/', 'opt', 'go_appengine')
 _GOROOT = os.path.join(_SDKROOT, 'goroot')
 
 _GAB_PATH = os.path.join(_GOROOT, 'bin', 'go-app-builder')
