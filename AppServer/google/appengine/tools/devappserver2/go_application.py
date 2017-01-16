@@ -32,20 +32,9 @@ import google
 from google.appengine.tools.devappserver2 import go_errors
 from google.appengine.tools.devappserver2 import safe_subprocess
 
-# The location of devappserver2 changes infrequently enough we can be fairly
-# confident depending on the goroot and gopath being in the same place relative
-# to it.
-#
-# This gopath will be used in the event that the user does not already have a
-# GOPATH in their os.environ.
-#
-# devappserver2: $HOME/go_appengine/google/appengine/tools/devappserver2
-# goroot:        $HOME/go_appengine/goroot
-# gopath:        $HOME/go_appengine/gopath
-GOROOT = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), '..', '..', '..', '..', 'goroot'))
-GOPATH = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), '..', '..', '..', '..', 'gopath'))
+# Use binaries from the Go SDK.
+GOROOT = os.path.join('/', 'opt', 'go_appengine', 'goroot')
+GOPATH = os.path.join('/', 'opt', 'go_appengine', 'gopath')
 
 _GAB_PATH = os.path.join(GOROOT, 'bin', 'go-app-builder')
 if sys.platform.startswith('win'):
