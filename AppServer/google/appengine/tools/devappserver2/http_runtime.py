@@ -213,7 +213,8 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
           cwd=self._server_configuration.application_root)
     line = self._process.stdout.readline()
     try:
-      self._port = int(line)
+      # Older runtimes output just the port, while newer ones prepend the host.
+      self._port = int(line.split()[-1])
     except ValueError:
       # The development server is in a bad state. Log an error message and quit.
       logging.error('unexpected port response from runtime [%r]; '
