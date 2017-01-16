@@ -126,7 +126,7 @@ class DatastoreDistributed():
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
 
-    # Maintain a stub object for each project using transactinal tasks.
+    # Maintain a stub object for each project using transactional tasks.
     self.taskqueue_stubs = {}
 
   def get_limit(self, query):
