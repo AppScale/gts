@@ -98,22 +98,19 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self.__app_id = app_id
     self.__nginx_host = host
     self.__nginx_port = port
-    self.__tq_location = self.__GetTQLocation()
 
-  def __GetTQLocation(self):
-    """ Gets the nearest AppScale TaskQueue server. """
+  def _GetTQLocations(self):
+    """ Gets a list of AppScale TaskQueue servers. """
     if os.path.exists(TASKQUEUE_LOCATION_FILE):
-      tq_file = open(TASKQUEUE_LOCATION_FILE)
-      raw_ips = tq_file.read()
-      ips = raw_ips.split('\n')
-      location = ips[0]
-      tq_file.close()
+      with open(TASKQUEUE_LOCATION_FILE) as tq_file:
+        ips = tq_file.read().split('\n')
     else:
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
-    location += ":" + str(TASKQUEUE_SERVER_PORT)
-    return location
+    locations = ["{ip}:{port}".format(ip=ip,port=str(TASKQUEUE_SERVER_PORT))
+                 for ip in ips]
+    return locations
 
   def _ChooseTaskName(self, app_name, queue_name, user_chosen=None):
     """ Creates a task name that the system can use to address
@@ -425,18 +422,23 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     api_request.set_service_name("taskqueue")
     api_request.set_request(request.Encode())
 
-    api_response = remote_api_pb.Response()
-    api_response = api_request.sendCommand(self.__tq_location,
-      tag,
-      api_response,
-      1,
-      False,
-      KEY_LOCATION,
-      CERT_LOCATION)
+    tq_locations = self._GetTQLocations()
+    for index, tq_location in enumerate(tq_locations):
+      api_response = remote_api_pb.Response()
+      api_response = api_request.sendCommand(tq_location,
+        tag,
+        api_response,
+        1,
+        False,
+        KEY_LOCATION,
+        CERT_LOCATION)
 
-    if not api_response or not api_response.has_response():
-      raise apiproxy_errors.ApplicationError(
-          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+      if not api_response or not api_response.has_response():
+        if index >= len(tq_locations):
+          raise apiproxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+      else:
+        break
 
     if api_response.has_application_error():
       error_pb = api_response.application_error()
