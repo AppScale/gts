@@ -4184,8 +4184,7 @@ class Djinn
       master_content + memcache_content + my_public + my_private +
       num_of_nodes + taskqueue_content + search_content + slaves_content
 
-    # If nothing changes since last time we wrote the locations file, we
-    # skip it.
+    # If nothing changed since last time we wrote locations file(s), skip it.
     if new_content != @locations_content
       # For the taskqueue, let's shuffle the entries, and then put
       # ourselves as first option, if we are a taskqueue node.

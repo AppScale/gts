@@ -110,7 +110,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       tq_file.close()
     else:
       raise apiproxy_errors.ApplicationError(
-          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
     location += ":" + str(TASKQUEUE_SERVER_PORT)
     return location

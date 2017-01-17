@@ -52,7 +52,7 @@ def get_all_ips():
 def get_login_ip():
   """ Get the public IP of the head node. Since there can be more then one
   public IP for this deployment, we return the first one. NOTE: it can
-  change if nodes crashes.
+  change if node crashes.
 
   Returns:
     String containing the public IP of the head node.
