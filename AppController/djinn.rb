@@ -4749,7 +4749,8 @@ HOSTS
           'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
           'haproxy' => AppDashboard::PROXY_PORT,
           'appengine' => [],
-          'language' => AppDashboard::APP_LANGUAGE
+          'language' => AppDashboard::APP_LANGUAGE,
+          'min_appengines' => 3
         }
       end
       @app_names << AppDashboard::APP_NAME
@@ -5289,7 +5290,9 @@ HOSTS
         unless @app_info_map[app_name]['appengine'].nil?
           num_appengines = @app_info_map[app_name]['appengine'].length
         end
-        break if num_appengines >= Integer(@options['appengine'])
+        min = @app_info_map[app_name]['min_appengines']
+        min = Integer(@options['appengine'] if min.nil?
+        break if num_appengines >= min
       end
     }
   end
@@ -5325,7 +5328,9 @@ HOSTS
     else
       num_appengines = @app_info_map[app_name]['appengine'].length
     end
-    if num_appengines < Integer(@options['appengine'])
+    min = @app_info_map[app_name]['min_appengines']
+    min = Integer(@options['appengine'] if min.nil?
+    if num_appengines < min
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
       @last_decision[app_name] = 0
       return :scale_up
@@ -5437,8 +5442,10 @@ HOSTS
     unless @app_info_map[app_name]['appengine'].nil?
       num_appengines = @app_info_map[app_name]['appengine'].length
     end
-    if Integer(@options['appengine']) > num_appengines &&
-        Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
+    min = @app_info_map[app_name]['min_appengines']
+    min = Integer(@options['appengine'] if min.nil?
+    if min > num_appengines && Time.now.to_i - @last_decision[app_name] <
+        SCALEUP_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
       return false
     end
@@ -5559,7 +5566,9 @@ HOSTS
 
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
-    if @app_info_map[app_name]['appengine'].length <= Integer(@options['appengine'])
+    min = @app_info_map[app_name]['min_appengines']
+    min = Integer(@options['appengine'] if min.nil?
+    if @app_info_map[app_name]['appengine'].length <= min
       Djinn.log_debug("We are already at the minimum number of AppServers for " +
         "#{app_name}: requesting to remove node.")
 
