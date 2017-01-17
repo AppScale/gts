@@ -4157,7 +4157,6 @@ class Djinn
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-
     # Populate the appropriate list.
     @nodes.each { |node|
       all_ips << node.private_ip
@@ -4199,11 +4198,11 @@ class Djinn
       Djinn.log_info("All private IPs: #{all_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
 
-      Djinn.log_info("Load Balancers location: #{load_balancer_ips}.")
+      Djinn.log_info("Load balancer location(s): #{load_balancer_ips}.")
       load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
       HelperFunctions.write_file(load_balancer_file, load_balancer_content)
 
-      Djinn.log_info("Deployment public name/IP(s): #{login_ips}.")
+      Djinn.log_info("Deployment public name(s)/IP(s): #{login_ips}.")
       login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
@@ -4214,7 +4213,7 @@ class Djinn
       Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
-      Djinn.log_info("Master is at #{master_ips}, slaves are at #{slave_ips}.")
+      Djinn.log_info("Database master is at #{master_ips}, slaves are at #{slave_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slaves_content}")
 
