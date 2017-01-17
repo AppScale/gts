@@ -421,6 +421,10 @@ class Djinn
   PID_FILE = "/var/run/appscale-controller.pid"
 
 
+  # Default memory to allocate to each AppServer.
+  DEFAULT_MEMORY = 400
+
+
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified.
@@ -447,7 +451,7 @@ class Djinn
     'instance_type' => [ String, nil ],
     'machine' => [ String, nil ],
     'max_images' => [ Fixnum, '0' ],
-    'max_memory' => [ Fixnum, '400' ],
+    'max_memory' => [ Fixnum, "#{DEFAULT_MEMORY}" ],
     'min_images' => [ Fixnum, '1' ],
     'region' => [ String, nil ],
     'replication' => [ Fixnum, '1' ],
@@ -4750,6 +4754,7 @@ HOSTS
           'haproxy' => AppDashboard::PROXY_PORT,
           'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE,
+          'max_memory' => DEFAULT_MEMORY,
           'min_appengines' => 3
         }
       end
@@ -5459,8 +5464,16 @@ HOSTS
     # order to not overprovision the appengine node.
     appservers_count = {}
     current_hosts = []
+    max_memory = 0
     @app_info_map.each_pair { |appid, app_info|
       next if app_info['appengine'].nil?
+
+      # We need to keep track of the theoretical max memory used by all
+      # the AppServervers.
+      max_app_mem = @app_info_map[app_name]['max_memory']
+      max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
+      max_memory += max_app_mem * app_info['appengine'].length
+
       app_info['appengine'].each { |location|
         host, port = location.split(":")
         if appservers_count[host].nil?
@@ -5488,15 +5501,15 @@ HOSTS
         total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
 
         # Ensure we have enough memory for all running AppServers.
-        appservers_count[host] = 0 if appservers_count[host].nil?
-        if (appservers_count[host] + 1) * Integer(@options['max_memory']) >
-            total - SAFE_MEM
+        if max_memory > total - SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough total memory.")
           break
         end
 
         # Ensure the node has enough free memory at this time.
-        if Float(node['free_memory']) < Integer(@options['max_memory']) + SAFE_MEM
+        max_app_mem = @app_info_map[app_name]['max_memory']
+        max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
+        if Float(node['free_memory']) < max_app_memory + SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough free memory.")
           break
         end
@@ -5692,10 +5705,12 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
+      max_app_mem = @app_info_map[app]['max_memory']
+      max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
       pid = app_manager.start_app(app, appengine_port,
         get_load_balancer.public_ip, app_language, xmpp_ip,
-        HelperFunctions.get_app_env_vars(app),
-        Integer(@options['max_memory']), get_shadow.private_ip)
+        HelperFunctions.get_app_env_vars(app), max_app_mem,
+        get_shadow.private_ip)
     rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
         "with AppManager: #{error.message}")
