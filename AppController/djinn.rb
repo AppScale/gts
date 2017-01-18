@@ -5464,7 +5464,7 @@ HOSTS
     # order to not overprovision the appengine node.
     appservers_count = {}
     current_hosts = []
-    max_memory = 0
+    max_memory = {}
     @app_info_map.each_pair { |appid, app_info|
       next if app_info['appengine'].nil?
 
@@ -5472,14 +5472,15 @@ HOSTS
       # the AppServervers.
       max_app_mem = app_info[appid]['max_memory']
       max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
-      max_memory += max_app_mem * app_info['appengine'].length
 
       app_info['appengine'].each { |location|
         host, port = location.split(":")
         if appservers_count[host].nil?
           appservers_count[host] = 1
+          max_memory[host] = max_app_mem
         else
           appservers_count[host] += 1
+          max_memory[host] += max_app_mem
         end
 
         # We also see which host is running the application we need to
