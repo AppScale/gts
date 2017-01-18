@@ -5296,7 +5296,7 @@ HOSTS
           num_appengines = @app_info_map[app_name]['appengine'].length
         end
         min = @app_info_map[app_name]['min_appengines']
-        min = Integer(@options['appengine'] if min.nil?
+        min = Integer(@options['appengine']) if min.nil?
         break if num_appengines >= min
       end
     }
@@ -5334,7 +5334,7 @@ HOSTS
       num_appengines = @app_info_map[app_name]['appengine'].length
     end
     min = @app_info_map[app_name]['min_appengines']
-    min = Integer(@options['appengine'] if min.nil?
+    min = Integer(@options['appengine']) if min.nil?
     if num_appengines < min
       Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
       @last_decision[app_name] = 0
@@ -5448,7 +5448,7 @@ HOSTS
       num_appengines = @app_info_map[app_name]['appengine'].length
     end
     min = @app_info_map[app_name]['min_appengines']
-    min = Integer(@options['appengine'] if min.nil?
+    min = Integer(@options['appengine']) if min.nil?
     if min > num_appengines && Time.now.to_i - @last_decision[app_name] <
         SCALEUP_THRESHOLD * DUTY_CYCLE
       Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
@@ -5470,8 +5470,8 @@ HOSTS
 
       # We need to keep track of the theoretical max memory used by all
       # the AppServervers.
-      max_app_mem = app_info[appid]['max_memory']
-      max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
+      max_app_mem = @app_info_map[appid]['max_memory']
+      max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
 
       app_info['appengine'].each { |location|
         host, port = location.split(":")
@@ -5502,15 +5502,15 @@ HOSTS
         total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
 
         # Ensure we have enough memory for all running AppServers.
-        if max_memory > total - SAFE_MEM
+        if !max_memory[host].nil? and max_memory[host] > total - SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough total memory.")
           break
         end
 
         # Ensure the node has enough free memory at this time.
         max_app_mem = @app_info_map[app_name]['max_memory']
-        max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
-        if Float(node['free_memory']) < max_app_memory + SAFE_MEM
+        max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+        if Float(node['free_memory']) < max_app_mem + SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough free memory.")
           break
         end
@@ -5581,7 +5581,7 @@ HOSTS
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
     min = @app_info_map[app_name]['min_appengines']
-    min = Integer(@options['appengine'] if min.nil?
+    min = Integer(@options['appengine']) if min.nil?
     if @app_info_map[app_name]['appengine'].length <= min
       Djinn.log_debug("We are already at the minimum number of AppServers for " +
         "#{app_name}: requesting to remove node.")
@@ -5707,7 +5707,7 @@ HOSTS
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
       max_app_mem = @app_info_map[app]['max_memory']
-      max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
+      max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
       pid = app_manager.start_app(app, appengine_port,
         get_load_balancer.public_ip, app_language, xmpp_ip,
         HelperFunctions.get_app_env_vars(app), max_app_mem,
