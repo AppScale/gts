@@ -24,7 +24,7 @@ class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """
 
   # Min concurrency per worker.
-  MIN_CELERY_CONCURRENTY = 2
+  MIN_CELERY_CONCURRENCY = 2
 
   # Max concurrency per worker.
   MAX_CELERY_CONCURRENCY = 20
