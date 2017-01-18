@@ -5470,7 +5470,7 @@ HOSTS
 
       # We need to keep track of the theoretical max memory used by all
       # the AppServervers.
-      max_app_mem = @app_info_map[app_name]['max_memory']
+      max_app_mem = app_info[appid]['max_memory']
       max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
       max_memory += max_app_mem * app_info['appengine'].length
 
