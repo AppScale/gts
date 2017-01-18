@@ -5510,7 +5510,7 @@ HOSTS
         # Ensure the node has enough free memory at this time.
         max_app_mem = @app_info_map[app_name]['max_memory']
         max_app_mem = Integer(@options['max_memory'] if max_app_mem.nil?
-        if Float(node['free_memory']) < max_app_memory + SAFE_MEM
+        if Float(node['free_memory']) < max_app_mem + SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough free memory.")
           break
         end
