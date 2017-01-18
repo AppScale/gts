@@ -170,9 +170,6 @@ class DistributedTaskQueue():
   # Required stop worker name tags.
   STOP_WORKERS_TAGS = ['app_id']
 
-  # Autoscale argument for max/min concurrency for a celery worker.
-  MIN_MAX_CONCURRENCY = "20,1"
-
   # The location of where celery logs go.
   LOG_DIR = "/var/log/appscale/celery_workers/"
 

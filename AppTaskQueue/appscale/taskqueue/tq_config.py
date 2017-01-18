@@ -27,7 +27,7 @@ class TaskQueueConfig():
   MIN_CELERY_CONCURRENTY = 2
 
   # Max concurrency per worker.
-  MAX_CELERY_CONCURRENCY = 8
+  MAX_CELERY_CONCURRENCY = 20
 
   # The default YAML used if a queue.yaml or queue.xml is not supplied.
   DEFAULT_QUEUE_YAML = """
