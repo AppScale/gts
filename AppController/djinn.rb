@@ -934,10 +934,6 @@ class Djinn
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
     @@log.level = new_level if @@log.level != new_level
-
-    # Make sure flower is running with the proper password.
-    TaskQueue.stop_flower
-    TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
   end
 
   # This is the method needed to get the current layout and options for
@@ -1474,6 +1470,10 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
         end
+      end
+      if key == "flower_password"
+        TaskQueue.stop_flower
+        TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
       end
       if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
