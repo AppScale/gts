@@ -32,18 +32,12 @@ programmatically access their request and application logs.
 
 import base64
 import cStringIO
-import httplib
 import os
 import re
 import sys
 import threading
 import time
 import warnings
-
-try:
-  import json
-except ImportError:
-  import simplejson as json
 
 from google.net.proto import ProtocolBuffer
 from google.appengine.api import api_base_pb
@@ -85,34 +79,9 @@ _MAJOR_VERSION_ID_PATTERN = r'^(?:(?:(%s):)?)(%s)$' % (SERVER_ID_RE_STRING,
 
 _MAJOR_VERSION_ID_RE = re.compile(_MAJOR_VERSION_ID_PATTERN)
 
+_REQUEST_ID_PATTERN = r'^[\da-fA-F]+$'
+_REQUEST_ID_RE = re.compile(_REQUEST_ID_PATTERN)
 
-# The file that the AppController writes the login node's public IP address to.
-LOGIN_IP_FILENAME = "/etc/appscale/login_ip"
-
-# The file that the AppController writes this machine's public IP address to.
-MY_PUBLIC_IP_FILENAME = "/etc/appscale/my_public_ip"
-
-class SendLogsThread(threading.Thread):
-  """ Sends logs to the AppScale Dashboard in a thread. """
-
-  def __init__(self, payload, nginx_host):
-    """ Constructor.
-
-    Args:
-      payload: The json payload to send to the dashboard.
-      nginx_host: The NGINX host to send the logs to.
-    """
-    self.__payload = payload
-    self.__response = None
-    self.__nginx_host = nginx_host
-    threading.Thread.__init__(self)
-
-  def run(self):
-    """ Start function for thread. Posts the payload to the dashboard. """
-    conn = httplib.HTTPSConnection(self.__nginx_host + ":1443")
-    headers = {'Content-Type' : 'application/json'}
-    conn.request('POST', '/logs/upload', self.__payload, headers)
-    self.__response = conn.getresponse()
 
 class Error(Exception):
   """Base error class for this module."""
@@ -306,36 +275,6 @@ class LogsBuffer(object):
   def _flush(self):
     """Internal version of flush() with no locking."""
     logs = self.parse_logs()
- 
-    appid = os.environ['APPLICATION_ID']
-    if appid in ['apichecker', 'appscaledashboard']:
-      self._clear()
-      return
- 
-    formatted_logs = [{'timestamp' : log[0] / 1e6, 
-      'level' : log[1] + 1,
-      'message' : log[2]} for log in logs]
- 
-    if not formatted_logs:
-      return
- 
-    payload = json.dumps({
-      'service_name' : appid,
-      'host' : os.environ['MY_IP_ADDRESS'],
-      'logs' : formatted_logs
-    })
-
-    SendLogsThread(payload, os.environ["NGINX_HOST"]).start()
-    self._clear()
-
-    # AppScale: This currently causes problems when we try to call API requests
-    # via new threads, so since we don't have support for the Logs API at the
-    # moment, this return prevents the Exception that would be thrown from
-    # occurring.
-    # TODO: Revisit this problem when we do decide to implement
-    # the Logs API.
-    return
-
     first_iteration = True
     while logs or first_iteration:
       first_iteration = False
@@ -853,6 +792,7 @@ def fetch(start_time=None,
           include_incomplete=False,
           include_app_logs=False,
           version_ids=None,
+          request_ids=None,
           **kwargs):
   """Returns an iterator yielding an application's request and application logs.
 
@@ -885,6 +825,9 @@ def fetch(start_time=None,
       results, as a boolean.  Defaults to False.
     version_ids: A list of version ids whose logs should be queried against.
       Defaults to the application's current version id only.
+    request_ids: If not None, indicates that instead of a time-based scan,
+      logs for the specified requests should be returned.
+
 
   Returns:
     An iterable object containing the logs that the user has queried for.
@@ -947,6 +890,20 @@ def fetch(start_time=None,
             'version_ids must only contain valid major version identifiers')
 
   request.version_id_list()[:] = version_ids
+
+  if request_ids is not None:
+    if not isinstance(request_ids, list):
+      raise InvalidArgumentError('request_ids must be a list')
+    if not request_ids:
+      raise InvalidArgumentError('request_ids must not be empty')
+    if len(request_ids) != len(set(request_ids)):
+      raise InvalidArgumentError('request_ids must not contain duplicates')
+    for request_id in request_ids:
+      if not _REQUEST_ID_RE.match(request_id):
+        raise InvalidArgumentError(
+          '%s is not a valid request log id' % request_id)
+    request_ids[:] = [request_id.encode('utf-8') for request_id in request_ids]
+    request.request_id_list()[:] = request_ids
 
   prototype_request = kwargs.get('prototype_request')
   if prototype_request:

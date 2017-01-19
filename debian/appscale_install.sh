@@ -46,6 +46,7 @@ case "$1" in
         installtornado
         installpycrypto 
         installflexmock
+        installpycapnp
         installzookeeper
         postinstallzookeeper
         installcassandra
@@ -67,6 +68,7 @@ case "$1" in
         buildgo
         installtaskqueue
         installdatastore
+        preplogserver
         prepdashboard
         fetchclientjars
         ;;

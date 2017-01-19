@@ -29,6 +29,7 @@ Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
          bzip2,
+         capnproto,
          cron,
          curl,
          dnsutils,

@@ -526,6 +526,19 @@ installapiclient()
     pipwrapper google-api-python-client==1.5.4
 }
 
+installpycapnp()
+{
+    pipwrapper pycapnp
+}
+
+preplogserver()
+{
+    LOGSERVER_DIR="/opt/appscale/logserver"
+    mkdir -p ${LOGSERVER_DIR}
+    FILE_SRC="$APPSCALE_HOME_RUNTIME/LogService/logging.capnp"
+    FILE_DEST="$APPSCALE_HOME_RUNTIME/AppServer/google/appengine/api/logservice/logging.capnp"
+    cp ${FILE_SRC} ${FILE_DEST}
+}
 buildgo()
 {
     GOROOT_DIR=${APPSCALE_HOME_RUNTIME}/AppServer/goroot
