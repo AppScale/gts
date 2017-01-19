@@ -253,7 +253,7 @@ class MainHandler(tornado.web.RequestHandler):
       http_request_data)
     multiple_eg = False
     if begin_transaction_req_pb.has_allow_multiple_eg():
-      multiple_eg = begin_transaction_req_pb.allow_multiple_eg()
+      multiple_eg = bool(begin_transaction_req_pb.allow_multiple_eg())
 
     handle = None
     transaction_pb = datastore_pb.Transaction()

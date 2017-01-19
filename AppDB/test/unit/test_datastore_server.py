@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import datetime
 import sys
 import unittest
 
@@ -8,7 +9,6 @@ from appscale.datastore import dbconstants
 from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
-from appscale.datastore.dbconstants import ID_KEY_LENGTH
 from appscale.datastore.dbconstants import JOURNAL_SCHEMA
 from appscale.datastore.dbconstants import TOMBSTONE
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
@@ -20,13 +20,11 @@ from appscale.datastore.cassandra_env.cassandra_interface import\
   mutations_for_entity
 from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.utils import encode_index_pb
 from appscale.datastore.utils import get_entity_key
 from appscale.datastore.utils import get_entity_kind
 from appscale.datastore.utils import get_index_key_from_params
 from appscale.datastore.utils import get_index_kv_from_tuple
 from appscale.datastore.utils import get_kind_key
-from appscale.datastore.zkappscale.zktransaction import TX_TIMEOUT
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from cassandra.cluster import Cluster
 from flexmock import flexmock
@@ -668,13 +666,13 @@ class TestDatastoreServer(unittest.TestCase):
     del_request.should_receive("has_transaction").and_return(True).twice()
     transaction = flexmock()
     transaction.should_receive("handle").and_return(1)
-    del_request.should_receive("transaction").and_return(transaction).once()
+    del_request.should_receive("transaction").and_return(transaction)
     del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(db_batch, None)
     flexmock(dd).should_receive("acquire_locks_for_trans").and_return({})
     flexmock(dd).should_receive("release_locks_for_nontrans").never()
     flexmock(utils).should_receive("get_entity_kind").and_return("kind")
-    flexmock(dd).should_receive('delete_entities_txn')
+    db_batch.should_receive('delete_entities_tx')
     dd.dynamic_delete("appid", del_request)
 
     del_request = flexmock()
@@ -899,9 +897,9 @@ class TestDatastoreServer(unittest.TestCase):
     mutations = mutations_for_entity(entity, txn, new_entity)
     self.assertEqual(len(mutations), 6)
     self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
-    self.assertEqual(mutations[0]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[0]['operation'], dbconstants.Operations.DELETE)
     self.assertEqual(mutations[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
-    self.assertEqual(mutations[1]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[1]['operation'], dbconstants.Operations.DELETE)
     self.assertEqual(mutations[2]['table'], dbconstants.APP_ENTITY_TABLE)
     self.assertEqual(mutations[3]['table'], dbconstants.APP_KIND_TABLE)
     self.assertEqual(mutations[4]['table'], dbconstants.ASC_PROPERTY_TABLE)
@@ -937,11 +935,11 @@ class TestDatastoreServer(unittest.TestCase):
                                      (composite_index,))
     self.assertEqual(len(mutations), 10)
     self.assertEqual(mutations[0]['table'], dbconstants.ASC_PROPERTY_TABLE)
-    self.assertEqual(mutations[0]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[0]['operation'], dbconstants.Operations.DELETE)
     self.assertEqual(mutations[1]['table'], dbconstants.DSC_PROPERTY_TABLE)
-    self.assertEqual(mutations[1]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[1]['operation'], dbconstants.Operations.DELETE)
     self.assertEqual(mutations[2]['table'], dbconstants.COMPOSITE_TABLE)
-    self.assertEqual(mutations[2]['operation'], dbconstants.TxnActions.DELETE)
+    self.assertEqual(mutations[2]['operation'], dbconstants.Operations.DELETE)
     self.assertEqual(mutations[3]['table'], dbconstants.APP_ENTITY_TABLE)
     self.assertEqual(mutations[4]['table'], dbconstants.APP_KIND_TABLE)
     self.assertEqual(mutations[5]['table'], dbconstants.ASC_PROPERTY_TABLE)
@@ -956,11 +954,14 @@ class TestDatastoreServer(unittest.TestCase):
     entity = self.get_new_entity_proto(app, *self.BASIC_ENTITY[1:])
 
     db_batch = flexmock()
+    db_batch.should_receive('get_transaction_metadata').and_return({
+      'puts': {entity.key().Encode(): entity.Encode()},
+      'deletes': [],
+      'tasks': [],
+      'start': datetime.datetime.utcnow(),
+      'is_xg': False,
+    })
     db_batch.should_receive('valid_data_version').and_return(True)
-    db_batch.should_receive('range_query').and_return([{
-      'txn_entity_1': {'operation': dbconstants.TxnActions.PUT,
-                       'operand': entity.Encode()}
-    }])
 
     db_batch.should_receive('get_indices').and_return([])
 
@@ -971,72 +972,6 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('batch_mutate')
 
     dd.apply_txn_changes(app, txn)
-
-  def test_delete_entities_txn(self):
-    app = 'guestbook'
-    txn_hash = {'root_key': 1}
-    txn_str = '1'.zfill(ID_KEY_LENGTH)
-    entity = self.get_new_entity_proto(app, *self.BASIC_ENTITY[1:])
-
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version').and_return(True)
-    dd = DatastoreDistributed(db_batch, None)
-
-    keys = [entity.key()]
-    prefix = dd.get_table_prefix(entity.key())
-    entity_key = get_entity_key(prefix, entity.key().path())
-    encoded_path = str(encode_index_pb(entity.key().path()))
-    txn_keys = [dd._SEPARATOR.join([app, txn_str, '', encoded_path])]
-    txn_values = {
-      txn_keys[0]: {
-        dbconstants.TRANSACTIONS_SCHEMA[0]: dbconstants.TxnActions.DELETE,
-        dbconstants.TRANSACTIONS_SCHEMA[1]: entity_key,
-        dbconstants.TRANSACTIONS_SCHEMA[2]: ''
-      }
-    }
-
-    flexmock(dd).should_receive('get_root_key').and_return('root_key')
-
-    db_batch.should_receive('batch_put_entity').with_args(
-      dbconstants.TRANSACTIONS_TABLE,
-      txn_keys,
-      dbconstants.TRANSACTIONS_SCHEMA,
-      txn_values,
-      ttl=TX_TIMEOUT * 2
-    )
-    dd.delete_entities_txn(app, keys, txn_hash)
-
-  def test_put_entities_txn(self):
-    app = 'guestbook'
-    txn_hash = {'root_key': 1}
-    txn_str = '1'.zfill(ID_KEY_LENGTH)
-    entity = self.get_new_entity_proto(app, *self.BASIC_ENTITY[1:])
-
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version').and_return(True)
-    dd = DatastoreDistributed(db_batch, None)
-
-    entities = [entity]
-    encoded_path = str(encode_index_pb(entity.key().path()))
-    txn_keys = [dd._SEPARATOR.join([app, txn_str, '', encoded_path])]
-    txn_values = {
-      txn_keys[0]: {
-        dbconstants.TRANSACTIONS_SCHEMA[0]: dbconstants.TxnActions.PUT,
-        dbconstants.TRANSACTIONS_SCHEMA[1]: entity.Encode(),
-        dbconstants.TRANSACTIONS_SCHEMA[2]: ''
-      }
-    }
-
-    flexmock(dd).should_receive('get_root_key').and_return('root_key')
-
-    db_batch.should_receive('batch_put_entity').with_args(
-      dbconstants.TRANSACTIONS_TABLE,
-      txn_keys,
-      dbconstants.TRANSACTIONS_SCHEMA,
-      txn_values,
-      ttl=TX_TIMEOUT * 2
-    )
-    dd.put_entities_txn(entities, txn_hash, app)
 
 if __name__ == "__main__":
   unittest.main()    
