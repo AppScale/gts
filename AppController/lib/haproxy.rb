@@ -55,6 +55,11 @@ module HAProxy
 
 
   # The position in the haproxy profiling information where the name of
+  # of the application is (ie the GAE app, or datastore etc..).
+  APP_NAME_INDEX = 0
+
+
+  # The position in the haproxy profiling information where the name of
   # the service (e.g., the frontend or backend) is specified.
   SERVICE_NAME_INDEX = 1
 
@@ -358,7 +363,8 @@ CONFIG
   #   The total requests for the app, the requests enqueued and the
   #   timestamp of stat collection.
   def self.get_haproxy_stats(app_name)
-    Djinn.log_debug("Getting scaling info for application #{app_name}")
+    full_app_name = "gae_#{app_name}"
+    Djinn.log_debug("Getting scaling info for application #{full_app_name}")
 
     total_requests_seen = 0
     total_req_in_queue = 0
@@ -366,11 +372,11 @@ CONFIG
 
     # Retrieve total and enqueued requests for the given app.
     monitoring_info = Djinn.log_run("echo \"show stat\" | " +
-      "socat stdio unix-connect:#{HAPROXY_PATH}/stats | grep #{app_name}")
+      "socat stdio unix-connect:#{HAPROXY_PATH}/stats | grep #{full_app_name}")
     Djinn.log_debug("HAProxy raw stats: #{monitoring_info}")
 
     if monitoring_info.empty?
-      Djinn.log_warn("Didn't see any monitoring info - #{app_name} may not " +
+      Djinn.log_warn("Didn't see any monitoring info - #{full_app_name} may not " +
         "be running.")
       return :no_change, :no_change, :no_backend
     end
@@ -381,18 +387,22 @@ CONFIG
       # haproxy, so we skip them.
       next if parsed_info.length < TOTAL_REQUEST_RATE_INDEX
 
+      # Make sure the application name is correct (application name can be
+      # prefix of others application names).
+      next if parsed_info[APP_NAME_INDEX] != full_app_name
+
       service_name = parsed_info[SERVICE_NAME_INDEX]
 
       if service_name == "FRONTEND"
         total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
         time_requests_were_seen = Time.now.to_i
-        Djinn.log_debug("#{app_name} #{service_name} Requests Seen " +
+        Djinn.log_debug("#{full_app_name} #{service_name} Requests Seen " +
           "#{total_requests_seen}")
       end
 
       if service_name == "BACKEND"
         total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
-        Djinn.log_debug("#{app_name} #{service_name} Queued Currently " +
+        Djinn.log_debug("#{full_app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
       end
     }
@@ -417,8 +427,13 @@ CONFIG
       "unix-connect:#{HAPROXY_PATH}/stats | grep \"#{full_app_name}\"")
     servers.each_line{ |line|
       parsed_info = line.split(',')
+      # Make sure the application name is correct (application name can be
+      # prefix of others application names), and ignore the service
+      # summary lines.
+      next if parsed_info[APP_NAME_INDEX] != full_app_name
       next if parsed_info[SERVICE_NAME_INDEX] == "FRONTEND"
       next if parsed_info[SERVICE_NAME_INDEX] == "BACKEND"
+
       if parsed_info[SERVER_STATUS_INDEX] == "DOWN"
         failed << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
       else
