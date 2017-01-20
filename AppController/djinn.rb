@@ -61,6 +61,11 @@ APPS_LOCK = Monitor.new()
 AMS_LOCK = Mutex.new()
 
 
+# This lock is to ensure that only one thread is trying to start/stop
+# new nodes (it takes a long time to spawn a new VM).
+SCALE_LOCK = Mutex.new()
+
+
 # Prevents nodetool from being invoked concurrently.
 NODETOOL_LOCK = Mutex.new()
 
@@ -5797,7 +5802,12 @@ HOSTS
     # Only the shadow makes scaling decisions.
     return unless my_node.is_shadow?
 
-    # TODO: Do we need to get the apps lock here?
+    if SCALE_LOCK.locked?
+      Djinn.log_debug("Another thread is already working with the" +
+        " InfrastructureManager.")
+      return
+    end
+
     Djinn.log_debug("Seeing if we need to spawn new AppServer nodes")
 
     nodes_needed = []
@@ -5818,35 +5828,39 @@ HOSTS
       if num_of_scale_up_requests > 0
         Djinn.log_debug("Login node is requesting more AppServers for app " +
           "#{appid}, so adding a node.")
-        nodes_needed << ["memcache", "taskqueue_slave", "appengine"]
+        nodes_needed << ["appengine"]
       end
     }
 
-    if nodes_needed.empty?
-      Djinn.log_debug("Not adding any new AppServers at this time. Checking " +
-        "to see if we need to scale down.")
-      return examine_scale_down_requests(all_scaling_requests)
-    end
+    Thread.new {
+      SCALE_LOCK.synchronize {
+        if nodes_needed.empty?
+          Djinn.log_debug("Not adding any new AppServers at this time. Checking " +
+            "to see if we need to scale down.")
+          return examine_scale_down_requests(all_scaling_requests)
+        end
 
-    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
-            SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
-      Djinn.log_info("Not scaling up right now, as we recently scaled " +
-        "up or down.")
-      return 0
-    end
+        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
+                SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
+          Djinn.log_info("Not scaling up right now, as we recently scaled " +
+            "up or down.")
+          return
+        end
 
-    Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
-    added_nodes = start_new_roles_on_nodes(nodes_needed,
-      @options['instance_type'], @@secret)
+        Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
+        added_nodes = start_new_roles_on_nodes(nodes_needed,
+          @options['instance_type'], @@secret)
 
-    if added_nodes != "OK"
-      Djinn.log_error("Was not able to add #{nodes_needed.length} new nodes" +
-        " because: #{added_nodes}")
-      return 0
-    end
+        if added_nodes != "OK"
+          Djinn.log_error("Was not able to add #{nodes_needed.length} new nodes" +
+            " because: #{added_nodes}")
+          return
+        end
 
-    @last_scaling_time = Time.now.to_i
-    return nodes_needed.length
+        @last_scaling_time = Time.now.to_i
+        Djinn.log_info("Added the following nodes: #{nodes_needed}.")
+      }
+    }
   end
 
 
