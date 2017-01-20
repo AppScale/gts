@@ -935,10 +935,6 @@ class Djinn
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
     @@log.level = new_level if @@log.level != new_level
-
-    # Make sure flower is running with the proper password.
-    TaskQueue.stop_flower
-    TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
   end
 
   # This is the method needed to get the current layout and options for
@@ -1476,6 +1472,10 @@ class Djinn
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
         end
       end
+      if key == "flower_password"
+        TaskQueue.stop_flower
+        TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
+      end
       if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
         next
@@ -1922,6 +1922,8 @@ class Djinn
     # Next, restart any apps that have new code uploaded.
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
+        # Make sure we have the latest code deployed.
+        setup_app_dir(appid, true)
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
@@ -2649,7 +2651,9 @@ class Djinn
   #   app_id: A String containing the app ID.
   #   message: A String containing the message to log.
   def self.log_app_error(app_id, message)
-    Syslog.open("app___#{app_id}") { |s| s.err message }
+    Syslog.open("app___#{app_id}", Syslog::LOG_PID, Syslog::LOG_USER) { |s|
+      s.err message
+    }
   end
 
   # Appends this log message to a buffer, which will be periodically sent to

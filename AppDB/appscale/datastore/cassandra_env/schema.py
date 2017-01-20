@@ -104,6 +104,37 @@ def create_batch_tables(cluster, session):
     raise
 
 
+def create_transactions_table(session):
+  """ Create the table used for storing transaction metadata.
+
+  Args:
+    session: A cassandra-driver session.
+  """
+  create_table = """
+    CREATE TABLE IF NOT EXISTS transactions (
+      txid_hash blob,
+      operation tinyint,
+      namespace text,
+      path blob,
+      start_time timestamp,
+      is_xg boolean,
+      in_progress blob,
+      entity blob,
+      task blob,
+      PRIMARY KEY (txid_hash, operation, namespace, path)
+    )
+  """
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except cassandra.OperationTimedOut:
+    logging.warning(
+      'Encountered an operation timeout while creating transactions table. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
+
+
 def prime_cassandra(replication):
   """ Create Cassandra keyspace and initial tables.
 
@@ -170,6 +201,7 @@ def prime_cassandra(replication):
       raise
 
   create_batch_tables(cluster, session)
+  create_transactions_table(session)
   create_pull_queue_tables(cluster, session)
 
   first_entity = session.execute(
