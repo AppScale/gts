@@ -2909,7 +2909,6 @@ class Djinn
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
     Nginx.create_uaserver_config(my_node.private_ip)
-    Nginx.reload()
   end
 
   def configure_db_nginx()
@@ -2920,7 +2919,6 @@ class Djinn
       end
     }
     Nginx.create_datastore_server_config(all_db_private_ips, DatastoreServer::PROXY_PORT)
-    Nginx.reload()
   end
 
   # Creates HAProxy configuration for the TaskQueue REST API.
@@ -2934,7 +2932,6 @@ class Djinn
     HAProxy.create_tq_endpoint_config(all_tq_ips,
       my_node.private_ip, TaskQueue::HAPROXY_PORT)
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
-    Nginx.reload()
   end
 
   def write_database_info()
@@ -4335,6 +4332,18 @@ HOSTS
   end
 
 
+  # Reset the drain flags on HAProxy for to-be-terminated AppServers.
+  def reset_drain
+    @apps_loaded.each{ |app|
+      unless @terminated[app].nil?
+        @terminated[app].each { |location|
+          HAProxy.ensure_no_pending_request(app, location)
+        }
+      end
+    }
+  end
+
+
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4345,8 +4354,7 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = get_shadow.private_ip
 
-    apps_to_check = @apps_loaded
-    apps_to_check.each { |app|
+    @apps_loaded.each { |app|
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       appservers = []
@@ -4393,48 +4401,44 @@ HOSTS
         # If no AppServer is running, we clear the routing and the crons.
         Djinn.log_debug("Removing routing for #{app} since no AppServer is running.")
         Nginx.remove_app(app)
-        HAProxy.remove_app(app)
         CronHelper.clear_app_crontab(app)
-        next
-      end
-
-      begin
-        static_handlers = HelperFunctions.parse_static_data(app)
-      rescue => except
-        # This specific exception may be a JSON parse error.
-        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-          "Exception of #{except.class} with message #{except.message}"
-        place_error_app(app, error_msg, app_language)
-        static_handlers = []
-      end
-
-      HAProxy.update_app_config(my_private, app,
-        @app_info_map[app]['haproxy'], appservers)
-      # We need to set the drain on haproxy on the terminated AppServers,
-      # since a reload of HAProxy would have reset them.
-      @apps_loaded.each{ |apps|
-        unless @terminated[app].nil?
-          @terminated[app].each { |location|
-            HAProxy.ensure_no_pending_request(app, location)
-          }
-        end
-      }
-
-      # If nginx config files have been updated, we communicate the app's
-      # ports to the UserAppServer to make sure we have the latest info.
-      if Nginx.write_fullproxy_app_config(app, http_port, https_port,
-          my_public, my_private, proxy_port, static_handlers, login_ip,
-          app_language)
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
+        HAProxy.remove_app(app)
+      else
         begin
-          if uac.add_instance(app, my_public, http_port, https_port)
-            Djinn.log_info("Committed application info for #{app} " +
-              "to user_app_server")
-          end
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
+          static_handlers = HelperFunctions.parse_static_data(app)
+        rescue => except
+          # This specific exception may be a JSON parse error.
+          error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
+            "Exception of #{except.class} with message #{except.message}"
+          place_error_app(app, error_msg, app_language)
+          static_handlers = []
         end
+
+        # If nginx config files have been updated, we communicate the app's
+        # ports to the UserAppServer to make sure we have the latest info.
+        if Nginx.write_fullproxy_app_config(app, http_port, https_port,
+            my_public, my_private, proxy_port, static_handlers, login_ip,
+            app_language)
+          uac = UserAppClient.new(my_node.private_ip, @@secret)
+          begin
+            if uac.add_instance(app, my_public, http_port, https_port)
+              Djinn.log_info("Committed application info for #{app} " +
+                "to user_app_server")
+            end
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
+          end
+        end
+
+        HAProxy.update_app_config(my_private, app,
+          @app_info_map[app]['haproxy'], appservers)
       end
+
+      # We need to set the drain on haproxy on the terminated AppServers,
+      # since a reload of HAProxy would have reset them. We do it for each
+      # app in order to minimize the window of a terminated AppServer
+      # being reinstead as active by HAProxy.
+      reset_drain
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
   end
@@ -4883,7 +4887,11 @@ HOSTS
       if my_node.is_load_balancer?
         stop_xmpp_for_app(app)
         Nginx.remove_app(app)
+
+        # Since the removal of an app from HAProxy can cause a reset of
+        # the drain flags, let's set them again.
         HAProxy.remove_app(app)
+        reset_drain
       end
 
       if my_node.is_appengine?
