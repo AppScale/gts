@@ -2909,7 +2909,6 @@ class Djinn
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
     Nginx.create_uaserver_config(my_node.private_ip)
-    Nginx.reload()
   end
 
   def configure_db_nginx()
@@ -2920,7 +2919,6 @@ class Djinn
       end
     }
     Nginx.create_datastore_server_config(all_db_private_ips, DatastoreServer::PROXY_PORT)
-    Nginx.reload()
   end
 
   # Creates HAProxy configuration for the TaskQueue REST API.
@@ -2934,7 +2932,6 @@ class Djinn
     HAProxy.create_tq_endpoint_config(all_tq_ips,
       my_node.private_ip, TaskQueue::HAPROXY_PORT)
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
-    Nginx.reload()
   end
 
   def write_database_info()
