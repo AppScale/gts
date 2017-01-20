@@ -5502,7 +5502,7 @@ HOSTS
         total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
 
         # Ensure we have enough memory for all running AppServers.
-        if !max_memory[host].nil? and max_memory[host] > total - SAFE_MEM
+        if !max_memory[host].nil? && max_memory[host] > total - SAFE_MEM
           Djinn.log_debug("#{host} doesn't have enough total memory.")
           break
         end
