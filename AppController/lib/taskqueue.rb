@@ -238,6 +238,11 @@ module TaskQueue
   # Args:
   #   flower_password: A String that is used as the password to log into flower.
   def self.start_flower(flower_password)
+    if flower_password.nil? || flower_password.empty?
+      Djinn.log_info("Flower password is empty: don't start flower.")
+      return
+    end
+
     flower_cmd = `which flower`.chomp
     start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +

@@ -126,7 +126,7 @@ class DatastoreDistributed():
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
 
-    # Maintain a stub object for each project using transactinal tasks.
+    # Maintain a stub object for each project using transactional tasks.
     self.taskqueue_stubs = {}
 
   def get_limit(self, query):
@@ -138,8 +138,12 @@ class DatastoreDistributed():
       An int, the limit to be used when accessing the datastore.
     """
     limit = self._MAXIMUM_RESULTS
+    if query.has_count():
+      limit = min(query.count(), self._MAXIMUM_RESULTS)
+
     if query.has_limit():
-      limit = min(query.limit(), self._MAXIMUM_RESULTS)
+      limit = min(query.limit(), limit)
+
     if query.has_offset():
       limit = limit + min(query.offset(), self._MAXIMUM_RESULTS)
     # We can not scan with 0 or less, hence we set it to one.
