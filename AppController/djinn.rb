@@ -3006,7 +3006,7 @@ class Djinn
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
-  #   A boolean to indicate if we were able to restore the state.
+  #   A boolean indicating if the state is restored or current with the master.
   def restore_appcontroller_state()
     json_state=""
 
@@ -3029,7 +3029,7 @@ class Djinn
     }
     if @appcontroller_state == json_state
       Djinn.log_debug("Reload state: no changes.")
-      return
+      return true
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
