@@ -205,8 +205,12 @@ def start_app(config):
     config['language'], config['app_name']))
 
   env_vars = config['env_vars']
-  env_vars['GOPATH'] = os.path.join(GO_SDK, 'gopath')
-  env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
+
+  if config['language'] == constants.GO:
+    env_vars['GOPATH'] = os.path.join('/var', 'apps', config['app_name'],
+                                      'gopath')
+    env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
+
   watch = "app___" + config['app_name']
   match_cmd = ""
 
