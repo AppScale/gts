@@ -208,6 +208,10 @@ class AppScaleBadArg(Exception):
   def __str__(self):
     return repr(self.value)
 
+class ConcurrentModificationException(Exception):
+  """ Indicates that an entity fetched during a transaction has changed. """
+  pass
+
 class TooManyGroupsException(Exception):
   """ Indicates that there are too many groups involved in a transaction. """
   pass
