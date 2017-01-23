@@ -4190,6 +4190,8 @@ class Djinn
 
     # If nothing changed since last time we wrote locations file(s), skip it.
     if new_content != @locations_content
+      @locations_content = new_content
+
       # For the taskqueue, let's shuffle the entries, and then put
       # ourselves as first option, if we are a taskqueue node.
       taskqueue_ips.shuffle!
@@ -4230,8 +4232,6 @@ class Djinn
 
       Djinn.log_info("Search service locations: #{search_ips}.")
       HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE, search_content)
-
-      @locations_content = new_content
     end
   end
 
