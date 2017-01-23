@@ -16,25 +16,27 @@
 #
 """Stub implementation for Log Service that uses sqlite."""
 
-import time
+
+import base64
+import capnp # pylint: disable=unused-import
+import logging
+import logging_capnp
 import os
 import socket
 import struct
-import logging
-import base64
 import sys
-from Queue import Queue, Empty
+import time
+
+
 from collections import defaultdict
-
-import capnp # pylint: disable=unused-import
-
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.logservice import log_service_pb
 from google.appengine.runtime import apiproxy_errors
+from Queue import Queue, Empty
 
+# Add path to import file_io
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../lib"))
 import file_io
-import logging_capnp
 
 _I_SIZE = struct.calcsize('I')
 

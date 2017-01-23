@@ -17,6 +17,7 @@
 """Manage the lifecycle of runtime processes and dispatch requests to them."""
 
 
+import capnp
 import collections
 import cStringIO
 import functools
@@ -34,7 +35,6 @@ import urllib
 import urlparse
 import wsgiref.headers
 
-import capnp
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub_map

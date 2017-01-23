@@ -1,14 +1,16 @@
 #!/usr/bin/python
 import argparse
+import capnp  # pylint: disable=unused-import
+import logging
+import logging_capnp
 import socket
 import struct
-import time
-import logging
 import sys
+import time
+
+
 from urlparse import urlparse
 
-import capnp  # pylint: disable=unused-import
-import logging_capnp
 
 _I_SIZE = struct.calcsize('I')
 MAX_LOG_LINE_LENGTH = 120

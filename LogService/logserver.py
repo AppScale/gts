@@ -1,12 +1,12 @@
-import struct
-import os
-import re
-import time
-from cStringIO import StringIO
 
 import capnp  # pylint: disable=unused-import
 import logging_capnp
+import os
+import re
+import struct
+import time
 
+from cStringIO import StringIO
 from twisted.internet import protocol
 from twisted.python import log
 

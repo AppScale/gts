@@ -1,13 +1,12 @@
 import os
 
-from zope.interface import implementer
-
-from twisted.python import usage
-from twisted.plugin import IPlugin
-from twisted.application.service import IServiceMaker
-from twisted.application import internet, service
 
 from logserver import LogServerFactory
+from twisted.application import internet, service
+from twisted.application.service import IServiceMaker
+from twisted.plugin import IPlugin
+from twisted.python import usage
+from zope.interface import implementer
 
 
 class Options(usage.Options):
