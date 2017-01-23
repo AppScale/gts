@@ -104,6 +104,24 @@ def create_batch_tables(cluster, session):
     raise
 
 
+def create_groups_table(session):
+  create_table = """
+    CREATE TABLE IF NOT EXISTS group_updates (
+      group blob PRIMARY KEY,
+      last_update int
+    )
+  """
+  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
+  try:
+    session.execute(statement)
+  except cassandra.OperationTimedOut:
+    logging.warning(
+      'Encountered an operation timeout while creating group_updates table. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
+
+
 def create_transactions_table(session):
   """ Create the table used for storing transaction metadata.
 
@@ -201,6 +219,7 @@ def prime_cassandra(replication):
       raise
 
   create_batch_tables(cluster, session)
+  create_groups_table(session)
   create_transactions_table(session)
   create_pull_queue_tables(cluster, session)
 
