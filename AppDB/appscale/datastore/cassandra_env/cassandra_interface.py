@@ -6,6 +6,7 @@
 import cassandra
 import datetime
 import logging
+import struct
 import sys
 import time
 import uuid
@@ -42,6 +43,7 @@ import appscale_info
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.datastore import entity_pb
 
 
 # The directory Cassandra is installed to.
@@ -489,6 +491,17 @@ class DatastoreProxy(AppDBInterface):
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
+
+      if table == 'group_updates':
+        key = mutation['key']
+        insert = """
+          INSERT INTO group_updates (group, last_update)
+          VALUES (%(group)s, %(last_update)s)
+        """
+        parameters = {'group': key, 'last_update': mutation['last_update']}
+        batch.add(insert, parameters)
+        continue
+
       if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
@@ -523,6 +536,17 @@ class DatastoreProxy(AppDBInterface):
     statements_and_params = []
     for mutation in mutations:
       table = mutation['table']
+
+      if table == 'group_updates':
+        key = mutation['key']
+        insert = """
+          INSERT INTO group_updates (group, last_update)
+          VALUES (%(group)s, %(last_update)s)
+        """
+        parameters = {'group': key, 'last_update': mutation['last_update']}
+        statements_and_params.append((SimpleStatement(insert), parameters))
+        continue
+
       if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
@@ -950,19 +974,51 @@ class DatastoreProxy(AppDBInterface):
 
     return version is not None and float(version) == EXPECTED_DATA_VERSION
 
-  def start_transaction(self, app, txid, is_xg):
+  def group_updates(self, groups):
+    """ Fetch the latest transaction IDs for each group.
+
+    Args:
+      groups: An interable containing encoded Reference objects.
+    Returns:
+      A set of integers specifying transaction IDs.
+    """
+    futures = []
+    for group in groups:
+      query = 'SELECT * FROM group_updates WHERE group=%s'
+      futures.append(self.session.execute_async(query, [bytearray(group)]))
+
+    updates = set()
+    for future in futures:
+      rows = future.result()
+      try:
+        result = rows[0]
+      except IndexError:
+        continue
+
+      updates.add(result.last_update)
+
+    return updates
+
+  def start_transaction(self, app, txid, is_xg, in_progress):
     """ Persist transaction metadata.
 
     Args:
       app: A string containing an application ID.
       txid: An integer specifying the transaction ID.
       is_xg: A boolean specifying that the transaction is cross-group.
+      in_progress: An iterable containing transaction IDs.
     """
+    if in_progress:
+      in_progress_bin = bytearray(
+        struct.pack('q' * len(in_progress), *in_progress))
+    else:
+      in_progress_bin = None
+
     insert = """
       INSERT INTO transactions (txid_hash, operation, namespace, path,
-                                start_time, is_xg)
+                                start_time, is_xg, in_progress)
       VALUES (%(txid_hash)s, %(operation)s, %(namespace)s, %(path)s,
-              %(start_time)s, %(is_xg)s)
+              %(start_time)s, %(is_xg)s, %(in_progress)s)
       USING TTL {ttl}
     """.format(ttl=dbconstants.MAX_TX_DURATION * 2)
     parameters = {'txid_hash': tx_partition(app, txid),
@@ -970,7 +1026,8 @@ class DatastoreProxy(AppDBInterface):
                   'namespace': '',
                   'path': bytearray(''),
                   'start_time': datetime.datetime.utcnow(),
-                  'is_xg': is_xg}
+                  'is_xg': is_xg,
+                  'in_progress': in_progress_bin}
 
     try:
       self.session.execute(insert, parameters)
@@ -1023,8 +1080,8 @@ class DatastoreProxy(AppDBInterface):
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
       VALUES (?, ?, ?, ?, ?)
-      USING TTL 120
-    """)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
 
     for key in entity_keys:
       # The None value overwrites previous puts.
@@ -1101,6 +1158,39 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  def record_reads(self, app, txid, group_keys):
+    """ Keep track of which entity groups were read in a transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+      group_keys: An iterable containing Reference objects.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path)
+      VALUES (?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for group_key in group_keys:
+      if not isinstance(group_key, entity_pb.Reference):
+        group_key = entity_pb.Reference(group_key)
+
+      args = (tx_partition(app, txid),
+              TxnActions.GET,
+              group_key.name_space(),
+              bytearray(group_key.path().Encode()))
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while recording reads in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
   def get_transaction_metadata(self, app, txid):
     """ Fetch transaction state.
 
@@ -1111,7 +1201,8 @@ class DatastoreProxy(AppDBInterface):
       A dictionary containing transaction state.
     """
     select = """
-      SELECT namespace, operation, path, start_time, is_xg, entity, task
+      SELECT namespace, operation, path, start_time, is_xg, in_progress,
+             entity, task
       FROM transactions
       WHERE txid_hash = %(txid_hash)s
     """
@@ -1123,17 +1214,25 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-    metadata = {'puts': {}, 'deletes': [], 'tasks': []}
+    metadata = {'puts': {}, 'deletes': [], 'tasks': [], 'reads': set()}
     for result in results:
       if result.operation == TxnActions.START:
         metadata['start'] = result.start_time
         metadata['is_xg'] = result.is_xg
+        metadata['in_progress'] = set()
+        if metadata['in_progress'] is not None:
+          metadata['in_progress'] = set(
+            struct.unpack('q' * int(len(result.in_progress) / 8),
+                          result.in_progress))
       if result.operation == TxnActions.MUTATE:
         key = create_key(app, result.namespace, result.path)
         if result.entity is None:
           metadata['deletes'].append(key)
         else:
           metadata['puts'][key.Encode()] = result.entity
+      if result.operation == TxnActions.GET:
+        group_key = create_key(app, result.namespace, result.path)
+        metadata['reads'].add(group_key.Encode())
       if result.operation == TxnActions.ENQUEUE_TASK:
         metadata['tasks'].append(
           taskqueue_service_pb.TaskQueueAddRequest(result.task))

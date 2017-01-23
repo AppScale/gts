@@ -22,12 +22,9 @@ class TaskQueueClient
   # The port that the TaskQueue Server binds to.
   SERVER_PORT = 17446
 
-  # Location of where the nearest taskqueue server is.
-  NEAREST_TQ_LOCATION = '/etc/appscale/rabbitmq_ip'
-
   # Initialization function for TaskQueueClient
-  def initialize()
-    @ip = HelperFunctions.read_file(NEAREST_TQ_LOCATION)
+  def initialize(which_ip)
+    @ip = which_ip
   end
 
 
