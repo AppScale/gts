@@ -4197,6 +4197,7 @@ class Djinn
         taskqueue_ips.delete(my_private)
         taskqueue_ips.unshift(my_private)
       end
+      taskqueue_content = taskqueue_ips.join("\n") + "\n"
 
       Djinn.log_info("All private IPs: #{all_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
