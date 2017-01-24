@@ -129,7 +129,8 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       client.send('a%s%s' % (struct.pack('I', len(app_id)), app_id))
       return key, client
     except socket.error:
-      logging.exception("Log Server at {ip} refused connection".format(ip=ip))
+      logging.exception(
+        "Log Server at {ip} refused connection".format(ip=self._log_server_ip))
       return None, None
 
   def _release_logserver_connection(self, key, connection):
