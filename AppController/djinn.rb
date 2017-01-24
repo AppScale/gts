@@ -2054,7 +2054,6 @@ class Djinn
 
     # Load datastore helper.
     # TODO: this should be the class or module.
-    @state = "Setting up database configuration files"
     table = @options['table']
     # require db_file
     begin
