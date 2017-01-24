@@ -187,11 +187,11 @@ def get_db_slave_ips():
   Returns:
     A list of IP of the datastore slaves.
   """
-  nodes = file_io.read(constants.SLAVES_FILE_LOC).rstrip()
-  nodes = nodes.split('\n')
-  if nodes[-1] == '':
-    nodes = nodes[:-1]
-  return nodes
+  try:
+    with open(constants.SLAVES_FILE_LOC) as slaves_file:
+      return [ip for ip in slaves_file.readlines() if ip]
+  except IOError:
+    return []
 
 def get_db_ips():
   """ Returns a list of database machines.
