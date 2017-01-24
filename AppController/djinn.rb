@@ -4182,7 +4182,7 @@ class Djinn
     taskqueue_content = taskqueue_ips.join("\n") + "\n"
     login_content = login_ips.join("\n") + "\n"
     master_content = master_ips.join("\n") + "\n"
-    search_content = slave_ips.join("\n") + "\n"
+    search_content = search_ips.join("\n") + "\n"
     slaves_content = slave_ips.join("\n") + "\n"
 
     new_content = all_ips_content + login_content + load_balancer_content +
