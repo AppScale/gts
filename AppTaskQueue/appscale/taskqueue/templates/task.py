@@ -105,10 +105,13 @@ def QUEUE_NAME(headers, args):
     connection.endheaders()
     if args["body"]:
       connection.send(args['body'])
+
+    retries = int(QUEUE_NAME.request.retries) + 1
+    wait_time = get_wait_time(retries, args)
+
     response = connection.getresponse()
     payload = response.read()
     response.close()
-    retries = int(QUEUE_NAME.request.retries) + 1
     if 200 <= response.status < 300:
       # Task successful.
       item = TaskName.get_by_key_name(args['task_name'])
@@ -120,12 +123,11 @@ def QUEUE_NAME(headers, args):
         args['task_name'], redirect_url))
       url = urlparse(redirect_url)
       if redirects_left == 0:
-        raise QUEUE_NAME.retry(countdown=get_wait_time(retries, args))
+        raise QUEUE_NAME.retry(countdown=wait_time)
       redirects_left -= 1
     else:
       # Fail
       # TODO: Update the database with the failed status
-      wait_time = get_wait_time(retries, args)
       logger.warning("Task %s will retry in %d seconds. "
                      "Got response of %d when doing a %s on %s" % \
                       (args['task_name'],
