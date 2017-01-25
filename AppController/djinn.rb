@@ -4208,7 +4208,7 @@ class Djinn
     taskqueue_content = taskqueue_ips.join("\n") + "\n"
     login_content = login_ips.join("\n") + "\n"
     master_content = master_ips.join("\n") + "\n"
-    search_content = slave_ips.join("\n") + "\n"
+    search_content = search_ips.join("\n") + "\n"
     slaves_content = slave_ips.join("\n") + "\n"
 
     new_content = all_ips_content + login_content + load_balancer_content +
@@ -4252,7 +4252,11 @@ class Djinn
 
       Djinn.log_info("Database master is at #{master_ips}, slaves are at #{slave_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves", "#{slaves_content}")
+
+      unless slaves_content.chomp.empty?
+        HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves",
+                                   slaves_content)
+      end
 
       Djinn.log_info("My public IP is #{my_public}, and my private is #{my_private}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}")
@@ -4262,7 +4266,10 @@ class Djinn
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
 
       Djinn.log_info("Search service locations: #{search_ips}.")
-      HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE, search_content)
+      unless search_content.chomp.empty?
+        HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,
+                                   search_content)
+      end
     end
   end
 
