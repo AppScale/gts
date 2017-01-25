@@ -3550,6 +3550,7 @@ class Djinn
     if my_node.is_shadow?
       pick_zookeeper(@zookeeper_data)
       set_custom_config
+      start_log_server
     end
 
     if my_node.is_db_master? or my_node.is_db_slave?
@@ -3852,6 +3853,29 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(my_node.private_ip, DatastoreServer::PROXY_PORT)
   end
 
+  # Starts the Log Server service on this machine
+  def start_log_server
+    log_server_pid = "/var/run/appscale-logserver.pid"
+    start_cmd = "twistd --pidfile=#{log_server_pid} appscale-logserver"
+    stop_cmd = "/bin/bash -c '$(which kill) $(cat #{log_server_pid}'"
+    port = 7422
+    env = {
+        'APPSCALE_HOME' => APPSCALE_HOME,
+        'PYTHONPATH' => "#{APPSCALE_HOME}/LogService/"
+    }
+
+    MonitInterface.start(:log_service, start_cmd, stop_cmd, [port], env,
+                         start_cmd, nil, "#{log_server_pid}", nil)
+    Djinn.log_info("Started Log Server successfully!")
+  end
+
+
+  def stop_log_server
+    Djinn.log_info("Stopping Log Server")
+    MonitInterface.stop(:log_service)
+  end
+
+
   # Stops the Backup/Recovery service.
   def stop_backup_service()
     BackupRecoveryService.stop()
@@ -4065,6 +4089,7 @@ class Djinn
     server = "#{APPSCALE_HOME}/AppServer"
     server_java = "#{APPSCALE_HOME}/AppServer_Java"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
+    log_service = "#{APPSCALE_HOME}/LogService"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -4081,6 +4106,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
+    HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     if dest_node.is_appengine?
       locations_json = "#{APPSCALE_METADATA_DIR}/locations-#{@options['keyname']}.json"
       loop {
@@ -4201,6 +4227,10 @@ class Djinn
         taskqueue_ips.unshift(my_private)
       end
       taskqueue_content = taskqueue_ips.join("\n") + "\n"
+
+      head_node_private_ip = get_shadow.private_ip
+      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_private_ip",
+                                 "#{head_node_private_ip}\n")
 
       Djinn.log_info("All private IPs: #{all_ips}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
