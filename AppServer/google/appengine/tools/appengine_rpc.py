@@ -40,7 +40,7 @@ logger = logging.getLogger('google.appengine.tools.appengine_rpc')
 
 # The location of the file which contains the public IP of the AppScale 
 # Dashboard.
-APPSCALE_DASHBOARD_IP_LOC = "/etc/appscale/appdashboard_public_ip"
+APPSCALE_LOGIN_IP = "/etc/appscale/login_ip"
 
 def GetPlatformToken(os_module=os, sys_module=sys, platform=sys.platform):
   """Returns a 'User-agent' token for the host system platform.
@@ -268,9 +268,11 @@ class AbstractRpcServer(object):
       The IP address where the AppDashboard can be contacted.
     """
     try:
-      file_handle = open(APPSCALE_DASHBOARD_IP_LOC)
-      ip = file_handle.read()
+      file_handle = open(APPSCALE_LOGIN_IP)
+      raw_ips = file_handle.read()
       file_handle.close()
+      ips = raw_ips.split('\n')
+      ip = ips[0]
     except IOError:
       logger.info("Saw an IOError when trying to get the AppDashboard's" + \
         "public IP, returning localhost instead")

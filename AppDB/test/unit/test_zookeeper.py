@@ -8,6 +8,7 @@ import kazoo.protocol.states
 import time
 import unittest
 
+from appscale.datastore.dbconstants import MAX_GROUPS_FOR_XG
 from appscale.datastore.zkappscale import zktransaction as zk
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from flexmock import flexmock
@@ -311,7 +312,7 @@ class TestZookeeperTransaction(unittest.TestCase):
       "txid", "somekey", True))
 
     # Test for existing max groups
-    lock_list = ['path' + str(num+1) for num in range(zk.MAX_GROUPS_FOR_XG)]
+    lock_list = ['path' + str(num+1) for num in range(MAX_GROUPS_FOR_XG)]
     lock_list_str = zk.LOCK_LIST_SEPARATOR.join(lock_list)
     fake_zookeeper.should_receive('retry').with_args('get', str) \
       .and_return([lock_list_str])

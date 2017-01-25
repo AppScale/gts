@@ -1,4 +1,6 @@
 $:.unshift File.join(File.dirname(__FILE__), "lib")
+require 'fileutils'
+
 APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 module TerminateHelper
@@ -32,7 +34,19 @@ module TerminateHelper
     `/usr/bin/python2 /root/appscale/scripts/stop_service.py /root/appscale/AppController/djinnServer.rb /usr/bin/ruby`
     `monit start all`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
-    `rm -f #{APPSCALE_CONFIG_DIR}/search_ip`
+
+    # Remove location files.
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/all_ips")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/load_balancer_ips")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/login_ip")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/masters")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/memcache_ips")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/my_private_ip")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/num_of_nodes")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/search_ip")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/slaves")
+    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/taskqueue_nodes")
 
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
     `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`

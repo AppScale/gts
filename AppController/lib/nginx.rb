@@ -424,7 +424,7 @@ CONFIG
     config_path = File.join(SITES_ENABLED_PATH, "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    HAProxy.regenerate_config
+    Nginx.reload()
   end
 
   # Creates an Nginx configuration file for the Users/Apps soap server.
@@ -481,7 +481,7 @@ CONFIG
     config_path = File.join(SITES_ENABLED_PATH, "appscale-uaserver.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    HAProxy.regenerate_config
+    Nginx.reload()
   end
 
   # Creates an Nginx configuration file for TaskQueue REST API.
@@ -528,7 +528,7 @@ CONFIG
     config_path = File.join(SITES_ENABLED_PATH, "appscale-taskqueue.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    HAProxy.regenerate_config
+    Nginx.reload()
   end
 
   # Set up the folder structure and creates the configuration files necessary for nginx

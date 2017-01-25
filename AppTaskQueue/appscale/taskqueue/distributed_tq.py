@@ -170,9 +170,6 @@ class DistributedTaskQueue():
   # Required stop worker name tags.
   STOP_WORKERS_TAGS = ['app_id']
 
-  # Autoscale argument for max/min concurrency for a celery worker.
-  MIN_MAX_CONCURRENCY = "10,1"
-
   # The location of where celery logs go.
   LOG_DIR = "/var/log/appscale/celery_workers/"
 
@@ -209,6 +206,9 @@ class DistributedTaskQueue():
 
   # A dict that tells celery to run tasks even though we are running as root.
   CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
+
+  # The max memory allocated to celery worker pools in MB.
+  CELERY_MAX_MEMORY = 1000
 
   def __init__(self, db_access):
     """ DistributedTaskQueue Constructor.
@@ -432,7 +432,7 @@ class DistributedTaskQueue():
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
                "--autoscale={max},{min}".format(
                  max=TaskQueueConfig.MAX_CELERY_CONCURRENCY,
-                 min=TaskQueueConfig.MIN_CELERY_CONCURRENTY),
+                 min=TaskQueueConfig.MIN_CELERY_CONCURRENCY),
                "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
                "--pidfile=" + self.PID_FILE_LOC + 'celery___' + \
                              app_id + ".pid",
@@ -446,6 +446,7 @@ class DistributedTaskQueue():
                                                start_command, 
                                                stop_command, 
                                                [self.CELERY_PORT],
+                                               max_memory=self.CELERY_MAX_MEMORY,
                                                env_vars=self.CELERY_ENV_VARS)
     if monit_interface.start(watch):
       json_response = {'error': False}

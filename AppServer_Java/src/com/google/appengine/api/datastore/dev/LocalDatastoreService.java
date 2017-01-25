@@ -1184,15 +1184,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             this.offset = offset;
 
             this.lastCursor.copyFrom(cursor);
-            if (query.hasCount()) {
-              this.totalCount = Integer.valueOf(this.query.getCount());
-              if (query.hasLimit()) {
-                  int limit = Integer.valueOf(this.query.getLimit());
-                  if (limit < this.totalCount)
-                    this.totalCount = limit;
-              }
-            }
-            else if (query.hasLimit()) {
+            if (query.hasLimit()) {
               this.totalCount = Integer.valueOf(this.query.getLimit());
             }
             else {

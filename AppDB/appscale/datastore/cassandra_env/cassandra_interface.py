@@ -4,9 +4,12 @@
  Cassandra Interface for AppScale
 """
 import cassandra
+import datetime
 import logging
+import struct
 import sys
 import time
+import uuid
 
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
@@ -19,10 +22,13 @@ from cassandra.query import ValueSequence
 from .. import dbconstants
 from .. import helper_functions
 from ..dbconstants import AppScaleDBConnectionError
+from ..dbconstants import Operations
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
 from ..unpackaged import APPSCALE_LIB_DIR
+from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..utils import clean_app_id
+from ..utils import create_key
 from ..utils import encode_index_pb
 from ..utils import get_composite_index_keys
 from ..utils import get_composite_indexes_rows
@@ -30,9 +36,15 @@ from ..utils import get_entity_key
 from ..utils import get_entity_kind
 from ..utils import get_index_kv_from_tuple
 from ..utils import get_kind_key
+from ..utils import tx_partition
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.datastore import entity_pb
+
 
 # The directory Cassandra is installed to.
 CASSANDRA_INSTALL_DIR = '/opt/cassandra'
@@ -97,29 +109,29 @@ def deletions_for_entity(entity, composite_indices=()):
   for entry in asc_rows:
     deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   dsc_rows = get_index_kv_from_tuple(
     [(prefix, entity)], reverse=True)
   for entry in dsc_rows:
     deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   for key in get_composite_indexes_rows([entity], composite_indices):
     deletions.append({'table': dbconstants.COMPOSITE_TABLE,
                       'key': key,
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   entity_key = get_entity_key(prefix, entity.key().path())
   deletions.append({'table': dbconstants.APP_ENTITY_TABLE,
                     'key': entity_key,
-                    'operation': TxnActions.DELETE})
+                    'operation': Operations.DELETE})
 
   kind_key = get_kind_key(prefix, entity.key().path())
   deletions.append({'table': dbconstants.APP_KIND_TABLE,
                     'key': kind_key,
-                    'operation': TxnActions.DELETE})
+                    'operation': Operations.DELETE})
 
   return deletions
 
@@ -163,14 +175,14 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
       [app_id, namespace, kind, prop.name(), value, entity_key])
     deletions.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': key,
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
     reverse_key = dbconstants.KEY_DELIMITER.join(
       [app_id, namespace, kind, prop.name(),
        helper_functions.reverse_lex(value), entity_key])
     deletions.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': reverse_key,
-                      'operation': TxnActions.DELETE})
+                      'operation': Operations.DELETE})
 
   changed_prop_names = set(changed_props.keys())
   for index in composite_indices:
@@ -187,7 +199,7 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
     for entry in (old_entries - new_entries):
       deletions.append({'table': dbconstants.COMPOSITE_TABLE,
                         'key': entry,
-                        'operation': TxnActions.DELETE})
+                        'operation': Operations.DELETE})
 
   return deletions
 
@@ -218,7 +230,7 @@ def mutations_for_entity(entity, txn, current_value=None,
                   dbconstants.APP_ENTITY_SCHEMA[1]: str(txn)}
   mutations.append({'table': dbconstants.APP_ENTITY_TABLE,
                     'key': entity_key,
-                    'operation': TxnActions.PUT,
+                    'operation': Operations.PUT,
                     'values': entity_value})
 
   reference_value = {'reference': entity_key}
@@ -226,27 +238,27 @@ def mutations_for_entity(entity, txn, current_value=None,
   kind_key = get_kind_key(prefix, entity.key().path())
   mutations.append({'table': dbconstants.APP_KIND_TABLE,
                     'key': kind_key,
-                    'operation': TxnActions.PUT,
+                    'operation': Operations.PUT,
                     'values': reference_value})
 
   asc_rows = get_index_kv_from_tuple([(prefix, entity)])
   for entry in asc_rows:
     mutations.append({'table': dbconstants.ASC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.PUT,
+                      'operation': Operations.PUT,
                       'values': reference_value})
 
   dsc_rows = get_index_kv_from_tuple([(prefix, entity)], reverse=True)
   for entry in dsc_rows:
     mutations.append({'table': dbconstants.DSC_PROPERTY_TABLE,
                       'key': entry[0],
-                      'operation': TxnActions.PUT,
+                      'operation': Operations.PUT,
                       'values': reference_value})
 
   for key in get_composite_indexes_rows([entity], composite_indices):
     mutations.append({'table': dbconstants.COMPOSITE_TABLE,
                       'key': key,
-                      'operation': TxnActions.PUT,
+                      'operation': Operations.PUT,
                       'values': reference_value})
 
   return mutations
@@ -479,7 +491,18 @@ class DatastoreProxy(AppDBInterface):
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
-      if mutation['operation'] == TxnActions.PUT:
+
+      if table == 'group_updates':
+        key = mutation['key']
+        insert = """
+          INSERT INTO group_updates (group, last_update)
+          VALUES (%(group)s, %(last_update)s)
+        """
+        parameters = {'group': key, 'last_update': mutation['last_update']}
+        batch.add(insert, parameters)
+        continue
+
+      if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
         values = mutation['values']
@@ -488,7 +511,7 @@ class DatastoreProxy(AppDBInterface):
             prepared_statements['insert'][table],
             (bytearray(mutation['key']), column, bytearray(values[column]))
           )
-      elif mutation['operation'] == TxnActions.DELETE:
+      elif mutation['operation'] == Operations.DELETE:
         if table not in prepared_statements['delete']:
           prepared_statements['delete'][table] = self.prepare_delete(table)
         batch.add(
@@ -513,7 +536,18 @@ class DatastoreProxy(AppDBInterface):
     statements_and_params = []
     for mutation in mutations:
       table = mutation['table']
-      if mutation['operation'] == TxnActions.PUT:
+
+      if table == 'group_updates':
+        key = mutation['key']
+        insert = """
+          INSERT INTO group_updates (group, last_update)
+          VALUES (%(group)s, %(last_update)s)
+        """
+        parameters = {'group': key, 'last_update': mutation['last_update']}
+        statements_and_params.append((SimpleStatement(insert), parameters))
+        continue
+
+      if mutation['operation'] == Operations.PUT:
         if table not in prepared_statements['insert']:
           prepared_statements['insert'][table] = self.prepare_insert(table)
         values = mutation['values']
@@ -522,7 +556,7 @@ class DatastoreProxy(AppDBInterface):
                     bytearray(values[column]))
           statements_and_params.append(
             (prepared_statements['insert'][table], params))
-      elif mutation['operation'] == TxnActions.DELETE:
+      elif mutation['operation'] == Operations.DELETE:
         if table not in prepared_statements['delete']:
           prepared_statements['delete'][table] = self.prepare_delete(table)
         params = (bytearray(mutation['key']),)
@@ -630,7 +664,6 @@ class DatastoreProxy(AppDBInterface):
       txn: A transaction ID handler.
     """
     size = batch_size(mutations)
-    self.logger.debug('batch_size: {}'.format(size))
     if size > LARGE_BATCH_THRESHOLD:
       self._large_batch(app, mutations, entity_changes, txn)
     else:
@@ -940,3 +973,267 @@ class DatastoreProxy(AppDBInterface):
       return False
 
     return version is not None and float(version) == EXPECTED_DATA_VERSION
+
+  def group_updates(self, groups):
+    """ Fetch the latest transaction IDs for each group.
+
+    Args:
+      groups: An interable containing encoded Reference objects.
+    Returns:
+      A set of integers specifying transaction IDs.
+    """
+    futures = []
+    for group in groups:
+      query = 'SELECT * FROM group_updates WHERE group=%s'
+      futures.append(self.session.execute_async(query, [bytearray(group)]))
+
+    updates = set()
+    for future in futures:
+      rows = future.result()
+      try:
+        result = rows[0]
+      except IndexError:
+        continue
+
+      updates.add(result.last_update)
+
+    return updates
+
+  def start_transaction(self, app, txid, is_xg, in_progress):
+    """ Persist transaction metadata.
+
+    Args:
+      app: A string containing an application ID.
+      txid: An integer specifying the transaction ID.
+      is_xg: A boolean specifying that the transaction is cross-group.
+      in_progress: An iterable containing transaction IDs.
+    """
+    if in_progress:
+      in_progress_bin = bytearray(
+        struct.pack('q' * len(in_progress), *in_progress))
+    else:
+      in_progress_bin = None
+
+    insert = """
+      INSERT INTO transactions (txid_hash, operation, namespace, path,
+                                start_time, is_xg, in_progress)
+      VALUES (%(txid_hash)s, %(operation)s, %(namespace)s, %(path)s,
+              %(start_time)s, %(is_xg)s, %(in_progress)s)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2)
+    parameters = {'txid_hash': tx_partition(app, txid),
+                  'operation': TxnActions.START,
+                  'namespace': '',
+                  'path': bytearray(''),
+                  'start_time': datetime.datetime.utcnow(),
+                  'is_xg': is_xg,
+                  'in_progress': in_progress_bin}
+
+    try:
+      self.session.execute(insert, parameters)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while starting a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def put_entities_tx(self, app, txid, entities):
+    """ Update transaction metadata with new put operations.
+
+    Args:
+      app: A string containing an application ID.
+      txid: An integer specifying the transaction ID.
+      entities: A list of entities that will be put upon commit.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
+      VALUES (?, ?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for entity in entities:
+      args = (tx_partition(app, txid),
+              TxnActions.MUTATE,
+              entity.key().name_space(),
+              bytearray(entity.key().path().Encode()),
+              bytearray(entity.Encode()))
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while putting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def delete_entities_tx(self, app, txid, entity_keys):
+    """ Update transaction metadata with new delete operations.
+
+    Args:
+      app: A string containing an application ID.
+      txid: An integer specifying the transaction ID.
+      entity_keys: A list of entity keys that will be deleted upon commit.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
+      VALUES (?, ?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for key in entity_keys:
+      # The None value overwrites previous puts.
+      args = (tx_partition(app, txid),
+              TxnActions.MUTATE,
+              key.name_space(),
+              bytearray(key.path().Encode()),
+              None)
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while deleting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def transactional_tasks_count(self, app, txid):
+    """ Count the number of existing tasks associated with the transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+    Returns:
+      An integer specifying the number of existing tasks.
+    """
+    select = """
+      SELECT count(*) FROM transactions
+      WHERE txid_hash = %(txid_hash)s
+      AND operation = %(operation)s
+    """
+    parameters = {'txid_hash': tx_partition(app, txid),
+                  'operation': TxnActions.ENQUEUE_TASK}
+    try:
+      return self.session.execute(select, parameters)[0].count
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while fetching task count'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def add_transactional_tasks(self, app, txid, tasks):
+    """ Add tasks to be enqueued upon the completion of a transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+      tasks: A list of TaskQueueAddRequest objects.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path, task)
+      VALUES (?, ?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for task in tasks:
+      task.clear_transaction()
+
+      # The path for the task entry doesn't matter as long as it's unique.
+      path = bytearray(str(uuid.uuid4()))
+
+      args = (tx_partition(app, txid),
+              TxnActions.ENQUEUE_TASK,
+              '',
+              path,
+              task.Encode())
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while adding tasks in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def record_reads(self, app, txid, group_keys):
+    """ Keep track of which entity groups were read in a transaction.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+      group_keys: An iterable containing Reference objects.
+    """
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
+                           retry_policy=self.retry_policy)
+    insert = self.session.prepare("""
+      INSERT INTO transactions (txid_hash, operation, namespace, path)
+      VALUES (?, ?, ?, ?)
+      USING TTL {ttl}
+    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+
+    for group_key in group_keys:
+      if not isinstance(group_key, entity_pb.Reference):
+        group_key = entity_pb.Reference(group_key)
+
+      args = (tx_partition(app, txid),
+              TxnActions.GET,
+              group_key.name_space(),
+              bytearray(group_key.path().Encode()))
+      batch.add(insert, args)
+
+    try:
+      self.session.execute(batch)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while recording reads in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+  def get_transaction_metadata(self, app, txid):
+    """ Fetch transaction state.
+
+    Args:
+      app: A string specifying an application ID.
+      txid: An integer specifying a transaction ID.
+    Returns:
+      A dictionary containing transaction state.
+    """
+    select = """
+      SELECT namespace, operation, path, start_time, is_xg, in_progress,
+             entity, task
+      FROM transactions
+      WHERE txid_hash = %(txid_hash)s
+    """
+    parameters = {'txid_hash': tx_partition(app, txid)}
+    try:
+      results = self.session.execute(select, parameters)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      message = 'Exception while inserting entities in a transaction'
+      logging.exception(message)
+      raise AppScaleDBConnectionError(message)
+
+    metadata = {'puts': {}, 'deletes': [], 'tasks': [], 'reads': set()}
+    for result in results:
+      if result.operation == TxnActions.START:
+        metadata['start'] = result.start_time
+        metadata['is_xg'] = result.is_xg
+        metadata['in_progress'] = set()
+        if metadata['in_progress'] is not None:
+          metadata['in_progress'] = set(
+            struct.unpack('q' * int(len(result.in_progress) / 8),
+                          result.in_progress))
+      if result.operation == TxnActions.MUTATE:
+        key = create_key(app, result.namespace, result.path)
+        if result.entity is None:
+          metadata['deletes'].append(key)
+        else:
+          metadata['puts'][key.Encode()] = result.entity
+      if result.operation == TxnActions.GET:
+        group_key = create_key(app, result.namespace, result.path)
+        metadata['reads'].add(group_key.Encode())
+      if result.operation == TxnActions.ENQUEUE_TASK:
+        metadata['tasks'].append(
+          taskqueue_service_pb.TaskQueueAddRequest(result.task))
+    return metadata

@@ -96,7 +96,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
   def test_taskqueue_service_stub(self):
     """ Test the constructor. """
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
-    tqd.should_receive("__GetTQLocation").and_return("some_location")
+    tqd.should_receive("_GetTQLocations").and_return(["some_location"])
     taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
 
   def test_dynamic_add(self):
@@ -106,7 +106,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
     taskqueue_service_pb.should_receive("TaskQueueBulkAddResponse").\
       and_return(FakeBulkAddResponse())
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
-    tqd.should_receive("__GetTQLocation").and_return("some_location")
+    tqd.should_receive("_GetTQLocations").and_return(["some_location"])
     tqd.should_receive("_RemoteSend").and_return()
     tqd.should_receive("_Dynamic_BulkAdd").and_return()
 
@@ -120,7 +120,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
       and_return(FakeBulkAddRequest())
     taskqueue_service_pb.should_receive("TaskQueueBulkAddResponse").\
       and_return(FakeBulkAddResponse())
-    tqd.should_receive("__GetTQLocation").and_return("some_location")
+    tqd.should_receive("_GetTQLocations").and_return(["some_location"])
     tqd.should_receive("_RemoteSend").and_return()
     tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
      
@@ -128,7 +128,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
 
   def test_add_transactional_bulk_task(self):
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
-    tqd.should_receive("__GetTQLocation").and_return("some_location")
+    tqd.should_receive("_GetTQLocations").and_return(["some_location"])
     tqd.should_receive("_RemoteSend").and_return()
     flexmock(apiproxy_stub_map)
     apiproxy_stub_map.should_receive("MakeSyncCall")

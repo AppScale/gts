@@ -17,6 +17,7 @@
 """Manage the lifecycle of runtime processes and dispatch requests to them."""
 
 
+import capnp
 import collections
 import cStringIO
 import functools
@@ -34,11 +35,12 @@ import urllib
 import urlparse
 import wsgiref.headers
 
+
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import appinfo
 from google.appengine.api import request_info
-from google.appengine.api.logservice import log_service_pb
+from google.appengine.api.logservice import logging_capnp
 from google.appengine.tools.devappserver2 import application_configuration
 from google.appengine.tools.devappserver2 import blob_image
 from google.appengine.tools.devappserver2 import blob_upload
@@ -650,16 +652,9 @@ class Server(object):
       inst.quit(force=True)
 
   def _insert_log_message(self, message, level, request_id):
-    logs_group = log_service_pb.UserAppLogGroup()
-    log_line = logs_group.add_log_line()
-    log_line.set_timestamp_usec(int(time.time() * 1e6))
-    log_line.set_level(level)
-    log_line.set_message(message)
-    request = log_service_pb.FlushRequest()
-    request.set_logs(logs_group.Encode())
-    response = api_base_pb.VoidProto()
+    request = (int(time.time() * 1e6), level, message if isinstance(message, str) else message.encode('utf-8'))
     logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
-    logservice._Dynamic_Flush(request, response, request_id)
+    logservice._Dynamic_Flush(al, _, request_id)
 
   @staticmethod
   def generate_request_log_id():

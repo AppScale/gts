@@ -13,6 +13,7 @@ setup(
     'cassandra-driver',
     'kazoo',
     'M2Crypto',
+    'mmh3',
     'SOAPpy',
     'tornado'
   ],

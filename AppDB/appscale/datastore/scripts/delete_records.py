@@ -14,8 +14,6 @@ from ..dbconstants import DSC_PROPERTY_TABLE
 from ..dbconstants import METADATA_SCHEMA
 from ..dbconstants import METADATA_TABLE
 from ..dbconstants import PROPERTY_SCHEMA
-from ..dbconstants import TRANSACTIONS_SCHEMA
-from ..dbconstants import TRANSACTIONS_TABLE
 from ..unpackaged import APPSCALE_LIB_DIR
 from ..utils import fetch_and_delete_entities
 
@@ -44,8 +42,7 @@ def main():
       DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
       COMPOSITE_TABLE: COMPOSITE_SCHEMA,
       APP_KIND_TABLE: APP_KIND_SCHEMA,
-      METADATA_TABLE: METADATA_SCHEMA,
-      TRANSACTIONS_TABLE: TRANSACTIONS_SCHEMA
+      METADATA_TABLE: METADATA_SCHEMA
     }
     for table, schema in tables_to_schemas.items():
       fetch_and_delete_entities(database, table, schema, first_key, False)
