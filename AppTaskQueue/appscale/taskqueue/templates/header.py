@@ -8,6 +8,7 @@
 """
 import datetime
 import httplib
+import logging
 import os
 import sys
 import yaml
@@ -54,6 +55,7 @@ celery = Celery(module_name, broker=rabbitmq.get_connection_string(),
 celery.config_from_object('CELERY_CONFIGURATION')
 
 logger = get_task_logger(__name__)
+logger.setLevel(logging.INFO)
 
 master_db_ip = appscale_info.get_db_master_ip()
 connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
