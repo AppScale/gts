@@ -110,8 +110,8 @@ module TaskQueue
   # different ways.
   #
   # Args
-  #   type: One of :join :update :reset_join, to indicate how to join the
-  #     cluster.
+  #   type: One of ':join', ':update', ':reset_join', to indicate how to
+  #     join the cluster.
   #   master_tq_host: The hostname of the master TaskQueue node.
   # Returns
   #   A Boolean indicating if all was good, of some failure happened.
@@ -209,7 +209,7 @@ module TaskQueue
         Djinn.log_warn("Retrying to join #{master_tq_host} rabbitmq cluster.")
         Kernel.sleep(RABBIT_WAIT)
       else
-        Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up.")
+        Djinn.log_fatal("CRITICAL ERROR: rabbitmq coulnd't join the cluster.")
         abort
       end
     }
@@ -223,7 +223,7 @@ module TaskQueue
     return
   end
 
-  # Slaves TaskQueue sometimes has trouble to join the master, in
+  # TaskQueue slaves sometimes has trouble to join the master, in
   # particular if nodes goes up/down or there are a lot of TaskQueue
   # nodes.
   #
@@ -280,6 +280,7 @@ module TaskQueue
   # to ensure that we start up RabbitMQ without left-over state from previous
   # runs.
   def self.erase_local_files()
+    Djinn.log_run("rm -rf /var/log/rabbitmq/*")
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
     Djinn.log_run("rm -rf /etc/appscale/celery/")
     Djinn.log_run("rm -rf #{CELERY_STATE_DIR}/*")
