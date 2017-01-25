@@ -102,23 +102,24 @@ def QUEUE_NAME(headers, args):
                              'application/x-www-form-urlencoded')
 
     connection.putheader("Content-Length", content_length)
-    connection.endheaders()
-    if args["body"]:
-      connection.send(args['body'])
 
     retries = int(QUEUE_NAME.request.retries) + 1
     wait_time = get_wait_time(retries, args)
 
     try:
+      connection.endheaders()
+      if args["body"]:
+        connection.send(args['body'])
+
       response = connection.getresponse()
+      response.read()
+      response.close()
     except (BadStatusLine, SocketError):
       logger.warning(
         '{task} failed before receiving response. It will retry in {wait} '
         'seconds.'.format(task=args['task_name'], wait=wait_time))
       raise QUEUE_NAME.retry(countdown=wait_time)
 
-    payload = response.read()
-    response.close()
     if 200 <= response.status < 300:
       # Task successful.
       item = TaskName.get_by_key_name(args['task_name'])
