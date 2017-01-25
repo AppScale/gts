@@ -56,16 +56,17 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       app_id: The application identifier. 
     """
     super(SearchServiceStub, self).__init__(service_name)
-    contents = None
+
     try:
-      FILE = open(_SEARCH_LOCATION_FILE, 'r')
-      contents = FILE.read()
-      contents += ":" + str(_SEARCH_PORT)
-      FILE.close()
-      logging.info("Search server set to {0}".format(contents)) 
-    except Exception, e:
-      logging.warn("No search role configured. Search location set to None.")
-    self.__search_location = contents
+      with open(_SEARCH_LOCATION_FILE) as location_file:
+        search_ip = location_file.read().strip() or None
+    except IOError:
+      search_ip = None
+
+    if search_ip is not None:
+      self.__search_location = '{}:{}'.format(search_ip, _SEARCH_PORT)
+      logging.info('Search server set to {}'.format(search_ip))
+
     self.__app_id = app_id
  
   def _Dynamic_IndexDocument(self, request, response):
