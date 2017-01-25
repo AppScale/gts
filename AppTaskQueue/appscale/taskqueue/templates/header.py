@@ -23,6 +23,8 @@ def setup_environment():
 setup_environment()
 from celery import Celery
 from celery.utils.log import get_task_logger
+from httplib import BadStatusLine
+from socket import error as SocketError
 from urlparse import urlparse
 
 import appscale_info

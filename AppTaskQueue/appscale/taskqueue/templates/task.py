@@ -109,7 +109,14 @@ def QUEUE_NAME(headers, args):
     retries = int(QUEUE_NAME.request.retries) + 1
     wait_time = get_wait_time(retries, args)
 
-    response = connection.getresponse()
+    try:
+      response = connection.getresponse()
+    except (BadStatusLine, SocketError):
+      logger.warning(
+        '{task} failed before receiving response. It will retry in {wait} '
+        'seconds.'.format(task=args['task_name'], wait=wait_time))
+      raise QUEUE_NAME.retry(countdown=wait_time)
+
     payload = response.read()
     response.close()
     if 200 <= response.status < 300:
