@@ -4941,8 +4941,9 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
-        # TaskQueue servers needs to ensure that taskqueue server is
-        # running with the latest changes.
+        # Machines with a taskqueue role need to ensure that the latest
+        # queue configuration files are loaded and that we have the
+        # queue.yaml from the application.
         setup_app_dir(app)
         maybe_reload_taskqueue_worker(app)
 
