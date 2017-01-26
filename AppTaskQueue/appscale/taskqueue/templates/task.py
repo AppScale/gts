@@ -126,6 +126,9 @@ def QUEUE_NAME(headers, args):
       # Task successful.
       item = TaskName.get_by_key_name(args['task_name'])
       db.delete(item)
+      logger.info(
+        '{task} received status {status} from {url}'.format(
+          task=args['task_name'], status=response.status, url=url))
       return response.status
     elif response.status == 302:
       redirect_url = response.getheader('Location')
