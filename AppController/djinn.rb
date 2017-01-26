@@ -1805,21 +1805,6 @@ class Djinn
     end
   end
 
-  # Start taskqueue worker on this local machine.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_start_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.start_worker(app)
-        Djinn.log_info("Starting TaskQueue worker for app #{app}: #{result}")
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to start TaskQueue workers for app #{app}")
-      end
-    end
-  end
 
   # Reload the queue information of an app and reload the queues if needed.
   #
@@ -4834,7 +4819,6 @@ HOSTS
     apps_to_load = @app_names - @apps_loaded
     apps_to_load.each { |app|
       setup_appengine_application(app)
-      maybe_start_taskqueue_worker(app)
     }
   end
 
@@ -4953,6 +4937,13 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
+        # TaskQueue servers needs to ensure that taskqueue server is
+        # running with the latest changes.
+        setup_app_dir(app)
+        maybe_reload_taskqueue_worker(app)
+
+        # The remainer of this loop is for AppEngine nodes only, so we
+        # need to do work only if we have AppServers.
         next unless info['appengine']
 
         Djinn.log_debug("Checking #{app} with appengine #{info}.")
@@ -5705,7 +5696,6 @@ HOSTS
         " #{app}: check logs and running processes as duplicate" +
         " ports may have been allocated.")
     end
-    maybe_start_taskqueue_worker(app)
     Djinn.log_info("Done adding AppServer for #{app}.")
     return true
   end
