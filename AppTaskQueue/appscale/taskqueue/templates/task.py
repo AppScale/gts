@@ -12,8 +12,14 @@ def QUEUE_NAME(headers, args):
   Raises:
     The current function to retry.
   """
-  logger.info("Running task with %s %s %s" % \
-      (str(headers), str(args), args['task_name']))
+  content_length = len(args['body'])
+
+  loggable_args = {key: args[key] for key in args
+                   if key not in ['task_name', 'body', 'payload']}
+  loggable_args['body_length'] = content_length
+  logger.info('Running {}\n'
+              'Headers: {}\n'
+              'Args: {}'.format(args['task_name'], headers, loggable_args))
   url = urlparse(args['url'])
 
   def get_wait_time(retries, args):
@@ -90,10 +96,6 @@ def QUEUE_NAME(headers, args):
     for header in headers:
       connection.putheader(header, headers[header])
 
-    content_length = "0"
-    if args["body"]:
-      content_length = str(len(args['body']))
-
     if 'content-type' not in headers or 'Content-Type' not in headers:
       if url.query:
         connection.putheader('content-type', 'application/octet-stream')
@@ -101,7 +103,7 @@ def QUEUE_NAME(headers, args):
         connection.putheader('content-type',
                              'application/x-www-form-urlencoded')
 
-    connection.putheader("Content-Length", content_length)
+    connection.putheader("Content-Length", str(content_length))
 
     retries = int(QUEUE_NAME.request.retries) + 1
     wait_time = get_wait_time(retries, args)
