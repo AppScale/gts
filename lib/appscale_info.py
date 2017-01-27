@@ -50,7 +50,7 @@ def get_all_ips():
   return filter(None, nodes)
 
 def get_login_ip():
-  """ Get the public IP of the head node. Since there can be more then one
+  """ Get the public IP of the head node. Since there can be more than one
   public IP for this deployment, we return the first one. NOTE: it can
   change if node crashes.
 
