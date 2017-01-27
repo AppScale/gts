@@ -467,7 +467,7 @@ module HelperFunctions
     begin
       FileUtils.mv("#{tar_dir}/gopath", "#{meta_dir}/gopath")
     rescue Errno::ENOENT
-      # Only Go applications with extra dependencies have this directory.
+      Djinn.log_debug("#{app_name} does not have a gopath directory")
     end
   end
 
