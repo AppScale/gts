@@ -139,8 +139,6 @@ def QUEUE_NAME(headers, args):
         raise QUEUE_NAME.retry(countdown=wait_time)
       redirects_left -= 1
     else:
-      # Fail
-      # TODO: Update the database with the failed status
       logger.warning("Task %s will retry in %d seconds. "
                      "Got response of %d when doing a %s on %s" % \
                       (args['task_name'],
