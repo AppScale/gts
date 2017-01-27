@@ -26,8 +26,9 @@ def read_file_contents(path):
 
 def get_appcontroller_client():
   """ Returns an AppControllerClient instance for this deployment. """
-  head_node_ip_file = '/etc/appscale/head_node_ip'
-  head_node = read_file_contents(head_node_ip_file).rstrip('\n')
+  raw_ips = file_io.read('/etc/appscale/load_balancer_ips')
+  ips = raw_ips.split('\n')
+  head_node = ips[0]
 
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)
@@ -49,12 +50,16 @@ def get_all_ips():
   return filter(None, nodes)
 
 def get_login_ip():
-  """ Get the public IP of the head node.
+  """ Get the public IP of the head node. Since there can be more than one
+  public IP for this deployment, we return the first one. NOTE: it can
+  change if node crashes.
 
   Returns:
     String containing the public IP of the head node.
   """
-  return file_io.read(constants.LOGIN_IP_LOC).rstrip()
+  raw_ips = file_io.read(constants.LOGIN_IP_LOC)
+  ips = raw_ips.split('\n')
+  return ips[0]
 
 def get_private_ip():
   """ Get the private IP of the current machine.
@@ -182,11 +187,11 @@ def get_db_slave_ips():
   Returns:
     A list of IP of the datastore slaves.
   """
-  nodes = file_io.read(constants.SLAVES_FILE_LOC).rstrip()
-  nodes = nodes.split('\n')
-  if nodes[-1] == '':
-    nodes = nodes[:-1]
-  return nodes
+  try:
+    with open(constants.SLAVES_FILE_LOC) as slaves_file:
+      return [ip for ip in slaves_file.readlines() if ip]
+  except IOError:
+    return []
 
 def get_db_ips():
   """ Returns a list of database machines.

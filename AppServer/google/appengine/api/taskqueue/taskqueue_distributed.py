@@ -75,14 +75,14 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 # The location the SSL private key is placed for encrypted communication.
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
-TASKQUEUE_LOCATION_FILE = "/etc/appscale/rabbitmq_ip"
+TASKQUEUE_LOCATION_FILE = "/etc/appscale/taskqueue_nodes"
 TASKQUEUE_SERVER_PORT = 17446
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   """Python only task queue service stub.
 
   This stub executes tasks when enabled by using the dev_appserver's AddEvent
-  capability. 
+  capability.
   """
   def __init__(self, app_id, host, port, service_name='taskqueue'):
     """Constructor.
@@ -98,24 +98,28 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self.__app_id = app_id
     self.__nginx_host = host
     self.__nginx_port = port
-    self.__tq_location = self.__GetTQLocation()
 
-  def __GetTQLocation(self):
-    """ Gets the nearest AppScale TaskQueue server. """
+  def _GetTQLocations(self):
+    """ Gets a list of AppScale TaskQueue servers. """
     if os.path.exists(TASKQUEUE_LOCATION_FILE):
-      tq_file = open(TASKQUEUE_LOCATION_FILE)
-      location = tq_file.read() 
-      tq_file.close()
+      try:
+        with open(TASKQUEUE_LOCATION_FILE) as tq_file:
+          ips = [ip for ip in tq_file.read().split('\n') if ip]
+      except IOError:
+        raise apiproxy_errors.ApplicationError(
+          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
     else:
-      location = "localhost"
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
-    location += ":" + str(TASKQUEUE_SERVER_PORT)
-    return location
+    locations = ["{ip}:{port}".format(ip=ip, port=TASKQUEUE_SERVER_PORT)
+                 for ip in ips]
+    return locations
 
   def _ChooseTaskName(self, app_name, queue_name, user_chosen=None):
     """ Creates a task name that the system can use to address
         tasks from different apps and queues.
- 
+
     Args:
       app_name: The application name.
       queue_name: A str representing the queue name that the task goes in.
@@ -132,7 +136,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
 
   def _AddTransactionalBulkTask(self, request, response):
     """ Add a transactional task.
-  
+
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
       response: A taskqueue_service_pb.TaskQueueAddResponse.
@@ -153,7 +157,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
       task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
- 
+
     # All task should have been validated and assigned a unique name by this point.
     try:
       apiproxy_stub_map.MakeSyncCall(
@@ -163,7 +167,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
           e.application_error +
           taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR,
           e.error_detail)
- 
+
     return response
 
   def _Dynamic_Add(self, request, response):
@@ -289,7 +293,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: A taskqueue_service_pb.TaskQueueFetchTaskResponse.
     """
     self._RemoteSend(request, response, "FetchTask")
-    return response 
+    return response
 
   def _Dynamic_Delete(self, request, response):
     """Local delete implementation of TaskQueueService.Delete.
@@ -304,7 +308,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: A taskqueue_service_pb.TaskQueueDeleteResponse.
     """
     self._RemoteSend(request, response, "Delete")
-    return response 
+    return response
 
   def _Dynamic_ForceRun(self, request, response):
     """Local force run implementation of TaskQueueService.ForceRun.
@@ -321,7 +325,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """
     self._RemoteSend(request, response, "ForceRun")
     return response
- 
+
   def _Dynamic_DeleteQueue(self, request, response):
     """Local delete implementation of TaskQueueService.DeleteQueue.
 
@@ -372,7 +376,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: A taskqueue_service_pb.TaskQueueDeleteGroupResponse.
     """
     self._RemoteSend(request, response, "DeleteGroup")
- 
+
   def _Dynamic_UpdateStorageLimit(self, request, response):
     """Remote implementation of TaskQueueService.UpdateStorageLimit.
 
@@ -407,14 +411,14 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._RemoteSend(request, response, "ModifyTaskLease")
 
   def _RemoteSend(self, request, response, method):
-    """Sends a request remotely to the taskqueue server. 
- 
+    """Sends a request remotely to the taskqueue server.
+
     Args:
       request: A protocol buffer request.
       response: A protocol buffer response.
       method: The function which is calling the remote server.
     Raises:
-      taskqueue_service_pb.InternalError: 
+      taskqueue_service_pb.InternalError:
     """
     tag = self.__app_id
     api_request = remote_api_pb.Request()
@@ -422,18 +426,23 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     api_request.set_service_name("taskqueue")
     api_request.set_request(request.Encode())
 
-    api_response = remote_api_pb.Response()
-    api_response = api_request.sendCommand(self.__tq_location,
-      tag,
-      api_response,
-      1,
-      False,
-      KEY_LOCATION,
-      CERT_LOCATION)
+    tq_locations = self._GetTQLocations()
+    for index, tq_location in enumerate(tq_locations):
+      api_response = remote_api_pb.Response()
+      api_response = api_request.sendCommand(tq_location,
+        tag,
+        api_response,
+        1,
+        False,
+        KEY_LOCATION,
+        CERT_LOCATION)
 
-    if not api_response or not api_response.has_response():
-      raise apiproxy_errors.ApplicationError(
-          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+      if not api_response or not api_response.has_response():
+        if index >= len(tq_locations) - 1:
+          raise apiproxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+      else:
+        break
 
     if api_response.has_application_error():
       error_pb = api_response.application_error()

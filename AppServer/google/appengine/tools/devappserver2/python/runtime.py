@@ -129,7 +129,9 @@ def main():
 
   nginx_host = None
   with open('/etc/appscale/login_ip') as file_handle:
-    nginx_host = file_handle.read().strip()
+    raw_ips = file_handle.read()
+    ips = raw_ips.split('\n')
+    nginx_host = ips[0]
 
   if debugging_app:
     server = wsgi_server.WsgiServer(
