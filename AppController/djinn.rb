@@ -7,6 +7,7 @@ require 'net/http'
 require 'net/https'
 require 'openssl'
 require 'securerandom'
+require 'set'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
@@ -5433,7 +5434,7 @@ HOSTS
     # need to consider the maximum amount of memory allocated to it, in
     # order to not overprovision the appengine node.
     appservers_count = {}
-    current_hosts = []
+    current_hosts = Set.new()
     max_memory = {}
     @app_info_map.each_pair { |appid, app_info|
       next if app_info['appengine'].nil?
@@ -5460,6 +5461,10 @@ HOSTS
       }
     }
 
+    # Get the memory limit for this application.
+    max_app_mem = @app_info_map[app_name]['max_memory']
+    max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
     get_all_appengine_nodes.each { |host|
@@ -5471,19 +5476,21 @@ HOSTS
         # reconstruct it here.
         total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
 
-        # Ensure we have enough memory for all running AppServers.
-        if !max_memory[host].nil? && max_memory[host] > total - SAFE_MEM
-          Djinn.log_debug("#{host} doesn't have enough total memory.")
-          break
-        end
+        # Check how many new AppServers of this app, we can run on this
+        # node (as theoretical maximum memory usage goes).
+        max_memory[host] = 0 if max_memory[host].nil?
+        max_new_tot = Integer((total - max_memory[host] - SAFE_MEM)/ max_app_mem)
+        Djinn.log_debug("Check for total memory usage: #{host} can run #{max_new_tot}" +
+          " AppServers for #{app_name}.")
+        break if max_new_tot <= 0
 
-        # Ensure the node has enough free memory at this time.
-        max_app_mem = @app_info_map[app_name]['max_memory']
-        max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
-        if Float(node['free_memory']) < max_app_mem + SAFE_MEM
-          Djinn.log_debug("#{host} doesn't have enough free memory.")
-          break
-        end
+        # Now we do a similar calculation but for the current amount of
+        # free memory on this node.
+        host_free_mem = Integer(node['free_memory'])
+        max_new_free = Integer(host_free_mem - SAFE_MEM / max_app_mem)
+        Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
+          " AppServers for #{app_name}.")
+        break if max_new_free <= 0
 
         # The host needs to have normalized average load less than
         # MAX_LOAD_AVG, current CPU usage less than 90%.
@@ -5492,48 +5499,60 @@ HOSTS
           Djinn.log_debug("#{host} CPUs are too busy.")
           break
         end
-        available_hosts << host
+
+        # We add the host as many times as AppServers it can run.
+        (max_new_tot > max_new_free ? max_new_tot : max_new_free).downto(1) {
+          available_hosts << host
+        }
+
+        # Since we already found the stats for this node, no need to look
+        # further.
         break
       }
     }
     Djinn.log_debug("Hosts available to scale #{app_name}: #{available_hosts}.")
 
-    # We prefer hosts that are not already running a copy of this app.
-    appserver_to_use = nil
-    if !available_hosts.empty?
-      Djinn.log_debug("These hosts are running #{app_name}: #{current_hosts}.")
-      delta_appservers.downto(0) {
-        available_hosts.each { |host|
-          unless current_hosts.include?(host)
-            Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
-                "since it has no running AppServers for it.")
-            appserver_to_use = host
-            break
-          end
-        }
+    # Since we may have 'clumps' of the same host (say a very big
+    # appengine machine) we shuffle the list of candidate here.
+    available_hosts.shuffle!
 
-        # If we haven't decided on a host yet, we pick one at random, then
-        # we remove it from the list to ensure we don't go over the
-        # requirements.
-        appserver_to_use = available_hosts.sample if appserver_to_use.nil?
-        available_hosts.delete(appserver_to_use)
-
-        Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
-        @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
-
-        # If we ran our of available hosts, we'll have to wait for the
-        # next cycle to add more AppServers.
-        break if available_hosts.empty?
-      }
-      @last_decision[app_name] = Time.now.to_i
-      return true
-    else
+    # If we're this far, no room is available for AppServers, so try to
+    # add a new node instead.
+    if available_hosts.empty?
       Djinn.log_info("No AppServer available to scale #{app_name}")
-      # If we're this far, no room is available for AppServers, so try to add a
-      # new node instead.
       ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
       return false
     end
+
+    # We prefer candidate that are not already running the application, so
+    # ensure redundancy for the application.
+    delta_appservers.downto(0) {
+      appserver_to_use = nil
+      available_hosts.each { |host|
+        unless current_hosts.include?(host)
+           Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
+              "since it has no running AppServers for it.")
+          appserver_to_use = host
+          current_hosts.delete(host)
+          break
+        end
+      }
+
+      # If we haven't decided on a host yet, we pick one at random, then
+      # we remove it from the list to ensure we don't go over the
+      # requirements.
+      appserver_to_use = available_hosts.sample if appserver_to_use.nil?
+      available_hosts.delete_at(available_hosts.index(appserver_to_use))
+
+      Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
+      @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
+
+      # If we ran our of available hosts, we'll have to wait for the
+      # next cycle to add more AppServers.
+      break if available_hosts.empty?
+    }
+    @last_decision[app_name] = Time.now.to_i
+    return true
   end
 
 
