@@ -533,6 +533,10 @@ class Djinn
     # when layout changes.
     @locations_content = ""
 
+    # This variable keeps track of the state we read/write to zookeeper,
+    # to avoid actions if nothing changed.
+    @appcontroller_state = ""
+
     # The following variables are restored from the headnode ie they are
     # part of the common state of the running deployment.
     @app_info_map = {}
@@ -1805,21 +1809,6 @@ class Djinn
     end
   end
 
-  # Start taskqueue worker on this local machine.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_start_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.start_worker(app)
-        Djinn.log_info("Starting TaskQueue worker for app #{app}: #{result}")
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to start TaskQueue workers for app #{app}")
-      end
-    end
-  end
 
   # Reload the queue information of an app and reload the queues if needed.
   #
@@ -1926,8 +1915,10 @@ class Djinn
     # Next, restart any apps that have new code uploaded.
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
-        # Make sure we have the latest code deployed.
-        setup_app_dir(appid, true)
+        APPS_LOCK.synchronize {
+          # Make sure we have the latest code deployed.
+          setup_app_dir(appid, true)
+        }
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
@@ -1980,7 +1971,9 @@ class Djinn
     # can take some time, we do it in a thread.
     Thread.new {
       restart_apps.each{ |app|
-        setup_app_dir(app, true)
+        APPS_LOCK.synchronize {
+          setup_app_dir(app, true)
+        }
       }
     }
 
@@ -2054,7 +2047,6 @@ class Djinn
 
     # Load datastore helper.
     # TODO: this should be the class or module.
-    @state = "Setting up database configuration files"
     table = @options['table']
     # require db_file
     begin
@@ -2973,6 +2965,11 @@ class Djinn
         local_state[var] = v
       }
     }
+    if @appcontroller_state == local_state.to_s
+      Djinn.log_debug("backup_appcontroller_state: no changes.")
+      return
+    end
+
     Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
@@ -2981,6 +2978,7 @@ class Djinn
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " +
         "appcontroller state with #{e.message}.")
     end
+    @appcontroller_state = local_state.to_s
   end
 
   # Restores the state of each of the instance variables that the AppController
@@ -2988,9 +2986,8 @@ class Djinn
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
-  #   A boolean to indicate if we were able to restore the state.
+  #   A boolean indicating if the state is restored or current with the master.
   def restore_appcontroller_state()
-    Djinn.log_debug("Reloading deployment state.")
     json_state=""
 
     unless File.exists?(ZK_LOCATIONS_FILE)
@@ -3010,7 +3007,12 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    Djinn.log_debug("Reload State : #{json_state}.")
+    if @appcontroller_state == json_state
+      Djinn.log_debug("Reload state: no changes.")
+      return true
+    end
+
+    Djinn.log_debug("Reload state : #{json_state}.")
 
     # Let's keep an old copy of the options: we'll need them to check if
     # something changed and we need to act.
@@ -3055,6 +3057,8 @@ class Djinn
 
     # Finally some @options may have changed.
     enforce_options unless old_options == @options
+
+    @appcontroller_state = json_state
 
     return true
   end
@@ -4834,7 +4838,6 @@ HOSTS
     apps_to_load = @app_names - @apps_loaded
     apps_to_load.each { |app|
       setup_appengine_application(app)
-      maybe_start_taskqueue_worker(app)
     }
   end
 
@@ -4953,6 +4956,14 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
+        # Machines with a taskqueue role need to ensure that the latest
+        # queue configuration files are loaded and that we have the
+        # queue.yaml from the application.
+        setup_app_dir(app)
+        maybe_reload_taskqueue_worker(app)
+
+        # The remainer of this loop is for AppEngine nodes only, so we
+        # need to do work only if we have AppServers.
         next unless info['appengine']
 
         Djinn.log_debug("Checking #{app} with appengine #{info}.")
@@ -5705,7 +5716,6 @@ HOSTS
         " #{app}: check logs and running processes as duplicate" +
         " ports may have been allocated.")
     end
-    maybe_start_taskqueue_worker(app)
     Djinn.log_info("Done adding AppServer for #{app}.")
     return true
   end
