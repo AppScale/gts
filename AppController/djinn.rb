@@ -5487,7 +5487,7 @@ HOSTS
         # Now we do a similar calculation but for the current amount of
         # free memory on this node.
         host_free_mem = Integer(node['free_memory'])
-        max_new_free = Integer(host_free_mem - SAFE_MEM / max_app_mem)
+        max_new_free = Integer((host_free_mem - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
           " AppServers for #{app_name}.")
         break if max_new_free <= 0
@@ -5501,7 +5501,7 @@ HOSTS
         end
 
         # We add the host as many times as AppServers it can run.
-        (max_new_tot > max_new_free ? max_new_tot : max_new_free).downto(1) {
+        (max_new_tot > max_new_free ? max_new_free : max_new_tot).downto(1) {
           available_hosts << host
         }
 
