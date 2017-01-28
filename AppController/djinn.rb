@@ -5260,37 +5260,16 @@ HOSTS
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
-      # We make sure we scale right away to minimum number of AppServers
-      # requested by the user. We can check from @last_decision if an
-      # AppServer was created/deleted.
-      loop do
-        changed = false
-
-        # Always get scaling info, as that will send this info to the
-        # AppDashboard for users to view.
-        case get_scaling_info_for_app(app_name)
-        when :scale_up
-          Djinn.log_debug("Considering scaling up app #{app_name}.")
-          changed = try_to_scale_up(app_name)
-        when :scale_down
-          Djinn.log_debug("Considering scaling down app #{app_name}.")
-          changed = try_to_scale_down(app_name)
-        else
-          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
-        end
-
-        # No change means we are out of resources: we cannot scale at this
-        # time, we have to wait for more nodes.
-        break unless changed
-
-        # Ensure we have the minimum number of AppServers requested.
-        num_appengines = 0
-        unless @app_info_map[app_name]['appengine'].nil?
-          num_appengines = @app_info_map[app_name]['appengine'].length
-        end
-        min = @app_info_map[app_name]['min_appengines']
-        min = Integer(@options['appengine']) if min.nil?
-        break if num_appengines >= min
+      # Get the desired changes in the number of AppServers.
+      delta_appservers = get_scaling_info_for_app(app_name)
+      if delta_appservers > 0
+        Djinn.log_debug("Considering scaling up app #{app_name}.")
+        try_to_scale_up(app_name, delta_appservers)
+      elsif delta_appservers < 0
+        Djinn.log_debug("Considering scaling down app #{app_name}.")
+        try_to_scale_down(app_name, delta_appservers.abs)
+      else
+        Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
       end
     }
   end
@@ -5315,9 +5294,13 @@ HOSTS
 
 
   # Queries haproxy to see how many requests are queued for a given application
-  # and how many requests are served at a given time. Based on this information,
-  # this method reports whether or not AppServers should be added, removed, or
-  # if no changes are needed.
+  # and how many requests are served at a given time.
+  # Args:
+  #   app_name: The name of the application to get info for.
+  # Returns:
+  #   an Integer: the number of AppServers desired (a positive numbers
+  #     means we want more, a negative that we want to remove some, and 0
+  #     for no changes).
   def get_scaling_info_for_app(app_name, update_dashboard=true)
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
@@ -5329,14 +5312,14 @@ HOSTS
     min = @app_info_map[app_name]['min_appengines']
     min = Integer(@options['appengine']) if min.nil?
     if num_appengines < min
-      Djinn.log_info("App #{app_name} doesn't have enough AppServers.")
+      Djinn.log_info("#{app_name} needs #{min - num_appengines} more AppServers.")
       @last_decision[app_name] = 0
-      return :scale_up
+      return min - num_appengines
     end
 
     # We only run @options['appengine'] AppServers per application if
     # austoscale is disabled.
-    return :no_change if @options['autoscale'].downcase != "true"
+    return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, time_requests_were_seen =
@@ -5344,27 +5327,35 @@ HOSTS
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
-      return :no_change
+      return 0
     end
 
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
       total_req_in_queue, update_dashboard)
 
     if total_req_in_queue.zero?
+      if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
+        Djinn.log_debug("Not enough time as passed to scale down app #{app_name}")
+        return 0
+      end
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
         "advising that we scale down within this machine.")
-      return :scale_down
+      return -1
     end
 
     if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
+      if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
+        Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
+        return 0
+      end
       Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
         "#{app_name} - advising that we scale up within this machine.")
-      return :scale_up
+      return Integer(total_req_in_queue / SCALEUP_QUEUE_SIZE_THRESHOLD)
     end
 
     Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
       "#{app_name} - advising that don't scale either way on this machine.")
-    return :no_change
+    return 0
   end
 
 
@@ -5424,27 +5415,13 @@ HOSTS
   #
   # Args:
   #   app_name: A String containing the application ID.
+  #   delta_appservers: The desired number of new AppServers.
   # Returns:
   #   A boolean indicating if a new AppServer was requested.
-  def try_to_scale_up(app_name)
+  def try_to_scale_up(app_name, delta_appservers)
     if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
       Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
         "hosting it anymore.")
-      return false
-    end
-
-    # We do have a cooldown period after scaling, to ensure we give enough
-    # time to the system to react. We should ignore the cooldown period if
-    # we don't have the minimum number of AppServers for this application.
-    num_appengines = 0
-    unless @app_info_map[app_name]['appengine'].nil?
-      num_appengines = @app_info_map[app_name]['appengine'].length
-    end
-    min = @app_info_map[app_name]['min_appengines']
-    min = Integer(@options['appengine']) if min.nil?
-    if min > num_appengines && Time.now.to_i - @last_decision[app_name] <
-        SCALEUP_THRESHOLD * DUTY_CYCLE
-      Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
       return false
     end
 
@@ -5525,20 +5502,29 @@ HOSTS
     appserver_to_use = nil
     if !available_hosts.empty?
       Djinn.log_debug("These hosts are running #{app_name}: #{current_hosts}.")
-      available_hosts.each { |host|
-        unless current_hosts.include?(host)
-          Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
-              "since it has no running AppServers for it.")
-          appserver_to_use = host
-          break
-        end
+      delta_appservers.downto(0) {
+        available_hosts.each { |host|
+          unless current_hosts.include?(host)
+            Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
+                "since it has no running AppServers for it.")
+            appserver_to_use = host
+            break
+          end
+        }
+
+        # If we haven't decided on a host yet, we pick one at random, then
+        # we remove it from the list to ensure we don't go over the
+        # requirements.
+        appserver_to_use = available_hosts.sample if appserver_to_use.nil?
+        available_hosts.delete(appserver_to_use)
+
+        Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
+        @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
+
+        # If we ran our of available hosts, we'll have to wait for the
+        # next cycle to add more AppServers.
+        break if available_hosts.empty?
       }
-
-      # If we haven't decided on a host yet, we pick one at random.
-      appserver_to_use = available_hosts.sample if appserver_to_use.nil?
-
-      Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
-      @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
       @last_decision[app_name] = Time.now.to_i
       return true
     else
@@ -5556,18 +5542,13 @@ HOSTS
   #
   # Args:
   #   app_name: A String containing the application ID.
+  #   delta_appservers: The desired number of AppServers to remove.
   # Returns:
   #   A boolean indicating if an AppServer was removed.
-  def try_to_scale_down(app_name)
+  def try_to_scale_down(app_name, delta_appservers)
     if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
       Djinn.log_debug("Not scaling down app #{app_name}, since we aren't " +
         "hosting it anymore.")
-      return false
-    end
-
-    # We scale only if the designed time is passed.
-    if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
-      Djinn.log_debug("Not enough time as passed to scale down app #{app_name}")
       return false
     end
 
