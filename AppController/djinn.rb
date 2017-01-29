@@ -5530,7 +5530,7 @@ HOSTS
       appserver_to_use = nil
       available_hosts.each { |host|
         unless current_hosts.include?(host)
-           Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
+          Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
               "since it has no running AppServers for it.")
           appserver_to_use = host
           current_hosts.delete(host)
