@@ -5303,6 +5303,12 @@ HOSTS
   #     means we want more, a negative that we want to remove some, and 0
   #     for no changes).
   def get_scaling_info_for_app(app_name, update_dashboard=true)
+    if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
+      Djinn.log_info("Not scaling app #{app_name}, since we aren't " +
+        "hosting it anymore.")
+      return 0
+    end
+
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating app #{app_name} for scaling.")
     if @app_info_map[app_name]['appengine'].nil?
@@ -5420,12 +5426,6 @@ HOSTS
   # Returns:
   #   A boolean indicating if a new AppServer was requested.
   def try_to_scale_up(app_name, delta_appservers)
-    if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
-      Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
-        "hosting it anymore.")
-      return false
-    end
-
     # Select an appengine machine if it has enough resources to support
     # another AppServer for this app.
     available_hosts = []
@@ -5512,10 +5512,6 @@ HOSTS
     }
     Djinn.log_debug("Hosts available to scale #{app_name}: #{available_hosts}.")
 
-    # Since we may have 'clumps' of the same host (say a very big
-    # appengine machine) we shuffle the list of candidate here.
-    available_hosts.shuffle!
-
     # If we're this far, no room is available for AppServers, so try to
     # add a new node instead.
     if available_hosts.empty?
@@ -5523,6 +5519,10 @@ HOSTS
       ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
       return false
     end
+
+    # Since we may have 'clumps' of the same host (say a very big
+    # appengine machine) we shuffle the list of candidate here.
+    available_hosts.shuffle!
 
     # We prefer candidate that are not already running the application, so
     # ensure redundancy for the application.
@@ -5565,12 +5565,6 @@ HOSTS
   # Returns:
   #   A boolean indicating if an AppServer was removed.
   def try_to_scale_down(app_name, delta_appservers)
-    if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
-      Djinn.log_debug("Not scaling down app #{app_name}, since we aren't " +
-        "hosting it anymore.")
-      return false
-    end
-
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
     min = @app_info_map[app_name]['min_appengines']
