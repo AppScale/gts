@@ -706,6 +706,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     #this jvm flag allows javax.email to connect to the smtp server
     "--jvm_flag=-Dsocket.permit_connect=true",
     '--jvm_flag=-Xmx{}m'.format(max_heap),
+    '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     "--disable_update_check",
     "--address=" + appscale_info.get_private_ip(),
     "--datastore_path=" + db_location,
