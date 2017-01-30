@@ -136,7 +136,7 @@ class Queue(object):
         raise InvalidQueueConfiguration(message)
 
   def __eq__(self, other):
-    """ Checks whether or not this Queue is equivalent to another.
+    """ Checks if this Queue is equivalent to another.
 
     Returns:
       A boolean indicating whether or not the two Queues are equal.
@@ -158,6 +158,14 @@ class Queue(object):
           return False
 
     return True
+
+  def __ne__(self, other):
+    """ Checks if this Queue is different than another.
+
+    Returns:
+      A boolean indicating whether or not the two Queues are different.
+    """
+    return not self.__eq__(other)
 
 class PushQueue(Queue):
   # The default rate for push queues.
