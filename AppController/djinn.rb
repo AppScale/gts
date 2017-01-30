@@ -2213,7 +2213,7 @@ class Djinn
         "/root/appscale/AppController/terminate.rb#{extra_command}",
                                                 ssh_key,
                                                 true)
-    status = output.chomp!("OK")==nil ? false : true
+    status = output.chomp!("OK").nil? ? false : true
     output += HelperFunctions.run_remote_command(ip, 'ps x', ssh_key, true)
     Djinn.log_info("#{ip} terminated:#{status}\noutput:#{output}")
     return {'ip'=>ip, 'status'=> status, 'output'=>output}
@@ -2252,7 +2252,7 @@ class Djinn
   def receive_server_message(timeout, secret)
     was_queue_emptied = false
     begin
-      Timeout::timeout(timeout.to_i) {
+      Timeout.timeout(timeout.to_i) {
         begin
           bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
           return bad_secret unless valid_secret?(secret)
