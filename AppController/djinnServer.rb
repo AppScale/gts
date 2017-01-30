@@ -56,7 +56,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
 
     # Expose AppController methods to the outside world
     add_method(@djinn, "is_done_initializing", "secret")
-    add_method(@djinn, "receive_server_message", "message_sender", "secret")
+    add_method(@djinn, "receive_server_message", "timeout", "secret")
     add_method(@djinn, "is_appscale_terminated", "secret")
     add_method(@djinn, "run_terminate", "clean", "secret")
     add_method(@djinn, "is_done_loading", "secret")

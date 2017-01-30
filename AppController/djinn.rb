@@ -2249,25 +2249,35 @@ class Djinn
   end
 
 
-  def receive_server_message(message_sender, secret)
+  def receive_server_message(timeout, secret)
+    was_queue_emptied = false
     begin
-      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-      return bad_secret unless valid_secret?(secret)
-    rescue Errno::ENOENT
-      # On appscale down, terminate may delete our secret key before we
-      # can check it here.
-      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      Timeout::timeout(timeout.to_i) {
+        begin
+          bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+          return bad_secret unless valid_secret?(secret)
+        rescue Errno::ENOENT
+          # On appscale down, terminate may delete our secret key before we
+          # can check it here.
+          Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+        end
+        if @done_terminating and @waiting_messages.empty?
+          return "Error"
+        end
+        @waiting_messages.synchronize {
+          @message_ready.wait_while {@waiting_messages.empty?}
+          message = JSON.dump(@waiting_messages)
+          @waiting_messages.clear
+          was_queue_emptied = true
+          Djinn.log_info("client receiving: #{message}")
+          return message
+        }
+      }
+    rescue Timeout::Error
+      Djinn.log_info("Timed out trying to receive server message. Queue empty:
+                     #{was_queue_emptied}")
+      return "Error"
     end
-    if @done_terminating and @waiting_messages.empty?
-      return
-    end
-    @waiting_messages.synchronize {
-      @message_ready.wait_while {@waiting_messages.empty?}
-      message = JSON.dump(@waiting_messages)
-      @waiting_messages.clear
-      Djinn.log_info("client receiving: #{message}")
-      return message
-    }
   end
 
   # Starts the InfrastructureManager service on this machine, which exposes
