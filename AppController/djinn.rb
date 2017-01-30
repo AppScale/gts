@@ -5846,8 +5846,7 @@ HOSTS
       num_of_scale_up_requests = scale_up_requests.length
 
       if num_of_scale_up_requests > 0
-        Djinn.log_debug("Login node is requesting more AppServers for app " +
-          "#{appid}, so adding a node.")
+        Djinn.log_debug("#{appid} requires more AppServers: adding a node.")
         nodes_needed << ["appengine"]
       end
     }
@@ -5943,7 +5942,7 @@ HOSTS
     # Finally, find a node to remove and remove it.
     node_to_remove = nil
     @nodes.each { |node|
-      if node.jobs == ["memcache", "taskqueue_slave", "appengine"]
+      if node.jobs == ["appengine"]
         Djinn.log_info("Removing node #{node}")
         node_to_remove = node
         break
