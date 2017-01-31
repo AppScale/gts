@@ -5600,7 +5600,9 @@ HOSTS
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
     # Make sure we have the application setup properly.
-    setup_app_dir(app)
+    APPS_LOCK.synchronize {
+      setup_app_dir(app)
+    }
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
