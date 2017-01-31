@@ -5298,8 +5298,10 @@ HOSTS
   # and how many requests are served at a given time.
   # Args:
   #   app_name: The name of the application to get info for.
+  #   update_dashboard: Indicates if we should sent the info to the
+  #     dashboard.
   # Returns:
-  #   an Integer: the number of AppServers desired (a positive numbers
+  #   an Integer: the number of AppServers desired (a positive number
   #     means we want more, a negative that we want to remove some, and 0
   #     for no changes).
   def get_scaling_info_for_app(app_name, update_dashboard=true)
@@ -5479,10 +5481,10 @@ HOSTS
         # Check how many new AppServers of this app, we can run on this
         # node (as theoretical maximum memory usage goes).
         max_memory[host] = 0 if max_memory[host].nil?
-        max_new_tot = Integer((total - max_memory[host] - SAFE_MEM)/ max_app_mem)
-        Djinn.log_debug("Check for total memory usage: #{host} can run #{max_new_tot}" +
+        max_new_total = Integer((total - max_memory[host] - SAFE_MEM)/ max_app_mem)
+        Djinn.log_debug("Check for total memory usage: #{host} can run #{max_new_total}" +
           " AppServers for #{app_name}.")
-        break if max_new_tot <= 0
+        break if max_new_total <= 0
 
         # Now we do a similar calculation but for the current amount of
         # free memory on this node.
@@ -5501,7 +5503,7 @@ HOSTS
         end
 
         # We add the host as many times as AppServers it can run.
-        (max_new_tot > max_new_free ? max_new_free : max_new_tot).downto(1) {
+        (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
           available_hosts << host
         }
 
