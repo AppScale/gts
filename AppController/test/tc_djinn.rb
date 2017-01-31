@@ -341,9 +341,9 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(Time).should_receive(:now).and_return(
       flexmock(:to_i => "NOW"))
-    new_data = '{"last_updated":"NOW","ips":["public_ip"]}'
+    new_data = '{"last_updated":"NOW","ips":["private_ip"]}'
     flexmock(JSON).should_receive(:dump).with(
-      {"ips" => ["public_ip"], "last_updated" => "NOW"}).
+      {"ips" => ["private_ip"], "last_updated" => "NOW"}).
       and_return(new_data)
     flexmock(JSON).should_receive(:dump).with(true).and_return('true')
 
@@ -351,11 +351,11 @@ class TestDjinn < Test::Unit::TestCase
       :data => new_data).and_return(all_ok)
 
     # Mocks for the appcontroller lock
-    flexmock(JSON).should_receive(:dump).with("public_ip").
-      and_return('"public_ip"')
+    flexmock(JSON).should_receive(:dump).with("private_ip").
+      and_return('"private_ip"')
     baz.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return({:rc => 0, :data => JSON.dump("public_ip")})
+      and_return({:rc => 0, :data => JSON.dump("private_ip")})
 
     # Mocks for writing node information
     baz.should_receive(:get).with(
@@ -366,7 +366,7 @@ class TestDjinn < Test::Unit::TestCase
       :ephemeral => ZKInterface::NOT_EPHEMERAL,
       :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
 
-    node_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip"
+    node_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/private_ip"
     baz.should_receive(:create).with(
       :path => node_path,
       :ephemeral => ZKInterface::NOT_EPHEMERAL,
@@ -397,9 +397,9 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+    flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("private_ip", "private_ip")
     assert_equal(nil, djinn.write_our_node_info)
   end
 
@@ -432,21 +432,21 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:create).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
       :ephemeral => ZKInterface::EPHEMERAL,
-      :data => JSON.dump("public_ip")).and_return(failure, all_ok)
+      :data => JSON.dump("private_ip")).and_return(failure, all_ok)
     baz.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return({:rc => 0, :data => JSON.dump("public_ip")})
+      and_return({:rc => 0, :data => JSON.dump("private_ip")})
     baz.should_receive(:delete).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return(all_ok)
 
     # Mocks for ips file
-    json_data = JSON.dump({'last_updated' => 1, 'ips' => ['public_ip']})
+    json_data = JSON.dump({'last_updated' => 1, 'ips' => ['private_ip']})
     baz.should_receive(:get).with(:path => ZKInterface::IP_LIST).
       and_return({:rc => 0, :data => json_data})
 
     baz.should_receive(:get).with(
-      :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/live").
+      :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/private_ip/live").
       and_return(all_ok)
 
     # Mocks for ip file - we have a new role here, so we're expecting
@@ -459,13 +459,13 @@ class TestDjinn < Test::Unit::TestCase
       "instance_id" => "instance_id"
     }
 
-    path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data"
+    path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/private_ip/job_data"
     baz.should_receive(:get).with(
       :path => path).and_return({:rc => 0, :data => JSON.dump(new_data)})
 
     # Mocks for done_loading file, which we will initially set to false,
     # load the new roles, then set to true
-    done_loading = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/done_loading"
+    done_loading = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/private_ip/done_loading"
     baz.should_receive(:get).with(:path => done_loading).
       and_return({:rc => 0, :stat => flexmock(:exists => true)})
     baz.should_receive(:set).with(:path => done_loading,
@@ -480,9 +480,9 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+    flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("private_ip", "private_ip")
 
     # make sure the appcontroller does an update
     assert_equal(true, djinn.update_local_nodes())
@@ -523,11 +523,11 @@ class TestDjinn < Test::Unit::TestCase
     all_ok = {:rc => 0}
     mocked_zk.should_receive(:create).times(2).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
-      :ephemeral => ZKInterface::EPHEMERAL, :data => JSON.dump("public_ip")).
+      :ephemeral => ZKInterface::EPHEMERAL, :data => JSON.dump("private_ip")).
       and_return(does_not_exist, all_ok)
 
     # On the first get, the file exists (user2 has it)
-    get_response = {:rc => 0, :data => JSON.dump("public_ip2")}
+    get_response = {:rc => 0, :data => JSON.dump("private_ip2")}
     mocked_zk.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return(get_response)
@@ -540,10 +540,10 @@ class TestDjinn < Test::Unit::TestCase
     # mock out ZooKeeper's init stuff
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+    flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
       ZKInterface::TIMEOUT).and_return(mocked_zk)
 
-    ZKInterface.init_to_ip("public_ip", "public_ip")
+    ZKInterface.init_to_ip("private_ip", "private_ip")
     ZKInterface.lock_and_run {
       boo = 2
     }
