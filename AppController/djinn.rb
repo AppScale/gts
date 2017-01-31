@@ -4725,9 +4725,12 @@ HOSTS
       AppDashboard::APP_LANGUAGE, @@secret)
     Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Create and 'upload' the application.
+    # Create, upload, and unpack the application.
     AppDashboard.start(my_public, my_private,
         PERSISTENT_MOUNT_POINT, @@secret)
+    APPS_LOCK.synchronize {
+      setup_app_dir(AppDashboard::APP_NAME, true)
+    }
 
     # Assign the specific ports to it.
     APPS_LOCK.synchronize {
