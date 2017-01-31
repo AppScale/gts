@@ -2206,16 +2206,25 @@ class Djinn
     ip = my_node.private_ip
     Djinn.log_info("Running terminate.rb on the node at IP address #{ip}")
     ssh_key = my_node.ssh_key
+
     Djinn.log_info("clean val: #{clean.downcase}")
+    # Add ' clean' as parameter to terminate.rb if clean is true
     extra_command = clean.downcase == 'true' ? ' clean' : ''
+
+    # Run terminate.rb on node
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
-    output = HelperFunctions.run_remote_command(ip, "ruby " +
-        "/root/appscale/AppController/terminate.rb#{extra_command}",
-                                                ssh_key,
-                                                true)
+    output = HelperFunctions.run_remote_command(ip,
+        "ruby /root/appscale/AppController/terminate.rb#{extra_command}",
+        ssh_key, true)
+
+    # terminate.rb will print "OK" if it ran successfully
     status = output.chomp!("OK").nil? ? false : true
+
+    # Get the output of 'ps x' from node
     output += HelperFunctions.run_remote_command(ip, 'ps x', ssh_key, true)
     Djinn.log_info("#{ip} terminated:#{status}\noutput:#{output}")
+
+    # Return ip, status, and output of terminated node
     return {'ip'=>ip, 'status'=> status, 'output'=>output}
   end
 
@@ -2240,6 +2249,7 @@ class Djinn
   end
 
 
+  # Adds message to queue so it can be received by client.
   def send_client_message(message)
     @waiting_messages.synchronize {
       @waiting_messages.push(message)
@@ -2248,7 +2258,8 @@ class Djinn
     }
   end
 
-
+  # Method ran by client to access the messages in @waiting_messages. Client
+  # must send a timeout so that the server will not clear the messages.
   def receive_server_message(timeout, secret)
     was_queue_emptied = false
     begin
@@ -2261,6 +2272,8 @@ class Djinn
           # can check it here.
           Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
         end
+        # Client will process "Error" and try again unless appscale is
+        # terminated
         if @done_terminating and @waiting_messages.empty?
           return "Error"
         end
@@ -2273,6 +2286,7 @@ class Djinn
           return message
         }
       }
+    # Client will process "Error" and try again unless appscale is terminated
     rescue Timeout::Error
       Djinn.log_info("Timed out trying to receive server message. Queue empty:
                      #{was_queue_emptied}")
