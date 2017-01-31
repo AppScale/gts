@@ -2570,11 +2570,11 @@ class Djinn
     Djinn.log_info("Waiting for nodes to finish loading")
 
     nodes.each { |node|
-      if ZKInterface.is_node_done_loading?(node.public_ip)
-        Djinn.log_info("Node at #{node.public_ip} has finished loading.")
+      if ZKInterface.is_node_done_loading?(node.private_ip)
+        Djinn.log_info("Node at #{node.private_ip} has finished loading.")
         next
       else
-        Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
+        Djinn.log_info("Node at #{node.private_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(SMALL_WAIT)
         redo
