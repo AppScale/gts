@@ -1913,8 +1913,10 @@ class Djinn
     }
 
     # Make sure we have the latest code deployed.
-    APPS_LOCK.synchronize {
-      setup_app_dir(appid, true)
+    apps.each { |appid|
+      APPS_LOCK.synchronize {
+        setup_app_dir(appid, true)
+      }
     }
 
     unless apps_to_restart.empty?
