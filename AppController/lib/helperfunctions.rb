@@ -1340,7 +1340,6 @@ module HelperFunctions
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
-      Djinn.log_debug("[#{app}] Threadsafe is set to #{tree['threadsafe']}")
       return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"
