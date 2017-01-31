@@ -5533,7 +5533,7 @@ HOSTS
           Djinn.log_debug("Prioritizing #{host} to run #{app_name} " +
               "since it has no running AppServers for it.")
           appserver_to_use = host
-          current_hosts.delete(host)
+          current_hosts << host
           break
         end
       }
