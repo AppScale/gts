@@ -1912,17 +1912,17 @@ class Djinn
       Djinn.log_error("Disabled #{app} since language doesn't match our record.")
     }
 
-    # Next, restart any apps that have new code uploaded.
+    # Make sure we have the latest code deployed.
+    APPS_LOCK.synchronize {
+      setup_app_dir(appid, true)
+    }
+
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
-        APPS_LOCK.synchronize {
-          # Make sure we have the latest code deployed.
-          setup_app_dir(appid, true)
-        }
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
-          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+          ZKInterface.add_app_entry(appid, my_node.private_ip, location)
         rescue FailedZooKeeperOperationException => e
           Djinn.log_warn("(update) couldn't talk with zookeeper while " +
             "working on app #{appid} with #{e.message}.")
@@ -2215,7 +2215,7 @@ class Djinn
 
     if File.exists?(location)
       begin
-        ZKInterface.add_app_entry(appname, my_node.public_ip, location)
+        ZKInterface.add_app_entry(appname, my_node.private_ip, location)
         uac = UserAppClient.new(my_node.private_ip, @@secret)
         uac.enable_app(appname)
         result = "Found #{appname} in zookeeper."
@@ -5146,12 +5146,6 @@ HOSTS
     end
     Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
 
-    # Now let's make sure we have the correct version of the app. In the
-    # case of a new start we need to ensure we can unpack the tarball, and
-    # in the case of a restart, we need to remove the old unpacked source
-    # code, and use the new one.
-    setup_app_dir(app, true)
-
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
     proxy_port = @app_info_map[app]['haproxy']
@@ -5637,6 +5631,16 @@ HOSTS
         else
           # Application is good: let's set it up.
           HelperFunctions.setup_app(app)
+          # Make sure we advertize that this node is hosting the app code.
+          RETRIES.downto(0) {
+            result = done_uploading(app, app_path, @@secret)
+            if result.include?("Found #{app} in zookeeper.")
+              Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+              return
+            end
+            Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
+            Kernel.sleep(SMALL_WAIT)
+          }
         end
       else
         # If we couldn't get a copy of the application, place a dummy error
@@ -5648,17 +5652,6 @@ HOSTS
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
       place_error_app(app, error_msg, get_app_language(app))
-    else
-      # Make sure we advertize that this node is hosting the app code.
-      RETRIES.downto(0) {
-        result = done_uploading(app, app_path, @@secret)
-        if result.include?("Found #{app} in zookeeper.")
-          Djinn.log_info("This node is now hosting #{app} source (#{result}).")
-          return
-        end
-        Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
-        Kernel.sleep(SMALL_WAIT)
-      }
     end
   end
 
@@ -6014,6 +6007,7 @@ HOSTS
 
     # Try 3 times on each node known to have this application. Make sure
     # we pick a random order to not overload the same host.
+    nodes_with_app.shuffle!
     nodes_with_app.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
