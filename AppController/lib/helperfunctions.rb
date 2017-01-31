@@ -458,9 +458,16 @@ module HelperFunctions
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
 
-    if untar
-      self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
-        "-C #{tar_dir} -zx")
+    return unless untar
+
+    self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
+      "-C #{tar_dir} -zx")
+
+    # Separate extra dependencies for Go applications.
+    begin
+      FileUtils.mv("#{tar_dir}/gopath", "#{meta_dir}/gopath")
+    rescue Errno::ENOENT
+      Djinn.log_debug("#{app_name} does not have a gopath directory")
     end
   end
 
