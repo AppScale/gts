@@ -3204,7 +3204,7 @@ class Djinn
     # time, get a lock before we write to it.
     begin
       ZKInterface.lock_and_run {
-        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
+        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.private_ip)
         ZKInterface.write_node_information(my_node, @done_loading)
       }
     rescue => e
@@ -3382,7 +3382,7 @@ class Djinn
         # additional roles to do while we're in this state where lots of side
         # effects are happening.
         @done_loading = false
-        ZKInterface.set_done_loading(my_node.public_ip, false)
+        ZKInterface.set_done_loading(my_node.private_ip, false)
 
         roles_to_start = new_roles - old_roles
         unless roles_to_start.empty?
@@ -3405,7 +3405,7 @@ class Djinn
 
         # And now that we're done loading/unloading roles, set done_loading for
         # our node back to true.
-        ZKInterface.set_done_loading(my_node.public_ip, true)
+        ZKInterface.set_done_loading(my_node.private_it, true)
         @done_loading = true
 
         @last_updated = zk_ips_info['last_updated']
@@ -4897,7 +4897,7 @@ HOSTS
           end
 
           begin
-            ZKInterface.remove_app_entry(app, my_node.public_ip)
+            ZKInterface.remove_app_entry(app, my_node.private_ip)
           rescue FailedZooKeeperOperationException => except
             Djinn.log_warn("check_stopped_apps: got exception talking to " +
               "zookeeper: #{except.message}.")
@@ -5940,7 +5940,7 @@ HOSTS
       return 0
     end
 
-    remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
+    remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
     @app_info_map.each { |app_id, info|
