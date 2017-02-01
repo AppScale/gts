@@ -239,7 +239,9 @@ installappserverjava()
     JAVA_SDK_PACKAGE="appengine-java-sdk-1.8.4.zip"
     JAVA_SDK_PACKAGE_MD5="f5750b0c836870a3089096fd537a1272"
     cachepackage ${JAVA_SDK_PACKAGE} ${JAVA_SDK_PACKAGE_MD5}
-    unzip "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" -d ${JAVA_SDK_DIR}
+
+    echo "Extracting Java SDK"
+    unzip -q "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" -d ${JAVA_SDK_DIR}
 
     # Compile source file.
     (cd ${JAVA_SDK_DIR} && ant install && ant clean-build)
@@ -526,6 +528,25 @@ installapiclient()
     pipwrapper google-api-python-client==1.5.4
 }
 
+installgosdk()
+{
+    if [ ${UNAME_MACHINE} = "x86_64" ]; then
+        GO_SDK_PACKAGE="go_appengine_sdk_linux_amd64-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="b5c1a3eab1ba69993c3a35661ec3043d"
+    else
+        GO_SDK_PACKAGE="go_appengine_sdk_linux_386-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="b6aad6a3cb2506dfe1067e06fb93f9fb"
+    fi
+
+    EXTRAS_DIR="/opt"
+    cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
+
+    echo "Extracting Go SDK"
+    # Remove existing SDK directory in case it's old.
+    rm -rf ${EXTRAS_DIR}/go_appengine
+    unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${EXTRAS_DIR}
+}
+
 installpycapnp()
 {
     pipwrapper pycapnp
@@ -538,14 +559,6 @@ preplogserver()
     FILE_SRC="$APPSCALE_HOME_RUNTIME/LogService/logging.capnp"
     FILE_DEST="$APPSCALE_HOME_RUNTIME/AppServer/google/appengine/api/logservice/logging.capnp"
     cp ${FILE_SRC} ${FILE_DEST}
-}
-buildgo()
-{
-    GOROOT_DIR=${APPSCALE_HOME_RUNTIME}/AppServer/goroot
-    export GOROOT=${GOROOT_DIR}
-    GO_VERSION=`cat ${GOROOT_DIR}/VERSION`
-    echo "Building ${GO_VERSION} ..."
-    (cd ${GOROOT_DIR}/src && ./make.bash)
 }
 
 installtaskqueue()

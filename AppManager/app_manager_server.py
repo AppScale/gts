@@ -82,6 +82,9 @@ PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 # Load balancing path for datastore.
 DATASTORE_PATH = "localhost"
 
+# The location of the App Engine SDK for Go.
+GO_SDK = os.path.join('/', 'opt', 'go_appengine')
+
 HTTP_OK = 200
 
 # The amount of seconds to wait before retrying to add routing.
@@ -202,8 +205,12 @@ def start_app(config):
     config['language'], config['app_name']))
 
   env_vars = config['env_vars']
-  env_vars['GOPATH'] = '/root/appscale/AppServer/gopath/'
-  env_vars['GOROOT'] = '/root/appscale/AppServer/goroot/'
+
+  if config['language'] == constants.GO:
+    env_vars['GOPATH'] = os.path.join('/var', 'apps', config['app_name'],
+                                      'gopath')
+    env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
+
   watch = "app___" + config['app_name']
   match_cmd = ""
 
@@ -580,7 +587,8 @@ def create_python27_start_cmd(app_name,
     "--datastore_path " + db_location + ":"\
       + str(constants.DB_SERVER_PORT),
     "/var/apps/" + app_name + "/app",
-    "--host " + appscale_info.get_private_ip()]
+    "--host " + appscale_info.get_private_ip(),
+    "--automatic_restart", "no"]
 
   if app_name in TRUSTED_APPS:
     cmd.extend([TRUSTED_FLAG])
