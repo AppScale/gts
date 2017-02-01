@@ -2243,7 +2243,7 @@ class Djinn
   def not_hosting_app(appname, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if !File.exists?(location)
+    unless File.exists?(location)
       Djinn.log_warn("The #{appname} app was still found at #{location}.")
     end
 
