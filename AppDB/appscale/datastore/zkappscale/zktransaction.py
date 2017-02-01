@@ -32,11 +32,6 @@ class ZKTimeoutException(Exception):
   pass
 
 
-class BatchInProgress(Exception):
-  """ Indicates that a concurrent process is working on a batch. """
-  pass
-
-
 # A list that indicates that the Zookeeper node to create should be readable
 # and writable by anyone.
 ZOO_ACL_OPEN = None

@@ -22,6 +22,8 @@ from cassandra.query import ValueSequence
 from .. import dbconstants
 from .. import helper_functions
 from ..dbconstants import AppScaleDBConnectionError
+from ..dbconstants import BatchInProgress
+from ..dbconstants import FailedBatch
 from ..dbconstants import Operations
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
@@ -262,10 +264,6 @@ def mutations_for_entity(entity, txn, current_value=None,
                       'values': reference_value})
 
   return mutations
-
-
-class FailedBatch(Exception):
-  pass
 
 
 class IdempotentRetryPolicy(RetryPolicy):
