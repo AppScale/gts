@@ -2202,17 +2202,24 @@ class Djinn
   end
 
 
-  def terminate_appscale(my_node, clean)
-    ip = my_node.private_ip
+  def terminate_appscale(node_to_terminate, clean)
+    ip = node_to_terminate.private_ip
     Djinn.log_info("Running terminate.rb on the node at IP address #{ip}")
-    ssh_key = my_node.ssh_key
+    ssh_key = node_to_terminate.ssh_key
 
-    Djinn.log_info("clean val: #{clean.downcase}")
     # Add ' clean' as parameter to terminate.rb if clean is true
     extra_command = clean.downcase == 'true' ? ' clean' : ''
 
     # Run terminate.rb on node
-    HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+    begin
+      Timeout.timeout(WAIT_TO_CRASH) {
+        HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+      }
+    rescue Timeout::Error => e
+      # Return ip, status, and output of terminated node
+      return {'ip'=>ip, 'status'=> false,
+              'output'=>"Waiting for port #{SSH_PORT} returned #{e.message}"}
+    end
     output = HelperFunctions.run_remote_command(ip,
         "ruby /root/appscale/AppController/terminate.rb#{extra_command}",
         ssh_key, true)
@@ -2275,14 +2282,13 @@ class Djinn
         # Client will process "Error" and try again unless appscale is
         # terminated
         if @done_terminating and @waiting_messages.empty?
-          return "Error"
+          return "Error: Done Terminating and No Messages"
         end
         @waiting_messages.synchronize {
           @message_ready.wait_while {@waiting_messages.empty?}
           message = JSON.dump(@waiting_messages)
           @waiting_messages.clear
           was_queue_emptied = true
-          Djinn.log_info("client receiving: #{message}")
           return message
         }
       }
@@ -2290,7 +2296,7 @@ class Djinn
     rescue Timeout::Error
       Djinn.log_info("Timed out trying to receive server message. Queue empty:
                      #{was_queue_emptied}")
-      return "Error"
+      return "Error: Server Timed Out"
     end
   end
 
