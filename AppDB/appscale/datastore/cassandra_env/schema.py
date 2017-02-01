@@ -90,6 +90,7 @@ def create_batch_tables(cluster, session):
       app text,
       transaction int,
       applied boolean,
+      op_id uuid,
       PRIMARY KEY ((app), transaction)
     )
   """
