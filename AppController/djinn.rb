@@ -2217,7 +2217,7 @@ class Djinn
   def done_uploading(appname, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if !File.exists?(location)
+    unless File.exists?(location)
       Djinn.log_warn("The #{appname} app was not found at #{location}.")
       return false
     end
