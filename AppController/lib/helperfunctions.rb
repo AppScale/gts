@@ -61,6 +61,10 @@ module HelperFunctions
   SLEEP_TIME = 10
 
 
+  # Number of retries to do.
+  RETRIES = 5
+
+
   IP_REGEX = /\d+\.\d+\.\d+\.\d+/
 
 
@@ -350,38 +354,40 @@ module HelperFunctions
   #   remote_file_loc: The remote location to copy to.
   #   target_ip: The remote target IP.
   #   private_key_loc: The private key to use.
+  #   from: A Boolean to indicate to copy a file *from* the remote location.
   # Raises:
   #   AppScaleSCPException: When a scp fails.
-  def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
+  def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc, from=false)
     private_key_loc = File.expand_path(private_key_loc)
-    FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
     retval_file = "#{Dir.tmpdir}/retval-#{Kernel.rand()}"
-    cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    scp_result = self.shell(cmd)
 
-    loop {
-      break if File.exists?(retval_file)
-      Kernel.sleep(SLEEP_TIME)
-    }
+    # Adjust the command to copy from or to depending on the flag.
+    if from
+      cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 root@#{target_ip}:#{remote_file_loc} #{local_file_loc}; echo $? > #{retval_file}"
+    else
+      cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
+    end
 
-    retval = (File.open(retval_file) { |f| f.read }).chomp
-
-    fails = 0
-    loop {
-      break if retval == "0"
-      Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
-      fails += 1
-      if fails >= 5
-        raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
-      end
-      Kernel.sleep(SLEEP_TIME)
+    RETRIES.downto(0) {
       self.shell(cmd)
+      loop {
+        break if File.exists?(retval_file)
+        Kernel.sleep(SLEEP_TIME)
+      }
       retval = (File.open(retval_file) { |f| f.read }).chomp
+      FileUtils.rm_rf(retval_file)
+      return if retval == "0"
+
+      Djinn.log_debug("\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
+      Kernel.sleep(SLEEP_TIME)
     }
 
-    self.shell("rm -fv #{retval_file}")
+    # We get here only if scp failed RETRIES times.
+    Djinn.log_warn("\n[#{cmd}] failed #{RETRIES} times.")
+    raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
   end
+
 
   def self.get_remote_appscale_home(ip, key)
     cat = "cat /etc/appscale/home"

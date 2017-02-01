@@ -6016,7 +6016,7 @@ HOSTS
       tries = 3
       loop {
         Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-        Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
+        HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
         if File.exists?(app_path)
           Djinn.log_info("Got a copy of #{appname} from #{ip}.")
           return true
