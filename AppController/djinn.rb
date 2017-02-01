@@ -2212,27 +2212,53 @@ class Djinn
     return online_users
   end
 
+
   def done_uploading(appname, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if File.exists?(location)
+    if !File.exists?(location)
+      Djinn.log_warn("The #{appname} app was not found at #{location}.")
+      return false
+    end
+
+    RETRIES.downto(0) {
       begin
         ZKInterface.add_app_entry(appname, my_node.private_ip, location)
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        uac.enable_app(appname)
-        result = "Found #{appname} in zookeeper."
+        Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+        return true
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
           "with #{e.message}.")
-        result = "Unknown status for #{appname}: please retry."
+        Djinn.log_debug("Unknown status for #{appname}: please retry.")
       end
-    else
-      result = "The #{appname} app was not found at #{location}."
+      Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
+      Kernel.sleep(SMALL_WAIT)
+    }
+    Djinn.log_warn("Fail to upload #{location} for #{appname}.")
+    return false
+  end
+
+
+  def not_hosting_app(appname, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    if !File.exists?(location)
+      Djinn.log_warn("The #{appname} app was still found at #{location}.")
     end
 
-    Djinn.log_debug(result)
-    return result
+    RETRIES.downto(0) {
+      begin
+        ZKInterface.remove_app_entry(app, my_node.private_ip)
+        return true
+      rescue FailedZooKeeperOperationException => except
+        Djinn.log_warn("not_hosting_app: got exception talking to " +
+          "zookeeper: #{except.message}.")
+      end
+    }
+    Djinn.log_warn("Fail to remove hosting #{location} for #{appname}.")
+    return false
   end
+
 
   def is_app_running(appname, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -5537,6 +5563,7 @@ HOSTS
         FileUtils.rm_rf(app_dir)
       else
         FileUtils.rm_rf(app_path)
+        not_hosting_app(app, @@secret)
       end
     end
 
@@ -5559,16 +5586,7 @@ HOSTS
         else
           # Application is good: let's set it up.
           HelperFunctions.setup_app(app)
-          # Make sure we advertize that this node is hosting the app code.
-          RETRIES.downto(0) {
-            result = done_uploading(app, app_path, @@secret)
-            if result.include?("Found #{app} in zookeeper.")
-              Djinn.log_info("This node is now hosting #{app} source (#{result}).")
-              return
-            end
-            Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
-            Kernel.sleep(SMALL_WAIT)
-          }
+          done_uploading(app, app_path, @@secret)
         end
       else
         # If we couldn't get a copy of the application, place a dummy error
