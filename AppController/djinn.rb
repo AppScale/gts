@@ -2214,6 +2214,16 @@ class Djinn
   end
 
 
+  # This function adds this node to the list of possible sources for the
+  # application 'appname' tarball source. Others nodes will be able to get
+  # the taball from this node.
+  #
+  # Args:
+  #   appname: The application ID.
+  #   location: Full path for the tarball of the application.
+  #   secret: The deployment current secret.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
   def done_uploading(appname, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -2225,22 +2235,29 @@ class Djinn
     RETRIES.downto(0) {
       begin
         ZKInterface.add_app_entry(appname, my_node.private_ip, location)
-        Djinn.log_info("This node is now hosting #{appname} source (#{result}).")
+        Djinn.log_info("This node is now hosting #{appname} source (#{location}).")
         return true
-      rescue FailedZooKeeperOperationException => e
+      rescue FailedZooKeeperOperationException => except
         Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
-          "with #{e.message}.")
-        Djinn.log_debug("Unknown status for #{appname}: please retry.")
+          "with #{except.message}.")
       end
-      Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
       Kernel.sleep(SMALL_WAIT)
     }
-    Djinn.log_warn("Fail to upload #{location} for #{appname}.")
+    Djinn.log_warn("Fail to notify zookeeper this node hosts #{appname}.")
     return false
   end
 
 
-  def not_hosting_app(appname, secret)
+  # This function removes this node from the list of possible sources for
+  # the application 'appname' tarball source.
+  #
+  # Args:
+  #   appname: The application ID.
+  #   location: Full path for the tarball of the application.
+  #   secret: The deployment current secret.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
+  def not_hosting_app(appname, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     unless File.exists?(location)
@@ -2255,8 +2272,9 @@ class Djinn
         Djinn.log_warn("not_hosting_app: got exception talking to " +
           "zookeeper: #{except.message}.")
       end
+      Kernel.sleep(SMALL_WAIT)
     }
-    Djinn.log_warn("Fail to remove hosting #{location} for #{appname}.")
+    Djinn.log_warn("Fail to notify zookeeper this node doesn't host #{appname}.")
     return false
   end
 
@@ -5559,7 +5577,7 @@ HOSTS
         FileUtils.rm_rf(app_dir)
       else
         FileUtils.rm_rf(app_path)
-        not_hosting_app(app, @@secret)
+        not_hosting_app(app, app_path, @@secret)
       end
     end
 
