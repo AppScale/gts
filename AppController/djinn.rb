@@ -5820,6 +5820,11 @@ HOSTS
   end
 
 
+  # It checks if we need to add or remove App Engine nodes to this deployment.
+  #
+  # Returns:
+  #   An Integer with the number of nodes changed (positive we added
+  #     nodes, negative we removed them, 0 if we didn't do anything).
   def scale_appservers_across_nodes()
     # Only the shadow makes scaling decisions.
     return unless my_node.is_shadow?
@@ -5857,7 +5862,7 @@ HOSTS
             SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling up right now, as we recently scaled " +
         "up or down.")
-      return
+      return 0
     end
 
     Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
@@ -5867,11 +5872,12 @@ HOSTS
     if added_nodes != "OK"
       Djinn.log_error("Was not able to add #{nodes_needed.length} new nodes" +
         " because: #{added_nodes}")
-      return
+      return 0
     end
 
     @last_scaling_time = Time.now.to_i
     Djinn.log_info("Added the following nodes: #{nodes_needed}.")
+    return nodes_needed.length
   end
 
 
