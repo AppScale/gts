@@ -1913,17 +1913,19 @@ class Djinn
       Djinn.log_error("Disabled #{app} since language doesn't match our record.")
     }
 
-    # Next, restart any apps that have new code uploaded.
+    # Make sure we have the latest code deployed.
+    apps.each { |appid|
+      APPS_LOCK.synchronize {
+        setup_app_dir(appid, true)
+      }
+    }
+
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
-        APPS_LOCK.synchronize {
-          # Make sure we have the latest code deployed.
-          setup_app_dir(appid, true)
-        }
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
-          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+          ZKInterface.add_app_entry(appid, my_node.private_ip, location)
         rescue FailedZooKeeperOperationException => e
           Djinn.log_warn("(update) couldn't talk with zookeeper while " +
             "working on app #{appid} with #{e.message}.")
@@ -2211,27 +2213,71 @@ class Djinn
     return online_users
   end
 
+
+  # This function adds this node to the list of possible sources for the
+  # application 'appname' tarball source. Others nodes will be able to get
+  # the tarball from this node.
+  #
+  # Args:
+  #   appname: The application ID.
+  #   location: Full path for the tarball of the application.
+  #   secret: The deployment current secret.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
   def done_uploading(appname, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if File.exists?(location)
-      begin
-        ZKInterface.add_app_entry(appname, my_node.public_ip, location)
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        uac.enable_app(appname)
-        result = "Found #{appname} in zookeeper."
-      rescue FailedZooKeeperOperationException => e
-        Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
-          "with #{e.message}.")
-        result = "Unknown status for #{appname}: please retry."
-      end
-    else
-      result = "The #{appname} app was not found at #{location}."
+    unless File.exists?(location)
+      Djinn.log_warn("The #{appname} app was not found at #{location}.")
+      return false
     end
 
-    Djinn.log_debug(result)
-    return result
+    RETRIES.downto(0) {
+      begin
+        ZKInterface.add_app_entry(appname, my_node.private_ip, location)
+        Djinn.log_info("This node is now hosting #{appname} source (#{location}).")
+        return true
+      rescue FailedZooKeeperOperationException => except
+        Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
+          "with #{except.message}.")
+      end
+      Kernel.sleep(SMALL_WAIT)
+    }
+    Djinn.log_warn("Failed to notify zookeeper this node hosts #{appname}.")
+    return false
   end
+
+
+  # This function removes this node from the list of possible sources for
+  # the application 'appname' tarball source.
+  #
+  # Args:
+  #   appname: The application ID.
+  #   location: Full path for the tarball of the application.
+  #   secret: The deployment current secret.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
+  def not_hosting_app(appname, location, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless File.exists?(location)
+      Djinn.log_warn("The #{appname} app was still found at #{location}.")
+    end
+
+    RETRIES.downto(0) {
+      begin
+        ZKInterface.remove_app_entry(appname, my_node.private_ip)
+        return true
+      rescue FailedZooKeeperOperationException => except
+        Djinn.log_warn("not_hosting_app: got exception talking to " +
+          "zookeeper: #{except.message}.")
+      end
+      Kernel.sleep(SMALL_WAIT)
+    }
+    Djinn.log_warn("Failed to notify zookeeper this node doesn't host #{appname}.")
+    return false
+  end
+
 
   def is_app_running(appname, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -2569,11 +2615,11 @@ class Djinn
     Djinn.log_info("Waiting for nodes to finish loading")
 
     nodes.each { |node|
-      if ZKInterface.is_node_done_loading?(node.public_ip)
-        Djinn.log_info("Node at #{node.public_ip} has finished loading.")
+      if ZKInterface.is_node_done_loading?(node.private_ip)
+        Djinn.log_info("Node at #{node.private_ip} has finished loading.")
         next
       else
-        Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
+        Djinn.log_info("Node at #{node.private_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(SMALL_WAIT)
         redo
@@ -3203,7 +3249,7 @@ class Djinn
     # time, get a lock before we write to it.
     begin
       ZKInterface.lock_and_run {
-        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
+        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.private_ip)
         ZKInterface.write_node_information(my_node, @done_loading)
       }
     rescue => e
@@ -3338,83 +3384,6 @@ class Djinn
       Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
         " of a #{exception.class} exception.")
     end
-  end
-
-
-  # Queries ZooKeeper to see if our local copy of @nodes is out of date and
-  # should be regenerated with up to date data from ZooKeeper. If data on
-  # our node has changed, this starts or stops the necessary roles.
-  def update_local_nodes()
-    begin
-      ZKInterface.lock_and_run {
-        # See if the ZooKeeper data is newer than ours - if not, don't
-        # update anything and return.
-        zk_ips_info = ZKInterface.get_ip_info()
-        if zk_ips_info["last_updated"] <= @last_updated
-          return false
-        else
-          Djinn.log_info("Updating data from ZK. Our timestamp, " +
-            "#{@last_updated}, was older than the ZK timestamp, " +
-            "#{zk_ips_info['last_updated']}")
-        end
-
-        all_ips = zk_ips_info["ips"]
-        new_nodes = []
-        all_ips.each { |ip|
-          new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip),
-            @options['keyname'])
-        }
-
-        old_roles = my_node.jobs
-        @state_change_lock.synchronize {
-          @nodes = new_nodes.uniq
-        }
-
-        find_me_in_locations()
-        new_roles = my_node.jobs
-
-        Djinn.log_info("My new nodes are [#{@nodes.join(', ')}], and my new " +
-          "node is #{my_node}")
-
-        # Since we're about to possibly load and unload roles, set done_loading
-        # for our node to false, so that other nodes don't erroneously send us
-        # additional roles to do while we're in this state where lots of side
-        # effects are happening.
-        @done_loading = false
-        ZKInterface.set_done_loading(my_node.public_ip, false)
-
-        roles_to_start = new_roles - old_roles
-        unless roles_to_start.empty?
-          Djinn.log_info("Need to start [#{roles_to_start.join(', ')}] " +
-            "roles on this node")
-          roles_to_start.each { |role|
-            Djinn.log_info("Starting role #{role}")
-            send("start_#{role}".to_sym)
-          }
-        end
-
-        roles_to_stop = old_roles - new_roles
-        unless roles_to_stop.empty?
-          Djinn.log_info("Need to stop [#{roles_to_stop.join(', ')}] " +
-            "roles on this node")
-          roles_to_stop.each { |role|
-            send("stop_#{role}".to_sym)
-          }
-        end
-
-        # And now that we're done loading/unloading roles, set done_loading for
-        # our node back to true.
-        ZKInterface.set_done_loading(my_node.public_ip, true)
-        @done_loading = true
-
-        @last_updated = zk_ips_info['last_updated']
-      }
-    rescue => e
-      Djinn.log_warn("(update_local_node) saw exception #{e.message}")
-      return false
-    end
-
-    return true
   end
 
 
@@ -4724,9 +4693,12 @@ HOSTS
       AppDashboard::APP_LANGUAGE, @@secret)
     Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Create and 'upload' the application.
+    # Create, upload, and unpack the application.
     AppDashboard.start(my_public, my_private,
         PERSISTENT_MOUNT_POINT, @@secret)
+    APPS_LOCK.synchronize {
+      setup_app_dir(AppDashboard::APP_NAME, true)
+    }
 
     # Assign the specific ports to it.
     APPS_LOCK.synchronize {
@@ -4893,7 +4865,7 @@ HOSTS
           end
 
           begin
-            ZKInterface.remove_app_entry(app, my_node.public_ip)
+            ZKInterface.remove_app_entry(app, my_node.private_ip)
           rescue FailedZooKeeperOperationException => except
             Djinn.log_warn("check_stopped_apps: got exception talking to " +
               "zookeeper: #{except.message}.")
@@ -5146,12 +5118,6 @@ HOSTS
       return
     end
     Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
-
-    # Now let's make sure we have the correct version of the app. In the
-    # case of a new start we need to ensure we can unpack the tarball, and
-    # in the case of a restart, we need to remove the old unpacked source
-    # code, and use the new one.
-    setup_app_dir(app, true)
 
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
@@ -5611,6 +5577,7 @@ HOSTS
         FileUtils.rm_rf(app_dir)
       else
         FileUtils.rm_rf(app_path)
+        not_hosting_app(app, app_path, @@secret)
       end
     end
 
@@ -5633,6 +5600,7 @@ HOSTS
         else
           # Application is good: let's set it up.
           HelperFunctions.setup_app(app)
+          done_uploading(app, app_path, @@secret)
         end
       else
         # If we couldn't get a copy of the application, place a dummy error
@@ -5644,17 +5612,6 @@ HOSTS
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
       place_error_app(app, error_msg, get_app_language(app))
-    else
-      # Make sure we advertize that this node is hosting the app code.
-      RETRIES.downto(0) {
-        result = done_uploading(app, app_path, @@secret)
-        if result.include?("Found #{app} in zookeeper.")
-          Djinn.log_info("This node is now hosting #{app} source (#{result}).")
-          return
-        end
-        Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
-        Kernel.sleep(SMALL_WAIT)
-      }
     end
   end
 
@@ -5675,7 +5632,9 @@ HOSTS
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
     # Make sure we have the application setup properly.
-    setup_app_dir(app)
+    APPS_LOCK.synchronize {
+      setup_app_dir(app)
+    }
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
@@ -5938,7 +5897,7 @@ HOSTS
       return 0
     end
 
-    remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
+    remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
     @app_info_map.each { |app_id, info|
@@ -6010,6 +5969,7 @@ HOSTS
 
     # Try 3 times on each node known to have this application. Make sure
     # we pick a random order to not overload the same host.
+    nodes_with_app.shuffle!
     nodes_with_app.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
