@@ -156,7 +156,7 @@ class Server(object):
       return go_runtime.GoRuntimeInstanceFactory(
           request_data=self._request_data,
           runtime_config_getter=self._get_runtime_config,
-          server_configuration=server_configuration)
+          module_configuration=server_configuration)
     elif server_configuration.runtime in ('python', 'python27'):
       return python_runtime.PythonRuntimeInstanceFactory(
           request_data=self._request_data,

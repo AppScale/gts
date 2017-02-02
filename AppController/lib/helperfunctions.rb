@@ -458,9 +458,16 @@ module HelperFunctions
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
 
-    if untar
-      self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
-        "-C #{tar_dir} -zx")
+    return unless untar
+
+    self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
+      "-C #{tar_dir} -zx")
+
+    # Separate extra dependencies for Go applications.
+    begin
+      FileUtils.mv("#{tar_dir}/gopath", "#{meta_dir}/gopath")
+    rescue Errno::ENOENT
+      Djinn.log_debug("#{app_name} does not have a gopath directory")
     end
   end
 
@@ -1333,7 +1340,6 @@ module HelperFunctions
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
-      Djinn.log_debug("[#{app}] Threadsafe is set to #{tree['threadsafe']}")
       return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"
