@@ -122,19 +122,19 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
       nickname = ''
       organization = ''
     headers[http_runtime_constants.REQUEST_ID_HEADER] = request_id
-    headers[http_runtime_constants.INTERNAL_HEADER_PREFIX + 'User-Id'] = (
-        user_id)
-    headers[http_runtime_constants.INTERNAL_HEADER_PREFIX + 'User-Email'] = (
-        user_email)
-    headers[
-        http_runtime_constants.INTERNAL_HEADER_PREFIX + 'User-Is-Admin'] = (
-            str(int(admin)))
-    headers[
-        http_runtime_constants.INTERNAL_HEADER_PREFIX + 'User-Nickname'] = (
-            nickname)
-    headers[
-        http_runtime_constants.INTERNAL_HEADER_PREFIX + 'User-Organization'] = (
-            organization)
+
+    prefix = http_runtime_constants.INTERNAL_HEADER_PREFIX
+
+    # The Go runtime from the 1.9.48 SDK looks for different headers.
+    if self._server_configuration.runtime == 'go':
+      headers['X-Appengine-Dev-Request-Id'] = request_id
+      prefix = 'X-Appengine-'
+
+    headers[prefix + 'User-Id'] = (user_id)
+    headers[prefix + 'User-Email'] = (user_email)
+    headers[prefix + 'User-Is-Admin'] = (str(int(admin)))
+    headers[prefix + 'User-Nickname'] = (nickname)
+    headers[prefix + 'User-Organization'] = (organization)
     headers['X-AppEngine-Country'] = 'ZZ'
     connection = httplib.HTTPConnection(self._host, self._port)
     with contextlib.closing(connection):
@@ -213,7 +213,8 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
           cwd=self._server_configuration.application_root)
     line = self._process.stdout.readline()
     try:
-      self._port = int(line)
+      # Older runtimes output just the port, while newer ones prepend the host.
+      self._port = int(line.split()[-1])
     except ValueError:
       # The development server is in a bad state. Log an error message and quit.
       logging.error('unexpected port response from runtime [%r]; '

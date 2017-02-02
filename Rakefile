@@ -69,15 +69,6 @@ namespace :apptaskqueue do
 
 end
 
-namespace :go do
-
-  task :test do
-    goroot = '/root/appscale/AppServer/goroot'
-    sh "PATH=#{goroot}/bin:${PATH}; cd #{goroot}/src; ./run.bash --no-rebuild"
-  end
-
-end
-
 namespace :hermes do
 
   task :test do
@@ -161,8 +152,5 @@ python_tests = [
   'apps:test'
 ]
 ruby_tests = ['appcontroller:test']
-go_tests = ['go:test']
 
-task :brief => python_tests + ruby_tests
-
-task :default => python_tests + ruby_tests + go_tests
+task :default => python_tests + ruby_tests
