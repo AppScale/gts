@@ -2225,7 +2225,7 @@ class Djinn
     RETRIES.downto(0) {
       begin
         ZKInterface.add_app_entry(appname, my_node.private_ip, location)
-        Djinn.log_info("This node is now hosting #{app} source (#{result}).")
+        Djinn.log_info("This node is now hosting #{appname} source (#{result}).")
         return true
       rescue FailedZooKeeperOperationException => e
         Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
@@ -2249,7 +2249,7 @@ class Djinn
 
     RETRIES.downto(0) {
       begin
-        ZKInterface.remove_app_entry(app, my_node.private_ip)
+        ZKInterface.remove_app_entry(appname, my_node.private_ip)
         return true
       rescue FailedZooKeeperOperationException => except
         Djinn.log_warn("not_hosting_app: got exception talking to " +
