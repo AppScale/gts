@@ -2216,7 +2216,7 @@ class Djinn
 
   # This function adds this node to the list of possible sources for the
   # application 'appname' tarball source. Others nodes will be able to get
-  # the taball from this node.
+  # the tarball from this node.
   #
   # Args:
   #   appname: The application ID.
@@ -2243,7 +2243,7 @@ class Djinn
       end
       Kernel.sleep(SMALL_WAIT)
     }
-    Djinn.log_warn("Fail to notify zookeeper this node hosts #{appname}.")
+    Djinn.log_warn("Failed to notify zookeeper this node hosts #{appname}.")
     return false
   end
 
@@ -2274,7 +2274,7 @@ class Djinn
       end
       Kernel.sleep(SMALL_WAIT)
     }
-    Djinn.log_warn("Fail to notify zookeeper this node doesn't host #{appname}.")
+    Djinn.log_warn("Failed to notify zookeeper this node doesn't host #{appname}.")
     return false
   end
 
