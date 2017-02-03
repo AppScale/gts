@@ -22,7 +22,6 @@ from cassandra.query import ValueSequence
 from .. import dbconstants
 from .. import helper_functions
 from ..dbconstants import AppScaleDBConnectionError
-from ..dbconstants import BatchInProgress
 from ..dbconstants import FailedBatch
 from ..dbconstants import Operations
 from ..dbconstants import TxnActions
