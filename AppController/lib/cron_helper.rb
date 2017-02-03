@@ -32,8 +32,8 @@ module CronHelper
   #   app: A String that names the appid of this application, used to find the
   #     cron configuration file on the local filesystem.
   def self.update_cron(ip, port, lang, app)
-    Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]")
     app_crontab = NO_EMAIL_CRON + "\n"
+    parsing_log = "saw a cron request with args [#{ip}][#{lang}][#{app}]\n"
 
     if lang == "python27" or lang == "go" or lang == "php"
       cron_file = "#{HelperFunctions::APPLICATIONS_DIR}/#{app}/app/cron.yaml"
@@ -65,7 +65,7 @@ module CronHelper
         begin
           # Parse URL to prevent malicious code from being appended.
           url = URI.parse(item['url']).to_s()
-          Djinn.log_debug("Parsed cron URL: #{url}")
+          parsing_log += "Parsed cron URL: #{url}\n"
         rescue URI::InvalidURIError
           Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
           next
@@ -74,6 +74,7 @@ module CronHelper
         schedule = item["schedule"]
         timezone = item["timezone"] # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
+        parsing_log += "Schedule: #{schedule}\n"
         cron_scheds.each { |line|
           cron_info = <<CRON
           Description: #{description}
@@ -82,7 +83,7 @@ module CronHelper
           Timezone: #{timezone}
           Cron Schedule: #{line}
 CRON
-          Djinn.log_debug(cron_info)
+          parsing_log += "#{cron_info}\n"
           app_crontab << line + "\n"
         }
       }
@@ -111,7 +112,7 @@ CRON
         begin
           # Parse URL to prevent malicious code from being appended.
           url = URI.parse(raw_url).to_s()
-          Djinn.log_debug("Parsed cron URL: #{url}")
+          parsing_log += "Parsed cron URL: #{url}\n"
         rescue URI::InvalidURIError
           Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
           Djinn.log_app_error(app,
@@ -122,6 +123,7 @@ CRON
         schedule = get_from_xml(item, "schedule")
         timezone = get_from_xml(item, "timezone") # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
+        parsing_log += "Schedule: #{schedule}\n"
         cron_scheds.each { |line|
           cron_info = <<CRON
           Description: #{description}
@@ -130,7 +132,7 @@ CRON
           Timezone: #{timezone}
           Cron Schedule: #{line}
 CRON
-          Djinn.log_debug(cron_info)
+          parsing_log += "#{cron_info}\n"
           app_crontab << line + "\n"
         }
       }
@@ -138,7 +140,7 @@ CRON
       Djinn.log_error("ERROR: lang was neither python27, go, php, nor java but was [#{lang}] (cron)")
     end
 
-    write_app_crontab(app_crontab, app)
+    Djinn.log_debug(parsing_log) if write_app_crontab(app_crontab, app)
   end
 
 
@@ -192,6 +194,8 @@ CRON
   # Args:
   #   crontab: A String that contains the entirety of the crontab.
   #   app: A String that names the appid of this application.
+  # Returns:
+  #   A Boolean indicating if the crontab was written.
   def self.write_app_crontab(crontab, app)
     app_cron_file = "/etc/cron.d/appscale-#{app}"
     current = ""
@@ -202,7 +206,10 @@ CRON
       Djinn.log_debug("Crontab for #{app}:\n#{crontab}.")
     else
       Djinn.log_debug("No need to write crontab for #{app}.")
+      return false
     end
+
+    return true
   end
 
 
@@ -489,8 +496,6 @@ CRON
   #   An Array of Strings, where each String is a cron line in standard cron
   #   format, that can be applied to a crontab.
   def self.convert_schedule_to_cron(schedule, url, ip, port, app)
-    Djinn.log_debug("Schedule: #{schedule}")
-
     # "synchronized" is a synonym for "from 00:00 to 23:59" in the Cron API.
     # Therefore, both are handled as simple format.
     simple_format_regex = /\Aevery (\d+) (hours|mins|minutes)(?:\s+from 00:00 to 23:59|\s+synchronized)?\Z/
