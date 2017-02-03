@@ -440,7 +440,7 @@ module HelperFunctions
   # Returns:
   #   true  if the tarball is correct, false otherwise.
   def self.check_tarball(tar_gz_location)
-    cmd = "tar -ztf #{tar_gz_location}"
+    cmd = "tar -ztf #{tar_gz_location} > /dev/null 2> /dev/null"
     case system(cmd)
     when nil
       Djinn.log_warn("Couldn't execute #{cmd}!")
