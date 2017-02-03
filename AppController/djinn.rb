@@ -2730,6 +2730,10 @@ class Djinn
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
+    if $?.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{?.exitstatus}" +
+          " and output: #{output}.")
+    end
     return output
   end
 
