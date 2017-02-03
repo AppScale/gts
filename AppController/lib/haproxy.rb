@@ -373,6 +373,7 @@ CONFIG
     # Retrieve total and enqueued requests for the given app.
     monitoring_info = Djinn.log_run("echo \"show stat\" | " +
       "socat stdio unix-connect:#{HAPROXY_PATH}/stats | grep #{full_app_name}")
+    Djinn.log_debug("HAProxy raw stats: #{monitoring_info}")
 
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{full_app_name} may not " +
