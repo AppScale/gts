@@ -11,18 +11,27 @@ import sys
 import threading
 import time
 import urllib
+import uuid
 
 from ..cassandra_env import cassandra_interface
-from ..dbconstants import (MAX_GROUPS_FOR_XG,
-                           MAX_TX_DURATION)
+from ..dbconstants import (AppScaleDBConnectionError,
+                           BatchInProgress,
+                           MAX_GROUPS_FOR_XG,
+                           MAX_TX_DURATION,
+                           TRANSIENT_CASSANDRA_ERRORS)
 from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 
+from cassandra.cluster import SimpleStatement
+from cassandra.policies import FallthroughRetryPolicy
 from kazoo.exceptions import (NoNodeError,
                               KazooException,
                               ZookeeperError)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
+
+# A cassandra-driver policy that does not retry operations.
+NO_RETRIES = FallthroughRetryPolicy()
 
 
 class ZKTimeoutException(Exception):
@@ -1423,6 +1432,94 @@ class ZKTransaction:
       return False
     return True
 
+  def clear_batch_status(self, app, txid, retries=5):
+    """ Claim a batch by removing its status entry.
+
+    Args:
+      app: A string containing the application ID.
+      txid: An integer specifying the transaction ID.
+      retries: The number of times to retry after failures.
+    """
+    clear_status = """
+      DELETE FROM batch_status
+      WHERE app = %(app)s AND transaction = %(transaction)s
+      IF applied = False
+    """
+    statement = SimpleStatement(clear_status, retry_policy=NO_RETRIES)
+    parameters = {'app': app, 'transaction': txid}
+
+    try:
+      result = self.db_access.session.execute(statement, parameters)
+    except TRANSIENT_CASSANDRA_ERRORS:
+      retries_left = retries - 1
+      if retries_left < 1:
+        raise AppScaleDBConnectionError(
+          'Retries exhausted while clearing status')
+
+      self.logger.debug('Status was not cleared. Retrying.')
+      return self.clear_batch_status(app, txid, retries=retries_left)
+
+    if not result.was_applied:
+      raise BatchInProgress('The batch for {}:{} is still in progress'.
+                            format(app, txid))
+
+  def claim_batch_status(self, app, txid, retries=5):
+    """ Claim a batch by inserting a status entry.
+
+    Args:
+      app: A string containing the application ID.
+      txid: An integer specifying the transaction ID.
+      retries: The number of times to retry after failures.
+    """
+    op_id = uuid.uuid4()
+    insert_marker = """
+      INSERT INTO batch_status (app, transaction, applied, op_id)
+      VALUES (%(app)s, %(transaction)s, False, %(op_id)s)
+      IF NOT EXISTS
+    """
+    statement = SimpleStatement(insert_marker, retry_policy=NO_RETRIES)
+    parameters = {'app': app, 'transaction': txid, 'op_id': op_id}
+
+    try:
+      result = self.db_access.session.execute(statement, parameters)
+    except TRANSIENT_CASSANDRA_ERRORS:
+      get_status = """
+        SELECT op_id FROM batch_status
+        WHERE app = %(app)s AND transaction = %(transaction)s
+      """
+      query = SimpleStatement(get_status)
+      parameters = {'app': app, 'transaction': txid}
+
+      try:
+        results = self.db_access.session.execute(query, parameters=parameters)
+      except TRANSIENT_CASSANDRA_ERRORS:
+        message = 'Exception when trying to find out batch status'
+        logging.exception(message)
+        raise AppScaleDBConnectionError(message)
+
+      try:
+        select_result = results[0]
+      except IndexError:
+        retries_left = retries - 1
+        if retries_left < 1:
+          raise AppScaleDBConnectionError(
+            'Retries exhausted while claiming batch')
+
+        self.logger.debug('Batch was not claimed. Retrying.')
+        return self.claim_batch_status(app, txid, retries=retries_left)
+
+      if select_result.op_id == op_id:
+        self.logger.debug('Batch was already claimed.')
+        return
+
+      raise BatchInProgress(
+        'A batch for transaction {} already exists'.format(txid))
+
+    if not result.was_applied:
+      # Another process is already working on the batch.
+      raise BatchInProgress(
+        'The batch for {} is still in progress'.format(txid))
+
   def establish_batch_lock(self, app, transaction, status_exists):
     """ Ensure that no concurrent processes continue to work on the batch. The
     datastore uses a lightweight transaction when marking the batch as applied.
@@ -1433,29 +1530,10 @@ class ZKTransaction:
       transaction: An integer containing the transaction ID.
       status_exists: A boolean indicating the presence of a batch status row.
     """
-    parameters = {'app': app, 'transaction': transaction}
     if status_exists:
-      clear_status = """
-        DELETE FROM batch_status
-        WHERE app = %(app)s AND transaction = %(transaction)s
-        IF applied = False
-      """
-      result = self.db_access.session.execute(clear_status, parameters)
-      if not result.was_applied:
-        raise BatchInProgress('The batch for {}:{} is still in progress'.
-                              format(app, transaction))
-      return
-
-    insert_marker = """
-      INSERT INTO batch_status (app, transaction, applied)
-      VALUES (%(app)s, %(transaction)s, False)
-      IF NOT EXISTS
-    """
-    result = self.db_access.session.execute(insert_marker, parameters)
-    if not result.was_applied:
-      # Another process is already working on the batch.
-      raise BatchInProgress(
-        'The batch for {} is still in progress'.format(transaction))
+      self.clear_batch_status(app, transaction)
+    else:
+      self.claim_batch_status(app, transaction)
 
   def clean_up_batch(self, app, transaction):
     """ Clean up temporary batch data.
@@ -1574,7 +1652,7 @@ class ZKTransaction:
           try:
             self.resolve_batch(app_id, transaction)
             self.notify_failed_transaction(app_id, transaction)
-          except BatchInProgress:
+          except (AppScaleDBConnectionError, BatchInProgress):
             self.logger.exception(
               'Failed to clean up lock for {}:{}'.format(app_id, transaction))
       except kazoo.exceptions.NoNodeError:
