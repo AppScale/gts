@@ -111,7 +111,7 @@ module Nginx
     parsing_log = "Writing proxy for app #{app_name} with language #{language}.\n"
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
-    parsing_log += "Secure handlers: #{secure_handlers.inspect.to_s}.\n"
+    parsing_log += "Secure handlers: #{secure_handlers}.\n"
     always_secure_locations = secure_handlers[:always].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
