@@ -144,6 +144,12 @@ module HelperFunctions
   GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance"
   AWS_METADATA = "http://169.254.169.254/latest/meta-data"
 
+
+  # Curb the number of entries to print to this number. For example when
+  # we print the appengine list, we will print only up to this constant,
+  # if more we print the number of entries we have.
+  NUM_ENTRIES_TO_PRINT = 10
+
   def self.shell(cmd)
     return `#{cmd}`
   end

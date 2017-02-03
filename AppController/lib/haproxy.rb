@@ -439,12 +439,12 @@ CONFIG
         running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
       end
     }
-    if running.length > 10
+    if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
       Djinn.log_debug("Haproxy: found #{running.length} running AppServers for #{app}.")
     else
       Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
     end
-    if failed.length > 10
+    if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
       Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers for #{app}.")
     else
       Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")

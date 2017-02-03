@@ -4938,7 +4938,7 @@ HOSTS
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
-        if info['appengine'].length > 10
+        if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
           Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
         else
           Djinn.log_debug("Checking #{app} running at #{info['appengine']}.")
