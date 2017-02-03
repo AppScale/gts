@@ -2731,7 +2731,7 @@ class Djinn
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
     if $?.exitstatus != 0
-      Djinn.log_debug("Command #{command} failed with #{?.exitstatus}" +
+      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" +
           " and output: #{output}.")
     end
     return output
