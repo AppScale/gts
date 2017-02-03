@@ -104,6 +104,18 @@ def create_batch_tables(cluster, session):
     time.sleep(60)
     raise
 
+  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
+  if 'op_id' not in keyspace_metadata.tables['batch_status'].columns:
+    alter_table = 'ALTER TABLE batch_status ADD op_id uuid'
+    statement = SimpleStatement(alter_table, retry_policy=NO_RETRIES)
+    try:
+      session.execute(statement)
+    except cassandra.OperationTimedOut:
+      logging.warning(
+        'Encountered an operation timeout when altering batch_status. '
+        'Waiting 1 minute for schema to settle.')
+      time.sleep(60)
+      raise
 
 def create_groups_table(session):
   create_table = """
