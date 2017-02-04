@@ -5974,19 +5974,22 @@ HOSTS
       ssh_key = node.ssh_key
       ip = node.private_ip
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-      begin
-        HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
-        if File.exists?(app_path)
-          if HelperFunctions.check_tarball(app_path)
-            Djinn.log_info("Got a copy of #{appname} from #{ip}.")
-            return true
+      RETRIES.downto(0) {
+        begin
+          HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
+          if File.exists?(app_path)
+            if HelperFunctions.check_tarball(app_path)
+              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+              return true
+            end
           end
+        rescue AppScaleSCPException
+          Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
         end
-      rescue AppScaleSCPException
-        Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
-      end
-      # Removing possibly corrupted, or partially downloaded tarball.
-      FileUtils.rm_rf(app_path)
+        # Removing possibly corrupted, or partially downloaded tarball.
+        FileUtils.rm_rf(app_path)
+        Kernel.sleep(SMALL_WAIT)
+      }
       Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
     }
     Djinn.log_error("Unable to get the application from any node.")
