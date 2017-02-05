@@ -2970,6 +2970,9 @@ class Djinn
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
 
+  def remove_tq_endpoints
+    HAProxy.remove_tq_endpoints
+  end
 
   def write_database_info()
     table = @options['table']
@@ -3100,8 +3103,8 @@ class Djinn
 
     # We now check if we add/removed roles to this node.
     if old_jobs != my_node.jobs
-      Djinn.log_info("Jobs for this node are now: #{my_node.jobs}."
-      start_stop_api_service
+      Djinn.log_info("Jobs for this node are now: #{my_node.jobs}.")
+      start_stop_api_services
     end
 
     # Finally some @options may have changed.
@@ -3624,7 +3627,7 @@ class Djinn
     if my_node.is_load_balancer?
       threads << Thread.new {
         start_ejabberd()
-        configure_tq_routing()
+        configure_tq_routing
       }
     else
       remove_tq_endpoints
@@ -3901,7 +3904,7 @@ class Djinn
   end
 
   # Stops the blobstore server.
-  def stop_blob_server
+  def stop_blobstore_server
     BlobServer.stop
   end
 

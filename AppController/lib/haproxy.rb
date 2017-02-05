@@ -137,7 +137,7 @@ module HAProxy
   end
 
   # Remove the configuration for Tasqueue REST API endpoints.
-  def remove_tq_endpoints
+  def self.remove_tq_endpoints
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
     HAProxy.regenerate_config
   end
