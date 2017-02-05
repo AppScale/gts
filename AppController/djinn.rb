@@ -2091,7 +2091,7 @@ class Djinn
     # services. The functions are idempotent ie won't restart already
     # running services and can be ran multiple time with no side effect.
     initialize_server
-    start_api_services
+    start_stop_api_services
 
     # Now that we are done loading, we can set the monit job to check the
     # AppController. At this point we are resilient to failure (ie the AC
@@ -2485,103 +2485,83 @@ class Djinn
 
 
   # Starts the given roles by using open nodes, spawning new nodes, or some
-  # combination of the two. 'nodes_needed' should be an Array, where each
-  # item is an Array of the roles to start on each node.
+  # combination of the two.
+  #
+  # Args:
+  #   nodes_needed:  An Array, where each item is an Array of the roles to
+  #     start on each node.
+  #   instance_type: A String with the type of instance to start.
+  #   secret: A String with the deployment secret key.
+  # Returns:
+  #  A String with 'OK' or the Error string.
   def start_new_roles_on_nodes(nodes_needed, instance_type, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if nodes_needed.class != Array
-      Djinn.log_error("Was expecting nodes_needed to be an Array, not " +
-        "a #{nodes_needed.class}")
+    # TODO: we should validate the roles type, to ensure they are valid.
+    if nodes_needed.class != Array || instance_type.class != String
+      Djinn.log_error("Invalid parameter type (nodes_needed, or instance_type).")
       return BAD_INPUT_MSG
     end
 
     Djinn.log_info("Received a request to acquire nodes with roles " +
-      "#{nodes_needed.join(', ')}, with instance type #{instance_type} for " +
-      "new nodes")
+      "#{nodes_needed.join(', ')}, with instance type #{instance_type}.")
 
     vms_to_use = []
-    ZKInterface.lock_and_run {
+
+    # We look for 'open' nodes first.
+    @state_change_lock.synchronize {
       @nodes.each { |node|
         if node.is_open?
           Djinn.log_info("Will use node #{node} to run new roles")
           node.jobs = nodes_needed[vms_to_use.length]
           vms_to_use << node
-
-          if vms_to_use.length == nodes_needed.length
-            Djinn.log_info("Only using open nodes to run new roles")
-            break
-          end
         end
       }
+    }
+    Djinn.log_info("Using #{vms_to_use.length} open nodes to run new roles.")
 
-      vms_to_spawn = nodes_needed.length - vms_to_use.length
+    vms_to_spawn = nodes_needed.length - vms_to_use.length
 
-      if vms_to_spawn > 0 and !is_cloud?
+    if vms_to_spawn > 0
+      unless is_cloud?
         Djinn.log_error("Still need #{vms_to_spawn} more nodes, but we " +
         "aren't in a cloud environment, so we can't acquire more nodes - " +
         "failing the caller's request.")
         return NOT_ENOUGH_OPEN_NODES
       end
 
-      if vms_to_spawn > 0
-        Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
-        # Make sure the user has said it is ok to add more VMs before doing so.
-        allowed_vms = Integer(@options['max_images']) - @nodes.length
-        if allowed_vms < vms_to_spawn
-          Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
-            "would put us over the user-specified limit of #{@options['max_images']} " +
-            "VMs. Instead, spawning up #{allowed_vms}.")
-          vms_to_spawn = allowed_vms
-          if vms_to_spawn <= 0
-            Djinn.log_error("Reached the maximum number of VMs that we " +
-              "can use in this cloud deployment, so not spawning more nodes.")
-            return "Reached maximum number of VMs we can use."
-          end
+      Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs.")
+      # Make sure the user has said it is ok to add more VMs before doing so.
+      allowed_vms = Integer(@options['max_images']) - @nodes.length
+      if allowed_vms < vms_to_spawn
+        Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
+          "would put us over the user-specified limit of #{@options['max_images']} " +
+          "VMs. Instead, spawning up #{allowed_vms}.")
+        vms_to_spawn = allowed_vms
+        if vms_to_spawn <= 0
+          Djinn.log_error("Reached the maximum number of VMs that we " +
+            "can use in this cloud deployment, so not spawning more nodes.")
+          return "Reached maximum number of VMs we can use."
         end
-
-        disks = Array.new(vms_to_spawn, nil)  # no persistent disks
-
-        # start up vms_to_spawn vms as open
-        imc = InfrastructureManagerClient.new(@@secret)
-        begin
-          new_nodes_info = imc.spawn_vms(vms_to_spawn, @options, "open", disks)
-        rescue FailedNodeException, AppScaleException => exception
-          Djinn.log_error("Couldn't spawn #{vms_to_spawn} VMs with roles " +
-            "open because: #{exception.message}")
-          return exception.message
-        end
-
-
-        # initialize them and wait for them to start up
-        Djinn.log_debug("info about new nodes is " +
-          "[#{new_nodes_info.join(', ')}]")
-        add_nodes(new_nodes_info)
-
-        # add information about the VMs we spawned to our list, which may
-        # already have info about the open nodes we want to use
-        new_nodes = Djinn.convert_location_array_to_class(new_nodes_info,
-          @options['keyname'])
-        vms_to_use << new_nodes
-        vms_to_use.flatten!
       end
-    }
 
-    wait_for_nodes_to_finish_loading(vms_to_use)
+      disks = Array.new(vms_to_spawn, nil)  # no persistent disks
 
-    nodes_needed.each_index { |i|
+      # Start up vms_to_spawn vms.
+      imc = InfrastructureManagerClient.new(@@secret)
       begin
-        ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i],
-          @options['keyname'])
-        Djinn.log_info("Added roles #{nodes_needed[i].join(', ')} " +
-          "to virtual machine #{vms_to_use[i]}")
-      rescue FailedZooKeeperOperationException => e
-        Djinn.log_warn("(start_new_roles_on_nodes) couldn't talk to " +
-          "zookeeper while adding roles with #{e.message}.")
+        new_nodes_info = imc.spawn_vms(vms_to_spawn, @options, nodes_needed, disks)
+      rescue FailedNodeException, AppScaleException => exception
+        Djinn.log_error("Couldn't spawn #{vms_to_spawn} VMs with roles " +
+          "open because: #{exception.message}")
+        return exception.message
       end
-    }
 
-    wait_for_nodes_to_finish_loading(vms_to_use)
+      # Initialize them and integrate them with our nodes.
+      Djinn.log_debug("info about new nodes is " +
+        "[#{new_nodes_info.join(', ')}]")
+      add_nodes(new_nodes_info)
+    end
 
     return "OK"
   end
@@ -2990,6 +2970,7 @@ class Djinn
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
 
+
   def write_database_info()
     table = @options['table']
     replication = @options['replication']
@@ -3075,9 +3056,10 @@ class Djinn
 
     Djinn.log_debug("Reload state : #{json_state}.")
 
-    # Let's keep an old copy of the options: we'll need them to check if
-    # something changed and we need to act.
+    # Let's keep an old copy of the options and jobs: we'll need them to
+    # check if something changed and we need to act.
     old_options = @options.clone
+    old_jobs = my_node.jobs
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
       keyname = json_state['@options']['keyname']
@@ -3115,6 +3097,12 @@ class Djinn
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
     find_me_in_locations
+
+    # We now check if we add/removed roles to this node.
+    if old_jobs != my_node.jobs
+      Djinn.log_info("Jobs for this node are now: #{my_node.jobs}."
+      start_stop_api_service
+    end
 
     # Finally some @options may have changed.
     enforce_options unless old_options == @options
@@ -3513,14 +3501,14 @@ class Djinn
 
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
-  def start_api_services()
+  def start_stop_api_services
     @state = "Starting API Services."
     Djinn.log_info("#{@state}")
 
     threads = []
     threads << Thread.new {
-      if not is_zookeeper_running?
-        if my_node.is_zookeeper?
+      if my_node.is_zookeeper?
+        unless is_zookeeper_running?
           configure_zookeeper(@nodes, @my_index)
           begin
             start_zookeeper(false)
@@ -3531,7 +3519,8 @@ class Djinn
           Djinn.log_info("Done configuring zookeeper.")
         end
       else
-        Djinn.log_info("Zookeeper already running.")
+        # Zookeeper shouldn't be running here.
+        stop_zookeeper
       end
     }
 
@@ -3539,6 +3528,8 @@ class Djinn
       pick_zookeeper(@zookeeper_data)
       set_custom_config
       start_log_server
+    else
+      stop_log_server
     end
 
     if my_node.is_db_master? or my_node.is_db_slave?
@@ -3560,6 +3551,9 @@ class Djinn
           start_db_slave(false, needed_nodes, db_nodes)
         end
       }
+    else
+      stop_db_master
+      stop_db_slave
     end
 
     # We now wait for the essential services to go up.
@@ -3584,6 +3578,9 @@ class Djinn
       # Start the UserAppServer and wait till it's ready.
       start_soap_server()
       Djinn.log_info("Done starting database services.")
+    else
+      stop_soap_server
+      stop_datastore_server
     end
 
     # All nodes wait for the UserAppServer now. The call here is just to
@@ -3606,17 +3603,22 @@ class Djinn
     if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
       threads << Thread.new {
         if my_node.is_db_master? or my_node.is_db_slave?
-          start_groomer_service()
+          start_groomer_service
         end
 
-        start_backup_service()
+        start_backup_service
       }
+    else
+      stop_groomer_service
+      stop_backup_service
     end
 
     if my_node.is_memcache?
       threads << Thread.new {
-        start_memcache()
+        start_memcache
       }
+    else
+      stop_memcache
     end
 
     if my_node.is_load_balancer?
@@ -3624,6 +3626,9 @@ class Djinn
         start_ejabberd()
         configure_tq_routing()
       }
+    else
+      remove_tq_endpoints
+      stop_ejabberd
     end
 
     # The headnode needs to ensure we have the appscale user, and it needs
@@ -3635,20 +3640,28 @@ class Djinn
       }
     end
 
-    threads << Thread.new {
-      start_app_manager_server()
-    }
+    if !my_node.is_open?
+      threads << Thread.new {
+        start_app_manager_server
+      }
+    else
+      stop_app_manager_server
+    end
 
     if my_node.is_appengine?
       threads << Thread.new {
-        start_blobstore_server()
+        start_blobstore_server
       }
+    else
+      stop_blobstore_server
     end
 
     if my_node.is_search?
       threads << Thread.new {
-        start_search_role()
+        start_search_role
       }
+    else
+      stop_search_role
     end
 
     if my_node.is_taskqueue_master?
@@ -3659,6 +3672,8 @@ class Djinn
       threads << Thread.new {
         start_taskqueue_slave()
       }
+    else
+      stop_taskqueue
     end
 
     # App Engine apps rely on the above services to be started, so
@@ -3672,6 +3687,9 @@ class Djinn
       update_node_info_cache()
       start_hermes()
       TaskQueue.start_flower(@options['flower_password'])
+    else
+      TaskQueue.stop_flower
+      stop_hermes
     end
   end
 
@@ -3739,14 +3757,23 @@ class Djinn
     return true
   end
 
-  def start_search_role()
+  def start_search_role
     Search.start_master(false)
+  end
+
+  def stop_search_role
+    Search.stop
   end
 
   def start_taskqueue_master()
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
     return true
+  end
+
+
+  def stop_taskqueue
+    TaskQueue.stop
   end
 
 
@@ -3782,6 +3809,10 @@ class Djinn
     Djinn.log_info("Starting Hermes service.")
     HermesService.start()
     Djinn.log_info("Done starting Hermes service.")
+  end
+
+  def stop_hermes
+    HermesService.stop
   end
 
   # Starts the groomer service on this node. The groomer cleans the datastore of deleted
