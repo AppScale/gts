@@ -2965,8 +2965,6 @@ class Djinn
 
   # Creates HAProxy configuration for the TaskQueue REST API.
   def configure_tq_routing()
-    HAProxy.create_tq_server_config(my_node.private_ip, TaskQueue::HAPROXY_PORT)
-
     all_tq_ips = []
     @nodes.each { | node |
       if node.is_taskqueue_master? || node.is_taskqueue_slave?
@@ -3736,6 +3734,8 @@ class Djinn
   def start_taskqueue_master()
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
@@ -3749,6 +3749,8 @@ class Djinn
 
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_slave(master_ip, false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
