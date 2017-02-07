@@ -25,7 +25,7 @@ module TaskQueue
   # The default name of the service.
   REST_NAME = "TaskQueue_REST"
 
-  # AppScale install directory
+  # AppScale install directory.
   APPSCALE_HOME = ENV["APPSCALE_HOME"]
 
   # The port that the RabbitMQ server runs on, by default.
