@@ -2197,8 +2197,10 @@ class Djinn
       end
       Djinn.log_info("Received a stop request.")
       Djinn.log_info("Stopping all other nodes.")
-      terminate_appscale_in_parallel(clean){|node| send_client_message(node)}
-      @done_terminating = true
+      Thread.new {
+        terminate_appscale_in_parallel(clean){|node| send_client_message(node)}
+        @done_terminating = true
+      }
     end
   end
 
@@ -2283,7 +2285,7 @@ class Djinn
         # Client will process "Error" and try again unless appscale is
         # terminated
         if @done_terminating and @waiting_messages.empty?
-          return "Error: Done Terminating and No Messages"
+          raise "Error: Done Terminating and No Messages"
         end
         @waiting_messages.synchronize {
           @message_ready.wait_while {@waiting_messages.empty?}
@@ -2297,7 +2299,7 @@ class Djinn
     rescue Timeout::Error
       Djinn.log_info("Timed out trying to receive server message. Queue empty:
                      #{was_queue_emptied}")
-      return "Error: Server Timed Out"
+      raise "Error: Server Timed Out"
     end
   end
 
