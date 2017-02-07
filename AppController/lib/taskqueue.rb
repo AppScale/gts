@@ -101,7 +101,7 @@ module TaskQueue
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
     HelperFunctions.sleep_until_port_is_open("localhost",
-                                             STARTING_PORT)
+                                             HAPROXY_PORT)
   end
 
 
@@ -173,7 +173,7 @@ module TaskQueue
           start_taskqueue_server(verbose)
           Djinn.log_debug("Waiting for TaskQueue servers on slave node to
                           come up")
-          HelperFunctions.sleep_until_port_is_open("localhost", STARTING_PORT)
+          HelperFunctions.sleep_until_port_is_open("localhost", HAPROXY_PORT)
           Djinn.log_debug("Done waiting for TaskQueue servers")
           return
         end
@@ -199,7 +199,7 @@ module TaskQueue
     ports = self.get_server_ports()
 
     ports.each { |port|
-      start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT}"
+      start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT} -p #{port}"
       start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
                  "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
