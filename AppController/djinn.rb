@@ -2730,7 +2730,10 @@ class Djinn
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
-    Djinn.log_debug("Output of #{command} was: #{output}")
+    if $?.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" +
+          " and output: #{output}.")
+    end
     return output
   end
 
@@ -4939,7 +4942,11 @@ HOSTS
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
-        Djinn.log_debug("Checking #{app} with appengine #{info}.")
+        if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+          Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
+        else
+          Djinn.log_debug("Checking #{app} running at #{info['appengine']}.")
+        end
         info['appengine'].each { |location|
           host, port = location.split(":")
           next if @my_private_ip != host

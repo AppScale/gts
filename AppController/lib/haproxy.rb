@@ -373,7 +373,6 @@ CONFIG
     # Retrieve total and enqueued requests for the given app.
     monitoring_info = Djinn.log_run("echo \"show stat\" | " +
       "socat stdio unix-connect:#{HAPROXY_PATH}/stats | grep #{full_app_name}")
-    Djinn.log_debug("HAProxy raw stats: #{monitoring_info}")
 
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{full_app_name} may not " +
@@ -440,8 +439,16 @@ CONFIG
         running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
       end
     }
-    Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
-    Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")
+    if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+      Djinn.log_debug("Haproxy: found #{running.length} running AppServers for #{app}.")
+    else
+      Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
+    end
+    if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+      Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers for #{app}.")
+    else
+      Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")
+    end
     return running, failed
   end
 
