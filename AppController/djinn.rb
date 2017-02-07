@@ -4171,7 +4171,7 @@ class Djinn
       load_balancer_ips << node.private_ip if node.is_load_balancer?
       master_ips << node.private_ip if node.is_db_master?
       memcache_ips << node.private_ip if node.is_memcache?
-      search_ips = node.private_ip if node.is_search?
+      search_ips << node.private_ip if node.is_search?
       slave_ips << node.private_ip if node.is_db_slave?
       taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
         node.is_taskqueue_slave?
