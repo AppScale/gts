@@ -2724,7 +2724,10 @@ class Djinn
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
-    Djinn.log_debug("Output of #{command} was: #{output}")
+    if $?.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" +
+          " and output: #{output}.")
+    end
     return output
   end
 
@@ -4216,7 +4219,7 @@ class Djinn
       load_balancer_ips << node.private_ip if node.is_load_balancer?
       master_ips << node.private_ip if node.is_db_master?
       memcache_ips << node.private_ip if node.is_memcache?
-      search_ips = node.private_ip if node.is_search?
+      search_ips << node.private_ip if node.is_search?
       slave_ips << node.private_ip if node.is_db_slave?
       taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
         node.is_taskqueue_slave?
@@ -4987,7 +4990,11 @@ HOSTS
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
-        Djinn.log_debug("Checking #{app} with appengine #{info}.")
+        if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+          Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
+        else
+          Djinn.log_debug("Checking #{app} running at #{info['appengine']}.")
+        end
         info['appengine'].each { |location|
           host, port = location.split(":")
           next if @my_private_ip != host
@@ -6025,24 +6032,24 @@ HOSTS
     nodes_with_app.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
-      tries = 3
-      loop {
-        Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-        Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
-        if File.exists?(app_path)
-          Djinn.log_info("Got a copy of #{appname} from #{ip}.")
-          return true
+      Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
+      RETRIES.downto(0) {
+        begin
+          HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
+          if File.exists?(app_path)
+            if HelperFunctions.check_tarball(app_path)
+              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+              return true
+            end
+          end
+        rescue AppScaleSCPException
+          Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
         end
-        Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
-        if tries > 0
-          Djinn.log_debug("Trying again in few seconds.")
-          tries = tries - 1
-          Kernel.sleep(SMALL_WAIT)
-        else
-          Djinn.log_warn("Giving up on node #{ip} for the application.")
-          break
-        end
+        # Removing possibly corrupted, or partially downloaded tarball.
+        FileUtils.rm_rf(app_path)
+        Kernel.sleep(SMALL_WAIT)
       }
+      Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
     }
     Djinn.log_error("Unable to get the application from any node.")
     return false

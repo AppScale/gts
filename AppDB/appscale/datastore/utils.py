@@ -565,6 +565,10 @@ def group_for_key(key):
   key_copy = entity_pb.Reference()
   key_copy.CopyFrom(key)
 
+  # Groups without a namespace should match groups with an empty namespace.
+  if not key_copy.name_space():
+    key_copy.set_name_space('')
+
   key_copy.path().clear_element()
   element = key_copy.path().add_element()
   element.MergeFrom(first_element)
