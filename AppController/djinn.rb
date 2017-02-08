@@ -2308,43 +2308,6 @@ class Djinn
   end
 
 
-  def add_role(new_role, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    # new roles may run indefinitely in the background, so don't block
-    # on them - just fire and forget
-    Thread.new {
-      start_roles = new_role.split(":")
-      start_roles.each { |role|
-        # only start roles that we aren't already running
-        # e.g., don't start_appengine if we already are, as this
-        # will create two threads loading apps
-        if my_node.jobs.include?(role)
-          Djinn.log_info("Already running role #{role}, not invoking again")
-        else
-          Djinn.log_info("Adding and starting role #{role}")
-          my_node.add_roles(role)
-          send("start_#{role}".to_sym)
-        end
-      }
-    }
-
-    return "OK"
-  end
-
-  def remove_role(old_role, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    my_node.remove_roles(old_role)
-    stop_roles = old_role.split(":")
-    stop_roles.each { |role|
-      Djinn.log_info("Removing and stopping role #{role}")
-      send("stop_#{role}".to_sym)
-    }
-    return "OK"
-  end
-
-
   # This SOAP-exposed method dynamically scales up a currently running
   # AppScale deployment. For virtualized clusters, this assumes the
   # user has given us a list of IP addresses where AppScale has been
@@ -3403,7 +3366,7 @@ class Djinn
     # First, remove our local copy
     index_to_remove = nil
     @nodes.each_index { |i|
-      if @nodes[i].public_ip == ip
+      if @nodes[i].private_ip == ip
         index_to_remove = i
         break
       end
