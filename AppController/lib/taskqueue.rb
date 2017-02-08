@@ -67,7 +67,7 @@ module TaskQueue
   OPTIONAL_FEATURES = ['celery_gui']
 
   # TaskQueue server processes per core.
-  MULTIPLIER = 2
+  MULTIPLIER = 4
 
   # If we fail to get the number of processors we set our default number of
   # taskqueue servers to this value.
