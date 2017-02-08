@@ -2036,8 +2036,6 @@ class Djinn
       pick_zookeeper(@zookeeper_data)
     end
 
-    start_infrastructure_manager()
-
     # We need to wait for the 'state', that is the deployment layouts and
     # the options for this deployment. It's either a save state from a
     # previous start, or it comes from the tools. If the tools communicate
@@ -2073,6 +2071,7 @@ class Djinn
     # From here on we have the basic local state that allows to operate.
     # In particular we know our roles, and the deployment layout. Let's
     # start attaching any permanent disk we may have associated with us.
+    start_infrastructure_manager
     mount_persistent_storage
 
     find_me_in_locations
