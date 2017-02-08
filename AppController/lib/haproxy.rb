@@ -131,9 +131,9 @@ module HAProxy
     servers = []
     server_ips.each{ |server|
       servers << {'ip' => server,
-                  'port' => TaskQueue::TASKQUEUE_SERVER_INTERNAL_PORT}
+                  'port' => TaskQueue::HAPROXY_PORT}
     }
-    self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
+    self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
   end
 
   # Create the config file for Datastore Server.
@@ -145,6 +145,15 @@ module HAProxy
       servers << {'ip' => my_ip, 'port' => port}
     }
     self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+  end
+
+  # Create the config file for TaskQueue servers.
+  def self.create_tq_server_config(my_ip, listen_port)
+    servers = []
+    TaskQueue.get_server_ports().each { |port|
+      servers << {'ip' => my_ip, 'port' => port}
+    }
+    self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
   end
 
   # A generic function for creating HAProxy config files used by AppScale services.
