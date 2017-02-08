@@ -5507,7 +5507,7 @@ HOSTS
 
     # We prefer candidate that are not already running the application, so
     # ensure redundancy for the application.
-    delta_appservers.downto(0) {
+    delta_appservers.downto(1) {
       appserver_to_use = nil
       available_hosts.each { |host|
         unless current_hosts.include?(host)
