@@ -1483,7 +1483,7 @@ class Djinn
       end
       if key == "flower_password"
         TaskQueue.stop_flower
-        TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
+        TaskQueue.start_flower(@options['flower_password'])
       end
       if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
@@ -2149,7 +2149,7 @@ class Djinn
       # Load balancers and shadow need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
         APPS_LOCK.synchronize {
-          check_haproxy if my_node.is_load_balancer?
+          check_haproxy
         }
       end
 
@@ -3240,7 +3240,7 @@ class Djinn
 
       ip = zk_list.sample()
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
-      ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
+      ZKInterface.init_to_ip(HelperFunctions.local_ip, ip.to_s)
     }
     Djinn.log_debug("Found zookeeper server.")
   end
