@@ -2264,17 +2264,16 @@ class Djinn
       Djinn.log_warn("The #{appname} app was still found at #{location}.")
     end
 
-    RETRIES.downto(0) {
-      begin
-        ZKInterface.remove_app_entry(appname, my_node.private_ip)
-        return true
-      rescue FailedZooKeeperOperationException => except
-        Djinn.log_warn("not_hosting_app: got exception talking to " +
-          "zookeeper: #{except.message}.")
-      end
-      Kernel.sleep(SMALL_WAIT)
-    }
-    Djinn.log_warn("Failed to notify zookeeper this node doesn't host #{appname}.")
+    begin
+      ZKInterface.remove_app_entry(appname, my_node.private_ip)
+      return true
+    rescue FailedZooKeeperOperationException => except
+      # We just warn here and don't retry, since the shadow may have
+      # already cleaned up the hosters.
+      Djinn.log_warn("not_hosting_app: got exception talking to " +
+        "zookeeper: #{except.message}.")
+    end
+
     return false
   end
 
