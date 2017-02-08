@@ -2968,8 +2968,10 @@ class Djinn
         all_tq_ips.push(node.private_ip)
       end
     }
-    HAProxy.create_tq_endpoint_config(all_tq_ips,
-      my_node.private_ip, TaskQueue::HAPROXY_PORT)
+    HAProxy.create_tq_endpoint_config(all_tq_ips, my_node.private_ip,
+                                      TaskQueue::HAPROXY_REST_PORT)
+
+    # We don't need Nginx for backend TaskQueue servers, only for REST support.
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
 
@@ -3774,6 +3776,8 @@ class Djinn
   def start_taskqueue_master()
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
@@ -3792,6 +3796,8 @@ class Djinn
 
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_slave(master_ip, false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
