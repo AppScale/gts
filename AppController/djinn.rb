@@ -2001,15 +2001,22 @@ class Djinn
     # This pid is used to control this deployment using the init script.
     HelperFunctions.write_file(PID_FILE, "#{Process.pid}")
 
+    # We reload our old IPs (if we find them) so we can check later if
+    # they changed and act accordingly.
+    if File.exists?("#{APPSCALE_CONFIG_DIR}/my_private_ip")
+      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
+    end
+    if File.exists?("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
+    end
+
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
     # configured and started. We need to check if we are a zookeeper host
     # and start it if needed.
     if File.exists?(ZK_LOCATIONS_FILE)
       # We need to check our saved IPs with the list of zookeeper nodes
       # (IPs can change in cloud environments).
-      begin
-        my_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-      rescue Errno::ENOENT
+      if @my_private_ip.nil?
         @state = "Cannot find my old private IP address."
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
@@ -2017,7 +2024,7 @@ class Djinn
       # Restore the initial list of zookeeper nodes.
       zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
       @zookeeper_data = zookeeper_data['locations']
-      if @zookeeper_data.include?(my_ip) and !is_zookeeper_running?
+      if @zookeeper_data.include?(@my_private_ip) && !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
         begin
           start_zookeeper(false)
@@ -3076,20 +3083,8 @@ class Djinn
       # Puts json_state.
       json_state.each { |k, v|
         next if k == "@@secret"
-        if k == "@nodes"
-          v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
-        end
-        # my_private_ip and my_public_ip instance variables are from the head
-        # node. This node may or may not be the head node, so set those
-        # from local files. state_change_lock is a Monitor: no need to
-        # restore it.
-        if k == "@my_private_ip"
-          @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
-        elsif k == "@my_public_ip"
-          @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
-        elsif DEPLOYMENT_STATE.include?(k)
-          instance_variable_set(k, v)
-        end
+        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname) if k == "@nodes"
+        instance_variable_set(k, v) if DEPLOYMENT_STATE.include?(k)
       }
 
       # Check to see if our IP address has changed. If so, we need to update all
