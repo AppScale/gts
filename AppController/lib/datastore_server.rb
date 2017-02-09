@@ -41,7 +41,7 @@ module DatastoreServer
   # datastore servers to this value.
   DEFAULT_NUM_SERVERS = 3
 
-  # Datastore server processes to core multipler.
+  # Datastore server processes to core multiplier.
   MULTIPLIER = 2
 
   # Starts a Datastore Server on this machine. We don't want to monitor

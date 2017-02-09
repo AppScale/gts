@@ -22,8 +22,6 @@ sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
 
-# Default port this service runs on.
-SERVER_PORT = 17446
 
 # Global for Distributed TaskQueue.
 task_queue = None
@@ -213,6 +211,8 @@ class MainHandler(tornado.web.RequestHandler):
 def main():
   """ Main function which initializes and starts the tornado server. """
   parser = argparse.ArgumentParser(description='A taskqueue API server')
+  parser.add_argument('--port', '-p', default='17447',
+                      help='TaskQueue server port')
   parser.add_argument('--verbose', action='store_true',
                       help='Output debug-level logging')
   args = parser.parse_args()
@@ -246,11 +246,11 @@ def main():
   server = tornado.httpserver.HTTPServer(
     tq_application,
     decompress_request=True)   # Automatically decompress incoming requests.
-  server.listen(SERVER_PORT)
+  server.listen(args.port)
 
   while 1:
     try:
-      logger.info('Starting TaskQueue server on port {}'.format(SERVER_PORT))
+      logger.info('Starting TaskQueue server on port {}'.format(args.port))
       tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
       logger.warning('Server interrupted by user, terminating...')

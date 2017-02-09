@@ -131,9 +131,9 @@ module HAProxy
     servers = []
     server_ips.each{ |server|
       servers << {'ip' => server,
-                  'port' => TaskQueue::TASKQUEUE_SERVER_INTERNAL_PORT}
+                  'port' => TaskQueue::HAPROXY_PORT}
     }
-    self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
+    self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
   end
 
   # Create the config file for Datastore Server.
@@ -145,6 +145,15 @@ module HAProxy
       servers << {'ip' => my_ip, 'port' => port}
     }
     self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+  end
+
+  # Create the config file for TaskQueue servers.
+  def self.create_tq_server_config(my_ip, listen_port)
+    servers = []
+    TaskQueue.get_server_ports().each { |port|
+      servers << {'ip' => my_ip, 'port' => port}
+    }
+    self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
   end
 
   # A generic function for creating HAProxy config files used by AppScale services.
@@ -373,7 +382,6 @@ CONFIG
     # Retrieve total and enqueued requests for the given app.
     monitoring_info = Djinn.log_run("echo \"show stat\" | " +
       "socat stdio unix-connect:#{HAPROXY_PATH}/stats | grep #{full_app_name}")
-    Djinn.log_debug("HAProxy raw stats: #{monitoring_info}")
 
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{full_app_name} may not " +
@@ -440,8 +448,16 @@ CONFIG
         running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
       end
     }
-    Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
-    Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")
+    if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+      Djinn.log_debug("Haproxy: found #{running.length} running AppServers for #{app}.")
+    else
+      Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
+    end
+    if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+      Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers for #{app}.")
+    else
+      Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")
+    end
     return running, failed
   end
 

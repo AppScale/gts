@@ -65,7 +65,7 @@ case "$1" in
         postinstallrsyslog
         installpsutil
         installapiclient
-        buildgo
+        installgosdk
         installtaskqueue
         installdatastore
         preplogserver

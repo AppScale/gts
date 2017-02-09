@@ -101,15 +101,8 @@ def stop(watch, is_group=True):
     stop_command = [MONIT, 'stop', '-g', watch]
   else:
     stop_command = [MONIT, 'stop', watch]
-  if not run_with_retry(stop_command):
-    return False
 
-  logging.info("Unmonitoring watch {0}".format(watch))
-  if is_group:
-    unmonitor_command = [MONIT, 'unmonitor', '-g', watch]
-  else:
-    unmonitor_command = [MONIT, 'unmonitor', watch]
-  return run_with_retry(unmonitor_command)
+  return run_with_retry(stop_command)
 
 def restart(watch):
   """ Instructs monit to restart all processes hosting the given watch.

@@ -108,10 +108,10 @@ module Nginx
     my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
     language)
 
-    Djinn.log_debug("Writing proxy for app #{app_name} with language #{language}")
+    parsing_log = "Writing proxy for app #{app_name} with language #{language}.\n"
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
-    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
+    parsing_log += "Secure handlers: #{secure_handlers}.\n"
     always_secure_locations = secure_handlers[:always].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
@@ -294,6 +294,7 @@ CONFIG
     current = ""
     current = File.read(config_path) if File.exists?(config_path)
     if current != config
+      Djinn.log_debug(parsing_log)
       File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
       reload_nginx(config_path, app_name)
       return true

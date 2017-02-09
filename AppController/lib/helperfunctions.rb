@@ -61,6 +61,10 @@ module HelperFunctions
   SLEEP_TIME = 10
 
 
+  # Number of retries to do.
+  RETRIES = 5
+
+
   IP_REGEX = /\d+\.\d+\.\d+\.\d+/
 
 
@@ -144,6 +148,12 @@ module HelperFunctions
   GCE_METADATA = "http://169.254.169.254/computeMetadata/v1/instance"
   AWS_METADATA = "http://169.254.169.254/latest/meta-data"
 
+
+  # Curb the number of entries to print to this number. For example when
+  # we print the appengine list, we will print only up to this constant,
+  # if more we print the number of entries we have.
+  NUM_ENTRIES_TO_PRINT = 10
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -168,7 +178,7 @@ module HelperFunctions
     end
   end
 
-  
+
   # Reads the given file, which is assumed to be a JSON-loadable object,
   # and returns that JSON back to the caller.
   def self.read_json_file(location)
@@ -192,16 +202,16 @@ module HelperFunctions
     random = ""
     possible = "0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     possibleLength = possible.length
-     
+
     length.times { |index|
       random << possible[Kernel.rand(possibleLength)]
     }
-     
+
     return random
   end
 
 
-  def self.deserialize_info_from_tools(ips) 
+  def self.deserialize_info_from_tools(ips)
     return JSON.load(ips)
   end
 
@@ -298,16 +308,16 @@ module HelperFunctions
     rescue => except
       Djinn.log_warn("[is_port_open](#{ip}, #{port}): got #{except.message}.")
     end
-  
+
     return false
   end
 
   def self.run_remote_command(ip, command, public_key_loc, want_output)
     Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
     public_key_loc = File.expand_path(public_key_loc)
-    
+
     remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command} "
-    
+
     if want_output
       remote_cmd << "2>&1'"
     else
@@ -350,38 +360,39 @@ module HelperFunctions
   #   remote_file_loc: The remote location to copy to.
   #   target_ip: The remote target IP.
   #   private_key_loc: The private key to use.
+  #   from: A Boolean to indicate to copy a file *from* the remote location.
   # Raises:
   #   AppScaleSCPException: When a scp fails.
-  def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
+  def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc, from=false)
     private_key_loc = File.expand_path(private_key_loc)
-    FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "#{Dir.tmpdir}/retval-#{Kernel.rand()}"
-    cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    scp_result = self.shell(cmd)
 
-    loop {
-      break if File.exists?(retval_file)
-      Kernel.sleep(SLEEP_TIME)
-    }
+    # Adjust the command to copy from or to depending on the flag.
+    if from
+      cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no root@#{target_ip}:#{remote_file_loc} #{local_file_loc}"
+    else
+      cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no #{local_file_loc} root@#{target_ip}:#{remote_file_loc}"
+    end
 
-    retval = (File.open(retval_file) { |f| f.read }).chomp
-
-    fails = 0
-    loop {
-      break if retval == "0"
-      Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
-      fails += 1
-      if fails >= 5
-        raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
+    RETRIES.downto(0) {
+      case system(cmd)
+      when true
+        # All good: command executed.
+        return
+      when nil
+        # Something very wrong here.
+        Djinn.log_warn("Shell cannot execute #{cmd}: retrying in a few.")
+      when false
+        Djinn.log_debug("Failed to scp: retrying in a few.")
       end
       Kernel.sleep(SLEEP_TIME)
-      self.shell(cmd)
-      retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    self.shell("rm -fv #{retval_file}")
+    # We get here only if scp failed RETRIES times.
+    Djinn.log_warn("\n[#{cmd}] failed #{RETRIES} times.")
+    raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
   end
+
 
   def self.get_remote_appscale_home(ip, key)
     cat = "cat /etc/appscale/home"
@@ -392,15 +403,15 @@ module HelperFunctions
     else
       return possible_home
     end
-  end 
+  end
 
   def self.get_appscale_id
     # This needs to be ec2 or euca 2ools.
     image_info = `ec2-describe-images`
-    
+
     self.log_and_crash("ec2 tools can't find appscale image") unless image_info.include?("appscale")
     image_id = image_info.scan(/([a|e]mi-[0-9a-zA-Z]+)\sappscale/).flatten.to_s
-    
+
     return image_id
   end
 
@@ -410,14 +421,14 @@ module HelperFunctions
       f.read
     })
   end
-  
+
   def self.get_key(filename)
     return nil unless File.exists?(filename)
     OpenSSL::PKey::RSA.new(File.open(filename) { |f|
       f.read
     })
   end
-  
+
   def self.get_secret(filename="/etc/appscale/secret.key")
     return self.read_file(File.expand_path(filename), chomp=true)
   end
@@ -427,7 +438,26 @@ module HelperFunctions
   def self.get_taskqueue_secret()
     return Digest::SHA1.hexdigest(self.get_secret())
   end
- 
+
+  # Auxiliary function to test if a tarball is correct.
+  #
+  # Args:
+  #   tar_gz_location: The location on the local filesystem where the tarball is.
+  # Returns:
+  #   true  if the tarball is correct, false otherwise.
+  def self.check_tarball(tar_gz_location)
+    cmd = "tar -ztf #{tar_gz_location} > /dev/null 2> /dev/null"
+    case system(cmd)
+    when nil
+      Djinn.log_warn("Couldn't execute #{cmd}!")
+    when true
+      return true
+    end
+
+    Djinn.log_warn("Tarball #{tar_gz_location} is corrupted.")
+    return false
+  end
+
   # Examines the given tar.gz file to see if it has an App Engine configuration
   # file in it.
   #
@@ -448,7 +478,7 @@ module HelperFunctions
     end
   end
 
-  def self.setup_app(app_name, untar=true)
+  def self.setup_app(app_name)
     meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
     tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
@@ -458,9 +488,14 @@ module HelperFunctions
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
 
-    if untar
-      self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
-        "-C #{tar_dir} -zx")
+    self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
+      "-C #{tar_dir} -zx")
+
+    # Separate extra dependencies for Go applications.
+    begin
+      FileUtils.mv("#{tar_dir}/gopath", "#{meta_dir}/gopath")
+    rescue Errno::ENOENT
+      Djinn.log_debug("#{app_name} does not have a gopath directory")
     end
   end
 
@@ -492,7 +527,7 @@ module HelperFunctions
     return bound_addrs
   end
 
-  
+
   # Sets the locally cached IP address to the provided value. Callers
   # should use this if they believe the IP address on this machine
   # is not the first IP returned by 'ifconfig', which can occur if
@@ -536,7 +571,7 @@ module HelperFunctions
   # fails.
   def self.convert_fqdn_to_ip(host)
     return host if host =~ /#{IP_REGEX}/
-  
+
     ip = `dig #{host} +short`.chomp
     if ip.empty?
       Djinn.log_debug("couldn't use dig to resolve [#{host}]")
@@ -557,13 +592,13 @@ module HelperFunctions
         reported_private << ips[index]
       end
     }
-    
+
     Djinn.log_debug("Reported Public IPs: [#{reported_public.join(', ')}]")
     Djinn.log_debug("Reported Private IPs: [#{reported_private.join(', ')}]")
 
     actual_public = []
     actual_private = []
-    
+
     reported_public.each_index { |index|
       pub = reported_public[index]
       pri = reported_private[index]
@@ -572,7 +607,7 @@ module HelperFunctions
         actual_private << pri
       end
     }
-        
+
     #actual_public.each_index { |index|
     #  actual_public[index] = HelperFunctions.convert_fqdn_to_ip(actual_public[index])
     #}
@@ -582,13 +617,13 @@ module HelperFunctions
         actual_private[index] = HelperFunctions.convert_fqdn_to_ip(actual_private[index])
       rescue
         # this can happen if the private ip doesn't resolve
-        # which can happen in hybrid environments: euca boxes wont be 
+        # which can happen in hybrid environments: euca boxes wont be
         # able to resolve ec2 private ips, and vice-versa in euca-managed-mode
         Djinn.log_debug("rescued! failed to convert #{actual_private[index]} to public")
         actual_private[index] = actual_public[index]
       end
     }
-    
+
     return actual_public, actual_private
   end
 
@@ -606,10 +641,10 @@ module HelperFunctions
     average = prices.reduce(0.0) { |sum, price|
       sum += Float(price)
     }
-    
+
     average /= prices.length
     plus_twenty = average * 1.20
-    
+
     Djinn.log_debug("The average spot instance price for a #{instance_type} " +
       "machine is $#{average}, and 20% more is $#{plus_twenty}")
     return plus_twenty
@@ -651,7 +686,7 @@ module HelperFunctions
       vms_up_already = describe_instances.scan(/(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).length
       break if vms_up_already > 0 or new_cloud # crucial for hybrid cloud, where one box may not be running yet
     }
- 
+
     args = "-k #{keyname} -n #{num_of_vms_to_spawn} --instance-type #{instance_type} --group #{group} #{image_id}"
     if spot
       price = HelperFunctions.get_optimal_spot_price(instance_type)
@@ -679,7 +714,7 @@ module HelperFunctions
       Djinn.log_debug("sleepy time")
       sleep(SLEEP_TIME)
     }
-    
+
     instance_ids = []
     public_ips = []
     private_ips = []
@@ -689,7 +724,7 @@ module HelperFunctions
       describe_instances = `#{infrastructure}-describe-instances`
       Djinn.log_debug("[#{Time.now}] #{end_time - now} seconds left...")
       Djinn.log_debug(describe_instances)
- 
+
       # TODO: match on instance id
       #if describe_instances =~ /terminated\s+#{keyname}\s+/
       #  terminated_message = "An instance was unexpectedly terminated. " +
@@ -698,10 +733,10 @@ module HelperFunctions
       #  Djinn.log_debug(terminated_message)
       #  self.log_and_crash(terminated_message)
       #end
-      
+
       # changed regexes so ensure we are only checking for instances created
       # for appscale only (don't worry about other instances created)
-      
+
       all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).flatten
       public_ips, private_ips = HelperFunctions.get_ips(all_ip_addrs)
       public_ips = public_ips - public_up_already
@@ -710,9 +745,9 @@ module HelperFunctions
       break if public_ips.length == num_of_vms_to_spawn
       sleep(SLEEP_TIME)
     end
-    
+
     self.log_and_crash("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
-    
+
     if public_ips.length != num_of_vms_to_spawn
       potential_dead_ips = HelperFunctions.get_ips(all_ip_addrs) - public_up_already
       potential_dead_ips.each_index { |index|
@@ -722,8 +757,8 @@ module HelperFunctions
           self.shell("#{infrastructure}-terminate-instances #{instance_to_term}")
         end
       }
-    end         
-    
+    end
+
     jobs = []
     if job.is_a?(String)
       # We only got one job, so just repeat it for each one of the nodes
@@ -737,7 +772,7 @@ module HelperFunctions
     public_ips.each_index { |index|
       instances_created << "#{public_ips[index]}:#{private_ips[index]}:#{jobs[index]}:#{instance_ids[index]}:#{cloud}"
     }
-    
+
     end_time = Time.now
     total_time = end_time - start_time
 
@@ -749,7 +784,7 @@ module HelperFunctions
         "#{num_of_vms_to_spawn} regular instances")
     end
 
-    return instances_created    
+    return instances_created
   end
 
   def self.generate_ssh_key(outputLocation, name, infrastructure)
@@ -795,7 +830,7 @@ module HelperFunctions
       instance_id = node.instance_id
       instances << instance_id
     }
-    
+
     self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
   end
 
@@ -849,7 +884,7 @@ module HelperFunctions
 
       result << "\n\t" << "rewrite \"#{handler['url']}\" \"/#{handler['static_files']}\" break;"
     end
-    
+
     result << "\n" << "    }" << "\n"
 
     result
@@ -950,7 +985,7 @@ module HelperFunctions
     end
 
     default_expiration = expires_duration(tree["default_expiration"])
-    
+
     # Create the destination cache directory
     cache_path = get_cache_path(app_name)
     FileUtils.mkdir_p cache_path
@@ -974,7 +1009,7 @@ module HelperFunctions
 
     handlers.map! do |handler|
       next if !handler.key?("static_dir") && !handler.key?("static_files")
-      
+
       # TODO: Get the mime-type setting from app.yaml and add it to the nginx config
 
       if handler["static_dir"]
@@ -1020,7 +1055,7 @@ module HelperFunctions
 
           file_cache_path = File.join(cache_path, File.dirname(relative_filename))
           FileUtils.mkdir_p file_cache_path unless File.exists?(file_cache_path)
-          
+
           FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
         end
 
@@ -1156,7 +1191,7 @@ module HelperFunctions
   end
 
   def self.obscure_array(array)
-    return array.map {|s| 
+    return array.map {|s|
       if CLOUDY_CREDS.include?(s)
         obscure_string(string)
       else
@@ -1165,7 +1200,7 @@ module HelperFunctions
     }
   end
 
-  
+
   # Searches through the key/value pairs given for items that may
   # be too sensitive to log in cleartext. If any of these items are
   # found, a sanitized version of the item is returned in its place.
@@ -1248,7 +1283,7 @@ module HelperFunctions
     version = self.get_appscale_version()
     if self.does_image_have_location?(ip, "/etc/appscale/#{version}/#{db}", key)
       Djinn.log_debug("Image at #{ip} supports #{db}.")
-    else 
+    else
       fail_msg = "The image at #{ip} does not have support for #{db}." +
         " Please install support for this database and try again."
       Djinn.log_debug(fail_msg)
@@ -1328,12 +1363,11 @@ module HelperFunctions
     if app != AppDashboard::APP_NAME and app.start_with?(GAE_PREFIX) == false
       return false
     end
-    app = app.sub(GAE_PREFIX, '')    
+    app = app.sub(GAE_PREFIX, '')
     app_yaml_file = "#{get_app_path(app)}/app/app.yaml"
     appengine_web_xml_file = self.get_appengine_web_xml(app)
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
-      Djinn.log_debug("[#{app}] Threadsafe is set to #{tree['threadsafe']}")
       return tree['threadsafe'] == true
     elsif File.exists?(appengine_web_xml_file)
       return_val = "false"

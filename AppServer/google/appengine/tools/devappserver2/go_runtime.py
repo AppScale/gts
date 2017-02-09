@@ -17,6 +17,7 @@
 """Serves content for "script" handlers using the Go runtime."""
 
 
+
 import logging
 import os
 import os.path
@@ -26,6 +27,7 @@ import threading
 from google.appengine.api import appinfo
 from google.appengine.tools.devappserver2 import application_configuration
 from google.appengine.tools.devappserver2 import go_application
+from google.appengine.tools.devappserver2 import go_errors
 from google.appengine.tools.devappserver2 import http_runtime
 from google.appengine.tools.devappserver2 import instance
 
@@ -35,7 +37,7 @@ _REBUILD_CONFIG_CHANGES = frozenset(
 
 
 class _GoBuildFailureRuntimeProxy(instance.RuntimeProxy):
-  """Servers an error page for a Go application build failure."""
+  """Serves an error page for a Go application build failure."""
 
   def __init__(self, failure_exception):
     self._failure_exception = failure_exception
@@ -64,7 +66,7 @@ class _GoBuildFailureRuntimeProxy(instance.RuntimeProxy):
       A sequence of strings containing the body of the HTTP response.
     """
     start_response('500 Internal Server Error',
-                   [('Content-Type', 'text/plain')])
+                   [('Content-Type', 'text/plain; charset=utf-8')])
     yield 'The Go application could not be built.\n'
     yield '\n'
     yield str(self._failure_exception)
@@ -83,7 +85,7 @@ class GoRuntimeInstanceFactory(instance.InstanceFactory):
       login='admin')
   FILE_CHANGE_INSTANCE_RESTART_POLICY = instance.ALWAYS
 
-  def __init__(self, request_data, runtime_config_getter, server_configuration):
+  def __init__(self, request_data, runtime_config_getter, module_configuration):
     """Initializer for GoRuntimeInstanceFactory.
 
     Args:
@@ -92,17 +94,18 @@ class GoRuntimeInstanceFactory(instance.InstanceFactory):
       runtime_config_getter: A function that can be called without arguments
           and returns the runtime_config_pb2.RuntimeConfig containing the
           configuration for the runtime.
-      server_configuration: An application_configuration.ServerConfiguration
-          instance respresenting the configuration of the server that owns the
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance respresenting the configuration of the module that owns the
           runtime.
     """
-    super(GoRuntimeInstanceFactory, self).__init__(request_data, 1)
+    super(GoRuntimeInstanceFactory, self).__init__(request_data, 8, 10)
     self._runtime_config_getter = runtime_config_getter
-    self._server_configuration = server_configuration
+    self._module_configuration = module_configuration
     self._application_lock = threading.Lock()
     self._go_application = go_application.GoApplication(
-        self._server_configuration)
+        self._module_configuration)
     self._modified_since_last_build = False
+    self._last_build_error = None
 
   def get_restart_directories(self):
     """Returns a list of directories changes in which should trigger a restart.
@@ -121,7 +124,8 @@ class GoRuntimeInstanceFactory(instance.InstanceFactory):
         roots = go_path.split(';')
       else:
         roots = go_path.split(':')
-      return [os.path.join(r, 'src') for r in roots]
+      dirs = [os.path.join(r, 'src') for r in roots]
+      return [d for d in dirs if os.path.isdir(d)]
 
   def files_changed(self):
     """Called when a file relevant to the factory *might* have changed."""
@@ -129,7 +133,7 @@ class GoRuntimeInstanceFactory(instance.InstanceFactory):
       self._modified_since_last_build = True
 
   def configuration_changed(self, config_changes):
-    """Called when the configuration of the server has changed.
+    """Called when the configuration of the module has changed.
 
     Args:
       config_changes: A set containing the changes that occured. See the
@@ -143,7 +147,7 @@ class GoRuntimeInstanceFactory(instance.InstanceFactory):
     """Create and return a new Instance.
 
     Args:
-      instance_id: A string or integer representing the unique (per server) id
+      instance_id: A string or integer representing the unique (per module) id
           of the instance.
       expect_ready_request: If True then the instance will be sent a special
           request (i.e. /_ah/warmup or /_ah/start) before it can handle external
@@ -160,17 +164,31 @@ class GoRuntimeInstanceFactory(instance.InstanceFactory):
 
     with self._application_lock:
       try:
-        self._go_application.maybe_build(self._modified_since_last_build)
-      except go_application.BuildError as e:
+        if self._go_application.maybe_build(self._modified_since_last_build):
+          if self._last_build_error:
+            logging.info('Go application successfully built.')
+          self._last_build_error = None
+      except go_errors.BuildError as e:
         logging.error('Failed to build Go application: %s', e)
-        proxy = _GoBuildFailureRuntimeProxy(e)
-      else:
-        proxy = http_runtime.HttpRuntimeProxy(
-            self._go_application.go_executable,
-            instance_config_getter,
-            self._server_configuration,
-            self._go_application.get_environment())
+        # Deploy a failure proxy now and each time a new instance is requested.
+        self._last_build_error = e
+
       self._modified_since_last_build = False
+
+      if self._last_build_error:
+        logging.debug('Deploying new instance of failure proxy.')
+        proxy = _GoBuildFailureRuntimeProxy(self._last_build_error)
+      else:
+        environ = self._go_application.get_environment()
+        # Add in the environment settings from app_yaml "env_variables:"
+        runtime_config = self._runtime_config_getter()
+        for kv in runtime_config.environ:
+          environ[kv.key] = kv.value
+        proxy = http_runtime.HttpRuntimeProxy(
+            [self._go_application.go_executable],
+            instance_config_getter,
+            self._module_configuration,
+            environ)
 
     return instance.Instance(self.request_data,
                              instance_id,

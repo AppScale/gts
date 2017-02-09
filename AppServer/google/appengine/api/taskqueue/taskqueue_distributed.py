@@ -102,13 +102,17 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   def _GetTQLocations(self):
     """ Gets a list of AppScale TaskQueue servers. """
     if os.path.exists(TASKQUEUE_LOCATION_FILE):
-      with open(TASKQUEUE_LOCATION_FILE) as tq_file:
-        ips = tq_file.read().split('\n')
+      try:
+        with open(TASKQUEUE_LOCATION_FILE) as tq_file:
+          ips = [ip for ip in tq_file.read().split('\n') if ip]
+      except IOError:
+        raise apiproxy_errors.ApplicationError(
+          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
     else:
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
-    locations = ["{ip}:{port}".format(ip=ip,port=str(TASKQUEUE_SERVER_PORT))
+    locations = ["{ip}:{port}".format(ip=ip, port=TASKQUEUE_SERVER_PORT)
                  for ip in ips]
     return locations
 
@@ -434,7 +438,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         CERT_LOCATION)
 
       if not api_response or not api_response.has_response():
-        if index >= len(tq_locations):
+        if index >= len(tq_locations) - 1:
           raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
       else:

@@ -12,8 +12,14 @@ def QUEUE_NAME(headers, args):
   Raises:
     The current function to retry.
   """
-  logger.info("Running task with %s %s %s" % \
-      (str(headers), str(args), args['task_name']))
+  content_length = len(args['body'])
+
+  loggable_args = {key: args[key] for key in args
+                   if key not in ['task_name', 'body', 'payload']}
+  loggable_args['body_length'] = content_length
+  logger.info('Running {}\n'
+              'Headers: {}\n'
+              'Args: {}'.format(args['task_name'], headers, loggable_args))
   url = urlparse(args['url'])
 
   def get_wait_time(retries, args):
@@ -28,9 +34,9 @@ def QUEUE_NAME(headers, args):
       The amount of time, in seconds, that we should wait before executing this
       task again.
     """
-    min_backoff_seconds = int(args['min_backoff_sec'])
+    min_backoff_seconds = float(args['min_backoff_sec'])
     max_doublings = int(args['max_doublings'])
-    max_backoff_seconds = int(args['max_backoff_sec'])
+    max_backoff_seconds = float(args['max_backoff_sec'])
     max_doublings = min(max_doublings, retries)
     wait_time = 2**(max_doublings - 1) * min_backoff_seconds
     wait_time = min(wait_time, max_backoff_seconds)
@@ -90,10 +96,6 @@ def QUEUE_NAME(headers, args):
     for header in headers:
       connection.putheader(header, headers[header])
 
-    content_length = "0"
-    if args["body"]:
-      content_length = str(len(args['body']))
-
     if 'content-type' not in headers or 'Content-Type' not in headers:
       if url.query:
         connection.putheader('content-type', 'application/octet-stream')
@@ -101,18 +103,32 @@ def QUEUE_NAME(headers, args):
         connection.putheader('content-type',
                              'application/x-www-form-urlencoded')
 
-    connection.putheader("Content-Length", content_length)
-    connection.endheaders()
-    if args["body"]:
-      connection.send(args['body'])
-    response = connection.getresponse()
-    payload = response.read()
-    response.close()
+    connection.putheader("Content-Length", str(content_length))
+
     retries = int(QUEUE_NAME.request.retries) + 1
+    wait_time = get_wait_time(retries, args)
+
+    try:
+      connection.endheaders()
+      if args["body"]:
+        connection.send(args['body'])
+
+      response = connection.getresponse()
+      response.read()
+      response.close()
+    except (BadStatusLine, SocketError):
+      logger.warning(
+        '{task} failed before receiving response. It will retry in {wait} '
+        'seconds.'.format(task=args['task_name'], wait=wait_time))
+      raise QUEUE_NAME.retry(countdown=wait_time)
+
     if 200 <= response.status < 300:
       # Task successful.
       item = TaskName.get_by_key_name(args['task_name'])
       db.delete(item)
+      logger.info(
+        '{task} received status {status} from {url}'.format(
+          task=args['task_name'], status=response.status, url=url))
       return response.status
     elif response.status == 302:
       redirect_url = response.getheader('Location')
@@ -120,12 +136,9 @@ def QUEUE_NAME(headers, args):
         args['task_name'], redirect_url))
       url = urlparse(redirect_url)
       if redirects_left == 0:
-        raise QUEUE_NAME.retry(countdown=get_wait_time(retries, args))
+        raise QUEUE_NAME.retry(countdown=wait_time)
       redirects_left -= 1
     else:
-      # Fail
-      # TODO: Update the database with the failed status
-      wait_time = get_wait_time(retries, args)
       logger.warning("Task %s will retry in %d seconds. "
                      "Got response of %d when doing a %s on %s" % \
                       (args['task_name'],
