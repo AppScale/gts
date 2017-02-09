@@ -2201,6 +2201,8 @@ class Djinn
         terminate_appscale_in_parallel(clean){|node| send_client_message(node)}
         @done_terminating = true
       }
+      # Return a "request id" for future use in sending and receiving messages.
+      return SecureRandom.hex
     end
   end
 
@@ -2232,7 +2234,7 @@ class Djinn
 
     # Get the output of 'ps x' from node
     output += HelperFunctions.run_remote_command(ip, 'ps x', ssh_key, true)
-    Djinn.log_info("#{ip} terminated:#{status}\noutput:#{output}")
+    Djinn.log_debug("#{ip} terminated:#{status}\noutput:#{output}")
 
     # Return ip, status, and output of terminated node
     return {'ip'=>ip, 'status'=> status, 'output'=>output}
@@ -2263,7 +2265,7 @@ class Djinn
   def send_client_message(message)
     @waiting_messages.synchronize {
       @waiting_messages.push(message)
-      Djinn.log_info(@waiting_messages)
+      Djinn.log_debug(@waiting_messages)
       @message_ready.signal
     }
   end
@@ -2285,7 +2287,7 @@ class Djinn
         # Client will process "Error" and try again unless appscale is
         # terminated
         if @done_terminating and @waiting_messages.empty?
-          raise "Error: Done Terminating and No Messages"
+          return "Error: Done Terminating and No Messages"
         end
         @waiting_messages.synchronize {
           @message_ready.wait_while {@waiting_messages.empty?}
@@ -2297,9 +2299,9 @@ class Djinn
       }
     # Client will process "Error" and try again unless appscale is terminated
     rescue Timeout::Error
-      Djinn.log_info("Timed out trying to receive server message. Queue empty:
+      Djinn.log_debug("Timed out trying to receive server message. Queue empty:
                      #{was_queue_emptied}")
-      raise "Error: Server Timed Out"
+      return "Error: Server Timed Out"
     end
   end
 
