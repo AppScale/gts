@@ -1014,7 +1014,7 @@ class Djinn
 
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
-    PARAMETERS_AND_CLASS.each { |key, _class, _val, _secure|
+    PARAMETERS_AND_CLASS.each { |key, _|
       if @options[key]
         # The parameter 'key' is defined, no need to do anything.
         next
@@ -1409,15 +1409,15 @@ class Djinn
 
     Djinn.log_info("Received request to get properties matching #{property_regex}.")
     properties = {}
-    PARAMETERS_AND_CLASS.each { |key, _class, _val, secure_val|
+    PARAMETERS_AND_CLASS.each { |key, val|
       begin
         if key =~ /\A#{property_regex}\Z/
-          if secure_val
+          unless val[2]
             properties[key] = "*****"
             next
           end
           if @options[key].nil?
-            properties[key] = val
+            properties[key] = val[1]
           else
             properties[key] = @options[key]
           end
@@ -1493,7 +1493,7 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
         end
-        if Integer(val) < Integer(@options['min_images']
+        if Integer(val) < Integer(@options['min_images'])
           Djinn.log_warn("Invalid input: cannot lower min_images!")
           return "min_images cannot be less than the defined layout."
         end
@@ -1502,7 +1502,7 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
         end
-        if Integer(val) < Integer(@options['min_images']
+        if Integer(val) < Integer(@options['min_images'])
           Djinn.log_warn("Invalid input: max_images is smaller than min_images!")
           return "max_images is smaller than min_images."
         end
