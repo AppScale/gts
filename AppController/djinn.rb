@@ -428,9 +428,12 @@ class Djinn
 
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
-  # parameter is unspecified. The last value (a boolean) indicate if the
+  # parameter is unspecified. The last value (a boolean) indicates if the
   # parameter's value is of a sensitive nature and shouldn't be printed in
   # the logs.
+  PARAMETER_CLASS = 0
+  PARAMETER_DEFAULT = 1
+  PARAMETER_SECRET = 2
   PARAMETERS_AND_CLASS = {
     'azure_subscription_id' => [ String, nil, false ],
     'azure_app_id' => [ String, nil, false ],
@@ -878,35 +881,41 @@ class Djinn
       # the parameter. There is no boolean, so TrueClass and FalseClass
       # needs to be check both. If not, remove the parameter since we
       # won't be able to translate it.
-      unless (val.class == String or val.class == PARAMETERS_AND_CLASS[key][0] or
-         (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class == FalseClass))
-        if PARAMETERS_AND_CLASS[key][2]
+      unless (val.class == String || val.class ==
+              PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] ||
+              (PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass &&
+              val.class == FalseClass))
+        if PARAMETERS_AND_CLASS[key][PARAMETER_SECRET]
+          msg = "Removing parameter '" + key + "' with unknown value."
+        else
           begin
             msg = "Removing parameter '" + key + "' with unknown value '" +\
               val.to_s + "'."
           rescue
             msg = "Removing parameter '" + key + "' with unknown value."
           end
-        else
-          msg = "Removing parameter '" + key + "' with unknown value."
         end
         Djinn.log_warn(msg)
         next
       end
 
-      msg = "Converting/checking '" + key + "' with value '" + val + "'."
+      if PARAMETERS_AND_CLASS[key][PARAMETER_SECRET]
+        msg = "Converting/checking '" + key + "."
+      else
+        msg = "Converting/checking '" + key + "' with value '" + val + "'."
+      end
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
-      if PARAMETERS_AND_CLASS[key][0] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
         begin
           Integer(val)
         rescue
-          if PARAMETERS_AND_CLASS[key][2]
+          if PARAMETERS_AND_CLASS[key][PARAMETER_SECRET]
+            msg = "Warning: parameter '" + key + "' is not an integer. Removing it."
+          else
             msg = "Warning: parameter '" + key + "' is not an integer (" +\
               val.to_s + "). Removing it."
-          else
-            msg = "Warning: parameter '" + key + "' is not an integer. Removing it."
           end
           Djinn.log_warn(msg)
           next
@@ -917,8 +926,8 @@ class Djinn
       # at the SOAP level (possibly because they are in a structure) with
       # message similar to "failed to serialize detail object". We convert
       # them here to String.
-      if PARAMETERS_AND_CLASS[key][0] == TrueClass or
-        PARAMETERS_AND_CLASS[key][0] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass ||
+         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
         begin
           newval = val.to_s
         rescue
@@ -929,7 +938,7 @@ class Djinn
       end
 
       # Strings may need to be sanitized.
-      if PARAMETERS_AND_CLASS[key][0] == String
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
         if key == 'user_commands' or key == 'azure_app_secret_key'
           newval = val
@@ -1495,7 +1504,7 @@ class Djinn
         end
         if Integer(val) < Integer(@options['min_images'])
           Djinn.log_warn("Invalid input: cannot lower min_images!")
-          return "min_images cannot be less than the defined layout."
+          return "min_images cannot be less than the nodes defined in ips_layout"
         end
       end
       if key == "max_images"
