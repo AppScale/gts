@@ -428,48 +428,49 @@ class Djinn
 
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
-  # parameter is unspecified.
+  # parameter is unspecified. The last value (a boolean) indicate if the
+  # parameter's value is of a sensitive nature and shouldn't be printed in
+  # the logs.
   PARAMETERS_AND_CLASS = {
+    'azure_subscription_id' => [ String, nil, false ],
+    'azure_app_id' => [ String, nil, false ],
+    'azure_app_secret_key' => [ String, nil, false ],
+    'azure_tenant_id' => [ String, nil, false ],
+    'azure_resource_group' => [ String, nil, false ],
+    'azure_storage_account' => [ String, nil, false ],
+    'azure_group_tag' => [ String, nil, false ],
+    'appengine' => [ Fixnum, '2', true ],
+    'appserver_timeout' => [ Fixnum, '180', true ],
+    'autoscale' => [ TrueClass, 'True', true ],
+    'client_secrets' => [ String, nil, false ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
-    'appengine' => [ Fixnum, '2' ],
-    'appserver_timeout' => [ Fixnum, '180' ],
-    'autoscale' => [ TrueClass, 'True' ],
-    'client_secrets' => [ String, nil ],
-    'disks' => [ String, nil ],
-    'ec2_access_key' => [ String, nil ],
-    'ec2_secret_key' => [ String, nil ],
-    'ec2_url' => [ String, nil ],
-    'EC2_ACCESS_KEY' => [ String, nil ],
-    'EC2_SECRET_KEY' => [ String, nil ],
-    'EC2_URL' => [ String, nil ],
-    'flower_password' => [ String, nil ],
+    'disks' => [ String, nil, true ],
+    'ec2_access_key' => [ String, nil, false ],
+    'ec2_secret_key' => [ String, nil, false ],
+    'ec2_url' => [ String, nil, false ],
+    'EC2_ACCESS_KEY' => [ String, nil, false ],
+    'EC2_SECRET_KEY' => [ String, nil, false ],
+    'EC2_URL' => [ String, nil, false ],
+    'flower_password' => [ String, nil, false ],
     'gce_instance_type' => [ String, nil ],
-    'gce_user' => [ String, nil ],
-    'group' => [ String, nil ],
-    'login' => [ String, nil ],
-    'keyname' => [ String, nil ],
-    'infrastructure' => [ String, nil ],
-    'instance_type' => [ String, nil ],
-    'machine' => [ String, nil ],
-    'max_images' => [ Fixnum, '0' ],
-    'max_memory' => [ Fixnum, "#{DEFAULT_MEMORY}" ],
-    'min_images' => [ Fixnum, '1' ],
-    'region' => [ String, nil ],
-    'replication' => [ Fixnum, '1' ],
-    'project' => [ String, nil ],
-    'scp' => [ String, nil ],
-    'table' => [ String, 'cassandra' ],
-    'use_spot_instances' => [ TrueClass, nil ],
-    'user_commands' => [ String, nil ],
-    'verbose' => [ TrueClass, 'False' ],
-    'zone' => [ String, nil ],
-    'azure_subscription_id' => [ String, nil ],
-    'azure_app_id' => [ String, nil ],
-    'azure_app_secret_key' => [ String, nil ],
-    'azure_tenant_id' => [ String, nil ],
-    'azure_resource_group' => [ String, nil ],
-    'azure_storage_account' => [ String, nil ],
-    'azure_group_tag' => [ String, nil ]
+    'gce_user' => [ String, nil, false ],
+    'group' => [ String, nil, true ],
+    'keyname' => [ String, nil, false ],
+    'infrastructure' => [ String, nil, true ],
+    'instance_type' => [ String, nil, true ],
+    'login' => [ String, nil, true ],
+    'machine' => [ String, nil, true ],
+    'max_images' => [ Fixnum, '0', true ],
+    'max_memory' => [ Fixnum, "#{DEFAULT_MEMORY}", true ],
+    'min_images' => [ Fixnum, '1', true ],
+    'region' => [ String, nil, true ],
+    'replication' => [ Fixnum, '1', true ],
+    'project' => [ String, nil, false ],
+    'table' => [ String, 'cassandra', false ],
+    'use_spot_instances' => [ TrueClass, nil, false ],
+    'user_commands' => [ String, nil, true ],
+    'verbose' => [ TrueClass, 'False', true ],
+    'zone' => [ String, nil, true ]
   }
 
 
@@ -879,10 +880,14 @@ class Djinn
       # won't be able to translate it.
       unless (val.class == String or val.class == PARAMETERS_AND_CLASS[key][0] or
          (PARAMETERS_AND_CLASS[key][0] == TrueClass and val.class == FalseClass))
-        begin
-          msg = "Removing parameter '" + key + "' with unknown value '" +\
-            val.to_s + "'."
-        rescue
+        if PARAMETERS_AND_CLASS[key][2]
+          begin
+            msg = "Removing parameter '" + key + "' with unknown value '" +\
+              val.to_s + "'."
+          rescue
+            msg = "Removing parameter '" + key + "' with unknown value."
+          end
+        else
           msg = "Removing parameter '" + key + "' with unknown value."
         end
         Djinn.log_warn(msg)
@@ -897,8 +902,12 @@ class Djinn
         begin
           Integer(val)
         rescue
-          msg = "Warning: parameter '" + key + "' is not an integer (" +\
-            val.to_s + "). Removing it."
+          if PARAMETERS_AND_CLASS[key][2]
+            msg = "Warning: parameter '" + key + "' is not an integer (" +\
+              val.to_s + "). Removing it."
+          else
+            msg = "Warning: parameter '" + key + "' is not an integer. Removing it."
+          end
           Djinn.log_warn(msg)
           next
         end
@@ -932,8 +941,9 @@ class Djinn
         end
       end
 
-      Djinn.log_debug("Accepted option #{key}:#{newval}.")
       newoptions[key] = newval
+      newval = "*****" unless PARAMETERS_AND_CLASS[key][2]
+      Djinn.log_debug("Accepted option #{key}:#{newval}.")
     }
 
     return newoptions
@@ -1004,7 +1014,7 @@ class Djinn
 
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
-    PARAMETERS_AND_CLASS.each { |key, _class, _val|
+    PARAMETERS_AND_CLASS.each { |key, _class, _val, _secure|
       if @options[key]
         # The parameter 'key' is defined, no need to do anything.
         next
@@ -1399,10 +1409,18 @@ class Djinn
 
     Djinn.log_info("Received request to get properties matching #{property_regex}.")
     properties = {}
-    @options.each{ |key, val|
+    PARAMETERS_AND_CLASS.each { |key, _class, _val, secure_val|
       begin
         if key =~ /\A#{property_regex}\Z/
-          properties[key] = val
+          if secure_val
+            properties[key] = "*****"
+            next
+          end
+          if @options[key].nil?
+            properties[key] = val
+          else
+            properties[key] = @options[key]
+          end
         end
       rescue RegexpError
         Djinn.log_warn("get_property: got invalid regex (#{property_regex}).")
@@ -1475,10 +1493,18 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
         end
+        if Integer(val) < Integer(@options['min_images']
+          Djinn.log_warn("Invalid input: cannot lower min_images!")
+          return "min_images cannot be less than the defined layout."
+        end
       end
       if key == "max_images"
         unless is_cloud?
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
+        end
+        if Integer(val) < Integer(@options['min_images']
+          Djinn.log_warn("Invalid input: max_images is smaller than min_images!")
+          return "max_images is smaller than min_images."
         end
       end
       if key == "flower_password"
