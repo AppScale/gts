@@ -433,7 +433,7 @@ class Djinn
   # the logs.
   PARAMETER_CLASS = 0
   PARAMETER_DEFAULT = 1
-  PARAMETER_SECRET = 2
+  PARAMETER_SHOW = 2
   PARAMETERS_AND_CLASS = {
     'azure_subscription_id' => [ String, nil, false ],
     'azure_app_id' => [ String, nil, false ],
@@ -885,24 +885,24 @@ class Djinn
               PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] ||
               (PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass &&
               val.class == FalseClass))
-        if PARAMETERS_AND_CLASS[key][PARAMETER_SECRET]
-          msg = "Removing parameter '" + key + "' with unknown value."
-        else
+        if PARAMETERS_AND_CLASS[key][PARAMETER_SHOW]
           begin
             msg = "Removing parameter '" + key + "' with unknown value '" +\
               val.to_s + "'."
           rescue
             msg = "Removing parameter '" + key + "' with unknown value."
           end
+        else
+          msg = "Removing parameter '" + key + "' with unknown value."
         end
         Djinn.log_warn(msg)
         next
       end
 
-      if PARAMETERS_AND_CLASS[key][PARAMETER_SECRET]
-        msg = "Converting/checking '" + key + "."
-      else
+      if PARAMETERS_AND_CLASS[key][PARAMETER_SHOW]
         msg = "Converting/checking '" + key + "' with value '" + val + "'."
+      else
+        msg = "Converting/checking '" + key + "."
       end
       Djinn.log_info(msg)
 
@@ -911,11 +911,11 @@ class Djinn
         begin
           Integer(val)
         rescue
-          if PARAMETERS_AND_CLASS[key][PARAMETER_SECRET]
-            msg = "Warning: parameter '" + key + "' is not an integer. Removing it."
-          else
+          if PARAMETERS_AND_CLASS[key][PARAMETER_SHOW]
             msg = "Warning: parameter '" + key + "' is not an integer (" +\
               val.to_s + "). Removing it."
+          else
+            msg = "Warning: parameter '" + key + "' is not an integer. Removing it."
           end
           Djinn.log_warn(msg)
           next
