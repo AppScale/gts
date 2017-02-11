@@ -498,7 +498,7 @@ module HelperFunctions
     cmd = "tar -xzf #{tar_path} --force-local --no-same-owner -C #{tar_dir}"
     case system(cmd)
     when nil, false
-      Djinn.log_warn("setup_app: failed to execute #{cmd}!")
+      Djinn.log_warn("setup_app: #{cmd} failed.")
       return false
     end
 
