@@ -2003,11 +2003,17 @@ class Djinn
 
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
-    if File.exists?("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
-    end
-    if File.exists?("#{APPSCALE_CONFIG_DIR}/my_public_ip")
-      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
+    begin
+      if File.exists?("#{APPSCALE_CONFIG_DIR}/my_private_ip")
+        @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
+      end
+      if File.exists?("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+        @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
+      end
+    rescue Errno::ENOENT
+      Djinn.log_warn("my_public_ip or my_private_ip disapeared.")
+      @my_private_ip = nil
+      @my_public_ip = nil
     end
 
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
