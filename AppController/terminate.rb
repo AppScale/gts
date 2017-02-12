@@ -52,6 +52,7 @@ module TerminateHelper
     `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
     `rm -f /opt/appscale/appcontroller-state.json`
     `rm -f /opt/appscale/appserver-state.json`
+    print "OK"
   end
 
   # This functions does erase more of appscale state: used in combination
@@ -77,6 +78,7 @@ module TerminateHelper
     `rm -rf /var/lib/rabbitmq/*`
     `rm -rf /etc/appscale/celery/`
     `rm -rf /opt/appscale/celery`
+    print "OK"
   end
 
   # Tells any services that persist data across AppScale runs to stop writing

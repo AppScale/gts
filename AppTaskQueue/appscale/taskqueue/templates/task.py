@@ -34,9 +34,9 @@ def QUEUE_NAME(headers, args):
       The amount of time, in seconds, that we should wait before executing this
       task again.
     """
-    min_backoff_seconds = int(args['min_backoff_sec'])
+    min_backoff_seconds = float(args['min_backoff_sec'])
     max_doublings = int(args['max_doublings'])
-    max_backoff_seconds = int(args['max_backoff_sec'])
+    max_backoff_seconds = float(args['max_backoff_sec'])
     max_doublings = min(max_doublings, retries)
     wait_time = 2**(max_doublings - 1) * min_backoff_seconds
     wait_time = min(wait_time, max_backoff_seconds)

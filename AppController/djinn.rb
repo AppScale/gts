@@ -507,6 +507,10 @@ class Djinn
     @my_private_ip = nil
     @kill_sig_received = false
     @done_initializing = false
+    @done_terminating = false
+    @waiting_messages = []
+    @waiting_messages.extend(MonitorMixin)
+    @message_ready = @waiting_messages.new_cond
     @done_loading = false
     @state = "AppController just started"
     @all_stats = []
@@ -1483,7 +1487,7 @@ class Djinn
       end
       if key == "flower_password"
         TaskQueue.stop_flower
-        TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
+        TaskQueue.start_flower(@options['flower_password'])
       end
       if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
@@ -2149,7 +2153,7 @@ class Djinn
       # Load balancers and shadow need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
         APPS_LOCK.synchronize {
-          check_haproxy if my_node.is_load_balancer?
+          check_haproxy
         }
       end
 
@@ -2169,6 +2173,139 @@ class Djinn
     end
   end
 
+  def is_appscale_terminated(secret)
+    begin
+      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+      return bad_secret unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+    end
+    return @done_terminating
+  end
+
+
+  def run_terminate(clean, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+    if my_node.is_shadow?
+      begin
+        bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+        return bad_secret unless valid_secret?(secret)
+      rescue Errno::ENOENT
+        # On appscale down, terminate may delete our secret key before we
+        # can check it here.
+        Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      end
+      Djinn.log_info("Received a stop request.")
+      Djinn.log_info("Stopping all other nodes.")
+      Thread.new {
+        terminate_appscale_in_parallel(clean){|node| send_client_message(node)}
+        @done_terminating = true
+      }
+      # Return a "request id" for future use in sending and receiving messages.
+      return SecureRandom.hex
+    end
+  end
+
+
+  def terminate_appscale(node_to_terminate, clean)
+    ip = node_to_terminate.private_ip
+    Djinn.log_info("Running terminate.rb on the node at IP address #{ip}")
+    ssh_key = node_to_terminate.ssh_key
+
+    # Add ' clean' as parameter to terminate.rb if clean is true
+    extra_command = clean.downcase == 'true' ? ' clean' : ''
+
+    # Run terminate.rb on node
+    begin
+      Timeout.timeout(WAIT_TO_CRASH) {
+        HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+      }
+    rescue Timeout::Error => e
+      # Return ip, status, and output of terminated node
+      return {'ip'=>ip, 'status'=> false,
+              'output'=>"Waiting for port #{SSH_PORT} returned #{e.message}"}
+    end
+    output = HelperFunctions.run_remote_command(ip,
+        "ruby /root/appscale/AppController/terminate.rb#{extra_command}",
+        ssh_key, true)
+
+    # terminate.rb will print "OK" if it ran successfully
+    status = output.chomp!("OK").nil? ? false : true
+
+    # Get the output of 'ps x' from node
+    output += HelperFunctions.run_remote_command(ip, 'ps x', ssh_key, true)
+    Djinn.log_debug("#{ip} terminated:#{status}\noutput:#{output}")
+
+    # Return ip, status, and output of terminated node
+    return {'ip'=>ip, 'status'=> status, 'output'=>output}
+  end
+
+
+  def terminate_appscale_in_parallel(clean)
+    # Let's stop all other nodes.
+    threads = []
+    @nodes.each { |node|
+      if node.private_ip != my_node.private_ip
+        threads << Thread.new {
+          Thread.current[:output] = terminate_appscale(node, clean)
+        }
+      end
+    }
+
+    threads.each do |t|
+      t.join
+      yield t[:output]
+    end
+
+    return "OK"
+  end
+
+
+  # Adds message to queue so it can be received by client.
+  def send_client_message(message)
+    @waiting_messages.synchronize {
+      @waiting_messages.push(message)
+      Djinn.log_debug(@waiting_messages)
+      @message_ready.signal
+    }
+  end
+
+  # Method ran by client to access the messages in @waiting_messages. Client
+  # must send a timeout so that the server will not clear the messages.
+  def receive_server_message(timeout, secret)
+    was_queue_emptied = false
+    begin
+      Timeout.timeout(timeout.to_i) {
+        begin
+          bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+          return bad_secret unless valid_secret?(secret)
+        rescue Errno::ENOENT
+          # On appscale down, terminate may delete our secret key before we
+          # can check it here.
+          Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+        end
+        # Client will process "Error" and try again unless appscale is
+        # terminated
+        if @done_terminating and @waiting_messages.empty?
+          return "Error: Done Terminating and No Messages"
+        end
+        @waiting_messages.synchronize {
+          @message_ready.wait_while {@waiting_messages.empty?}
+          message = JSON.dump(@waiting_messages)
+          @waiting_messages.clear
+          was_queue_emptied = true
+          return message
+        }
+      }
+    # Client will process "Error" and try again unless appscale is terminated
+    rescue Timeout::Error
+      Djinn.log_debug("Timed out trying to receive server message. Queue empty:
+                     #{was_queue_emptied}")
+      return "Error: Server Timed Out"
+    end
+  end
 
   # Starts the InfrastructureManager service on this machine, which exposes
   # a SOAP interface by which we can dynamically add and remove nodes in this
@@ -2264,17 +2401,16 @@ class Djinn
       Djinn.log_warn("The #{appname} app was still found at #{location}.")
     end
 
-    RETRIES.downto(0) {
-      begin
-        ZKInterface.remove_app_entry(appname, my_node.private_ip)
-        return true
-      rescue FailedZooKeeperOperationException => except
-        Djinn.log_warn("not_hosting_app: got exception talking to " +
-          "zookeeper: #{except.message}.")
-      end
-      Kernel.sleep(SMALL_WAIT)
-    }
-    Djinn.log_warn("Failed to notify zookeeper this node doesn't host #{appname}.")
+    begin
+      ZKInterface.remove_app_entry(appname, my_node.private_ip)
+      return true
+    rescue FailedZooKeeperOperationException => except
+      # We just warn here and don't retry, since the shadow may have
+      # already cleaned up the hosters.
+      Djinn.log_warn("not_hosting_app: got exception talking to " +
+        "zookeeper: #{except.message}.")
+    end
+
     return false
   end
 
@@ -2730,7 +2866,10 @@ class Djinn
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
-    Djinn.log_debug("Output of #{command} was: #{output}")
+    if $?.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" +
+          " and output: #{output}.")
+    end
     return output
   end
 
@@ -2971,8 +3110,10 @@ class Djinn
         all_tq_ips.push(node.private_ip)
       end
     }
-    HAProxy.create_tq_endpoint_config(all_tq_ips,
-      my_node.private_ip, TaskQueue::HAPROXY_PORT)
+    HAProxy.create_tq_endpoint_config(all_tq_ips, my_node.private_ip,
+                                      TaskQueue::HAPROXY_REST_PORT)
+
+    # We don't need Nginx for backend TaskQueue servers, only for REST support.
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
 
@@ -3237,7 +3378,7 @@ class Djinn
 
       ip = zk_list.sample()
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
-      ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
+      ZKInterface.init_to_ip(HelperFunctions.local_ip, ip.to_s)
     }
     Djinn.log_debug("Found zookeeper server.")
   end
@@ -3732,6 +3873,8 @@ class Djinn
   def start_taskqueue_master()
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
@@ -3745,6 +3888,8 @@ class Djinn
 
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_slave(master_ip, false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
@@ -4168,7 +4313,7 @@ class Djinn
       load_balancer_ips << node.private_ip if node.is_load_balancer?
       master_ips << node.private_ip if node.is_db_master?
       memcache_ips << node.private_ip if node.is_memcache?
-      search_ips = node.private_ip if node.is_search?
+      search_ips << node.private_ip if node.is_search?
       slave_ips << node.private_ip if node.is_db_slave?
       taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
         node.is_taskqueue_slave?
@@ -4939,7 +5084,11 @@ HOSTS
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
-        Djinn.log_debug("Checking #{app} with appengine #{info}.")
+        if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+          Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
+        else
+          Djinn.log_debug("Checking #{app} running at #{info['appengine']}.")
+        end
         info['appengine'].each { |location|
           host, port = location.split(":")
           next if @my_private_ip != host
@@ -5494,7 +5643,7 @@ HOSTS
 
     # We prefer candidate that are not already running the application, so
     # ensure redundancy for the application.
-    delta_appservers.downto(0) {
+    delta_appservers.downto(1) {
       appserver_to_use = nil
       available_hosts.each { |host|
         unless current_hosts.include?(host)
@@ -5973,24 +6122,24 @@ HOSTS
     nodes_with_app.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
-      tries = 3
-      loop {
-        Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-        Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
-        if File.exists?(app_path)
-          Djinn.log_info("Got a copy of #{appname} from #{ip}.")
-          return true
+      Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
+      RETRIES.downto(0) {
+        begin
+          HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
+          if File.exists?(app_path)
+            if HelperFunctions.check_tarball(app_path)
+              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+              return true
+            end
+          end
+        rescue AppScaleSCPException
+          Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
         end
-        Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
-        if tries > 0
-          Djinn.log_debug("Trying again in few seconds.")
-          tries = tries - 1
-          Kernel.sleep(SMALL_WAIT)
-        else
-          Djinn.log_warn("Giving up on node #{ip} for the application.")
-          break
-        end
+        # Removing possibly corrupted, or partially downloaded tarball.
+        FileUtils.rm_rf(app_path)
+        Kernel.sleep(SMALL_WAIT)
       }
+      Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
     }
     Djinn.log_error("Unable to get the application from any node.")
     return false

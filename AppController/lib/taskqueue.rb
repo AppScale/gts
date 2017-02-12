@@ -22,17 +22,23 @@ module TaskQueue
   # The default name of the service.
   NAME = "TaskQueue"
 
-  # AppScale install directory  
+  # The default name of the service.
+  REST_NAME = "TaskQueue_REST"
+
+  # AppScale install directory.
   APPSCALE_HOME = ENV["APPSCALE_HOME"]
 
   # The port that the RabbitMQ server runs on, by default.
   SERVER_PORT = 5672 
  
-  # The port where the TaskQueue server runs on, by default. 
-  TASKQUEUE_SERVER_INTERNAL_PORT = 17446
+  # The starting port for TaskQueue server processes.
+  STARTING_PORT = 17447
 
   # HAProxy port for TaskQueue REST API endpoints.
-  HAPROXY_PORT = 8061
+  HAPROXY_REST_PORT = 8061
+
+  # HAProxy port for TaskQueue servers.
+  HAPROXY_PORT = 17446
 
   # Default REST API public port.
   TASKQUEUE_SERVER_SSL_PORT = 8199
@@ -59,6 +65,13 @@ module TaskQueue
 
   # Optional features that can be installed for the taskqueue package.
   OPTIONAL_FEATURES = ['celery_gui']
+
+  # TaskQueue server processes per core.
+  MULTIPLIER = 4
+
+  # If we fail to get the number of processors we set our default number of
+  # taskqueue servers to this value.
+  DEFAULT_NUM_SERVERS = 3
 
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
@@ -88,7 +101,7 @@ module TaskQueue
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
     HelperFunctions.sleep_until_port_is_open("localhost",
-                                             TASKQUEUE_SERVER_INTERNAL_PORT)
+                                             STARTING_PORT)
   end
 
 
@@ -156,12 +169,12 @@ module TaskQueue
           HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
           Djinn.log_debug("Done starting rabbitmq_slave on this node")
 
-          Djinn.log_debug("Starting TaskQueue server on slave node")
+          Djinn.log_debug("Starting TaskQueue servers on slave node")
           start_taskqueue_server(verbose)
-          Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
-          HelperFunctions.sleep_until_port_is_open("localhost", 
-                                                   TASKQUEUE_SERVER_INTERNAL_PORT)
-          Djinn.log_debug("Done waiting for TaskQueue server")
+          Djinn.log_debug("Waiting for TaskQueue servers on slave node to
+                          come up")
+          HelperFunctions.sleep_until_port_is_open("localhost", STARTING_PORT)
+          Djinn.log_debug("Done waiting for TaskQueue servers")
           return
         end
       rescue Timeout::Error
@@ -182,16 +195,19 @@ module TaskQueue
 
   # Starts the AppScale TaskQueue server.
   def self.start_taskqueue_server(verbose)
-    Djinn.log_debug("Starting taskqueue_server on this node")
-    start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT}"
-    start_cmd << ' --verbose' if verbose
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
-    env_vars = {:PATH => '$PATH:/usr/local/bin'}
-    MonitInterface.start(:taskqueue, start_cmd, stop_cmd,
-                         [TASKQUEUE_SERVER_INTERNAL_PORT], env_vars, start_cmd,
-                         nil, nil, nil)
-    Djinn.log_debug("Done starting taskqueue_server on this node")
+    Djinn.log_debug("Starting taskqueue servers on this node")
+    ports = self.get_server_ports()
+
+    ports.each { |port|
+      start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT} -p #{port}"
+      start_cmd << ' --verbose' if verbose
+      stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+                 "#{TASKQUEUE_SERVER_SCRIPT} /usr/bin/python2"
+      env_vars = {:PATH => '$PATH:/usr/local/bin'}
+      MonitInterface.start(:taskqueue, start_cmd, stop_cmd, [port], env_vars,
+                           start_cmd, nil, nil, nil)
+    }
+    Djinn.log_debug("Done starting taskqueue servers on this node")
   end
 
   # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
@@ -257,5 +273,28 @@ module TaskQueue
     MonitInterface.stop(:flower)
   end
 
+
+  # Number of servers is based on the number of CPUs.
+  def self.number_of_servers()
+    # If this is NaN then it returns 0
+    num_procs = `cat /proc/cpuinfo | grep processor | wc -l`.to_i
+    if num_procs == 0
+      return DEFAULT_NUM_SERVERS
+    else
+      return num_procs * MULTIPLIER
+    end
+  end
+
+
+  # Returns a list of ports that should be used to host TaskQueue servers.
+  def self.get_server_ports()
+    num_servers = self.number_of_servers()
+
+    server_ports = []
+    num_servers.times { |i|
+      server_ports << STARTING_PORT + i
+    }
+    return server_ports
+  end
 
 end
