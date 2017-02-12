@@ -13,12 +13,12 @@ import uuid
 
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
-from cassandra.policies import FallthroughRetryPolicy
-from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
+from .retry_policies import (BASIC_RETRIES,
+                             NO_RETRIES)
 from .. import dbconstants
 from .. import helper_functions
 from ..dbconstants import AppScaleDBConnectionError
@@ -265,43 +265,6 @@ def mutations_for_entity(entity, txn, current_value=None,
   return mutations
 
 
-class IdempotentRetryPolicy(RetryPolicy):
-  """ A policy used for retrying idempotent statements. """
-  def on_read_timeout(self, query, consistency, required_responses,
-                      received_responses, data_retrieved, retry_num):
-    """ This is called when a ReadTimeout occurs.
-
-    Args:
-      query: A statement that timed out.
-      consistency: The consistency level of the statement.
-      required_responses: The number of responses required.
-      received_responses: The number of responses received.
-      data_retrieved: Indicates whether any responses contained data.
-      retry_num: The number of times the statement has been tried.
-    """
-    if retry_num >= 5:
-      return self.RETHROW, None
-    else:
-      return self.RETRY, consistency
-
-  def on_write_timeout(self, query, consistency, write_type,
-                       required_responses, received_responses, retry_num):
-    """ This is called when a WriteTimeout occurs.
-
-    Args:
-      query: A statement that timed out.
-      consistency: The consistency level of the statement.
-      required_responses: The number of responses required.
-      received_responses: The number of responses received.
-      data_retrieved: Indicates whether any responses contained data.
-      retry_num: The number of times the statement has been tried.
-      """
-    if retry_num >= 5:
-      return self.RETHROW, None
-    else:
-      return self.RETRY, consistency
-
-
 class ThriftColumn(object):
   """ Columns created by default with thrift interface. """
   KEY = 'key'
@@ -323,14 +286,11 @@ class DatastoreProxy(AppDBInterface):
     self.logger.info('Starting {}'.format(class_name))
 
     self.hosts = appscale_info.get_db_ips()
-    self.retry_policy = IdempotentRetryPolicy()
-    self.no_retries = FallthroughRetryPolicy()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        self.cluster = Cluster(self.hosts,
-                               default_retry_policy=self.retry_policy)
+        self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES)
         self.session = self.cluster.connect(KEYSPACE)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
@@ -373,7 +333,7 @@ class DatastoreProxy(AppDBInterface):
                   key=ThriftColumn.KEY,
                   column=ThriftColumn.COLUMN_NAME,
                 )
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (ValueSequence(row_keys_bytes), ValueSequence(column_names))
 
     try:
@@ -484,7 +444,7 @@ class DatastoreProxy(AppDBInterface):
     """
     self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
@@ -583,7 +543,7 @@ class DatastoreProxy(AppDBInterface):
       IF NOT EXISTS
     """
     set_status_statement = SimpleStatement(
-      set_status, retry_policy=self.no_retries)
+      set_status, retry_policy=NO_RETRIES)
     parameters = {'app': app, 'transaction': txid, 'op_id': op_id}
 
     try:
@@ -593,7 +553,7 @@ class DatastoreProxy(AppDBInterface):
         SELECT op_id FROM batch_status
         WHERE app = %(app)s AND transaction = %(transaction)s
       """
-      query = SimpleStatement(get_status, retry_policy=self.retry_policy,
+      query = SimpleStatement(get_status, retry_policy=NO_RETRIES,
                               consistency_level=ConsistencyLevel.SERIAL)
       parameters = {'app': app, 'transaction': txid}
 
@@ -648,7 +608,7 @@ class DatastoreProxy(AppDBInterface):
       IF applied = False
     """
     update_status_statement = SimpleStatement(
-      update_status, retry_policy=self.no_retries)
+      update_status, retry_policy=NO_RETRIES)
     parameters = {'app': app, 'transaction': txid, 'op_id': op_id}
 
     try:
@@ -658,7 +618,7 @@ class DatastoreProxy(AppDBInterface):
         SELECT applied, op_id FROM batch_status
         WHERE app = %(app)s AND transaction = %(transaction)s
       """
-      query = SimpleStatement(get_status, retry_policy=self.retry_policy,
+      query = SimpleStatement(get_status, retry_policy=BASIC_RETRIES,
                               consistency_level=ConsistencyLevel.SERIAL)
       parameters = {'app': app, 'transaction': txid}
 
@@ -804,7 +764,7 @@ class DatastoreProxy(AppDBInterface):
         table=table_name,
         key=ThriftColumn.KEY
       )
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (ValueSequence(row_keys_bytes),)
 
     try:
@@ -828,7 +788,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
     statement = 'DROP TABLE IF EXISTS "{table}"'.format(table=table_name)
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
       self.session.execute(query)
@@ -863,7 +823,7 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       )
-    query = SimpleStatement(statement, retry_policy=self.no_retries)
+    query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
       self.session.execute(query)
@@ -951,7 +911,7 @@ class DatastoreProxy(AppDBInterface):
                column=ThriftColumn.COLUMN_NAME,
                limit=query_limit)
 
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (bytearray(start_key), bytearray(end_key),
                   ValueSequence(column_names))
 
@@ -1157,7 +1117,7 @@ class DatastoreProxy(AppDBInterface):
       entities: A list of entities that will be put upon commit.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
       VALUES (?, ?, ?, ?, ?)
@@ -1188,7 +1148,7 @@ class DatastoreProxy(AppDBInterface):
       entity_keys: A list of entity keys that will be deleted upon commit.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
       VALUES (?, ?, ?, ?, ?)
@@ -1243,7 +1203,7 @@ class DatastoreProxy(AppDBInterface):
       tasks: A list of TaskQueueAddRequest objects.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, task)
       VALUES (?, ?, ?, ?, ?)
@@ -1279,7 +1239,7 @@ class DatastoreProxy(AppDBInterface):
       group_keys: An iterable containing Reference objects.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path)
       VALUES (?, ?, ?, ?)
