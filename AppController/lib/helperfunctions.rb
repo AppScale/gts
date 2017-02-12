@@ -499,6 +499,7 @@ module HelperFunctions
     case system(cmd)
     when nil, false
       Djinn.log_warn("setup_app: #{cmd} failed.")
+      FileUtils.rm_f(tar_dir)
       return false
     end
 
