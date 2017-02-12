@@ -20,8 +20,9 @@ from M2Crypto import SSL
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
-from ..utils import clean_app_id
-from ..utils import UnprocessedQueryResult
+from ..utils import (clean_app_id,
+                     logger,
+                     UnprocessedQueryResult)
 from ..unpackaged import APPSCALE_LIB_DIR
 from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..zkappscale import zktransaction
@@ -719,10 +720,6 @@ pb_application = tornado.web.Application([
 
 def main():
   """ Starts a web service for handing datastore requests. """
-
-  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-  global logger
-  logger = logging.getLogger(__name__)
 
   global datastore_access
   zookeeper_locations = appscale_info.get_zk_locations_string()
