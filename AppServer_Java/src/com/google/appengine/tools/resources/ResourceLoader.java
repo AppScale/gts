@@ -7,21 +7,16 @@ public class ResourceLoader
     private static ResourceLoader res                       = null;
     private final int             PROTOCOL_BUFFER_PORT      = 8888;
     private final String          DB_LOCATION_PROPERTY      = "DB_LOCATION";
-    private static String         apphome                   = "/root/appscale";
-    private final static String   APPSCALE_HOME_PROPERTY    = "APPSCALE_HOME";
+    private static String         apphome                   = "/etc/appscale";
     private final String          HADOOP_PATH               = "/AppDB/hadoop-0.20.0";
-    private final String          MEMCACHE_SERVER_IP_PATH   = "/.appscale/memcache_ips";
+    private final String          MEMCACHE_SERVER_IP_PATH   = "/memcache_ips";
     private final boolean         IS_SSL                    = false;
     private final String          TMP_LOCATION              = "/tmp";
-    private final String          NUM_NODES_LOCATION        = "/.appscale/num_of_nodes";
+    private final String          NUM_NODES_LOCATION        = "/num_of_nodes";
 
     public static ResourceLoader getResourceLoader()
     {
         if (res == null) res = new ResourceLoader();
-        if (System.getenv(APPSCALE_HOME_PROPERTY) != null)
-        {
-            apphome = System.getenv(APPSCALE_HOME_PROPERTY);
-        }
         System.out.println("appscale home is: " + apphome);
         return res;
     }
