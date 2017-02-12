@@ -109,10 +109,7 @@ class ZKInterface
     @@client_ip = client_ip
     @@ip = ip
 
-    if !defined?(@@lock)
-      @@lock = Monitor.new
-    end
-
+    @@lock = Monitor.new unless defined?(@@lock)
     @@lock.synchronize {
       if defined?(@@zk)
         Djinn.log_debug("Closing old connection to zookeeper.")
