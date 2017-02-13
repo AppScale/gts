@@ -109,10 +109,7 @@ class ZKInterface
     @@client_ip = client_ip
     @@ip = ip
 
-    if !defined?(@@lock)
-      @@lock = Monitor.new
-    end
-
+    @@lock = Monitor.new unless defined?(@@lock)
     @@lock.synchronize {
       if defined?(@@zk)
         Djinn.log_debug("Closing old connection to zookeeper.")
@@ -203,42 +200,6 @@ class ZKInterface
     # our data
     self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
     self.set(APPCONTROLLER_STATE_PATH, JSON.dump(state), NOT_EPHEMERAL)
-  end
-
-
-  # Contacts ZooKeeper to get the information about App Engine apps hosted
-  # on the named machine.
-  #
-  # Args:
-  #   public_ip: A String that names the public IP or FQDN where the machine
-  #     we should acquire AppServer info for runs.
-  #
-  # Returns:
-  #   A Hash mapping Strings to Hashes. Here, each String is an appid of an
-  #   app that should be running on this machine, and the Hash it maps to
-  #   contains keys for the nginx, haproxy, and dev_appserver ports the app
-  #   is supposed to be running on.
-  def self.get_appserver_state(public_ip)
-    return JSON.load(self.get("#{APPSERVER_STATE_PATH}/#{public_ip}"))
-  end
-
-
-  # Writes the given AppServer state to ZooKeeper, on behalf of the named
-  # machine.
-  #
-  # It also creates any higher-level directories in ZooKeeper that may be
-  # needed to save this info.
-  #
-  # Args:
-  #   public_ip: A String that names the public IP or FQDN where the machine
-  #     we should save AppServer info for runs.
-  #   state: A Hash that maps each appid running on this machine to a Hash
-  #     indicating what ports the app binds to on that machine.
-  def self.write_appserver_state(public_ip, state)
-    self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    self.set(APPSERVER_STATE_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    self.set("#{APPSERVER_STATE_PATH}/#{public_ip}", JSON.dump(state),
-      NOT_EPHEMERAL)
   end
 
 
@@ -428,7 +389,7 @@ class ZKInterface
     end
 
     # Create the folder for this node.
-    my_ip_path = "#{APPCONTROLLER_NODE_PATH}/#{node.public_ip}"
+    my_ip_path = "#{APPCONTROLLER_NODE_PATH}/#{node.private_ip}"
     self.run_zookeeper_operation {
       @@zk.create(:path => my_ip_path, :ephemeral => NOT_EPHEMERAL, 
         :data => DUMMY_DATA)
@@ -436,16 +397,16 @@ class ZKInterface
 
     # Create an ephemeral link associated with this node, which other
     # AppControllers can use to quickly detect dead nodes.
-    self.set_live_node_ephemeral_link(node.public_ip)
+    self.set_live_node_ephemeral_link(node.private_ip)
 
 
     # Since we're reporting on the roles we've started, we are done loading
     # roles right now, so write that information for others to read and act on.
-    self.set_done_loading(node.public_ip, done_loading)
+    self.set_done_loading(node.private_ip, done_loading)
 
     # Finally, dump the data from this node to ZK, so that other nodes can
     # reconstruct it as needed.
-    self.set_job_data_for_ip(node.public_ip, node.to_hash())
+    self.set_job_data_for_ip(node.private_ip, node.to_hash())
 
     return
   end
@@ -525,11 +486,11 @@ class ZKInterface
   # node should be a DjinnJobData representing the node that we want to add
   # the roles to
   def self.add_roles_to_node(roles, node, keyname)
-    old_job_data = self.get_job_data_for_ip(node.public_ip)
+    old_job_data = self.get_job_data_for_ip(node.private_ip)
     new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.add_roles(roles.join(":"))
-    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
-    self.set_done_loading(node.public_ip, false)
+    self.set_job_data_for_ip(node.private_ip, new_node.to_hash())
+    self.set_done_loading(node.private_ip, false)
     self.update_ips_timestamp()
   end
 
@@ -543,11 +504,11 @@ class ZKInterface
   # node should be a DjinnJobData representing the node that we want to remove
   # the roles from
   def self.remove_roles_from_node(roles, node, keyname)
-    old_job_data = self.get_job_data_for_ip(node.public_ip)
+    old_job_data = self.get_job_data_for_ip(node.private_ip)
     new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.remove_roles(roles.join(":"))
-    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
-    self.set_done_loading(node.public_ip, false)
+    self.set_job_data_for_ip(node.private_ip, new_node.to_hash())
+    self.set_done_loading(node.private_ip, false)
     self.update_ips_timestamp()
   end
 

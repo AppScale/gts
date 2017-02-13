@@ -507,6 +507,10 @@ class Djinn
     @my_private_ip = nil
     @kill_sig_received = false
     @done_initializing = false
+    @done_terminating = false
+    @waiting_messages = []
+    @waiting_messages.extend(MonitorMixin)
+    @message_ready = @waiting_messages.new_cond
     @done_loading = false
     @state = "AppController just started"
     @all_stats = []
@@ -1483,7 +1487,7 @@ class Djinn
       end
       if key == "flower_password"
         TaskQueue.stop_flower
-        TaskQueue.start_flower(@options['flower_password']) if my_node.is_shadow?
+        TaskQueue.start_flower(@options['flower_password'])
       end
       if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
@@ -1913,17 +1917,19 @@ class Djinn
       Djinn.log_error("Disabled #{app} since language doesn't match our record.")
     }
 
-    # Next, restart any apps that have new code uploaded.
+    # Make sure we have the latest code deployed.
+    apps.each { |appid|
+      APPS_LOCK.synchronize {
+        setup_app_dir(appid, true)
+      }
+    }
+
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
-        APPS_LOCK.synchronize {
-          # Make sure we have the latest code deployed.
-          setup_app_dir(appid, true)
-        }
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
         begin
           ZKInterface.clear_app_hosters(appid)
-          ZKInterface.add_app_entry(appid, my_node.public_ip, location)
+          ZKInterface.add_app_entry(appid, my_node.private_ip, location)
         rescue FailedZooKeeperOperationException => e
           Djinn.log_warn("(update) couldn't talk with zookeeper while " +
             "working on app #{appid} with #{e.message}.")
@@ -2147,7 +2153,7 @@ class Djinn
       # Load balancers and shadow need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
         APPS_LOCK.synchronize {
-          check_haproxy if my_node.is_load_balancer?
+          check_haproxy
         }
       end
 
@@ -2167,6 +2173,139 @@ class Djinn
     end
   end
 
+  def is_appscale_terminated(secret)
+    begin
+      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+      return bad_secret unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+    end
+    return @done_terminating
+  end
+
+
+  def run_terminate(clean, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+    if my_node.is_shadow?
+      begin
+        bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+        return bad_secret unless valid_secret?(secret)
+      rescue Errno::ENOENT
+        # On appscale down, terminate may delete our secret key before we
+        # can check it here.
+        Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      end
+      Djinn.log_info("Received a stop request.")
+      Djinn.log_info("Stopping all other nodes.")
+      Thread.new {
+        terminate_appscale_in_parallel(clean){|node| send_client_message(node)}
+        @done_terminating = true
+      }
+      # Return a "request id" for future use in sending and receiving messages.
+      return SecureRandom.hex
+    end
+  end
+
+
+  def terminate_appscale(node_to_terminate, clean)
+    ip = node_to_terminate.private_ip
+    Djinn.log_info("Running terminate.rb on the node at IP address #{ip}")
+    ssh_key = node_to_terminate.ssh_key
+
+    # Add ' clean' as parameter to terminate.rb if clean is true
+    extra_command = clean.downcase == 'true' ? ' clean' : ''
+
+    # Run terminate.rb on node
+    begin
+      Timeout.timeout(WAIT_TO_CRASH) {
+        HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
+      }
+    rescue Timeout::Error => e
+      # Return ip, status, and output of terminated node
+      return {'ip'=>ip, 'status'=> false,
+              'output'=>"Waiting for port #{SSH_PORT} returned #{e.message}"}
+    end
+    output = HelperFunctions.run_remote_command(ip,
+        "ruby /root/appscale/AppController/terminate.rb#{extra_command}",
+        ssh_key, true)
+
+    # terminate.rb will print "OK" if it ran successfully
+    status = output.chomp!("OK").nil? ? false : true
+
+    # Get the output of 'ps x' from node
+    output += HelperFunctions.run_remote_command(ip, 'ps x', ssh_key, true)
+    Djinn.log_debug("#{ip} terminated:#{status}\noutput:#{output}")
+
+    # Return ip, status, and output of terminated node
+    return {'ip'=>ip, 'status'=> status, 'output'=>output}
+  end
+
+
+  def terminate_appscale_in_parallel(clean)
+    # Let's stop all other nodes.
+    threads = []
+    @nodes.each { |node|
+      if node.private_ip != my_node.private_ip
+        threads << Thread.new {
+          Thread.current[:output] = terminate_appscale(node, clean)
+        }
+      end
+    }
+
+    threads.each do |t|
+      t.join
+      yield t[:output]
+    end
+
+    return "OK"
+  end
+
+
+  # Adds message to queue so it can be received by client.
+  def send_client_message(message)
+    @waiting_messages.synchronize {
+      @waiting_messages.push(message)
+      Djinn.log_debug(@waiting_messages)
+      @message_ready.signal
+    }
+  end
+
+  # Method ran by client to access the messages in @waiting_messages. Client
+  # must send a timeout so that the server will not clear the messages.
+  def receive_server_message(timeout, secret)
+    was_queue_emptied = false
+    begin
+      Timeout.timeout(timeout.to_i) {
+        begin
+          bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
+          return bad_secret unless valid_secret?(secret)
+        rescue Errno::ENOENT
+          # On appscale down, terminate may delete our secret key before we
+          # can check it here.
+          Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+        end
+        # Client will process "Error" and try again unless appscale is
+        # terminated
+        if @done_terminating and @waiting_messages.empty?
+          return "Error: Done Terminating and No Messages"
+        end
+        @waiting_messages.synchronize {
+          @message_ready.wait_while {@waiting_messages.empty?}
+          message = JSON.dump(@waiting_messages)
+          @waiting_messages.clear
+          was_queue_emptied = true
+          return message
+        }
+      }
+    # Client will process "Error" and try again unless appscale is terminated
+    rescue Timeout::Error
+      Djinn.log_debug("Timed out trying to receive server message. Queue empty:
+                     #{was_queue_emptied}")
+      return "Error: Server Timed Out"
+    end
+  end
 
   # Starts the InfrastructureManager service on this machine, which exposes
   # a SOAP interface by which we can dynamically add and remove nodes in this
@@ -2211,27 +2350,70 @@ class Djinn
     return online_users
   end
 
+
+  # This function adds this node to the list of possible sources for the
+  # application 'appname' tarball source. Others nodes will be able to get
+  # the tarball from this node.
+  #
+  # Args:
+  #   appname: The application ID.
+  #   location: Full path for the tarball of the application.
+  #   secret: The deployment current secret.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
   def done_uploading(appname, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    if File.exists?(location)
-      begin
-        ZKInterface.add_app_entry(appname, my_node.public_ip, location)
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        uac.enable_app(appname)
-        result = "Found #{appname} in zookeeper."
-      rescue FailedZooKeeperOperationException => e
-        Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
-          "with #{e.message}.")
-        result = "Unknown status for #{appname}: please retry."
-      end
-    else
-      result = "The #{appname} app was not found at #{location}."
+    unless File.exists?(location)
+      Djinn.log_warn("The #{appname} app was not found at #{location}.")
+      return false
     end
 
-    Djinn.log_debug(result)
-    return result
+    RETRIES.downto(0) {
+      begin
+        ZKInterface.add_app_entry(appname, my_node.private_ip, location)
+        Djinn.log_info("This node is now hosting #{appname} source (#{location}).")
+        return true
+      rescue FailedZooKeeperOperationException => except
+        Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
+          "with #{except.message}.")
+      end
+      Kernel.sleep(SMALL_WAIT)
+    }
+    Djinn.log_warn("Failed to notify zookeeper this node hosts #{appname}.")
+    return false
   end
+
+
+  # This function removes this node from the list of possible sources for
+  # the application 'appname' tarball source.
+  #
+  # Args:
+  #   appname: The application ID.
+  #   location: Full path for the tarball of the application.
+  #   secret: The deployment current secret.
+  # Returns:
+  #   A Boolean indicating the success of the operation.
+  def not_hosting_app(appname, location, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless File.exists?(location)
+      Djinn.log_warn("The #{appname} app was still found at #{location}.")
+    end
+
+    begin
+      ZKInterface.remove_app_entry(appname, my_node.private_ip)
+      return true
+    rescue FailedZooKeeperOperationException => except
+      # We just warn here and don't retry, since the shadow may have
+      # already cleaned up the hosters.
+      Djinn.log_warn("not_hosting_app: got exception talking to " +
+        "zookeeper: #{except.message}.")
+    end
+
+    return false
+  end
+
 
   def is_app_running(appname, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -2569,11 +2751,11 @@ class Djinn
     Djinn.log_info("Waiting for nodes to finish loading")
 
     nodes.each { |node|
-      if ZKInterface.is_node_done_loading?(node.public_ip)
-        Djinn.log_info("Node at #{node.public_ip} has finished loading.")
+      if ZKInterface.is_node_done_loading?(node.private_ip)
+        Djinn.log_info("Node at #{node.private_ip} has finished loading.")
         next
       else
-        Djinn.log_info("Node at #{node.public_ip} has not yet finished " +
+        Djinn.log_info("Node at #{node.private_ip} has not yet finished " +
           "loading - will wait for it to finish.")
         Kernel.sleep(SMALL_WAIT)
         redo
@@ -2684,7 +2866,10 @@ class Djinn
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
-    Djinn.log_debug("Output of #{command} was: #{output}")
+    if $?.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" +
+          " and output: #{output}.")
+    end
     return output
   end
 
@@ -2925,8 +3110,10 @@ class Djinn
         all_tq_ips.push(node.private_ip)
       end
     }
-    HAProxy.create_tq_endpoint_config(all_tq_ips,
-      my_node.private_ip, TaskQueue::HAPROXY_PORT)
+    HAProxy.create_tq_endpoint_config(all_tq_ips, my_node.private_ip,
+                                      TaskQueue::HAPROXY_REST_PORT)
+
+    # We don't need Nginx for backend TaskQueue servers, only for REST support.
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
 
@@ -3191,7 +3378,7 @@ class Djinn
 
       ip = zk_list.sample()
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
-      ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip.to_s)
+      ZKInterface.init_to_ip(HelperFunctions.local_ip, ip.to_s)
     }
     Djinn.log_debug("Found zookeeper server.")
   end
@@ -3203,7 +3390,7 @@ class Djinn
     # time, get a lock before we write to it.
     begin
       ZKInterface.lock_and_run {
-        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.public_ip)
+        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.private_ip)
         ZKInterface.write_node_information(my_node, @done_loading)
       }
     rescue => e
@@ -3338,83 +3525,6 @@ class Djinn
       Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
         " of a #{exception.class} exception.")
     end
-  end
-
-
-  # Queries ZooKeeper to see if our local copy of @nodes is out of date and
-  # should be regenerated with up to date data from ZooKeeper. If data on
-  # our node has changed, this starts or stops the necessary roles.
-  def update_local_nodes()
-    begin
-      ZKInterface.lock_and_run {
-        # See if the ZooKeeper data is newer than ours - if not, don't
-        # update anything and return.
-        zk_ips_info = ZKInterface.get_ip_info()
-        if zk_ips_info["last_updated"] <= @last_updated
-          return false
-        else
-          Djinn.log_info("Updating data from ZK. Our timestamp, " +
-            "#{@last_updated}, was older than the ZK timestamp, " +
-            "#{zk_ips_info['last_updated']}")
-        end
-
-        all_ips = zk_ips_info["ips"]
-        new_nodes = []
-        all_ips.each { |ip|
-          new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip),
-            @options['keyname'])
-        }
-
-        old_roles = my_node.jobs
-        @state_change_lock.synchronize {
-          @nodes = new_nodes.uniq
-        }
-
-        find_me_in_locations()
-        new_roles = my_node.jobs
-
-        Djinn.log_info("My new nodes are [#{@nodes.join(', ')}], and my new " +
-          "node is #{my_node}")
-
-        # Since we're about to possibly load and unload roles, set done_loading
-        # for our node to false, so that other nodes don't erroneously send us
-        # additional roles to do while we're in this state where lots of side
-        # effects are happening.
-        @done_loading = false
-        ZKInterface.set_done_loading(my_node.public_ip, false)
-
-        roles_to_start = new_roles - old_roles
-        unless roles_to_start.empty?
-          Djinn.log_info("Need to start [#{roles_to_start.join(', ')}] " +
-            "roles on this node")
-          roles_to_start.each { |role|
-            Djinn.log_info("Starting role #{role}")
-            send("start_#{role}".to_sym)
-          }
-        end
-
-        roles_to_stop = old_roles - new_roles
-        unless roles_to_stop.empty?
-          Djinn.log_info("Need to stop [#{roles_to_stop.join(', ')}] " +
-            "roles on this node")
-          roles_to_stop.each { |role|
-            send("stop_#{role}".to_sym)
-          }
-        end
-
-        # And now that we're done loading/unloading roles, set done_loading for
-        # our node back to true.
-        ZKInterface.set_done_loading(my_node.public_ip, true)
-        @done_loading = true
-
-        @last_updated = zk_ips_info['last_updated']
-      }
-    rescue => e
-      Djinn.log_warn("(update_local_node) saw exception #{e.message}")
-      return false
-    end
-
-    return true
   end
 
 
@@ -3763,6 +3873,8 @@ class Djinn
   def start_taskqueue_master()
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
@@ -3776,6 +3888,8 @@ class Djinn
 
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_slave(master_ip, false, verbose)
+    HAProxy.create_tq_server_config(my_node.private_ip,
+                                    TaskQueue::HAPROXY_PORT)
     return true
   end
 
@@ -4199,7 +4313,7 @@ class Djinn
       load_balancer_ips << node.private_ip if node.is_load_balancer?
       master_ips << node.private_ip if node.is_db_master?
       memcache_ips << node.private_ip if node.is_memcache?
-      search_ips = node.private_ip if node.is_search?
+      search_ips << node.private_ip if node.is_search?
       slave_ips << node.private_ip if node.is_db_slave?
       taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
         node.is_taskqueue_slave?
@@ -4724,9 +4838,12 @@ HOSTS
       AppDashboard::APP_LANGUAGE, @@secret)
     Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Create and 'upload' the application.
+    # Create, upload, and unpack the application.
     AppDashboard.start(my_public, my_private,
         PERSISTENT_MOUNT_POINT, @@secret)
+    APPS_LOCK.synchronize {
+      setup_app_dir(AppDashboard::APP_NAME, true)
+    }
 
     # Assign the specific ports to it.
     APPS_LOCK.synchronize {
@@ -4893,7 +5010,7 @@ HOSTS
           end
 
           begin
-            ZKInterface.remove_app_entry(app, my_node.public_ip)
+            ZKInterface.remove_app_entry(app, my_node.private_ip)
           rescue FailedZooKeeperOperationException => except
             Djinn.log_warn("check_stopped_apps: got exception talking to " +
               "zookeeper: #{except.message}.")
@@ -4967,7 +5084,11 @@ HOSTS
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
-        Djinn.log_debug("Checking #{app} with appengine #{info}.")
+        if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+          Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
+        else
+          Djinn.log_debug("Checking #{app} running at #{info['appengine']}.")
+        end
         info['appengine'].each { |location|
           host, port = location.split(":")
           next if @my_private_ip != host
@@ -5146,12 +5267,6 @@ HOSTS
       return
     end
     Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
-
-    # Now let's make sure we have the correct version of the app. In the
-    # case of a new start we need to ensure we can unpack the tarball, and
-    # in the case of a restart, we need to remove the old unpacked source
-    # code, and use the new one.
-    setup_app_dir(app, true)
 
     nginx_port = @app_info_map[app]['nginx']
     https_port = @app_info_map[app]['nginx_https']
@@ -5528,7 +5643,7 @@ HOSTS
 
     # We prefer candidate that are not already running the application, so
     # ensure redundancy for the application.
-    delta_appservers.downto(0) {
+    delta_appservers.downto(1) {
       appserver_to_use = nil
       available_hosts.each { |host|
         unless current_hosts.include?(host)
@@ -5611,6 +5726,7 @@ HOSTS
         FileUtils.rm_rf(app_dir)
       else
         FileUtils.rm_rf(app_path)
+        not_hosting_app(app, app_path, @@secret)
       end
     end
 
@@ -5633,6 +5749,7 @@ HOSTS
         else
           # Application is good: let's set it up.
           HelperFunctions.setup_app(app)
+          done_uploading(app, app_path, @@secret)
         end
       else
         # If we couldn't get a copy of the application, place a dummy error
@@ -5644,17 +5761,6 @@ HOSTS
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
       place_error_app(app, error_msg, get_app_language(app))
-    else
-      # Make sure we advertize that this node is hosting the app code.
-      RETRIES.downto(0) {
-        result = done_uploading(app, app_path, @@secret)
-        if result.include?("Found #{app} in zookeeper.")
-          Djinn.log_info("This node is now hosting #{app} source (#{result}).")
-          return
-        end
-        Djinn.log_warn("Retrying done_uploading since it failed with: #{result}.")
-        Kernel.sleep(SMALL_WAIT)
-      }
     end
   end
 
@@ -5675,7 +5781,9 @@ HOSTS
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
     # Make sure we have the application setup properly.
-    setup_app_dir(app)
+    APPS_LOCK.synchronize {
+      setup_app_dir(app)
+    }
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
@@ -5938,7 +6046,7 @@ HOSTS
       return 0
     end
 
-    remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
+    remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
     @app_info_map.each { |app_id, info|
@@ -6010,27 +6118,28 @@ HOSTS
 
     # Try 3 times on each node known to have this application. Make sure
     # we pick a random order to not overload the same host.
+    nodes_with_app.shuffle!
     nodes_with_app.each { |node|
       ssh_key = node.ssh_key
       ip = node.private_ip
-      tries = 3
-      loop {
-        Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-        Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{app_path} #{app_path}")
-        if File.exists?(app_path)
-          Djinn.log_info("Got a copy of #{appname} from #{ip}.")
-          return true
+      Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
+      RETRIES.downto(0) {
+        begin
+          HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
+          if File.exists?(app_path)
+            if HelperFunctions.check_tarball(app_path)
+              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+              return true
+            end
+          end
+        rescue AppScaleSCPException
+          Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
         end
-        Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}! scp failed.")
-        if tries > 0
-          Djinn.log_debug("Trying again in few seconds.")
-          tries = tries - 1
-          Kernel.sleep(SMALL_WAIT)
-        else
-          Djinn.log_warn("Giving up on node #{ip} for the application.")
-          break
-        end
+        # Removing possibly corrupted, or partially downloaded tarball.
+        FileUtils.rm_rf(app_path)
+        Kernel.sleep(SMALL_WAIT)
       }
+      Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
     }
     Djinn.log_error("Unable to get the application from any node.")
     return false
