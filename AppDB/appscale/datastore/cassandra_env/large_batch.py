@@ -180,7 +180,7 @@ class LargeBatch(object):
 
     if not result.was_applied:
       raise FailedBatch(
-        '{} does not match {}'.format(self.op_id, result.op_id))
+        'Unable to clean up batch for {}:{}'.format(self.project, self.txid))
 
   def claim(self):
     """ Claim a batch so that other processes don't work on it.
