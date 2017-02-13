@@ -29,7 +29,6 @@ from ..zkappscale import zktransaction
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
-from constants import LOG_FORMAT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
