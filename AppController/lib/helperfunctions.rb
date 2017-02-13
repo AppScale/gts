@@ -484,7 +484,7 @@ module HelperFunctions
   # Args:
   #   app_name: A String containing the application id.
   # Returns
-  #   A Boolean indicating if the setup was succesful.
+  #   A Boolean indicating if the setup was successful.
   def self.setup_app(app_name)
     meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
