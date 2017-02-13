@@ -208,16 +208,8 @@ class AppScaleBadArg(Exception):
   def __str__(self):
     return repr(self.value)
 
-class BatchInProgress(Exception):
-  """ Indicates that a concurrent process is working on a batch. """
-  pass
-
 class ConcurrentModificationException(Exception):
   """ Indicates that an entity fetched during a transaction has changed. """
-  pass
-
-class FailedBatch(Exception):
-  """ Indicates that the datastore failed to apply a batch statement. """
   pass
 
 class TooManyGroupsException(Exception):
