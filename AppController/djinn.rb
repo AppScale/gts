@@ -2004,12 +2004,8 @@ class Djinn
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
     begin
-      if File.exists?("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-        @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
-      end
-      if File.exists?("#{APPSCALE_CONFIG_DIR}/my_public_ip")
-        @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
-      end
+      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
+      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
     rescue Errno::ENOENT
       Djinn.log_warn("my_public_ip or my_private_ip disapeared.")
       @my_private_ip = nil
