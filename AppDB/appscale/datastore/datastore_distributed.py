@@ -3293,7 +3293,7 @@ class DatastoreDistributed():
       self.apply_txn_changes(app_id, txn_id)
     except dbconstants.TxTimeoutException as timeout:
       return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
-    except (dbconstants.AppScaleDBConnectionError, dbconstants.FailedBatch):
+    except (dbconstants.AppScaleDBConnectionError):
       self.logger.exception('DB connection error during {}'.
                             format(http_request_data))
       return (commitres_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
