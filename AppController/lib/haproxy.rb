@@ -136,7 +136,7 @@ module HAProxy
     self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
   end
 
-  # Remove the configuration for Tasqueue REST API endpoints.
+  # Remove the configuration for TaskQueue REST API endpoints.
   def self.remove_tq_endpoints
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
     HAProxy.regenerate_config
