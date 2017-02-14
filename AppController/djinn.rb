@@ -2007,7 +2007,7 @@ class Djinn
       @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
       @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
     rescue Errno::ENOENT
-      Djinn.log_warn("my_public_ip or my_private_ip disapeared.")
+      Djinn.log_warn("my_public_ip or my_private_ip disappeared.")
       @my_private_ip = nil
       @my_public_ip = nil
     end
