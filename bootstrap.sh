@@ -36,6 +36,13 @@ if [ "$(id -u)" != "0" ]; then
 fi
 echo "Success"
 
+echo -n "Checking to make sure \$HOME is /root..."
+if [ "$HOME" != "/root" ]; then
+   echo "Failed"
+   exit 1
+fi
+echo "Success"
+
 set -e
 
 # Let's get the  command line arguments.
