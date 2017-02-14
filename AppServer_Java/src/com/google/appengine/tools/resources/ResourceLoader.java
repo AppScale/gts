@@ -8,6 +8,7 @@ public class ResourceLoader
     private final int             PROTOCOL_BUFFER_PORT      = 8888;
     private final String          DB_LOCATION_PROPERTY      = "DB_LOCATION";
     private static String         APPSCALE_CONFIG_DIR       = "/etc/appscale";
+    private final String          HADOOP_PATH               = "/opt/appscale/AppDB/hadoop-0.20.0";
     private final String          MEMCACHE_SERVER_IP_PATH   = "/memcache_ips";
     private final boolean         IS_SSL                    = false;
     private final String          TMP_LOCATION              = "/tmp";
@@ -47,6 +48,12 @@ public class ResourceLoader
     {
         return APPSCALE_CONFIG_DIR + NUM_NODES_LOCATION;
     }
+
+    public String getHadoopHome()
+    {
+        return HADOOP_PATH;
+    }
+
 
     public String getMrTmpLocation()
     {
