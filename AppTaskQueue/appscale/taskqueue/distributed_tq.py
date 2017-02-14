@@ -88,7 +88,7 @@ def create_pull_queue_tables(cluster, session):
       tag text,
       tag_exists boolean,
       PRIMARY KEY ((app, queue, eta), id)
-    )
+    ) WITH gc_grace_seconds = 120
   """
   statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
   try:
@@ -122,7 +122,7 @@ def create_pull_queue_tables(cluster, session):
       queue text,
       leased timestamp,
       PRIMARY KEY ((app, queue, leased))
-    )
+    ) WITH gc_grace_seconds = 120
   """
   statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
   try:
