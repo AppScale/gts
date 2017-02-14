@@ -11,7 +11,6 @@ import httplib
 import logging
 import os
 import sys
-import time
 import yaml
 
 def setup_environment():
