@@ -2192,6 +2192,12 @@ class Djinn
         next
       end
 
+      # We save the current @options and roles to check if they are
+      # modified, and if so we will conform.
+      old_options = @options.clone
+      old_jobs = my_node.jobs
+      check_role_change(old_options, old_jobs)
+
       # Check the running, terminated, pending AppServers.
       check_running_apps
 
@@ -3165,13 +3171,32 @@ class Djinn
     @appcontroller_state = local_state.to_s
   end
 
+
+  # Takes actions if options or roles changed.
+  #
+  # Args:
+  #   old_options: this is a clone of @options. We will compare it with
+  #     the current value.
+  #   old_jobs: this is a list of roles. It will be compared against the
+  #     current list of jobs for this node.
+  def check_role_change(old_options, old_jobs)
+    if old_jobs != my_node.jobs
+      Djinn.log_info("Roles for this node are now: #{my_node.jobs}.")
+      start_stop_api_services
+    end
+
+    # Finally some @options may have changed.
+    enforce_options unless old_options == @options
+  end
+
+
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
   #   A boolean indicating if the state is restored or current with the master.
-  def restore_appcontroller_state()
+  def restore_appcontroller_state
     json_state=""
 
     unless File.exists?(ZK_LOCATIONS_FILE)
@@ -3197,11 +3222,6 @@ class Djinn
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
-
-    # Let's keep an old copy of the options and jobs: we'll need them to
-    # check if something changed and we need to act.
-    old_options = @options.clone
-    old_jobs = my_node.jobs
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
       keyname = json_state['@options']['keyname']
@@ -3239,17 +3259,6 @@ class Djinn
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
     find_me_in_locations
-
-    # We now check if we add/removed roles to this node.
-    if old_jobs != my_node.jobs
-      Djinn.log_info("Jobs for this node are now: #{my_node.jobs}.")
-      start_stop_api_services
-    end
-
-    # Finally some @options may have changed.
-    enforce_options unless old_options == @options
-
-    @appcontroller_state = json_state
 
     return true
   end
