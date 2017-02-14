@@ -1,3 +1,4 @@
+import datetime
 import itertools
 import logging
 import mmh3
@@ -628,3 +629,18 @@ def create_key(app, namespace, path):
   key_path = key.mutable_path()
   key_path.MergeFromString(path)
   return key
+
+
+def get_write_time(txid):
+  """ Get the timestamp the datastore should use to write entity data.
+
+  Args:
+    txid: An integer specifying a transaction ID.
+  Returns:
+    An integer specifying a timestamp to use (in microseconds from unix epoch).
+  """
+  # Try to prevent future writes from getting buried under past writes.
+  epoch = datetime.datetime.utcfromtimestamp(0)
+  offset = datetime.datetime(2022, 2, 1) - epoch
+  usec_offset = offset.total_seconds() * 1000000
+  return int(usec_offset + txid)
