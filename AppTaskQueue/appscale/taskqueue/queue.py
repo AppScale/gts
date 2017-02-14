@@ -526,6 +526,7 @@ class PullQueue(Queue):
       raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
                                 .format(self.MAX_LEASE_TIME))
 
+    start_time = datetime.datetime.utcnow()
     logger.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                  format(num_tasks, lease_seconds, group_by_tag, tag))
     new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
@@ -572,7 +573,8 @@ class PullQueue(Queue):
       if satisfied_request:
         break
 
-    logger.debug('Leased {} tasks'.format(len(leased)))
+    time_elapsed = datetime.datetime.utcnow() - start_time
+    logger.debug('Leased {} tasks [time elapsed: {}]'.format(len(leased), str(time_elapsed)))
     return leased
 
   def total_tasks(self):
