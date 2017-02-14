@@ -13,10 +13,14 @@ import time
 import urllib
 
 from ..cassandra_env import cassandra_interface
-from ..dbconstants import (MAX_GROUPS_FOR_XG,
+from ..cassandra_env.large_batch import (FailedBatch,
+                                         LargeBatch)
+from ..dbconstants import (AppScaleDBConnectionError,
+                           MAX_GROUPS_FOR_XG,
                            MAX_TX_DURATION)
 from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 
+from cassandra.policies import FallthroughRetryPolicy
 from kazoo.exceptions import (NoNodeError,
                               KazooException,
                               ZookeeperError)
@@ -24,16 +28,14 @@ from kazoo.exceptions import (NoNodeError,
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
 
+# A cassandra-driver policy that does not retry operations.
+NO_RETRIES = FallthroughRetryPolicy()
+
 
 class ZKTimeoutException(Exception):
   """ A special Exception class that should be thrown if a function is 
   taking longer than expected by the caller to run
   """
-  pass
-
-
-class BatchInProgress(Exception):
-  """ Indicates that a concurrent process is working on a batch. """
   pass
 
 
@@ -1428,40 +1430,6 @@ class ZKTransaction:
       return False
     return True
 
-  def establish_batch_lock(self, app, transaction, status_exists):
-    """ Ensure that no concurrent processes continue to work on the batch. The
-    datastore uses a lightweight transaction when marking the batch as applied.
-    So if this modifies it first, the datastore batch will fail.
-
-    Args:
-      app: A string containing the application ID.
-      transaction: An integer containing the transaction ID.
-      status_exists: A boolean indicating the presence of a batch status row.
-    """
-    parameters = {'app': app, 'transaction': transaction}
-    if status_exists:
-      clear_status = """
-        DELETE FROM batch_status
-        WHERE app = %(app)s AND transaction = %(transaction)s
-        IF applied = False
-      """
-      result = self.db_access.session.execute(clear_status, parameters)
-      if not result.was_applied:
-        raise BatchInProgress('The batch for {}:{} is still in progress'.
-                              format(app, transaction))
-      return
-
-    insert_marker = """
-      INSERT INTO batch_status (app, transaction, applied)
-      VALUES (%(app)s, %(transaction)s, False)
-      IF NOT EXISTS
-    """
-    result = self.db_access.session.execute(insert_marker, parameters)
-    if not result.was_applied:
-      # Another process is already working on the batch.
-      raise BatchInProgress(
-        'The batch for {} is still in progress'.format(transaction))
-
   def clean_up_batch(self, app, transaction):
     """ Clean up temporary batch data.
 
@@ -1471,54 +1439,31 @@ class ZKTransaction:
     """
     self.logger.debug(
       'Cleaning up batch: app={}, transaction={}'.format(app, transaction))
-    parameters = {'app': app, 'transaction': transaction}
     clear_batch = """
       DELETE FROM batches
       WHERE app = %(app)s AND transaction = %(transaction)s
     """
+    parameters = {'app': app, 'transaction': transaction}
     self.db_access.session.execute(clear_batch, parameters)
-    clear_status = """
-      DELETE FROM batch_status
-      WHERE app = %(app)s AND transaction = %(transaction)s
-    """
-    self.db_access.session.execute(clear_status, parameters)
 
-  def resolve_batch(self, app, transaction):
-    """ Check if batch completed and apply mutations if necessary.
+  def _write_batch(self, app, txid):
+    """ Write the batch to the entities table.
 
     Args:
-      app: A string containing the application ID.
-      transaction: An integer containing the transaction ID.
+      app: a string specifying the application ID.
+      txid: An integer specifying the transaction ID.
     """
-    session = self.db_access.session
-    parameters = {'app': app, 'transaction': transaction}
-    select_applied = """
-      SELECT applied FROM batch_status
-      WHERE app = %(app)s AND transaction = %(transaction)s
-    """
-    try:
-      applied = session.execute(select_applied, parameters)[0].applied
-    except IndexError:
-      # If there's no status entry for this batch, clean up.
-      self.establish_batch_lock(app, transaction, status_exists=False)
-      self.clean_up_batch(app, transaction)
-      return
-
-    if not applied:
-      self.establish_batch_lock(app, transaction, status_exists=True)
-      self.clean_up_batch(app, transaction)
-      return
-
     composite_indices = [entity_pb.CompositeIndex(index)
                          for index in self.db_access.get_indices(str(app))]
 
     self.logger.debug(
-      'Applying batch: app={}, transaction={}'.format(app, transaction))
+      'Applying batch: app={}, transaction={}'.format(app, txid))
     select_mutations = """
       SELECT old_value, new_value FROM batches
       WHERE app = %(app)s AND transaction = %(transaction)s
     """
-    results = session.execute(select_mutations, parameters)
+    parameters = {'app': app, 'transaction': txid}
+    results = self.db_access.session.execute(select_mutations, parameters)
     for result in results:
       old_entity = result.old_value
       if old_entity is not None:
@@ -1533,10 +1478,26 @@ class ZKTransaction:
           old_entity, composite_indices)
       else:
         mutations = cassandra_interface.mutations_for_entity(
-          new_entity, transaction, old_entity, composite_indices)
+          new_entity, txid, old_entity, composite_indices)
       self.db_access.apply_mutations(mutations)
 
+  def resolve_batch(self, app, transaction):
+    """ Check if batch completed and apply mutations if necessary.
+
+    Args:
+      app: A string containing the application ID.
+      transaction: An integer containing the transaction ID.
+    """
+    session = self.db_access.session
+    large_batch = LargeBatch(session, app, transaction)
+
+    large_batch.claim()
+
+    if large_batch.applied:
+      self._write_batch(app, transaction)
+
     self.clean_up_batch(app, transaction)
+    large_batch.cleanup()
 
   def execute_garbage_collection(self, app_id, app_path):
     """ Execute garbage collection for an application.
@@ -1579,7 +1540,7 @@ class ZKTransaction:
           try:
             self.resolve_batch(app_id, transaction)
             self.notify_failed_transaction(app_id, transaction)
-          except BatchInProgress:
+          except (AppScaleDBConnectionError, FailedBatch):
             self.logger.exception(
               'Failed to clean up lock for {}:{}'.format(app_id, transaction))
       except kazoo.exceptions.NoNodeError:

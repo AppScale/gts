@@ -3,6 +3,7 @@ import json
 import re
 import sys
 
+from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
@@ -278,7 +279,7 @@ class PullQueue(Queue):
         dateof(now()), %(lease_expires)s, 0, %(tag)s
       )
       IF NOT EXISTS
-    """, retry_policy=self.db_access.retry_policy)
+    """, retry_policy=BASIC_RETRIES)
     parameters = {
       'app': self.app,
       'queue': self.name,
@@ -317,7 +318,7 @@ class PullQueue(Queue):
     insert_index = SimpleStatement("""
       INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
       VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
-    """, retry_policy=self.db_access.retry_policy)
+    """, retry_policy=BASIC_RETRIES)
     parameters = {
       'app': self.app,
       'queue': self.name,
@@ -859,7 +860,7 @@ class PullQueue(Queue):
       task: A Task object to create a new index entry for.
     """
     old_eta = old_index.eta
-    update_index = BatchStatement(retry_policy=self.db_access.retry_policy)
+    update_index = BatchStatement(retry_policy=BASIC_RETRIES)
     delete_old_index = SimpleStatement("""
       DELETE FROM pull_queue_tasks_index
       WHERE app = %(app)s
@@ -918,7 +919,7 @@ class PullQueue(Queue):
     Args:
       task: A Task object.
     """
-    batch_delete = BatchStatement(retry_policy=self.db_access.retry_policy)
+    batch_delete = BatchStatement(retry_policy=BASIC_RETRIES)
 
     delete_task = SimpleStatement("""
       DELETE FROM pull_queue_tasks

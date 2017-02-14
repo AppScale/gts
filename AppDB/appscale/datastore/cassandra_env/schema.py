@@ -84,13 +84,17 @@ def create_batch_tables(cluster, session):
     time.sleep(60)
     raise
 
+  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
+  if ('batch_status' in keyspace_metadata.tables and
+      'txid_hash' not in keyspace_metadata.tables['batch_status'].columns):
+    session.execute('DROP TABLE batch_status')
+
   logging.info('Trying to create batch_status')
   create_table = """
     CREATE TABLE IF NOT EXISTS batch_status (
-      app text,
-      transaction int,
+      txid_hash blob PRIMARY KEY,
       applied boolean,
-      PRIMARY KEY ((app), transaction)
+      op_id uuid
     )
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
@@ -102,7 +106,6 @@ def create_batch_tables(cluster, session):
       'Waiting 1 minute for schema to settle.')
     time.sleep(60)
     raise
-
 
 def create_groups_table(session):
   create_table = """
