@@ -2164,6 +2164,11 @@ class Djinn
 
       @state = "Done starting up AppScale, now in heartbeat mode"
 
+      # We save the current @options and roles to check if
+      # restore_appcontroller_state modifies them.
+      old_options = @options.clone
+      old_jobs = my_node.jobs
+
       # The following is the core of the duty cycle: start new apps,
       # restart apps, terminate non-responsive AppServers, and autoscale.
       # Every other node syncs its state with the login node state.
@@ -2192,10 +2197,7 @@ class Djinn
         next
       end
 
-      # We save the current @options and roles to check if they are
-      # modified, and if so we will conform.
-      old_options = @options.clone
-      old_jobs = my_node.jobs
+      # We act here if options or roles for this node changed.
       check_role_change(old_options, old_jobs)
 
       # Check the running, terminated, pending AppServers.
