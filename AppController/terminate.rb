@@ -17,11 +17,11 @@ module TerminateHelper
     `rm -f /etc/nginx/sites-enabled/appscale-*.conf`
     `rm -f /etc/haproxy/sites-enabled/*.cfg`
     `service nginx reload`
-    # Stop and then remove the service we configured with monit.
-    `monit stop all`
     while system("monit summary | grep Running > /dev/null") do
+      # Stop and then remove the service we configured with monit.
+      `monit stop all`
       puts "Waiting for monit to stop services ..."
-      Kernel.sleep(2)
+      Kernel.sleep(10)
     end
 
     `rm -f /etc/monit/conf.d/appscale*.cfg`
