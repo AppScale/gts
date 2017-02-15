@@ -270,10 +270,6 @@ class Djinn
   APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 
-  # The location on the local filesystem where AppScale metadata is stored
-  APPSCALE_METADATA_DIR = "/root/.appscale"
-
-
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
   TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes"
@@ -4269,7 +4265,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     if dest_node.is_appengine?
-      locations_json = "#{APPSCALE_METADATA_DIR}/locations-#{@options['keyname']}.json"
+      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
         break if File.exists?(locations_json)
         Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
