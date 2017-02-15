@@ -51,4 +51,5 @@ struct Query {
   versionIds @5 : List(Text);
   requestIds @6 : List(Data);
   count @7 : Int32;
+  reverse @8 : Bool;
 }
