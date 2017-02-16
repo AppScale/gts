@@ -143,7 +143,7 @@ def create_transactions_table(session):
       entity blob,
       task blob,
       PRIMARY KEY (txid_hash, operation, namespace, path)
-    )
+    ) WITH gc_grace_seconds = 120
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
