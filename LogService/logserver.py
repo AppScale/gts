@@ -193,7 +193,7 @@ class AppRegistry(object):
 
   def iter(self):
     yield self._writer
-    for alf in reversed(self._log_files):
+    for alf in self._log_files:
       yield alf
 
   def get(self, requestIds):
