@@ -87,6 +87,11 @@ class InvalidLeaseRequest(Exception):
   pass
 
 
+class TransientError(Exception):
+  """ Indicates that the queue was unable to complete an operation. """
+  pass
+
+
 class Queue(object):
   """ Represents a queue created by an App Engine application. """
 

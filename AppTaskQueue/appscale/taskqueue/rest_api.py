@@ -4,16 +4,17 @@ import re
 import sys
 import tornado.escape
 
-from queue import InvalidLeaseRequest
-from queue import LONG_QUEUE_FORM
-from queue import PullQueue
-from queue import QUEUE_FIELDS
 from task import InvalidTaskInfo
 from task import Task
 from task import TASK_FIELDS
 from tornado.web import MissingArgumentError
 from tornado.web import RequestHandler
 from unpackaged import APPSCALE_LIB_DIR
+from .queue import (InvalidLeaseRequest,
+                    LONG_QUEUE_FORM,
+                    PullQueue,
+                    QUEUE_FIELDS,
+                    TransientError)
 
 sys.path.append(APPSCALE_LIB_DIR)
 from constants import HTTPCodes
@@ -242,6 +243,9 @@ class RESTLease(RequestHandler):
       tasks = queue.lease_tasks(num_tasks, lease_seconds, group_by_tag, tag)
     except InvalidLeaseRequest as lease_error:
       write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      return
+    except TransientError as lease_error:
+      write_error(self, HTTPCodes.INTERNAL_ERROR, str(lease_error))
       return
 
     task_list = {}
