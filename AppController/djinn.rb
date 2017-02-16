@@ -4025,7 +4025,7 @@ class Djinn
   def start_log_server
     log_server_pid = "/var/run/appscale-logserver.pid"
     start_cmd = "twistd --pidfile=#{log_server_pid} appscale-logserver"
-    stop_cmd = "/bin/bash -c '$(which kill) $(cat #{log_server_pid}'"
+    stop_cmd = "/bin/bash -c 'kill $(cat #{log_server_pid})'"
     port = 7422
     env = {
         'APPSCALE_HOME' => APPSCALE_HOME,
@@ -4033,7 +4033,7 @@ class Djinn
     }
 
     MonitInterface.start(:log_service, start_cmd, stop_cmd, [port], env,
-                         start_cmd, nil, "#{log_server_pid}", nil)
+                         nil, nil, log_server_pid, nil)
     Djinn.log_info("Started Log Server successfully!")
   end
 
