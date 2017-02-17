@@ -418,7 +418,6 @@ class DistributedTaskQueue():
       config = TaskQueueConfig(app_id, self.db_access)
       self.__queue_info_cache[app_id] = config.queues
       config.create_celery_file()
-      config.create_celery_worker_scripts()
     except (ValueError, NameError) as config_error:
       return json.dumps({'error': True, 'reason': config_error.message})
     except Exception as config_error:
@@ -429,8 +428,7 @@ class DistributedTaskQueue():
     celery_bin = find_executable('celery')
     command = [celery_bin,
                "worker",
-               "--app=" + \
-                    TaskQueueConfig.get_celery_worker_module_name(app_id),
+               "--app={}".format(TaskQueueConfig.WORKER_MODULE),
                "--hostname=%h." + app_id,
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,
@@ -447,12 +445,14 @@ class DistributedTaskQueue():
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)
     watch = "celery-" + str(app_id)
+    env_vars = {'APP_ID': app_id, 'HOST': appscale_info.get_login_ip()}
+    env_vars.update(self.CELERY_ENV_VARS)
     monit_app_configuration.create_config_file(watch,
                                                start_command, 
                                                stop_command, 
                                                [self.CELERY_PORT],
                                                max_memory=self.CELERY_SAFE_MEMORY*TaskQueueConfig.MAX_CELERY_CONCURRENCY,
-                                               env_vars=self.CELERY_ENV_VARS)
+                                               env_vars=env_vars)
     if monit_interface.start(watch):
       json_response = {'error': False}
     else:
