@@ -24,7 +24,9 @@ from task import Task
 from tq_config import TaskQueueConfig
 from .unpackaged import APPSCALE_LIB_DIR
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
-from .utils import logger
+from .utils import (get_celery_queue_name,
+                    get_queue_function_name,
+                    logger)
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info

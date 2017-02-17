@@ -9,7 +9,10 @@ from queue import PullQueue
 from queue import PushQueue
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
-from .utils import logger
+from .utils import (get_celery_annotation_name,
+                    get_celery_queue_name,
+                    get_celery_worker_module_name,
+                    logger)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import queueinfo
@@ -284,57 +287,6 @@ queue:
     file_io.delete(config_file)
 
   @staticmethod
-  def get_queue_function_name(queue_name):
-    """ Returns the function name of a queue which is not the queue name for
-    namespacing and collision reasons.
-
-    Args:
-      queue_name: The name of a queue.
-    Returns:
-      The string representing the function name.
-    """
-    # Remove '-' because that character is not valid for a function name.
-    queue_name = queue_name.replace('-', '_')
-    return "queue___%s" % queue_name 
-
-  @staticmethod
-  def get_celery_annotation_name(app_id, queue_name):
-    """ Returns the annotation name for a celery configuration of a queue
-    for a given application id.
-    
-    Args:
-      app_id: The application ID.
-      queue_name: The application queue name.
-    Returns:
-      A string for the annotation tag.
-    """ 
-    module_name = TaskQueueConfig.get_celery_worker_module_name(app_id)
-    function_name = TaskQueueConfig.get_queue_function_name(queue_name)
-    return "%s.%s" % (module_name, function_name)
-
-  @staticmethod
-  def get_celery_worker_script_path(app_id):
-    """ Returns the full path of the worker script used for Celery.
-   
-    Args:
-      app_id: The application ID.
-    Returns:
-      A string of the full file name of the worker script.
-    """
-    return TaskQueueConfig.CELERY_WORKER_DIR + "app___" + app_id + ".py"
-
-  @staticmethod
-  def get_celery_worker_module_name(app_id):
-    """ Returns the python module name of the queue worker script.
-   
-    Args:
-      app_id: The application ID.
-    Returns:
-      A string of the module name.
-    """
-    return "app___" + app_id 
-
-  @staticmethod
   def get_celery_configuration_path(app_id):
     """ Returns the full path of the configuration used for Celery.
    
@@ -360,14 +312,12 @@ queue:
       if not isinstance(queue, PushQueue):
         continue
 
-      celery_name = TaskQueueConfig.get_celery_queue_name(
-        self._app_id, queue.name)
+      celery_name = get_celery_queue_name(self._app_id, queue.name)
       queue_str = "Queue('{name}', Exchange('{app}'), routing_key='{key}'),"\
         .format(name=celery_name, app=self._app_id, key=celery_name)
       celery_queues.append(queue_str)
 
-      annotation_name = TaskQueueConfig.get_celery_annotation_name(
-        self._app_id, queue.name)
+      annotation_name = get_celery_annotation_name(self._app_id, queue.name)
       annotation = "'{name}': {{'rate_limit': '{rate}'}},".format(
         name=annotation_name, rate=queue.rate)
       annotations.append(annotation)
@@ -410,16 +360,3 @@ CELERYD_PREFETCH_MULTIPLIER = 1
       The primary loadbalancer IP/hostname.
     """
     return appscale_info.get_login_ip()
-
-  @staticmethod
-  def get_celery_queue_name(app_id, queue_name):
-    """ Gets a usable queue name for celery to prevent collisions where
-    mulitple apps have the same name for a queue.
-    
-    Args:
-      app_id: The application ID.
-      queue_name: String name of the queue.
-    Returns:
-      A string to reference the queue name in celery.
-    """
-    return app_id + "___" + queue_name
