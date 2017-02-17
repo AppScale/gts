@@ -210,6 +210,8 @@ class PushQueue(Queue):
       if 'max_doublings' in retry_params:
         self.max_doublings = retry_params['max_doublings']
 
+    self.celery = None
+
     super(PushQueue, self).__init__(queue_info, app)
 
   def __repr__(self):

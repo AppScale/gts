@@ -745,52 +745,20 @@ class DistributedTaskQueue():
     headers = self.get_task_headers(request)
     countdown = int(headers['X-AppEngine-TaskETA']) - \
                 int(datetime.datetime.now().strftime("%s"))
-    task_func = self.__get_task_function(request)
-    task_func.apply_async(
-      kwargs={'headers':headers, 'args':args},
+
+    push_queue = self.get_queue(request.app_id(), request.queue_name())
+    task_func = get_queue_function_name(push_queue.name)
+    celery_queue = get_celery_queue_name(request.app_id(), push_queue.name)
+
+    push_queue.celery.send_task(
+      task_func,
+      kwargs={'headers': headers, 'args': args},
       expires=args['expires'],
       acks_late=True,
       countdown=countdown,
-      queue=TaskQueueConfig.get_celery_queue_name(request.app_id(),
-                                                  request.queue_name()),
-      routing_key=TaskQueueConfig.get_celery_queue_name(request.app_id(),
-                                                        request.queue_name()))
-
-  def __get_task_function(self, request):
-    """ Returns a function pointer to a celery task. Loads the module for the
-    app/queue.
-
-    Args:
-      request: A taskqueue_service_pb.TaskQueueAddRequest.
-    Returns:
-      A function pointer to a celery task.
-    Raises:
-      taskqueue_service_pb.TaskQueueServiceError.
-    """
-    try:
-      task_module = __import__(TaskQueueConfig.\
-                  get_celery_worker_module_name(request.app_id()))
-
-      # If a new queue was added we need to relaod the python code.
-      if self.__force_reload:
-        start = time.time()
-        reload(task_module)
-        time_taken = time.time() - start
-        self.__force_reload = False
-        logger.info("Reloading module for {0} took {1} seconds.".\
-          format(request.app_id(), time_taken))
-
-      task_func = getattr(task_module, 
-        TaskQueueConfig.get_queue_function_name(request.queue_name()))
-      return task_func
-    except AttributeError, attribute_error:
-      logger.exception(attribute_error)
-      raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
-    except ImportError, import_error:
-      logger.exception(import_error)
-      raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
+      queue=celery_queue,
+      routing_key=celery_queue,
+    )
 
   def get_task_args(self, request):
     """ Gets the task args used when making a task web request.

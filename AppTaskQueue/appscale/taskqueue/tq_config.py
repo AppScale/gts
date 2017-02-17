@@ -9,6 +9,9 @@ from queue import PullQueue
 from queue import PushQueue
 from unpackaged import APPSCALE_LIB_DIR
 from unpackaged import APPSCALE_PYTHON_APPSERVER
+from celery import Celery
+from kombu import (Exchange, Queue as KombuQueue)
+from .brokers import rabbitmq
 from .utils import (get_celery_annotation_name,
                     get_celery_queue_name,
                     get_celery_worker_module_name,
@@ -195,6 +198,32 @@ queue:
           queues[queue['name']] = PushQueue(queue, self._app_id)
         except InvalidQueueConfiguration:
           logger.exception('Invalid queue configuration')
+
+    # Give PushQueues a Celery interface.
+    module_name = get_celery_worker_module_name(self._app_id)
+    celery = Celery(module_name, broker=rabbitmq.get_connection_string(),
+                    backend='amqp://')
+    push_queues = [queue for queue in queues.values()
+                   if isinstance(queue, PushQueue)]
+    kombu_queues = []
+    annotations = []
+    for queue in push_queues:
+      celery_name = get_celery_queue_name(self._app_id, queue.name)
+      kombu_queue = KombuQueue(celery_name, Exchange(self._app_id),
+                               routing_key=celery_name)
+      kombu_queues.append(kombu_queue)
+      annotation_name = get_celery_annotation_name(self._app_id, queue.name)
+      annotations.append({annotation_name: {'rate_limit': queue.rate}})
+    celery.conf.CELERY_QUEUES = kombu_queues
+    celery.conf.CELERY_ANNOTATIONS = annotations
+    celery.conf.CELERY_IGNORE_RESULT = True
+    celery.conf.CELERY_STORE_ERRORS_EVEN_IF_IGNORED = False
+    celery.conf.CELERY_AMQP_TASK_RESULT_EXPIRES = 2678400
+    celery.conf.CELERYD_PREFETCH_MULTIPLIER = 1
+
+    for queue in push_queues:
+      queue.celery = celery
+
     return queues
 
   def parse_queue_xml(self, xml_string):
