@@ -483,8 +483,9 @@ module HelperFunctions
   #
   # Args:
   #   app_name: A String containing the application id.
-  # Returns
-  #   A Boolean indicating if the setup was successful.
+  # Raise:
+  #   AppScaleException: if the setup failed for whatever reason (ie bad
+  #     tarball). The exception message would indicate the error.
   def self.setup_app(app_name)
     meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
@@ -496,11 +497,10 @@ module HelperFunctions
     self.shell("touch #{meta_dir}/log/server.log")
 
     cmd = "tar -xzf #{tar_path} --force-local --no-same-owner -C #{tar_dir}"
-    case system(cmd)
-    when nil, false
+    unless system(cmd)
       Djinn.log_warn("setup_app: #{cmd} failed.")
       FileUtils.rm_f(tar_dir)
-      return false
+      raise AppScaleException.new("Failed to untar #{tar_path}.")
     end
 
     # Separate extra dependencies for Go applications.

@@ -5797,10 +5797,12 @@ HOSTS
           error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
         else
           # Application is good: let's set it up.
-          if HelperFunctions.setup_app(app)
+          begin
+            HelperFunctions.setup_app(app)
             done_uploading(app, app_path, @@secret)
-          else
-            error_msg = "ERROR: couldn't setup source for #{app}."
+          rescue AppScaleException => exception
+            error_msg = "ERROR: couldn't setup source for #{app} " +
+              "(#{exception.message})."
           end
         end
       else
