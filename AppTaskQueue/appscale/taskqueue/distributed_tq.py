@@ -88,7 +88,7 @@ def create_pull_queue_tables(cluster, session):
       tag text,
       tag_exists boolean,
       PRIMARY KEY ((app, queue, eta), id)
-    )
+    ) WITH gc_grace_seconds = 120
   """
   statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
   try:
@@ -122,7 +122,7 @@ def create_pull_queue_tables(cluster, session):
       queue text,
       leased timestamp,
       PRIMARY KEY ((app, queue, leased))
-    )
+    ) WITH gc_grace_seconds = 120
   """
   statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
   try:
@@ -209,6 +209,9 @@ class DistributedTaskQueue():
 
   # The max memory allocated to celery worker pools in MB.
   CELERY_MAX_MEMORY = 1000
+
+  # The safe memory per Celery worker.
+  CELERY_SAFE_MEMORY = 200
 
   def __init__(self, db_access):
     """ DistributedTaskQueue Constructor.
@@ -446,7 +449,7 @@ class DistributedTaskQueue():
                                                start_command, 
                                                stop_command, 
                                                [self.CELERY_PORT],
-                                               max_memory=self.CELERY_MAX_MEMORY,
+                                               max_memory=self.CELERY_SAFE_MEMORY*TaskQueueConfig.MAX_CELERY_CONCURRENCY,
                                                env_vars=self.CELERY_ENV_VARS)
     if monit_interface.start(watch):
       json_response = {'error': False}

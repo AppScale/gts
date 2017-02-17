@@ -2789,6 +2789,10 @@ class DatastoreDistributed():
         continue
       prop_found = True
 
+      if index_value.has_uservalue() and prop.value().has_uservalue():
+        if index_value.uservalue().email() == prop.value().uservalue().email():
+          return True
+
       if index_value.Equals(prop.value()):
         return True
 
@@ -3123,8 +3127,8 @@ class DatastoreDistributed():
         format(_MAX_ACTIONS_PER_TXN)
       raise dbconstants.ExcessiveTasks(message)
 
-    self.datastore_batch.add_tasks(app_id, request.transaction().handle(),
-                                   request.add_request_list())
+    self.datastore_batch.add_transactional_tasks(
+      app_id, txid, request.add_request_list())
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.

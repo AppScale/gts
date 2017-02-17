@@ -63,8 +63,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.done_uploading(@app, "/tmp/app",
       @secret))
     assert_equal(BAD_SECRET_MSG, djinn.is_app_running(@app, @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.add_role("baz", @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.remove_role("baz", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '',
       @secret))
@@ -971,19 +969,17 @@ class TestDjinn < Test::Unit::TestCase
     # and that we haven't scaled up in a long time
     djinn.last_scaling_time = Time.utc(2000, "jan", 1, 20, 15, 1).to_i
 
+    djinn.options = {'instance_type' => 'm3.xlarge'}
+
     # and that two nodes have requested scaling
     flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
       with('bazapp').and_return(['scale_up', 'scale_up'])
     flexmock(ZKInterface).should_receive(:clear_scaling_requests_for_app).
       with('bazapp')
 
-    # assume the open node is done starting up
-    flexmock(ZKInterface).should_receive(:is_node_done_loading?).
-      with('1.2.3.4').and_return(true)
-
     # mock out adding the appengine role to the open node
-    flexmock(ZKInterface).should_receive(:add_roles_to_node).
-      with(["memcache", "taskqueue_slave", "appengine"], open_node, "boo")
+    flexmock(Djinn).should_receive(:start_new_roles_on_nodes).
+      with(["appengine"], "m3.xlarge", "secret").and_return("OK")
 
     # mock out writing updated nginx config files
     flexmock(Nginx).should_receive(:write_fullproxy_app_config)

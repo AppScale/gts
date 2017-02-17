@@ -39,22 +39,6 @@ START_TIMEOUT = 60
 CASSANDRA_DATA_DIR = "/opt/appscale/cassandra"
 
 
-# Determines if a UserAppServer should run on this machine.
-#
-# Args:
-#   job: A DjinnJobData that indicates if the node runs a Database role.
-#
-# Returns:
-#   true if the given node runs a Database role, and false otherwise.
-def has_soap_server?(job)
-  if job.is_db_master? or job.is_db_slave?
-    return true
-  else
-    return false
-  end
-end
-
-
 # Writes all the configuration files necessary to start Cassandra on this
 # machine.
 #

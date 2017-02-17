@@ -188,10 +188,7 @@ EOF
 EOF
 
     # This create link to appscale settings.
-    rm -rfv ${DESTDIR}${CONFIG_DIR}
-    mkdir -pv ~/.appscale
-    mkdir -pv ${APPSCALE_HOME_RUNTIME}/.appscale
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/.appscale ${DESTDIR}${CONFIG_DIR}
+    mkdir -pv ${DESTDIR}${CONFIG_DIR}
 
     cat <<EOF | tee ${CONFIG_DIR}/home || exit
 ${APPSCALE_HOME_RUNTIME}

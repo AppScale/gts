@@ -10,10 +10,10 @@ from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import ValueSequence
-from .cassandra_interface import IdempotentRetryPolicy
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
+from .retry_policies import BASIC_RETRIES
 from .. import dbconstants
 from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import SCHEMA_TABLE
@@ -49,7 +49,6 @@ class DatastoreProxy(AppDBInterface):
         time.sleep(3)
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
-    self.retry_policy = IdempotentRetryPolicy()
 
   def get_entity(self, table_name, row_key, column_names):
     error = [ERROR_DEFAULT]
@@ -62,7 +61,7 @@ class DatastoreProxy(AppDBInterface):
     """.format(table=table_name,
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME)
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = {'key': row_key,
                   'columns': ValueSequence(column_names)}
     try:
@@ -98,7 +97,7 @@ class DatastoreProxy(AppDBInterface):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
-    batch = BatchStatement(retry_policy=self.retry_policy)
+    batch = BatchStatement(retry_policy=BASIC_RETRIES)
     for column in column_names:
       parameters = {'key': row_key,
                    'column': column,
@@ -131,7 +130,7 @@ class DatastoreProxy(AppDBInterface):
     response = [ERROR_DEFAULT]
 
     statement = 'SELECT * FROM "{table}"'.format(table=table_name)
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
       results = self.session.execute(query)
@@ -170,7 +169,7 @@ class DatastoreProxy(AppDBInterface):
 
     statement = 'DELETE FROM "{table}" WHERE {key} = %s'.format(
       table=table_name, key=ThriftColumn.KEY)
-    delete = SimpleStatement(statement, retry_policy=self.retry_policy)
+    delete = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
       self.session.execute(delete, (row_key,))
