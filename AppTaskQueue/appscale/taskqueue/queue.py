@@ -8,10 +8,10 @@ from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from collections import deque
-from task import InvalidTaskInfo
-from task import Task
 from threading import Lock
-from unpackaged import APPSCALE_PYTHON_APPSERVER
+from .task import (InvalidTaskInfo,
+                   Task)
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)

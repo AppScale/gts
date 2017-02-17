@@ -4,14 +4,14 @@ file given with an application 'queue.yaml' or 'queue.xml'. """
 import os
 import sys
 
-from queue import InvalidQueueConfiguration
-from queue import PullQueue
-from queue import PushQueue
-from unpackaged import APPSCALE_LIB_DIR
-from unpackaged import APPSCALE_PYTHON_APPSERVER
 from celery import Celery
 from kombu import (Exchange, Queue as KombuQueue)
 from .brokers import rabbitmq
+from .queue import (InvalidQueueConfiguration,
+                    PullQueue,
+                    PushQueue)
+from .unpackaged import (APPSCALE_LIB_DIR,
+                         APPSCALE_PYTHON_APPSERVER)
 from .utils import (get_celery_annotation_name,
                     get_celery_queue_name,
                     get_celery_worker_module_name,
@@ -58,7 +58,7 @@ queue:
   # The worker script for Celery to use.
   WORKER_MODULE = 'appscale.taskqueue.push_worker'
 
-  # XML configs use "-" while yaml uses "_". These are the tags which 
+  # XML configs use "-" while yaml uses "_". These are the tags which
   # need to be converted to match the yaml tags.
   YAML_TO_XML_TAGS_TO_CONVERT = ['bucket-size', 'max-concurrent-request', 
                                  'retry-parameters', 'task-age-limit', 

@@ -17,13 +17,13 @@ from cassandra import OperationTimedOut
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from distutils.spawn import find_executable
-from queue import InvalidLeaseRequest
-from queue import PullQueue
-from queue import PushQueue
-from task import Task
-from tq_config import TaskQueueConfig
-from .unpackaged import APPSCALE_LIB_DIR
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
+from .queue import (InvalidLeaseRequest,
+                    PullQueue,
+                    PushQueue)
+from .task import Task
+from .tq_config import TaskQueueConfig
+from .unpackaged import (APPSCALE_LIB_DIR,
+                         APPSCALE_PYTHON_APPSERVER)
 from .utils import (get_celery_queue_name,
                     get_queue_function_name,
                     logger)
@@ -207,7 +207,7 @@ class DistributedTaskQueue():
   TASK_NAME_KIND = "__task_name__"
 
   # A dict that tells celery to run tasks even though we are running as root.
-  CELERY_ENV_VARS = {"C_FORCE_ROOT" : True}
+  CELERY_ENV_VARS = {'C_FORCE_ROOT': True}
 
   # The max memory allocated to celery worker pools in MB.
   CELERY_MAX_MEMORY = 1000
