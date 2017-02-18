@@ -24,7 +24,9 @@ from .task import Task
 from .tq_config import TaskQueueConfig
 from .unpackaged import (APPSCALE_LIB_DIR,
                          APPSCALE_PYTHON_APPSERVER)
-from .utils import (get_celery_queue_name,
+from .utils import (CELERY_CONFIG_DIR,
+                    CELERY_WORKER_DIR,
+                    get_celery_queue_name,
                     get_queue_function_name,
                     logger)
 
@@ -42,8 +44,6 @@ from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
-
-sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
@@ -222,8 +222,8 @@ class DistributedTaskQueue():
       db_access: A DatastoreProxy object.
     """
     file_io.mkdir(self.LOG_DIR)
-    file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
-    file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
+    file_io.mkdir(CELERY_WORKER_DIR)
+    file_io.mkdir(CELERY_CONFIG_DIR)
 
     setup_env()
   
@@ -430,7 +430,7 @@ class DistributedTaskQueue():
                "worker",
                "--app={}".format(TaskQueueConfig.WORKER_MODULE),
                "--hostname=%h." + app_id,
-               "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
+               "--workdir=" + CELERY_WORKER_DIR,
                "--logfile=" + log_file,
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
                "--autoscale={max},{min}".format(

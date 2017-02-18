@@ -1,20 +1,19 @@
 import datetime
 import httplib
+import json
 import logging
 import os
 import sys
 
-from celery import Celery
 from celery.utils.log import get_task_logger
 from httplib import BadStatusLine
 from socket import error as SocketError
 from urlparse import urlparse
-from .brokers import rabbitmq
 from .distributed_tq import TaskName
-from .tq_config import TaskQueueConfig
 from .unpackaged import (APPSCALE_LIB_DIR,
                          APPSCALE_PYTHON_APPSERVER)
-from .utils import (get_celery_worker_module_name,
+from .utils import (create_celery_for_app,
+                    get_celery_configuration_path,
                     get_queue_function_name)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -26,17 +25,13 @@ sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
 import constants
 
-sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
-sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
-
 app_id = os.environ['APP_ID']
 remote_host = os.environ['HOST']
 
-module_name = get_celery_worker_module_name(app_id)
-celery = Celery(module_name, broker=rabbitmq.get_connection_string(),
-                backend='amqp://')
+with open(get_celery_configuration_path(app_id)) as config_file:
+  rates = json.load(config_file)
 
-celery.config_from_object(app_id)
+celery = create_celery_for_app(app_id, rates)
 
 logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)

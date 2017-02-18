@@ -1,20 +1,19 @@
 """ AppScale TaskQueue configuration class. It deals with the configuration
 file given with an application 'queue.yaml' or 'queue.xml'. """
 
+import json
 import os
 import sys
 
-from celery import Celery
-from kombu import (Exchange, Queue as KombuQueue)
-from .brokers import rabbitmq
 from .queue import (InvalidQueueConfiguration,
                     PullQueue,
                     PushQueue)
 from .unpackaged import (APPSCALE_LIB_DIR,
                          APPSCALE_PYTHON_APPSERVER)
-from .utils import (get_celery_annotation_name,
-                    get_celery_queue_name,
-                    get_celery_worker_module_name,
+from .utils import (CELERY_CONFIG_DIR,
+                    CELERY_WORKER_DIR,
+                    create_celery_for_app,
+                    get_celery_configuration_path,
                     logger)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -41,12 +40,6 @@ queue:
 - name: default
   rate: 5/s
 """
-
-  # Location of all celery configuration files.
-  CELERY_CONFIG_DIR = '/etc/appscale/celery/configuration/'
-
-  # Location of all celery workers scripts.
-  CELERY_WORKER_DIR = '/etc/appscale/celery/workers/'
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = '/opt/appscale/celery/'
@@ -78,8 +71,8 @@ queue:
       db_access: A DatastoreProxy object.
     """
     self._app_id = app_id
-    file_io.mkdir(self.CELERY_CONFIG_DIR)
-    file_io.mkdir(self.CELERY_WORKER_DIR)
+    file_io.mkdir(CELERY_CONFIG_DIR)
+    file_io.mkdir(CELERY_WORKER_DIR)
     self.db_access = db_access
     self.queues = self.load_queues_from_file()
 
@@ -199,28 +192,13 @@ queue:
         except InvalidQueueConfiguration:
           logger.exception('Invalid queue configuration')
 
-    # Give PushQueues a Celery interface.
-    module_name = get_celery_worker_module_name(self._app_id)
-    celery = Celery(module_name, broker=rabbitmq.get_connection_string(),
-                    backend='amqp://')
     push_queues = [queue for queue in queues.values()
                    if isinstance(queue, PushQueue)]
-    kombu_queues = []
-    annotations = []
-    for queue in push_queues:
-      celery_name = get_celery_queue_name(self._app_id, queue.name)
-      kombu_queue = KombuQueue(celery_name, Exchange(self._app_id),
-                               routing_key=celery_name)
-      kombu_queues.append(kombu_queue)
-      annotation_name = get_celery_annotation_name(self._app_id, queue.name)
-      annotations.append({annotation_name: {'rate_limit': queue.rate}})
-    celery.conf.CELERY_QUEUES = kombu_queues
-    celery.conf.CELERY_ANNOTATIONS = annotations
-    celery.conf.CELERY_IGNORE_RESULT = True
-    celery.conf.CELERY_STORE_ERRORS_EVEN_IF_IGNORED = False
-    celery.conf.CELERY_AMQP_TASK_RESULT_EXPIRES = 2678400
-    celery.conf.CELERYD_PREFETCH_MULTIPLIER = 1
 
+    # Give PushQueues a Celery interface.
+    rates = {queue.name: queue.rate for queue in queues.values()
+             if isinstance(queue, PushQueue)}
+    celery = create_celery_for_app(self._app_id, rates)
     for queue in push_queues:
       queue.celery = celery
 
@@ -272,75 +250,15 @@ queue:
     Args:
       app_id: The application ID.
     """
-    config_file = TaskQueueConfig.get_celery_configuration_path(app_id)
+    config_file = get_celery_configuration_path(app_id)
     file_io.delete(config_file)
 
-  @staticmethod
-  def get_celery_configuration_path(app_id):
-    """ Returns the full path of the configuration used for Celery.
-   
-    Args:
-      app_id: The application ID.
-    Returns:
-      A string of the full file name of the configuration file.
-    """
-    return TaskQueueConfig.CELERY_CONFIG_DIR + app_id + ".py"
-
   def create_celery_file(self):
-    """ Creates the Celery configuration file describing queues and exchanges
-    for an application. Uses the queue.yaml/queue.xml input.
-
-    Returns:
-      A string representing the full path location of the 
-      configuration file.
-    """
-    celery_queues = []
-    annotations = []
-    for name, queue in self.queues.iteritems():
-      # Celery only handles push queues.
-      if not isinstance(queue, PushQueue):
-        continue
-
-      celery_name = get_celery_queue_name(self._app_id, queue.name)
-      queue_str = "Queue('{name}', Exchange('{app}'), routing_key='{key}'),"\
-        .format(name=celery_name, app=self._app_id, key=celery_name)
-      celery_queues.append(queue_str)
-
-      annotation_name = get_celery_annotation_name(self._app_id, queue.name)
-      annotation = "'{name}': {{'rate_limit': '{rate}'}},".format(
-        name=annotation_name, rate=queue.rate)
-      annotations.append(annotation)
-
-    config = """
-from kombu import Exchange
-from kombu import Queue
-CELERY_QUEUES = (
-{queues}
-)
-CELERY_ANNOTATIONS = {{
-{annotations}
-}}
-# Everytime a task is enqueued a temporary queue is created to store
-# results into rabbitmq. This can be bad in a high enqueue environment
-# We use the following to make sure these temp queues are not created. 
-# See http://stackoverflow.com/questions/7144025/temporary-queue-made-in-celery
-# for more information on this issue.
-CELERY_IGNORE_RESULT = True
-CELERY_STORE_ERRORS_EVEN_IF_IGNORED = False
-
-# One month expiration date because a task can be deferred that long.
-CELERY_AMQP_TASK_RESULT_EXPIRES = 2678400
-
-# Disable prefetching for celery workers. If tasks are small in duration this
-# should be set to a higher value (64-128) for increased performance.
-# See: http://celery.readthedocs.org/en/latest/userguide/optimizing.html#worker-settings
-CELERYD_PREFETCH_MULTIPLIER = 1
-""".format(queues='\n'.join(celery_queues),
-           annotations='\n'.join(annotations))
-
-    config_file = self._app_id + ".py"
-    file_io.write(self.CELERY_CONFIG_DIR + config_file, config)
-    return self.CELERY_CONFIG_DIR + config_file
+    """ Creates the Celery configuration file describing queues and rates. """
+    rates = {queue.name: queue.rate for queue in self.queues.values()
+             if isinstance(queue, PushQueue)}
+    with open(get_celery_configuration_path(self._app_id), 'w') as config_file:
+      json.dump(rates, config_file)
 
   def get_public_ip(self):
     """ Gets the public IP to which the task calls are routed.
