@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+import json
 import os
 import sys
 import unittest
 
 from flexmock import flexmock
 
+from appscale.taskqueue import utils
 from appscale.taskqueue.queue import InvalidQueueConfiguration
 from appscale.taskqueue.queue import PushQueue
 from appscale.taskqueue.tq_config import TaskQueueConfig
@@ -151,40 +153,20 @@ class TestTaskQueueConfig(unittest.TestCase):
     self.assertEquals(tqc.queues, expected_queues)
 
   def test_create_celery_file(self):
-    flexmock(TaskQueueConfig).should_receive("get_celery_queue_name").\
-      and_return("")
-    flexmock(file_io).should_receive("write").and_return(None)
-    flexmock(file_io).should_receive("mkdir").and_return(None)
+    config_file = 'myapp.json'
+    flexmock(utils).should_receive('get_celery_configuration_path').\
+      and_return(config_file)
+    flexmock(json).should_receive('dump')
 
+    flexmock(file_io).should_receive('read').and_return(sample_queue_yaml)
+    flexmock(TaskQueueConfig).should_receive('load_queues_from_file')
     tqc = TaskQueueConfig('myapp')
+    tqc.queues = {}
 
-    # making sure it does not throw an exception
-    self.assertEquals(tqc.create_celery_file(),
-                      TaskQueueConfig.CELERY_CONFIG_DIR + "myapp" + ".py")
- 
-  def test_create_celery_worker_scripts(self):
-    flexmock(TaskQueueConfig).should_receive("get_celery_queue_name").\
-      and_return("")
-    flexmock(file_io).should_receive("write").and_return(None)
-    flexmock(file_io).should_receive("mkdir").and_return(None)
-
-    tqc = TaskQueueConfig('myapp')
-
-    header_template = os.path.join(os.path.dirname(__file__), '../../appscale',
-                                   'taskqueue', 'templates', 'header.py')
-    with open(header_template) as header_template_file:
-      file1 = header_template_file.read()
-
-    task_template = os.path.join(os.path.dirname(__file__), '../../appscale',
-                                 'taskqueue', 'templates', 'task.py')
-    with open(task_template) as task_template_file:
-      file2 = task_template_file.read()
-
-    flexmock(file_io).should_receive('write').and_return(None)
-    flexmock(file_io).should_receive("read").and_return(file1).\
-      and_return(file2)
-    self.assertEquals(tqc.create_celery_worker_scripts(),
-                      TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
+    builtins = flexmock(sys.modules['__builtin__'])
+    builtins.should_call('open')
+    builtins.should_receive('open').with_args(config_file)
+    tqc.create_celery_file()
 
   def test_queue_name_validation(self):
     app_id = 'guestbook'
