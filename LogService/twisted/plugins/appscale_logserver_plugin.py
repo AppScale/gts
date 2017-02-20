@@ -12,7 +12,7 @@ from zope.interface import implementer
 class Options(usage.Options):
   optParameters = [["port", "p", 7422, "The port number to listen on."],
                    ["path", "a", "/opt/appscale/logserver", "Path where logs are stored."],
-                   ["size", "s", 25, "Size in GiB of retention of logs."],
+                   ["size", "s", 2, "Size in GiB of retention of logs."],
                    ["unix_socket", "u", "/tmp/.appscale_logserver", "Path for unix socket to logserver."]]
 
 

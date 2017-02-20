@@ -12,6 +12,8 @@ def QUEUE_NAME(headers, args):
   Raises:
     The current function to retry.
   """
+  start_time = datetime.datetime.utcnow()
+
   content_length = len(args['body'])
 
   loggable_args = {key: args[key] for key in args
@@ -126,9 +128,11 @@ def QUEUE_NAME(headers, args):
       # Task successful.
       item = TaskName.get_by_key_name(args['task_name'])
       db.delete(item)
+      time_elapsed = datetime.datetime.utcnow() - start_time
       logger.info(
-        '{task} received status {status} from {url}'.format(
-          task=args['task_name'], status=response.status, url=url))
+        '{task} received status {status} from {url} [time elapsed: {te}]'.\
+        format(task=args['task_name'], status=response.status,
+               url=url, te=str(time_elapsed)))
       return response.status
     elif response.status == 302:
       redirect_url = response.getheader('Location')

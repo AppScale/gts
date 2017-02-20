@@ -58,7 +58,7 @@ class AppControllerClient
   # A constructor that requires both the IP address of the machine to communicate
   # with as well as the secret (string) needed to perform communication.
   # AppControllers will reject SOAP calls if this secret (basically a password)
-  # is not present - it can be found in the user's .appscale directory, and a
+  # is not present - it can be found in the /etc/appscale directory, and a
   # helper method is usually present to fetch this for us.
   def initialize(ip, secret)
     @ip = ip

@@ -83,8 +83,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "done_uploading", "appname", "location", "secret")
     add_method(@djinn, "is_app_running", "appname", "secret")
     add_method(@djinn, "backup_appscale", "backup_in_info", "secret")
-    add_method(@djinn, "add_role", "new_role", "secret")
-    add_method(@djinn, "remove_role", "old_role", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
     add_method(@djinn, "gather_logs", "secret")
     add_method(@djinn, "add_routing_for_appserver", "app_id", "ip", "port",

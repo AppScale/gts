@@ -136,6 +136,12 @@ module HAProxy
     self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
   end
 
+  # Remove the configuration for TaskQueue REST API endpoints.
+  def self.remove_tq_endpoints
+    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
+    HAProxy.regenerate_config
+  end
+
   # Create the config file for Datastore Server.
   def self.create_datastore_server_config(my_ip, listen_port, table)
     # For the Datastore servers we have a list of local ports the servers

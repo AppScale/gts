@@ -7,22 +7,17 @@ public class ResourceLoader
     private static ResourceLoader res                       = null;
     private final int             PROTOCOL_BUFFER_PORT      = 8888;
     private final String          DB_LOCATION_PROPERTY      = "DB_LOCATION";
-    private static String         apphome                   = "/root/appscale";
-    private final static String   APPSCALE_HOME_PROPERTY    = "APPSCALE_HOME";
-    private final String          HADOOP_PATH               = "/AppDB/hadoop-0.20.0";
-    private final String          MEMCACHE_SERVER_IP_PATH   = "/.appscale/memcache_ips";
+    private static String         APPSCALE_CONFIG_DIR       = "/etc/appscale";
+    private final String          HADOOP_PATH               = "/opt/appscale/AppDB/hadoop-0.20.0";
+    private final String          MEMCACHE_SERVER_IP_PATH   = "/memcache_ips";
     private final boolean         IS_SSL                    = false;
     private final String          TMP_LOCATION              = "/tmp";
-    private final String          NUM_NODES_LOCATION        = "/.appscale/num_of_nodes";
+    private final String          NUM_NODES_LOCATION        = "/num_of_nodes";
 
     public static ResourceLoader getResourceLoader()
     {
         if (res == null) res = new ResourceLoader();
-        if (System.getenv(APPSCALE_HOME_PROPERTY) != null)
-        {
-            apphome = System.getenv(APPSCALE_HOME_PROPERTY);
-        }
-        System.out.println("appscale home is: " + apphome);
+        System.out.println("appscale configuration dir  is: " + APPSCALE_CONFIG_DIR);
         return res;
     }
 
@@ -46,18 +41,19 @@ public class ResourceLoader
 
     public String getMemcachedServerIp()
     {
-        return apphome + MEMCACHE_SERVER_IP_PATH;
+        return APPSCALE_CONFIG_DIR + MEMCACHE_SERVER_IP_PATH;
     }
 
     public String getNumOfNode()
     {
-        return apphome + NUM_NODES_LOCATION;
+        return APPSCALE_CONFIG_DIR + NUM_NODES_LOCATION;
     }
 
     public String getHadoopHome()
     {
-        return apphome + HADOOP_PATH;
+        return HADOOP_PATH;
     }
+
 
     public String getMrTmpLocation()
     {

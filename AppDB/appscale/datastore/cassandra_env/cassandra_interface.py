@@ -13,12 +13,14 @@ import uuid
 
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
-from cassandra.policies import FallthroughRetryPolicy
-from cassandra.policies import RetryPolicy
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
+from .large_batch import (FailedBatch,
+                          LargeBatch)
+from .retry_policies import (BASIC_RETRIES,
+                             NO_RETRIES)
 from .. import dbconstants
 from .. import helper_functions
 from ..dbconstants import AppScaleDBConnectionError
@@ -264,47 +266,6 @@ def mutations_for_entity(entity, txn, current_value=None,
   return mutations
 
 
-class FailedBatch(Exception):
-  pass
-
-
-class IdempotentRetryPolicy(RetryPolicy):
-  """ A policy used for retrying idempotent statements. """
-  def on_read_timeout(self, query, consistency, required_responses,
-                      received_responses, data_retrieved, retry_num):
-    """ This is called when a ReadTimeout occurs.
-
-    Args:
-      query: A statement that timed out.
-      consistency: The consistency level of the statement.
-      required_responses: The number of responses required.
-      received_responses: The number of responses received.
-      data_retrieved: Indicates whether any responses contained data.
-      retry_num: The number of times the statement has been tried.
-    """
-    if retry_num >= 5:
-      return self.RETHROW, None
-    else:
-      return self.RETRY, consistency
-
-  def on_write_timeout(self, query, consistency, write_type,
-                       required_responses, received_responses, retry_num):
-    """ This is called when a WriteTimeout occurs.
-
-    Args:
-      query: A statement that timed out.
-      consistency: The consistency level of the statement.
-      required_responses: The number of responses required.
-      received_responses: The number of responses received.
-      data_retrieved: Indicates whether any responses contained data.
-      retry_num: The number of times the statement has been tried.
-      """
-    if retry_num >= 5:
-      return self.RETHROW, None
-    else:
-      return self.RETRY, consistency
-
-
 class ThriftColumn(object):
   """ Columns created by default with thrift interface. """
   KEY = 'key'
@@ -326,14 +287,11 @@ class DatastoreProxy(AppDBInterface):
     self.logger.info('Starting {}'.format(class_name))
 
     self.hosts = appscale_info.get_db_ips()
-    self.retry_policy = IdempotentRetryPolicy()
-    self.no_retries = FallthroughRetryPolicy()
 
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        self.cluster = Cluster(self.hosts,
-                               default_retry_policy=self.retry_policy)
+        self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES)
         self.session = self.cluster.connect(KEYSPACE)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
@@ -376,7 +334,7 @@ class DatastoreProxy(AppDBInterface):
                   key=ThriftColumn.KEY,
                   column=ThriftColumn.COLUMN_NAME,
                 )
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (ValueSequence(row_keys_bytes), ValueSequence(column_names))
 
     try:
@@ -487,7 +445,7 @@ class DatastoreProxy(AppDBInterface):
     """
     self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     prepared_statements = {'insert': {}, 'delete': {}}
     for mutation in mutations:
       table = mutation['table']
@@ -580,16 +538,11 @@ class DatastoreProxy(AppDBInterface):
     """
     self.logger.debug('Large batch: transaction {}, {} mutations'.
                       format(txn, len(mutations)))
-    set_status = """
-      INSERT INTO batch_status (app, transaction, applied)
-      VALUES (%(app)s, %(transaction)s, False)
-      IF NOT EXISTS
-    """
-    parameters = {'app': app, 'transaction': txn}
-    result = self.session.execute(set_status, parameters)
-    if not result.was_applied:
-      raise FailedBatch('A batch for transaction {} already exists'.
-                        format(txn))
+    large_batch = LargeBatch(self.session, app, txn)
+    try:
+      large_batch.start()
+    except FailedBatch as batch_error:
+      raise AppScaleDBConnectionError(str(batch_error))
 
     insert_item = """
       INSERT INTO batches (app, transaction, namespace, path,
@@ -620,18 +573,10 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-    update_status = """
-      UPDATE batch_status
-      SET applied = True
-      WHERE app = %(app)s
-      AND transaction = %(transaction)s
-      IF applied = False
-    """
-    parameters = {'app': app, 'transaction': txn}
-    result = self.session.execute(update_status, parameters)
-    if not result.was_applied:
-      raise FailedBatch('Another process modified batch for transaction {}'.
-                        format(txn))
+    try:
+      large_batch.set_applied()
+    except FailedBatch as batch_error:
+      raise AppScaleDBConnectionError(str(batch_error))
 
     try:
       self.apply_mutations(mutations)
@@ -640,19 +585,18 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+    try:
+      large_batch.cleanup()
+    except FailedBatch:
+      # This should not raise an exception since the batch is already applied.
+      logging.exception('Unable to clear batch status')
+
     clear_batch = """
       DELETE FROM batches
       WHERE app = %(app)s AND transaction = %(transaction)s
     """
     parameters = {'app': app, 'transaction': txn}
     self.session.execute(clear_batch, parameters)
-
-    clear_status = """
-      DELETE FROM batch_status
-      WHERE app = %(app)s and transaction = %(transaction)s
-    """
-    parameters = {'app': app, 'transaction': txn}
-    self.session.execute(clear_status, parameters)
 
   def batch_mutate(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.
@@ -692,7 +636,7 @@ class DatastoreProxy(AppDBInterface):
         table=table_name,
         key=ThriftColumn.KEY
       )
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (ValueSequence(row_keys_bytes),)
 
     try:
@@ -716,7 +660,7 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
     statement = 'DROP TABLE IF EXISTS "{table}"'.format(table=table_name)
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
       self.session.execute(query)
@@ -751,7 +695,7 @@ class DatastoreProxy(AppDBInterface):
         column=ThriftColumn.COLUMN_NAME,
         value=ThriftColumn.VALUE
       )
-    query = SimpleStatement(statement, retry_policy=self.no_retries)
+    query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
       self.session.execute(query)
@@ -839,7 +783,7 @@ class DatastoreProxy(AppDBInterface):
                column=ThriftColumn.COLUMN_NAME,
                limit=query_limit)
 
-    query = SimpleStatement(statement, retry_policy=self.retry_policy)
+    query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (bytearray(start_key), bytearray(end_key),
                   ValueSequence(column_names))
 
@@ -1045,7 +989,7 @@ class DatastoreProxy(AppDBInterface):
       entities: A list of entities that will be put upon commit.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
       VALUES (?, ?, ?, ?, ?)
@@ -1076,7 +1020,7 @@ class DatastoreProxy(AppDBInterface):
       entity_keys: A list of entity keys that will be deleted upon commit.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, entity)
       VALUES (?, ?, ?, ?, ?)
@@ -1131,7 +1075,7 @@ class DatastoreProxy(AppDBInterface):
       tasks: A list of TaskQueueAddRequest objects.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path, task)
       VALUES (?, ?, ?, ?, ?)
@@ -1167,7 +1111,7 @@ class DatastoreProxy(AppDBInterface):
       group_keys: An iterable containing Reference objects.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
-                           retry_policy=self.retry_policy)
+                           retry_policy=BASIC_RETRIES)
     insert = self.session.prepare("""
       INSERT INTO transactions (txid_hash, operation, namespace, path)
       VALUES (?, ?, ?, ?)
