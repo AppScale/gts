@@ -195,7 +195,7 @@ class Djinn
   # An Array that lists the CPU, disk, and memory usage of each machine in this
   # AppScale deployment. Used as a cache so that it does not need to be
   # generated in response to AppDashboard requests.
-  attr_accessor :all_stats
+  attr_accessor :cluster_stats
 
 
   # An integer timestamp that corresponds to the last time this AppController
@@ -518,7 +518,7 @@ class Djinn
     @message_ready = @waiting_messages.new_cond
     @done_loading = false
     @state = "AppController just started"
-    @all_stats = []
+    @cluster_stats = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
 
@@ -1078,82 +1078,6 @@ class Djinn
   end
 
 
-  # Gets the status of the current node in the AppScale deployment
-  #
-  # Args:
-  #   secret: The shared key for authentication
-  # Returns:
-  #   A string with the current node's status
-  #
-  def status(secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    stats = get_stats(secret)
-
-    stats_str = <<-STATUS
-    Currently using #{stats['cpu']} Percent CPU and #{stats['memory']} Percent Memory
-    Hard disk is #{stats['disk']} Percent full
-    Is currently: #{stats['roles'].join(', ')}
-    Database is at #{stats['db_location']}
-    Is in cloud: #{stats['cloud']}
-    Current State: #{stats['state']}
-    STATUS
-
-    if my_node.is_shadow?
-      apps = []
-      stats['apps'].each { |key, _|
-        apps << key
-      }
-
-      stats_str << "    Hosting the following apps: #{apps.join(', ')}\n"
-
-      stats['apps'].each { |app_name, is_loaded|
-        next unless is_loaded
-        stats_str << "    Information for application: #{app_name}\n"
-        stats_str << "        Language            : "
-        if @app_info_map[app_name]['language'].nil?
-          stats_str << "Unknown\n"
-        else
-          stats_str << "#{@app_info_map[app_name]['language']}\n"
-        end
-        stats_str << "        Number of AppServers: "
-        if @app_info_map[app_name]['appengine'].nil?
-          stats_str << "Unknown\n"
-        else
-          running = 0
-          pending = 0
-          @app_info_map[app_name]['appengine'].each { |location|
-             _host, port = location.split(":")
-             if Integer(port) > 0
-               running += 1
-             else
-               pending += 1
-             end
-          }
-          stats_str << "#{running} running"
-          if pending > 0
-            stats_str << ", #{pending} pending"
-          end
-          stats_str << "\n"
-        end
-        stats_str << "        HTTP port           : "
-        if @app_info_map[app_name]['nginx'].nil?
-          stats_str << "Unknown\n"
-        else
-          stats_str << "#{@app_info_map[app_name]['nginx']}\n"
-        end
-        stats_str << "        HTTPS port          : "
-        if @app_info_map[app_name]['nginx_https'].nil?
-          stats_str << "Unknown\n"
-        else
-          stats_str << "#{@app_info_map[app_name]['nginx_https']}\n"
-        end
-      }
-    end
-
-    return stats_str
-  end
-
   # Upload a Google App Engine application into this AppScale deployment.
   #
   # Args:
@@ -1262,22 +1186,22 @@ class Djinn
   #   secret: A string with the shared key for authentication.
   # Returns:
   #   A JSON string with the statistics of the nodes.
-  def get_stats_json(secret)
+  def get_cluster_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     unless my_node.is_shadow?
-      Djinn.log_debug("Sending get_stats_json call to shadow.")
+      Djinn.log_debug("Sending get_cluster_stats_json call to shadow.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
-        return acc.get_stats_json()
+        return acc.get_cluster_stats_json()
       rescue FailedNodeException
         Djinn.log_warn(
-          "Failed to forward get_stats_json call to #{get_shadow}.")
+          "Failed to forward get_cluster_stats_json call to #{get_shadow}.")
         return NOT_READY
       end
     end
 
-    return JSON.dump(@all_stats)
+    return JSON.dump(@cluster_stats)
   end
 
 
@@ -1290,18 +1214,18 @@ class Djinn
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
-          new_stats << get_stats(@@secret)
+          new_stats << get_node_stats(@@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
-            new_stats << acc.get_stats()
+            new_stats << acc.get_node_stats(@@secret)
           rescue FailedNodeException
             Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
               "not adding it to our cached info.")
           end
         end
       }
-      @all_stats = new_stats
+      @cluster_stats = new_stats
     }
   end
 
@@ -1318,52 +1242,6 @@ class Djinn
     tree = { :table => @options['table'], :replication => @options['replication'],
       :keyname => @options['keyname'] }
     return JSON.dump(tree)
-  end
-
-  # Gets the statistics of only this node.
-  #
-  # Args:
-  #   secret: A string with the shared key for authentication.
-  # Returns:
-  #   A Hash with the statistics of this node.
-  def get_stats(secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    usage = HelperFunctions.get_usage()
-    mem = sprintf("%3.2f", usage['mem'])
-    usagecpu = sprintf("%3.2f", usage['cpu'])
-
-    jobs = my_node.jobs or ["none"]
-    # don't use an actual % below, or it will cause a string format exception
-    stats = {
-      'ip' => my_node.public_ip,
-      'private_ip' => my_node.private_ip,
-      'cpu' => usagecpu,
-      'num_cpu' => usage['num_cpu'],
-      'load' => usage['load'],
-      'memory' => mem,
-      'free_memory' => Integer(usage['free_mem']),
-      'disk' => usage['disk'],
-      'roles' => jobs,
-      'cloud' => my_node.cloud,
-      'state' => @state
-    }
-
-    # As of 2.5.0, db_locations is used by the tools to understand when
-    # the AppController is setup and ready to go: we make sure here to
-    # follow that rule.
-    if @done_initializing
-      stats['db_location'] = get_db_master.public_ip
-    else
-      stats['db_location'] = NOT_UP_YET
-    end
-
-    stats['apps'] = {}
-    @app_names.each { |name|
-      next if RESERVED_APPS.include?(name)
-      stats['apps'][name] = @apps_loaded.include?(name)
-    }
-    return stats
   end
 
 
@@ -2223,7 +2101,7 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = JSON.parse(get_all_stats(secret))
+        stats = JSON.parse(get_node_stats(secret))
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
@@ -3320,7 +3198,7 @@ class Djinn
       }
     }
 
-    @all_stats = []
+    @cluster_stats = []
 
     @my_public_ip = new_public_ip
     @my_private_ip = new_private_ip
@@ -5634,11 +5512,11 @@ HOSTS
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
     get_all_appengine_nodes.each { |host|
-      @all_stats.each { |node|
+      @cluster_stats.each { |node|
         next if node['private_ip'] != host
 
         # TODO: this is a temporary fix waiting for when we phase in
-        # get_all_stats. Since we don't have the total memory, we
+        # get_node_stats. Since we don't have the total memory, we
         # reconstruct it here.
         total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
 
@@ -6262,7 +6140,7 @@ HOSTS
   # Returns:
   #   A hash in string format containing system and platform stats for this
   #     node.
-  def get_all_stats(secret)
+  def get_node_stats(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
@@ -6271,8 +6149,8 @@ HOSTS
     Djinn.log_debug("System stats: #{system_stats}")
 
     # Combine all useful stats and return.
-    all_stats = system_stats
-    all_stats["apps"] = {}
+    node_stats = system_stats
+    node_stats["apps"] = {}
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @apps_loaded.each { |app_name|
@@ -6302,13 +6180,12 @@ HOSTS
                 end
               }
             end
-            all_stats["apps"][app_name] = {
+            node_stats["apps"][app_name] = {
               "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
               "appservers" => appservers,
               "pending_appservers" => pending,
               "http" => @app_info_map[app_name]["nginx"],
               "https" => @app_info_map[app_name]["nginx_https"],
-              "total_reqs" => total_reqs,
               "reqs_enqueued" => reqs_enqueued
             }
           rescue => exception
@@ -6320,12 +6197,19 @@ HOSTS
       }
     end
 
-    all_stats["public_ip"] = my_node.public_ip
-    all_stats["private_ip"] = my_node.private_ip
-    all_stats["roles"] = my_node.jobs or ["none"]
-    Djinn.log_debug("All stats: #{all_stats}")
+    node_stats["cloud"] = my_node.cloud
+    node_stats["state"] = @state
+    if @done_initializing
+      node_stats["db_location"] = get_db_master.public_ip
+    else
+      node_stats["db_location"] = NOT_UP_YET
+    end
+    node_stats["public_ip"] = my_node.public_ip
+    node_stats["private_ip"] = my_node.private_ip
+    node_stats["roles"] = my_node.jobs or ["none"]
+    Djinn.log_debug("Node stats: #{node_stats}")
 
-    return JSON.dump(all_stats)
+    return JSON.dump(node_stats)
   end
 
 

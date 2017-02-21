@@ -377,7 +377,8 @@ class AppDashboardData():
     this deployment, storing it in the Datastore for later viewing.
     """
     try:
-      nodes = self.helper.get_appcontroller_client().get_stats()
+      nodes = self.helper.get_appcontroller_client().get_cluster_stats()
+      # TODO Update it according to new content of cluster_stats
       updated_statuses = []
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['ip'])

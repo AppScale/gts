@@ -251,14 +251,14 @@ def delete_task_from_mem(task_id):
   TASK_STATUS_LOCK.release()
 
 
-def get_all_stats():
+def get_cluster_stats():
   """ Collects platform stats from all deployment nodes.
 
   Returns:
     A dictionary containing all the monitoring stats, if all nodes are
     accessible. {"success": False, "error": message} otherwise.
   """
-  all_stats = {}
+  cluster_stats = {}
 
   secret = appscale_info.get_secret()
   logging.debug("Retrieved deployment secret: {}".format(secret))
@@ -269,19 +269,19 @@ def get_all_stats():
     # Do a SOAP call to the AppController on that IP to get stats.
     server = SOAPpy.SOAPProxy(appcontroller_endpoint)
     try:
-      all_stats[ip] = json.loads(server.get_all_stats(secret))
+      cluster_stats[ip] = json.loads(server.get_cluster_stats(secret))
     except SOAPpy.SOAPException as soap_exception:
       logging.exception("Exception while performing SOAP call to "
         "{}".format(appcontroller_endpoint))
       logging.exception(soap_exception)
-      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
+      cluster_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
     except socket_error as serr:
       logging.error("Socket error while performing SOAP call to "
         "{}".format(appcontroller_endpoint))
       logging.error(serr)
-      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
+      cluster_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
 
-  return all_stats
+  return cluster_stats
 
 
 def report_status(task, task_id, status):

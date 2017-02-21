@@ -134,21 +134,6 @@ class AppControllerClient():
       self.secret))
 
 
-  def get_status(self):
-    """Queries the AppController to learn information about the machine it runs
-    on.
-
-    This includes information about the CPU, memory, and disk of that machine,
-    as well as what machine that AppController connects to for database access
-    (via the UserAppServer).
-
-    Returns:
-      A str containing information about the CPU, memory, and disk usage of that
-      machine, as well as where the UserAppServer is located.
-    """
-    return self.call(self.MAX_RETRIES, self.server.status, self.secret)
-
-
   def get_api_status(self):
     """Queries the AppController to see what the status of Google App Engine
     APIs are in this AppScale deployment, reported to it by the API Checker.
@@ -228,7 +213,7 @@ class AppControllerClient():
       reservation_id, self.secret)
 
 
-  def get_stats(self):
+  def get_cluster_stats(self):
     """Queries the AppController to get server-level statistics and a list of
     App Engine apps running in this cloud deployment across all machines.
 
@@ -236,7 +221,7 @@ class AppControllerClient():
       A list of dicts, where each dict contains server-level statistics (e.g.,
         CPU, memory, disk usage) about one machine.
     """
-    return json.loads(self.call(self.MAX_RETRIES, self.server.get_stats_json,
+    return json.loads(self.call(self.MAX_RETRIES, self.server.get_cluster_stats_json,
       self.secret))
 
   def get_application_cron_info(self, app_id):
