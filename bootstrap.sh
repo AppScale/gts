@@ -155,7 +155,7 @@ fi
 
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
-if [ -d appscale/.appscale/certs ]; then
+if [ -d /etc/appscale/certs ]; then
         # For upgrade, we don't switch across branches.
         if [ "${APPSCALE_BRANCH}" != "master" ]; then
                 echo "Cannot use --branch when upgrading"

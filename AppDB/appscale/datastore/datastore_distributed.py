@@ -2789,6 +2789,10 @@ class DatastoreDistributed():
         continue
       prop_found = True
 
+      if index_value.has_uservalue() and prop.value().has_uservalue():
+        if index_value.uservalue().email() == prop.value().uservalue().email():
+          return True
+
       if index_value.Equals(prop.value()):
         return True
 

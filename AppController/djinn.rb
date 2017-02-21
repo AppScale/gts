@@ -270,10 +270,6 @@ class Djinn
   APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 
-  # The location on the local filesystem where AppScale metadata is stored
-  APPSCALE_METADATA_DIR = "/root/.appscale"
-
-
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
   TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes"
@@ -2045,15 +2041,24 @@ class Djinn
     # This pid is used to control this deployment using the init script.
     HelperFunctions.write_file(PID_FILE, "#{Process.pid}")
 
+    # We reload our old IPs (if we find them) so we can check later if
+    # they changed and act accordingly.
+    begin
+      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
+      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+    rescue Errno::ENOENT
+      Djinn.log_warn("my_public_ip or my_private_ip disappeared.")
+      @my_private_ip = nil
+      @my_public_ip = nil
+    end
+
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
     # configured and started. We need to check if we are a zookeeper host
     # and start it if needed.
     if File.exists?(ZK_LOCATIONS_FILE)
       # We need to check our saved IPs with the list of zookeeper nodes
       # (IPs can change in cloud environments).
-      begin
-        my_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-      rescue Errno::ENOENT
+      if @my_private_ip.nil?
         @state = "Cannot find my old private IP address."
         HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
       end
@@ -2061,7 +2066,7 @@ class Djinn
       # Restore the initial list of zookeeper nodes.
       zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
       @zookeeper_data = zookeeper_data['locations']
-      if @zookeeper_data.include?(my_ip) and !is_zookeeper_running?
+      if @zookeeper_data.include?(@my_private_ip) && !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
         begin
           start_zookeeper(false)
@@ -2072,8 +2077,6 @@ class Djinn
       end
       pick_zookeeper(@zookeeper_data)
     end
-
-    start_infrastructure_manager()
 
     # We need to wait for the 'state', that is the deployment layouts and
     # the options for this deployment. It's either a save state from a
@@ -2110,6 +2113,7 @@ class Djinn
     # From here on we have the basic local state that allows to operate.
     # In particular we know our roles, and the deployment layout. Let's
     # start attaching any permanent disk we may have associated with us.
+    start_infrastructure_manager
     mount_persistent_storage
 
     find_me_in_locations
@@ -2164,6 +2168,11 @@ class Djinn
 
       @state = "Done starting up AppScale, now in heartbeat mode"
 
+      # We save the current @options and roles to check if
+      # restore_appcontroller_state modifies them.
+      old_options = @options.clone
+      old_jobs = my_node.jobs
+
       # The following is the core of the duty cycle: start new apps,
       # restart apps, terminate non-responsive AppServers, and autoscale.
       # Every other node syncs its state with the login node state.
@@ -2191,6 +2200,9 @@ class Djinn
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
       end
+
+      # We act here if options or roles for this node changed.
+      check_role_change(old_options, old_jobs)
 
       # Check the running, terminated, pending AppServers.
       check_running_apps
@@ -3165,13 +3177,32 @@ class Djinn
     @appcontroller_state = local_state.to_s
   end
 
+
+  # Takes actions if options or roles changed.
+  #
+  # Args:
+  #   old_options: this is a clone of @options. We will compare it with
+  #     the current value.
+  #   old_jobs: this is a list of roles. It will be compared against the
+  #     current list of jobs for this node.
+  def check_role_change(old_options, old_jobs)
+    if old_jobs != my_node.jobs
+      Djinn.log_info("Roles for this node are now: #{my_node.jobs}.")
+      start_stop_api_services
+    end
+
+    # Finally some @options may have changed.
+    enforce_options unless old_options == @options
+  end
+
+
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
   #
   # Returns:
   #   A boolean indicating if the state is restored or current with the master.
-  def restore_appcontroller_state()
+  def restore_appcontroller_state
     json_state=""
 
     unless File.exists?(ZK_LOCATIONS_FILE)
@@ -3197,11 +3228,6 @@ class Djinn
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
-
-    # Let's keep an old copy of the options and jobs: we'll need them to
-    # check if something changed and we need to act.
-    old_options = @options.clone
-    old_jobs = my_node.jobs
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
       keyname = json_state['@options']['keyname']
@@ -3209,20 +3235,8 @@ class Djinn
       # Puts json_state.
       json_state.each { |k, v|
         next if k == "@@secret"
-        if k == "@nodes"
-          v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
-        end
-        # my_private_ip and my_public_ip instance variables are from the head
-        # node. This node may or may not be the head node, so set those
-        # from local files. state_change_lock is a Monitor: no need to
-        # restore it.
-        if k == "@my_private_ip"
-          @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip").chomp
-        elsif k == "@my_public_ip"
-          @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip").chomp
-        elsif DEPLOYMENT_STATE.include?(k)
-          instance_variable_set(k, v)
-        end
+        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname) if k == "@nodes"
+        instance_variable_set(k, v) if DEPLOYMENT_STATE.include?(k)
       }
 
       # Check to see if our IP address has changed. If so, we need to update all
@@ -3239,17 +3253,6 @@ class Djinn
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
     find_me_in_locations
-
-    # We now check if we add/removed roles to this node.
-    if old_jobs != my_node.jobs
-      Djinn.log_info("Jobs for this node are now: #{my_node.jobs}.")
-      start_stop_api_services
-    end
-
-    # Finally some @options may have changed.
-    enforce_options unless old_options == @options
-
-    @appcontroller_state = json_state
 
     return true
   end
@@ -4022,7 +4025,7 @@ class Djinn
   def start_log_server
     log_server_pid = "/var/run/appscale-logserver.pid"
     start_cmd = "twistd --pidfile=#{log_server_pid} appscale-logserver"
-    stop_cmd = "/bin/bash -c '$(which kill) $(cat #{log_server_pid}'"
+    stop_cmd = "/bin/bash -c 'kill $(cat #{log_server_pid})'"
     port = 7422
     env = {
         'APPSCALE_HOME' => APPSCALE_HOME,
@@ -4030,7 +4033,7 @@ class Djinn
     }
 
     MonitInterface.start(:log_service, start_cmd, stop_cmd, [port], env,
-                         start_cmd, nil, "#{log_server_pid}", nil)
+                         nil, nil, log_server_pid, nil)
     Djinn.log_info("Started Log Server successfully!")
   end
 
@@ -4273,7 +4276,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     if dest_node.is_appengine?
-      locations_json = "#{APPSCALE_METADATA_DIR}/locations-#{@options['keyname']}.json"
+      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
         break if File.exists?(locations_json)
         Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
