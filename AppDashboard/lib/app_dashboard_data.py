@@ -378,27 +378,31 @@ class AppDashboardData():
     """
     try:
       nodes = self.helper.get_appcontroller_client().get_cluster_stats()
-      # TODO Update it according to new content of cluster_stats
       updated_statuses = []
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['public_ip'])
+        cpu_usage = 100.0 - node['cpu']['idle']
+        total_memory = node['memory']['available'] + node['memory']['used']
+        memory_usage = 100.0 * node['memory']['available'] / total_memory
+        total_disk = node['disk']['free'] + node['disk']['used']
+        disk_usage = 100.0 * node['disk']['free'] / total_disk
         if status:
           # Make sure that at least one field changed before we decide to
           # update this ServerStatus.
-          if status.cpu != str(node['cpu']) or \
-                  status.memory != str(node['memory']) or \
-                  status.disk != str(node['disk']) or \
+          if status.cpu != str(cpu_usage) or \
+                  status.memory != str(memory_usage) or \
+                  status.disk != str(disk_usage) or \
                   status.roles != node['roles']:
-            status.cpu = str(node['cpu'])
-            status.memory = str(node['memory'])
-            status.disk = str(node['disk'])
+            status.cpu = str(cpu_usage)
+            status.memory = str(memory_usage)
+            status.disk = str(disk_usage)
             status.roles = node['roles']
             updated_statuses.append(status)
         else:
-          status = ServerStatus(id=node['ip'])
-          status.cpu = str(node['cpu'])
-          status.memory = str(node['memory'])
-          status.disk = str(node['disk'])
+          status = ServerStatus(id=node['public_ip'])
+          status.cpu = str(cpu_usage)
+          status.memory = str(memory_usage)
+          status.disk = str(disk_usage)
           status.roles = node['roles']
           updated_statuses.append(status)
       ndb.put_multi(updated_statuses)
