@@ -584,7 +584,7 @@ class DatastoreDistributed():
                     'key': bytearray(group.Encode()),
                     'last_update': txid})
 
-      self.datastore_batch._normal_batch(batch)
+      self.datastore_batch._normal_batch(batch, txid)
 
   def dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore.
