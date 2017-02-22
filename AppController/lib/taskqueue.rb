@@ -128,19 +128,19 @@ module TaskQueue
   #   master_tq_host: The hostname of the master TaskQueue node.
   # Returns
   #   A Boolean indicating if all was good, of some failure happened.
-  def self.join_cluster(type, master_tq_host)
-    Djinn.log_info("Trying to #{type} #{master_tq_host} rabbitmq cluster.")
+  def self.join_cluster(type, master_host)
+    Djinn.log_info("Trying to #{type} #{master_host} rabbitmq cluster.")
     begin
       Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
         Djinn.log_run("#{RABBIT_CTL} stop_app")
         case type
         when :join
-          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_host}")
         when :update
-          Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBIT_CTL} update_cluster_nodes rabbit@#{master_host}")
         else
           Djinn.log_run("#{RABBIT_CTL} force_reset")
-          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBIT_CTL} join_cluster rabbit@#{master_host}")
         end
         Djinn.log_run("#{RABBIT_CTL} start_app")
       end
@@ -175,7 +175,6 @@ module TaskQueue
     end
 
     # Wait for RabbitMQ on master node to come up.
-    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     Djinn.log_debug("Waiting for RabbitMQ on master node to come up")
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
@@ -245,7 +244,11 @@ module TaskQueue
   # Returns
   #   A Boolean indicating if RabbitMQ is part of the master cluster.
   def self.check_taskqueue_server(master_tq)
-    return system("#{RABBIT_CTL} cluster_status | sed -n '/{running_nodes,/,/{partitions,/p' | grep rabbit@#{master_tq} > /dev/null")
+    unless system("#{RABBIT_CTL} cluster_status | sed -n '/{running_nodes,/,/{partitions,/p' | grep rabbit@#{master_tq} > /dev/null")
+      return false
+    end
+
+    return true
   end
 
 
@@ -265,6 +268,7 @@ module TaskQueue
     }
     Djinn.log_debug("Done starting taskqueue servers on this node")
   end
+
 
   # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
   def self.stop()
