@@ -381,14 +381,14 @@ class AppDashboardData():
       # TODO Update it according to new content of cluster_stats
       updated_statuses = []
       for node in nodes:
-        status = self.get_by_id(ServerStatus, node['ip'])
+        status = self.get_by_id(ServerStatus, node['public_ip'])
         if status:
           # Make sure that at least one field changed before we decide to
           # update this ServerStatus.
           if status.cpu != str(node['cpu']) or \
                   status.memory != str(node['memory']) or \
-                  status.disk != str(node['disk']) or status.roles != node[
-                  'roles']:
+                  status.disk != str(node['disk']) or \
+                  status.roles != node['roles']:
             status.cpu = str(node['cpu'])
             status.memory = str(node['memory'])
             status.disk = str(node['disk'])

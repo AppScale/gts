@@ -258,30 +258,9 @@ def get_cluster_stats():
     A dictionary containing all the monitoring stats, if all nodes are
     accessible. {"success": False, "error": message} otherwise.
   """
-  cluster_stats = {}
-
-  secret = appscale_info.get_secret()
-  logging.debug("Retrieved deployment secret: {}".format(secret))
-  for ip in appscale_info.get_all_ips():
-    appcontroller_endpoint = "https://{}:{}".format(ip,
-      hermes_constants.APPCONTROLLER_PORT)
-    logging.debug("Connecting to AC at: {}".format(appcontroller_endpoint))
-    # Do a SOAP call to the AppController on that IP to get stats.
-    server = SOAPpy.SOAPProxy(appcontroller_endpoint)
-    try:
-      cluster_stats[ip] = json.loads(server.get_cluster_stats(secret))
-    except SOAPpy.SOAPException as soap_exception:
-      logging.exception("Exception while performing SOAP call to "
-        "{}".format(appcontroller_endpoint))
-      logging.exception(soap_exception)
-      cluster_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
-    except socket_error as serr:
-      logging.error("Socket error while performing SOAP call to "
-        "{}".format(appcontroller_endpoint))
-      logging.error(serr)
-      cluster_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
-
-  return cluster_stats
+  acc = appscale_info.get_appcontroller_client()
+  nodes_stats = acc.get_cluster_stats()
+  return {node["public_ip"]: node for node in nodes_stats}
 
 
 def report_status(task, task_id, status):

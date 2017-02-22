@@ -187,7 +187,6 @@ class Djinn
   # services on this node.
   attr_accessor :kill_sig_received
 
-
   # An Integer that indexes into @nodes, to return information about this node.
   attr_accessor :my_index
 
@@ -195,6 +194,56 @@ class Djinn
   # An Array that lists the CPU, disk, and memory usage of each machine in this
   # AppScale deployment. Used as a cache so that it does not need to be
   # generated in response to AppDashboard requests.
+  # This Array can be fetch in JSON format by get_cluster_stats_json server's method
+  # Its structure is following
+  # [
+  #  {
+  #    # System stats provided by infrustucture manager
+  #    "cpu" => {
+  #      "idle" => 81.3,
+  #      "system" => 13.2,
+  #      "user" => 5.5
+  #    },
+  #    "disk" => [
+  #      # For each partition
+  #      {
+  #        "free" => 15482871808,
+  #        "used" => 12359954836
+  #      },
+  #      ...
+  #    ],
+  #    "memory => {
+  #      "available" => 6472179712,
+  #      "used" => 8186245120
+  #    },
+  #    "swap" => {
+  #      "free" => 1210527744,
+  #      "used" => 886620160
+  #    },
+  #    "services" => {
+  #      # For each Process monitored by monit
+  #      "cassandra" => "Running",
+  #      ...
+  #    },
+  #    # Node information provided by AppController itself
+  #    "apps" => {
+  #      # This hash is empty for non-shadow nodes
+  #      "language" => "python",
+  #      "appservers" => 4,
+  #      "pending_appservers" => 2,
+  #      "http" => "192.168.33.10:8080",
+  #      "https" => "192.168.33.10:4380",
+  #      "reqs_enqueued" => 15
+  #    },
+  #    "cloud" => False,
+  #    "state" => "Done starting up AppScale, now in heartbeat mode",
+  #    "db_location" => "192.168.33.10",
+  #    "public_ip" => "192.168.33.10",
+  #    "private_ip" => "10.10.105.18",
+  #    "roles" => ["shadow", "zookeeper", "datastore", "taskqueue"],
+  #  },
+  #  ...
+  # ]
   attr_accessor :cluster_stats
 
 
