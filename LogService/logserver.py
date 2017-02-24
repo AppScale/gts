@@ -281,6 +281,7 @@ class Protocol(protocol.Protocol):
 
   def processActionQuery(self, query):
     query = logging_capnp.Query.from_bytes(query)
+    log.msg("Received Query: {}".format(query))
     if len(query.requestIds) > 0:
       self.processActionQueryRequestIds(query.requestIds)
     else:
@@ -346,6 +347,7 @@ class Protocol(protocol.Protocol):
     self.sendQueryResult([results.get(ri) for ri in requestIds])
 
   def sendQueryResult(self, records):
+    log.msg("Sending {} Result(s)".format(len(records)))
     stream = StringIO()
     stream.write(struct.pack('I', len(records)))
     for record in records:
