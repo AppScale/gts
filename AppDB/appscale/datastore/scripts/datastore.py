@@ -266,11 +266,11 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
-    except zktransaction.ZKInternalException:
-      logger.exception('Unable to begin {}'.format(transaction_pb))
-      return (transaction_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
+    except (zktransaction.ZKInternalException,
+            dbconstants.AppScaleDBConnectionError) as error:
+      logger.exception('Unable to begin transaction')
+      return (transaction_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              str(error))
 
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
@@ -569,11 +569,10 @@ class MainHandler(tornado.web.RequestHandler):
       return (putresp_pb.Encode(),
             datastore_pb.Error.BAD_REQUEST, 
             "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zktransaction.ZKInternalException:
-      logger.exception('ZKInternalException during {}'.format(putreq_pb))
-      return (putresp_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
+    except zktransaction.ZKInternalException as error:
+      logger.exception('ZKInternalException during put')
+      return (putresp_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              str(error))
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
