@@ -166,7 +166,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         fh.close()
       self._release_logserver_connection(key, log_server)
     except socket.error, e:
-      cleanup_logserver_connection(log_server)
+      _cleanup_logserver_connection(log_server)
       raise
 
   @staticmethod
