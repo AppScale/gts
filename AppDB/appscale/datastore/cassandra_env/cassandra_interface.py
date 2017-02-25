@@ -580,7 +580,7 @@ class DatastoreProxy(AppDBInterface):
       execute_concurrent(self.session, statements_and_params,
                          raise_on_first_error=True)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
-      message = 'Exception during large batch'
+      message = 'Unable to write large batch log'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
