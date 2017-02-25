@@ -284,9 +284,8 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         query.startTime = request.start_time()
       if request.has_end_time():
         query.endTime = request.end_time()
-      if request.has_offset():
-        logging.info("Offset: %s", request.offset())
-        query.offset = base64.b64decode(str(request.offset()).replace('request_id: "', '').replace('"', ''))
+      if request.has_offset() and request.offset().has_request_id():
+        query.offset = base64.b64decode(request.offset().request_id())
       if request.has_minimum_log_level():
         query.minimumLogLevel = request.minimum_log_level()
       query.includeAppLogs = bool(request.include_app_logs())
