@@ -607,7 +607,10 @@ class DatastoreProxy(AppDBInterface):
       WHERE app = %(app)s AND transaction = %(transaction)s
     """
     parameters = {'app': app, 'transaction': txn}
-    self.session.execute(clear_batch, parameters)
+    try:
+      self.session.execute(clear_batch, parameters)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      logging.exception('Unable to clear batch log')
 
   def batch_mutate(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.
