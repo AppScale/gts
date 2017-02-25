@@ -309,8 +309,8 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         _fill_request_log(requestLog, log, request.include_app_logs())
         result_count += 1
 
-      if result_count == count:
-        response.mutable_offset().set_request_id(requestLog.offset)
+        if result_count == count:
+          response.mutable_offset().set_request_id(requestLog.offset)
     except:
       logging.exception("Failed to retrieve logs")
       raise apiproxy_errors.ApplicationError(
