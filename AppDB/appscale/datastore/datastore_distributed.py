@@ -528,6 +528,8 @@ class DatastoreDistributed():
       txid = self.zookeeper.get_transaction_id(app, False)
       try:
         with lock:
+          batch = []
+          entity_changes = []
           for entity in entity_list:
             prefix = self.get_table_prefix(entity)
             entity_key = get_entity_key(prefix, entity.key().path())
@@ -537,17 +539,16 @@ class DatastoreDistributed():
               current_value = entity_pb.EntityProto(
                 current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-            batch = cassandra_interface.mutations_for_entity(
-              entity, txid, current_value, composite_indexes)
+            batch.extend(cassandra_interface.mutations_for_entity(
+              entity, txid, current_value, composite_indexes))
 
             batch.append({'table': 'group_updates',
                           'key': bytearray(encoded_group_key),
                           'last_update': txid})
 
-            entity_change = {'key': entity.key(),
-                             'old': current_value, 'new': entity}
-            self.datastore_batch.batch_mutate(
-              app, batch, [entity_change], txid)
+            entity_changes.append(
+              {'key': entity.key(), 'old': current_value, 'new': entity})
+          self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
       finally:
         self.zookeeper.remove_tx_node(app, txid)
 
