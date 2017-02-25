@@ -782,7 +782,7 @@ class PullQueue(Queue):
     return tag
 
   def _increment_count_async(self, task):
-    """ Update retry count for for a task.
+    """ Update retry count for a task.
 
     Args:
       task: A Task object.
