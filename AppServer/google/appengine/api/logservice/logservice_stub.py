@@ -263,7 +263,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
   @apiproxy_stub.Synchronized
   def _Dynamic_Read(self, request, response, request_id):
     try:
-      if ( request.version_id_size() < 1 and
+      if (request.version_id_size() < 1 and
           request.request_id_size() < 1):
         raise apiproxy_errors.ApplicationError(
             log_service_pb.LogServiceError.INVALID_REQUEST)
