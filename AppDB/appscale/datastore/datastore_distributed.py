@@ -496,14 +496,13 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app, entities, txn_hash, composite_indexes=()):
+  def put_entities(self, app, entities, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
       app: A string containing the application ID.
       entities: List of entities.
-      txn_hash: A mapping of root keys to transaction IDs.
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
     self.logger.debug('Inserting {} entities'.format(len(entities)))
@@ -631,8 +630,7 @@ class DatastoreDistributed():
       self.datastore_batch.put_entities_tx(
         app_id, put_request.transaction().handle(), entities)
     else:
-      self.put_entities(app_id, entities, '',
-                        put_request.composite_index_list())
+      self.put_entities(app_id, entities, put_request.composite_index_list())
       self.logger.debug('Updated {} entities'.format(len(entities)))
 
     put_response.key_list().extend([e.key() for e in entities])
