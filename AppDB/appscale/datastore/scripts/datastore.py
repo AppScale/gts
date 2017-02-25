@@ -365,7 +365,7 @@ class MainHandler(tornado.web.RequestHandler):
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Datastore connection error on run_query request.")
-    return (clone_qr_pb.Encode(), 0, "")
+    return clone_qr_pb.Encode(), 0, ""
 
   def create_index_request(self, app_id, http_request_data):
     """ High level function for creating composite indexes.
@@ -396,7 +396,7 @@ class MainHandler(tornado.web.RequestHandler):
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on create index request.")
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def update_index_request(self, app_id, http_request_data):
     """ High level function for updating a composite index.
@@ -460,7 +460,7 @@ class MainHandler(tornado.web.RequestHandler):
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
     
   def get_indices_request(self, app_id):
     """ Gets the indices of the given application.
@@ -485,7 +485,7 @@ class MainHandler(tornado.web.RequestHandler):
     for index in indices:
       new_index = response.add_index()
       new_index.ParseFromString(index)
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
@@ -539,7 +539,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     response.set_start(start)
     response.set_end(end)
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
@@ -623,7 +623,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on get.")
 
-    return (getresp_pb.Encode(), 0, "")
+    return getresp_pb.Encode(), 0, ""
 
   def delete_request(self, app_id, http_request_data):
     """ High level function for doing deletes.
