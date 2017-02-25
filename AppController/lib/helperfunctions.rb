@@ -478,6 +478,14 @@ module HelperFunctions
     end
   end
 
+
+  # Prepare the application code to be run by AppServers.
+  #
+  # Args:
+  #   app_name: A String containing the application id.
+  # Raise:
+  #   AppScaleException: if the setup failed for whatever reason (ie bad
+  #     tarball). The exception message would indicate the error.
   def self.setup_app(app_name)
     meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
@@ -488,8 +496,12 @@ module HelperFunctions
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
 
-    self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
-      "-C #{tar_dir} -zx")
+    cmd = "tar -xzf #{tar_path} --force-local --no-same-owner -C #{tar_dir}"
+    unless system(cmd)
+      Djinn.log_warn("setup_app: #{cmd} failed.")
+      FileUtils.rm_f(tar_dir)
+      raise AppScaleException.new("Failed to untar #{tar_path}.")
+    end
 
     # Separate extra dependencies for Go applications.
     begin
@@ -497,6 +509,8 @@ module HelperFunctions
     rescue Errno::ENOENT
       Djinn.log_debug("#{app_name} does not have a gopath directory")
     end
+
+    return true
   end
 
 
