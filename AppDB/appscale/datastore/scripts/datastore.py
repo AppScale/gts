@@ -360,7 +360,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(query))
+      logger.exception('DB connection error during query')
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
@@ -391,7 +391,7 @@ class MainHandler(tornado.web.RequestHandler):
       index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during index creation')
       response.set_value(0)
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
@@ -456,7 +456,7 @@ class MainHandler(tornado.web.RequestHandler):
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during index deletion')
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
@@ -476,7 +476,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.CompositeIndices()
     try:
       indices = datastore_access.datastore_batch.get_indices(app_id)
-    except dbconstants.AppScaleDBConnectionError, dbce:
+    except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error while fetching indices for '
         '{}'.format(app_id))
       return (response.Encode(),
@@ -581,7 +581,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(putreq_pb))
+      logger.exception('DB connection error during put')
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
@@ -618,7 +618,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on get.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(getreq_pb))
+      logger.exception('DB connection error during get')
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on get.")
@@ -665,7 +665,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on delete.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(delreq_pb))
+      logger.exception('DB connection error during delete')
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")

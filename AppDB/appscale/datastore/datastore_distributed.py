@@ -506,8 +506,7 @@ class DatastoreDistributed():
       txn_hash: A mapping of root keys to transaction IDs.
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
-    self.logger.debug('Inserting {} entities with transaction hash {}'.
-                      format(len(entities), txn_hash))
+    self.logger.debug('Inserting {} entities'.format(len(entities)))
     entity_keys = []
     for entity in entities:
       prefix = self.get_table_prefix(entity)
@@ -3298,8 +3297,7 @@ class DatastoreDistributed():
     except dbconstants.TxTimeoutException as timeout:
       return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
-      self.logger.exception('DB connection error during {}'.
-                            format(http_request_data))
+      self.logger.exception('DB connection error during commit')
       return (commitres_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               'Datastore connection error on Commit request.')
     except dbconstants.ConcurrentModificationException as error:
