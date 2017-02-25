@@ -630,7 +630,10 @@ class DatastoreDistributed():
       self.datastore_batch.put_entities_tx(
         app_id, put_request.transaction().handle(), entities)
     else:
-      self.put_entities(app_id, entities, put_request.composite_index_list())
+      try:
+        self.put_entities(app_id, entities, put_request.composite_index_list())
+      except entity_lock.LockTimeout as timeout_error:
+        raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
       self.logger.debug('Updated {} entities'.format(len(entities)))
 
     put_response.key_list().extend([e.key() for e in entities])
@@ -926,6 +929,8 @@ class DatastoreDistributed():
               composite_indexes=filtered_indexes
             )
           self.logger.debug('Removed {} entities'.format(len(key_list)))
+        except entity_lock.LockTimeout as timeout_error:
+          raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
         finally:
           self.zookeeper.remove_tx_node(app_id, txid)
 
