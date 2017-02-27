@@ -38,6 +38,7 @@ from ..utils import get_entity_key
 from ..utils import get_entity_kind
 from ..utils import get_index_kv_from_tuple
 from ..utils import get_kind_key
+from ..utils import get_write_time
 from ..utils import tx_partition
 
 sys.path.append(APPSCALE_LIB_DIR)
@@ -418,6 +419,7 @@ class DatastoreProxy(AppDBInterface):
     statement = """
       INSERT INTO "{table}" ({key}, {column}, {value})
       VALUES (?, ?, ?)
+      USING TIMESTAMP ?
     """.format(table=table,
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
@@ -433,15 +435,18 @@ class DatastoreProxy(AppDBInterface):
       A PreparedStatement object.
     """
     statement = """
-      DELETE FROM "{table}" WHERE {key} = ?
+      DELETE FROM "{table}"
+      USING TIMESTAMP ?
+      WHERE {key} = ?
     """.format(table=table, key=ThriftColumn.KEY)
     return self.session.prepare(statement)
 
-  def _normal_batch(self, mutations):
+  def _normal_batch(self, mutations, txid):
     """ Use Cassandra's native batch statement to apply mutations atomically.
 
     Args:
       mutations: A list of dictionaries representing mutations.
+      txid: An integer specifying a transaction ID.
     """
     self.logger.debug('Normal batch: {} mutations'.format(len(mutations)))
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
@@ -455,8 +460,10 @@ class DatastoreProxy(AppDBInterface):
         insert = """
           INSERT INTO group_updates (group, last_update)
           VALUES (%(group)s, %(last_update)s)
+          USING TIMESTAMP %(timestamp)s
         """
-        parameters = {'group': key, 'last_update': mutation['last_update']}
+        parameters = {'group': key, 'last_update': mutation['last_update'],
+                      'timestamp': get_write_time(txid)}
         batch.add(insert, parameters)
         continue
 
@@ -467,14 +474,15 @@ class DatastoreProxy(AppDBInterface):
         for column in values:
           batch.add(
             prepared_statements['insert'][table],
-            (bytearray(mutation['key']), column, bytearray(values[column]))
+            (bytearray(mutation['key']), column, bytearray(values[column]),
+             get_write_time(txid))
           )
       elif mutation['operation'] == Operations.DELETE:
         if table not in prepared_statements['delete']:
           prepared_statements['delete'][table] = self.prepare_delete(table)
         batch.add(
           prepared_statements['delete'][table],
-          (bytearray(mutation['key']),)
+          (get_write_time(txid), bytearray(mutation['key']))
         )
 
     try:
@@ -484,11 +492,12 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-  def apply_mutations(self, mutations):
+  def apply_mutations(self, mutations, txid):
     """ Apply mutations across tables.
 
     Args:
       mutations: A list of dictionaries representing mutations.
+      txid: An integer specifying a transaction ID.
     """
     prepared_statements = {'insert': {}, 'delete': {}}
     statements_and_params = []
@@ -500,8 +509,10 @@ class DatastoreProxy(AppDBInterface):
         insert = """
           INSERT INTO group_updates (group, last_update)
           VALUES (%(group)s, %(last_update)s)
+          USING TIMESTAMP %(timestamp)s
         """
-        parameters = {'group': key, 'last_update': mutation['last_update']}
+        parameters = {'group': key, 'last_update': mutation['last_update'],
+                      'timestamp': get_write_time(txid)}
         statements_and_params.append((SimpleStatement(insert), parameters))
         continue
 
@@ -511,13 +522,13 @@ class DatastoreProxy(AppDBInterface):
         values = mutation['values']
         for column in values:
           params = (bytearray(mutation['key']), column,
-                    bytearray(values[column]))
+                    bytearray(values[column]), get_write_time(txid))
           statements_and_params.append(
             (prepared_statements['insert'][table], params))
       elif mutation['operation'] == Operations.DELETE:
         if table not in prepared_statements['delete']:
           prepared_statements['delete'][table] = self.prepare_delete(table)
-        params = (bytearray(mutation['key']),)
+        params = (get_write_time(txid), bytearray(mutation['key']))
         statements_and_params.append(
           (prepared_statements['delete'][table], params))
 
@@ -579,7 +590,7 @@ class DatastoreProxy(AppDBInterface):
       raise AppScaleDBConnectionError(str(batch_error))
 
     try:
-      self.apply_mutations(mutations)
+      self.apply_mutations(mutations, txn)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during large batch'
       logging.exception(message)
@@ -611,7 +622,7 @@ class DatastoreProxy(AppDBInterface):
     if size > LARGE_BATCH_THRESHOLD:
       self._large_batch(app, mutations, entity_changes, txn)
     else:
-      self._normal_batch(mutations)
+      self._normal_batch(mutations, txn)
 
   def batch_delete(self, table_name, row_keys, column_names=()):
     """

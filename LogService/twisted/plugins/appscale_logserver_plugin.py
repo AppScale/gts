@@ -1,13 +1,13 @@
 import os
-
+import sys
 
 from logserver import LogServerFactory
 from twisted.application import internet, service
 from twisted.application.service import IServiceMaker
 from twisted.plugin import IPlugin
+from twisted.python import log
 from twisted.python import usage
 from zope.interface import implementer
-
 
 class Options(usage.Options):
   optParameters = [["port", "p", 7422, "The port number to listen on."],
@@ -35,7 +35,12 @@ class MyServiceMaker(object):
       os.remove(options["unix_socket"])
     unix_news_server = internet.UNIXServer(options["unix_socket"], logserver_factory)
     unix_news_server.setServiceParent(application)
-
+    log.startLogging(sys.stdout)
+    log.msg("Log Service started with parameters: port: {} path:{} "
+            "size:{} unix_socket:{}".format(options.get("port"),
+                                            options.get("port"),
+                                            options.get("size"),
+                                            options.get("unix_socket")))
     return application
 
 

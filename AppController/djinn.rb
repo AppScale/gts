@@ -3954,7 +3954,9 @@ class Djinn
   # Starts the Log Server service on this machine
   def start_log_server
     log_server_pid = "/var/run/appscale-logserver.pid"
-    start_cmd = "twistd --pidfile=#{log_server_pid} appscale-logserver"
+    log_server_file = "/var/log/appscale/log_service-7422.log"
+    start_cmd = "twistd --pidfile=#{log_server_pid}  --logfile " +
+                "#{log_server_file} appscale-logserver"
     stop_cmd = "/bin/bash -c 'kill $(cat #{log_server_pid})'"
     port = 7422
     env = {
@@ -5727,8 +5729,13 @@ HOSTS
           error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
         else
           # Application is good: let's set it up.
-          HelperFunctions.setup_app(app)
-          done_uploading(app, app_path, @@secret)
+          begin
+            HelperFunctions.setup_app(app)
+            done_uploading(app, app_path, @@secret)
+          rescue AppScaleException => exception
+            error_msg = "ERROR: couldn't setup source for #{app} " +
+              "(#{exception.message})."
+          end
         end
       else
         # If we couldn't get a copy of the application, place a dummy error
@@ -6085,45 +6092,41 @@ HOSTS
     end
 
     nodes_with_app = []
-    retries_left = 10
-    loop {
+    RETRIES.downto(0) { |attempt|
       nodes_with_app = ZKInterface.get_app_hosters(appname, @options['keyname'])
-      break unless nodes_with_app.empty?
-      Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
-        "have a copy of app #{appname}")
-      Kernel.sleep(SMALL_WAIT)
-      retries_left -=1
-      if retries_left.zero?
-        Djinn.log_warn("Nobody appears to be hosting app #{appname}")
-        return false
+      if nodes_with_app.empty?
+        Djinn.log_info("#{attempt} attempt: waiting for a node to " +
+          "have a copy of app #{appname}")
+        Kernel.sleep(SMALL_WAIT)
+        next
       end
+
+      # Try few times on each node known to retrieve this application. Make
+      # sure we pick a random order to not overload the same host.
+      nodes_with_app.shuffle.each { |node|
+        ssh_key = node.ssh_key
+        ip = node.private_ip
+        Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
+        RETRIES.downto(0) {
+          begin
+            HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
+            if File.exists?(app_path)
+              if HelperFunctions.check_tarball(app_path)
+                Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+                return true
+              end
+            end
+          rescue AppScaleSCPException
+            Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
+          end
+          # Removing possibly corrupted, or partially downloaded tarball.
+          FileUtils.rm_rf(app_path)
+          Kernel.sleep(SMALL_WAIT)
+        }
+        Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
+      }
     }
 
-    # Try 3 times on each node known to have this application. Make sure
-    # we pick a random order to not overload the same host.
-    nodes_with_app.shuffle!
-    nodes_with_app.each { |node|
-      ssh_key = node.ssh_key
-      ip = node.private_ip
-      Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-      RETRIES.downto(0) {
-        begin
-          HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
-          if File.exists?(app_path)
-            if HelperFunctions.check_tarball(app_path)
-              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
-              return true
-            end
-          end
-        rescue AppScaleSCPException
-          Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
-        end
-        # Removing possibly corrupted, or partially downloaded tarball.
-        FileUtils.rm_rf(app_path)
-        Kernel.sleep(SMALL_WAIT)
-      }
-      Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
-    }
     Djinn.log_error("Unable to get the application from any node.")
     return false
   end
