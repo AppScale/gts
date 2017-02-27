@@ -201,6 +201,22 @@ class AppDashboardHelper(object):
       logging.exception(err)
       return []
 
+  def get_status_info(self):
+    """ Queries our local AppController to get server-level information about
+    every server running in this AppScale deployment.
+
+    Returns:
+      A list of dicts, where each dict contains VM-level info (e.g., CPU,
+      memory, disk usage) about that machine. The empty list is returned if
+      there was a problem retrieving this information.
+    """
+    try:
+      status_info = self.get_appcontroller_client().get_cluster_stats()
+      return status_info
+    except Exception as err:
+      logging.exception(err)
+      return []
+
   def get_application_cron_info(self, app_name):
     """ Get an application cron info
 
