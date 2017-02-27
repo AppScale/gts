@@ -2177,26 +2177,16 @@ class Djinn
       # restart apps, terminate non-responsive AppServers, and autoscale.
       # Every other node syncs its state with the login node state.
       if my_node.is_shadow?
-        flush_log_buffer()
-        send_instance_info_to_dashboard()
-        update_node_info_cache()
-        backup_appcontroller_state()
+        flush_log_buffer
+        send_instance_info_to_dashboard
+        update_node_info_cache
+        backup_appcontroller_state
 
         APPS_LOCK.synchronize {
-          starts_new_apps_or_appservers()
-          scale_appservers_within_nodes()
+          starts_new_apps_or_appservers
+          scale_deployment
         }
-        if SCALE_LOCK.locked?
-          Djinn.log_debug("Another thread is already working with the" +
-              " InfrastructureManager.")
-        else
-          Thread.new {
-            SCALE_LOCK.synchronize {
-              scale_appservers_across_nodes()
-            }
-          }
-        end
-      elsif !restore_appcontroller_state()
+      elsif !restore_appcontroller_state
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
       end
@@ -2506,208 +2496,116 @@ class Djinn
   #   BAD_SECRET_MSG: If the secret given does not match the secret for
   #     this AppScale deployment.
   #   BAD_INPUT_MSG: If ips_hash was not a Hash.
-  #   Otherwise, returns a Hash that maps IP addresses to the roles that
-  #     will be hosted on them (the inverse of ips_hash).
+  #   OK: otherwise.
   def start_roles_on_nodes(ips_hash, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     ips_hash = JSON.load(ips_hash)
     if ips_hash.class != Hash
       Djinn.log_warn("Was expecting ips_hash to be a Hash, not " +
-        "a #{ips_hash.class}")
+        "a #{ips_hash.class}.")
       return BAD_INPUT_MSG
     end
-
-    Djinn.log_info("Received a request to start additional roles on " +
-      "new machines, with the following placement strategy: " +
-      "#{ips_hash.inspect}")
+    Djinn.log_debug("Received a request to start additional roles on " +
+      "these machines: #{ips_hash}.")
 
     # ips_hash maps roles to IPs, but the internal format here maps
     # IPs to roles, so convert to the right format
-    ips_to_roles = {}
+    new_nodes_roles = {}
+    node_roles = []
     ips_hash.each { |role, ip_or_ips|
       if ip_or_ips.class == String
         ips = [ip_or_ips]  # just one IP
-      else
+      elsif ip_or_ips.class == Array
         ips = ip_or_ips  # a list of IPs
-      end
-
-      ips.each { |ip|
-        if ips_to_roles[ip].nil?
-          ips_to_roles[ip] = []
-        end
-        ips_to_roles[ip] << role
-      }
-    }
-
-    Thread.new {
-      if is_cloud?
-        start_new_roles_on_nodes_in_cloud(ips_to_roles)
       else
-        start_new_roles_on_nodes_in_xen(ips_to_roles)
+        Djinn.log_warn("Was expecting an IP or list of IPs, got" +
+          " a #{ip_or_ips.class}.")
+        return BAD_INPUT_MSG
       end
-    }
 
-    return ips_to_roles
-  end
-
-
-  # This method acquires virtual machines from a cloud IaaS and adds them
-  # to the currently running AppScale deployment. The new machines are then
-  # assigned the roles given to us by the caller.
-  # Args:
-  #   ips_to_roles: A Hash that maps machines to the roles that should be
-  #     started on them. As we have not yet spawned the machines, we do not
-  #     have IP addresses for them, so any unique identifier can be used in
-  #     lieu of IP addresses.
-  # Returns:
-  #   An Array of Strings, where each String contains information about the
-  #     public IP address, private IP address, and roles that the new machines
-  #     have taken on.
-  def start_new_roles_on_nodes_in_cloud(ips_to_roles)
-    Djinn.log_info("Starting new roles in cloud with following info: " +
-      "#{ips_to_roles.inspect}")
-
-    num_of_vms = ips_to_roles.keys.length
-    roles = ips_to_roles.values
-    disks = Array.new(num_of_vms, nil)  # no persistent disks
-    Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
-    imc = InfrastructureManagerClient.new(@@secret)
-
-    begin
-      new_nodes_info = imc.spawn_vms(num_of_vms, @options, roles, disks)
-    rescue FailedNodeException, AppScaleException => exception
-      Djinn.log_error("Couldn't spawn #{num_of_vms} VMs with roles #{roles} " +
-        "because: #{exception.message}")
-      return []
-    end
-
-    # initialize them and wait for them to start up
-    Djinn.log_debug("info about new nodes is " +
-      "[#{new_nodes_info.join(', ')}]")
-
-    add_nodes(new_nodes_info)
-    update_hosts_info()
-
-    return new_nodes_info
-  end
-
-
-  # This method takes a list of IP addresses that correspond to machines
-  # with AppScale installed on them, that have passwordless SSH already
-  # set up (presumably by appscale-add-instances). The machines are added
-  # to the currently running AppScale deployment, and are then assigned
-  # the roles given to us by the caller.
-  # Args:
-  #   ips_to_roles: A Hash that maps machines to the roles that should be
-  #     started on them. Machines are uniquely identified by their IP
-  #     address, which is assumed to be reachable from any node in the
-  #     AppScale deployment.
-  # Returns:
-  #   An Array of Strings, where each String contains information about the
-  #     public IP address, private IP address, and roles that the new machines
-  #     have taken on.
-  def start_new_roles_on_nodes_in_xen(ips_to_roles)
-    Djinn.log_info("Starting new roles in virt with following info: " +
-      "#{ips_to_roles.inspect}")
-
-    nodes_info = []
-    ips_to_roles.each { |ip, roles|
-      Djinn.log_info("Will add roles #{roles.join(', ')} to new " +
-        "node at IP address #{ip}")
-      nodes_info << {
-        "public_ip" => ip,
-        "private_ip" => ip,
-        "jobs" => roles,
-        "disk" => nil
-      }
-    }
-
-    add_nodes(nodes_info)
-    update_hosts_info()
-
-    return nodes_info
-  end
-
-
-  # Starts the given roles by using open nodes, spawning new nodes, or some
-  # combination of the two.
-  #
-  # Args:
-  #   nodes_needed:  An Array, where each item is an Array of the roles to
-  #     start on each node.
-  #   instance_type: A String with the type of instance to start.
-  #   secret: A String with the deployment secret key.
-  # Returns:
-  #  A String with 'OK' or the Error string.
-  def start_new_roles_on_nodes(nodes_needed, instance_type, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    # TODO: we should validate the roles type, to ensure they are valid.
-    if nodes_needed.class != Array || instance_type.class != String
-      Djinn.log_error("Invalid parameter type (nodes_needed, or instance_type).")
-      return BAD_INPUT_MSG
-    end
-
-    Djinn.log_info("Received a request to acquire nodes with roles " +
-      "#{nodes_needed.join(', ')}, with instance type #{instance_type}.")
-
-    vms_to_use = []
-
-    # We look for 'open' nodes first.
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.is_open?
-          Djinn.log_info("Will use node #{node} to run new roles")
-          node.jobs = nodes_needed[vms_to_use.length]
-          vms_to_use << node
+      ips.each { |ip_or_node|
+        begin
+          # Convert (or check) if we have an IP address or we have a node
+          # we need to start, then we add this role to the node.
+          ip = HelperFunctions.convert_fqdn_to_ip(ip_or_node)
+          found = false
+          node_roles.each { |node|
+            if node['private_ip'] == ip
+              node.jobs << role
+              found = true
+              break
+            end
+          }
+          unless found
+            node_roles << {
+              "public_ip" => ip,
+              "private_ip" => ip,
+              "jobs" => role,
+              "disk" => nil
+            }
+          end
+        rescue AppScaleException
+          # We assume here that we need to create the VM (that is the user
+          # specified node-#).
+          new_nodes_roles[ip_or_node] = [] unless new_nodes_roles[ip_or_node]
+          new_nodes_roles[ip_or_node] << role
         end
       }
     }
-    Djinn.log_info("Using #{vms_to_use.length} open nodes to run new roles.")
 
-    vms_to_spawn = nodes_needed.length - vms_to_use.length
+    # Let's count the open nodes we can use before having to create new
+    # VMS.
+    open_nodes = 0
+    @state_change_lock.synchronize {
+      @nodes.each { |node| open_nodes += 1 if node.is_open?  }
+    }
 
-    if vms_to_spawn > 0
+    # We spawn new nodes if we need to (and can do so) here.
+    new_nodes_info = []
+    if new_nodes_roles.length > open_nodes
+      num_of_vms = new_nodes_roles.length - open_nodes
       unless is_cloud?
-        Djinn.log_error("Still need #{vms_to_spawn} more nodes, but we " +
+        Djinn.log_warn("Still need #{num_of_vms} more nodes, but we " +
         "aren't in a cloud environment, so we can't acquire more nodes - " +
         "failing the caller's request.")
         return NOT_ENOUGH_OPEN_NODES
       end
+      Djinn.log_info("Need to spawn #{num_of_vms} VMs.")
 
-      Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs.")
-      # Make sure the user has said it is ok to add more VMs before doing so.
-      allowed_vms = Integer(@options['max_images']) - @nodes.length
-      if allowed_vms < vms_to_spawn
-        Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
-          "would put us over the user-specified limit of #{@options['max_images']} " +
-          "VMs. Instead, spawning up #{allowed_vms}.")
-        vms_to_spawn = allowed_vms
-        if vms_to_spawn <= 0
-          Djinn.log_error("Reached the maximum number of VMs that we " +
-            "can use in this cloud deployment, so not spawning more nodes.")
-          return "Reached maximum number of VMs we can use."
-        end
-      end
-
-      disks = Array.new(vms_to_spawn, nil)  # no persistent disks
-
-      # Start up vms_to_spawn vms.
+      # We create here the needed nodes, with open role and no disk.
+      disks = Array.new(num_of_vms, nil)
       imc = InfrastructureManagerClient.new(@@secret)
       begin
-        new_nodes_info = imc.spawn_vms(vms_to_spawn, @options, nodes_needed, disks)
+        new_nodes_info = imc.spawn_vms(num_of_vms, @options,
+           new_nodes_roles.values, disks)
       rescue FailedNodeException, AppScaleException => exception
-        Djinn.log_error("Couldn't spawn #{vms_to_spawn} VMs with roles " +
+        Djinn.log_error("Couldn't spawn #{num_of_vms} VMs with roles " +
           "open because: #{exception.message}")
         return exception.message
       end
-
-      # Initialize them and integrate them with our nodes.
-      Djinn.log_debug("info about new nodes is " +
-        "[#{new_nodes_info.join(', ')}]")
-      add_nodes(new_nodes_info)
     end
+    Djinn.log_debug("We spawned VMs for these roles #{new_nodes_info}.")
+    Djinn.log_debug("We wil use the following nodes #{node_roles}.")
+
+    # If we have an already running nodes with the same IP, we changes
+    # it's roles list.
+    new_nodes_info << node_roles unless node_roles.empty?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        delete_index = nil
+        new_nodes_info.each_with_index { |new_node, index|
+          if new_node['private_ip'] == node.private_ip
+            Djinn.log_info("Node at #{node.private_ip} changed role to #{new_node['jobs']}.")
+            node.jobs = new_node['jobs']
+            delete_index = index
+            break
+          end
+        }
+        new_nodes_info.delete_at(delete_index) if delete_index
+      }
+    }
+    add_nodes(new_nodes_info) unless new_nodes_info.empty?
 
     return "OK"
   end
@@ -2734,8 +2632,9 @@ class Djinn
     }
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
-    update_firewall()
+    update_firewall
     initialize_nodes_in_parallel(new_nodes)
+    update_hosts_info
   end
 
 
@@ -5418,10 +5317,14 @@ HOSTS
   end
 
 
-  # Adds or removes AppServers within a node based on the number of requests
-  # that each application has received as well as the number of requests that
-  # are sitting in haproxy's queue, waiting to be served.
-  def scale_appservers_within_nodes
+  # Scale AppServers up/down for each application depending on the current
+  # queued requests and load of the application.
+  #
+  # Returns:
+  #   An Integer indicating the number of AppServers that we couldn't
+  #   start for lack of resources.
+  def scale_appservers
+    needed_appservers = 0
     @apps_loaded.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
@@ -5429,13 +5332,77 @@ HOSTS
       delta_appservers = get_scaling_info_for_app(app_name)
       if delta_appservers > 0
         Djinn.log_debug("Considering scaling up app #{app_name}.")
-        try_to_scale_up(app_name, delta_appservers)
+        unless try_to_scale_up(app_name, delta_appservers)
+          needed_appservers += delta_appservers
+        end
       elsif delta_appservers < 0
         Djinn.log_debug("Considering scaling down app #{app_name}.")
         try_to_scale_down(app_name, delta_appservers.abs)
       else
         Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
       end
+    }
+
+    return needed_appservers
+  end
+
+
+  # Adds or removes AppServers and/or nodes to the deployment, depending
+  # on the statistics of the application and the loads of the various
+  # services.
+  def scale_deployment
+    needed_appservers = scale_appservers
+    if needed_appservers > 0
+      Djinn.log_debug("Need to start VMs for #{needed_appservers} more AppServers.")
+    end
+
+    # Here we cound the number of machines we need to spawn, and the roles
+    # we need.
+    vms_to_spawn = 0
+    roles_needed = {}
+    if needed_appservers > 0
+      Integer(needed_appservers/3).downto(0) {
+        vms_to_spawn += 1
+        roles_needed["appengine"] = [] unless roles_needed["appengine"]
+        roles_needed["appengine"] << "node-#{vms_to_spawn}"
+      }
+    end
+
+    # Check if we need to spawn VMs and the InfrartructureManager is
+    # available to do so.
+    return unless vms_to_spawn > 0
+    if SCALE_LOCK.locked?
+      Djinn.log_debug("Another thread is already working with the InfrastructureManager.")
+      return
+    end
+
+    Thread.new {
+      SCALE_LOCK.synchronize {
+        Djinn.log_info("We need #{vms_to_spawn} more VMs.")
+
+        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
+                SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
+          Djinn.log_info("Not scaling up right now, as we recently scaled " +
+            "up or down.")
+          return
+        end
+
+        allowed_vms = Integer(@options['max_images']) - @nodes.length
+        if allowed_vms < vms_to_spawn
+          Djinn.log_warn("Requested #{vms_to_spawn} VMs, but we can only" +
+            " start #{allowed_vms}, so not spawning more nodes.")
+          return
+        end
+
+        result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
+        if result != "OK"
+          Djinn.log_error("Was not able to add nodes because: #{result}.")
+          return
+        end
+
+        @last_scaling_time = Time.now.to_i
+        Djinn.log_info("Added the following nodes: #{roles_needed}.")
+      }
     }
   end
 
@@ -5590,7 +5557,7 @@ HOSTS
   #   app_name: A String containing the application ID.
   #   delta_appservers: The desired number of new AppServers.
   # Returns:
-  #   A boolean indicating if a new AppServer was requested.
+  #   A boolean indicating if the desired AppServers were started.
   def try_to_scale_up(app_name, delta_appservers)
     # Select an appengine machine if it has enough resources to support
     # another AppServer for this app.
@@ -5682,7 +5649,6 @@ HOSTS
     # add a new node instead.
     if available_hosts.empty?
       Djinn.log_info("No AppServer available to scale #{app_name}")
-      ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
       return false
     end
 
@@ -5723,37 +5689,48 @@ HOSTS
 
 
   # Try to remove an AppServer for the specified application, ensuring
-  # that a minimum number of AppServers is always kept.
+  # that a minimum number of AppServers is always kept. We remove
+  # AppServers from the 'latest' appengine node.
   #
   # Args:
   #   app_name: A String containing the application ID.
   #   delta_appservers: The desired number of AppServers to remove.
   # Returns:
   #   A boolean indicating if an AppServer was removed.
-  def try_to_scale_down(app_name, _delta_appservers)
+  def try_to_scale_down(app_name, delta_appservers)
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
     min = @app_info_map[app_name]['min_appengines']
     min = Integer(@options['appengine']) if min.nil?
     if @app_info_map[app_name]['appengine'].length <= min
-      Djinn.log_debug("We are already at the minimum number of AppServers for " +
-        "#{app_name}: requesting to remove node.")
-
-      # If we're this far, nobody can scale down, so try to remove a node instead.
-      ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
+      Djinn.log_debug("We are already at the minimum number of AppServers for #{app_name}.")
       return false
     end
 
-    # We pick a randon appengine that run the application.  Smarter
-    # algorithms could be implemented, but without clear directives (ie
-    # decide on cpu, or memory, or number of CPU available, or avg load
-    # etc...) any static strategy is flawed, so we go for simplicity.
-    scapegoat = @app_info_map[app_name]['appengine'].sample()
-    appserver_to_use, port = scapegoat.split(":")
-    Djinn.log_info("Removing an AppServer from #{appserver_to_use} for #{app_name}")
+    # Make sure we leave at least the minimum number of AppServers
+    # running.
+    if delta_appservers > @app_info_map[app_name]['appengine'].length + min
+      num_to_remove = @app_info_map[app_name]['appengine'].length - min
+    else
+      num_to_remove = delta_appservers
+    end
 
-    @app_info_map[app_name]['appengine'].delete("#{appserver_to_use}:#{port}")
-    @last_decision[app_name] = Time.now.to_i
+    # Let's pick the latest appengine node hosting the application and
+    # remove the AppServer there, so we can try to reclaim it once it's
+    # unloaded.
+    get_all_appengine_nodes.reverse { |node_ip|
+      @app_info_map[app_name]['appengine'].each { |location|
+        host, port = location.split(":")
+        if host == node_ip
+          @app_info_map[app_name]['appengine'].delete(location)
+          @last_decision[app_name] = Time.now.to_i
+          Djinn.log_info("Removing an AppServer for #{app_name} #{location}.")
+          num_to_remove -= 1
+          return true if num_to_remove == 0
+        end
+      }
+    }
+
     return true
   end
 
@@ -5960,67 +5937,6 @@ HOSTS
       Djinn.log_info("Couldn't send request info for app #{app_id} to #{url}")
       return false
     end
-  end
-
-
-  # It checks if we need to add or remove App Engine nodes to this deployment.
-  #
-  # Returns:
-  #   An Integer with the number of nodes changed (positive we added
-  #     nodes, negative we removed them, 0 if we didn't do anything).
-  def scale_appservers_across_nodes()
-    # Only the shadow makes scaling decisions.
-    return unless my_node.is_shadow?
-
-    Djinn.log_debug("Seeing if we need to spawn new AppServer nodes")
-
-    nodes_needed = []
-    all_scaling_requests = {}
-    @apps_loaded.each { |appid|
-      begin
-        scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
-        all_scaling_requests[appid] = scaling_requests
-        ZKInterface.clear_scaling_requests_for_app(appid)
-      rescue FailedZooKeeperOperationException => e
-        Djinn.log_warn("(scale_appservers_across_nodes) issues talking " +
-          "to zookeeper with #{e.message}.")
-        next
-      end
-      scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
-      num_of_scale_up_requests = scale_up_requests.length
-
-      if num_of_scale_up_requests > 0
-        Djinn.log_debug("#{appid} requires more AppServers: adding a node.")
-        nodes_needed << ["appengine"]
-      end
-    }
-
-    if nodes_needed.empty?
-      Djinn.log_debug("Not adding any new AppServers at this time. Checking " +
-        "to see if we need to scale down.")
-      return examine_scale_down_requests(all_scaling_requests)
-    end
-
-    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
-            SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
-      Djinn.log_info("Not scaling up right now, as we recently scaled " +
-        "up or down.")
-      return 0
-    end
-
-    Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
-    added_nodes = start_new_roles_on_nodes(nodes_needed,
-      @options['instance_type'], @@secret)
-
-    if added_nodes != "OK"
-      Djinn.log_error("Was not able to add #{nodes_needed.length} new nodes" +
-        " because: #{added_nodes}")
-      return 0
-    end
-
-    @last_scaling_time = Time.now.to_i
-    Djinn.log_info("Added the following nodes: #{nodes_needed}.")
-    return nodes_needed.length
   end
 
 

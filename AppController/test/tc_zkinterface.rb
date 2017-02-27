@@ -169,16 +169,6 @@ class TestZKInterface < Test::Unit::TestCase
 
     # first, make a connection to zookeeper
     ZKInterface.init_to_ip("public_ip", "public_ip")
-
-    # make sure the shadow gets back no information if nobody has requested
-    # scaling yet
-    assert_equal([], ZKInterface.get_scaling_requests_for_app("bazapp"))
-
-    # next, make sure that appservers can request that we scale up
-    assert_equal(true, ZKInterface.request_scale_up_for_app("bazapp", "public_ip"))
-
-    # make sure that the shadow can see these requests
-    assert_equal(["scale_up"], ZKInterface.get_scaling_requests_for_app("bazapp"))
   end
 
 

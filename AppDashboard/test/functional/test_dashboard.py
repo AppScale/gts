@@ -59,9 +59,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     acc.should_receive('get_database_information').and_return(
       {'table':'fake_database', 'replication':1}
       )
-    acc.should_receive('get_api_status').and_return(
-      {'api1':'running', 'api2':'failed', 'api3':'unknown'}
-      )
     acc.should_receive('upload_tgz').and_return('true')
     acc.should_receive('stop_app').and_return('true')
    

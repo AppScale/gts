@@ -74,7 +74,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
       "secret")
     add_method(@djinn, "get_app_upload_status", "reservation_id", "secret")
     add_method(@djinn, "get_database_information", "secret")
-    add_method(@djinn, "get_api_status", "secret")
     add_method(@djinn, "stop_app", "app_name", "secret")
     add_method(@djinn, "update", "app_names", "secret")
     add_method(@djinn, "set_apps_to_restart", "apps_to_restart", "secret")

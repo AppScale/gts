@@ -105,7 +105,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       "instance_id" => "i-id",
       "disk" => nil
     }]
-    actual = imc.spawn_vms(1, options, "open", [nil])
+    actual = imc.spawn_vms(1, options, ["open"], [nil])
     assert_equal(expected, actual)
   end
 
@@ -401,7 +401,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'instance_id' => 'i-id',
       'disk' => nil
     }]
-    actual = imc.spawn_vms(1, options, 'open', [nil])
+    actual = imc.spawn_vms(1, options, ['open'], [nil])
     assert_equal(expected, actual)
   end
 
