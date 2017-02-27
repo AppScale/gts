@@ -554,7 +554,7 @@ class Djinn
     @@logs_buffer = []
 
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::INFO
+    @@log.level = Logger::DEBUG
 
     @my_index = nil
     @my_public_ip = nil
@@ -1260,20 +1260,23 @@ class Djinn
     new_stats = []
 
     Thread.new {
-      @nodes.each { |node|
+      @nodes.each do |node|
         ip = node.private_ip
         if ip == my_node.private_ip
-          new_stats << get_node_stats(@@secret)
+          node_stats = get_node_stats(@@secret)
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
-            new_stats << acc.get_node_stats(@@secret)
+            node_stats = acc.get_node_stats()
           rescue FailedNodeException
             Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
               "not adding it to our cached info.")
+            next
           end
         end
-      }
+        new_stats << node_stats
+  
+      end
       @cluster_stats = new_stats
     }
   end
@@ -6258,7 +6261,7 @@ HOSTS
     node_stats["roles"] = my_node.jobs or ["none"]
     Djinn.log_debug("Node stats: #{node_stats}")
 
-    return JSON.dump(node_stats)
+    return node_stats
   end
 
 
