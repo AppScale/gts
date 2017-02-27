@@ -227,8 +227,15 @@ class AppControllerClient
 
   # Gets the statistics of all the nodes in the AppScale deployment.
   def get_cluster_stats_json()
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_cluster_stats_json") {
+    make_call(10, RETRY_ON_FAIL, "get_cluster_stats_json") {
       @conn.get_cluster_stats_json(@secret)
+    }
+  end
+
+  # Gets the statistics of this node
+  def get_node_stats()
+    make_call(10, RETRY_ON_FAIL, "get_node_stats") {
+      @conn.get_node_stats(@secret)
     }
   end
 
