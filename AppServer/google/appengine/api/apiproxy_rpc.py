@@ -186,15 +186,14 @@ class RealRPC(RPC):
 
   def _MakeCallImpl(self):
     """ Starts the thread which calls upon the service RPC."""
-    # Request ID is a thread-local attribute, and os.environ is reset for new
-    # threads in the sandbox.
-    request_id = self.stub._GetRequestId()
-    os_environ = os.environ.copy()
+    args = [self.package, self.call, self.request, self.response]
 
-    self._thread = threading.Thread(
-      target=self._make_sync_call,
-      args=(self.package, self.call, self.request, self.response, request_id,
-            os_environ))
+    # If this call is made in the sandbox, pass the request ID and environment
+    # variables explicitly since they are lost in new threads.
+    if hasattr(self.stub, '_GetRequestId'):
+      args.extend([self.stub._GetRequestId(), os.environ.copy()])
+
+    self._thread = threading.Thread(target=self._make_sync_call, args=args)
     self._thread.start()
     self._state = RPC.RUNNING
 
@@ -209,8 +208,8 @@ class RealRPC(RPC):
     self._Callback()
     return True
 
-  def _make_sync_call(self, service, call, request, response, request_id,
-                      os_environ):
+  def _make_sync_call(self, service, call, request, response, request_id=None,
+                      os_environ=None):
     """ A wrapper for MakeSyncCall that handles exceptions.
 
     Args:
@@ -221,8 +220,12 @@ class RealRPC(RPC):
       request_id: A string specifying the request ID.
       os_environ: A dictionary containing the parent thread's environment.
     """
-    self.stub._SetRequestId(request_id)
-    os.environ.update(os_environ)
+    if request_id is not None and hasattr(self.stub, '_SetRequestId'):
+      self.stub._SetRequestId(request_id)
+
+    if os_environ is not None:
+      os.environ.update(os_environ)
+
     try:
       self.stub.MakeSyncCall(service, call, request, response)
     except Exception:
