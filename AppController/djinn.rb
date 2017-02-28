@@ -1259,15 +1259,15 @@ class Djinn
   def update_node_info_cache()
     new_stats = []
 
-    Thread.new {
+    #Thread.new {
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
-          node_stats = get_node_stats(@@secret)
+          node_stats = JSON.load(get_node_stats_json(@@secret))
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
-            node_stats = acc.get_node_stats()
+            node_stats = JSON.load(acc.get_node_stats_json())
           rescue FailedNodeException
             Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
               "not adding it to our cached info.")
@@ -1277,7 +1277,7 @@ class Djinn
         new_stats << node_stats
       }
       @cluster_stats = new_stats
-    }
+    #}
   end
 
 
@@ -5566,6 +5566,7 @@ HOSTS
     # node can run another AppServer.
     get_all_appengine_nodes.each { |host|
       @cluster_stats.each { |node|
+	# TODO UPDATE IT TO USE NEW NODE STATS
         next if node['private_ip'] != host
 
         # TODO: this is a temporary fix waiting for when we phase in
@@ -6194,7 +6195,7 @@ HOSTS
   # Returns:
   #   A hash in string format containing system and platform stats for this
   #     node.
-  def get_node_stats(secret)
+  def get_node_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
@@ -6264,14 +6265,8 @@ HOSTS
     node_stats["roles"] = my_node.jobs or ["none"]
     Djinn.log_debug("Node stats: #{node_stats}")
 
-    return node_stats
+    return JSON.dump(node_stats)
   end
-
-
-  def get_node_stats_json(secret)
-    return JSON.dump(get_node_stats(secret))
-  end
-
 
   # Gets an application cron info.
   #

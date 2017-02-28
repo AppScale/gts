@@ -234,12 +234,10 @@ class AppControllerClient
   end
 
   # Gets the statistics of this node
-  def get_node_stats()
-    JSON.parse(
-      make_call(10, RETRY_ON_FAIL, "get_node_stats_json") {
-        @conn.get_node_stats_json(@secret)
-      }
-    )
+  def get_node_stats_json()
+    make_call(10, RETRY_ON_FAIL, "get_node_stats_json") {
+      @conn.get_node_stats_json(@secret)
+    }
   end
 
 end
