@@ -1260,7 +1260,7 @@ class Djinn
     new_stats = []
 
     Thread.new {
-      @nodes.each do |node|
+      @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
           node_stats = get_node_stats(@@secret)
@@ -1275,8 +1275,7 @@ class Djinn
           end
         end
         new_stats << node_stats
-  
-      end
+      }
       @cluster_stats = new_stats
     }
   end
@@ -2153,7 +2152,7 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = JSON.parse(get_node_stats(secret))
+        stats = get_node_stats(secret)
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
@@ -6241,6 +6240,7 @@ HOSTS
               "pending_appservers" => pending,
               "http" => @app_info_map[app_name]["nginx"],
               "https" => @app_info_map[app_name]["nginx_https"],
+              "total_reqs" => total_reqs,
               "reqs_enqueued" => reqs_enqueued
             }
           rescue => exception
@@ -6265,6 +6265,11 @@ HOSTS
     Djinn.log_debug("Node stats: #{node_stats}")
 
     return node_stats
+  end
+
+
+  def get_node_stats_json(secret)
+    return JSON.dump(get_node_stats(secret))
   end
 
 

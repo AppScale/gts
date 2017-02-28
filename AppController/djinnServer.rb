@@ -95,7 +95,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "set_deployment_id", "secret")
     add_method(@djinn, "set_node_read_only", "read_only", "secret")
     add_method(@djinn, "set_read_only", "read_only", "secret")
-    add_method(@djinn, "get_node_stats", "secret")
+    add_method(@djinn, "get_node_stats_json", "secret")
     add_method(@djinn, "does_app_exist", "appname", "secret")
     add_method(@djinn, "reset_password", "username", "password", "secret")
     add_method(@djinn, "does_user_exist", "username", "secret")

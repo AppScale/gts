@@ -82,6 +82,7 @@ class AppControllerClient
     @conn.add_method("primary_db_is_up", "secret")
     @conn.add_method("get_app_upload_status", "reservation_id", "secret")
     @conn.add_method("get_cluster_stats_json", "secret")
+    @conn.add_method("get_node_stats_json", "secret")
   end
 
 
@@ -234,9 +235,11 @@ class AppControllerClient
 
   # Gets the statistics of this node
   def get_node_stats()
-    make_call(10, RETRY_ON_FAIL, "get_node_stats") {
-      @conn.get_node_stats(@secret)
-    }
+    JSON.parse(
+      make_call(10, RETRY_ON_FAIL, "get_node_stats_json") {
+        @conn.get_node_stats_json(@secret)
+      }
+    )
   end
 
 end

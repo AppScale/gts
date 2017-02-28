@@ -52,6 +52,8 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.get_node_stats(@secret)
+    assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret)
     assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_apps_to_restart([@app], @secret))
