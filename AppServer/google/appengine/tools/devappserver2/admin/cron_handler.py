@@ -87,6 +87,6 @@ class CronHandler(admin_request_handler.AdminRequestHandler):
     self.response.status = self.dispatcher.add_request(
         method='GET',
         relative_url=self.request.get('url'),
-        headers=[('X-AppEngine-Cron', 'true')],
+        headers=[('X-AppEngine-Cron', 'True')],
         body='',
         source_ip=REMOTE_IP).status
