@@ -1860,7 +1860,12 @@ class Djinn
       tqc = TaskQueueClient.new(my_node.private_ip)
       begin
         result = tqc.reload_worker(app)
-        Djinn.log_info("Checking TaskQueue worker for app #{app}: #{result}")
+        message = "Checking TaskQueue worker for app #{app}: #{result}"
+        if result.key?('error') && result['error'] == false
+          Djinn.log_debug(message)
+        else
+          Djinn.log_warn(message)
+        end
       rescue FailedNodeException
         Djinn.log_warn("Failed to reload TaskQueue workers for app #{app}")
       end
