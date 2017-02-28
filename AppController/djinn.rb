@@ -2586,10 +2586,10 @@ class Djinn
       end
     end
     Djinn.log_debug("We spawned VMs for these roles #{new_nodes_info}.")
-    Djinn.log_debug("We wil use the following nodes #{node_roles}.")
+    Djinn.log_debug("We will use the following nodes #{node_roles}.")
 
-    # If we have an already running nodes with the same IP, we changes
-    # it's roles list.
+    # If we have an already running node with the same IP, we change it's
+    # roles list.
     new_nodes_info << node_roles unless node_roles.empty?
     @state_change_lock.synchronize {
       @nodes.each { |node|
@@ -2809,8 +2809,10 @@ class Djinn
   end
 
   def get_shadow()
-    @nodes.each { |node|
-      return node if node.is_shadow?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        return node if node.is_shadow?
+      }
     }
 
     @state = "No shadow nodes found."
@@ -2818,8 +2820,10 @@ class Djinn
   end
 
   def get_db_master()
-    @nodes.each { |node|
-      return node if node.is_db_master?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        return node if node.is_db_master?
+      }
     }
 
     @state = "No DB master nodes found."
@@ -2828,17 +2832,21 @@ class Djinn
 
   def get_all_appengine_nodes()
     ae_nodes = []
-    @nodes.each { |node|
-      if node.is_appengine?
-        ae_nodes << node.private_ip
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.is_appengine?
+          ae_nodes << node.private_ip
+        end
+      }
     }
     return ae_nodes
   end
 
   def get_load_balancer()
-    @nodes.each { |node|
-      return node if node.is_load_balancer?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        return node if node.is_load_balancer?
+      }
     }
 
     @state = "No load balancer nodes found."
@@ -2872,11 +2880,13 @@ class Djinn
       local_log_dir = "#{Dir.tmpdir}/#{uuid}"
       remote_log_dir = "/var/log/appscale"
       FileUtils.mkdir_p(local_log_dir)
-      @nodes.each { |node|
-        this_nodes_logs = "#{local_log_dir}/#{node.private_ip}"
-        FileUtils.mkdir_p(this_nodes_logs)
-        Djinn.log_run("scp -r -i #{node.ssh_key} -o StrictHostkeyChecking=no " +
-          "2>&1 root@#{node.private_ip}:#{remote_log_dir} #{this_nodes_logs}")
+      @state_change_lock.synchronize {
+        @nodes.each { |node|
+          this_nodes_logs = "#{local_log_dir}/#{node.private_ip}"
+          FileUtils.mkdir_p(this_nodes_logs)
+          Djinn.log_run("scp -r -i #{node.ssh_key} -o StrictHostkeyChecking=no " +
+            "2>&1 root@#{node.private_ip}:#{remote_log_dir} #{this_nodes_logs}")
+        }
       }
 
       # Next, tar.gz it up in the dashboard app so that users can download it.
@@ -2985,10 +2995,12 @@ class Djinn
   # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
   def configure_uaserver()
     all_db_private_ips = []
-    @nodes.each { | node |
-      if node.is_db_master? or node.is_db_slave?
-        all_db_private_ips.push(node.private_ip)
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { | node |
+        if node.is_db_master? or node.is_db_slave?
+          all_db_private_ips.push(node.private_ip)
+        end
+      }
     }
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
@@ -2997,10 +3009,12 @@ class Djinn
 
   def configure_db_nginx()
     all_db_private_ips = []
-    @nodes.each { | node |
-      if node.is_db_master? or node.is_db_slave?
-        all_db_private_ips.push(node.private_ip)
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { | node |
+        if node.is_db_master? or node.is_db_slave?
+          all_db_private_ips.push(node.private_ip)
+        end
+      }
     }
     Nginx.create_datastore_server_config(all_db_private_ips, DatastoreServer::PROXY_PORT)
   end
@@ -3008,10 +3022,12 @@ class Djinn
   # Creates HAProxy configuration for the TaskQueue REST API.
   def configure_tq_routing()
     all_tq_ips = []
-    @nodes.each { | node |
-      if node.is_taskqueue_master? || node.is_taskqueue_slave?
-        all_tq_ips.push(node.private_ip)
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { | node |
+        if node.is_taskqueue_master? || node.is_taskqueue_slave?
+          all_tq_ips.push(node.private_ip)
+        end
+      }
     }
     HAProxy.create_tq_endpoint_config(all_tq_ips, my_node.private_ip,
                                       TaskQueue::HAPROXY_REST_PORT)
@@ -3053,7 +3069,9 @@ class Djinn
       local_state = {'@@secret' => @@secret }
       DEPLOYMENT_STATE.each { |var|
         if var == "@nodes"
-          v = Djinn.convert_location_class_to_json(@nodes)
+          @state_change_lock.synchronize {
+            v = Djinn.convert_location_class_to_json(@nodes)
+          }
         else
           v = instance_variable_get(var)
         end
@@ -3135,7 +3153,9 @@ class Djinn
       json_state.each { |k, v|
         next if k == "@@secret"
         v = Djinn.convert_location_array_to_class(JSON.load(v), keyname) if k == "@nodes"
-        instance_variable_set(k, v) if DEPLOYMENT_STATE.include?(k)
+        @state_change_lock.synchronize {
+          instance_variable_set(k, v) if DEPLOYMENT_STATE.include?(k)
+        }
       }
 
       # Check to see if our IP address has changed. If so, we need to update all
@@ -3188,14 +3208,16 @@ class Djinn
     old_public_ip = @my_public_ip
     old_private_ip = @my_private_ip
 
-    @nodes.each { |node|
-      if node.public_ip == old_public_ip
-        node.public_ip = new_public_ip
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.public_ip == old_public_ip
+          node.public_ip = new_public_ip
+        end
 
-      if node.private_ip == old_private_ip
-        node.private_ip = new_private_ip
-      end
+        if node.private_ip == old_private_ip
+          node.private_ip = new_private_ip
+        end
+      }
     }
 
     if @options['login'] == old_public_ip
@@ -3251,12 +3273,14 @@ class Djinn
       'locations' => []
     }
 
-    @nodes.each { |node|
-      if node.is_zookeeper?
-        unless zookeeper_data['locations'].include? node.private_ip
-          zookeeper_data['locations'] << node.private_ip
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.is_zookeeper?
+          unless zookeeper_data['locations'].include? node.private_ip
+            zookeeper_data['locations'] << node.private_ip
+          end
         end
-      end
+      }
     }
 
     # Let's see if it changed since last time we got the list.
@@ -3438,13 +3462,13 @@ class Djinn
   def remove_node_from_local_and_zookeeper(ip)
     # First, remove our local copy
     index_to_remove = nil
-    @nodes.each_index { |i|
-      if @nodes[i].private_ip == ip
-        index_to_remove = i
-        break
-      end
-    }
     @state_change_lock.synchronize {
+      @nodes.each_index { |i|
+        if @nodes[i].private_ip == ip
+          index_to_remove = i
+          break
+        end
+      }
       @nodes.delete(@nodes[index_to_remove])
     }
 
@@ -3512,30 +3536,34 @@ class Djinn
       "#{all_local_ips.join(', ')}")
     Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
 
-    @nodes.each_with_index { |node, index|
-      all_local_ips.each { |ip|
-        if ip == node.private_ip
-          @my_index = index
-          HelperFunctions.set_local_ip(node.private_ip)
-          @my_public_ip = node.public_ip
-          @my_private_ip = node.private_ip
-          return
-        end
+    @state_change_lock.synchronize {
+      @nodes.each_with_index { |node, index|
+        all_local_ips.each { |ip|
+          if ip == node.private_ip
+            @my_index = index
+            HelperFunctions.set_local_ip(node.private_ip)
+            @my_public_ip = node.public_ip
+            @my_private_ip = node.private_ip
+            return
+          end
+        }
       }
     }
 
     # We haven't found our ip in the nodes layout: let's try to give
     # better debugging info to the user.
     public_ip = HelperFunctions.get_public_ip_from_metadata_service()
-    @nodes.each { |node|
-      if node.private_ip == public_ip
-        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
-            "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
-      end
-      if node.public_ip == public_ip
-        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
-            "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.private_ip == public_ip
+          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
+              "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
+        end
+        if node.public_ip == public_ip
+          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
+              "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+        end
+      }
     }
 
     HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " +
@@ -3578,14 +3606,18 @@ class Djinn
 
     if my_node.is_db_master? or my_node.is_db_slave?
       db_master = nil
-      @nodes.each { |node|
-        db_master = node.private_ip if node.jobs.include?('db_master')
+      @state_change_lock.synchronize {
+        @nodes.each { |node|
+          db_master = node.private_ip if node.jobs.include?('db_master')
+        }
       }
       setup_db_config_files(db_master)
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
-        db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
+        @state_change_lock.synchronize {
+          db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
+        }
         needed_nodes = needed_for_quorum(db_nodes,
                                          Integer(@options['replication']))
         if my_node.is_db_master?
@@ -3826,8 +3858,10 @@ class Djinn
   def start_taskqueue_slave()
     # All slaves connect to the master to start
     master_ip = nil
-    @nodes.each { |node|
-      master_ip = node.private_ip if node.is_taskqueue_master?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        master_ip = node.private_ip if node.is_taskqueue_master?
+      }
     }
 
     verbose = @options['verbose'].downcase == "true"
@@ -3874,8 +3908,10 @@ class Djinn
 
   def start_soap_server()
     db_master_ip = nil
-    @nodes.each { |node|
-      db_master_ip = node.private_ip if node.is_db_master?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        db_master_ip = node.private_ip if node.is_db_master?
+      }
     }
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
@@ -3907,8 +3943,10 @@ class Djinn
   def start_datastore_server
     db_master_ip = nil
     verbose = @options['verbose'].downcase == 'true'
-    @nodes.each { |node|
-      db_master_ip = node.private_ip if node.is_db_master?
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        db_master_ip = node.private_ip if node.is_db_master?
+      }
     }
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
@@ -4247,24 +4285,26 @@ class Djinn
     login_ips = @options['login'].split(/[\s,]+/)
     master_ips = []
     memcache_ips = []
-    num_of_nodes = @nodes.length.to_s
     search_ips = []
     slave_ips = []
     taskqueue_ips = []
-
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
     # Populate the appropriate list.
-    @nodes.each { |node|
-      all_ips << node.private_ip
-      load_balancer_ips << node.private_ip if node.is_load_balancer?
-      master_ips << node.private_ip if node.is_db_master?
-      memcache_ips << node.private_ip if node.is_memcache?
-      search_ips << node.private_ip if node.is_search?
-      slave_ips << node.private_ip if node.is_db_slave?
-      taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
-        node.is_taskqueue_slave?
+    @state_change_lock.synchronize {
+    num_of_nodes = @nodes.length.to_s
+
+      @nodes.each { |node|
+        all_ips << node.private_ip
+        load_balancer_ips << node.private_ip if node.is_load_balancer?
+        master_ips << node.private_ip if node.is_db_master?
+        memcache_ips << node.private_ip if node.is_memcache?
+        search_ips << node.private_ip if node.is_search?
+        slave_ips << node.private_ip if node.is_db_slave?
+        taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
+          node.is_taskqueue_slave?
+      }
     }
     slave_ips << master_ips[0] if slave_ips.empty?
 
@@ -4350,8 +4390,10 @@ class Djinn
     end
 
     all_nodes = ""
-    @nodes.each_with_index { |node, index|
-      all_nodes << "#{node.private_ip} appscale-image#{index}\n"
+    @state_change_lock.synchronize {
+      @nodes.each_with_index { |node, index|
+        all_nodes << "#{node.private_ip} appscale-image#{index}\n"
+      }
     }
 
     new_etc_hosts = <<HOSTS
@@ -5368,7 +5410,7 @@ HOSTS
       }
     end
 
-    # Check if we need to spawn VMs and the InfrartructureManager is
+    # Check if we need to spawn VMs and the InfrastructureManager is
     # available to do so.
     return unless vms_to_spawn > 0
     if SCALE_LOCK.locked?
@@ -5387,12 +5429,14 @@ HOSTS
           return
         end
 
-        allowed_vms = Integer(@options['max_images']) - @nodes.length
-        if allowed_vms < vms_to_spawn
-          Djinn.log_warn("Requested #{vms_to_spawn} VMs, but we can only" +
-            " start #{allowed_vms}, so not spawning more nodes.")
-          return
-        end
+        @state_change_lock.synchronize {
+          allowed_vms = Integer(@options['max_images']) - @nodes.length
+          if allowed_vms < vms_to_spawn
+            Djinn.log_warn("Requested #{vms_to_spawn} VMs, but we can only" +
+              " start #{allowed_vms}, so not spawning more nodes.")
+            return
+          end
+        }
 
         result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
         if result != "OK"
@@ -6002,12 +6046,14 @@ HOSTS
 
     # Finally, find a node to remove and remove it.
     node_to_remove = nil
-    @nodes.each { |node|
-      if node.jobs == ["appengine"]
-        Djinn.log_info("Removing node #{node}")
-        node_to_remove = node
-        break
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.jobs == ["appengine"]
+          Djinn.log_info("Removing node #{node}")
+          node_to_remove = node
+          break
+        end
+      }
     }
 
     if node_to_remove.nil?
