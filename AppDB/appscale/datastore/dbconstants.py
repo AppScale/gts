@@ -9,7 +9,7 @@ ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
 
 # The datastore's default HTTP port.
-DEFAULT_PORT = 4080
+DEFAULT_PORT = 4000
 
 # The lowest character to separate different fields in a row key.
 KEY_DELIMITER = '\x00'
