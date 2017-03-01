@@ -738,11 +738,4 @@ def main():
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)
 
-  while 1:
-    try:
-      # Start Server #
-      tornado.ioloop.IOLoop.instance().start()
-    except KeyboardInterrupt:
-      print "Server interrupted by user, terminating..."
-      zookeeper.close()
-      sys.exit(1)
+  tornado.ioloop.IOLoop.current().start()
