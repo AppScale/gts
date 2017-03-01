@@ -213,6 +213,7 @@ class Djinn
   #      ...
   #    ],
   #    "memory => {
+  #      "total" => 12365412865,
   #      "available" => 6472179712,
   #      "used" => 8186245120
   #    },
@@ -225,15 +226,24 @@ class Djinn
   #      "cassandra" => "Running",
   #      ...
   #    },
+  #    "loadavg": {
+  #      "last_1_min" => 1.35,
+  #      "last_5_min" => 0.67,
+  #      "last_15_min" => 0.89,
+  #      "runnable_entities" => 3,
+  #      "scheduling_entities" => 687,
+  #      "newest_pid" => 15326
+  #    },
   #    # Node information provided by AppController itself
   #    "apps" => {
   #      # This hash is empty for non-shadow nodes
   #      "language" => "python",
   #      "appservers" => 4,
   #      "pending_appservers" => 2,
-  #      "http" => "192.168.33.10:8080",
-  #      "https" => "192.168.33.10:4380",
-  #      "reqs_enqueued" => 15
+  #      "http" => 8080,
+  #      "https" => 4380,
+  #      "reqs_enqueued" => 15,
+  #      "total_reqs" => 6513
   #    },
   #    "cloud" => False,
   #    "state" => "Done starting up AppScale, now in heartbeat mode",
@@ -1259,7 +1269,7 @@ class Djinn
   def update_node_info_cache()
     new_stats = []
 
-    #Thread.new {
+    Thread.new {
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
@@ -1277,7 +1287,7 @@ class Djinn
         new_stats << node_stats
       }
       @cluster_stats = new_stats
-    #}
+    }
   end
 
 
@@ -4838,7 +4848,9 @@ HOSTS
           'min_appengines' => 3
         }
       end
-      @app_names << AppDashboard::APP_NAME
+      if @app_names.include? AppDashboard::APP_NAME
+        @app_names << AppDashboard::APP_NAME
+      end
     }
   end
 
@@ -5566,13 +5578,10 @@ HOSTS
     # node can run another AppServer.
     get_all_appengine_nodes.each { |host|
       @cluster_stats.each { |node|
-	# TODO UPDATE IT TO USE NEW NODE STATS
         next if node['private_ip'] != host
 
-        # TODO: this is a temporary fix waiting for when we phase in
-        # get_node_stats. Since we don't have the total memory, we
-        # reconstruct it here.
-        total = (Float(node['free_memory'])*100)/(100-Float(node['memory']))
+	    # Convert total memory to MB
+        total = node['memory']['total']/1024/1024
 
         # Check how many new AppServers of this app, we can run on this
         # node (as theoretical maximum memory usage goes).
@@ -5583,17 +5592,17 @@ HOSTS
         break if max_new_total <= 0
 
         # Now we do a similar calculation but for the current amount of
-        # free memory on this node.
-        host_free_mem = Integer(node['free_memory'])
-        max_new_free = Integer((host_free_mem - SAFE_MEM) / max_app_mem)
+        # available memory on this node. First convert bytes to MB
+        host_available_mem = node['memory']['available']/1024/1024
+        max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
           " AppServers for #{app_name}.")
         break if max_new_free <= 0
 
         # The host needs to have normalized average load less than
         # MAX_LOAD_AVG, current CPU usage less than 90%.
-        if Float(node['cpu']) > MAX_CPU_FOR_APPSERVERS ||
-            Float(node['load']) / Float(node['num_cpu']) > MAX_LOAD_AVG
+        if Float(node['cpu']['idle']) < (100 - MAX_CPU_FOR_APPSERVERS) ||
+            Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
           Djinn.log_debug("#{host} CPUs are too busy.")
           break
         end

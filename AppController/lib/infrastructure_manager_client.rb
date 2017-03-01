@@ -67,6 +67,7 @@ class InfrastructureManagerClient
     @conn.add_method("get_memory_usage", "secret")
     @conn.add_method("get_service_summary", "secret")
     @conn.add_method("get_swap_usage", "secret")
+    @conn.add_method("get_loadavg", "secret")
   end
   
 
@@ -278,10 +279,14 @@ class InfrastructureManagerClient
     swap_usage = JSON.parse(@conn.get_swap_usage(@secret))
     Djinn.log_debug("Swap usage: #{swap_usage}")
 
+    loadavg = JSON.parse(@conn.get_loadavg(@secret))
+    Djinn.log_debug("Loadavg: #{loadavg}")
+
     all_stats = cpu_usage
     all_stats = all_stats.merge(disk_usage)
     all_stats = all_stats.merge(memory_usage)
     all_stats = all_stats.merge(swap_usage)
+    all_stats = all_stats.merge(loadavg)
 
     # Service summary is a flat dictionary, while the rest contain nested
     # dictionaries.
