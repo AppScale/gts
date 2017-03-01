@@ -58,7 +58,7 @@ module DatastoreServer
   
     ports.each { |port|
       start_cmd = "/usr/bin/python2 #{datastore_server} -p #{port} " +
-          "--no_encryption --type #{table}"
+          "--type #{table}"
       start_cmd << ' --verbose' if verbose
       stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
             "#{datastore_server} #{port}"

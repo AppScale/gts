@@ -16,7 +16,6 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-from M2Crypto import SSL
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
@@ -725,8 +724,7 @@ def main():
 
   db_info = appscale_info.get_db_info()
   db_type = db_info[':table']
-  port = dbconstants.DEFAULT_SSL_PORT
-  is_encrypted = True
+  port = dbconstants.DEFAULT_PORT
   verbose = False
 
   argv = sys.argv[1:]
@@ -743,8 +741,6 @@ def main():
       print "Datastore type: ", db_type
     elif opt in ("-p", "--port"):
       port = int(arg)
-    elif opt in ("-n", "--no_encryption"):
-      is_encrypted = False
     elif opt in ("-v", "--verbose"):
       verbose = True
 
@@ -764,8 +760,6 @@ def main():
 
   datastore_access = DatastoreDistributed(
     datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
-  if port == dbconstants.DEFAULT_SSL_PORT and not is_encrypted:
-    port = dbconstants.DEFAULT_PORT
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
@@ -774,10 +768,6 @@ def main():
     try:
       # Start Server #
       tornado.ioloop.IOLoop.instance().start()
-    except SSL.SSLError:
-      # This happens when connections timeout, there is a just a bad
-      # SSL connection such as it does not use SSL when expected. 
-      pass
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
       zookeeper.close()
