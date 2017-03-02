@@ -135,20 +135,6 @@ class AppControllerClient():
       self.secret))
 
 
-  def get_api_status(self):
-    """Queries the AppController to see what the status of Google App Engine
-    APIs are in this AppScale deployment, reported to it by the API Checker.
-
-    APIs can be either 'running', 'failed', or 'unknown' (which typically
-    occurs when AppScale is first starting up).
-
-    Returns:
-      A dict that maps each API name (a str) to its status (also a str).
-    """
-    return json.loads(self.call(self.MAX_RETRIES, self.server.get_api_status,
-      self.secret))
-
-
   def get_database_information(self):
     """Queries the AppController to see what database is being used to implement
     support for the Google App Engine Datastore API, and how many replicas are

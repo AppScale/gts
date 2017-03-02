@@ -50,10 +50,12 @@ class FunctionalTestAppDashboard(unittest.TestCase):
         },
         "disk": [
           # For each partition
-          {"free": 15482871808,
+          {"total": 30965743616,
+           "free": 15482871808,
            "used": 15482871808},
-          {"free": 3654891235,
-            "used": 3654891235},
+          {"total": 7309782470,
+           "free": 3654891235,
+           "used": 3654891235},
         ],
         "memory": {
           "total": 12365412865,
@@ -61,6 +63,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
           "used": 8186245120
         },
         "swap": {
+          "total": 2097147904,
           "free": 1210527744,
           "used": 886620160
         },
@@ -143,9 +146,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
      )
     acc.should_receive('get_database_information').and_return(
       {'table':'fake_database', 'replication':1}
-      )
-    acc.should_receive('get_api_status').and_return(
-      {'api1':'running', 'api2':'failed', 'api3':'unknown'}
       )
     acc.should_receive('upload_tgz').and_return('true')
     acc.should_receive('stop_app').and_return('true')

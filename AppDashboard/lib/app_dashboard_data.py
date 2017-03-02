@@ -389,7 +389,7 @@ class AppDashboardData():
         #TODO: instead of totals display disk usage per disk?
         for disk in node['disk']:
           for _, disk_info in disk.iteritems():
-            total_disk += disk_info['free'] + disk_info['used']
+            total_disk += disk_info['total']
             total_used += disk_info['used']
         disk_usage = round(100.0 * total_used / total_disk, 1)
         if status:

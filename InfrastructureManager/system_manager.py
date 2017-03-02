@@ -18,11 +18,11 @@ class JSONTags(object):
   COUNT = "count"
   # Disk related JSON tags.
   DISK = "disk"
+  TOTAL = "total"
   FREE = "free"
   USED = "used"
   # Memory related JSON tags.
   MEMORY = "memory"
-  TOTAL = "total"
   AVAILABLE = "available"
   # SWAP related JSON tags.
   SWAP = "swap"
@@ -89,6 +89,7 @@ class SystemManager():
       if partition.mountpoint not in MOUNTPOINT_WHITELIST:
         continue
       inner_disk_stats_dict.append({ partition.mountpoint : {
+        JSONTags.TOTAL : disk_stats.total,
         JSONTags.FREE : disk_stats.free,
         JSONTags.USED : disk_stats.used
       }})

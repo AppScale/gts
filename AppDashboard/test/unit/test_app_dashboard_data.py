@@ -191,22 +191,25 @@ class TestAppDashboardData(unittest.TestCase):
             "user": 10.5,
             "count": 2,
           },
-          "disk": [
-            # For each partition
-            {"free": 15482871808,
-             "used": 15482871808},
-            {"free": 3654891235,
-              "used": 3654891235},
-          ],
-          "memory": {
-            "total": 12365412865,
-            "available": 6472179712,
-            "used": 8186245120
-          },
-          "swap": {
-            "free": 1210527744,
-            "used": 886620160
-          },
+        "disk": [
+          # For each partition
+          {"total": 30965743616,
+           "free": 15482871808,
+           "used": 15482871808},
+          {"total": 7309782470,
+           "free": 3654891235,
+           "used": 3654891235},
+        ],
+        "memory": {
+          "total": 12365412865,
+          "available": 6472179712,
+          "used": 8186245120
+        },
+        "swap": {
+          "total": 2097147904,
+          "free": 1210527744,
+          "used": 886620160
+        },
           "services": {
             # For each Process monitored by monit
             "cassandra": "Running",

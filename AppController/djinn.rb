@@ -207,8 +207,11 @@ class Djinn
   #    "disk" => [
   #      # For each partition
   #      {
-  #        "free" => 15482871808,
-  #        "used" => 12359954836
+  #        "/": {
+  #          "total" => 30965743616,
+  #          "free" => 15482871808,
+  #          "used" => 15482871808
+  #        }
   #      },
   #      ...
   #    ],
@@ -218,6 +221,7 @@ class Djinn
   #      "used" => 8186245120
   #    },
   #    "swap" => {
+  #      "total" => 2097147904,
   #      "free" => 1210527744,
   #      "used" => 886620160
   #    },
@@ -237,13 +241,16 @@ class Djinn
   #    # Node information provided by AppController itself
   #    "apps" => {
   #      # This hash is empty for non-shadow nodes
-  #      "language" => "python",
-  #      "appservers" => 4,
-  #      "pending_appservers" => 2,
-  #      "http" => 8080,
-  #      "https" => 4380,
-  #      "reqs_enqueued" => 15,
-  #      "total_reqs" => 6513
+  #      "my_app" => {
+  #        "language" => "python",
+  #        "appservers" => 4,
+  #        "pending_appservers" => 2,
+  #        "http" => 8080,
+  #        "https" => 4380,
+  #        "reqs_enqueued" => 15,
+  #        "total_reqs" => 6513
+  #      },
+  #      ...
   #    },
   #    "cloud" => False,
   #    "state" => "Done starting up AppScale, now in heartbeat mode",
