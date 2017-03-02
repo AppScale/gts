@@ -179,18 +179,107 @@ class TestAppDashboardData(unittest.TestCase):
     self.setupServerStatusMocks()
     self.setupFakePutsAndDeletes()
     fake_get_appcontroller_client = flexmock()
-    fake_get_appcontroller_client.should_receive('get_stats') \
+    fake_get_appcontroller_client.should_receive('get_cluster_stats') \
       .and_return([
-        {'ip' : '1.1.1.1',
-         'cpu' : '50',
-         'memory' : '50',
-         'disk' : '50',
-         'roles' : 'roles1'},
-        {'ip' : '2.2.2.2',
-         'cpu' : '50',
-         'memory' : '50',
-         'disk' : '50',
-         'roles' : 'roles1'}
+      # TODO make up example of cluster stats
+      # TODO and make sure that this change doesn't break tests
+        {
+          # System stats provided by infrastucture manager
+          "cpu": {
+            "idle": 50.0,
+            "system": 28.2,
+            "user": 10.5,
+            "count": 2,
+          },
+          "disk": [
+            # For each partition
+            {"free": 15482871808,
+             "used": 15482871808},
+            {"free": 3654891235,
+              "used": 3654891235},
+          ],
+          "memory": {
+            "total": 12365412865,
+            "available": 6472179712,
+            "used": 8186245120
+          },
+          "swap": {
+            "free": 1210527744,
+            "used": 886620160
+          },
+          "services": {
+            # For each Process monitored by monit
+            "cassandra": "Running",
+          },
+          "loadavg": {
+             "last_1_min": 0.08,
+             "last_5_min": 0.27,
+             "last_15_min": 0.33,
+             "runnable_entities": 3,
+             "scheduling_entities": 383,
+             "newest_pid": 31598
+          },
+          # Node information provided by AppController itself
+          "apps": {
+            # This hash is empty for non-shadow nodes
+            "language": "python",
+            "appservers": 4,
+            "pending_appservers": 2,
+            "http": 8080,
+            "https": 4380,
+            "reqs_enqueued": 15,
+            "total_reqs": 6513
+          },
+          "cloud": "cloud1",
+          "state": "Done starting up AppScale, now in heartbeat mode",
+          "db_location": "192.168.33.10",
+          "public_ip": "1.1.1.1",
+          "private_ip": "10.10.105.18",
+          "roles": ["shadow", "zookeeper", "datastore", "taskqueue"],
+        },
+        {
+          # System stats provided by infrastucture manager
+          "cpu": {
+            "idle": 50.0,
+            "system": 28.2,
+            "user": 10.5,
+            "count": 2,
+          },
+          "disk": [
+            # For each partition
+            {"free": 15482871808,
+             "used": 15482871808}
+          ],
+          "memory": {
+            "total": 12365412865,
+            "available": 6472179712,
+            "used": 8186245120
+          },
+          "swap": {
+            "free": 0,
+            "used": 0
+          },
+          "services": {
+            # For each Process monitored by monit
+            # TODO
+          },
+          "loadavg": {
+             "last_1_min": 0.08,
+             "last_5_min": 0.27,
+             "last_15_min": 0.33,
+             "runnable_entities": 3,
+             "scheduling_entities": 383,
+             "newest_pid": 31598
+          },
+          # Node information provided by AppController itself
+          "apps": {},
+          "cloud": "cloud1",
+          "state": "Done starting up AppScale, now in heartbeat mode",
+          "db_location": "192.168.33.10",
+          "public_ip": "2.2.2.2",
+          "private_ip": "10.10.105.19",
+          "roles": ["appengine"],
+        }
       ])
     flexmock(AppDashboardHelper).should_receive('get_appcontroller_client') \
       .and_return(fake_get_appcontroller_client).once()
@@ -241,6 +330,7 @@ class TestAppDashboardData(unittest.TestCase):
   def test_update_application_info_no_apps(self):
     flexmock(AppDashboardHelper).should_receive('get_status_info')\
       .and_return([{
+        # TODO returned value should be updated
         'apps' : { 'none' :  False }
       }]).once()
     flexmock(AppDashboardHelper).should_receive('get_login_host')\
@@ -258,6 +348,7 @@ class TestAppDashboardData(unittest.TestCase):
   def test_update_application_info_two_apps(self):
     flexmock(AppDashboardHelper).should_receive('get_status_info')\
       .and_return([{
+        # TODO returned value should be updated
         'apps' : { 'app1' : True, 'app2' : False }
       }]).once()
     flexmock(AppDashboardHelper).should_receive('get_login_host')\

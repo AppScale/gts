@@ -382,9 +382,8 @@ class AppDashboardData():
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['public_ip'])
         cpu_usage = 100.0 - node['cpu']['idle']
-        total_memory = node['memory']['available'] + node['memory']['used']
         memory_usage = round(100.0 * node['memory']['used'] /
-                             total_memory, 1)
+                             node['memory']['total'], 1)
         total_disk = 0
         total_used = 0
         #TODO: instead of totals display disk usage per disk?
@@ -533,6 +532,9 @@ class AppDashboardData():
     """
     try:
       status_on_all_nodes = self.helper.get_status_info()
+      # TODO The whole method should be updated to use new cluster_stats format
+      # TODO Possible AppController need to be changed to provide info about
+      # TODO not loaded apps. Some helper methods of dashboard can be removed
       app_names_and_urls = {}
 
       if not status_on_all_nodes:
