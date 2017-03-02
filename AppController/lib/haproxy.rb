@@ -156,10 +156,12 @@ module HAProxy
   end
 
   # Create the config file for TaskQueue servers.
-  def self.create_tq_server_config(my_ip, listen_port)
+  def self.create_tq_server_config(server_ips, my_ip, listen_port)
     servers = []
-    TaskQueue.get_server_ports().each { |port|
-      servers << {'ip' => my_ip, 'port' => port}
+    server_ips.each{ |server|
+      TaskQueue.get_server_ports().each { |port|
+        servers << {'ip' => server, 'port' => port}
+      }
     }
     self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
   end

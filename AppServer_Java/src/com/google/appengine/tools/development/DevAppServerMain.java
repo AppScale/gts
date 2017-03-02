@@ -34,9 +34,9 @@ public class DevAppServerMain
     public static final String  GENERATED_WAR_DIR_ARG                 = "generated_war_dir";
     private static final String DEFAULT_RDBMS_PROPERTIES_FILE         = ".local.rdbms.properties";
     private static final String RDBMS_PROPERTIES_FILE_SYSTEM_PROPERTY = "rdbms.properties.file";
-    
+
     private static final String SYSTEM_PROPERTY_STATIC_MODULE_PORT_NUM_PREFIX = "com.google.appengine.devappserver_module.";
-    
+
     private static String       originalTimeZone;
     private final Action        ACTION                                = new StartAction();
 
@@ -232,9 +232,15 @@ public class DevAppServerMain
                     {
                         System.setProperty("NGINX_PORT", getNginxPort());
                     }
+                }, new DevAppServerOption(main, null, "TQ_PROXY", false)
+                {
+                    public void apply()
+                    {
+                        System.setProperty("TQ_PROXY", getValue());
+                    }
                 } });
     }
-    
+
     private static void processInstancePorts(List<String> optionValues) {
       for (String optionValue : optionValues) {
         String[] keyAndValue = optionValue.split("=", 2);

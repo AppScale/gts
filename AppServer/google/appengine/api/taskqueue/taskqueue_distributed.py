@@ -75,7 +75,7 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 # The location the SSL private key is placed for encrypted communication.
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
-TASKQUEUE_LOCATION_FILE = "/etc/appscale/taskqueue_nodes"
+TASKQUEUE_PROXY_FILE = "/etc/appscale/head_node_private_ip"
 TASKQUEUE_SERVER_PORT = 17446
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
@@ -99,22 +99,19 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self.__nginx_host = host
     self.__nginx_port = port
 
-  def _GetTQLocations(self):
-    """ Gets a list of AppScale TaskQueue servers. """
-    if os.path.exists(TASKQUEUE_LOCATION_FILE):
+  def _GetTQLocation(self):
+    """ Gets an active TaskQueue proxy. """
+    if os.path.exists(TASKQUEUE_PROXY_FILE):
       try:
-        with open(TASKQUEUE_LOCATION_FILE) as tq_file:
-          ips = [ip for ip in tq_file.read().split('\n') if ip]
+        with open(TASKQUEUE_PROXY_FILE) as tq_file:
+          return "{ip}:{port}".format(ip=tq_file.read().split('\n')[0],
+                                      port=TASKQUEUE_SERVER_PORT)
       except IOError:
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
     else:
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
-
-    locations = ["{ip}:{port}".format(ip=ip, port=TASKQUEUE_SERVER_PORT)
-                 for ip in ips]
-    return locations
 
   def _ChooseTaskName(self, app_name, queue_name, user_chosen=None):
     """ Creates a task name that the system can use to address
@@ -426,23 +423,19 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     api_request.set_service_name("taskqueue")
     api_request.set_request(request.Encode())
 
-    tq_locations = self._GetTQLocations()
-    for index, tq_location in enumerate(tq_locations):
-      api_response = remote_api_pb.Response()
-      api_response = api_request.sendCommand(tq_location,
-        tag,
-        api_response,
-        1,
-        False,
-        KEY_LOCATION,
-        CERT_LOCATION)
+    tq_location = self._GetTQLocation()
+    api_response = remote_api_pb.Response()
+    api_response = api_request.sendCommand(tq_location,
+      tag,
+      api_response,
+      1,
+      False,
+      KEY_LOCATION,
+      CERT_LOCATION)
 
-      if not api_response or not api_response.has_response():
-        if index >= len(tq_locations) - 1:
-          raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
-      else:
-        break
+    if not api_response or not api_response.has_response():
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
     if api_response.has_application_error():
       error_pb = api_response.application_error()
