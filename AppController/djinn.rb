@@ -2529,27 +2529,30 @@ class Djinn
           # Convert (or check) if we have an IP address or we have a node
           # we need to start, then we add this role to the node.
           ip = HelperFunctions.convert_fqdn_to_ip(ip_or_node)
-          found = false
-          node_roles.each { |node|
-            if node['private_ip'] == ip
-              node.jobs << role
-              found = true
-              break
-            end
-          }
-          unless found
-            node_roles << {
-              "public_ip" => ip,
-              "private_ip" => ip,
-              "jobs" => role,
-              "disk" => nil
-            }
-          end
         rescue AppScaleException
           # We assume here that we need to create the VM (that is the user
           # specified node-#).
           new_nodes_roles[ip_or_node] = [] unless new_nodes_roles[ip_or_node]
           new_nodes_roles[ip_or_node] << role
+          next
+        end
+
+        # Save the roles we want for this specific IP.
+        found = false
+        node_roles.each { |node|
+          if node['private_ip'] == ip
+            node.jobs << role
+            found = true
+            break
+          end
+        }
+        unless found
+          node_roles << {
+            "public_ip" => ip,
+            "private_ip" => ip,
+            "jobs" => role,
+            "disk" => nil
+          }
         end
       }
     }
@@ -3068,6 +3071,7 @@ class Djinn
     APPS_LOCK.synchronize {
       local_state = {'@@secret' => @@secret }
       DEPLOYMENT_STATE.each { |var|
+        v = nil
         if var == "@nodes"
           @state_change_lock.synchronize {
             v = Djinn.convert_location_class_to_json(@nodes)
@@ -3615,6 +3619,7 @@ class Djinn
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
+        db_nodes = nil
         @state_change_lock.synchronize {
           db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
         }
@@ -4292,9 +4297,9 @@ class Djinn
     my_private = my_node.private_ip
 
     # Populate the appropriate list.
+    num_nodes = 0
     @state_change_lock.synchronize {
-    num_of_nodes = @nodes.length.to_s
-
+      num_of_nodes = @nodes.length.to_s
       @nodes.each { |node|
         all_ips << node.private_ip
         load_balancer_ips << node.private_ip if node.is_load_balancer?
