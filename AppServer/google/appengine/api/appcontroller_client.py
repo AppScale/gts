@@ -6,6 +6,7 @@ import json
 import socket
 import ssl
 import sys
+import yaml
 
 
 # Third-party imports
@@ -221,8 +222,9 @@ class AppControllerClient():
       A list of dicts, where each dict contains server-level statistics (e.g.,
         CPU, memory, disk usage) about one machine.
     """
-    return json.loads(self.call(self.MAX_RETRIES, self.server.get_cluster_stats_json,
-      self.secret))
+    return yaml.safe_load(self.call(self.MAX_RETRIES,
+                                    self.server.get_cluster_stats_json,
+                                    self.secret))
 
   def get_application_cron_info(self, app_id):
     """Queries the AppController to get application cron info (from cron.yaml and /etc/cron.d/).
