@@ -143,14 +143,16 @@ module HAProxy
   end
 
   # Create the config file for Datastore Server.
-  def self.create_datastore_server_config(my_ip, listen_port, table)
+  def self.create_datastore_server_config(server_ips, my_ip, listen_port)
     # For the Datastore servers we have a list of local ports the servers
     # are listening to, and we need to create the list of local IPs.
     servers = []
-    DatastoreServer.get_server_ports().each { |port|
-      servers << {'ip' => my_ip, 'port' => port}
+    server_ips.each{ |server|
+      DatastoreServer.get_server_ports().each { |port|
+        servers << {'ip' => server, 'port' => port}
+      }
     }
-    self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+    self.create_app_config(servers, '*', listen_port, DatastoreServer::NAME)
   end
 
   # Create the config file for TaskQueue servers.
