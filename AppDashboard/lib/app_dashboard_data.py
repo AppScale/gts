@@ -383,9 +383,16 @@ class AppDashboardData():
         status = self.get_by_id(ServerStatus, node['public_ip'])
         cpu_usage = 100.0 - node['cpu']['idle']
         total_memory = node['memory']['available'] + node['memory']['used']
-        memory_usage = 100.0 * node['memory']['available'] / total_memory
-        total_disk = node['disk']['free'] + node['disk']['used']
-        disk_usage = 100.0 * node['disk']['free'] / total_disk
+        memory_usage = round(100.0 * node['memory']['used'] /
+                             total_memory, 1)
+        total_disk = 0
+        total_used = 0
+        #TODO: instead of totals display disk usage per disk?
+        for disk in node['disk']:
+          for _, disk_info in disk.iteritems():
+            total_disk += disk_info['free'] + disk_info['used']
+            total_used += disk_info['used']
+        disk_usage = round(100.0 * total_used / total_disk, 1)
         if status:
           # Make sure that at least one field changed before we decide to
           # update this ServerStatus.
