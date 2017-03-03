@@ -6276,6 +6276,8 @@ HOSTS
     else
       node_stats["db_location"] = NOT_UP_YET
     end
+    node_stats["is_initialized"] = @done_initializing
+    node_stats["is_loaded"] = @done_loading
     node_stats["public_ip"] = my_node.public_ip
     node_stats["private_ip"] = my_node.private_ip
     node_stats["roles"] = my_node.jobs or ["none"]
