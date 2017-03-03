@@ -1069,11 +1069,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
-
-    Djinn.log_debug("set_parameters: set @options to #{@options}.")
-    Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
-
     return "OK"
   end
 
@@ -3165,8 +3160,7 @@ class Djinn
       Djinn.log_debug("backup_appcontroller_state: no changes.")
       return
     end
-
-    Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
+    Djinn.log_debug("backup_appcontroller_state saved changed state.")
 
     begin
       ZKInterface.write_appcontroller_state(local_state)
@@ -4613,7 +4607,10 @@ HOSTS
   # local state.
   def mount_persistent_storage
     # If we don't have any disk to attach, we are done.
-    return unless my_node.disk
+    unless my_node.disk
+      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+      return
+    end
 
     imc = InfrastructureManagerClient.new(@@secret)
     begin
@@ -4657,7 +4654,6 @@ HOSTS
       Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT}" +
         " 2>&1")
     end
-
     Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
 
     # Finally, RabbitMQ expects data to be present at /var/lib/rabbitmq.
@@ -4669,7 +4665,6 @@ HOSTS
       Djinn.log_run("mv /var/lib/rabbitmq #{PERSISTENT_MOUNT_POINT}")
     end
     Djinn.log_run("ln -s #{PERSISTENT_MOUNT_POINT}/rabbitmq /var/lib/rabbitmq")
-    return
   end
 
   # This function performs basic setup ahead of starting the API services.
