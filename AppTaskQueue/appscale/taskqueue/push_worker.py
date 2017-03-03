@@ -1,3 +1,4 @@
+""" A Celery worker script that executes push tasks with HTTP requests. """
 import datetime
 import httplib
 import json
