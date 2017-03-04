@@ -70,6 +70,9 @@ EXPECTED_DATA_VERSION = 1.0
 # The metadata key for the data layout version.
 VERSION_INFO_KEY = 'version'
 
+# The metadata key used to indicate the state of the indexes.
+INDEX_STATE_KEY = 'index_state'
+
 # The metadata key indicating that the database has been primed.
 PRIMED_KEY = 'primed'
 
@@ -272,6 +275,12 @@ class ThriftColumn(object):
   KEY = 'key'
   COLUMN_NAME = 'column1'
   VALUE = 'value'
+
+
+class IndexStates(object):
+  """ Possible states for datastore indexes. """
+  CLEAN = 'clean'
+  SCRUB_IN_PROGRESS = 'scrub_in_progress'
 
 
 class DatastoreProxy(AppDBInterface):

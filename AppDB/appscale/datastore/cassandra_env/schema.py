@@ -12,6 +12,7 @@ from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
+from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
@@ -246,6 +247,12 @@ def prime_cassandra(replication):
     parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
                   'column': cassandra_interface.VERSION_INFO_KEY,
                   'value': bytearray(str(POST_JOURNAL_VERSION))}
+    session.execute(metadata_insert, parameters)
+
+    # Mark the newly created indexes as clean.
+    parameters = {'key': bytearray(cassandra_interface.INDEX_STATE_KEY),
+                  'column': cassandra_interface.INDEX_STATE_KEY,
+                  'value': bytearray(str(IndexStates.CLEAN))}
     session.execute(metadata_insert, parameters)
 
   # Indicate that the database has been successfully primed.
