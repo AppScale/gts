@@ -200,6 +200,30 @@ class AppControllerClient():
       reservation_id, self.secret)
 
 
+  def get_request_info(self, app_id):
+    """Queries the AppController to get server-level statistics and a list of
+    App Engine apps running in this cloud deployment across all machines.
+
+    Returns:
+      A list of dicts, where each dict contains server-level statistics (e.g.,
+        CPU, memory, disk usage) about one machine.
+    """
+    return yaml.safe_load(self.call(self.MAX_RETRIES,
+                                    self.server.get_request_info,
+                                    self.secret, app_id))
+
+  def get_instance_info(self):
+    """Queries the AppController to get server-level statistics and a list of
+    App Engine apps running in this cloud deployment across all machines.
+
+    Returns:
+      A list of dicts, where each dict contains server-level statistics (e.g.,
+        CPU, memory, disk usage) about one machine.
+    """
+    return yaml.safe_load(self.call(self.MAX_RETRIES,
+                                    self.server.get_instance_info,
+                                    self.secret))
+
   def get_cluster_stats(self):
     """Queries the AppController to get server-level statistics and a list of
     App Engine apps running in this cloud deployment across all machines.

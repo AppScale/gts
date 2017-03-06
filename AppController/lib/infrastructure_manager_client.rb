@@ -292,7 +292,7 @@ class InfrastructureManagerClient
     # dictionaries.
     all_stats["services"] = service_summary
 
-    return all_stats
+    return JSON.dump(all_stats)
   end
 
 
