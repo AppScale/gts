@@ -17,7 +17,7 @@ from apiclient import discovery
 from flexmock import flexmock
 
 # AppScale-specific imports
-from agents.gce_agent import GCEAgent
+from appscale.tools.agents.gce_agent import GCEAgent
 from infrastructure_manager import InfrastructureManager
 from utils import utils
 
