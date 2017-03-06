@@ -15,6 +15,21 @@ class TestEucaAgent(TestCase):
   def test_euca_run_instances(self):
     i = InfrastructureManager(blocking=True)
 
+    reservation = Reservation()
+    instance = flexmock(name='instance', private_dns_name='private-ip',
+                        public_dns_name='public-ip', id='i-id', state='running',
+                        key_name='bookeyname', ip_address='public-ip',
+                        private_ip_address='private-ip')
+    new_instance = flexmock(name='new-instance', private_dns_name='new-private-ip',
+                            public_dns_name='new-public-ip', id='new-i-id', state='running',
+                            key_name='bookeyname', ip_address='new-public-ip',
+                            private_ip_address='new-private-ip')
+    reservation.instances = [instance]
+    new_reservation = Reservation()
+    new_reservation.instances = [instance, new_instance]
+    flexmock(EC2Connection).should_receive('get_all_instances').and_return([]) \
+      .and_return([reservation]).and_return([new_reservation]).and_return([new_reservation])
+
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
     full_params = {
@@ -28,7 +43,9 @@ class TestEucaAgent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '2',
       'use_spot_instances': False,
-      'zone' : 'my-zone-1b'
+      'zone' : 'my-zone-1b',
+      'autoscale_agent' : True,
+      'IS_VERBOSE' : True
     }
 
     id = '0000000000'  # no longer randomly generated
@@ -44,11 +61,9 @@ class TestEucaAgent(TestCase):
     self.assertEquals(InfrastructureManager.STATE_RUNNING,
       i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
-    self.assertEquals(['ABC-public-ip1', 'DEF-public-ip2'],
-      vm_info['public_ips'])
-    self.assertEquals(['DEF-private-ip1', 'ABC-private-ip2'],
-      vm_info['private_ips'])
-    self.assertEquals(['i-id1', 'i-id2'], vm_info['instance_ids'])
+    self.assertEquals(['new-public-ip'], vm_info['public_ips'])
+    self.assertEquals(['new-private-ip'],vm_info['private_ips'])
+    self.assertEquals(['new-i-id'], vm_info['instance_ids'])
 
 
   def setUp(self):
@@ -69,7 +84,9 @@ class TestEucaAgent(TestCase):
     (flexmock(EC2Connection)
       .should_receive('authorize_security_group')
       .and_return())
-    reservation = Reservation()
+
+    """
+    reservation1 = Reservation()
 
     # the old implementation had a regression where public and private IPs
     # were getting sorted, and thus public ip1 would point to private ip 2.
@@ -77,17 +94,25 @@ class TestEucaAgent(TestCase):
     # that a sort would mess them up again.
     instance1 = flexmock(name='instance1', private_dns_name='DEF-private-ip1',
       public_dns_name='ABC-public-ip1', id='i-id1', state='running',
-      key_name='bookeyname')
+      key_name='bookeyname', ip_address='public-ip1',
+      private_ip_address='private-ip1')
 
     instance2 = flexmock(name='instance2', private_dns_name='ABC-private-ip2',
       public_dns_name='DEF-public-ip2', id='i-id2', state='running',
-      key_name='bookeyname')
+      key_name='bookeyname', ip_address='public-ip2',
+      private_ip_address='private-ip2')
 
-    reservation.instances = [instance1, instance2]
+    reservation1.instances = [instance1]
+    reservation2 = Reservation()
+    reservation2.instances = [instance1, instance2]
+
     (flexmock(EC2Connection)
       .should_receive('get_all_instances')
       .and_return([])
-      .and_return([reservation]))
+      .and_return([reservation1])
+      .and_return([reservation2]))
+
+    """
     (flexmock(EC2Connection)
      .should_receive('run_instances')
      .and_return())
