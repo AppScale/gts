@@ -204,7 +204,10 @@ class RemoteStub(object):
   @classmethod
   def _GetRequestId(cls):
     """Returns the id of the request associated with the current thread."""
-    return cls._local.request_id
+    try:
+      return cls._local.request_id
+    except AttributeError:
+      return None
 
   @classmethod
   def _SetRequestId(cls, request_id):
