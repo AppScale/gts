@@ -337,7 +337,7 @@ class EntityLock(object):
     for path in self.paths:
       try:
         self.client.delete(path)
-      except NotEmptyError:
+      except (NotEmptyError, NoNodeError):
         pass
     return
 

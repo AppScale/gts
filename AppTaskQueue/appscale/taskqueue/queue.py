@@ -3,7 +3,9 @@ import json
 import re
 import sys
 
+from cassandra.concurrent import execute_concurrent
 from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
+from appscale.datastore.dbconstants import TRANSIENT_CASSANDRA_ERRORS
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
@@ -84,6 +86,11 @@ class InvalidQueueConfiguration(Exception):
 
 
 class InvalidLeaseRequest(Exception):
+  pass
+
+
+class TransientError(Exception):
+  """ Indicates that the queue was unable to complete an operation. """
   pass
 
 
@@ -543,36 +550,37 @@ class PullQueue(Queue):
     leased_ids = set()
     indices_seen = set()
     while True:
-      results = self._query_available_tasks(num_tasks, group_by_tag, tag)
+      tasks_needed = num_tasks - len(leased)
+      if tasks_needed < 1:
+        break
+
+      index_results = self._query_available_tasks(
+        tasks_needed, group_by_tag, tag)
 
       # The following prevents any task from being leased multiple times in the
       # same request. If the lease time is very small, it's possible for the
       # lease to expire while results are still being fetched.
-      results = [result for result in results if result.id not in leased_ids]
+      index_results = [result for result in index_results
+                       if result.id not in leased_ids]
 
       # If there are no more available tasks, return whatever has been leased.
-      if not results:
+      if not index_results:
         break
 
-      satisfied_request = False
-      for result in results:
-        task = self._lease_task(result, new_eta)
+      lease_results = self._lease_batch(index_results, new_eta)
+      for index_num, index_result in enumerate(index_results):
+        task = lease_results[index_num]
         if task is None:
           # If this lease request has previously encountered this index, it's
           # likely that either the index is invalid or that the task has
           # exceeded its retry_count.
-          if result.id in indices_seen:
-            self._resolve_task(result)
-          indices_seen.add(result.id)
+          if index_result.id in indices_seen:
+            self._resolve_task(index_result)
+          indices_seen.add(index_result.id)
           continue
 
         leased.append(task)
         leased_ids.add(task.id)
-        if len(leased) >= num_tasks:
-          satisfied_request = True
-          break
-      if satisfied_request:
-        break
 
     time_elapsed = datetime.datetime.utcnow() - start_time
     logger.debug('Leased {} tasks [time elapsed: {}]'.format(len(leased), str(time_elapsed)))
@@ -773,84 +781,103 @@ class PullQueue(Queue):
       return None
     return tag
 
-  def _lease_task(self, index, new_eta):
-    """ Acquires a lease on task in the queue.
+  def _increment_count_async(self, task):
+    """ Update retry count for a task.
 
     Args:
-      index: A result from the index table.
-      new_eta: A datetime object containing the new lease expiration.
-
-    Returns:
-      A task object or None if unable to acquire a lease.
+      task: A Task object.
     """
-    task_id = index.id
-    # Lease task only if the last lease has expired. This prevents multiple
-    # requests from leasing a task at the same time.
-    lease_task = """
-      UPDATE pull_queue_tasks
-      SET lease_expires = %(eta)s
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-      IF lease_expires < dateof(now())
-    """
-    if self.task_retry_limit != 0:
-      lease_task += ' AND retry_count < {}'.format(self.task_retry_limit)
-    parameters = {
-      'app': self.app,
-      'queue': self.name,
-      'id': task_id,
-      'eta': new_eta
-    }
-    result = self.db_access.session.execute(lease_task, parameters)[0]
-    # If the lightweight transaction check failed, do not lease the task.
-    if not result.applied:
-      return None
-
-    # Retrieve task info.
-    select_task = """
-      SELECT payload, enqueued, retry_count, tag FROM pull_queue_tasks
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """
-    parameters = {'app': self.app, 'queue': self.name, 'id': task_id}
-    result = self.db_access.session.execute(select_task, parameters)[0]
-    task_info = {
-      'queueName': self.name,
-      'id': task_id,
-      'payloadBase64': result.payload,
-      'enqueueTimestamp': result.enqueued,
-      'leaseTimestamp': new_eta,
-      'retry_count': result.retry_count
-    }
-    if result.tag:
-      task_info['tag'] = result.tag
-    task = Task(task_info)
-
-    # Ideally, this counter update would be part of the lease operation. But in
-    # Cassandra, counters must be in a dedicated table. Better performance can
-    # be achieved by removing the lightweight transaction here.
     update_count = """
       UPDATE pull_queue_tasks
       SET retry_count = %(new_count)s
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
       IF retry_count = %(old_count)s
     """
-    parameters = {
+    params = {
       'app': self.app,
       'queue': self.name,
-      'id': task_id,
+      'id': task.id,
       'old_count': task.retry_count,
       'new_count': task.retry_count + 1
     }
-    result = self.db_access.session.execute(update_count, parameters)[0]
-    if not result.applied:
-      # Since nothing else should be able to lease this task, this should
-      # never happen. If for some reason it does, lease the task anyway.
-      logger.warning(
-        'Transaction check failed when updating retry_count: {}'.format(task))
+    self.db_access.session.execute_async(update_count, params)
 
-    self._update_index(index, task)
-    self._update_stats()
+  def _lease_batch(self, indexes, new_eta):
+    """ Acquires a lease on tasks in the queue.
 
-    return task
+    Args:
+      indexes: An iterable containing results from the index table.
+      new_eta: A datetime object containing the new lease expiration.
+
+    Returns:
+      A list of task objects or None if unable to acquire a lease.
+    """
+    leased = [None for _ in indexes]
+    session = self.db_access.session
+
+    lease_statement = """
+      UPDATE pull_queue_tasks
+      SET lease_expires = ?
+      WHERE app = ? AND queue = ? AND id = ?
+      IF lease_expires < dateof(now())
+    """
+    if self.task_retry_limit != 0:
+      lease_statement += 'AND retry_count < {}'.format(self.task_retry_limit)
+    lease_task = session.prepare(lease_statement)
+
+    statements_and_params = []
+    for index in indexes:
+      params = (new_eta, self.app, self.name, index.id)
+      statements_and_params.append((lease_task, params))
+    results = execute_concurrent(session, statements_and_params,
+                                 raise_on_first_error=False)
+
+    # Check which lease operations succeeded.
+    select = SimpleStatement("""
+      SELECT payload, enqueued, retry_count, tag
+      FROM pull_queue_tasks
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+    """, consistency_level=ConsistencyLevel.SERIAL)
+    futures = {}
+    for result_num, (success, result) in enumerate(results):
+      if success and not result.was_applied:
+        # The lease operation failed, so keep this index as None.
+        continue
+
+      index = indexes[result_num]
+      params = {'app': self.app, 'queue': self.name, 'id': index.id}
+      future = session.execute_async(select, params)
+      futures[result_num] = (future, not success)
+
+    for result_num, (future, lease_timed_out) in futures.iteritems():
+      index = indexes[result_num]
+      try:
+        read_result = future.result()[0]
+      except (TRANSIENT_CASSANDRA_ERRORS, IndexError):
+        raise TransientError('Unable to read task {}'.format(index.id))
+
+      # It would be better to use an ID here to check if the lease succeeded.
+      if lease_timed_out and read_result.lease_expires != new_eta:
+        continue
+
+      task_info = {
+        'queueName': self.name,
+        'id': index.id,
+        'payloadBase64': read_result.payload,
+        'enqueueTimestamp': read_result.enqueued,
+        'leaseTimestamp': new_eta,
+        'retry_count': read_result.retry_count
+      }
+      if read_result.tag:
+        task_info['tag'] = read_result.tag
+      task = Task(task_info)
+      leased[result_num] = task
+
+      self._increment_count_async(task)
+      self._update_index(index, task)
+      self._update_stats()
+
+    return leased
 
   def _update_index(self, old_index, task):
     """ Updates the index table after leasing a task.
@@ -974,7 +1001,7 @@ class PullQueue(Queue):
       USING TTL {ttl}
     """.format(ttl=ttl)
     parameters = {'app': self.app, 'queue': self.name}
-    self.db_access.session.execute(record_lease, parameters)
+    self.db_access.session.execute_async(record_lease, parameters)
 
   def _get_stats(self, fields):
     """ Fetch queue statistics.
