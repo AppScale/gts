@@ -266,11 +266,11 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
-    except zktransaction.ZKInternalException:
-      logger.exception('Unable to begin {}'.format(transaction_pb))
-      return (transaction_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
+    except (zktransaction.ZKInternalException,
+            dbconstants.AppScaleDBConnectionError) as error:
+      logger.exception('Unable to begin transaction')
+      return (transaction_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              str(error))
 
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
@@ -360,12 +360,12 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(query))
+      logger.exception('DB connection error during query')
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Datastore connection error on run_query request.")
-    return (clone_qr_pb.Encode(), 0, "")
+    return clone_qr_pb.Encode(), 0, ""
 
   def create_index_request(self, app_id, http_request_data):
     """ High level function for creating composite indexes.
@@ -391,12 +391,12 @@ class MainHandler(tornado.web.RequestHandler):
       index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during index creation')
       response.set_value(0)
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on create index request.")
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def update_index_request(self, app_id, http_request_data):
     """ High level function for updating a composite index.
@@ -456,11 +456,11 @@ class MainHandler(tornado.web.RequestHandler):
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during index deletion')
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
     
   def get_indices_request(self, app_id):
     """ Gets the indices of the given application.
@@ -476,7 +476,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.CompositeIndices()
     try:
       indices = datastore_access.datastore_batch.get_indices(app_id)
-    except dbconstants.AppScaleDBConnectionError, dbce:
+    except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error while fetching indices for '
         '{}'.format(app_id))
       return (response.Encode(),
@@ -485,7 +485,7 @@ class MainHandler(tornado.web.RequestHandler):
     for index in indices:
       new_index = response.add_index()
       new_index.ParseFromString(index)
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
@@ -539,7 +539,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     response.set_start(start)
     response.set_end(end)
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
@@ -569,11 +569,10 @@ class MainHandler(tornado.web.RequestHandler):
       return (putresp_pb.Encode(),
             datastore_pb.Error.BAD_REQUEST, 
             "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zktransaction.ZKInternalException:
-      logger.exception('ZKInternalException during {}'.format(putreq_pb))
-      return (putresp_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
+    except zktransaction.ZKInternalException as error:
+      logger.exception('ZKInternalException during put')
+      return (putresp_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              str(error))
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
@@ -581,7 +580,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(putreq_pb))
+      logger.exception('DB connection error during put')
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
@@ -618,12 +617,12 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on get.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(getreq_pb))
+      logger.exception('DB connection error during get')
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on get.")
 
-    return (getresp_pb.Encode(), 0, "")
+    return getresp_pb.Encode(), 0, ""
 
   def delete_request(self, app_id, http_request_data):
     """ High level function for doing deletes.
@@ -665,7 +664,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on delete.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(delreq_pb))
+      logger.exception('DB connection error during delete')
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")

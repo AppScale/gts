@@ -496,18 +496,16 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app, entities, txn_hash, composite_indexes=()):
+  def put_entities(self, app, entities, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
       app: A string containing the application ID.
       entities: List of entities.
-      txn_hash: A mapping of root keys to transaction IDs.
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
-    self.logger.debug('Inserting {} entities with transaction hash {}'.
-                      format(len(entities), txn_hash))
+    self.logger.debug('Inserting {} entities'.format(len(entities)))
     entity_keys = []
     for entity in entities:
       prefix = self.get_table_prefix(entity)
@@ -530,6 +528,8 @@ class DatastoreDistributed():
       txid = self.zookeeper.get_transaction_id(app, False)
       try:
         with lock:
+          batch = []
+          entity_changes = []
           for entity in entity_list:
             prefix = self.get_table_prefix(entity)
             entity_key = get_entity_key(prefix, entity.key().path())
@@ -539,17 +539,16 @@ class DatastoreDistributed():
               current_value = entity_pb.EntityProto(
                 current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-            batch = cassandra_interface.mutations_for_entity(
-              entity, txid, current_value, composite_indexes)
+            batch.extend(cassandra_interface.mutations_for_entity(
+              entity, txid, current_value, composite_indexes))
 
             batch.append({'table': 'group_updates',
                           'key': bytearray(encoded_group_key),
                           'last_update': txid})
 
-            entity_change = {'key': entity.key(),
-                             'old': current_value, 'new': entity}
-            self.datastore_batch.batch_mutate(
-              app, batch, [entity_change], txid)
+            entity_changes.append(
+              {'key': entity.key(), 'old': current_value, 'new': entity})
+          self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
       finally:
         self.zookeeper.remove_tx_node(app, txid)
 
@@ -632,8 +631,10 @@ class DatastoreDistributed():
       self.datastore_batch.put_entities_tx(
         app_id, put_request.transaction().handle(), entities)
     else:
-      self.put_entities(app_id, entities, '',
-                        put_request.composite_index_list())
+      try:
+        self.put_entities(app_id, entities, put_request.composite_index_list())
+      except entity_lock.LockTimeout as timeout_error:
+        raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
       self.logger.debug('Updated {} entities'.format(len(entities)))
 
     put_response.key_list().extend([e.key() for e in entities])
@@ -929,6 +930,8 @@ class DatastoreDistributed():
               composite_indexes=filtered_indexes
             )
           self.logger.debug('Removed {} entities'.format(len(key_list)))
+        except entity_lock.LockTimeout as timeout_error:
+          raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
         finally:
           self.zookeeper.remove_tx_node(app_id, txid)
 
@@ -3293,8 +3296,7 @@ class DatastoreDistributed():
     except dbconstants.TxTimeoutException as timeout:
       return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
-      self.logger.exception('DB connection error during {}'.
-                            format(http_request_data))
+      self.logger.exception('DB connection error during commit')
       return (commitres_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               'Datastore connection error on Commit request.')
     except dbconstants.ConcurrentModificationException as error:

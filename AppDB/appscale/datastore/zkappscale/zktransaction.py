@@ -24,6 +24,7 @@ from cassandra.policies import FallthroughRetryPolicy
 from kazoo.exceptions import (NoNodeError,
                               KazooException,
                               ZookeeperError)
+from kazoo.retry import RetryFailedError
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -910,6 +911,9 @@ class ZKTransaction:
       self.run_with_retry(self.handle.delete, txpath, -1, True)
     except NoNodeError:
       return
+    except RetryFailedError:
+      raise ZKInternalException(
+        'Unable to remove transaction for {}'.format(txid))
 
 
   def release_lock(self, app_id, txid):
