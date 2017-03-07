@@ -2558,7 +2558,7 @@ class Djinn
     }
 
     # Let's count the open nodes we can use before having to create new
-    # VMS.
+    # VMs.
     open_nodes = 0
     @state_change_lock.synchronize {
       @nodes.each { |node| open_nodes += 1 if node.is_open?  }
@@ -2591,7 +2591,7 @@ class Djinn
     Djinn.log_debug("We spawned VMs for these roles #{new_nodes_info}.")
     Djinn.log_debug("We will use the following nodes #{node_roles}.")
 
-    # If we have an already running node with the same IP, we change it's
+    # If we have an already running node with the same IP, we change its
     # roles list.
     new_nodes_info << node_roles unless node_roles.empty?
     @state_change_lock.synchronize {
@@ -3071,15 +3071,15 @@ class Djinn
     APPS_LOCK.synchronize {
       local_state = {'@@secret' => @@secret }
       DEPLOYMENT_STATE.each { |var|
-        v = nil
+        value = nil
         if var == "@nodes"
           @state_change_lock.synchronize {
-            v = Djinn.convert_location_class_to_json(@nodes)
+            value = Djinn.convert_location_class_to_json(@nodes)
           }
         else
-          v = instance_variable_get(var)
+          value = instance_variable_get(var)
         end
-        local_state[var] = v
+        local_state[var] = value
       }
     }
     if @appcontroller_state == local_state.to_s
@@ -3561,11 +3561,11 @@ class Djinn
       @nodes.each { |node|
         if node.private_ip == public_ip
           HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
-              "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
+            "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
         end
         if node.public_ip == public_ip
           HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
-              "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+            "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
         end
       }
     }
@@ -5428,7 +5428,7 @@ HOSTS
         Djinn.log_info("We need #{vms_to_spawn} more VMs.")
 
         if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
-                SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
+              SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
           Djinn.log_info("Not scaling up right now, as we recently scaled " +
             "up or down.")
           return

@@ -181,12 +181,12 @@ class InfrastructureManagerClient
   #   num_vms: the number of VMs to create.
   #   options: a hash containing information needed by the agent
   #     (credentials etc ...).
-  # jobs: an Array containing the roles for each VM to be created.
-  # disks: an Array specifying the disks to be associated with the VMs (if
-  #   any, it can be nil).
+  #   jobs: an Array containing the roles for each VM to be created.
+  #     disks: an Array specifying the disks to be associated with the VMs
+  #     (if any, it can be nil).
   #
   # Returns
-  #   an Array containing the nodes information, suitable to be converted
+  #   An Array containing the nodes information, suitable to be converted
   #   into Node. 
   def spawn_vms(num_vms, options, jobs, disks)
     parameters = get_parameters_from_credentials(options)
