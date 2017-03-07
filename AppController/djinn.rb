@@ -2045,7 +2045,7 @@ class Djinn
       @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
       @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
     rescue Errno::ENOENT
-      Djinn.log_warn("my_public_ip or my_private_ip disappeared.")
+      Djinn.log_info("Couldn't find my old my_public_ip or my_private_ip.")
       @my_private_ip = nil
       @my_public_ip = nil
     end
