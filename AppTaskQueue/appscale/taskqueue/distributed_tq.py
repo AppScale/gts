@@ -22,6 +22,7 @@ from queue import PullQueue
 from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
+from .queue import TransientError
 from .unpackaged import APPSCALE_LIB_DIR
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
@@ -548,8 +549,13 @@ class DistributedTaskQueue():
     if request.has_tag():
       tag = request.tag()
 
-    tasks = queue.lease_tasks(request.max_tasks(), request.lease_seconds(),
-                              group_by_tag=request.group_by_tag(), tag=tag)
+    try:
+      tasks = queue.lease_tasks(request.max_tasks(), request.lease_seconds(),
+                                group_by_tag=request.group_by_tag(), tag=tag)
+    except TransientError as lease_error:
+      pb_error = taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR
+      return response.Encode(), pb_error, str(lease_error)
+
     for task in tasks:
       task_pb = response.add_task()
       task_pb.MergeFrom(task.encode_lease_pb())
