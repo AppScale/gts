@@ -1135,8 +1135,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
-
     Djinn.log_debug("set_parameters: set @options to #{@options}.")
     Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
 
@@ -1806,7 +1804,12 @@ class Djinn
       tqc = TaskQueueClient.new(my_node.private_ip)
       begin
         result = tqc.reload_worker(app)
-        Djinn.log_info("Checking TaskQueue worker for app #{app}: #{result}")
+        message = "Checking TaskQueue worker for app #{app}: #{result}"
+        if result.key?('error') && result['error'] == false
+          Djinn.log_debug(message)
+        else
+          Djinn.log_warn(message)
+        end
       rescue FailedNodeException
         Djinn.log_warn("Failed to reload TaskQueue workers for app #{app}")
       end
@@ -1993,7 +1996,7 @@ class Djinn
       @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
       @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
     rescue Errno::ENOENT
-      Djinn.log_warn("my_public_ip or my_private_ip disappeared.")
+      Djinn.log_info("Couldn't find my old my_public_ip or my_private_ip.")
       @my_private_ip = nil
       @my_public_ip = nil
     end
@@ -4559,7 +4562,10 @@ HOSTS
   # local state.
   def mount_persistent_storage
     # If we don't have any disk to attach, we are done.
-    return unless my_node.disk
+    unless my_node.disk
+      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+      return
+    end
 
     imc = InfrastructureManagerClient.new(@@secret)
     begin
