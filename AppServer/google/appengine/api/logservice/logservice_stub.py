@@ -146,7 +146,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       except socket.error, e:
         _cleanup_logserver_connection(log_server)
         self._send_to_logserver(app_id, packet)
-        
+
   def _query_log_server(self, app_id, packet):
     key, log_server = self._get_log_server(app_id, True)
     if not log_server:
@@ -267,7 +267,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
           request.request_id_size() < 1):
         raise apiproxy_errors.ApplicationError(
             log_service_pb.LogServiceError.INVALID_REQUEST)
-  
+
       if (request.request_id_size() and
           (request.has_start_time() or request.has_end_time() or
            request.has_offset())):
@@ -278,7 +278,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       if rl is None:
         raise apiproxy_errors.ApplicationError(
             log_service_pb.LogServiceError.INVALID_REQUEST)
-        
+
       query = logging_capnp.Query.new_message()
       if request.has_start_time():
         query.startTime = request.start_time()
@@ -286,7 +286,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         query.endTime = request.end_time()
       if request.has_offset():
         logging.info("Offset: %s", request.offset())
-        query.offset = base64.b64decode(request.offset().replace('request_id: "', '').replace('"', ''))
+        query.offset = base64.b64decode(str(request.offset()).replace('request_id: "', '').replace('"', ''))
       if request.has_minimum_log_level():
         query.minimumLogLevel = request.minimum_log_level()
       query.includeAppLogs = bool(request.include_app_logs())
@@ -298,7 +298,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       else:
         count = self._DEFAULT_READ_COUNT
       query.count = count
-      
+
       # Perform query to logserver
       buf = query.to_bytes()
       packet = 'q%s%s' % (struct.pack('I', len(buf)), buf)
@@ -308,7 +308,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         log = response.add_log()
         _fill_request_log(requestLog, log, request.include_app_logs())
         result_count += 1
-  
+
       if result_count == count:
         response.mutable_offset().set_request_id(requestLog.offset)
     except:

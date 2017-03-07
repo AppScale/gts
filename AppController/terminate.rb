@@ -73,6 +73,7 @@ module TerminateHelper
     # Delete stored data.
     `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
+    `rm -rf /opt/appscale/logserver/*`
     `rm -rf /opt/appscale/apps`
     `rm -rf /opt/appscale/solr`
     `rm -rf /var/lib/rabbitmq/*`

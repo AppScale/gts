@@ -1479,7 +1479,7 @@ class ZKTransaction:
       else:
         mutations = cassandra_interface.mutations_for_entity(
           new_entity, txid, old_entity, composite_indices)
-      self.db_access.apply_mutations(mutations)
+      self.db_access.apply_mutations(mutations, txid)
 
   def resolve_batch(self, app, transaction):
     """ Check if batch completed and apply mutations if necessary.
