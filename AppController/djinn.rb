@@ -1955,6 +1955,25 @@ class Djinn
 
     # Make sure we have the latest code deployed.
     apps.each { |appid|
+      # Let's make sure the application is enabled.
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      RETRIES.downto(0) { |tries|
+        begin
+          result = uac.enable_app(appid)
+          Djinn.log_debug("enable_app returned #{result}.")
+          break
+        rescue FailedNodeException
+          # Failed to talk to the UserAppServer: let's try again.
+          Djinn.log_debug("Failed to talk to UserAppServer for #{appid}.")
+        end
+        if tries == 0
+          Djinn.log_warn("Couldn't enable application #{appid}!")
+        else
+          Djinn.log_info("Waiting to enable app named #{appid}.")
+          Kernel.sleep(SMALL_WAIT)
+        end
+      }
+
       APPS_LOCK.synchronize {
         setup_app_dir(appid, true)
       }
@@ -5248,10 +5267,6 @@ HOSTS
         result = uac.get_app_data(app)
         app_data = JSON.load(result)
         Djinn.log_debug("Got application data for #{app}: #{app_data}.")
-
-        # Let's make sure the application is enabled.
-        result = uac.enable_app(app)
-        Djinn.log_debug("enable_app returned #{result}.")
         app_language = app_data['language']
         break
       rescue FailedNodeException
