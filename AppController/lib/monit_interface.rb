@@ -50,6 +50,7 @@ module MonitInterface
       }
     end
 
+    self.run_cmd('service monit reload', true)
     self.run_cmd("#{MONIT} start -g #{watch}")
   end
 
@@ -61,12 +62,12 @@ check file #{watch} path "#{path}" every 2 cycles
 BOO
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
     HelperFunctions.write_file(monit_file, contents)
-    Djinn.log_run("service monit reload")
+    self.run_cmd('service monit reload', true)
 
     Djinn.log_info("Watching file #{path} for #{watch}" +
       " with exec action [#{action}]")
 
-    Djinn.log_run("#{MONIT} start -g #{watch}")
+    self.run_cmd('#{MONIT} start -g #{watch}')
   end
 
   def self.restart(watch)
