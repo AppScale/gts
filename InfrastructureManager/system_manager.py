@@ -111,11 +111,12 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
+    conversion = 1024 * 1024
     mem_stats_dict = { JSONTags.MEMORY :
       {
-        JSONTags.TOTAL : mem_stats.total,
-        JSONTags.AVAILABLE : mem_stats.available,
-        JSONTags.USED : mem_stats.used
+        JSONTags.TOTAL : float(mem_stats.total)/conversion,
+        JSONTags.AVAILABLE : float(mem_stats.available)/conversion,
+        JSONTags.USED : float(mem_stats.used)/conversion
       }
     }
     logging.debug("Memory stats: {}".format(mem_stats_dict))
