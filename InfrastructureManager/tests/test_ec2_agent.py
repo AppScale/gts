@@ -47,9 +47,10 @@ class TestEC2Agent(TestCase):
                         key_name='bookeyname', ip_address='public-ip',
                         private_ip_address='private-ip')
     new_instance = flexmock(name='new-instance', private_dns_name='new-private-ip',
-                        public_dns_name='new-public-ip', id='new-i-id', state='running',
-                        key_name='bookeyname', ip_address='new-public-ip',
-                        private_ip_address='new-private-ip')
+                            public_dns_name='new-public-ip', id='new-i-id',
+                            state='running', key_name='bookeyname',
+                            ip_address='new-public-ip',
+                            private_ip_address='new-private-ip')
     reservation.instances = [instance]
     new_reservation = Reservation()
     new_reservation.instances = [instance, new_instance]
