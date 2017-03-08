@@ -174,7 +174,12 @@ class MainHandler(tornado.web.RequestHandler):
     method = apirequest.method()
     http_request_data = apirequest.request()
     start = time.time()
-    logger.debug('Request type: {}'.format(method))
+
+    request_log = method
+    if apirequest.has_request_id():
+      request_log += ': {}'.format(apirequest.request_id())
+    logger.debug(request_log)
+
     if method == "Put":
       response, errcode, errdetail = self.put_request(app_id, 
                                                  http_request_data)
