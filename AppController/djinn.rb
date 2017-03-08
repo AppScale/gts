@@ -3904,7 +3904,7 @@ class Djinn
 
   def start_blobstore_server()
     # Each node uses the active load balancer to access the Datastore.
-    BlobServer.start(get_shadow.private_ip, DatastoreServer::PROXY_PORT)
+    BlobServer.start(get_load_balancer.private_ip, DatastoreServer::PROXY_PORT)
     return true
   end
 
