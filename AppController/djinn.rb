@@ -246,6 +246,10 @@ class Djinn
   attr_accessor :app_upload_reservations
 
 
+  # The port that the AppController runs on by default
+  SERVER_PORT = 17443
+
+
   # The port that SSH connections are hosted over, by default.
   SSH_PORT = 22
 
