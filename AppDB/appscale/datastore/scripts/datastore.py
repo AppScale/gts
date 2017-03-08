@@ -5,7 +5,7 @@ This web service interfaces with the datastore. It takes protocol buffer
 requests from AppServers and responds according to the type of request its
 given (Put, Get, Delete, Query, etc).
 """
-import getopt
+import argparse
 import json
 import logging
 import os
@@ -16,7 +16,6 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-from M2Crypto import SSL
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
@@ -704,16 +703,6 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore connection error when adding transaction tasks.')
 
 
-def usage():
-  """ Prints the usage for this web service. """
-  print "AppScale Server"
-  print
-  print "Options:"
-  print "\t--type=<" + ','.join(dbconstants.VALID_DATASTORES) +  ">"
-  print "\t--no_encryption"
-  print "\t--port"
-
-
 pb_application = tornado.web.Application([
   ('/clear', ClearHandler),
   ('/read-only', ReadOnlyHandler),
@@ -727,62 +716,30 @@ def main():
   global datastore_access
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
-  db_info = appscale_info.get_db_info()
-  db_type = db_info[':table']
-  port = dbconstants.DEFAULT_SSL_PORT
-  is_encrypted = True
-  verbose = False
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-t', '--type', choices=dbconstants.VALID_DATASTORES,
+                      default=dbconstants.VALID_DATASTORES[0],
+                      help='Database type')
+  parser.add_argument('-p', '--port', type=int,
+                      default=dbconstants.DEFAULT_PORT,
+                      help='Datastore server port')
+  parser.add_argument('-v', '--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
 
-  argv = sys.argv[1:]
-  try:
-    opts, args = getopt.getopt(argv, "t:p:n:v:",
-      ["type=", "port", "no_encryption", "verbose"])
-  except getopt.GetoptError:
-    usage()
-    sys.exit(1)
-  
-  for opt, arg in opts:
-    if opt in ("-t", "--type"):
-      db_type = arg
-      print "Datastore type: ", db_type
-    elif opt in ("-p", "--port"):
-      port = int(arg)
-    elif opt in ("-n", "--no_encryption"):
-      is_encrypted = False
-    elif opt in ("-v", "--verbose"):
-      verbose = True
-
-  if verbose:
+  if args.verbose:
     logger.setLevel(logging.DEBUG)
 
-  if db_type not in dbconstants.VALID_DATASTORES:
-    print "This datastore is not supported for this version of the AppScale\
-          datastore API:" + db_type
-    sys.exit(1)
- 
   datastore_batch = DatastoreFactory.getDatastore(
-    db_type, log_level=logger.getEffectiveLevel())
+    args.type, log_level=logger.getEffectiveLevel())
   zookeeper = zktransaction.ZKTransaction(
     host=zookeeper_locations, start_gc=True, db_access=datastore_batch,
     log_level=logger.getEffectiveLevel())
 
   datastore_access = DatastoreDistributed(
     datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
-  if port == dbconstants.DEFAULT_SSL_PORT and not is_encrypted:
-    port = dbconstants.DEFAULT_PORT
 
   server = tornado.httpserver.HTTPServer(pb_application)
-  server.listen(port)
+  server.listen(args.port)
 
-  while 1:
-    try:
-      # Start Server #
-      tornado.ioloop.IOLoop.instance().start()
-    except SSL.SSLError:
-      # This happens when connections timeout, there is a just a bad
-      # SSL connection such as it does not use SSL when expected. 
-      pass
-    except KeyboardInterrupt:
-      print "Server interrupted by user, terminating..."
-      zookeeper.close()
-      sys.exit(1)
+  tornado.ioloop.IOLoop.current().start()
