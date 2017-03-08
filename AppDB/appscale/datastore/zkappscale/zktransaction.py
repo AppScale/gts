@@ -205,6 +205,7 @@ class ZKTransaction:
       else:
         self.gc_running = True
         self.gcthread = threading.Thread(target=self.gc_runner)
+        self.gcthread.daemon = True
         self.gcthread.start()
 
   def stop_gc(self):

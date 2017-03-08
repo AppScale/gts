@@ -2,13 +2,12 @@
 servers. """
 
 import argparse
-import datetime
 import logging
 import sys
+import time
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-import uuid
 
 import distributed_tq
 
@@ -146,9 +145,13 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       http_request_data = apirequest.request()
 
-    start_time = datetime.datetime.utcnow()
-    request_uuid = uuid.uuid4()
-    logger.debug('Method: {} ({})'.format(method, request_uuid))
+    start_time = time.time()
+
+    request_log = method
+    if apirequest.has_request_id():
+      request_log += ': {}'.format(apirequest.request_id())
+    logger.debug(request_log)
+
     if method == "FetchQueueStats":
       response, errcode, errdetail = task_queue.fetch_queue_stats(app_id,
                                                  http_request_data)
@@ -200,8 +203,10 @@ class MainHandler(tornado.web.RequestHandler):
                                                  app_id,
                                                  http_request_data)
 
-    time_elapsed = datetime.datetime.utcnow() - start_time
-    logger.debug("Time elapsed: {} ({})".format(str(time_elapsed), request_uuid))
+    timing_log = 'Elapsed: {}'.format(round(time.time() - start_time, 3))
+    if apirequest.has_request_id():
+      timing_log += ' ({})'.format(apirequest.request_id())
+    logger.debug(timing_log)
 
     if response is not None:
       apiresponse.set_response(response)
