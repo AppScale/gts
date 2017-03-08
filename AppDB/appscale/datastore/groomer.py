@@ -36,9 +36,6 @@ import appscale_info
 import constants
 
 sys.path.append(os.path.join(DASHBOARD_DIR, 'lib'))
-from app_dashboard_data import InstanceInfo
-from app_dashboard_data import ServerStatus
-from app_dashboard_data import RequestInfo
 from dashboard_logs import RequestLogLine
 
 
@@ -74,16 +71,6 @@ class DatastoreGroomer(threading.Thread):
   # A sentinel value to signify that this app does not have composite indexes.
   NO_COMPOSITES = "NO_COMPS_INDEXES_HERE"
 
-  # The amount of time in seconds dashboard data should be kept around for.
-  DASHBOARD_DATA_TIMEOUT = 60 * 60 
-
-  # The dashboard types we want to clean up after.
-  DASHBOARD_DATA_MODELS = [InstanceInfo, ServerStatus, RequestInfo]
-
-  # The number of dashboard entities to grab at a time. Makes the cleanup
-  # process have an upper limit on each run.
-  DASHBOARD_BATCH = 1000
-
   # The path in ZooKeeper where the groomer state is stored.
   GROOMER_STATE_PATH = '/appscale/groomer_state'
 
@@ -107,9 +94,6 @@ class DatastoreGroomer(threading.Thread):
 
   # The ID for the task to clean up old tasks.
   CLEAN_TASKS_TASK = 'tasks'
-
-  # The ID for the task to clean up old dashboard items.
-  CLEAN_DASHBOARD_TASK = 'dashboard'
 
   # Log progress every time this many seconds have passed.
   LOG_PROGRESS_FREQUENCY = 60 * 5
@@ -194,79 +178,6 @@ class DatastoreGroomer(threading.Thread):
     self.namespace_info = {}
     self.num_deletes = 0
     self.journal_entries_cleaned = 0
-
-  def remove_deprecated_dashboard_data(self, model_type):
-    """ Remove entities that do not have timestamps in Dashboard data. 
-
-    AppScale 2.3 and earlier lacked a timestamp attribute. 
-
-    Args:
-      model_type: A class type for a ndb model.
-    """
-    query = model_type.query()
-    entities = query.fetch(self.DASHBOARD_BATCH)
-    counter = 0
-    for entity in entities:
-      if not hasattr(entity, "timestamp"):
-        entity.key.delete()
-        counter += 1
-    if counter > 0:
-      logging.warning("Removed {0} deprecated {1} dashboard entities".format(
-        counter, entity._get_kind()))
-
-  def remove_old_dashboard_data(self):
-    """ Removes old statistics from the AppScale dashboard application. """
-    last_cursor = None
-    last_model = None
-
-    # If we have state information beyond what function to use,
-    # load the last seen model and cursor if available.
-    if (len(self.groomer_state) > 1 and
-      self.groomer_state[0] == self.CLEAN_DASHBOARD_TASK):
-      last_model = self.DASHBOARD_DATA_MODELS[int(self.groomer_state[1])]
-      if len(self.groomer_state) > 2:
-        last_cursor = Cursor(self.groomer_state[2])
-
-    self.register_db_accessor(constants.DASHBOARD_APP_ID)
-    timeout = datetime.datetime.utcnow() - \
-      datetime.timedelta(seconds=self.DASHBOARD_DATA_TIMEOUT)
-    for model_number in range(len(self.DASHBOARD_DATA_MODELS)):
-      model_type = self.DASHBOARD_DATA_MODELS[model_number]
-      if last_model and model_type != last_model:
-        continue
-      counter = 0
-      while True:
-        query = model_type.query().filter(model_type.timestamp < timeout)
-        entities, next_cursor, more = query.fetch_page(self.BATCH_SIZE,
-          start_cursor=last_cursor)
-        for entity in entities:
-          entity.key.delete()
-          counter += 1
-        if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-          logging.info('Removed {} {} entities.'
-            .format(counter, model_type.__class__.__name__))
-          self.last_logged = time.time()
-        if more:
-          last_cursor = next_cursor
-          self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
-            str(model_number), last_cursor.urlsafe()])
-        else:
-          break
-      if model_number != len(self.DASHBOARD_DATA_MODELS) - 1:
-        self.update_groomer_state([self.CLEAN_DASHBOARD_TASK,
-          str(model_number + 1)])
-        last_model = None
-        last_cursor = None
-      if counter > 0:
-        logging.info("Removed {0} {1} dashboard entities".format(counter,
-          model_type))
-
-      # Do a scan of all entities and remove any that
-      # do not have timestamps for AppScale versions 2.3 and before. 
-      # This may take some time on the initial run, but subsequent runs should
-      # be quick given a low dashboard data timeout.
-      self.remove_deprecated_dashboard_data(model_type)
-    return
 
   def hard_delete_row(self, row_key):
     """ Does a hard delete on a given row key to the entity
@@ -1174,12 +1085,6 @@ class DatastoreGroomer(threading.Thread):
         'id': self.CLEAN_TASKS_TASK,
         'description': 'clean up old tasks',
         'function': self.remove_old_tasks_entities,
-        'args': []
-      },
-      {
-        'id': self.CLEAN_DASHBOARD_TASK,
-        'description': 'clean up old dashboard items',
-        'function': self.remove_old_dashboard_data,
         'args': []
       }
     ]
