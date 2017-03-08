@@ -1069,8 +1069,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
-
     return "OK"
   end
 
