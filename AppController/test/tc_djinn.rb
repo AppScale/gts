@@ -52,8 +52,8 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.get_node_stats(@secret)
-    assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret)
+    assert_equal(BAD_SECRET_MSG, djinn.get_node_stats_json(@secret))
+    assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_apps_to_restart([@app], @secret))
@@ -870,32 +870,6 @@ class TestDjinn < Test::Unit::TestCase
 
     # make sure our buffer is empty again
     assert_equal([], Djinn.get_logs_buffer())
-  end
-
-  def test_send_request_info_to_dashboard_when_dash_is_up
-    # mock out getting our ip address
-    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4 ")
-
-    node_info = {
-      "public_ip" => "1.2.3.3",
-      "private_ip" => "1.2.3.3",
-      "jobs" => ["shadow", "login"],
-      "instance_id" => "i-000000"
-    }
-    node = DjinnJobData.new(node_info, "boo")
-
-    djinn = Djinn.new()
-    djinn.nodes = [node]
-    djinn.my_index = 0
-
-    # mock out sending the request info
-    flexmock(Net::HTTP).new_instances { |instance|
-      instance.should_receive(:post).with("/apps/json/bazapp", String, Hash).
-        and_raise(StandardError)
-    }
-
-    assert_equal(false, djinn.send_request_info_to_dashboard("bazapp", 0, 0))
   end
 
   def test_scale_appservers_across_nodes_with_no_action_taken

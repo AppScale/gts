@@ -15,9 +15,8 @@ class TestInfrastructureManager(TestCase):
   def test_get_cpu_usage(self):
     flexmock(utils).should_receive("get_secret").and_return("fake secret")
 
-    expected_keys = [
-      JSONTags.CPU, JSONTags.IDLE, JSONTags.SYSTEM, JSONTags.USER
-    ]
+    expected_keys = [JSONTags.CPU, JSONTags.IDLE, JSONTags.SYSTEM,
+                     JSONTags.USER, JSONTags.COUNT]
     actual = json.loads(SystemManager().get_cpu_usage("fake secret"))
     actual_keys = [actual.keys()[0]]
     for key in actual.values()[0].keys():
@@ -29,10 +28,10 @@ class TestInfrastructureManager(TestCase):
     flexmock(utils).should_receive("get_secret").and_return("fake secret")
 
     expected_keys = [
-      JSONTags.DISK, JSONTags.FREE, JSONTags.USED
+      JSONTags.TOTAL, JSONTags.FREE, JSONTags.USED
     ]
     actual = json.loads(SystemManager().get_disk_usage("fake secret"))
-    actual_keys = [actual.keys()[0]]
+    actual_keys = []
 
     # Example: {'disk': [ {'/': {'used': 3513118720, 'free': 5747404800}} ]}
     if len(actual.values()[0]) > 0:
@@ -45,7 +44,7 @@ class TestInfrastructureManager(TestCase):
     flexmock(utils).should_receive("get_secret").and_return("fake secret")
 
     expected_keys = [
-      JSONTags.MEMORY, JSONTags.AVAILABLE, JSONTags.USED
+      JSONTags.MEMORY, JSONTags.AVAILABLE, JSONTags.USED, JSONTags.TOTAL
     ]
     actual = json.loads(SystemManager().get_memory_usage("fake secret"))
     actual_keys = [actual.keys()[0]]
