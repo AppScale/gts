@@ -236,66 +236,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
       .with_args(app_dashboard_data.APIstatus)\
       .and_return(fake_api_q)
 
-    fake_server1 = flexmock(name='ServerStatus')
-    fake_server1.ip = '1.1.1.1'
-    fake_server1.cpu = '25'
-    fake_server1.memory = '50'
-    fake_server1.disk = '100'
-    fake_server1.cloud = 'cloud1'
-    fake_server1.roles = 'roles2'
-    fake_server1.should_receive('put').and_return()
-    fake_server2 = flexmock(name='ServerStatus')
-    fake_server2.ip = '2.2.2.2'
-    fake_server2.cpu = '75'
-    fake_server2.memory = '55'
-    fake_server2.disk = '100'
-    fake_server2.cloud = 'cloud1'
-    fake_server2.roles = 'roles2'
-    fake_server2.should_receive('put').and_return()
-    flexmock(app_dashboard_data).should_receive('ServerStatus')\
-      .and_return(fake_server1)
-    fake_server_q = flexmock()
-    fake_server_q.should_receive('ancestor').and_return()
-    fake_server_q.should_receive('run')\
-      .and_yield(fake_server1, fake_server2)
-    fake_server_q.should_receive('get')\
-      .and_return(fake_server1)\
-      .and_return(fake_server2)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.ServerStatus)\
-      .and_return(fake_server_q)
-    flexmock(AppDashboardData).should_receive('get_one')\
-      .with_args(app_dashboard_data.ServerStatus, re.compile('\d'))\
-      .and_return(fake_server1)\
-      .and_return(fake_server2)
-
-    fake_app1 = flexmock(name='AppStatus')
-    fake_app1.name = 'app1'
-    fake_app1.url = 'http://1.1.1.1:8080'
-    fake_app1.should_receive('put').and_return()
-    fake_app1.should_receive('delete').and_return()
-    fake_app2 = flexmock(name='AppStatus')
-    fake_app2.name = 'app2'
-    fake_app2.url = None
-    fake_app2.should_receive('put').and_return()
-    fake_app2.should_receive('delete').and_return()
-    flexmock(app_dashboard_data).should_receive('AppStatus')\
-      .and_return(fake_app1)
-    fake_app_q = flexmock()
-    fake_app_q.should_receive('ancestor').and_return()
-    fake_app_q.should_receive('run')\
-      .and_yield(fake_app1, fake_app2)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.AppStatus)\
-      .and_return(fake_app_q)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.AppStatus, keys_only=True)\
-      .and_return(fake_app_q)
-    flexmock(AppDashboardData).should_receive('get_one')\
-      .with_args(app_dashboard_data.AppStatus, re.compile('app'))\
-      .and_return(fake_app1)\
-      .and_return(fake_app2)
-
     user_info1 = flexmock(name='UserInfo')
     user_info1.email = 'a@a.com'
     user_info1.is_user_cloud_admin = True
