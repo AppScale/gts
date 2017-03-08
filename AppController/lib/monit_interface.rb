@@ -40,10 +40,15 @@ module MonitInterface
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,
     pidfile, timeout)
 
-    ports.each { |port|
-      self.write_monit_config(watch, start_cmd, stop_cmd, port,
+    if ports.nil?
+      self.write_monit_config(watch, start_cmd, stop_cmd, nil,
         env_vars, match_cmd, mem, pidfile, timeout)
-    }
+    else
+      ports.each { |port|
+        self.write_monit_config(watch, start_cmd, stop_cmd, port,
+          env_vars, match_cmd, mem, pidfile, timeout)
+      }
+    end
 
     self.run_cmd("#{MONIT} start -g #{watch}")
   end
@@ -116,27 +121,39 @@ BOO
       }
     end
 
-    logfile = "/var/log/appscale/#{watch}-#{port}.log"
+    if port.nil?
+      new_start_cmd = "#{start_cmd}"
+      new_stop_cmd = "#{stop_cmd}"
+      new_match_cmd = "#{match_cmd}"
+      suffix = ""
+    else
+      new_start_cmd = "#{start_cmd} -p #{port}"
+      new_stop_cmd = "#{stop_cmd} #{port}"
+      new_match_cmd = "#{new_start_cmd}" if match_cmd == start_cmd
+      suffix = "-#{port}"
+    end
+    logfile = "/var/log/appscale/#{watch}#{suffix}.log"
     
-    # To get monit to capture standard out and standard err from processes it
-    # monitors, we have to have bash exec it, and pipe stdout/stderr to a file.
-    # Note that we can't just do 2>&1 - monit won't capture stdout or stderr if
-    # we do this.
-    full_start_command = "/bin/bash -c '#{env_vars_str} #{start_cmd} " +
+    # To get monit to capture standard out and standard err from processes
+    # it monitors, we have to have bash exec it, and pipe stdout/stderr to
+    # a file.  Note that we can't just do 2>&1 - monit won't capture
+    # stdout or stderr if we do this.
+    full_start_command = "/bin/bash -c '#{env_vars_str} #{new_start_cmd} " +
       "1>>#{logfile} 2>>#{logfile}'"
 
-    match_str = %Q[MATCHING "#{match_cmd}"]
+    match_str = %Q[MATCHING "#{new_match_cmd}"]
     match_str = "PIDFILE #{pidfile}" unless pidfile.nil?
 
     start_line = %Q[start program = "#{full_start_command}"]
     start_line += " with timeout #{timeout} seconds" unless timeout.nil?
 
     contents = <<BOO
-CHECK PROCESS #{watch}-#{port} #{match_str}
+CHECK PROCESS #{watch}#{suffix} #{match_str}
   group #{watch}
   #{start_line}
-  stop program = "#{stop_cmd}"
+  stop program = "#{new_stop_cmd}"
 BOO
+
     # If we have a valid 'mem' option, set the max memory for this
     # process.
     begin
@@ -146,8 +163,8 @@ BOO
       # It was not an integer, ignoring it.
     end
 
-    monit_file = "#{MONIT_CONFIG}/appscale-#{watch}-#{port}.cfg"
     changing_config = true
+    monit_file = "#{MONIT_CONFIG}/appscale-#{watch}#{suffix}.cfg"
     if File.file?(monit_file)
       current_contents = File.open(monit_file).read()
       changing_config = false if contents == current_contents
@@ -158,8 +175,8 @@ BOO
       self.run_cmd('service monit reload', true)
     end
 
-    Djinn.log_info("Starting #{watch} on port #{port}" +
-      " with start command [#{start_cmd}] and stop command [#{stop_cmd}]")
+    Djinn.log_info("Starting #{watch} on port #{port} with start " +
+      "command [#{new_start_cmd}] and stop command [#{new_stop_cmd}]")
   end
 
   def self.is_running?(watch)

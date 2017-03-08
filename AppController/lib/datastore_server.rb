@@ -56,15 +56,12 @@ module DatastoreServer
       "LOCAL_DB_IP" => db_local_ip 
     }
   
-    ports.each { |port|
-      start_cmd = "/usr/bin/python2 #{datastore_server} -p #{port} " +
-          "--no_encryption --type #{table}"
-      start_cmd << ' --verbose' if verbose
-      stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-            "#{datastore_server} #{port}"
-      MonitInterface.start(:datastore_server, start_cmd, stop_cmd, [port],
-                           env_vars, start_cmd, nil, nil, nil)
-    }
+    start_cmd = "/usr/bin/python2 #{datastore_server}--no_encryption --type #{table}"
+    start_cmd << ' --verbose' if verbose
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+          "#{datastore_server}"
+    MonitInterface.start(:datastore_server, start_cmd, stop_cmd, ports,
+                         env_vars, start_cmd, nil, nil, nil)
   end
 
 

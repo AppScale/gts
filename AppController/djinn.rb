@@ -246,10 +246,6 @@ class Djinn
   attr_accessor :app_upload_reservations
 
 
-  # The port that the AppController runs on by default
-  SERVER_PORT = 17443
-
-
   # The port that SSH connections are hosted over, by default.
   SSH_PORT = 22
 
@@ -2379,14 +2375,13 @@ class Djinn
     start_cmd = "#{PYTHON27} #{iaas_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{iaas_script} #{PYTHON27}"
-    port = InfrastructureManagerClient::SERVER_PORT
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
 
-    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, [port], env,
+    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, nil, env,
                          start_cmd, nil, nil, nil)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
@@ -3950,8 +3945,7 @@ class Djinn
     start_cmd = "#{PYTHON27} #{app_manager_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{app_manager_script} #{PYTHON27}"
-    port = AppManagerClient::SERVER_PORT
-    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, [port],
+    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, nil,
                          env_vars, start_cmd, nil, nil, nil)
   end
 
@@ -4002,9 +3996,7 @@ class Djinn
     start_cmd = "#{soap_script} -t #{table}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{soap_script} /usr/bin/python"
-    port = UserAppClient::SERVER_PORT
-
-    MonitInterface.start(:uaserver, start_cmd, stop_cmd, [port], env_vars,
+    MonitInterface.start(:uaserver, start_cmd, stop_cmd, nil, env_vars,
                          start_cmd, nil, nil, nil)
   end
 
@@ -4031,13 +4023,12 @@ class Djinn
     start_cmd = "twistd --pidfile=#{log_server_pid}  --logfile " +
                 "#{log_server_file} appscale-logserver"
     stop_cmd = "/bin/bash -c 'kill $(cat #{log_server_pid})'"
-    port = 7422
     env = {
         'APPSCALE_HOME' => APPSCALE_HOME,
         'PYTHONPATH' => "#{APPSCALE_HOME}/LogService/"
     }
 
-    MonitInterface.start(:log_service, start_cmd, stop_cmd, [port], env,
+    MonitInterface.start(:log_service, start_cmd, stop_cmd, nil, env,
                          nil, nil, log_server_pid, nil)
     Djinn.log_info("Started Log Server successfully!")
   end
@@ -4774,7 +4765,7 @@ HOSTS
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
-      MonitInterface.start(:controller, start, stop, [SERVER_PORT], env,
+      MonitInterface.start(:controller, start, stop, nil, env,
                            start, nil, nil, nil)
     rescue
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
@@ -4840,11 +4831,10 @@ HOSTS
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    port = 11211
     start_cmd = "/usr/bin/memcached -m 64 -p #{port} -u root"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "/usr/bin/memcached #{port}"
-    MonitInterface.start(:memcached, start_cmd, stop_cmd, [port], nil,
+    MonitInterface.start(:memcached, start_cmd, stop_cmd, nil, nil,
                          start_cmd, nil, nil, nil)
   end
 
@@ -6238,7 +6228,7 @@ HOSTS
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
-      MonitInterface.start(watch_name, start_cmd, stop_cmd, [9999], nil,
+      MonitInterface.start(watch_name, start_cmd, stop_cmd, nil, nil,
                            start_cmd, nil, nil, nil)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
