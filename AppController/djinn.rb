@@ -4013,7 +4013,7 @@ class Djinn
     verbose = @options['verbose'].downcase == 'true'
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
-      db_proxy = node.private_ip if node.is_shadow?
+      db_proxy = node.private_ip if node.is_load_balancer?
     }
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
     HelperFunctions.log_and_crash("db proxy ip was nil") if db_proxy.nil?
