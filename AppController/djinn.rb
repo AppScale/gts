@@ -425,6 +425,8 @@ class Djinn
   # safely.
   SAFE_MEM = 500
 
+  # Conversion divisor to MB for RAM statistics given in Bytes.
+  MEGABYTE_DIVISOR = 1024*1024
 
   # A regular expression that can be used to match any character that is not
   # acceptable to use in a hostname:port string, used to filter out unacceptable
@@ -1273,9 +1275,10 @@ class Djinn
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache()
-    threads = []
-    @nodes.each { |node|
-      threads << Thread.new {
+    new_stats = []
+
+    Thread.new {
+      @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
           node_stats = JSON.load(get_node_stats_json(@@secret))
@@ -1289,15 +1292,10 @@ class Djinn
             next
           end
         end
-        Thread.current[:node_stats] = node_stats
+        new_stats << node_stats
       }
+      @cluster_stats = new_stats
     }
-    new_stats = []
-    threads.each do |t|
-      t.join
-      new_stats << t[:node_stats]
-    end
-    @cluster_stats = new_stats
   end
 
 
@@ -2176,9 +2174,9 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = JSON.load(get_node_stats_json(secret))
+        stats = JSON.parse(get_node_stats_json(secret))
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
-          "#{stats['memory']['available']/(1024*1024)}MB memory available " +
+          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
         last_print = Time.now.to_i
       end
@@ -5529,8 +5527,8 @@ HOSTS
       @cluster_stats.each { |node|
         next if node['private_ip'] != host
 
-	      # Convert total memory to MB
-        total = Float(node['memory']['total']/1024/1024)
+        # Convert total memory to MB
+        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
 
         # Check how many new AppServers of this app, we can run on this
         # node (as theoretical maximum memory usage goes).
@@ -5542,7 +5540,7 @@ HOSTS
 
         # Now we do a similar calculation but for the current amount of
         # available memory on this node. First convert bytes to MB
-        host_available_mem = Float(node['memory']['available']/1024/1024)
+        host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
         max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
           " AppServers for #{app_name}.")
@@ -5550,7 +5548,7 @@ HOSTS
 
         # The host needs to have normalized average load less than
         # MAX_LOAD_AVG, current CPU usage less than 90%.
-        if Float(100 - node['cpu']['idle']) > MAX_CPU_FOR_APPSERVERS ||
+        if Float(100 - node['cpu']['idle']) < MAX_CPU_FOR_APPSERVERS ||
             Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
           Djinn.log_debug("#{host} CPUs are too busy.")
           break
@@ -5824,7 +5822,7 @@ HOSTS
   # Returns:
   #   A JSON string containing the average request rate, timestamp, and total
   # requests seen for the given application.
-  def get_request_info(secret, app_id)
+  def get_request_info(app_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     Djinn.log_debug("Sending a log with request rate #{app_id}, timestamp " +
       "#{@last_sampling_time[app_id]}, request rate " +

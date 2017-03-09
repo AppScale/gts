@@ -309,9 +309,7 @@ class AppDashboardData():
       for key in old_requests_query.iter(keys_only=True):
         old_requests.append(key)
       ndb.delete_multi(old_requests)
-      reversed_time = (2 ** 34 - int(request_info.get('timestamp'))) * 1000000
       request_stats = RequestInfo(
-                      id=app_id + str(reversed_time),  # puts entities time desc.
                       app_id=app_id,
                       timestamp=timestamp,
                       avg_request_rate=request_info.get('avg_request_rate'),

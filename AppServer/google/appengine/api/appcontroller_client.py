@@ -211,7 +211,7 @@ class AppControllerClient():
     """
     return yaml.safe_load(self.call(self.MAX_RETRIES,
                                     self.server.get_request_info,
-                                    self.secret, app_id))
+                                    app_id, self.secret))
 
   def get_instance_info(self):
     """Queries the AppController to get server-level statistics and a list of
