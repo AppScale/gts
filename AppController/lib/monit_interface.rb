@@ -40,17 +40,18 @@ module MonitInterface
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars, match_cmd, mem,
     pidfile, timeout)
 
+    changed_config = false
     if ports.nil?
-      self.write_monit_config(watch, start_cmd, stop_cmd, nil,
+      changed_config = self.write_monit_config(watch, start_cmd, stop_cmd, nil,
         env_vars, match_cmd, mem, pidfile, timeout)
     else
       ports.each { |port|
-        self.write_monit_config(watch, start_cmd, stop_cmd, port,
+        changed_config ||= self.write_monit_config(watch, start_cmd, stop_cmd, port,
           env_vars, match_cmd, mem, pidfile, timeout)
       }
     end
 
-    self.run_cmd('service monit reload', true)
+    self.run_cmd('service monit reload', true) if changed_config
     self.run_cmd("#{MONIT} start -g #{watch}")
   end
 
@@ -168,16 +169,17 @@ BOO
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}#{suffix}.cfg"
     if File.file?(monit_file)
       current_contents = File.open(monit_file).read()
-      changing_config = false if contents == current_contents
-    end
-
-    if changing_config
-      HelperFunctions.write_file(monit_file, contents)
-      self.run_cmd('service monit reload', true)
+      if contents == current_contents
+        changing_config = false
+      else
+        HelperFunctions.write_file(monit_file, contents)
+      end
     end
 
     Djinn.log_info("Starting #{watch} on port #{port} with start " +
       "command [#{new_start_cmd}] and stop command [#{new_stop_cmd}]")
+
+    return changing_config
   end
 
   def self.is_running?(watch)
