@@ -4498,7 +4498,7 @@ HOSTS
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ip = get_shadow.private_ip
+    login_ips = @options['login'].split(/[\s,]+/)
 
     @apps_loaded.each { |app|
       # Check that we have the application information needed to
@@ -4563,8 +4563,8 @@ HOSTS
         # If nginx config files have been updated, we communicate the app's
         # ports to the UserAppServer to make sure we have the latest info.
         if Nginx.write_fullproxy_app_config(app, http_port, https_port,
-            my_public, my_private, proxy_port, static_handlers, login_ip,
-            app_language)
+            my_public, my_private, proxy_port, static_handlers,
+            login_ips[0], app_language)
           uac = UserAppClient.new(my_node.private_ip, @@secret)
           begin
             if uac.add_instance(app, my_public, http_port, https_port)
@@ -5856,16 +5856,17 @@ HOSTS
     Djinn.log_info("Starting #{app_language} app #{app} on " +
       "#{@my_private_ip}:#{appengine_port}")
 
-    xmpp_ip = @options['login']
+    # The IP we use to reach this deployment: it will be used by XMPP, and
+    # dashboard (authentication) redirections.
+    login_ips = @options['login'].split(/[\s,]+/)
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
       max_app_mem = @app_info_map[app]['max_memory']
       max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
-      pid = app_manager.start_app(app, appengine_port,
-        get_load_balancer.public_ip, app_language, xmpp_ip,
-        HelperFunctions.get_app_env_vars(app), max_app_mem,
-        get_shadow.private_ip)
+      pid = app_manager.start_app(app, appengine_port, login_ips[0],
+        app_language, login_ips[0], HelperFunctions.get_app_env_vars(app),
+        max_app_mem, get_shadow.private_ip)
     rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
         "with AppManager: #{error.message}")
@@ -6214,9 +6215,9 @@ HOSTS
 
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
-    login_ip = @options['login']
+    login_ips = @options['login'].split(/[\s,]+/)
     uac = UserAppClient.new(my_node.private_ip, @@secret)
-    xmpp_user = "#{app}@#{login_ip}"
+    xmpp_user = "#{app}@#{login_ips[0]}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
     result = uac.commit_new_user(xmpp_user, xmpp_pass, "app")
     Djinn.log_debug("User creation returned: #{result}")
@@ -6230,7 +6231,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ips[0]} #{@@secret}"
       stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
       MonitInterface.start(watch_name, start_cmd, stop_cmd, [9999], nil,
