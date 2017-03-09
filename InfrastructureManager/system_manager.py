@@ -111,13 +111,12 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
-    # Conversion divisor for kB to MB.
-    conversion = 1024 * 1024
+
     mem_stats_dict = { JSONTags.MEMORY :
       {
-        JSONTags.TOTAL : float(mem_stats.total)/conversion,
-        JSONTags.AVAILABLE : float(mem_stats.available)/conversion,
-        JSONTags.USED : float(mem_stats.used)/conversion
+        JSONTags.TOTAL : mem_stats.total,
+        JSONTags.AVAILABLE : mem_stats.available,
+        JSONTags.USED : mem_stats.used
       }
     }
     logging.debug("Memory stats: {}".format(mem_stats_dict))

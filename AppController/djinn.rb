@@ -2176,9 +2176,9 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = get_node_stats_json(secret)
+        stats = JSON.load(get_node_stats_json(secret))
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
-          "#{stats['memory']['available']}MB memory available " +
+          "#{stats['memory']['available']/(1024*1024)}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
         last_print = Time.now.to_i
       end
@@ -5529,8 +5529,8 @@ HOSTS
       @cluster_stats.each { |node|
         next if node['private_ip'] != host
 
-        # Total memory is already in MB
-        total = Float(node['memory']['total'])
+	      # Convert total memory to MB
+        total = Float(node['memory']['total']/1024/1024)
 
         # Check how many new AppServers of this app, we can run on this
         # node (as theoretical maximum memory usage goes).
@@ -5542,7 +5542,7 @@ HOSTS
 
         # Now we do a similar calculation but for the current amount of
         # available memory on this node. First convert bytes to MB
-        host_available_mem = Float(node['memory']['available'])
+        host_available_mem = Float(node['memory']['available']/1024/1024)
         max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
           " AppServers for #{app_name}.")
