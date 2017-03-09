@@ -168,13 +168,10 @@ BOO
     changing_config = true
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}#{suffix}.cfg"
     if File.file?(monit_file)
-      current_contents = File.open(monit_file).read()
-      if contents == current_contents
-        changing_config = false
-      else
-        HelperFunctions.write_file(monit_file, contents)
-      end
+      current_contents = File.open(monit_file).read
+      changing_config = false if contents == current_contents
     end
+    HelperFunctions.write_file(monit_file, contents) if changing_config
 
     Djinn.log_info("Starting #{watch} on port #{port} with start " +
       "command [#{new_start_cmd}] and stop command [#{new_stop_cmd}]")
