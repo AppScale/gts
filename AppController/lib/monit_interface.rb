@@ -46,8 +46,9 @@ module MonitInterface
         env_vars, match_cmd, mem, pidfile, timeout)
     else
       ports.each { |port|
-        changed_config ||= self.write_monit_config(watch, start_cmd, stop_cmd, port,
+        changed = self.write_monit_config(watch, start_cmd, stop_cmd, port,
           env_vars, match_cmd, mem, pidfile, timeout)
+        changed_config = changed_config || changed
       }
     end
 

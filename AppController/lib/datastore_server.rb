@@ -56,7 +56,7 @@ module DatastoreServer
       "LOCAL_DB_IP" => db_local_ip 
     }
   
-    start_cmd = "/usr/bin/python2 #{datastore_server} --no_encryption --type #{table}"
+    start_cmd = "/usr/bin/python2 #{datastore_server} --type #{table}"
     start_cmd << ' --verbose' if verbose
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{datastore_server}"
