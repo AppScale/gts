@@ -22,6 +22,7 @@ GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
 GUESTBOOK_APP="/root/guestbook.tar.gz"
 USE_DEMO_APP="Y"
+FORCE_PRIVATE="N"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
 
 # On some system, when running this scipt from rc.local (ie at boot time)
@@ -37,6 +38,7 @@ usage() {
         echo "  --user <email>          administrator's email"
         echo "  --passwd <password>     administrator's password"
         echo "  --no-demo-app           don't start the demo application"
+        echo "  --force-private         don't use public IP (needed for marketplace)"
         echo
 }
 
@@ -85,6 +87,11 @@ while [ $# -gt 0 ]; do
     if [ "$1" = "--no-demo-app" ]; then
         shift
         USE_DEMO_APP="N"
+        continue
+    fi
+    if [ "$1" = "--force-private" ]; then
+        shift
+        FORCE_PRIVATE="Y"
         continue
     fi
     usage
@@ -205,7 +212,11 @@ if [ ! -e AppScalefile ]; then
     echo -n "Creating AppScalefile..."
     echo "ips_layout :" > AppScalefile
     echo "  controller : ${PRIVATE_IP}" >> AppScalefile
-    echo "login : ${PUBLIC_IP}" >> AppScalefile
+    if [ "${FORCE_PRIVATE}" = "Y" ]; then
+        echo "login : ${PRIVATE_IP}" >> AppScalefile
+    else
+        echo "login : ${PUBLIC_IP}" >> AppScalefile
+    fi
     if [ -z "${ADMIN_EMAIL}" ]; then
         echo "test : true" >> AppScalefile
     else
@@ -239,6 +250,11 @@ fi
 
 # Start AppScale.
 ${APPSCALE_CMD} up
+
+# We need to set the login after AppScale is up for marketplace.
+if [ "${FORCE_PRIVATE}" = "Y" ]; then
+    ${APPSCALE_CMD} set login ${PUBLIC_IP}
+fi
 
 # If we don't need to deploy the demo app, we are done.
 if [ "${USE_DEMO_APP}" != "Y" ]; then
