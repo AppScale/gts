@@ -255,6 +255,8 @@ class Djinn
   #    "cloud" => False,
   #    "state" => "Done starting up AppScale, now in heartbeat mode",
   #    "db_location" => "192.168.33.10",
+  #    "is_initialized" => True,
+  #    "is_loaded" => True,
   #    "public_ip" => "192.168.33.10",
   #    "private_ip" => "10.10.105.18",
   #    "roles" => ["shadow", "zookeeper", "datastore", "taskqueue"],
@@ -573,7 +575,7 @@ class Djinn
     @@logs_buffer = []
 
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::DEBUG
+    @@log.level = Logger::INFO
 
     @my_index = nil
     @my_public_ip = nil
