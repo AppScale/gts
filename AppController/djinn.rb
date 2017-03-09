@@ -255,6 +255,8 @@ class Djinn
   #    "cloud" => False,
   #    "state" => "Done starting up AppScale, now in heartbeat mode",
   #    "db_location" => "192.168.33.10",
+  #    "is_initialized" => True,
+  #    "is_loaded" => True,
   #    "public_ip" => "192.168.33.10",
   #    "private_ip" => "10.10.105.18",
   #    "roles" => ["shadow", "zookeeper", "datastore", "taskqueue"],
@@ -571,7 +573,7 @@ class Djinn
     @@logs_buffer = []
 
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::DEBUG
+    @@log.level = Logger::INFO
 
     @my_index = nil
     @my_public_ip = nil
@@ -2172,7 +2174,7 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = get_node_stats(secret)
+	stats = JSON.parse(get_node_stats_json(secret))
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/(1024*1024)}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
