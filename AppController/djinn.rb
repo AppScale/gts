@@ -1292,15 +1292,12 @@ class Djinn
         Thread.current[:node_stats] = node_stats
       }
     }
-    Djinn.log_info(@cluster_stats)
     new_stats = []
     threads.each do |t|
       t.join
       new_stats << t[:node_stats]
     end
     @cluster_stats = new_stats
-    Djinn.log_info(@cluster_stats)
-    Djinn.log_info("everything is fine")
   end
 
 
@@ -3411,8 +3408,8 @@ class Djinn
   end
 
 
-  # Sends information about the AppServer processes hosting App Engine apps on
-  # this machine to the AppDashboard, for later viewing.
+  # Returns information about the AppServer processes hosting App Engine apps on
+  # this machine.
   def get_instance_info(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     APPS_LOCK.synchronize {
@@ -5532,7 +5529,7 @@ HOSTS
       @cluster_stats.each { |node|
         next if node['private_ip'] != host
 
-	    # Convert total memory to MB
+        # Total memory is already in MB
         total = Float(node['memory']['total'])
 
         # Check how many new AppServers of this app, we can run on this
@@ -5550,8 +5547,7 @@ HOSTS
         Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
           " AppServers for #{app_name}.")
         break if max_new_free <= 0
-        Djinn.log_info("used cpu: #{Float(100 - node['cpu']['idle'])}")
-        Djinn.log_info("used cpu: #{Float(node['loadavg']['last_1_min']) / node['cpu']['count']}")
+
         # The host needs to have normalized average load less than
         # MAX_LOAD_AVG, current CPU usage less than 90%.
         if Float(100 - node['cpu']['idle']) > MAX_CPU_FOR_APPSERVERS ||
@@ -5818,23 +5814,21 @@ HOSTS
   end
 
 
-  # Tells the AppDashboard how many requests were served for the named
-  # application at the given time, so that it can display this info to users
-  # graphically.
+  # Returns request info stored by the AppController in a JSON string
+  # containing the average request rate, timestamp, and total requests seen.
   #
   # Args:
   #   app_id: A String that indicates which application id we are storing
   #     request info for.
-  #   timestamp: An Integer that indicates the epoch time when we measured the
-  #     request rate for the given application.
-  #   request_rate: An Integer that indicates how many requests were served for
-  #     the given application in the last second since we queried it.
+  #   secret: A String that authenticates callers.
   # Returns:
-  #   true if the request info was successfully sent, and false otherwise.
+  #   A JSON string containing the average request rate, timestamp, and total
+  # requests seen for the given application.
   def get_request_info(secret, app_id)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     Djinn.log_debug("Sending a log with request rate #{app_id}, timestamp " +
-      "#{@last_sampling_time[app_id]}, request rate #{@average_req_rate[app_id]}")
+      "#{@last_sampling_time[app_id]}, request rate " +
+      "#{@average_req_rate[app_id]}")
     encoded_request_info = JSON.dump({
       'timestamp' => @last_sampling_time[app_id],
       'avg_request_rate' => @average_req_rate[app_id],

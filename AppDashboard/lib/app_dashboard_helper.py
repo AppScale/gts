@@ -241,6 +241,10 @@ class AppDashboardHelper(object):
 
   def get_instance_info(self, app_id):
     """ Queries the AppController to get instance information for a given app_id
+
+    Returns:
+      A list of dicts containing host, port, and language information for
+        each instance hosting the given application.
     """
     try:
       instances = self.get_appcontroller_client().get_instance_info()

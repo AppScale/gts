@@ -22,7 +22,6 @@ import sys
 import time
 import urllib
 import webapp2
-import yaml
 
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
@@ -1153,18 +1152,16 @@ class RequestsStats(AppDashboard):
         'num_of_requests': request.num_of_requests,
         'avg_request_rate': request.avg_request_rate
       })
-    logging.info("{} requests".format(len(request_info)))
     return request_info
 
 
 class RequestRefreshPage(AppDashboard):
-  """ Class that returns request statistics in JSON relating to the number
-  of requests an application gets per second.
+  """ Class that stores request statistics about every application in the
+  datastore relating to the number of requests an application gets per second.
   """
 
   def get(self):
     """ Handler for GET request for the requests statistics. """
-
     for app_id in self.helper.get_application_info().keys():
       self.dstore.update_request_info(app_id=app_id)
 

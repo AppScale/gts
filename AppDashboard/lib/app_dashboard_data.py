@@ -6,7 +6,6 @@ import logging
 from google.appengine.ext import ndb
 from google.appengine.api import users
 from app_dashboard_helper import AppDashboardHelper
-from app_dashboard_helper import AppHelperException
 
 
 class DashboardDataRoot(ndb.Model):
@@ -293,21 +292,23 @@ class AppDashboardData():
       return None
 
   def update_request_info(self, app_id):
+    """ Queries the AppController to get request information for the given
+    application, storing it in the Datastore for later viewing.
+
+    Args:
+      app_id: A string, the application identifier.
+    """
     try:
-      request_info = self.helper.get_appcontroller_client().get_request_info(
-        app_id)
+      request_info = self.helper.get_appcontroller_client()\
+                                  .get_request_info(app_id)
       timestamp = datetime.datetime.fromtimestamp(request_info.get('timestamp'))
       lastHourDateTime = timestamp - datetime.timedelta(hours=1)
-      logging.info("comparing 'current' time: {} to an hour ago: {}".format(
-        timestamp, lastHourDateTime))
       old_requests_query = RequestInfo.query(RequestInfo.timestamp <
                                              lastHourDateTime)
       old_requests = []
       for key in old_requests_query.iter(keys_only=True):
         old_requests.append(key)
-      logging.info("old requests: {}".format(len(old_requests)))
       ndb.delete_multi(old_requests)
-      logging.info("putting:{}".format(request_info))
       reversed_time = (2 ** 34 - int(request_info.get('timestamp'))) * 1000000
       request_stats = RequestInfo(
                       id=app_id + str(reversed_time),  # puts entities time desc.
@@ -316,9 +317,6 @@ class AppDashboardData():
                       avg_request_rate=request_info.get('avg_request_rate'),
                       num_of_requests=request_info.get('num_of_requests'))
       request_stats.put()
-      query = RequestInfo.query(RequestInfo.app_id == app_id)
-      requests = query.fetch()
-      logging.info("{} requests".format(len(requests)))
     except Exception as err:
       logging.exception(err)
 
@@ -349,6 +347,7 @@ class AppDashboardData():
         dashboard_root = DashboardDataRoot(id=self.ROOT_KEYNAME)
       dashboard_root.table = db_info['table']
       dashboard_root.replication = int(db_info['replication'])
+      dashboard_root.put()
       return {
         'table': dashboard_root.table,
         'replication': dashboard_root.replication

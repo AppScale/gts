@@ -111,6 +111,7 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
+    # Conversion divisor for kB to MB.
     conversion = 1024 * 1024
     mem_stats_dict = { JSONTags.MEMORY :
       {

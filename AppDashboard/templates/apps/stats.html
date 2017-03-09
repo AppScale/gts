@@ -64,7 +64,7 @@ $('#groomer').click(function() {
   function(response) {
     console.log(response);
     update_stats_info();
-  })
+  });
 });
 
 //Plots JSON data on a line graph
@@ -79,7 +79,7 @@ window.onload = function() {
       update_stats_info();
       update_instance_info();
     }, 20000);
-}
+};
 /**
  * Updates the instance info for the application.
  */
@@ -88,7 +88,6 @@ function update_instance_info() {
         url: "/apps/stats/instances?appid={{ appid }}"
     }).done(
             function(json_data){
-                console.log(json_data)
                 var instance_info = JSON.parse(json_data);
                 var instance_rows = "";
                 for (var index = 0; index < instance_info.length; index++) {
@@ -102,7 +101,7 @@ function update_instance_info() {
                     instance_rows += "<tr>" + instance_host + instance_port +
                             instance_lang + "</tr>";
                 }
-                $("#num-instances").html(instance_info.length)
+                $("#num-instances").html(instance_info.length);
                 $("#instance-info-table").html(instance_rows)
             }
     )
@@ -118,7 +117,6 @@ function update_request_info() {
     url: "/apps/stats/requests?appid={{ appid }}"
   }).done(
   function(json_data) {
-    console.log(json_data);
     var req_info = JSON.parse(json_data);
     var thetuples = [];
     for (var index = 0; index < req_info.length; index++) {
@@ -158,7 +156,6 @@ function update_stats_info() {
     url: "/apps/stats/datastore?appid={{ appid }}"
   }).done(
     function(json_data) {
-      console.log(json_data);
       var stats_info = JSON.parse(json_data);
       var newest_info = stats_info[stats_info.length-1];
       var newest_timestamp = null;
@@ -189,6 +186,7 @@ function update_stats_info() {
           "This data updates every day by default, or you can click " +
           "the 'Update' button above to manually generate this data.");
       } else {
+        // Give the pie chart area a height so it will be displayed.
         $('#kind-flot').text('').css('height','400px');
         $.plot('#kind-flot', data, {
           series: {
