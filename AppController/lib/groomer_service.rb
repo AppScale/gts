@@ -22,7 +22,7 @@ module GroomerService
     MonitInterface.start(:groomer_service, start_cmd, stop_cmd, nil, {},
                          start_cmd, MAX_MEM, nil, nil)
     MonitInterface.start_file(:groomer_file_check,
-      "/var/log/appscale/groomer_service-9999.log", stop_cmd, "12")
+      "/var/log/appscale/groomer_service.log", stop_cmd, "12")
   end
 
   # Stops the groomer service running on this machine. Since it's
