@@ -92,7 +92,7 @@ else:
   from google.appengine.runtime import apiproxy_errors
 
 from google.appengine.tools import appengine_rpc
-from google.appengine.api.urlfetch_stub import URLFetchServiceStub
+
 
 _REQUEST_ID_HEADER = 'HTTP_X_APPENGINE_REQUEST_ID'
 
@@ -204,7 +204,10 @@ class RemoteStub(object):
   @classmethod
   def _GetRequestId(cls):
     """Returns the id of the request associated with the current thread."""
-    return cls._local.request_id
+    try:
+      return cls._local.request_id
+    except AttributeError:
+      return None
 
   @classmethod
   def _SetRequestId(cls, request_id):
@@ -239,7 +242,7 @@ class RemoteStub(object):
       response.ParseFromString(response_pb.response())
 
   def CreateRPC(self):
-    return apiproxy_rpc.RPC(stub=self)
+    return apiproxy_rpc.RealRPC(stub=self)
 
 
 class RemoteDatastoreStub(RemoteStub):
@@ -596,10 +599,6 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
     services.remove('datastore_v3')
     datastore_stub = RemoteDatastoreStub(server, path)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
-  if 'urlfetch' in services:
-    services.remove('urlfetch')
-    stub = URLFetchServiceStub()
-    apiproxy_stub_map.apiproxy.RegisterStub('urlfetch', stub)
   stub = RemoteStub(server, path)
   for service in services:
     apiproxy_stub_map.apiproxy.RegisterStub(service, stub)
