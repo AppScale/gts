@@ -95,6 +95,9 @@ DASHBOARD_APP_ID = "appscaledashboard"
 # Reserved application identifiers which are only internal for AppScale.
 RESERVED_APP_IDS = [DASHBOARD_APP_ID]
 
+# The seconds to wait for the schema to settle after changing it.
+SCHEMA_CHANGE_TIMEOUT = 120
+
 # Location of where the search service is running.
 SEARCH_FILE_LOC = "/etc/appscale/search_ip"
 

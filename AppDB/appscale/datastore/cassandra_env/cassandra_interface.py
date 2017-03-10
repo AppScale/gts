@@ -43,6 +43,7 @@ from ..utils import tx_partition
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
+from constants import SCHEMA_CHANGE_TIMEOUT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -721,7 +722,7 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
-      self.session.execute(query)
+      self.session.execute(query, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
       logging.warning('Encountered an operation timeout while creating a '
                       'table. Waiting 1 minute for schema to settle.')
