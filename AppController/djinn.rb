@@ -1949,18 +1949,22 @@ class Djinn
     }
     failed_apps.each { |app|
       apps_to_restart.delete(app)
-      stop_app(app, @@secret)
-      Djinn.log_error("Disabled #{app} since language doesn't match our record.")
+      Djinn.log_error("Ignoring update to #{app} since language doesn't match our records.")
     }
 
     # Make sure we have the latest code deployed.
     apps.each { |appid|
+      next if failed_apps.include?(appid)
+
       # Let's make sure the application is enabled.
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       RETRIES.downto(0) { |tries|
         begin
           result = uac.enable_app(appid)
           Djinn.log_debug("enable_app returned #{result}.")
+          APPS_LOCK.synchronize {
+            setup_app_dir(appid, true)
+          }
           break
         rescue FailedNodeException
           # Failed to talk to the UserAppServer: let's try again.
@@ -1968,14 +1972,12 @@ class Djinn
         end
         if tries == 0
           Djinn.log_warn("Couldn't enable application #{appid}!")
+          failed_apps << appid
+          apps_to_restart.delete(appid)
         else
           Djinn.log_info("Waiting to enable app named #{appid}.")
           Kernel.sleep(SMALL_WAIT)
         end
-      }
-
-      APPS_LOCK.synchronize {
-        setup_app_dir(appid, true)
       }
     }
 
@@ -1996,11 +1998,16 @@ class Djinn
     end
 
     APPS_LOCK.synchronize {
-      @app_names |= apps
+      @app_names |= (apps - failed_apps)
     }
-    Djinn.log_debug("Done updating apps!")
+    if failed_apps.empty?
+      msg = "OK"
+    else
+      msg = "false: failed to deploy the following applications #{failed_apps}."
+    end
+    Djinn.log_debug("Done updating apps with: #{msg}")
 
-    return "OK"
+    return msg
   end
 
   # Adds the list of apps that should be restarted to this node's list of apps
