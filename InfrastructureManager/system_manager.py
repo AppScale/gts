@@ -111,6 +111,7 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
+
     mem_stats_dict = { JSONTags.MEMORY :
       {
         JSONTags.TOTAL : mem_stats.total,

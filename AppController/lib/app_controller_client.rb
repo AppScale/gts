@@ -83,6 +83,8 @@ class AppControllerClient
     @conn.add_method("get_app_upload_status", "reservation_id", "secret")
     @conn.add_method("get_cluster_stats_json", "secret")
     @conn.add_method("get_node_stats_json", "secret")
+    @conn.add_method("get_instance_info", "secret")
+    @conn.add_method("get_request_info", "app_id", "secret")
   end
 
 

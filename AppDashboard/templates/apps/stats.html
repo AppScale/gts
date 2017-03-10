@@ -10,6 +10,8 @@
             </div><!--close header-->
               <div class="row-fluid">
               <div class="row-fluid">
+                <div id="total-requests" style="margin-right:auto; margin-left:auto;">
+                </div><!-- close marginright -->
                 <div style="margin-right:auto; margin-left:auto;">
                   <p>Requests per second:</p>
                 </div><!-- close marginright -->
@@ -31,7 +33,8 @@
               </div><!-- close row fluid-->
               <div class="row-fluid">
                 <div style="margin-right:auto; margin-left:auto;">
-                  <p>{{ instance_info|length }} instances are hosting this app:</p>
+                  <p>Instances hosting this app:<span
+                          id="num-instances"></span></p>
                 </div><!-- close marginright -->
                 <div class="offset1 span8">
                   <table class="table">
@@ -42,14 +45,7 @@
                         <td>Language</td>
                       </tr>
                     </thead>
-                    <tbody>
-                    {% for instance in instance_info %}
-                      <tr>
-                        <td style="text-align:left">{{ instance.host }}</td>
-                        <td style="text-align:left">{{ instance.port }}</td>
-                        <td style="text-align:left">{{ instance.language }}</td>
-                      </tr>
-                    {% endfor %}
+                    <tbody id="instance-info-table">
                     </tbody>
                   </table>
                 </div><!-- close offset -->
@@ -68,19 +64,47 @@ $('#groomer').click(function() {
   function(response) {
     console.log(response);
     update_stats_info();
-  })
+  });
 });
 
 //Plots JSON data on a line graph
 window.onload = function() {
   update_request_info();
   update_stats_info();
+  update_instance_info();
 
   setInterval(
     function() {
       update_request_info();
       update_stats_info();
+      update_instance_info();
     }, 20000);
+};
+/**
+ * Updates the instance info for the application.
+ */
+function update_instance_info() {
+    $.ajax({
+        url: "/apps/stats/instances?appid={{ appid }}"
+    }).done(
+            function(json_data){
+                var instance_info = JSON.parse(json_data);
+                var instance_rows = "";
+                for (var index = 0; index < instance_info.length; index++) {
+                    var table_col = '<td style="text-align:left">';
+                    var instance_host = table_col +
+                            instance_info[index]['host'] + '</td>';
+                    var instance_port = table_col +
+                            instance_info[index]['port'] + '</td>';
+                    var instance_lang = table_col +
+                            instance_info[index]['language'] + '</td>';
+                    instance_rows += "<tr>" + instance_host + instance_port +
+                            instance_lang + "</tr>";
+                }
+                $("#num-instances").html(instance_info.length);
+                $("#instance-info-table").html(instance_rows)
+            }
+    )
 }
 
 /**
@@ -97,13 +121,13 @@ function update_request_info() {
     var thetuples = [];
     for (var index = 0; index < req_info.length; index++) {
       var x = req_info[index]['timestamp'] * 1000;
-      var y = req_info[index]['num_of_requests'];
-      thetuples.push({ timestamp: x, num_of_requests: y });
+      var y = req_info[index]['avg_request_rate'];
+      thetuples.push({ timestamp: x, avg_request_rate: y });
     }
 
     if (thetuples.length == 0) {
       $('#requests-per-second-flot').text('No request data is currently ' +
-        'available. This data is generated once every 20 seconds, so ' +
+        'available. This data is generated once every minute, so ' +
         'please wait and it should be updated shortly.');
     } else {
       $('#requests-per-second-flot').text('');
@@ -111,9 +135,12 @@ function update_request_info() {
         element: 'requests-per-second-flot',
         data: thetuples,
         xkey: 'timestamp',
-        ykeys: ['num_of_requests'],
-        labels: ['Number of Requests per second'],
+        ykeys: ['avg_request_rate'],
+        labels: ['Average Number of Requests per Second']
       });
+      var last_request_info = req_info[0];
+      $('#total-requests').html("<p>Total Requests Seen: " +
+              last_request_info['num_of_requests'] + "</p>");
     }
   });
 }
@@ -159,7 +186,8 @@ function update_stats_info() {
           "This data updates every day by default, or you can click " +
           "the 'Update' button above to manually generate this data.");
       } else {
-        $('#kind-flot').text('');
+        // Give the pie chart area a height so it will be displayed.
+        $('#kind-flot').text('').css('height','400px');
         $.plot('#kind-flot', data, {
           series: {
             pie: {
