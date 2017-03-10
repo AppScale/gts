@@ -1962,15 +1962,12 @@ class Djinn
         begin
           result = uac.enable_app(appid)
           Djinn.log_debug("enable_app returned #{result}.")
-          APPS_LOCK.synchronize {
-            setup_app_dir(appid, true)
-          }
           break
         rescue FailedNodeException
           # Failed to talk to the UserAppServer: let's try again.
           Djinn.log_debug("Failed to talk to UserAppServer for #{appid}.")
         end
-        if tries == 0
+        if tries <= 0
           Djinn.log_warn("Couldn't enable application #{appid}!")
           failed_apps << appid
           apps_to_restart.delete(appid)
@@ -1981,6 +1978,16 @@ class Djinn
       }
     }
 
+    # Setup the application code. Apps can become failed if the code
+    # cannot be setup properly.
+    (apps - failed_apps).each { |appid|
+      APPS_LOCK.synchronize {
+        setup_app_dir(appid, true)
+      }
+    }
+
+    # For applications with new versions, we have to clear the hosters, so
+    # AppEngine nodes will pull the new code.
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
@@ -5842,6 +5849,7 @@ HOSTS
         error_msg = "ERROR: Failed to copy app: #{app}."
       end
     end
+
 
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
