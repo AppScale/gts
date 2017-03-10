@@ -302,6 +302,7 @@ class DatastoreProxy(AppDBInterface):
         time.sleep(3)
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
+    self.prepared_statements = {}
 
   def close(self):
     """ Close all sessions and connections to Cassandra. """
@@ -424,7 +425,11 @@ class DatastoreProxy(AppDBInterface):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
-    return self.session.prepare(statement)
+
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = self.session.prepare(statement)
+
+    return self.prepared_statements[statement]
 
   def prepare_delete(self, table):
     """ Prepare a delete statement.
@@ -439,7 +444,11 @@ class DatastoreProxy(AppDBInterface):
       USING TIMESTAMP ?
       WHERE {key} = ?
     """.format(table=table, key=ThriftColumn.KEY)
-    return self.session.prepare(statement)
+
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = self.session.prepare(statement)
+
+    return self.prepared_statements[statement]
 
   def _normal_batch(self, mutations, txid):
     """ Use Cassandra's native batch statement to apply mutations atomically.
