@@ -189,7 +189,7 @@ def get_db_slave_ips():
   """
   try:
     with open(constants.SLAVES_FILE_LOC) as slaves_file:
-      return [ip for ip in slaves_file.readlines() if ip]
+      return [line.strip() for line in slaves_file if line.strip()]
   except IOError:
     return []
 
