@@ -12,6 +12,7 @@ import threading
 import time
 import urllib
 
+from .inspectable_counter import InspectableCounter
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.large_batch import (FailedBatch,
                                          LargeBatch)
@@ -253,11 +254,10 @@ class ZKTransaction:
       if path in self.__counter_cache:
         counter = self.__counter_cache[path]
       else:
-        counter = self.handle.Counter(path)
+        counter = InspectableCounter(self.handle, path)
         self.__counter_cache[path] = counter
 
-      counter.__add__(value) 
-      new_value = counter.value
+      new_value = counter + value
       return new_value - value, new_value
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       self.logger.exception(zoo_exception)
