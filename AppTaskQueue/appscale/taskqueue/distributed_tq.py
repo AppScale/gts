@@ -13,7 +13,8 @@ import sys
 import time
 import tq_lib
 
-from cassandra import OperationTimedOut
+from cassandra import (InvalidRequest,
+                       OperationTimedOut)
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from distutils.spawn import find_executable
@@ -106,7 +107,13 @@ def create_pull_queue_tables(cluster, session):
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
-  session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  try:
+    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except (OperationTimedOut, InvalidRequest):
+    logger.warning('Encountered error while creating pull_queue_tags index. '
+                   'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   # This additional index is needed for groupByTag=true,tag=None queries
   # because Cassandra can only do '=' queries on secondary indices.
@@ -115,7 +122,14 @@ def create_pull_queue_tables(cluster, session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
-  session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  try:
+    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except (OperationTimedOut, InvalidRequest):
+    logger.warning(
+      'Encountered error while creating pull_queue_tag_exists index. '
+      'Waiting 1 minute for schema to settle.')
+    time.sleep(60)
+    raise
 
   logger.info('Trying to create pull_queue_leases')
   create_leases_table = """
