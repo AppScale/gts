@@ -3122,8 +3122,6 @@ class Djinn
       all_tq_ips, my_node.private_ip, TaskQueue::HAPROXY_PORT)
 
     # TaskQueue REST API routing.
-    HAProxy.create_tq_endpoint_config(
-      all_tq_ips, my_node.private_ip, TaskQueue::HAPROXY_REST_PORT)
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
