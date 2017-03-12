@@ -968,7 +968,7 @@ class DatastoreDistributed():
       orders.pop()
     return orders
 
-  def __get_start_key(self, prefix, prop_name, order, last_result):
+  def __get_start_key(self, prefix, prop_name, order, last_result, query=None):
     """ Builds the start key for cursor query.
 
     Args: 
@@ -976,6 +976,7 @@ class DatastoreDistributed():
       prop_name: Property name of the filter.
       order: Sort order the query requires.
       last_result: Last result encoded in cursor.
+      query: A datastore_pb.Query object.
     Raises:
       AppScaleDBError if unable to retrieve original entity or original entity
         no longer has the requested property.
@@ -1002,10 +1003,21 @@ class DatastoreDistributed():
       plist = ent.property_list()
 
     val = None
-    for p in plist:
-      if p.name() == prop_name:
-        val = str(encode_index_pb(p.value()))
-        break
+
+    # If the entity provided by the cursor has multiple values for the given
+    # property and the query has information about what the value should be,
+    # use the value from the query.
+    if (query is not None and query.filter_size() == 1 and
+        query.filter(0).op() == datastore_pb.Query_Filter.EQUAL):
+      query_prop = query.filter(0).property(0)
+      val = str(encode_index_pb(query_prop.value()))
+
+    if val is None:
+      for p in plist:
+        if p.name() == prop_name:
+          val = str(encode_index_pb(p.value()))
+          break
+
     if val is None:
       raise dbconstants.AppScaleDBError('{} not in entity'.format(prop_name))
 
@@ -1733,7 +1745,7 @@ class DatastoreDistributed():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, property_name, direction, 
-        last_result)
+        last_result, query=query)
     else:
       startrow = None
    
