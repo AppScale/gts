@@ -47,6 +47,16 @@ class TestAppScaleInfo(unittest.TestCase):
     flexmock(file_io).should_receive("read").and_return("")
     self.assertEquals(appscale_info.get_taskqueue_nodes(), [])
 
+  def test_get_db_proxy(self):
+    flexmock(file_io).should_receive("read").\
+      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    self.assertEquals("192.168.0.1", appscale_info.get_db_proxy())
+
+  def test_get_tq_proxy(self):
+    flexmock(file_io).should_receive("read").\
+      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    self.assertEquals("192.168.0.1", appscale_info.get_db_proxy())
+
   def test_get_zk_node_ips(self):
     flexmock(file_io).should_receive("read").\
       and_return({"locations":["ip1", "ip2"],"last_updated_at":0})
