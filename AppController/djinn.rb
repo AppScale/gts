@@ -1140,9 +1140,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    Djinn.log_debug("set_parameters: set @options to #{@options}.")
-    Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
-
     return "OK"
   end
 
@@ -3118,8 +3115,6 @@ class Djinn
       Djinn.log_debug("backup_appcontroller_state: no changes.")
       return
     end
-
-    Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
       ZKInterface.write_appcontroller_state(local_state)

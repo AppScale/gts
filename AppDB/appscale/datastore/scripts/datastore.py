@@ -5,7 +5,7 @@ This web service interfaces with the datastore. It takes protocol buffer
 requests from AppServers and responds according to the type of request its
 given (Put, Get, Delete, Query, etc).
 """
-import getopt
+import argparse
 import json
 import logging
 import os
@@ -16,7 +16,6 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-from M2Crypto import SSL
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
@@ -174,7 +173,12 @@ class MainHandler(tornado.web.RequestHandler):
     method = apirequest.method()
     http_request_data = apirequest.request()
     start = time.time()
-    logger.debug('Request type: {}'.format(method))
+
+    request_log = method
+    if apirequest.has_request_id():
+      request_log += ': {}'.format(apirequest.request_id())
+    logger.debug(request_log)
+
     if method == "Put":
       response, errcode, errdetail = self.put_request(app_id, 
                                                  http_request_data)
@@ -266,11 +270,11 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
-    except zktransaction.ZKInternalException:
-      logger.exception('Unable to begin {}'.format(transaction_pb))
-      return (transaction_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
+    except (zktransaction.ZKInternalException,
+            dbconstants.AppScaleDBConnectionError) as error:
+      logger.exception('Unable to begin transaction')
+      return (transaction_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              str(error))
 
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
@@ -360,12 +364,12 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(query))
+      logger.exception('DB connection error during query')
       clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(),
              datastore_pb.Error.INTERNAL_ERROR,
              "Datastore connection error on run_query request.")
-    return (clone_qr_pb.Encode(), 0, "")
+    return clone_qr_pb.Encode(), 0, ""
 
   def create_index_request(self, app_id, http_request_data):
     """ High level function for creating composite indexes.
@@ -391,12 +395,12 @@ class MainHandler(tornado.web.RequestHandler):
       index_id = datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during index creation')
       response.set_value(0)
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on create index request.")
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def update_index_request(self, app_id, http_request_data):
     """ High level function for updating a composite index.
@@ -456,11 +460,11 @@ class MainHandler(tornado.web.RequestHandler):
     try: 
       datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(request))
+      logger.exception('DB connection error during index deletion')
       return (response.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
     
   def get_indices_request(self, app_id):
     """ Gets the indices of the given application.
@@ -476,7 +480,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.CompositeIndices()
     try:
       indices = datastore_access.datastore_batch.get_indices(app_id)
-    except dbconstants.AppScaleDBConnectionError, dbce:
+    except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error while fetching indices for '
         '{}'.format(app_id))
       return (response.Encode(),
@@ -485,7 +489,7 @@ class MainHandler(tornado.web.RequestHandler):
     for index in indices:
       new_index = response.add_index()
       new_index.ParseFromString(index)
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
@@ -539,7 +543,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     response.set_start(start)
     response.set_end(end)
-    return (response.Encode(), 0, "")
+    return response.Encode(), 0, ""
 
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
@@ -569,11 +573,10 @@ class MainHandler(tornado.web.RequestHandler):
       return (putresp_pb.Encode(),
             datastore_pb.Error.BAD_REQUEST, 
             "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zktransaction.ZKInternalException:
-      logger.exception('ZKInternalException during {}'.format(putreq_pb))
-      return (putresp_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
+    except zktransaction.ZKInternalException as error:
+      logger.exception('ZKInternalException during put')
+      return (putresp_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+              str(error))
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
@@ -581,7 +584,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(putreq_pb))
+      logger.exception('DB connection error during put')
       return (putresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
@@ -618,12 +621,12 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on get.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(getreq_pb))
+      logger.exception('DB connection error during get')
       return (getresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on get.")
 
-    return (getresp_pb.Encode(), 0, "")
+    return getresp_pb.Encode(), 0, ""
 
   def delete_request(self, app_id, http_request_data):
     """ High level function for doing deletes.
@@ -665,7 +668,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on delete.")
     except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error during {}'.format(delreq_pb))
+      logger.exception('DB connection error during delete')
       return (delresp_pb.Encode(),
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")
@@ -700,16 +703,6 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore connection error when adding transaction tasks.')
 
 
-def usage():
-  """ Prints the usage for this web service. """
-  print "AppScale Server"
-  print
-  print "Options:"
-  print "\t--type=<" + ','.join(dbconstants.VALID_DATASTORES) +  ">"
-  print "\t--no_encryption"
-  print "\t--port"
-
-
 pb_application = tornado.web.Application([
   ('/clear', ClearHandler),
   ('/read-only', ReadOnlyHandler),
@@ -723,62 +716,30 @@ def main():
   global datastore_access
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
-  db_info = appscale_info.get_db_info()
-  db_type = db_info[':table']
-  port = dbconstants.DEFAULT_SSL_PORT
-  is_encrypted = True
-  verbose = False
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-t', '--type', choices=dbconstants.VALID_DATASTORES,
+                      default=dbconstants.VALID_DATASTORES[0],
+                      help='Database type')
+  parser.add_argument('-p', '--port', type=int,
+                      default=dbconstants.DEFAULT_PORT,
+                      help='Datastore server port')
+  parser.add_argument('-v', '--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
 
-  argv = sys.argv[1:]
-  try:
-    opts, args = getopt.getopt(argv, "t:p:n:v:",
-      ["type=", "port", "no_encryption", "verbose"])
-  except getopt.GetoptError:
-    usage()
-    sys.exit(1)
-  
-  for opt, arg in opts:
-    if opt in ("-t", "--type"):
-      db_type = arg
-      print "Datastore type: ", db_type
-    elif opt in ("-p", "--port"):
-      port = int(arg)
-    elif opt in ("-n", "--no_encryption"):
-      is_encrypted = False
-    elif opt in ("-v", "--verbose"):
-      verbose = True
-
-  if verbose:
+  if args.verbose:
     logger.setLevel(logging.DEBUG)
 
-  if db_type not in dbconstants.VALID_DATASTORES:
-    print "This datastore is not supported for this version of the AppScale\
-          datastore API:" + db_type
-    sys.exit(1)
- 
   datastore_batch = DatastoreFactory.getDatastore(
-    db_type, log_level=logger.getEffectiveLevel())
+    args.type, log_level=logger.getEffectiveLevel())
   zookeeper = zktransaction.ZKTransaction(
     host=zookeeper_locations, start_gc=True, db_access=datastore_batch,
     log_level=logger.getEffectiveLevel())
 
   datastore_access = DatastoreDistributed(
     datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
-  if port == dbconstants.DEFAULT_SSL_PORT and not is_encrypted:
-    port = dbconstants.DEFAULT_PORT
 
   server = tornado.httpserver.HTTPServer(pb_application)
-  server.listen(port)
+  server.listen(args.port)
 
-  while 1:
-    try:
-      # Start Server #
-      tornado.ioloop.IOLoop.instance().start()
-    except SSL.SSLError:
-      # This happens when connections timeout, there is a just a bad
-      # SSL connection such as it does not use SSL when expected. 
-      pass
-    except KeyboardInterrupt:
-      print "Server interrupted by user, terminating..."
-      zookeeper.close()
-      sys.exit(1)
+  tornado.ioloop.IOLoop.current().start()
