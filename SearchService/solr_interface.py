@@ -400,7 +400,8 @@ class Solr():
     """
     new_doc = new_result.mutable_document()
     new_doc.set_id(doc['id'])
-    new_doc.set_language(doc[Document.INDEX_LOCALE][0])
+    if Document.INDEX_LOCALE in doc:
+      new_doc.set_language(doc[Document.INDEX_LOCALE][0])
     for key in doc.keys():
       if not key.startswith(index.name):
         continue
