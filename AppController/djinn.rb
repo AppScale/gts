@@ -1949,17 +1949,45 @@ class Djinn
     }
     failed_apps.each { |app|
       apps_to_restart.delete(app)
-      stop_app(app, @@secret)
-      Djinn.log_error("Disabled #{app} since language doesn't match our record.")
+      Djinn.log_error("Ignoring update to #{app} since language doesn't match our records.")
     }
 
     # Make sure we have the latest code deployed.
     apps.each { |appid|
+      next if failed_apps.include?(appid)
+
+      # Let's make sure the application is enabled.
+      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      RETRIES.downto(0) { |tries|
+        begin
+          result = uac.enable_app(appid)
+          Djinn.log_debug("enable_app returned #{result}.")
+          break
+        rescue FailedNodeException
+          # Failed to talk to the UserAppServer: let's try again.
+          Djinn.log_debug("Failed to talk to UserAppServer for #{appid}.")
+        end
+        if tries <= 0
+          Djinn.log_warn("Couldn't enable application #{appid}!")
+          failed_apps << appid
+          apps_to_restart.delete(appid)
+        else
+          Djinn.log_info("Waiting to enable app named #{appid}.")
+          Kernel.sleep(SMALL_WAIT)
+        end
+      }
+    }
+
+    # Setup the application code. Apps can become failed if the code
+    # cannot be setup properly.
+    (apps - failed_apps).each { |appid|
       APPS_LOCK.synchronize {
         setup_app_dir(appid, true)
       }
     }
 
+    # For applications with new versions, we have to clear the hosters, so
+    # AppEngine nodes will pull the new code.
     unless apps_to_restart.empty?
       apps_to_restart.each { |appid|
         location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
@@ -1977,11 +2005,16 @@ class Djinn
     end
 
     APPS_LOCK.synchronize {
-      @app_names |= apps
+      @app_names |= (apps - failed_apps)
     }
-    Djinn.log_debug("Done updating apps!")
+    if failed_apps.empty?
+      msg = "OK"
+    else
+      msg = "false: failed to deploy the following applications #{failed_apps}."
+    end
+    Djinn.log_debug("Done updating apps with: #{msg}")
 
-    return "OK"
+    return msg
   end
 
   # Adds the list of apps that should be restarted to this node's list of apps
@@ -2183,8 +2216,17 @@ class Djinn
         backup_appcontroller_state()
 
         APPS_LOCK.synchronize {
-          starts_new_apps_or_appservers()
-          scale_appservers_within_nodes()
+          # Check all apps that should be running are ready to run.
+          check_running_apps
+
+          # Starts apps that are not running yet but they should.
+          apps_to_load = @app_names - @apps_loaded
+          apps_to_load.each { |app|
+            setup_appengine_application(app)
+          }
+
+          # Ensure we have a proper number of ApServers for each app.
+          scale_appservers_within_nodes
         }
         if SCALE_LOCK.locked?
           Djinn.log_debug("Another thread is already working with the" +
@@ -2205,7 +2247,7 @@ class Djinn
       check_role_change(old_options, old_jobs)
 
       # Check the running, terminated, pending AppServers.
-      check_running_apps
+      check_running_appservers
 
       # Detect applications that have been undeployed and terminate all
       # running AppServers.
@@ -4954,20 +4996,27 @@ HOSTS
   # running according to the UserAppServer with the list we have on the
   # load balancer, and marks the missing apps for start during the next
   # cycle.
-  def starts_new_apps_or_appservers()
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+  def check_running_apps
     Djinn.log_debug("Checking applications that should be running.")
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
     begin
       app_list = uac.get_all_apps()
     rescue FailedNodeException => except
-      Djinn.log_warn("starts_new_apps_or_appservers: failed to get apps (#{except}).")
+      Djinn.log_warn("check_running_apps: failed to get apps (#{except}).")
       app_list = []
     end
-    Djinn.log_debug("Apps to check: #{app_list}.") unless app_list.empty?
+    return if app_list.empty?
+
+    loaded_apps = HelperFunctions.get_loaded_apps
     app_list.each { |app|
       begin
-        # If app is not enabled or if we already know of it, we skip it.
+        # We already know about this application?
         next if @app_names.include?(app)
+
+        # Do we have the application code already?
+        next unless loaded_apps.include?(app)
+
+        # Is the application enabled?
         begin
           next unless uac.is_app_enabled?(app)
         rescue FailedNodeException
@@ -4975,8 +5024,6 @@ HOSTS
             "application #{app}.")
           next
         end
-
-        # If we don't have a record for this app, we start it.
         Djinn.log_info("Adding #{app} to running apps.")
 
         # We query the UserAppServer looking for application data, in
@@ -4999,21 +5046,13 @@ HOSTS
             @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
           end
         end
-        @app_names = @app_names + [app]
+        @app_names |= [app]
       rescue FailedNodeException
-        Djinn.log_warn("Couldn't check if app #{app} exists on #{db_private_ip}")
+        Djinn.log_warn("Couldn't get app data for #{app}.")
       end
     }
-    @app_names.uniq!
-
-    # And now starts applications.
-    @state = "Preparing to run AppEngine apps if needed."
-
-    apps_to_load = @app_names - @apps_loaded
-    apps_to_load.each { |app|
-      setup_appengine_application(app)
-    }
   end
+
 
   # This function ensures that applications we are not aware of (that is
   # they are not accounted for) will be terminated and, potentially old
@@ -5116,7 +5155,7 @@ HOSTS
   # with the list of AppServers actually running, and make the necessary
   # adjustments. Effectively only login node and appengine nodes will run
   # AppServers (login node runs the dashboard).
-  def check_running_apps()
+  def check_running_appservers
     # The running AppServers on this node must match the login node view.
     # Only one thread talking to the AppManagerServer at a time.
     if AMS_LOCK.locked?
@@ -5252,10 +5291,6 @@ HOSTS
         result = uac.get_app_data(app)
         app_data = JSON.load(result)
         Djinn.log_debug("Got application data for #{app}: #{app_data}.")
-
-        # Let's make sure the application is enabled.
-        result = uac.enable_app(app)
-        Djinn.log_debug("enable_app returned #{result}.")
         app_language = app_data['language']
         break
       rescue FailedNodeException
@@ -5818,6 +5853,7 @@ HOSTS
         error_msg = "ERROR: Failed to copy app: #{app}."
       end
     end
+
 
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
