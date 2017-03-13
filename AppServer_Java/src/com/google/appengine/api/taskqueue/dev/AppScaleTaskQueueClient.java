@@ -42,7 +42,6 @@ public class AppScaleTaskQueueClient {
     private final String SERVICE_NAME = "taskqueue";
     private final String PROTOCOL_BUFFER_HEADER = "ProtocolBufferType";
     private final String PROTOCOL_BUFFER_VALUE = "Request";
-    private final String TASKQUEUE_IP_FILE = "/etc/appscale/taskqueue_nodes";
     private DefaultHttpClient client = null;
     private String url = null;
     private String appId = null;
@@ -53,7 +52,7 @@ public class AppScaleTaskQueueClient {
         ThreadSafeClientConnManager connManager = new ThreadSafeClientConnManager(schemeRegistry);
         connManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
         connManager.setDefaultMaxPerRoute(MAX_CONNECTIONS_PER_ROUTE);
-        String host = getTaskQueueIp();
+        String host = getTaskQueueProxy();
         url = "http://" + host + ":" + port + "/";
         HttpHost localhost = new HttpHost(url);
         connManager.setMaxForRoute(new HttpRoute(localhost), MAX_CONNECTIONS_PER_ROUTE_LOCALHOST);
@@ -200,16 +199,9 @@ public class AppScaleTaskQueueClient {
         return this.appId;
     }
 
-    private String getTaskQueueIp() {
-        String ip = "";
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(TASKQUEUE_IP_FILE));
-            ip = br.readLine();
-            br.close();
-        } catch (Exception e) {
-            logger.severe("Error getting ip from taskqueue ip file: " + e.getMessage());
-        }
-        return ip;
+    private String getTaskQueueProxy() {
+        String tqProxy = System.getProperty("TQ_PROXY");
+        return tqProxy;
     }
 
     private byte[] inputStreamToArray(InputStream in) {

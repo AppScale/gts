@@ -61,6 +61,28 @@ def get_login_ip():
   ips = raw_ips.split('\n')
   return ips[0]
 
+def get_db_proxy():
+  """ Get the IP of an active DB load balancer. Since there can be
+  more than one for this deployment, we return the first one.
+
+  Returns:
+    String containing the IP of an active load balancer.
+  """
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
+  ips = raw_ips.split('\n')
+  return ips[0]
+
+def get_tq_proxy():
+  """ Get the IP of an active TQ load balancer. Since there can be
+  more than one for this deployment, we return the first one.
+
+  Returns:
+    String containing the IP of an active load balancer.
+  """
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
+  ips = raw_ips.split('\n')
+  return ips[0]
+
 def get_private_ip():
   """ Get the private IP of the current machine.
   

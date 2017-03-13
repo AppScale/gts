@@ -75,7 +75,7 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 # The location the SSL private key is placed for encrypted communication.
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
-TASKQUEUE_LOCATION_FILE = "/etc/appscale/taskqueue_nodes"
+TASKQUEUE_PROXY_FILE = "/etc/appscale/load_balancer_ips"
 TASKQUEUE_SERVER_PORT = 17446
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
@@ -102,10 +102,10 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self.__nginx_port = port
 
   def _GetTQLocations(self):
-    """ Gets a list of AppScale TaskQueue servers. """
-    if os.path.exists(TASKQUEUE_LOCATION_FILE):
+    """ Gets a list of TaskQueue proxies. """
+    if os.path.exists(TASKQUEUE_PROXY_FILE):
       try:
-        with open(TASKQUEUE_LOCATION_FILE) as tq_file:
+        with open(TASKQUEUE_PROXY_FILE) as tq_file:
           ips = [ip for ip in tq_file.read().split('\n') if ip]
       except IOError:
         raise apiproxy_errors.ApplicationError(

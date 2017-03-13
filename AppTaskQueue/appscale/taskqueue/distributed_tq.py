@@ -246,8 +246,8 @@ class DistributedTaskQueue():
     # Cache all queue information in memory.
     self.__queue_info_cache = {}
 
-    master_db_ip = appscale_info.get_db_master_ip()
-    connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
+    db_proxy = appscale_info.get_db_proxy()
+    connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
     ds_distrib = datastore_distributed.DatastoreDistributed(
       constants.DASHBOARD_APP_ID, connection_str, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)

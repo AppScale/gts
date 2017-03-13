@@ -51,9 +51,6 @@ UPLOAD_URL_PATH = '_ah/upload/'
 # The port this service binds to
 DEFAULT_PORT = 6107
 
-# Connects to localhost to get access to the datastore
-DEFAULT_DATASTORE_PATH = "http://127.0.0.1:8888"
-
 # The datastore kind used for storing chunks of a blob
 _BLOB_CHUNK_KIND_ = "__BlobChunk__"
 
