@@ -4210,7 +4210,7 @@ class Djinn
   end
 
   def validate_image(node)
-    ip = node.public_ip
+    ip = node.private_ip
     key = node.ssh_key
     HelperFunctions.ensure_image_is_appscale(ip, key)
     HelperFunctions.ensure_version_is_supported(ip, key)
