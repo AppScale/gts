@@ -68,7 +68,7 @@ def get_db_proxy():
   Returns:
     String containing the IP of an active load balancer.
   """
-  raw_ips = file_io.read(constants.HEAD_NODE_PRIVATE_IP_LOC)
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
   ips = raw_ips.split('\n')
   return ips[0]
 
@@ -79,7 +79,7 @@ def get_tq_proxy():
   Returns:
     String containing the IP of an active load balancer.
   """
-  raw_ips = file_io.read(constants.HEAD_NODE_PRIVATE_IP_LOC)
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
   ips = raw_ips.split('\n')
   return ips[0]
 

@@ -126,16 +126,6 @@ module HAProxy
     self.create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
   end
 
-  # Create the config file for TaskQueue REST API endpoints.
-  def self.create_tq_endpoint_config(server_ips, my_ip, listen_port)
-    servers = []
-    server_ips.each{ |server|
-      servers << {'ip' => server,
-                  'port' => TaskQueue::HAPROXY_PORT}
-    }
-    self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
-  end
-
   # Remove the configuration for TaskQueue REST API endpoints.
   def self.remove_tq_endpoints
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))

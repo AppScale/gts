@@ -34,9 +34,6 @@ module TaskQueue
   # The starting port for TaskQueue server processes.
   STARTING_PORT = 17447
 
-  # HAProxy port for TaskQueue REST API endpoints.
-  HAPROXY_REST_PORT = 8061
-
   # HAProxy port for TaskQueue servers.
   HAPROXY_PORT = 17446
 
@@ -67,7 +64,7 @@ module TaskQueue
   OPTIONAL_FEATURES = ['celery_gui']
 
   # TaskQueue server processes per core.
-  MULTIPLIER = 4
+  MULTIPLIER = 2
 
   # If we fail to get the number of processors we set our default number of
   # taskqueue servers to this value.

@@ -64,6 +64,7 @@ from google.appengine.tools.devappserver2 import url_handler
 from google.appengine.tools.devappserver2 import util
 from google.appengine.tools.devappserver2 import wsgi_handler
 from google.appengine.tools.devappserver2 import wsgi_server
+from google.appengine.api.logservice import log_service_pb
 
 
 _LOWER_HEX_DIGITS = string.hexdigits.lower()
@@ -652,9 +653,16 @@ class Server(object):
       inst.quit(force=True)
 
   def _insert_log_message(self, message, level, request_id):
-    request = (int(time.time() * 1e6), level, message if isinstance(message, str) else message.encode('utf-8'))
+    logs_group = log_service_pb.UserAppLogGroup()
+    log_line = logs_group.add_log_line()
+    log_line.set_timestamp_usec(int(time.time() * 1e6))
+    log_line.set_level(level)
+    log_line.set_message(message)
+    request = log_service_pb.FlushRequest()
+    request.set_logs(logs_group.Encode())
+    response = api_base_pb.VoidProto()
     logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
-    logservice._Dynamic_Flush(al, _, request_id)
+    logservice._Dynamic_Flush(request, response, request_id)
 
   @staticmethod
   def generate_request_log_id():

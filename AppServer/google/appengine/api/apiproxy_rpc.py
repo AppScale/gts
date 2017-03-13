@@ -174,39 +174,61 @@ class RealRPC(RPC):
   """ Overrides the RPC class to implement real asynchronous RPC calls using 
       Threads.
   """
+  def __init__(self, stub=None):
+    """ Create a RealRPC instance.
+
+    Args:
+      stub: A stub instance that handles the actual call.
+    """
+    super(RealRPC, self).__init__(stub=stub)
+    self._exc_info = None
+    self._exc_info_lock = threading.Lock()
 
   def _MakeCallImpl(self):
     """ Starts the thread which calls upon the service RPC."""
-    extra_args = {}
-    if self.package == 'urlfetch' or self.call == 'fetch':
-      os_environ = os.environ.copy()
-      extra_args = {'environ': os_environ}
+    args = [self.package, self.call, self.request, self.response]
 
-    self._thread = threading.Thread(target=self.stub.MakeSyncCall,
-                                    args=(self.package, self.call,
-                                    self.request, self.response,),
-                                    kwargs=extra_args)
+    # If this call is made in the sandbox, pass the request ID and environment
+    # variables explicitly since they are lost in new threads.
+    if hasattr(self.stub, '_GetRequestId'):
+      args.extend([self.stub._GetRequestId(), os.environ.copy()])
+
+    self._thread = threading.Thread(target=self._make_sync_call, args=args)
     self._thread.start()
     self._state = RPC.RUNNING
 
   def _WaitImpl(self):
     """ Waiting on an RPC call thread to complete """
-    try:
-      self._thread.join()
-    except Exception:
-      _, self._exception, self._traceback = sys.exc_info()
+    self._thread.join()
+    with self._exc_info_lock:
+      if self._exc_info is not None:
+        _, self._exception, self._traceback = self._exc_info
 
-    self._Callback()
     self._state = RPC.FINISHING
-    """
-    if self.callback:
-      try:
-        self.callback()
-      except:
-        _, self._exception, self._traceback = sys.exc_info()
-        self._exception._appengine_apiproxy_rpc = self
-        raise
-    """
+    self._Callback()
     return True
 
+  def _make_sync_call(self, service, call, request, response, request_id=None,
+                      os_environ=None):
+    """ A wrapper for MakeSyncCall that handles exceptions.
 
+    Args:
+      service: A string the specifies the API service.
+      call: A string specifying the service method to call.
+      request: A ProtocolMessage instance that specifies request properties.
+      response: A ProtocolMessage instance that the response populates.
+      request_id: A string specifying the request ID.
+      os_environ: A dictionary containing the parent thread's environment.
+    """
+    if request_id is not None and hasattr(self.stub, '_SetRequestId'):
+      self.stub._SetRequestId(request_id)
+
+    if os_environ is not None:
+      os.environ.update(os_environ)
+
+    try:
+      self.stub.MakeSyncCall(service, call, request, response)
+    except Exception:
+      # Store exception info so calling thread can access it.
+      with self._exc_info_lock:
+        self._exc_info = sys.exc_info()

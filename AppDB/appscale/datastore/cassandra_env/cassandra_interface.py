@@ -70,6 +70,9 @@ EXPECTED_DATA_VERSION = 1.0
 # The metadata key for the data layout version.
 VERSION_INFO_KEY = 'version'
 
+# The metadata key used to indicate the state of the indexes.
+INDEX_STATE_KEY = 'index_state'
+
 # The metadata key indicating that the database has been primed.
 PRIMED_KEY = 'primed'
 
@@ -274,6 +277,12 @@ class ThriftColumn(object):
   VALUE = 'value'
 
 
+class IndexStates(object):
+  """ Possible states for datastore indexes. """
+  CLEAN = 'clean'
+  SCRUB_IN_PROGRESS = 'scrub_in_progress'
+
+
 class DatastoreProxy(AppDBInterface):
   """ 
     Cassandra implementation of the AppDBInterface
@@ -302,6 +311,7 @@ class DatastoreProxy(AppDBInterface):
         time.sleep(3)
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
+    self.prepared_statements = {}
 
   def close(self):
     """ Close all sessions and connections to Cassandra. """
@@ -424,7 +434,11 @@ class DatastoreProxy(AppDBInterface):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
-    return self.session.prepare(statement)
+
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = self.session.prepare(statement)
+
+    return self.prepared_statements[statement]
 
   def prepare_delete(self, table):
     """ Prepare a delete statement.
@@ -439,7 +453,11 @@ class DatastoreProxy(AppDBInterface):
       USING TIMESTAMP ?
       WHERE {key} = ?
     """.format(table=table, key=ThriftColumn.KEY)
-    return self.session.prepare(statement)
+
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = self.session.prepare(statement)
+
+    return self.prepared_statements[statement]
 
   def _normal_batch(self, mutations, txid):
     """ Use Cassandra's native batch statement to apply mutations atomically.
@@ -580,7 +598,7 @@ class DatastoreProxy(AppDBInterface):
       execute_concurrent(self.session, statements_and_params,
                          raise_on_first_error=True)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
-      message = 'Exception during large batch'
+      message = 'Unable to write large batch log'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
@@ -607,7 +625,10 @@ class DatastoreProxy(AppDBInterface):
       WHERE app = %(app)s AND transaction = %(transaction)s
     """
     parameters = {'app': app, 'transaction': txn}
-    self.session.execute(clear_batch, parameters)
+    try:
+      self.session.execute(clear_batch, parameters)
+    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+      logging.exception('Unable to clear batch log')
 
   def batch_mutate(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.

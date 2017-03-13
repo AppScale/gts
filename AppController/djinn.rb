@@ -1069,9 +1069,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    Djinn.log_debug("set_parameters: set @options to #{@options}.")
-    Djinn.log_debug("set_parameters: set @nodes to #{@nodes}.")
-
     return "OK"
   end
 
@@ -3122,8 +3119,6 @@ class Djinn
       all_tq_ips, my_node.private_ip, TaskQueue::HAPROXY_PORT)
 
     # TaskQueue REST API routing.
-    HAProxy.create_tq_endpoint_config(
-      all_tq_ips, my_node.private_ip, TaskQueue::HAPROXY_REST_PORT)
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     Nginx.create_taskqueue_rest_config(my_node.private_ip)
   end
@@ -3172,8 +3167,6 @@ class Djinn
       Djinn.log_debug("backup_appcontroller_state: no changes.")
       return
     end
-
-    Djinn.log_debug("backup_appcontroller_state:"+local_state.to_s)
 
     begin
       ZKInterface.write_appcontroller_state(local_state)
@@ -3904,7 +3897,7 @@ class Djinn
 
   def start_blobstore_server()
     # Each node uses the active load balancer to access the Datastore.
-    BlobServer.start(get_shadow.private_ip, DatastoreServer::PROXY_PORT)
+    BlobServer.start(get_load_balancer.private_ip, DatastoreServer::PROXY_PORT)
     return true
   end
 
@@ -4013,7 +4006,7 @@ class Djinn
     verbose = @options['verbose'].downcase == 'true'
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
-      db_proxy = node.private_ip if node.is_shadow?
+      db_proxy = node.private_ip if node.is_load_balancer?
     }
     HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
     HelperFunctions.log_and_crash("db proxy ip was nil") if db_proxy.nil?

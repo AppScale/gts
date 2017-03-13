@@ -378,14 +378,11 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('batch_mutate')
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
 
-    # Make sure it does not throw an exception
-    txn_hash = {entity_key1: 1, entity_key2: 1}
-
     entity_lock = flexmock(EntityLock)
     entity_lock.should_receive('acquire')
     entity_lock.should_receive('release')
 
-    dd.put_entities(app_id, entity_list, txn_hash)
+    dd.put_entities(app_id, entity_list)
 
   def test_acquire_locks_for_trans(self):
     db_batch = flexmock()

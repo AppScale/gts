@@ -12,6 +12,7 @@ import dbconstants
 import utils
 
 from appscale.taskqueue.distributed_tq import TaskName
+from .cassandra_env import cassandra_interface
 from .datastore_distributed import DatastoreDistributed
 from .unpackaged import APPSCALE_LIB_DIR
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -556,6 +557,15 @@ class DatastoreGroomer(threading.Thread):
       start_key = ''
     end_key = dbconstants.TERMINATING_STRING
 
+    # Indicate that an index scrub has started after the journal was removed.
+    if direction == datastore_pb.Query_Order.ASCENDING and not start_key:
+      index_state = self.db_access.get_metadata(
+        cassandra_interface.INDEX_STATE_KEY)
+      if index_state is None:
+        self.db_access.set_metadata(
+          cassandra_interface.INDEX_STATE_KEY,
+          cassandra_interface.IndexStates.SCRUB_IN_PROGRESS)
+
     while True:
       references = self.db_access.range_query(
         table_name=table_name,
@@ -649,6 +659,13 @@ class DatastoreGroomer(threading.Thread):
           self.lock_and_delete_kind_index(reference)
 
       self.update_groomer_state([task_id, start_key])
+
+    # Indicate that the index has been scrubbed after the journal was removed.
+    index_state = self.db_access.get_metadata(
+      cassandra_interface.INDEX_STATE_KEY)
+    if index_state == cassandra_interface.IndexStates.SCRUB_IN_PROGRESS:
+      self.db_access.set_metadata(cassandra_interface.INDEX_STATE_KEY,
+                                  cassandra_interface.IndexStates.CLEAN)
 
   def clean_up_composite_indexes(self):
     """ Deletes old composite indexes and bad references.
@@ -1139,13 +1156,7 @@ class DatastoreGroomer(threading.Thread):
     self.reset_statistics()
     self.composite_index_cache = {}
 
-    tasks = [
-      {
-        'id': self.CLEAN_ENTITIES_TASK,
-        'description': 'clean up entities',
-        'function': self.clean_up_entities,
-        'args': []
-      },
+    clean_indexes = [
       {
         'id': self.CLEAN_ASC_INDICES_TASK,
         'description': 'clean up ascending indices',
@@ -1162,6 +1173,15 @@ class DatastoreGroomer(threading.Thread):
         'id': self.CLEAN_KIND_INDICES_TASK,
         'description': 'clean up kind indices',
         'function': self.clean_up_kind_indices,
+        'args': []
+      }
+    ]
+
+    tasks = [
+      {
+        'id': self.CLEAN_ENTITIES_TASK,
+        'description': 'clean up entities',
+        'function': self.clean_up_entities,
         'args': []
       },
       {
@@ -1183,6 +1203,11 @@ class DatastoreGroomer(threading.Thread):
         'args': []
       }
     ]
+
+    index_state = self.db_access.get_metadata(
+      cassandra_interface.INDEX_STATE_KEY)
+    if index_state != cassandra_interface.IndexStates.CLEAN:
+      tasks.extend(clean_indexes)
 
     groomer_state = self.zoo_keeper.get_node(self.GROOMER_STATE_PATH)
     logging.info('groomer_state: {}'.format(groomer_state))
