@@ -44,7 +44,7 @@ class InspectableCounter(object):
 
   @property
   def value(self):
-    """ Retrive the current value from ZooKeeper.
+    """ Retrieve the current value from ZooKeeper.
 
     Returns:
       An integer containing the current count.
