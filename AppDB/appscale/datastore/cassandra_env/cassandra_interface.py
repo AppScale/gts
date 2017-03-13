@@ -724,9 +724,10 @@ class DatastoreProxy(AppDBInterface):
     try:
       self.session.execute(query, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
-      logging.warning('Encountered an operation timeout while creating a '
-                      'table. Waiting 1 minute for schema to settle.')
-      time.sleep(60)
+      logging.warning(
+        'Encountered an operation timeout while creating a table. Waiting {} '
+        'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+      time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise AppScaleDBConnectionError('Exception during create_table')
     except (error for error in dbconstants.TRANSIENT_CASSANDRA_ERRORS
             if error != cassandra.OperationTimedOut):

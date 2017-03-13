@@ -81,8 +81,8 @@ def create_batch_tables(cluster, session):
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating batches table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
@@ -104,8 +104,8 @@ def create_batch_tables(cluster, session):
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating batch_status table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 def create_groups_table(session):
@@ -121,8 +121,8 @@ def create_groups_table(session):
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating group_updates table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
@@ -152,8 +152,8 @@ def create_transactions_table(session):
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating transactions table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
@@ -218,9 +218,9 @@ def prime_cassandra(replication):
       session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
       logging.warning(
-        'Encountered an operation timeout while creating {} table. '
-        'Waiting 1 minute for schema to settle.'.format(table))
-      time.sleep(60)
+        'Encountered an operation timeout while creating {} table. Waiting {} '
+        'seconds for schema to settle.'.format(table, SCHEMA_CHANGE_TIMEOUT))
+      time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise
 
   create_batch_tables(cluster, session)

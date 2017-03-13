@@ -77,8 +77,8 @@ def create_pull_queue_tables(cluster, session):
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_tasks. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_tasks_index')
@@ -99,8 +99,9 @@ def create_pull_queue_tables(cluster, session):
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_tasks_index.'
-      ' Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      ' Waiting {} seconds for schema to settle.'
+        .format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_tags index')
@@ -110,9 +111,10 @@ def create_pull_queue_tables(cluster, session):
   try:
     session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
   except (OperationTimedOut, InvalidRequest):
-    logger.warning('Encountered error while creating pull_queue_tags index. '
-                   'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+    logger.warning(
+      'Encountered error while creating pull_queue_tags index. Waiting {} '
+      'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   # This additional index is needed for groupByTag=true,tag=None queries
@@ -127,8 +129,8 @@ def create_pull_queue_tables(cluster, session):
   except (OperationTimedOut, InvalidRequest):
     logger.warning(
       'Encountered error while creating pull_queue_tag_exists index. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_leases')
@@ -146,8 +148,8 @@ def create_pull_queue_tables(cluster, session):
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_leases. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
