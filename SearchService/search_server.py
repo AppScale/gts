@@ -7,7 +7,6 @@ import tornado.httpserver
 import tornado.httputil
 import tornado.ioloop
 import tornado.web
-import time
 
 # Default port for the search API web server.
 DEFAULT_PORT = 53423
