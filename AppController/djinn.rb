@@ -5543,10 +5543,8 @@ HOSTS
           " AppServers for #{app_name}.")
         break if max_new_free <= 0
 
-        # The host needs to have normalized average load less than
-        # MAX_LOAD_AVG, current CPU usage less than 90%.
-        if Float(100 - node['cpu']['idle']) > MAX_CPU_FOR_APPSERVERS ||
-            Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+        # The host needs to have normalized average load less than MAX_LOAD_AVG.
+        if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
           Djinn.log_debug("#{host} CPUs are too busy.")
           break
         end
