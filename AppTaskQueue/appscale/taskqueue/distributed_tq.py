@@ -13,7 +13,8 @@ import sys
 import time
 import tq_lib
 
-from cassandra import OperationTimedOut
+from cassandra import (InvalidRequest,
+                       OperationTimedOut)
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from distutils.spawn import find_executable
@@ -33,6 +34,7 @@ import constants
 import file_io
 import monit_app_configuration
 import monit_interface
+from constants import SCHEMA_CHANGE_TIMEOUT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
@@ -71,12 +73,12 @@ def create_pull_queue_tables(cluster, session):
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_tasks. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_tasks_index')
@@ -93,19 +95,27 @@ def create_pull_queue_tables(cluster, session):
   """
   statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_tasks_index.'
-      ' Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      ' Waiting {} seconds for schema to settle.'
+        .format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
-  session.execute(create_index)
+  try:
+    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except (OperationTimedOut, InvalidRequest):
+    logger.warning(
+      'Encountered error while creating pull_queue_tags index. Waiting {} '
+      'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
+    raise
 
   # This additional index is needed for groupByTag=true,tag=None queries
   # because Cassandra can only do '=' queries on secondary indices.
@@ -114,7 +124,14 @@ def create_pull_queue_tables(cluster, session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
-  session.execute(create_index)
+  try:
+    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except (OperationTimedOut, InvalidRequest):
+    logger.warning(
+      'Encountered error while creating pull_queue_tag_exists index. '
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
+    raise
 
   logger.info('Trying to create pull_queue_leases')
   create_leases_table = """
@@ -127,12 +144,12 @@ def create_pull_queue_tables(cluster, session):
   """
   statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_leases. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
