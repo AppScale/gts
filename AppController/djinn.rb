@@ -2594,7 +2594,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # TODO: we should validate the roles type, to ensure they are valid.
-    if nodes_needed.class != Array || instance_type.class != String
+    if nodes_needed.class != Array || instance_type.class != String && is_cloud
       Djinn.log_error("Invalid parameter type (nodes_needed, or instance_type).")
       return BAD_INPUT_MSG
     end
