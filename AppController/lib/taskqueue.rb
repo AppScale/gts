@@ -34,9 +34,6 @@ module TaskQueue
   # The starting port for TaskQueue server processes.
   STARTING_PORT = 17447
 
-  # HAProxy port for TaskQueue REST API endpoints.
-  HAPROXY_REST_PORT = 8061
-
   # HAProxy port for TaskQueue servers.
   HAPROXY_PORT = 17446
 

@@ -166,7 +166,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         fh.close()
       self._release_logserver_connection(key, log_server)
     except socket.error, e:
-      cleanup_logserver_connection(log_server)
+      _cleanup_logserver_connection(log_server)
       raise
 
   @staticmethod
@@ -263,7 +263,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
   @apiproxy_stub.Synchronized
   def _Dynamic_Read(self, request, response, request_id):
     try:
-      if ( request.version_id_size() < 1 and
+      if (request.version_id_size() < 1 and
           request.request_id_size() < 1):
         raise apiproxy_errors.ApplicationError(
             log_service_pb.LogServiceError.INVALID_REQUEST)
@@ -284,9 +284,8 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         query.startTime = request.start_time()
       if request.has_end_time():
         query.endTime = request.end_time()
-      if request.has_offset():
-        logging.info("Offset: %s", request.offset())
-        query.offset = base64.b64decode(str(request.offset()).replace('request_id: "', '').replace('"', ''))
+      if request.has_offset() and request.offset().has_request_id():
+        query.offset = base64.b64decode(request.offset().request_id())
       if request.has_minimum_log_level():
         query.minimumLogLevel = request.minimum_log_level()
       query.includeAppLogs = bool(request.include_app_logs())
@@ -309,8 +308,8 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
         _fill_request_log(requestLog, log, request.include_app_logs())
         result_count += 1
 
-      if result_count == count:
-        response.mutable_offset().set_request_id(requestLog.offset)
+        if result_count == count:
+          response.mutable_offset().set_request_id(requestLog.offset)
     except:
       logging.exception("Failed to retrieve logs")
       raise apiproxy_errors.ApplicationError(

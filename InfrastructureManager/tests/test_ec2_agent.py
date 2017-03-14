@@ -1,5 +1,9 @@
 import boto
 import boto.ec2
+import time
+
+from appscale.tools.agents.base_agent import AgentRuntimeException
+from appscale.tools.agents.base_agent import AgentConfigurationException
 from boto.ec2.spotpricehistory import SpotPriceHistory
 from boto.ec2.instance import Reservation
 from boto.ec2.keypair import KeyPair
@@ -7,7 +11,6 @@ from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
-import time
 from utils import utils
 try:
   from unittest import TestCase
@@ -38,6 +41,22 @@ class TestEC2Agent(TestCase):
   def run_instances(self, prefix, blocking, success=True):
     i = InfrastructureManager(blocking=blocking)
 
+    reservation = Reservation()
+    instance = flexmock(name='instance', private_dns_name='private-ip',
+                        public_dns_name='public-ip', id='i-id', state='running',
+                        key_name='bookeyname', ip_address='public-ip',
+                        private_ip_address='private-ip')
+    new_instance = flexmock(name='new-instance', private_dns_name='new-private-ip',
+                            public_dns_name='new-public-ip', id='new-i-id',
+                            state='running', key_name='bookeyname',
+                            ip_address='new-public-ip',
+                            private_ip_address='new-private-ip')
+    reservation.instances = [instance]
+    new_reservation = Reservation()
+    new_reservation.instances = [instance, new_instance]
+    self.fake_ec2.should_receive('get_all_instances').and_return([]) \
+      .and_return([reservation]).and_return([new_reservation])
+
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
     full_params = {
@@ -52,7 +71,8 @@ class TestEC2Agent(TestCase):
       'num_vms': '1',
       'use_spot_instances': False,
       'region' : 'my-zone-1',
-      'zone' : 'my-zone-1b'
+      'zone' : 'my-zone-1b',
+      'autoscale_agent': True
     }
 
     id = '0000000000'  # no longer randomly generated
@@ -61,7 +81,8 @@ class TestEC2Agent(TestCase):
       'reservation_id': id,
       'reason': 'none'
     }
-    self.assertEquals(full_result, i.run_instances(full_params, 'secret'))
+    if success:
+      self.assertEquals(full_result, i.run_instances(full_params, 'secret'))
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
@@ -71,20 +92,18 @@ class TestEC2Agent(TestCase):
       self.assertEquals(InfrastructureManager.STATE_RUNNING,
         i.reservations.get(id)['state'])
       vm_info = i.reservations.get(id)['vm_info']
-      self.assertEquals(['public-ip'], vm_info['public_ips'])
-      self.assertEquals(['private-ip'], vm_info['private_ips'])
-      self.assertEquals(['i-id'], vm_info['instance_ids'])
+      self.assertEquals(['new-public-ip'], vm_info['public_ips'])
+      self.assertEquals(['new-private-ip'], vm_info['private_ips'])
+      self.assertEquals(['new-i-id'], vm_info['instance_ids'])
     else:
-      self.assertEquals(InfrastructureManager.STATE_FAILED,
-        i.reservations.get(id)['state'])
+      if blocking:
+        self.assertRaises(AgentRuntimeException, i.run_instances, full_params, 'secret')
 
   def terminate_instances(self, prefix, blocking):
     i = InfrastructureManager(blocking=blocking)
 
     params1 = {'infrastructure': prefix}
-    result1 = i.terminate_instances(params1, 'secret')
-    self.assertFalse(result1['success'])
-    self.assertEquals(result1['reason'], 'no credentials')
+    self.assertRaises(AgentConfigurationException, i.terminate_instances, params1, 'secret')
 
     params2 = {
       'credentials': {
@@ -92,12 +111,22 @@ class TestEC2Agent(TestCase):
         'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'infrastructure': prefix,
       'instance_ids': ['i-12345'],
-      'region' : 'my-zone-1'
+      'region' : 'my-zone-1',
+      'keyname': 'bookeyname'
     }
-    result2 = i.terminate_instances(params2, 'secret')
+
+    reservation = Reservation()
+    instance = flexmock(name='instance', private_dns_name='private-ip',
+                        public_dns_name='public-ip', id='i-id', state='terminated',
+                        key_name='bookeyname', ip_address='public-ip',
+                        private_ip_address='private-ip')
+    reservation.instances = [instance]
+    self.fake_ec2.should_receive('get_all_instances').and_return([reservation])
+
+    result = i.terminate_instances(params2, 'secret')
     if not blocking:
       time.sleep(.1)
-    self.assertTrue(result2['success'])
+    self.assertTrue(result['success'])
 
 
   def setUp(self):
@@ -111,14 +140,10 @@ class TestEC2Agent(TestCase):
       .and_return(SecurityGroup())
     self.fake_ec2.should_receive('authorize_security_group')
 
-    reservation = Reservation()
     instance = flexmock(name='instance', private_dns_name='private-ip',
       public_dns_name='public-ip', id='i-id', state='running',
       key_name='bookeyname')
-    reservation.instances = [instance]
 
-    self.fake_ec2.should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation])
     self.fake_ec2.should_receive('terminate_instances').and_return([instance])
     self.fake_ec2.should_receive('run_instances')
 

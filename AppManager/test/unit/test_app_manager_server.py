@@ -89,6 +89,10 @@ class TestAppManager(unittest.TestCase):
     }
     configuration = json.dumps(configuration)
 
+    flexmock(appscale_info).should_receive('get_db_proxy').\
+      and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_tq_proxy').\
+      and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
     flexmock(monit_app_configuration).should_receive('create_config_file').\
@@ -120,6 +124,10 @@ class TestAppManager(unittest.TestCase):
     }
     configuration = json.dumps(configuration)
 
+    flexmock(appscale_info).should_receive('get_db_proxy').\
+      and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_tq_proxy').\
+      and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
     flexmock(monit_app_configuration).should_receive('create_config_file').\
@@ -229,6 +237,10 @@ class TestAppManager(unittest.TestCase):
     assert 'appscale' in env_vars['APPSCALE_HOME']
 
   def test_create_java_start_cmd(self): 
+    flexmock(appscale_info).should_receive('get_db_proxy').\
+      and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_tq_proxy').\
+      and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
     flexmock(app_manager_server).should_receive('locate_dir').\
