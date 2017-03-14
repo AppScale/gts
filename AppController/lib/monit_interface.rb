@@ -124,12 +124,11 @@ BOO
       }
     end
 
-    if port.nil?
-      new_start_cmd = "#{start_cmd}"
-      new_stop_cmd = "#{stop_cmd}"
-      new_match_cmd = "#{match_cmd}"
-      suffix = ""
-    else
+    new_start_cmd = "#{start_cmd}"
+    new_stop_cmd = "#{stop_cmd}"
+    new_match_cmd = "#{match_cmd}"
+    suffix = ""
+    unless port.nil?
       new_start_cmd = "#{start_cmd} -p #{port}"
       new_stop_cmd = "#{stop_cmd} #{port}"
       new_match_cmd = "#{new_start_cmd}" if match_cmd == start_cmd
