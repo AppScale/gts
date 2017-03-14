@@ -22,6 +22,7 @@ import tornado.web
 import urllib
 
 from handlers import MainHandler
+from handlers import StatsHandler
 from handlers import TaskHandler
 from helper import JSONTags
 
@@ -37,8 +38,17 @@ from google.appengine.api.appcontroller_client import AppControllerException
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import appscale_utils
+
+sys.path.append(os.path.dirname(__file__) + '/lib')
+from custom_exceptions import InfrastructureManagerException
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
+# Determines whether this node is a master Hermes node. A slave Hermes node
+# will only collect its node's statistics.
+define("master", default=False, type=bool)
+
+# Statistics cache.
+STATS = {}
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
@@ -99,6 +109,19 @@ def poll():
 
   # The poller can move forward without waiting for a response here.
   helper.urlfetch_async(request)
+
+def cache_node_stats():
+  try:
+    STATS['node'] = helper.update_node_cache()
+  except (AppControllerException, InfrastructureManagerException) as e:
+    logging.error("Saw exception while trying to update node statistics cache: "
+                  "{}".format(e))
+  logging.info("Updated my node's stats: {}".format(STATS))
+
+def cache_cluster_stats():
+  STATS['cluster'] = helper.update_cluster_cache()
+  STATS['cluster'].append(STATS['node'])
+  logging.info("Updated deployment stats: {}".format(STATS['cluster']))
 
 def send_cluster_stats():
   """ Calls get_cluster_stats and sends the deployment monitoring stats to the
@@ -235,6 +258,8 @@ def main():
   app = tornado.web.Application([
     (MainHandler.PATH, MainHandler),
     (TaskHandler.PATH, TaskHandler),
+    (StatsHandler.PATH, StatsHandler, {'STATS': STATS,
+                                       'secret': appscale_info.get_secret()})
   ], debug=False)
 
   try:
@@ -248,18 +273,36 @@ def main():
   logging.info("Hermes is up and listening on port: {0}.".
     format(options.port))
 
-  # Periodically check with the portal for new tasks.
-  # Note: Currently, any active handlers from the tornado app will block
-  # polling until they complete.
-  PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).start()
+  # Cache this node's statistics immediately so that the master Hermes nodes
+  # can use it as soon as possible.
+  cache_node_stats()
 
-  # Periodically send all available stats from each deployment node to the
-  # AppScale Portal.
-  PeriodicCallback(send_cluster_stats, hermes_constants.STATS_INTERVAL).start()
+  # Periodically collect and cache this node's statistics.
+  PeriodicCallback(cache_node_stats, hermes_constants.STATS_INTERVAL).start()
 
-  # Periodically checks if the deployment is registered and uploads the
-  # appscalesensor app for registered deployments.
-  PeriodicCallback(deploy_sensor_app, hermes_constants.UPLOAD_SENSOR_INTERVAL).start()
+  if options.master:
+    # Cache the deployment's stats immediately so that the AppController can
+    # use it as soon as possible.
+    cache_cluster_stats()
+
+    # Periodically collect and cache the deployment's statistics.
+    PeriodicCallback(cache_cluster_stats,
+                     hermes_constants.STATS_INTERVAL).start()
+
+    # Periodically send all available stats from each deployment node to the
+    # AppScale Portal.
+    PeriodicCallback(send_cluster_stats,
+                     hermes_constants.STATS_INTERVAL).start()
+
+    # Periodically checks if the deployment is registered and uploads the
+    # appscalesensor app for registered deployments.
+    PeriodicCallback(deploy_sensor_app,
+                     hermes_constants.UPLOAD_SENSOR_INTERVAL).start()
+
+    # Periodically check with the portal for new tasks.
+    # Note: Currently, any active handlers from the tornado app will block
+    # polling until they complete.
+    PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).start()
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()

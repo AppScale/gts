@@ -99,6 +99,7 @@ class InfrastructureManagerService:
     self.server.registerFunction(system_manager.get_service_summary)
     self.server.registerFunction(system_manager.get_swap_usage)
     self.server.registerFunction(system_manager.get_loadavg)
+    self.server.registerFunction(system_manager.get_system_stats)
 
     self.started = False
 

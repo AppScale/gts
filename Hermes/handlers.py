@@ -14,6 +14,9 @@ from helper import NodeInfoTags
 from helper import TASK_STATUS
 from helper import TASK_STATUS_LOCK
 
+# Statistics cache.
+STATS = {}
+
 class TaskStatus(object):
   """ A class containing all possible task states. """
   PENDING = 'pending'
@@ -143,3 +146,22 @@ class TaskHandler(RequestHandler):
       TASK_STATUS_LOCK.release()
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+
+class StatsHandler(RequestHandler):
+  """ Main handler class. """
+
+  # The path for this handler.
+  PATH = "/stats"
+
+  def initialize(self, STATS, secret):
+    self.STATS = STATS
+    self.secret = secret
+    self.BAD_SECRET_MESSAGE = {'success': False, 'reason': 'bad secret'}
+
+  def get(self):
+    """ Main GET method. Reports the status of the server. """
+    if self.get_argument('secret') != self.secret:
+      logging.error(json.dumps(self.BAD_SECRET_MESSAGE))
+      self.write(json.dumps(self.BAD_SECRET_MESSAGE))
+    else:
+      self.write(json.dumps(self.STATS))

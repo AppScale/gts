@@ -3,11 +3,12 @@
 import json
 import logging
 import os
-import SOAPpy
+import requests
 import sys
 import threading
 import tornado.httpclient
 import urllib
+import yaml
 
 from socket import error as socket_error
 
@@ -22,6 +23,10 @@ import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
+
+
+sys.path.append(os.path.dirname(__file__) + '/lib')
+from infrastructure_manager_client import InfrastructureManagerClient
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -262,6 +267,46 @@ def get_cluster_stats():
   nodes_stats = acc.get_cluster_stats()
   return {node["public_ip"]: node for node in nodes_stats}
 
+def update_node_cache():
+  """ Collects stats from this node.
+
+  Returns:
+    A dictionary containing all the monitoring stats.
+  Raises:
+    AppControllerException if we cannot talk to our AppController,
+    InfrastructureManagerException if we cannot talk to the
+    InfrastructureManagerService.
+  """
+  acc = appscale_info.get_appcontroller_client()
+  stats = acc.get_node_stats()
+  secret = appscale_info.get_secret()
+  my_priv_ip = appscale_info.get_private_ip()
+  imc = InfrastructureManagerClient(my_priv_ip, secret)
+  sys = imc.get_system_stats()
+  stats.update(sys)
+  return stats
+
+def update_cluster_cache():
+  """ Collects stats from all deployment nodes.
+
+  Returns:
+    A dictionary containing all the monitoring stats, for all nodes that are
+    accessible.
+  """
+  cluster_stats = []
+  my_private = appscale_info.get_private_ip()
+  secret = {'secret': appscale_info.get_secret()}
+  for ip in appscale_info.get_all_ips():
+    if ip == my_private:
+      continue
+    request = create_request("http://{ip}:{port}/stats"
+                             .format(ip=ip, port=hermes_constants.HERMES_PORT),
+                             method='GET', body=urllib.urlencode(secret))
+    response = urlfetch(request)
+    if response.get(JSONTags.SUCCESS):
+      node_info = response.get(JSONTags.BODY)
+      cluster_stats.append(node_info)
+  return cluster_stats
 
 def report_status(task, task_id, status):
   """ Sends a status report for the given task to the AppScale Portal.
