@@ -29,9 +29,6 @@ module Search
   # The python executable path.
   PYTHON_EXEC = "python"
 
-  # Stop command for search server.
-  SEARCH_STOP_CMD = "/bin/kill -9 `ps aux | grep search_server.py | awk {'print $2'}`"
-
   # Search location file.
   SEARCH_LOCATION_FILE = "/etc/appscale/search_ip"
 
@@ -76,7 +73,8 @@ module Search
     Djinn.log_debug("Starting search server on this node.")
     script = "#{APPSCALE_HOME}/SearchService/search_server.py"
     start_cmd = "#{PYTHON_EXEC} #{script}"
-    stop_cmd = SEARCH_STOP_CMD
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      "#{script} #{PYTHON_EXEC}"
     env_vars = {}
     MonitInterface.start(:search, start_cmd, stop_cmd, [SEARCH_SERVER_PORT],
                          env_vars, start_cmd, nil, nil, nil)
