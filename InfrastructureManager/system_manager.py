@@ -33,7 +33,6 @@ class JSONTags(object):
   LAST_15_MIN = "last_15_min"
   RUNNABLE_ENTITIES = "runnable_entities"
   SCHEDULING_ENTITIES = "scheduling_entities"
-  NEWEST_PID = "newest_pid"
 
 class SystemManager():
   """ SystemManager class is the entry point for queries regarding system stats.
@@ -189,7 +188,8 @@ class SystemManager():
       return self.__generate_response(False,
         InfrastructureManager.REASON_BAD_SECRET)
 
-    loadavg = open("/proc/loadavg").read().split()
+    with open("/proc/loadavg") as loadavg:
+      loadavg = loadavg.read().split()
     kernel_entities = loadavg[3].split("/")
     loadavg_stat = { JSONTags.LOADAVG :
       {
@@ -197,8 +197,7 @@ class SystemManager():
         JSONTags.LAST_5_MIN : float(loadavg[1]),
         JSONTags.LAST_15_MIN : float(loadavg[2]),
         JSONTags.RUNNABLE_ENTITIES : int(kernel_entities[0]),
-        JSONTags.SCHEDULING_ENTITIES : int(kernel_entities[1]),
-        JSONTags.NEWEST_PID : int(loadavg[4])
+        JSONTags.SCHEDULING_ENTITIES : int(kernel_entities[1])
       }
     }
     logging.debug("Loadavg stats: {}".format(' '.join(loadavg)))

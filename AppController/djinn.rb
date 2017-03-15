@@ -194,7 +194,7 @@ class Djinn
   # An Array that lists the CPU, disk, and memory usage of each machine in this
   # AppScale deployment. Used as a cache so that it does not need to be
   # generated in response to AppDashboard requests.
-  # This Array can be fetch in JSON format by get_cluster_stats_json server's method
+  # This Array can be fetched in JSON format by get_cluster_stats_json server's method
   # Its structure is following
   # [
   #  {
@@ -207,7 +207,7 @@ class Djinn
   #    "disk" => [
   #      # For each partition
   #      {
-  #        "/": {
+  #        "/" => {
   #          "total" => 30965743616,
   #          "free" => 15482871808,
   #          "used" => 15482871808
@@ -230,13 +230,12 @@ class Djinn
   #      "cassandra" => "Running",
   #      ...
   #    },
-  #    "loadavg": {
+  #    "loadavg" => {
   #      "last_1_min" => 1.35,
   #      "last_5_min" => 0.67,
   #      "last_15_min" => 0.89,
   #      "runnable_entities" => 3,
-  #      "scheduling_entities" => 687,
-  #      "newest_pid" => 15326
+  #      "scheduling_entities" => 687
   #    },
   #    # Node information provided by AppController itself
   #    "apps" => {
@@ -2594,7 +2593,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # TODO: we should validate the roles type, to ensure they are valid.
-    if nodes_needed.class != Array || instance_type.class != String && is_cloud
+    if nodes_needed.class != Array || (instance_type.class != String && is_cloud)
       Djinn.log_error("Invalid parameter type (nodes_needed, or instance_type).")
       return BAD_INPUT_MSG
     end
@@ -5349,7 +5348,7 @@ HOSTS
     return if @initialized_apps[app_name] and !force
 
     @current_req_rate[app_name] = 0
-    @total_req_rate[app_name] = 0
+    @total_req_seen[app_name] = 0
     @last_sampling_time[app_name] = Time.now.to_i
     (@last_decision[app_name] = 0) unless @last_decision.has_key?(app_name)
     @initialized_apps[app_name] = true
@@ -5446,9 +5445,9 @@ HOSTS
     Djinn.log_debug("Time now is #{time_requests_were_seen}, last " +
       "time was #{@last_sampling_time[app_name]}")
     Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
-      "time was #{@total_req_rate[app_name]}")
+      "time was #{@total_req_seen[app_name]}")
     Djinn.log_debug("Requests currently in the queue #{total_req_in_queue}")
-    requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
+    requests_since_last_sampling = total_requests_seen - @total_req_seen[app_name]
     time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
     if time_since_last_sampling.zero?
       time_since_last_sampling = 1
@@ -5465,7 +5464,7 @@ HOSTS
       "for app #{app_name}, with last sampling time #{time_requests_were_seen}")
     @average_req_rate[app_name] = average_request_rate
     @current_req_rate[app_name] = total_req_in_queue
-    @total_req_rate[app_name] = total_requests_seen
+    @total_req_seen[app_name] = total_requests_seen
     @last_sampling_time[app_name] = time_requests_were_seen
   end
 
@@ -5825,7 +5824,7 @@ HOSTS
     encoded_request_info = JSON.dump({
       'timestamp' => @last_sampling_time[app_id],
       'avg_request_rate' => @average_req_rate[app_id],
-      'num_of_requests' => @total_req_rate[app_id]
+      'num_of_requests' => @total_req_seen[app_id]
     })
     return encoded_request_info
   end

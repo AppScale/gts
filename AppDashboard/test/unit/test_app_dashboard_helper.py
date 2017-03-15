@@ -85,8 +85,7 @@ class TestAppDashboardHelper(unittest.TestCase):
           "last_5_min": 0.27,
           "last_15_min": 0.33,
           "runnable_entities": 3,
-          "scheduling_entities": 383,
-          "newest_pid": 31598
+          "scheduling_entities": 383
         },
         # Node information provided by AppController itself
         "apps": {
@@ -148,8 +147,7 @@ class TestAppDashboardHelper(unittest.TestCase):
           "last_5_min": 0.27,
           "last_15_min": 0.33,
           "runnable_entities": 3,
-          "scheduling_entities": 383,
-          "newest_pid": 31598
+          "scheduling_entities": 383
         },
         # Node information provided by AppController itself
         "apps": {},
