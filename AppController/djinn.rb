@@ -4204,6 +4204,7 @@ class Djinn
     server_java = "#{APPSCALE_HOME}/AppServer_Java"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
     log_service = "#{APPSCALE_HOME}/LogService"
+    hermes = "#{APPSCALE_HOME}/Hermes"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -4221,6 +4222,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
+    HelperFunctions.shell("rsync #{options} #{hermes}/* root@#{ip}:#{hermes}")
     if dest_node.is_appengine?
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
