@@ -1280,8 +1280,8 @@ class Djinn
       ip = get_shadow.private_ip
       uri = URI("http://#{ip}:#{HermesService.getport()}/stats")
       string_stats = (Net::HTTP.post_form(uri, 'secret' => @@secret))
-      Djinn.log_info("JSON stats string: #{string_stats}")
-      stats = JSON.load(string_stats)
+      stats = JSON.load(string_stats.body)
+      Djinn.log_info("Stats as a #{stats.class}: #{stats['cluster']}")
       if stats.key?("success") and stats['success'] == false
         Djinn.log_warn("Invalid secret when trying to communicate with Hermes" +
           " stats")
@@ -4223,6 +4223,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     HelperFunctions.shell("rsync #{options} #{hermes}/* root@#{ip}:#{hermes}")
+
     if dest_node.is_appengine?
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {

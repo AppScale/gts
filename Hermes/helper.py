@@ -277,7 +277,7 @@ def update_node_cache():
     InfrastructureManagerException if we cannot talk to the
     InfrastructureManagerService.
   """
-  acc = appscale_info.get_appcontroller_client()
+  acc = appscale_info.get_appcontroller_client(head_node=False)
   stats = acc.get_node_stats()
   secret = appscale_info.get_secret()
   my_priv_ip = appscale_info.get_private_ip()
@@ -304,8 +304,8 @@ def update_cluster_cache():
                              method='POST', body=urllib.urlencode(secret))
     response = urlfetch(request)
     if response.get(JSONTags.SUCCESS):
-      node_info = response.get(JSONTags.BODY)
-      cluster_stats.append(node_info)
+      node_info = json.loads(response.get(JSONTags.BODY))
+      cluster_stats.append(node_info['node'])
   return cluster_stats
 
 def report_status(task, task_id, status):

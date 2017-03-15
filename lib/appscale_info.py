@@ -24,16 +24,17 @@ def read_file_contents(path):
   with open(path) as file_handle:
     return file_handle.read()
 
-def get_appcontroller_client():
+def get_appcontroller_client(head_node=True):
   """ Returns an AppControllerClient instance for this deployment. """
-  raw_ips = file_io.read('/etc/appscale/load_balancer_ips')
-  ips = raw_ips.split('\n')
-  head_node = ips[0]
-
+  if head_node:
+    raw_ips = file_io.read('/etc/appscale/load_balancer_ips')
+    ips = raw_ips.split('\n')
+    acc_ip = ips[0]
+  else:
+    acc_ip = get_private_ip()
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)
-
-  return AppControllerClient(head_node, secret)
+  return AppControllerClient(acc_ip, secret)
 
 def get_keyname():
   """ Returns the keyname for this deployment. """
