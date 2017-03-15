@@ -1279,9 +1279,7 @@ class Djinn
     Thread.new {
       ip = get_shadow.private_ip
       uri = URI("http://#{ip}:#{HermesService.getport()}/stats")
-      params = { :secret => @@secret }
-      uri.query = URI.encode_www_form(params)
-      string_stats = (Net::HTTP.get(uri))
+      string_stats = (Net::HTTP.post_form(uri, 'secret' => @@secret))
       Djinn.log_info("JSON stats string: #{string_stats}")
       stats = JSON.load(string_stats)
       if stats.key?("success") and stats['success'] == false

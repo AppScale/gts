@@ -158,7 +158,7 @@ class StatsHandler(RequestHandler):
     self.secret = secret
     self.BAD_SECRET_MESSAGE = {'success': False, 'reason': 'bad secret'}
 
-  def get(self):
+  def post(self):
     """ Main GET method. Reports the status of the server. """
     if self.get_argument('secret') != self.secret:
       logging.error(json.dumps(self.BAD_SECRET_MESSAGE))

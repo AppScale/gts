@@ -301,7 +301,7 @@ def update_cluster_cache():
       continue
     request = create_request("http://{ip}:{port}/stats"
                              .format(ip=ip, port=hermes_constants.HERMES_PORT),
-                             method='GET', body=urllib.urlencode(secret))
+                             method='POST', body=urllib.urlencode(secret))
     response = urlfetch(request)
     if response.get(JSONTags.SUCCESS):
       node_info = response.get(JSONTags.BODY)
