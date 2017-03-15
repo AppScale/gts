@@ -12,6 +12,7 @@ import threading
 import time
 import urllib
 
+from .inspectable_counter import InspectableCounter
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.large_batch import (FailedBatch,
                                          LargeBatch)
@@ -242,31 +243,19 @@ class ZKTransaction:
     if self.needs_connection or not self.handle.connected:
       self.reestablish_connection()
 
-    def clear_counter_from_cache():
-      """ Deletes a counter from the cache due to an exception being raised.
-      """
-      if path in self.__counter_cache:
-        del self.__counter_cache[path]
+    if path not in self.__counter_cache:
+      self.__counter_cache[path] = InspectableCounter(self.handle, path)
 
-    try: 
-      counter = None
-      if path in self.__counter_cache:
-        counter = self.__counter_cache[path]
-      else:
-        counter = self.handle.Counter(path)
-        self.__counter_cache[path] = counter
-
-      counter.__add__(value) 
-      new_value = counter.value
+    counter = self.__counter_cache[path]
+    try:
+      new_value = counter + value
       return new_value - value, new_value
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       self.logger.exception(zoo_exception)
-      clear_counter_from_cache()
       raise ZKTransactionException("Couldn't increment path {0} by value {1}" \
         .format(path, value))
     except kazoo.exceptions.KazooException as kazoo_exception:
       self.logger.exception(kazoo_exception)
-      clear_counter_from_cache()
       raise ZKTransactionException(
         "Couldn't increment path {0} with value {1}" \
         .format(path, value))

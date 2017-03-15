@@ -79,9 +79,6 @@ TRUSTED_FLAG = "--trusted"
 # The location on the filesystem where the PHP executable is installed.
 PHP_CGI_LOCATION = "/usr/bin/php-cgi"
 
-# Load balancing path for datastore.
-DATASTORE_PATH = "localhost"
-
 # The location of the App Engine SDK for Go.
 GO_SDK = os.path.join('/', 'opt', 'go_appengine')
 
@@ -569,7 +566,8 @@ def create_python27_start_cmd(app_name,
   Returns:
     A string of the start command.
   """
-  db_location = DATASTORE_PATH
+  db_proxy = appscale_info.get_db_proxy()
+
   cmd = [
     "/usr/bin/python2",
     constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
@@ -582,9 +580,9 @@ def create_python27_start_cmd(app_name,
     "--enable_sendmail",
     "--xmpp_path " + xmpp_ip,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
-    "--uaserver_path " + db_location + ":"\
+    "--uaserver_path " + db_proxy + ":"\
       + str(constants.UA_SERVER_PORT),
-    "--datastore_path " + db_location + ":"\
+    "--datastore_path " + db_proxy + ":"\
       + str(constants.DB_SERVER_PORT),
     "/var/apps/" + app_name + "/app",
     "--host " + appscale_info.get_private_ip(),
@@ -703,7 +701,8 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
   Returns:
     A string of the start command.
   """
-  db_location = DATASTORE_PATH
+  db_proxy = appscale_info.get_db_proxy()
+  tq_proxy = appscale_info.get_tq_proxy()
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
@@ -717,12 +716,13 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     "--disable_update_check",
     "--address=" + appscale_info.get_private_ip(),
-    "--datastore_path=" + db_location,
+    "--datastore_path=" + db_proxy,
     "--login_server=" + load_balancer_host,
     "--appscale_version=1",
     "--APP_NAME=" + app_name,
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--NGINX_PORT=anything",
+    "--TQ_PROXY=" + tq_proxy,
     os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
   ]
 

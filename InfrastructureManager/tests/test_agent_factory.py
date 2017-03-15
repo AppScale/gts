@@ -1,5 +1,5 @@
-from agents.ec2_agent import EC2Agent
-from agents.euca_agent import EucalyptusAgent
+from appscale.tools.agents.ec2_agent import EC2Agent
+from appscale.tools.agents.euca_agent import EucalyptusAgent
 from agents.factory import InfrastructureAgentFactory
 try:
   from unittest import TestCase

@@ -1,13 +1,13 @@
 import logging
 import struct
 
-from agents.ec2_agent import EC2Agent
-from agents.euca_agent import EucalyptusAgent
-from agents.gce_agent import GCEAgent
-from agents.openstack_agent import OpenStackAgent
+from appscale.tools.agents.ec2_agent import EC2Agent
+from appscale.tools.agents.euca_agent import EucalyptusAgent
+from appscale.tools.agents.gce_agent import GCEAgent
+from appscale.tools.agents.openstack_agent import OpenStackAgent
 
 try:
-  from agents.azure_agent import AzureAgent
+  from appscale.tools.agents.azure_agent import AzureAgent
 except (ImportError, struct.error):
   logging.exception('AzureAgent disabled')
   AzureAgent = None

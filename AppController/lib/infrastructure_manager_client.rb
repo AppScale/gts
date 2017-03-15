@@ -182,6 +182,8 @@ class InfrastructureManagerClient
     parameters['cloud'] = 'cloud1'
     parameters['zone'] = options['zone']
     parameters['region'] = options['region']
+    parameters['autoscale_agent'] = true
+    parameters['IS_VERBOSE'] = options['verbose']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
