@@ -598,7 +598,7 @@ class Djinn
     @terminated = {}
 
     @initialized_apps = {}
-    @total_req_rate = {}
+    @total_req_seen = {}
     @current_req_rate = {}
     @average_req_rate = {}
     @last_sampling_time = {}
