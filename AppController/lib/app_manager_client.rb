@@ -97,7 +97,7 @@ class AppManagerClient
                 syslog_server="")
     config = {'app_name' => app_name,
               'app_port' => app_port,
-              'login_ip' => load_balancer_ip,
+              'login_ip' => login_ip,
               'language' => language,
               'env_vars' => env_vars,
               'max_memory' => max_memory,
