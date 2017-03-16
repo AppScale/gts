@@ -215,8 +215,7 @@ def start_app(config):
     start_cmd = create_python27_start_cmd(
       config['app_name'],
       config['login_ip'],
-      config['app_port'],
-      config['login_ip'])
+      config['app_port'])
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
       config['login_ip'],
@@ -550,15 +549,13 @@ def create_java_app_env(app_name):
 
   return env_vars
 
-def create_python27_start_cmd(app_name,
-  login_ip, port, login_ip):
+def create_python27_start_cmd(app_name, login_ip, port):
   """ Creates the start command to run the python application server.
 
   Args:
     app_name: The name of the application to run
-    login_ip: The public IP
-    port: The local port the application server will bind to
     login_ip: The public IP of this deployment
+    port: The local port the application server will bind to
   Returns:
     A string of the start command.
   """
