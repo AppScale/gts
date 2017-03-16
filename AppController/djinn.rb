@@ -424,7 +424,7 @@ class Djinn
 
   # We need to leave some extra RAM available for the system to operate
   # safely.
-  SAFE_MEM = 500
+  SAFE_MEM = 50
 
   # Conversion divisor to MB for RAM statistics given in Bytes.
   MEGABYTE_DIVISOR = 1024*1024
