@@ -5901,8 +5901,8 @@ HOSTS
       max_app_mem = @app_info_map[app]['max_memory']
       max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
       pid = app_manager.start_app(app, appengine_port, login_ip,
-        app_language, login_ip, HelperFunctions.get_app_env_vars(app),
-        max_app_mem, get_shadow.private_ip)
+        app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
+        get_shadow.private_ip)
     rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
         "with AppManager: #{error.message}")
