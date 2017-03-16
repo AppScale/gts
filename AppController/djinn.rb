@@ -288,7 +288,7 @@ class Djinn
 
   # A Hash that maps the names of Google App Engine apps running in this AppScale
   # deployment to the total number of requests that haproxy has processed.
-  attr_accessor :total_req_rate
+  attr_accessor :total_req_seen
 
 
   # A Hash that maps the names of Google App Engine apps running in this AppScale
@@ -298,7 +298,7 @@ class Djinn
 
   # A Hash that maps the names of Google App Engine apps running in this AppScale
   # deployment to the last time we sampled the total number of requests that
-  # haproxy has processed. When combined with total_req_rate, we can infer the
+  # haproxy has processed. When combined with total_req_seen, we can infer the
   # average number of requests per second that come in for each App Engine
   # application.
   attr_accessor :last_sampling_time
@@ -601,7 +601,7 @@ class Djinn
     @terminated = {}
 
     @initialized_apps = {}
-    @total_req_rate = {}
+    @total_req_seen = {}
     @current_req_rate = {}
     @average_req_rate = {}
     @last_sampling_time = {}
@@ -2221,11 +2221,22 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = JSON.parse(get_node_stats_json(secret))
-        Djinn.log_info("--- Node at #{stats['public_ip']} has " +
-          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
-          "and knows about these apps #{stats['apps']}.")
-        last_print = Time.now.to_i
+        ip = my_node.private_ip
+        uri = URI("http://#{ip}:#{HermesService.getport()}/stats")
+        string_stats = (Net::HTTP.post_form(uri, 'secret' => @@secret))
+        stats = JSON.load(string_stats.body)
+        Djinn.log_info("Stats as a #{stats.class}: #{stats['node']}")
+        if stats.key?("success") and stats['success'] == false
+          Djinn.log_warn("Invalid secret when trying to communicate with" +
+                             "Hermes stats")
+        else
+          node_stats = stats['node']
+          available_memory = node_stats['memory']['available']/MEGABYTE_DIVISOR
+          Djinn.log_info("--- Node at #{stats['public_ip']} has " +
+                             "#{available_memory} MB memory available " +
+                             "and knows about these apps #{stats['apps']}.")
+          last_print = Time.now.to_i
+        end
       end
 
       Kernel.sleep(DUTY_CYCLE)
