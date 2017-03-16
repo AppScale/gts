@@ -58,8 +58,7 @@ REQUIRED_CONFIG_FIELDS = [
   'app_name',
   'app_port',
   'language',
-  'load_balancer_ip',
-  'xmpp_ip',
+  'login_ip',
   'env_vars',
   'max_memory']
 
@@ -180,7 +179,6 @@ def start_app(config):
        app_port: Port to start on
        language: What language the app is written in
        login_ip: Public ip of deployment
-       xmpp_ip: IP of XMPP service
        env_vars: A dict of environment variables that should be passed to the
         app.
        max_memory: An int that names the maximum amount of memory that this
@@ -218,8 +216,7 @@ def start_app(config):
       config['app_name'],
       config['login_ip'],
       config['app_port'],
-      config['login_ip'],
-      config['xmpp_ip'])
+      config['login_ip'])
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
       config['login_ip'],
@@ -554,15 +551,14 @@ def create_java_app_env(app_name):
   return env_vars
 
 def create_python27_start_cmd(app_name,
-  login_ip, port, load_balancer_host, xmpp_ip):
+  login_ip, port, login_ip):
   """ Creates the start command to run the python application server.
 
   Args:
     app_name: The name of the application to run
     login_ip: The public IP
     port: The local port the application server will bind to
-    load_balancer_host: The host of the load balancer
-    xmpp_ip: The IP of the XMPP service
+    login_ip: The public IP of this deployment
   Returns:
     A string of the start command.
   """
@@ -575,10 +571,10 @@ def create_python27_start_cmd(app_name,
     "--admin_port " + str(port + 10000),
     "--login_server " + login_ip,
     "--skip_sdk_update_check",
-    "--nginx_host " + str(load_balancer_host),
+    "--nginx_host " + str(login_ip),
     "--require_indexes",
     "--enable_sendmail",
-    "--xmpp_path " + xmpp_ip,
+    "--xmpp_path " + login_ip,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
     "--uaserver_path " + db_proxy + ":"\
       + str(constants.UA_SERVER_PORT),
