@@ -126,16 +126,6 @@ module HAProxy
     self.create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
   end
 
-  # Create the config file for TaskQueue REST API endpoints.
-  def self.create_tq_endpoint_config(server_ips, my_ip, listen_port)
-    servers = []
-    server_ips.each{ |server|
-      servers << {'ip' => server,
-                  'port' => TaskQueue::HAPROXY_PORT}
-    }
-    self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
-  end
-
   # Remove the configuration for TaskQueue REST API endpoints.
   def self.remove_tq_endpoints
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
@@ -143,21 +133,25 @@ module HAProxy
   end
 
   # Create the config file for Datastore Server.
-  def self.create_datastore_server_config(my_ip, listen_port, table)
+  def self.create_datastore_server_config(server_ips, my_ip, listen_port)
     # For the Datastore servers we have a list of local ports the servers
     # are listening to, and we need to create the list of local IPs.
     servers = []
-    DatastoreServer.get_server_ports().each { |port|
-      servers << {'ip' => my_ip, 'port' => port}
+    server_ips.each{ |server|
+      DatastoreServer.get_server_ports().each { |port|
+        servers << {'ip' => server, 'port' => port}
+      }
     }
-    self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+    self.create_app_config(servers, '*', listen_port, DatastoreServer::NAME)
   end
 
   # Create the config file for TaskQueue servers.
-  def self.create_tq_server_config(my_ip, listen_port)
+  def self.create_tq_server_config(server_ips, my_ip, listen_port)
     servers = []
-    TaskQueue.get_server_ports().each { |port|
-      servers << {'ip' => my_ip, 'port' => port}
+    server_ips.each{ |server|
+      TaskQueue.get_server_ports().each { |port|
+        servers << {'ip' => server, 'port' => port}
+      }
     }
     self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
   end

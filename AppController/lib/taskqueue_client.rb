@@ -4,6 +4,7 @@ require 'base64'
 require 'helperfunctions'
 require 'json'
 require 'net/http'
+require 'taskqueue'
 require 'timeout'
 
 # Number of seconds to wait before timing out when doing a remote call.
@@ -96,16 +97,20 @@ class TaskQueueClient
     json_config = JSON.dump(config)
     response = nil
      
-    make_call(MAX_TIME_OUT, false, "reload_worker"){
-      url = URI.parse('http://' + @ip + ":#{SERVER_PORT}/reloadworker")
-      http = Net::HTTP.new(url.host, url.port)
-      response = http.post(url.path,
-                           json_config,
-                           {'Content-Type'=>'application/json'})
+    ports = TaskQueue.get_server_ports()
+
+    ports.each{ |port|
+      make_call(MAX_TIME_OUT, false, "reload_worker"){
+        url = URI.parse('http://' + @ip + ":#{port}/reloadworker")
+        http = Net::HTTP.new(url.host, url.port)
+        response = http.post(url.path,
+                            json_config,
+                            {'Content-Type'=>'application/json'})
+      }
+      if response.nil?
+        Djinn.log_warn("Unable to get a response from TaskQueue server on port: #{port}")
+      end
     }
-    if response.nil?
-      return {"error" => true, "reason" => "Unable to get a response"}
-    end
 
     return JSON.load(response.body)
   end

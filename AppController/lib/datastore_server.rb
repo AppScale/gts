@@ -20,17 +20,7 @@ module DatastoreServer
 
   # The port that we should run nginx on, to load balance requests to the
   # various DatastoreServers running on this node.
-  PROXY_PORT = 3999
-
-
-  # The port that nginx should be listening to for non-encrypted requests to
-  # the DatastoreServers.
-  LISTEN_PORT_NO_SSL = 8888
-
-
-  # The port that nginx should be listening to for encrypted requests to the
-  # DatastoreServers.
-  LISTEN_PORT_WITH_SSL = 8443
+  PROXY_PORT = 8888
 
 
   # The name that nginx should use as the identifier for the DatastoreServer when it

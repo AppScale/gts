@@ -37,7 +37,8 @@ def get_query(args, offset=None):
   if args.ids:
     query.requestIds = args.ids
   query.versionIds = [args.version]
-  query.count = 1000 if args.count >= 1000 else args.count
+  query.count = args.count
+  query.reverse = args.reverse
   if offset:
     query.offset = offset
   return query.to_bytes()
@@ -126,7 +127,7 @@ def query_or_follow(args):
           if record_count == args.count:
             break
         offset = record.offset
-        if args.mode == 'query' and (record_count == args.count or args.ids):
+        if args.mode == 'query':
           break
     finally:
       fh.close()
@@ -145,6 +146,7 @@ if __name__ == '__main__':
   parser.add_argument('--count', type=int, nargs='?', help='count', default=10)
   parser.add_argument('--format', type=str, choices=['http', 'appengine', 'plain'], nargs='?', help='output format', default='appengine')
   parser.add_argument('--mode', type=str, choices=['query', 'follow', 'log'], nargs='?', help='mode', default='query')
+  parser.add_argument('--reverse', action='store_true', help='reverse log order', default=False)
   args = parser.parse_args()
   #import pdb; pdb.set_trace()
   main(args)

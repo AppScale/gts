@@ -11,6 +11,8 @@ import unittest
 from appscale.datastore.dbconstants import MAX_GROUPS_FOR_XG
 from appscale.datastore.zkappscale import zktransaction as zk
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
+from appscale.datastore.zkappscale.inspectable_counter import \
+  InspectableCounter
 from flexmock import flexmock
 
 
@@ -34,11 +36,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     fake_zookeeper.should_receive('start')
     fake_zookeeper.should_receive('retry').and_return(None)
 
-    fake_counter = flexmock(name='fake_counter', value='value')
-    fake_counter.value = 1
-    fake_counter.should_receive('__add__').and_return(2)
-    fake_zookeeper.should_receive("Counter").and_return(fake_counter)
-    # mock out deleting the zero id we get the first time around
+    flexmock(InspectableCounter).should_receive('__add__').and_return(1)
 
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)

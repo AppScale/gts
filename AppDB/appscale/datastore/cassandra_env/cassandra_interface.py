@@ -43,6 +43,7 @@ from ..utils import tx_partition
 
 sys.path.append(APPSCALE_LIB_DIR)
 import appscale_info
+from constants import SCHEMA_CHANGE_TIMEOUT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -69,6 +70,9 @@ EXPECTED_DATA_VERSION = 1.0
 
 # The metadata key for the data layout version.
 VERSION_INFO_KEY = 'version'
+
+# The metadata key used to indicate the state of the indexes.
+INDEX_STATE_KEY = 'index_state'
 
 # The metadata key indicating that the database has been primed.
 PRIMED_KEY = 'primed'
@@ -274,6 +278,12 @@ class ThriftColumn(object):
   VALUE = 'value'
 
 
+class IndexStates(object):
+  """ Possible states for datastore indexes. """
+  CLEAN = 'clean'
+  SCRUB_IN_PROGRESS = 'scrub_in_progress'
+
+
 class DatastoreProxy(AppDBInterface):
   """ 
     Cassandra implementation of the AppDBInterface
@@ -302,6 +312,7 @@ class DatastoreProxy(AppDBInterface):
         time.sleep(3)
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
+    self.prepared_statements = {}
 
   def close(self):
     """ Close all sessions and connections to Cassandra. """
@@ -424,7 +435,11 @@ class DatastoreProxy(AppDBInterface):
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
-    return self.session.prepare(statement)
+
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = self.session.prepare(statement)
+
+    return self.prepared_statements[statement]
 
   def prepare_delete(self, table):
     """ Prepare a delete statement.
@@ -439,7 +454,11 @@ class DatastoreProxy(AppDBInterface):
       USING TIMESTAMP ?
       WHERE {key} = ?
     """.format(table=table, key=ThriftColumn.KEY)
-    return self.session.prepare(statement)
+
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = self.session.prepare(statement)
+
+    return self.prepared_statements[statement]
 
   def _normal_batch(self, mutations, txid):
     """ Use Cassandra's native batch statement to apply mutations atomically.
@@ -712,11 +731,12 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
-      self.session.execute(query)
+      self.session.execute(query, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
-      logging.warning('Encountered an operation timeout while creating a '
-                      'table. Waiting 1 minute for schema to settle.')
-      time.sleep(60)
+      logging.warning(
+        'Encountered an operation timeout while creating a table. Waiting {} '
+        'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+      time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise AppScaleDBConnectionError('Exception during create_table')
     except (error for error in dbconstants.TRANSIENT_CASSANDRA_ERRORS
             if error != cassandra.OperationTimedOut):
