@@ -2016,6 +2016,16 @@ class Djinn
     return JSON.dump(public_ips)
   end
 
+  def get_all_private_ips(secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    private_ips = []
+    @nodes.each { |node|
+      private_ips << node.private_ip
+    }
+    return JSON.dump(private_ips)
+  end
+
   def job_start(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 

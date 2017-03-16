@@ -78,6 +78,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "update", "app_names", "secret")
     add_method(@djinn, "set_apps_to_restart", "apps_to_restart", "secret")
     add_method(@djinn, "get_all_public_ips", "secret")
+    add_method(@djinn, "get_all_private_ips", "secret")
     add_method(@djinn, "get_online_users_list", "secret")
     add_method(@djinn, "done_uploading", "appname", "location", "secret")
     add_method(@djinn, "is_app_running", "appname", "secret")

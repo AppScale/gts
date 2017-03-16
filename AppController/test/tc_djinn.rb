@@ -58,6 +58,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_apps_to_restart([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_public_ips(@secret))
+    assert_equal(BAD_SECRET_MSG, djinn.get_all_private_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.job_start(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_online_users_list(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.done_uploading(@app, "/tmp/app",
