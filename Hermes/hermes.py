@@ -273,6 +273,9 @@ def main():
   logging.info("Hermes is up and listening on port: {0}.".
     format(options.port))
 
+  master = appscale_info.get_private_ip() in \
+           appscale_info.get_load_balancer_ips()
+
   # Cache this node's statistics immediately so that the master Hermes nodes
   # can use it as soon as possible.
   cache_node_stats()
@@ -280,7 +283,7 @@ def main():
   # Periodically collect and cache this node's statistics.
   PeriodicCallback(cache_node_stats, hermes_constants.STATS_INTERVAL).start()
 
-  if options.master:
+  if master:
     # Cache the deployment's stats immediately so that the AppController can
     # use it as soon as possible.
     cache_cluster_stats()

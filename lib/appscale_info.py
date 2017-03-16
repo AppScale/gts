@@ -27,8 +27,7 @@ def read_file_contents(path):
 def get_appcontroller_client(head_node=True):
   """ Returns an AppControllerClient instance for this deployment. """
   if head_node:
-    raw_ips = file_io.read('/etc/appscale/load_balancer_ips')
-    ips = raw_ips.split('\n')
+    ips = get_load_balancer_ips()
     acc_ip = ips[0]
   else:
     acc_ip = get_private_ip()
@@ -49,6 +48,11 @@ def get_all_ips():
   nodes = file_io.read(constants.ALL_IPS_LOC)
   nodes = nodes.split('\n')
   return filter(None, nodes)
+
+def get_load_balancer_ips():
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
+  ips = raw_ips.split('\n')
+  return ips
 
 def get_login_ip():
   """ Get the public IP of the head node. Since there can be more than one

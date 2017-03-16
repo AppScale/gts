@@ -3894,11 +3894,7 @@ class Djinn
   def start_hermes()
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    master = false
-    if my_node.is_load_balancer?
-      master = true
-    end
-    HermesService.start(master)
+    HermesService.start()
     Djinn.log_info("Done starting Hermes service.")
   end
 

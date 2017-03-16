@@ -2,12 +2,9 @@
 
 
 # General-purpose Python library imports
-import os
 import socket
-import signal
 import ssl
 import sys
-import time
 import yaml
 
 
@@ -22,23 +19,10 @@ from custom_exceptions import InfrastructureManagerException
 class InfrastructureManagerClient:
   """InfrastructureManagerClient provides callers with an interface to
   AppScale's InfrastructureManager daemon.
-
   """
-
 
   # The port that the InfrastructureManager runs on, by default.
   SERVER_PORT = 17444
-
-
-  # The number of seconds we should wait for when waiting for the UserAppServer
-  # to start up.
-  WAIT_TIME = 10
-
-
-  # The max number of seconds we should wait for when waiting for the
-  # UserAppServer to start up. We'll give up after this.
-  MAX_RETRIES = 100
-
 
   # The message that an AppController can return if callers do not authenticate
   # themselves correctly.
@@ -46,14 +30,6 @@ class InfrastructureManagerClient:
 
   # The number of times we should retry SOAP calls in case of failures.
   DEFAULT_NUM_RETRIES = 5
-
-
-  # The maximum amount of time we should wait before timing out the request.
-  DEFAULT_TIMEOUT = 10
-
-
-  # The maximum amount of time we should wait before timing out requests that take longer.
-  LONGER_TIMEOUT = 20
 
 
   def __init__(self, host, secret):
@@ -101,7 +77,7 @@ class InfrastructureManagerClient:
       else:
         return result
     except (ssl.SSLError, socket.error):
-      sys.stderr.write("Saw SSL exception when communicating with the " \
+      sys.stderr.write("Saw SSL exception when communicating with the "
                        "AppController, retrying momentarily.")
       return self.call(retries - 1, function, *args)
 
