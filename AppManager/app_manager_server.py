@@ -179,7 +179,7 @@ def start_app(config):
        app_name: Name of the application to start
        app_port: Port to start on
        language: What language the app is written in
-       load_balancer_ip: Public ip of load balancer
+       login_ip: Public ip of deployment
        xmpp_ip: IP of XMPP service
        env_vars: A dict of environment variables that should be passed to the
         app.
@@ -216,13 +216,13 @@ def start_app(config):
       config['language'] == constants.PHP:
     start_cmd = create_python27_start_cmd(
       config['app_name'],
-      config['load_balancer_ip'],
+      config['login_ip'],
       config['app_port'],
-      config['load_balancer_ip'],
+      config['login_ip'],
       config['xmpp_ip'])
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
-      config['load_balancer_ip'],
+      config['login_ip'],
       config['app_name']))
   elif config['language'] == constants.JAVA:
     remove_conflicting_jars(config['app_name'])
@@ -238,7 +238,7 @@ def start_app(config):
     start_cmd = create_java_start_cmd(
       config['app_name'],
       config['app_port'],
-      config['load_balancer_ip'],
+      config['login_ip'],
       max_heap
     )
     match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port']),

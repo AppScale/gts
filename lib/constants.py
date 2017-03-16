@@ -33,6 +33,9 @@ LOAD_BALANCER_IPS_LOC = '/etc/appscale/load_balancer_ips'
 ALL_IPS_LOC = '/etc/appscale/all_ips'
 
 # The location of the file which specifies the public IP of the head node.
+HEADNODE_IP_LOC = '/etc/appscale/head_node_private_ip'
+
+# The location of the file which specifies the public IP of the head node.
 LOGIN_IP_LOC = '/etc/appscale/login_ip'
 
 # The size for the random password to be created for the appscalesensor app user.

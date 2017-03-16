@@ -364,7 +364,7 @@ def deploy_apps(app_paths):
   uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
     appscale_info.get_db_master_ip(), UA_SERVER_PORT))
 
-  acc = AppControllerClient(appscale_info.get_login_ip(),
+  acc = AppControllerClient(appscale_info.get_headnode_ip(),
     appscale_info.get_secret())
 
   # Wait for Cassandra to come up after a restore.
