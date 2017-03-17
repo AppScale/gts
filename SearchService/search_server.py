@@ -7,7 +7,6 @@ import tornado.httpserver
 import tornado.httputil
 import tornado.ioloop
 import tornado.web
-import time
 
 # Default port for the search API web server.
 DEFAULT_PORT = 53423
@@ -46,7 +45,7 @@ def get_application():
 if __name__ == "__main__":
   logging.getLogger().setLevel(logging.INFO) 
   logging.info("Starting server on port {0}".format(DEFAULT_PORT))
-  http_server = tornado.httpserver.HTTPServer(get_application())
-  http_server.bind(DEFAULT_PORT)
-  http_server.start(0)
-  tornado.ioloop.IOLoop.instance().start()
+
+  app = get_application()
+  app.listen(DEFAULT_PORT)
+  tornado.ioloop.IOLoop.current().start()
