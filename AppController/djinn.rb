@@ -1492,9 +1492,11 @@ class Djinn
       # We give some extra information to the user about some properties.
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
-      elsif key == "max_memory"
+      end
+      if key == "max_memory"
         Djinn.log_warn("max_memory will be enforced on new AppServers only.")
-      elsif key == "min_images"
+      end
+      if key == "min_images"
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
         end
@@ -1502,7 +1504,8 @@ class Djinn
           Djinn.log_warn("Invalid input: cannot lower min_images!")
           return "min_images cannot be less than the nodes defined in ips_layout"
         end
-      elsif key == "max_images"
+      end
+      if key == "max_images"
         unless is_cloud?
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
         end
@@ -1510,18 +1513,14 @@ class Djinn
           Djinn.log_warn("Invalid input: max_images is smaller than min_images!")
           return "max_images is smaller than min_images."
         end
-      elsif key == "flower_password"
+      end
+      if key == "flower_password"
         TaskQueue.stop_flower
         TaskQueue.start_flower(@options['flower_password'])
-      elsif key == "replication"
+      end
+      if key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
         next
-      elsif key == "login"
-        Djinn.log_info("Restarting applications since public IP changed.")
-        @apps_loaded.each { |appid|
-          notify_restart_app_to_nodes(appid)
-        }
-
       end
       @options[key] = val
       Djinn.log_info("Successfully set #{key} to #{val}.")
