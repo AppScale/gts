@@ -140,7 +140,7 @@ def start_cassandra(clear_datastore, needed, desired)
 
   start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
   stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
-  MonitInterface.start(:cassandra, start_cmd, stop_cmd, [9999], nil, nil, nil,
+  MonitInterface.start(:cassandra, start_cmd, stop_cmd, nil, nil, nil, nil,
                        PID_FILE, START_TIMEOUT)
 
   # Ensure enough Cassandra nodes are available.
