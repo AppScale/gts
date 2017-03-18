@@ -35,6 +35,9 @@ PADDING_PERCENTAGE = 0.9
 # Number of times to retry stopping a service.
 SERVICE_STOP_RETRIES = 10
 
+# The number of times to retry starting a service.
+SERVICE_START_RETRIES = 10
+
 
 class StorageTypes(object):
   """ A class containing the supported types of storage infrastructures
