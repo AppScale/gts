@@ -57,7 +57,7 @@ module Nginx
     start_cmd = "#{service_bin} nginx start"
     stop_cmd = "#{service_bin} nginx stop"
     match_cmd = "nginx: (.*) process"
-    MonitInterface.start(:nginx, start_cmd, stop_cmd, [9999], nil, match_cmd,
+    MonitInterface.start(:nginx, start_cmd, stop_cmd, nil, nil, match_cmd,
                          nil, nil, nil)
   end
 
