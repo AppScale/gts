@@ -58,7 +58,8 @@ def setup_stubs(config):
   """Sets up API stubs using remote API."""
   remote_api_stub.ConfigureRemoteApi(config.app_id, '/', lambda: ('', ''),
                                      'localhost:%d' % config.api_port,
-                                     use_remote_datastore=False)
+                                     use_remote_datastore=False,
+                                     use_async_rpc=True)
 
   if config.HasField('cloud_sql_config'):
     # Connect the RDBMS API to MySQL.
