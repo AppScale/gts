@@ -2,3 +2,6 @@ cron:
 - description: Datastore periodic update.
   url: /status/refresh
   schedule: every 1 minutes
+- description: Update all apps request info.
+  url: /status/requests
+  schedule: every 1 minutes
