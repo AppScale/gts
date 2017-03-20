@@ -27,6 +27,8 @@ from google.appengine.api.appcontroller_client import AppControllerException
 
 sys.path.append(os.path.dirname(__file__) + '/lib')
 from infrastructure_manager_client import InfrastructureManagerClient
+from datastore_client import DatastoreClient
+from taskqueue_client import TaskQueueClient
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -284,6 +286,16 @@ def update_node_cache():
   imc = InfrastructureManagerClient(my_priv_ip, secret)
   sys = imc.get_system_stats()
   stats.update(sys)
+
+  # Load Balancer nodes run the appscale-datastore_server, so they need to get
+  # the Datastore info.
+  if "load_balancer" in stats.get('roles'):
+    dsc = DatastoreClient()
+    ds_stats = dsc.get_datastore_stats()
+    stats['datastore_stats'] = ds_stats
+    tqc = TaskQueueClient()
+    tq_stats = tqc.get_taskqueue_stats()
+    stats['taskqueue_stats'] = tq_stats
   return stats
 
 def update_cluster_cache():

@@ -24,13 +24,12 @@ class InfrastructureManagerClient:
   # The port that the InfrastructureManager runs on, by default.
   SERVER_PORT = 17444
 
-  # The message that an AppController can return if callers do not authenticate
-  # themselves correctly.
+  # The message that an InfrastructureManager can return if callers do not
+  # authenticate  themselves correctly.
   BAD_SECRET_MESSAGE = {'success': False, 'reason': 'bad secret'}
 
   # The number of times we should retry SOAP calls in case of failures.
   DEFAULT_NUM_RETRIES = 5
-
 
   def __init__(self, host, secret):
     """Creates a new AppControllerClient.
@@ -41,14 +40,12 @@ class InfrastructureManagerClient:
         when talking to remote InfrastructureManagers.
     """
     self.host = host
-    self.server = SOAPpy.SOAPProxy('https://%s:%s' % (host,
-      self.SERVER_PORT))
+    self.server = SOAPpy.SOAPProxy('https://%s:%s' % (host, self.SERVER_PORT))
     self.secret = secret
 
     # Disable certificate verification for Python 2.7.9.
     if hasattr(ssl, '_create_unverified_context'):
       ssl._create_default_https_context = ssl._create_unverified_context
-
 
   def call(self, retries, function, *args):
     """Runs the given function, retrying it if a transient error is seen.
@@ -60,8 +57,9 @@ class InfrastructureManagerClient:
     Returns:
       The return value of function(*args).
     Raises:
-      AppControllerException: If the AppController we're trying to connect to is
-        not running at the given IP address, or if it rejects the SOAP request.
+      InfrastructureManagerException: If the AppController we're trying to
+        connect to is not running at the given IP address, or if it rejects
+        the SOAP request.
     """
     if retries <= 0:
       raise InfrastructureManagerException(
@@ -72,15 +70,14 @@ class InfrastructureManagerClient:
 
       if result == self.BAD_SECRET_MESSAGE:
         raise InfrastructureManagerException(
-          "Could not authenticate successfully" + \
-           " to the AppController. You may need to change the keyname in use.")
+          "Could not authenticate successfully"
+          " to the AppController. You may need to change the keyname in use.")
       else:
         return result
     except (ssl.SSLError, socket.error):
       sys.stderr.write("Saw SSL exception when communicating with the "
                        "AppController, retrying momentarily.")
       return self.call(retries - 1, function, *args)
-
 
   def get_cpu_usage(self):
     return yaml.safe_load(self.call(self.DEFAULT_NUM_RETRIES,
