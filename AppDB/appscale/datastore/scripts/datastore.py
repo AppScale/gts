@@ -503,43 +503,30 @@ class MainHandler(tornado.web.RequestHandler):
     Raises:
        NotImplementedError: when requesting a max id.
     """
-    global datastore_access
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
 
-    if READ_ONLY:
-      logger.warning('Unable to allocate in read-only mode: {}'.
-        format(request))
-      return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
-        'Datastore is in read-only mode.')
+    if request.has_max() and request.has_size():
+      return (response.Encode(), datastore_pb.Error.BAD_REQUEST,
+              'Both size and max cannot be set.')
+    if not (request.has_max() or request.has_size()):
+      return (response.Encode(), datastore_pb.Error.BAD_REQUEST,
+              'Either size or max must be set.')
 
-    max_id = int(request.max())
-    size = int(request.size())
-    start = end = 0
-    try:
-      start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
-    except zktransaction.ZKBadRequest as zkie:
-      logger.exception('Unable to allocate IDs for {}'.format(app_id))
-      return (response.Encode(),
-              datastore_pb.Error.BAD_REQUEST, 
-              "Illegal arguments for transaction. {0}".format(str(zkie)))
-    except zktransaction.ZKInternalException:
-      logger.exception('Unable to allocate IDs for {}'.format(app_id))
-      return (response.Encode(), 
-              datastore_pb.Error.INTERNAL_ERROR, 
-              "Internal error with ZooKeeper connection.")
-    except zktransaction.ZKTransactionException:
-      logger.exception('Unable to allocate IDs for {}'.format(app_id))
-      return (response.Encode(), 
-              datastore_pb.Error.CONCURRENT_TRANSACTION, 
-              "Concurrent transaction exception on allocate id request.")
-    except dbconstants.AppScaleDBConnectionError:
-      logger.exception('DB connection error while allocating IDs for {}'.
-        format(app_id))
-      return (response.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR,
-              "Datastore connection error on allocate id request.")
-
+    if request.has_size():
+      try:
+        start, end = datastore_access.allocate_size(app_id, request.size())
+      except dbconstants.AppScaleBadArg as error:
+        return response.Encode(), datastore_pb.Error.BAD_REQUEST, str(error)
+      except dbconstants.AppScaleDBConnectionError as error:
+        return response.Encode(), datastore_pb.Error.INTERNAL_ERROR, str(error)
+    else:
+      try:
+        start, end = datastore_access.allocate_max(app_id, request.max())
+      except dbconstants.AppScaleBadArg as error:
+        return response.Encode(), datastore_pb.Error.BAD_REQUEST, str(error)
+      except dbconstants.AppScaleDBConnectionError as error:
+        return response.Encode(), datastore_pb.Error.INTERNAL_ERROR, str(error)
 
     response.set_start(start)
     response.set_end(end)

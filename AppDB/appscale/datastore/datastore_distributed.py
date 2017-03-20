@@ -15,6 +15,8 @@ from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
+from .cassandra_env.entity_id_allocator import EntityIDAllocator
+from .cassandra_env.entity_id_allocator import ScatteredAllocator
 from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
 from .utils import encode_entity_table_key
@@ -129,6 +131,9 @@ class DatastoreDistributed():
 
     # Maintain a stub object for each project using transactional tasks.
     self.taskqueue_stubs = {}
+
+    # Maintain a scattered allocator for each project.
+    self.scattered_allocators = {}
 
   def get_limit(self, query):
     """ Returns the limit that should be used for the given query.
@@ -456,45 +461,29 @@ class DatastoreDistributed():
 
     self.logger.info('Updated {} index entries.'.format(entries_updated))
 
-  def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
-    """ Allocates IDs from either a local cache or the datastore. 
+  def allocate_size(self, project, size):
+    """ Allocates a block of IDs for a project.
 
     Args:
-      app_id: A str representing the application identifer.
-      size: Number of IDs to allocate.
-      max_id: If given increase the next IDs to be greater than this value.
-      num_retries: The number of retries left to get an ID.
+      project: A string specifying the project ID.
+      size: An integer specifying the number of IDs to reserve.
     Returns:
-      Tuple of start and end ids.
-    Raises: 
-      ValueError: If size is less than or equal to 0.
-      ZKTransactionException: If we are unable to increment the ID counter.
+      A tuple of integers specifying the start and end ID.
     """
-    if size and max_id:
-      raise ValueError("Both size and max cannot be set.")
-    try:
-      prev = 0
-      current = 0
-      if size:
-        prev, current = self.zookeeper.increment_and_get_counter(
-          "/{0}/counter".format(app_id), size)
-      elif max_id: 
-        prev, current = self.zookeeper.increment_and_get_counter(
-          "/{0}/counter".format(app_id), 0)
-        if current < max_id:
-          prev, current = self.zookeeper.increment_and_get_counter(
-            "/{0}/counter".format(app_id), max_id - current + 1)
-          
-    except zktransaction.ZKTransactionException as zk_exception:
-      if num_retries > 0:
-        time.sleep(zktransaction.ZKTransaction.ZK_RETRY_TIME)
-        self.logger.debug('Retrying to allocate ids for {}'.format(app_id))
-        return self.allocate_ids(app_id, size, max_id=max_id,
-          num_retries=num_retries - 1)
-      else:
-        raise zk_exception
+    allocator = EntityIDAllocator(self.datastore_batch.session, project)
+    return allocator.allocate_size(size)
 
-    return prev + 1, current
+  def allocate_max(self, project, max_id):
+    """ Reserves all IDs up to the one given.
+
+    Args:
+      project: A string specifying the project ID.
+      max_id: An integer specifying the maximum ID to allocated.
+    Returns:
+      A tuple of integers specifying the start and end ID.
+    """
+    allocator = EntityIDAllocator(self.datastore_batch.session, project)
+    return allocator.allocate_max(max_id)
 
   def put_entities(self, app, entities, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
@@ -595,20 +584,13 @@ class DatastoreDistributed():
     Raises:
       ZKTransactionException: If we are unable to acquire/release ZooKeeper locks.
     """
+    if app_id not in self.scattered_allocators:
+      self.scattered_allocators[app_id] = ScatteredAllocator(
+        self.datastore_batch.session, app_id)
+    allocator = self.scattered_allocators[app_id]
+
     entities = put_request.entity_list()
 
-    num_of_required_ids = 0
-    for entity in entities:
-      last_path = entity.key().path().element_list()[-1]
-      if last_path.id() == 0 and not last_path.has_name():
-        num_of_required_ids += 1
-
-    start_id = None
-    if num_of_required_ids > 0:
-      start_id, _ = self.allocate_ids(app_id, num_of_required_ids, 
-        num_retries=3)
-
-    id_counter = 0
     for entity in entities:
       self.validate_key(entity.key())
 
@@ -621,8 +603,7 @@ class DatastoreDistributed():
 
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
-        last_path.set_id(start_id + id_counter)
-        id_counter += 1
+        last_path.set_id(allocator.next())
         group = entity.mutable_entity_group()
         root = entity.key().path().element(0)
         group.add_element().CopyFrom(root)
