@@ -770,22 +770,20 @@ class Djinn
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{appid}.txt"
     HelperFunctions.write_file(port_file, http_port)
 
-    Thread.new {
-      # Notify the UAServer about the new ports.
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      success = uac.add_instance(appid, my_public, http_port, https_port)
-      unless success
-        Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
-        return
-      end
+    # Notify the UAServer about the new ports.
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    success = uac.add_instance(appid, my_public, http_port, https_port)
+    unless success
+      Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
+      return
+    end
 
-      # Notify nodes, and remove any running AppServer of the application.
-      notify_restart_app_to_nodes([appid])
+    # Notify nodes, and remove any running AppServer of the application.
+    notify_restart_app_to_nodes([appid])
 
-      # Once we've relocated the app, we need to tell the XMPPReceiver about the
-      # app's new location.
-      MonitInterface.restart("xmpp-#{appid}")
-    }
+    # Once we've relocated the app, we need to tell the XMPPReceiver about the
+    # app's new location.
+    MonitInterface.restart("xmpp-#{appid}")
 
     return "OK"
   end
@@ -816,7 +814,7 @@ class Djinn
     if my_node.is_shadow? and stop_deployment
       Djinn.log_info("Stopping all other nodes.")
       # Let's stop all other nodes.
-      threads << Thread.new {
+      Thread.new {
         @nodes.each { |node|
           if node.private_ip != my_node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
@@ -1825,26 +1823,30 @@ class Djinn
   def notify_restart_app_to_nodes(apps_to_restart)
     return if apps_to_restart.empty?
 
-    Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
-    APPS_LOCK.synchronize {
-      apps_to_restart.each{ |app|
-        @app_info_map[app]['appengine'].clear
-      }
-    }
-
     Djinn.log_info("Notify nodes to restart #{apps_to_restart}.")
+    threads = []
     @nodes.each_index { |index|
       result = ""
       ip = @nodes[index].private_ip
       next if my_node.private_ip == ip
 
-      acc = AppControllerClient.new(ip, @@secret)
-      begin
-        result = acc.set_apps_to_restart(apps_to_restart)
-      rescue FailedNodeException
-        Djinn.log_warn("Couldn't tell #{ip} to restart #{apps_to_restart}.")
-      end
-      Djinn.log_debug("Set apps to restart at #{ip} returned #{result}.")
+      threads << Thread.new {
+        acc = AppControllerClient.new(ip, @@secret)
+        begin
+          result = acc.set_apps_to_restart(apps_to_restart)
+        rescue FailedNodeException
+          Djinn.log_warn("Couldn't tell #{ip} to restart #{apps_to_restart}.")
+        end
+        Djinn.log_debug("Set apps to restart at #{ip} returned #{result}.")
+      }
+    }
+    threads.each { |t| t.join }
+
+    Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
+    APPS_LOCK.synchronize {
+      apps_to_restart.each{ |app|
+        @app_info_map[app]['appengine'].clear
+      }
     }
   end
 
