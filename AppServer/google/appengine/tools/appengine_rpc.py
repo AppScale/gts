@@ -24,6 +24,7 @@
 import cookielib
 import commands
 import fancy_urllib
+import inspect
 import logging
 import os
 import re
@@ -521,8 +522,10 @@ class AbstractRpcServer(object):
     if 'AUTH_DOMAIN' in os.environ:
       auth_domain = os.environ['AUTH_DOMAIN'].lower()
 
+    opener_has_timeout = 'timeout' in inspect.getargspec(self.opener.open).args
     old_timeout = socket.getdefaulttimeout()
-    socket.setdefaulttimeout(timeout)
+    if not opener_has_timeout:
+      socket.setdefaulttimeout(timeout)
     try:
       tries = 0
       while True:
@@ -546,7 +549,10 @@ class AbstractRpcServer(object):
           logger.debug('Sending %s request:\n%s',
                        self.scheme.upper(),
                        HttpRequestToString(req, include_data=self.debug_data))
-          f = self.opener.open(req)
+          if opener_has_timeout:
+            f = self.opener.open(req, timeout=timeout)
+          else:
+            f = self.opener.open(req)
           response = f.read()
           f.close()
 
@@ -611,7 +617,8 @@ class AbstractRpcServer(object):
           else:
             raise
     finally:
-      socket.setdefaulttimeout(old_timeout)
+      if not opener_has_timeout:
+        socket.setdefaulttimeout(old_timeout)
           
 class HttpRpcServer(AbstractRpcServer):
   """Provides a simplified RPC-style interface for HTTP requests."""
