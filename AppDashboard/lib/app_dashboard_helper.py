@@ -129,6 +129,10 @@ class AppDashboardHelper(object):
   # The time in seconds to wait before re-checking the app upload status.
   APP_UPLOAD_CHECK_INTERVAL = 1
 
+  # The sentinel app name that indicates that no apps are running on a given
+  # machine.
+  NO_APPS_RUNNING = "none"
+
   def __init__(self):
     """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
     every SOAP call.
@@ -211,11 +215,86 @@ class AppDashboardHelper(object):
       there was a problem retrieving this information.
     """
     try:
-      status_info = self.get_appcontroller_client().get_stats()
-      return status_info
+      nodes = self.get_appcontroller_client().get_cluster_stats()
+      statuses = []
+      for node in nodes:
+        cpu_usage = 100.0 - node['cpu']['idle']
+        total_memory = node['memory']['available'] + node['memory']['used']
+        memory_usage = round(100.0 * node['memory']['used'] /
+                             total_memory, 1)
+        total_disk = 0
+        total_used = 0
+        #TODO: instead of totals display disk usage per disk?
+        for disk in node['disk']:
+          for _, disk_info in disk.iteritems():
+            total_disk += disk_info['free'] + disk_info['used']
+            total_used += disk_info['used']
+        disk_usage = round(100.0 * total_used / total_disk, 1)
+        statuses.append({'ip': node['public_ip'], 'cpu': str(cpu_usage),
+                         'memory': str(memory_usage), 'disk': str(disk_usage),
+                         'roles': node['roles'],
+                         'key': str(node['public_ip']).translate(None, '.')})
+      return statuses
     except Exception as err:
       logging.exception(err)
       return []
+
+  def get_instance_info(self, app_id):
+    """ Queries the AppController to get instance information for a given app_id
+
+    Returns:
+      A list of dicts containing host, port, and language information for
+        each instance hosting the given application.
+    """
+    try:
+      instances = self.get_appcontroller_client().get_instance_info()
+      instance_infos = [{
+                          'host': instance.get('host'),
+                          'port': instance.get('port'),
+                          'language': instance.get('language')
+                        } for instance in instances\
+                        if instance.get('appid') == app_id]
+      return instance_infos
+    except Exception as err:
+      logging.exception(err)
+
+  def get_application_info(self):
+    """ Queries the AppController for information about which Google App Engine
+    applications are currently running, and if they are done loading, the URL
+    that they can be accessed at.
+
+    Returns:
+      A dict, where each key is a str indicating the name of a Google App Engine
+      application running in this deployment, and each value is either a str
+      indicating the URL that the app can be found at, or None, if the
+      application is still loading.
+    """
+    try:
+      status_on_all_nodes = self.get_appcontroller_client().get_cluster_stats()
+      app_names_and_urls = {}
+
+      if not status_on_all_nodes:
+        return {}
+
+      for status in status_on_all_nodes:
+        for app, done_loading in status['apps'].iteritems():
+          if app == self.NO_APPS_RUNNING:
+            continue
+          if done_loading:
+            try:
+              host_url = self.get_login_host()
+              ports = self.get_app_ports(app)
+              app_names_and_urls[app] = [
+                "http://{0}:{1}".format(host_url, ports[0]),
+                "https://{0}:{1}".format(host_url, ports[1])]
+            except AppHelperException:
+              app_names_and_urls[app] = None
+          else:
+            app_names_and_urls[app] = None
+      return app_names_and_urls
+    except Exception as err:
+      logging.exception(err)
+      return {}
 
   def get_application_cron_info(self, app_name):
     """ Get an application cron info

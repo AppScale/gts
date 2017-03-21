@@ -15,8 +15,10 @@ class JSONTags(object):
   IDLE = "idle"
   SYSTEM = "system"
   USER = "user"
+  COUNT = "count"
   # Disk related JSON tags.
   DISK = "disk"
+  TOTAL = "total"
   FREE = "free"
   USED = "used"
   # Memory related JSON tags.
@@ -24,6 +26,13 @@ class JSONTags(object):
   AVAILABLE = "available"
   # SWAP related JSON tags.
   SWAP = "swap"
+  # Loadavg related JSON tags.
+  LOADAVG = "loadavg"
+  LAST_1_MIN = "last_1_min"
+  LAST_5_MIN = "last_5_min"
+  LAST_15_MIN = "last_15_min"
+  RUNNABLE_ENTITIES = "runnable_entities"
+  SCHEDULING_ENTITIES = "scheduling_entities"
 
 class SystemManager():
   """ SystemManager class is the entry point for queries regarding system stats.
@@ -52,7 +61,8 @@ class SystemManager():
       {
         JSONTags.IDLE : cpu_stats.idle,
         JSONTags.SYSTEM : cpu_stats.system,
-        JSONTags.USER : cpu_stats.user
+        JSONTags.USER : cpu_stats.user,
+        JSONTags.COUNT : len(psutil.cpu_times(percpu=True))
       }
     }
     logging.debug("CPU stats: {}".format(cpu_stats_dict))
@@ -78,6 +88,7 @@ class SystemManager():
       if partition.mountpoint not in MOUNTPOINT_WHITELIST:
         continue
       inner_disk_stats_dict.append({ partition.mountpoint : {
+        JSONTags.TOTAL : disk_stats.total,
         JSONTags.FREE : disk_stats.free,
         JSONTags.USED : disk_stats.used
       }})
@@ -99,8 +110,10 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
+
     mem_stats_dict = { JSONTags.MEMORY :
       {
+        JSONTags.TOTAL : mem_stats.total,
         JSONTags.AVAILABLE : mem_stats.available,
         JSONTags.USED : mem_stats.used
       }
@@ -159,6 +172,38 @@ class SystemManager():
     logging.debug("Swap stats: {}".format(swap_stats_dict))
 
     return json.dumps(swap_stats_dict)
+
+  def get_loadavg(self, secret):
+    """ Returns info from /proc/loadavg.
+    See `man proc` for more details.
+
+    Args:
+      secret: The secret of the deployment; used for authentication.
+    Returns:
+      A dictionary containing average load for last 1, 5 and 15 minutes,
+      and information about running and scheduled entities,
+      and PID of the most recently added process.
+    """
+    if self.secret != secret:
+      return self.__generate_response(False,
+        InfrastructureManager.REASON_BAD_SECRET)
+
+    with open("/proc/loadavg") as loadavg:
+      loadavg = loadavg.read().split()
+    kernel_entities = loadavg[3].split("/")
+    loadavg_stat = { JSONTags.LOADAVG :
+      {
+        JSONTags.LAST_1_MIN : float(loadavg[0]),
+        JSONTags.LAST_5_MIN : float(loadavg[1]),
+        JSONTags.LAST_15_MIN : float(loadavg[2]),
+        JSONTags.RUNNABLE_ENTITIES : int(kernel_entities[0]),
+        JSONTags.SCHEDULING_ENTITIES : int(kernel_entities[1])
+      }
+    }
+    logging.debug("Loadavg stats: {}".format(' '.join(loadavg)))
+
+    return json.dumps(loadavg_stat)
+
 
   def __generate_response(self, success, message):
     """ Generate a system manager service response
