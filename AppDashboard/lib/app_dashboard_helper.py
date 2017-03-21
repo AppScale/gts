@@ -282,7 +282,7 @@ class AppDashboardHelper(object):
             continue
           if done_loading:
             try:
-              host_url = self.get_login_host()
+              host_url = self.get_login_ip()
               ports = self.get_app_ports(app)
               app_names_and_urls[app] = [
                 "http://{0}:{1}".format(host_url, ports[0]),
@@ -348,16 +348,22 @@ class AppDashboardHelper(object):
     """
     return self.get_host_with_role('shadow')
 
-  def get_login_host(self):
-    """ Queries the AppController to learn which machine runs the login
-    service in this AppScale deployment, which runs nginx as a full proxy to
-    Google App Engine applications.
+  def get_login_ip(self):
+    """ Queries the AppController to learn the public IP of this
+    deployment.
 
     Returns:
       A str containing the hostname (an IP address or FQDN) of the machine
       running the login service.
     """
-    return self.get_host_with_role('login')
+    login_property = ''
+    acc = self.get_appcontroller_client()
+    try:
+      login_property = acc.get_property('login')
+    except Exception as err:
+      logging.exception(err)
+      return ''
+    return login_property.get('login')
 
   def get_app_ports(self, appname):
     """ Queries the UserAppServer to learn which port the named application runs
@@ -660,7 +666,7 @@ class AppDashboardHelper(object):
       username_regex = re.compile(self.USERNAME_FROM_EMAIL_REGEX)
       username = username_regex.match(email).groups()[0]
       xmpp_user = "{0}@{1}".format(username,
-                                   self.get_login_host())
+                                   self.get_login_ip())
       xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
       result = uaserver.commit_new_user(xmpp_user, xmpp_pass, account_type,
                                         GLOBAL_SECRET_KEY)
