@@ -225,7 +225,7 @@ def restore_data(path, keyname, force=False):
       utils.ssh(db_ip, keyname, 'chown -R cassandra {}'.format(cassandra_dir))
 
     logging.info('Starting Cassandra on {}'.format(db_ip))
-    retries = SERVICE_STOP_RETRIES
+    retries = SERVICE_START_RETRIES
     status = MonitStates.UNMONITORED
     while status != MonitStates.RUNNING:
       utils.ssh(db_ip, keyname,
