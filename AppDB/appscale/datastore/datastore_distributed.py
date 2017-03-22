@@ -1004,9 +1004,8 @@ class DatastoreDistributed():
 
     val = None
 
-    # If the entity provided by the cursor has multiple values for the given
-    # property and the query has information about what the value should be,
-    # use the value from the query.
+    # Use the value from the query if possible. This reduces ambiguity when
+    # the entity provided by the cursor has multiple values for the property.
     if (query is not None and query.filter_size() == 1 and
         query.filter(0).op() == datastore_pb.Query_Filter.EQUAL):
       query_prop = query.filter(0).property(0)
