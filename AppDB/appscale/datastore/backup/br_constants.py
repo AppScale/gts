@@ -32,11 +32,8 @@ HTTP_OK = 200
 # The percentage of disk fullness that is considered reasonable.
 PADDING_PERCENTAGE = 0.9
 
-# Number of times to retry stopping a service.
-SERVICE_STOP_RETRIES = 10
-
-# The number of times to retry starting a service.
-SERVICE_START_RETRIES = 10
+# The number of times to retry starting or stopping a service.
+SERVICE_RETRIES = 10
 
 
 class StorageTypes(object):
