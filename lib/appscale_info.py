@@ -24,16 +24,16 @@ def read_file_contents(path):
   with open(path) as file_handle:
     return file_handle.read()
 
-def get_appcontroller_client():
+def get_appcontroller_client(head_node=True):
   """ Returns an AppControllerClient instance for this deployment. """
-  raw_ips = file_io.read('/etc/appscale/load_balancer_ips')
-  ips = raw_ips.split('\n')
-  head_node = ips[0]
-
+  if head_node:
+    ips = get_load_balancer_ips()
+    acc_ip = ips[0]
+  else:
+    acc_ip = get_private_ip()
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)
-
-  return AppControllerClient(head_node, secret)
+  return AppControllerClient(acc_ip, secret)
 
 def get_keyname():
   """ Returns the keyname for this deployment. """
@@ -48,6 +48,11 @@ def get_all_ips():
   nodes = file_io.read(constants.ALL_IPS_LOC)
   nodes = nodes.split('\n')
   return filter(None, nodes)
+
+def get_load_balancer_ips():
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
+  ips = raw_ips.split('\n')
+  return ips
 
 def get_login_ip():
   """ Get the public IP of the head node. Since there can be more than one
