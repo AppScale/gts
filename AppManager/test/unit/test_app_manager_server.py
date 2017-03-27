@@ -37,9 +37,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -65,9 +64,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'badName!@#$%^&*([]/.,',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -80,9 +78,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -115,9 +112,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -155,9 +151,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'max_memory': 500
     }

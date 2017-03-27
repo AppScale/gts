@@ -1442,11 +1442,9 @@ class Djinn
       # We give some extra information to the user about some properties.
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
-      end
-      if key == "max_memory"
+      elsif key == "max_memory"
         Djinn.log_warn("max_memory will be enforced on new AppServers only.")
-      end
-      if key == "min_images"
+      elsif key == "min_images"
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
         end
@@ -1454,8 +1452,7 @@ class Djinn
           Djinn.log_warn("Invalid input: cannot lower min_images!")
           return "min_images cannot be less than the nodes defined in ips_layout"
         end
-      end
-      if key == "max_images"
+      elsif key == "max_images"
         unless is_cloud?
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
         end
@@ -1463,14 +1460,15 @@ class Djinn
           Djinn.log_warn("Invalid input: max_images is smaller than min_images!")
           return "max_images is smaller than min_images."
         end
-      end
-      if key == "flower_password"
+      elsif key == "flower_password"
         TaskQueue.stop_flower
         TaskQueue.start_flower(@options['flower_password'])
-      end
-      if key == "replication"
+      elsif key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
         next
+      elsif key == "login"
+        Djinn.log_info("Restarting applications since public IP changed.")
+        notify_restart_app_to_nodes(@apps_loaded)
       end
       @options[key] = val
       Djinn.log_info("Successfully set #{key} to #{val}.")
@@ -3301,10 +3299,6 @@ class Djinn
       end
     }
 
-    if @options['login'] == old_public_ip
-      @options['login'] = new_public_ip
-    end
-
     @app_info_map.each { |_app_id, app_info|
       next if app_info['appengine'].nil?
 
@@ -4288,7 +4282,7 @@ class Djinn
   def write_locations
     all_ips = []
     load_balancer_ips = []
-    login_ips = @options['login'].split(/[\s,]+/)
+    login_ip = @options['login']
     master_ips = []
     memcache_ips = []
     num_of_nodes = @nodes.length.to_s
@@ -4317,7 +4311,7 @@ class Djinn
     memcache_content = memcache_ips.join("\n") + "\n"
     load_balancer_content = load_balancer_ips.join("\n") + "\n"
     taskqueue_content = taskqueue_ips.join("\n") + "\n"
-    login_content = login_ips.join("\n") + "\n"
+    login_content = login_ip + "\n"
     master_content = master_ips.join("\n") + "\n"
     search_content = search_ips.join("\n") + "\n"
     slaves_content = slave_ips.join("\n") + "\n"
@@ -4350,7 +4344,7 @@ class Djinn
       load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
       HelperFunctions.write_file(load_balancer_file, load_balancer_content)
 
-      Djinn.log_info("Deployment public name(s)/IP(s): #{login_ips}.")
+      Djinn.log_info("Deployment public name/IP: #{login_ip}.")
       login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
@@ -4441,7 +4435,7 @@ HOSTS
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ip = get_shadow.private_ip
+    login_ip = @options['login']
 
     @apps_loaded.each { |app|
       # Check that we have the application information needed to
@@ -5782,15 +5776,16 @@ HOSTS
     Djinn.log_info("Starting #{app_language} app #{app} on " +
       "#{@my_private_ip}:#{appengine_port}")
 
-    xmpp_ip = @options['login']
+    # The IP we use to reach this deployment: it will be used by XMPP, and
+    # dashboard (authentication) redirections.
+    login_ip = @options['login']
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
       max_app_mem = @app_info_map[app]['max_memory']
       max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
-      pid = app_manager.start_app(app, appengine_port,
-        get_load_balancer.public_ip, app_language, xmpp_ip,
-        HelperFunctions.get_app_env_vars(app), max_app_mem,
+      pid = app_manager.start_app(app, appengine_port, login_ip,
+        app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
     rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
