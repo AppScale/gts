@@ -314,10 +314,6 @@ defaults
   # Log details about HTTP requests
   #option httplog
 
-  # Abort request if client closes its output channel while waiting for the
-  # request. HAProxy documentation has a long explanation for this option.
-  option abortonclose
-
   # Check if a "Connection: close" header is already set in each direction,
   # and will add one if missing.
   option httpclose
@@ -330,15 +326,14 @@ defaults
   # any Mongrel, not just the one that started the session
   option redispatch
 
-  # Timeout a request if the client did not read any data for 600 seconds
-  timeout client 600000
+  # Time to wait for a connection attempt to a server.
+  timeout connect 5000ms
 
-  # Timeout a request if Mongrel does not accept a connection for 600 seconds
-  timeout connect 600000
+  # The maximum inactivity time allowed for a client.
+  timeout client 50000ms
 
-  # Timeout a request if Mongrel does not accept the data on the connection,
-  # or does not send a response back in 10 minutes.
-  timeout server 600000
+  # The maximum inactivity time allowed for a server.
+  timeout server 50000ms
 
   # Enable the statistics page
   stats enable
