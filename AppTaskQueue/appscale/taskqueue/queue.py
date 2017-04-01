@@ -946,14 +946,13 @@ class PullQueue(Queue):
     Args:
       task: A Task object.
     """
-    batch_delete = BatchStatement(retry_policy=BASIC_RETRIES)
-
     delete_task = SimpleStatement("""
       DELETE FROM pull_queue_tasks
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+      IF EXISTS
     """)
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
-    batch_delete.add(delete_task, parameters=parameters)
+    self.db_access.session.execute(delete_task, parameters=parameters)
 
     delete_task_index = SimpleStatement("""
       DELETE FROM pull_queue_tasks_index
@@ -968,9 +967,7 @@ class PullQueue(Queue):
       'eta': task.get_eta(),
       'id': task.id
     }
-    batch_delete.add(delete_task_index, parameters=parameters)
-
-    self.db_access.session.execute(batch_delete)
+    self.db_access.session.execute(delete_task_index, parameters=parameters)
 
   def _resolve_task(self, index):
     """ Cleans up expired tasks and indices.
