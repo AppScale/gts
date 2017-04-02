@@ -857,6 +857,7 @@ class PullQueue(Queue):
       future = session.execute_async(bound_select)
       futures[result_num] = (future, not success)
 
+    index_update_futures = []
     for result_num, (future, lease_timed_out) in futures.iteritems():
       index = indexes[result_num]
       try:
@@ -882,12 +883,16 @@ class PullQueue(Queue):
       leased[result_num] = task
 
       self._increment_count_async(task)
-      self._update_index(index, task)
+      index_update_futures.append(self._update_index_async(index, task))
       self._update_stats()
+
+    # Make sure all of the index updates complete successfully.
+    for index_update in index_update_futures:
+      index_update.result()
 
     return leased
 
-  def _update_index(self, old_index, task):
+  def _update_index_async(self, old_index, task):
     """ Updates the index table after leasing a task.
 
     Args:
@@ -931,7 +936,7 @@ class PullQueue(Queue):
                   tag_exists]
     update_index.add(create_new_index, parameters)
 
-    self.db_access.session.execute(update_index)
+    return self.db_access.session.execute_async(update_index)
 
   def _delete_index(self, eta, task_id):
     """ Deletes an index entry for a task.
