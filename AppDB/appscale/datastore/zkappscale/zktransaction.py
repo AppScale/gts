@@ -25,6 +25,7 @@ from cassandra.policies import FallthroughRetryPolicy
 from kazoo.exceptions import (NoNodeError,
                               KazooException,
                               ZookeeperError)
+from kazoo.retry import KazooRetry
 from kazoo.retry import RetryFailedError
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -151,6 +152,8 @@ class ZKTransaction:
 
   # When we have this many failures trying to connect to ZK, abort execution.
   MAX_CONNECTION_FAILURES = 10 
+  # The maximum number of seconds to wait before retrying to connect.
+  MAX_RECONNECT_DELAY = 30
 
   def __init__(self, host=DEFAULT_HOST, start_gc=False, db_access=None,
                log_level=logging.INFO):
@@ -164,6 +167,9 @@ class ZKTransaction:
       db_access: A DatastoreProxy instance.
       log_level: A logging constant that specifies the instance logging level.
     """
+    reconnect_policy = KazooRetry(max_tries=-1,
+                                  max_delay=self.MAX_RECONNECT_DELAY)
+
     class_name = self.__class__.__name__
     self.logger = logging.getLogger(class_name)
     self.logger.setLevel(log_level)
@@ -174,7 +180,7 @@ class ZKTransaction:
     self.failure_count = 0
     self.host = host
     self.handle = kazoo.client.KazooClient(hosts=host,
-      max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
+                                           connection_retry=reconnect_policy)
     self.run_with_retry = self.handle.retry
     try:
       self.handle.start()
