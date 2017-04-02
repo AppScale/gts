@@ -125,6 +125,7 @@ class Queue(object):
         self.task_retry_limit = retry_params['task_retry_limit']
 
     self.validate_config()
+    self.prepared_statements = {}
 
   def validate_config(self):
     """ Ensures all of the Queue's attributes are valid.
@@ -787,19 +788,21 @@ class PullQueue(Queue):
     Args:
       task: A Task object.
     """
-    update_count = """
+    session = self.db_access.session
+
+    statement = """
       UPDATE pull_queue_tasks
-      SET retry_count = %(new_count)s
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-      IF retry_count = %(old_count)s
+      SET retry_count=?
+      WHERE app=? AND queue=? AND id=?
+      IF retry_count=?
     """
-    params = {
-      'app': self.app,
-      'queue': self.name,
-      'id': task.id,
-      'old_count': task.retry_count,
-      'new_count': task.retry_count + 1
-    }
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    update_count = self.prepared_statements[statement]
+
+    old_count = task.retry_count
+    new_count = task.retry_count + 1
+    params = [new_count, self.app, self.name, task.id, old_count]
     self.db_access.session.execute_async(update_count, params)
 
   def _lease_batch(self, indexes, new_eta):
@@ -833,11 +836,15 @@ class PullQueue(Queue):
                                  raise_on_first_error=False)
 
     # Check which lease operations succeeded.
-    select = SimpleStatement("""
+    statement = """
       SELECT payload, enqueued, retry_count, tag
       FROM pull_queue_tasks
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """, consistency_level=ConsistencyLevel.SERIAL)
+      WHERE app=? AND queue=? AND id=?
+    """
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    select = self.prepared_statements[statement]
+
     futures = {}
     for result_num, (success, result) in enumerate(results):
       if success and not result.was_applied:
@@ -845,8 +852,9 @@ class PullQueue(Queue):
         continue
 
       index = indexes[result_num]
-      params = {'app': self.app, 'queue': self.name, 'id': index.id}
-      future = session.execute_async(select, params)
+      bound_select = select.bind([self.app, self.name, index.id])
+      bound_select.consistency_level = ConsistencyLevel.SERIAL
+      future = session.execute_async(bound_select)
       futures[result_num] = (future, not success)
 
     for result_num, (future, lease_timed_out) in futures.iteritems():
@@ -886,38 +894,41 @@ class PullQueue(Queue):
       old_index: The row to remove from the index table.
       task: A Task object to create a new index entry for.
     """
+    session = self.db_access.session
+
     old_eta = old_index.eta
     update_index = BatchStatement(retry_policy=BASIC_RETRIES)
-    delete_old_index = SimpleStatement("""
+
+    statement = """
       DELETE FROM pull_queue_tasks_index
-      WHERE app = %(app)s
-      AND queue = %(queue)s
-      AND eta = %(eta)s
-      AND id = %(id)s
-    """)
-    parameters = {
-      'app': self.app,
-      'queue': self.name,
-      'eta': old_eta,
-      'id': task.id
-    }
+      WHERE app=?
+      AND queue=?
+      AND eta=?
+      AND id=?
+    """
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    delete_old_index = self.prepared_statements[statement]
+
+    parameters = [self.app, self.name, old_eta, task.id]
     update_index.add(delete_old_index, parameters)
 
-    create_new_index = SimpleStatement("""
+    statement = """
       INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
-      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
-    """)
-    parameters = {
-      'app': self.app,
-      'queue': self.name,
-      'eta': task.leaseTimestamp,
-      'id': task.id
-    }
+      VALUES (?, ?, ?, ?, ?, ?)
+    """
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    create_new_index = self.prepared_statements[statement]
+
     try:
-      parameters['tag'] = task.tag
+      tag = task.tag
     except AttributeError:
-      parameters['tag'] = ''
-    parameters['tag_exists'] = parameters['tag'] != ''
+      tag = ''
+    tag_exists = tag != ''
+
+    parameters = [self.app, self.name, task.leaseTimestamp, task.id, tag,
+                  tag_exists]
     update_index.add(create_new_index, parameters)
 
     self.db_access.session.execute(update_index)
@@ -993,14 +1004,19 @@ class PullQueue(Queue):
 
   def _update_stats(self):
     """ Write queue metadata for keeping track of statistics. """
+    session = self.db_access.session
     # Stats are only kept for one hour.
     ttl = 60 * 60
-    record_lease = """
+    statement = """
       INSERT INTO pull_queue_leases (app, queue, leased)
-      VALUES (%(app)s, %(queue)s, dateof(now()))
+      VALUES (?, ?, ?)
       USING TTL {ttl}
     """.format(ttl=ttl)
-    parameters = {'app': self.app, 'queue': self.name}
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    record_lease = self.prepared_statements[statement]
+
+    parameters = [self.app, self.name, datetime.datetime.utcnow()]
     self.db_access.session.execute_async(record_lease, parameters)
 
   def _get_stats(self, fields):
