@@ -161,6 +161,7 @@ class ZKTransaction:
     """
     reconnect_policy = KazooRetry(max_tries=-1,
                                   max_delay=self.MAX_RECONNECT_DELAY)
+    retry_policy = KazooRetry(max_tries=5)
 
     class_name = self.__class__.__name__
     self.logger = logging.getLogger(class_name)
@@ -169,8 +170,9 @@ class ZKTransaction:
 
     # Connection instance variables.
     self.host = host
-    self.handle = kazoo.client.KazooClient(hosts=host,
-                                           connection_retry=reconnect_policy)
+    self.handle = kazoo.client.KazooClient(
+      hosts=host, connection_retry=reconnect_policy,
+      command_retry=retry_policy)
     self.run_with_retry = self.handle.retry
     self.handle.start()
 
