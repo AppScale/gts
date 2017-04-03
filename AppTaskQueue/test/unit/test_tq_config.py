@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import unittest
 
 from flexmock import flexmock
 
+from appscale.common import file_io
 from appscale.taskqueue.queue import InvalidQueueConfiguration
 from appscale.taskqueue.queue import PushQueue
 from appscale.taskqueue.tq_config import TaskQueueConfig
-
-from appscale.common import file_io
 
 sample_queue_yaml = \
 """

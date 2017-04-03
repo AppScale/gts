@@ -2,18 +2,15 @@
 initiates actions accordingly. """
 
 import datetime
-import hashlib
 import helper
 import hermes_constants
 import json
 import logging
 import os
-import random
 import re
 import signal
 import SOAPpy
 import socket
-import string
 import sys
 import tarfile
 import tornado.escape

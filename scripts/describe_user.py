@@ -1,6 +1,5 @@
 """ This script dumps AppScale attributes on a user. """
 
-import os
 import SOAPpy
 import sys
 

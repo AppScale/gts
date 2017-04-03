@@ -1,7 +1,5 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import os
-import sys
 import unittest
 from flexmock import flexmock
 

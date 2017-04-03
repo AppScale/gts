@@ -2,7 +2,6 @@
 
 import hashlib
 import M2Crypto
-import os
 import SOAPpy
 import string
 import sys

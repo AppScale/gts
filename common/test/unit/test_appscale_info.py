@@ -1,6 +1,4 @@
 import json
-import os
-import sys
 import unittest
 from flexmock import flexmock
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import os
-import sys
 import unittest
 
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy

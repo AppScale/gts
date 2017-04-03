@@ -11,7 +11,6 @@ Returns:
   A string indicating whether or not the operation was a success.
 """
 
-import os
 import sys
 
 from appscale.common import appscale_info

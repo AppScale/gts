@@ -1,6 +1,5 @@
 """ This script deletes a user. """
 
-import os
 import sys
 import SOAPpy
 

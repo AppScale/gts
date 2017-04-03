@@ -1,10 +1,6 @@
 """ This script dumps all users. """
 
-import M2Crypto
-import os
 import SOAPpy
-import string
-import sys
 
 from appscale.common import appscale_info
 from appscale.common import constants

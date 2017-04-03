@@ -1,6 +1,5 @@
 """ Grants admin access to a user. """
 
-import os
 import SOAPpy
 import sys
 

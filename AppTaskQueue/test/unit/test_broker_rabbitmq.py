@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
-import os
-import sys
 import unittest
 
 from flexmock import flexmock
 
+from appscale.common import file_io
 from appscale.taskqueue.brokers import rabbitmq
 
-from appcale.common import file_io
 
 class TestBrokerRabbitMQ(unittest.TestCase):
   """

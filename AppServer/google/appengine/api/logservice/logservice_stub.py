@@ -21,10 +21,8 @@ import base64
 import capnp # pylint: disable=unused-import
 import logging
 import logging_capnp
-import os
 import socket
 import struct
-import sys
 import time
 
 

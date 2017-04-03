@@ -3,13 +3,10 @@
 import json
 import logging
 import os
-import SOAPpy
 import sys
 import threading
 import tornado.httpclient
 import urllib
-
-from socket import error as socket_error
 
 import hermes_constants
 

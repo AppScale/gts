@@ -2,7 +2,6 @@
 
 import json
 import os
-import sys
 import unittest
 
 from appscale.taskqueue.distributed_tq import DistributedTaskQueue

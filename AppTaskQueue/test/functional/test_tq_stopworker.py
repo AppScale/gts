@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
 import json
-import os
 import socket
-import sys
 import unittest
 import urllib2
 
