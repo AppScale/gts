@@ -14,8 +14,8 @@ Returns:
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
+from appscale.common import appscale_info
+
 
 if __name__ == '__main__':
   make_active = False

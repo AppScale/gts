@@ -6,9 +6,9 @@ import SOAPpy
 import string
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import appscale_info
-import constants
+from appscale.common import appscale_info
+from appscale.common import constants
+
 
 def get_soap_accessor():
   """ Returns the SOAP server accessor to deal with application and users.

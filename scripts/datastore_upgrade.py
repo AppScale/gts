@@ -21,11 +21,12 @@ from appscale.datastore.zkappscale.zktransaction import ZKInternalException
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-import appscale_info
-from constants import APPSCALE_HOME
-from constants import CONTROLLER_SERVICE
-from constants import LOG_DIR
+from appscale.common import appscale_info
+from appscale.common.constants import (
+  APPSCALE_HOME,
+  CONTROLLER_SERVICE,
+  LOG_DIR
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
 from utils import utils

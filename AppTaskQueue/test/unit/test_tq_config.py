@@ -10,8 +10,7 @@ from appscale.taskqueue.queue import InvalidQueueConfiguration
 from appscale.taskqueue.queue import PushQueue
 from appscale.taskqueue.tq_config import TaskQueueConfig
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
+from appscale.common import file_io
 
 sample_queue_yaml = \
 """

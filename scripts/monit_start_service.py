@@ -8,10 +8,9 @@ import sys
 from appscale.datastore.cassandra_env import cassandra_interface
 from appscale.datastore.zkappscale import zktransaction as zk
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-from constants import APPSCALE_HOME
-import monit_app_configuration
-import monit_interface
+from appscale.common import monit_app_configuration
+from appscale.common import monit_interface
+from appscale.common.constants import APPSCALE_HOME
 
 import datastore_upgrade
 

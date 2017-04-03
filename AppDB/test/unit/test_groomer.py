@@ -5,13 +5,13 @@ import datetime
 import sys
 import unittest
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
 from appscale.datastore import groomer
 from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)

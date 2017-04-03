@@ -11,12 +11,12 @@ import tornado.web
 
 import distributed_tq
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from .rest_api import RESTLease
 from .rest_api import RESTQueue
 from .rest_api import RESTTask
 from .rest_api import RESTTasks
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)

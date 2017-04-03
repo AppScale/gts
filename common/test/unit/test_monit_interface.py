@@ -7,11 +7,12 @@ import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import monit_interface
+from appscale.common import (
+  file_io,
+  monit_interface,
+  testing
+)
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
-import testing
 
 class TestGodInterface(unittest.TestCase):
   def setUp(self):

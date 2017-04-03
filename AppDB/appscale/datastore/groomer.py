@@ -11,12 +11,13 @@ import appscale_datastore_batch
 import dbconstants
 import utils
 
+from appscale.common import appscale_info
+from appscale.common import constants
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.common.unpackaged import DASHBOARD_DIR
 from appscale.taskqueue.distributed_tq import TaskName
 from .cassandra_env import cassandra_interface
 from .datastore_distributed import DatastoreDistributed
-from .unpackaged import APPSCALE_LIB_DIR
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
-from .unpackaged import DASHBOARD_DIR
 from .utils import get_composite_indexes_rows
 from .zkappscale import zktransaction as zk
 
@@ -31,10 +32,6 @@ from google.appengine.ext import db
 from google.appengine.ext.db import stats
 from google.appengine.ext.db import metadata
 from google.appengine.api import datastore_errors
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import constants
 
 sys.path.append(os.path.join(DASHBOARD_DIR, 'lib'))
 from dashboard_logs import RequestLogLine

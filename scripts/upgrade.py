@@ -14,8 +14,7 @@ from datastore_upgrade import write_to_json_file
 
 from appscale.datastore.dbconstants import AppScaleDBError
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-from constants import LOG_FORMAT
+from appscale.common.constants import LOG_FORMAT
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))

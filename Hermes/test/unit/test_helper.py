@@ -8,13 +8,12 @@ import tornado.httpclient
 import unittest
 from flexmock import flexmock
 
+from appscale.common import appscale_info
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import helper
 import hermes_constants
 from custom_hermes_exceptions import MissingRequestArgs
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerClient

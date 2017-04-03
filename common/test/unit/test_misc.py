@@ -5,9 +5,8 @@ import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import file_io
-import misc
+from appscale.common import misc
+
 
 class TestMisc(unittest.TestCase):
   def test_is_app_name_valid(self):

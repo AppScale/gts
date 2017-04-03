@@ -8,8 +8,7 @@ from flexmock import flexmock
 
 from appscale.taskqueue.brokers import rabbitmq
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
+from appcale.common import file_io
 
 class TestBrokerRabbitMQ(unittest.TestCase):
   """

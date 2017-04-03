@@ -2,6 +2,7 @@
 import sys
 import unittest
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
@@ -13,7 +14,6 @@ from appscale.datastore.dbconstants import APP_KIND_TABLE
 from appscale.datastore.dbconstants import ASC_PROPERTY_TABLE
 from appscale.datastore.dbconstants import DSC_PROPERTY_TABLE
 from appscale.datastore.dbconstants import PROPERTY_SCHEMA
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import datastore
