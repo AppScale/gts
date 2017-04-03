@@ -20,9 +20,10 @@ from appscale.common import (
 )
 from flexmock import flexmock
 
+from appscale.common import monit_app_configuration
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
-import monit_app_configuration
 
 
 class TestAppManager(unittest.TestCase):
