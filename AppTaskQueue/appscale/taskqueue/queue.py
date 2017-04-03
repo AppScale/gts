@@ -898,6 +898,8 @@ class PullQueue(Queue):
     Args:
       old_index: The row to remove from the index table.
       task: A Task object to create a new index entry for.
+    Returns:
+      A cassandra-driver future.
     """
     session = self.db_access.session
 
