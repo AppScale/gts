@@ -4,6 +4,40 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
+AppScale version 3.2.0, released April, 2017
+Highlights of features/bugs in this release:
+- Added support for appscale ssh to role
+- Added request ids to TaskQueue and Datastore logs
+- Integrated Azure Scale Sets into the agent
+- Modified Azure agent to assign Public IPs only for load balancers
+- Refined appscale down: added --terminate option
+- Redesigned the AppScale Dashboard and added relocate functionality
+- Improved Map Reduce and Pipeline support
+- Improved appscale get/set property functionality
+- Improved appscale status output (in particular for large deployments)
+- Improved latency and behavior for autoscaling AppServers and instances
+- Improved startup time of AppScale.
+- Put centralized Datastore HAProxy on all load balancers
+- Put centralized TaskQueue HAProxy on all load balancers
+- Fixed a bug that prevented Cassandra from being restarted in some cases after a restore
+- Fixed a bug that could lose application requests during a redeploy.
+- Fixed concurrency issues during commits in the datastore
+- Fixed a bug with GCE persistent storage being mounted incorrectly
+- Fixed a bug that caused overloading a single taskqueue node
+- Fixed a bug parsing cron jobs when time was  0 and 60
+- Fixed a bug where agents would default to spot instances
+- Fixed Zookeeper configuration for maximum client connections
+- Simplified deployment state handling (merged locations yaml and locations json file)
+- Upgraded Cassandra to 3.7
+- Upgraded Go to 1.6 and added support for vendoring
+- Install Java 8 for Cassandra usage on compatible machine
+- Pin wstools to 0.4.3
+- Pin tornado to 4.2.0
+- Pin google-api-python-client to 1.5.4
+- Added dependencies: capnproto, pycapnp
+Known Issues:
+- There can be some brief downtime when redeploying or updating an application
+
 AppScale version 3.1.0, released September, 2016
 - Added support for using Azure as an infrastructure
 - Added preliminary support for pull queues
