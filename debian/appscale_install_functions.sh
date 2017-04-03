@@ -558,6 +558,12 @@ preplogserver()
     cp ${FILE_SRC} ${FILE_DEST}
 }
 
+installcommon()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/common
+    pip install ${APPSCALE_HOME}/common
+}
+
 installtaskqueue()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
