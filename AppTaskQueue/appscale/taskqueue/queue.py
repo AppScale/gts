@@ -1005,7 +1005,7 @@ class PullQueue(Queue):
 
     # If the index does not match the task, update it.
     if task.leaseTimestamp != index.eta:
-      self._update_index(index, task)
+      self._update_index_async(index, task).result()
 
   def _update_stats(self):
     """ Write queue metadata for keeping track of statistics. """
