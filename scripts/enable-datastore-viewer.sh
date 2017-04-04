@@ -1,6 +1,9 @@
 #!/bin/bash
 #
 # Enable the datastore viewer, reload nginx and configure the firewall.
+set -e
+set -u
+
 usage() {
         echo
         echo "Usage: $0 <APP-ID> [-i <IP>]"
@@ -39,9 +42,9 @@ while [ $# -gt 0 ]; do
                 continue
         fi
 done
-if [ ! -n "$APP_ID" ]; then
-	usage
-	exit 1
+if [ -z "$APP_ID" ]; then
+        usage
+        exit 1
 fi
 
 # Sanity checks.
@@ -68,9 +71,9 @@ for ip in $(cat /etc/appscale/all_ips); do
                 fi
         done
 done
-if [ ! -n "$ADMIN_SERVER_PORT" -o ! -n "$APPENGINE_IP" ]; then
-	echo "ERROR: Cannot find appengine node with admin server running on it"
-	exit 1
+if [ -z "$ADMIN_SERVER_PORT" -o -z "$APPENGINE_IP" ]; then
+        echo "ERROR: Cannot find appengine node with admin server running on it"
+        exit 1
 fi
 
 # Find free port for the viewer
@@ -81,9 +84,9 @@ done
 
 # Determine allow statement for the nginx configuration
 if [ -n "$TRUSTED_IP" ]; then
-	ALLOW="allow $TRUSTED_IP; deny all;"
+        ALLOW="allow $TRUSTED_IP; deny all;"
 else
-	ALLOW="allow all;"
+        ALLOW="allow all;"
 fi
 
 # Prepare the nginx config snippet.
@@ -108,11 +111,15 @@ server {
 
 if [ -e /etc/nginx/sites-enabled/appscale-${APP_ID}.conf ]; then
         echo "$CONFIG" > /etc/nginx/sites-enabled/appscale-${APP_ID}_datastore_viewer.conf
+        nginx -t
         service nginx reload
         sed -i "/AppController/ i\
 iptables -A INPUT -p tcp --dport $VIEWER_PORT -j ACCEPT   # Enable datastore viewer" $APPSCALE_HOME/firewall.conf
-	    bash $APPSCALE_HOME/firewall.conf
-        echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $TRUSTED_IP."
+        bash $APPSCALE_HOME/firewall.conf
+        echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}"
+        if [ -n "$TRUSTED_IP" ]; then
+                echo "Allowed IP: $TRUSTED_IP."
+        fi
 else
         echo "Cannot find configuration for ${APP_ID}."
 fi
