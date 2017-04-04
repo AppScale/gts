@@ -289,7 +289,7 @@ installgems()
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
     gem install soap4r-ruby1.9 ${GEMOPT}
-    gem install httparty ${GEMOPT} -v 0.13.7
+    gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
     gem install simplecov ${GEMOPT}

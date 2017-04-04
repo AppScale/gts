@@ -145,7 +145,7 @@ class TestDjinn < Test::Unit::TestCase
     better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
       '1.1.1.1', 'table' => 'cassandra'})
     result_2 = djinn.set_parameters("", better_credentials,  @secret)
-    assert_equal(true, result_2.include?("Error: layout is empty"))
+    assert_equal(true, result_2.include?("Error: got exception parsing JSON"))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
@@ -428,11 +428,11 @@ class TestDjinn < Test::Unit::TestCase
     all_ok = {:rc => 0}
     mocked_zk.should_receive(:create).times(2).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
-      :ephemeral => ZKInterface::EPHEMERAL, :data => JSON.dump("private_ip")).
+      :ephemeral => ZKInterface::EPHEMERAL, :data => "private_ip").
       and_return(does_not_exist, all_ok)
 
     # On the first get, the file exists (user2 has it)
-    get_response = {:rc => 0, :data => JSON.dump("private_ip2")}
+    get_response = {:rc => 0, :data => "private_ip2"}
     mocked_zk.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return(get_response)
