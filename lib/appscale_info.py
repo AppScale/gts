@@ -54,17 +54,23 @@ def get_load_balancer_ips():
   ips = raw_ips.split('\n')
   return ips
 
+def get_headnode_ip():
+  """ Get the private IP of the head node. NOTE: it can change if node
+  crashes.
+
+  Returns:
+    String containing the private IP of the head node.
+  """
+  return file_io.read(constants.HEADNODE_IP_LOC).rstrip()
+
 def get_login_ip():
-  """ Get the public IP of the head node. Since there can be more than one
-  public IP for this deployment, we return the first one. NOTE: it can
-  change if node crashes.
+  """ Get the public IP of the head node. NOTE: it can change if node
+  crashes.
 
   Returns:
     String containing the public IP of the head node.
   """
-  raw_ips = file_io.read(constants.LOGIN_IP_LOC)
-  ips = raw_ips.split('\n')
-  return ips[0]
+  return file_io.read(constants.LOGIN_IP_LOC).rstrip()
 
 def get_db_proxy():
   """ Get the IP of an active DB load balancer. Since there can be

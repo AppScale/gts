@@ -12,7 +12,7 @@ from . import backup_recovery_helper
 from .backup_exceptions import BRException
 from .br_constants import CASSANDRA_DATA_SUBDIRS
 from .br_constants import PADDING_PERCENTAGE
-from .br_constants import SERVICE_STOP_RETRIES
+from .br_constants import SERVICE_RETRIES
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
@@ -199,7 +199,7 @@ def restore_data(path, keyname, force=False):
     summary = utils.ssh(db_ip, keyname, 'monit summary',
       method=subprocess.check_output)
     status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
-    retries = SERVICE_STOP_RETRIES
+    retries = SERVICE_RETRIES
     while status != MonitStates.UNMONITORED:
       utils.ssh(db_ip, keyname,
                 'monit stop {}'.format(CASSANDRA_MONIT_WATCH_NAME),
@@ -222,6 +222,21 @@ def restore_data(path, keyname, force=False):
     if db_ip not in machines_without_restore:
       utils.ssh(db_ip, keyname, 'tar xf {} -C {}'.format(path, cassandra_dir))
       utils.ssh(db_ip, keyname, 'chown -R cassandra {}'.format(cassandra_dir))
+
+    logging.info('Starting Cassandra on {}'.format(db_ip))
+    retries = SERVICE_RETRIES
+    status = MonitStates.UNMONITORED
+    while status != MonitStates.RUNNING:
+      utils.ssh(db_ip, keyname,
+                'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME),
+                method=subprocess.call)
+      time.sleep(3)
+      summary = utils.ssh(db_ip, keyname, 'monit summary',
+                          method=subprocess.check_output)
+      status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
+      retries -= 1
+      if retries < 0:
+        raise BRException('Unable to start Cassandra')
 
     utils.ssh(db_ip, keyname,
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))

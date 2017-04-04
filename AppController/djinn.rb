@@ -427,7 +427,7 @@ class Djinn
 
   # We need to leave some extra RAM available for the system to operate
   # safely.
-  SAFE_MEM = 500
+  SAFE_MEM = 50
 
   # Conversion divisor to MB for RAM statistics given in Bytes.
   MEGABYTE_DIVISOR = 1024*1024
@@ -773,22 +773,20 @@ class Djinn
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{appid}.txt"
     HelperFunctions.write_file(port_file, http_port)
 
-    Thread.new {
-      # Notify the UAServer about the new ports.
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      success = uac.add_instance(appid, my_public, http_port, https_port)
-      unless success
-        Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
-        return
-      end
+    # Notify the UAServer about the new ports.
+    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    success = uac.add_instance(appid, my_public, http_port, https_port)
+    unless success
+      Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
+      return
+    end
 
-      # Notify nodes, and remove any running AppServer of the application.
-      notify_restart_app_to_nodes([appid])
+    # Notify nodes, and remove any running AppServer of the application.
+    notify_restart_app_to_nodes([appid])
 
-      # Once we've relocated the app, we need to tell the XMPPReceiver about the
-      # app's new location.
-      MonitInterface.restart("xmpp-#{appid}")
-    }
+    # Once we've relocated the app, we need to tell the XMPPReceiver about the
+    # app's new location.
+    MonitInterface.restart("xmpp-#{appid}")
 
     return "OK"
   end
@@ -819,7 +817,7 @@ class Djinn
     if my_node.is_shadow? and stop_deployment
       Djinn.log_info("Stopping all other nodes.")
       # Let's stop all other nodes.
-      threads << Thread.new {
+      Thread.new {
         @nodes.each { |node|
           if node.private_ip != my_node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
@@ -1441,11 +1439,9 @@ class Djinn
       # We give some extra information to the user about some properties.
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
-      end
-      if key == "max_memory"
+      elsif key == "max_memory"
         Djinn.log_warn("max_memory will be enforced on new AppServers only.")
-      end
-      if key == "min_images"
+      elsif key == "min_images"
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
         end
@@ -1453,8 +1449,7 @@ class Djinn
           Djinn.log_warn("Invalid input: cannot lower min_images!")
           return "min_images cannot be less than the nodes defined in ips_layout"
         end
-      end
-      if key == "max_images"
+      elsif key == "max_images"
         unless is_cloud?
           Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
         end
@@ -1462,14 +1457,15 @@ class Djinn
           Djinn.log_warn("Invalid input: max_images is smaller than min_images!")
           return "max_images is smaller than min_images."
         end
-      end
-      if key == "flower_password"
+      elsif key == "flower_password"
         TaskQueue.stop_flower
         TaskQueue.start_flower(@options['flower_password'])
-      end
-      if key == "replication"
+      elsif key == "replication"
         Djinn.log_warn("replication cannot be changed at runtime.")
         next
+      elsif key == "login"
+        Djinn.log_info("Restarting applications since public IP changed.")
+        notify_restart_app_to_nodes(@apps_loaded)
       end
       @options[key] = val
       Djinn.log_info("Successfully set #{key} to #{val}.")
@@ -1822,26 +1818,30 @@ class Djinn
   def notify_restart_app_to_nodes(apps_to_restart)
     return if apps_to_restart.empty?
 
-    Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
-    APPS_LOCK.synchronize {
-      apps_to_restart.each{ |app|
-        @app_info_map[app]['appengine'].clear
-      }
-    }
-
     Djinn.log_info("Notify nodes to restart #{apps_to_restart}.")
+    threads = []
     @nodes.each_index { |index|
       result = ""
       ip = @nodes[index].private_ip
       next if my_node.private_ip == ip
 
-      acc = AppControllerClient.new(ip, @@secret)
-      begin
-        result = acc.set_apps_to_restart(apps_to_restart)
-      rescue FailedNodeException
-        Djinn.log_warn("Couldn't tell #{ip} to restart #{apps_to_restart}.")
-      end
-      Djinn.log_debug("Set apps to restart at #{ip} returned #{result}.")
+      threads << Thread.new {
+        acc = AppControllerClient.new(ip, @@secret)
+        begin
+          result = acc.set_apps_to_restart(apps_to_restart)
+        rescue FailedNodeException
+          Djinn.log_warn("Couldn't tell #{ip} to restart #{apps_to_restart}.")
+        end
+        Djinn.log_debug("Set apps to restart at #{ip} returned #{result}.")
+      }
+    }
+    threads.each { |t| t.join }
+
+    Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
+    APPS_LOCK.synchronize {
+      apps_to_restart.each{ |app|
+        @app_info_map[app]['appengine'].clear
+      }
     }
   end
 
@@ -2385,14 +2385,13 @@ class Djinn
     start_cmd = "#{PYTHON27} #{iaas_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{iaas_script} #{PYTHON27}"
-    port = InfrastructureManagerClient::SERVER_PORT
     env = {
       'APPSCALE_HOME' => APPSCALE_HOME,
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
 
-    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, [port], env,
+    MonitInterface.start(:iaas_manager, start_cmd, stop_cmd, nil, env,
                          start_cmd, nil, nil, nil)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
@@ -3308,10 +3307,6 @@ class Djinn
       end
     }
 
-    if @options['login'] == old_public_ip
-      @options['login'] = new_public_ip
-    end
-
     @app_info_map.each { |_app_id, app_info|
       next if app_info['appengine'].nil?
 
@@ -3896,8 +3891,7 @@ class Djinn
     start_cmd = "#{PYTHON27} #{app_manager_script}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{app_manager_script} #{PYTHON27}"
-    port = AppManagerClient::SERVER_PORT
-    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, [port],
+    MonitInterface.start(:appmanagerserver, start_cmd, stop_cmd, nil,
                          env_vars, start_cmd, nil, nil, nil)
   end
 
@@ -3948,9 +3942,7 @@ class Djinn
     start_cmd = "#{soap_script} -t #{table}"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{soap_script} /usr/bin/python"
-    port = UserAppClient::SERVER_PORT
-
-    MonitInterface.start(:uaserver, start_cmd, stop_cmd, [port], env_vars,
+    MonitInterface.start(:uaserver, start_cmd, stop_cmd, nil, env_vars,
                          start_cmd, nil, nil, nil)
   end
 
@@ -3979,13 +3971,12 @@ class Djinn
     start_cmd = "twistd --pidfile=#{log_server_pid}  --logfile " +
                 "#{log_server_file} appscale-logserver"
     stop_cmd = "/bin/bash -c 'kill $(cat #{log_server_pid})'"
-    port = 7422
     env = {
         'APPSCALE_HOME' => APPSCALE_HOME,
         'PYTHONPATH' => "#{APPSCALE_HOME}/LogService/"
     }
 
-    MonitInterface.start(:log_service, start_cmd, stop_cmd, [port], env,
+    MonitInterface.start(:log_service, start_cmd, stop_cmd, nil, env,
                          nil, nil, log_server_pid, nil)
     Djinn.log_info("Started Log Server successfully!")
   end
@@ -4301,7 +4292,7 @@ class Djinn
   def write_locations
     all_ips = []
     load_balancer_ips = []
-    login_ips = @options['login'].split(/[\s,]+/)
+    login_ip = @options['login']
     master_ips = []
     memcache_ips = []
     num_of_nodes = @nodes.length.to_s
@@ -4330,7 +4321,7 @@ class Djinn
     memcache_content = memcache_ips.join("\n") + "\n"
     load_balancer_content = load_balancer_ips.join("\n") + "\n"
     taskqueue_content = taskqueue_ips.join("\n") + "\n"
-    login_content = login_ips.join("\n") + "\n"
+    login_content = login_ip + "\n"
     master_content = master_ips.join("\n") + "\n"
     search_content = search_ips.join("\n") + "\n"
     slaves_content = slave_ips.join("\n") + "\n"
@@ -4363,7 +4354,7 @@ class Djinn
       load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
       HelperFunctions.write_file(load_balancer_file, load_balancer_content)
 
-      Djinn.log_info("Deployment public name(s)/IP(s): #{login_ips}.")
+      Djinn.log_info("Deployment public name/IP: #{login_ip}.")
       login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
@@ -4454,7 +4445,7 @@ HOSTS
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ip = get_shadow.private_ip
+    login_ip = @options['login']
 
     @apps_loaded.each { |app|
       # Check that we have the application information needed to
@@ -4730,7 +4721,7 @@ HOSTS
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
-      MonitInterface.start(:controller, start, stop, [SERVER_PORT], env,
+      MonitInterface.start(:controller, start, stop, nil, env,
                            start, nil, nil, nil)
     rescue
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
@@ -4800,7 +4791,7 @@ HOSTS
     start_cmd = "/usr/bin/memcached -m 64 -p #{port} -u root"
     stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
           "/usr/bin/memcached #{port}"
-    MonitInterface.start(:memcached, start_cmd, stop_cmd, [port], nil,
+    MonitInterface.start(:memcached, start_cmd, stop_cmd, nil, nil,
                          start_cmd, nil, nil, nil)
   end
 
@@ -5797,15 +5788,16 @@ HOSTS
     Djinn.log_info("Starting #{app_language} app #{app} on " +
       "#{@my_private_ip}:#{appengine_port}")
 
-    xmpp_ip = @options['login']
+    # The IP we use to reach this deployment: it will be used by XMPP, and
+    # dashboard (authentication) redirections.
+    login_ip = @options['login']
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
       max_app_mem = @app_info_map[app]['max_memory']
       max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
-      pid = app_manager.start_app(app, appengine_port,
-        get_load_balancer.public_ip, app_language, xmpp_ip,
-        HelperFunctions.get_app_env_vars(app), max_app_mem,
+      pid = app_manager.start_app(app, appengine_port, login_ip,
+        app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
     rescue FailedNodeException, AppScaleException, ArgumentError => error
       Djinn.log_warn("#{error.class} encountered while starting #{app} "\
@@ -6154,7 +6146,7 @@ HOSTS
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "#{PYTHON27} #{APPSCALE_HOME}/scripts/stop_service.py " +
         "xmpp_receiver.py #{app}"
-      MonitInterface.start(watch_name, start_cmd, stop_cmd, [9999], nil,
+      MonitInterface.start(watch_name, start_cmd, stop_cmd, nil, nil,
                            start_cmd, nil, nil, nil)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else

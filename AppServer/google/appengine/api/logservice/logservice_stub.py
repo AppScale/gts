@@ -297,7 +297,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       else:
         count = self._DEFAULT_READ_COUNT
       query.count = count
-
+      # GAE presents logs in reverse chronological order. This is not an
+      # option available to users in GAE, so we always set it to True.
+      query.reverse = True
       # Perform query to logserver
       buf = query.to_bytes()
       packet = 'q%s%s' % (struct.pack('I', len(buf)), buf)
