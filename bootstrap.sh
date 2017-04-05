@@ -156,6 +156,8 @@ fi
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
 if [ -d /etc/appscale/certs ]; then
+        UPDATE_REPO="Y"
+
         # For upgrade, we don't switch across branches.
         if [ "${APPSCALE_BRANCH}" != "master" ]; then
                 echo "Cannot use --branch when upgrading"
@@ -197,8 +199,9 @@ if [ -d /etc/appscale/certs ]; then
            (cd appscale; git tag -l | grep $(git describe)) ; then
                 CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
                 if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
-                        echo "AppScale is already at the specified release."
-                        exit 0
+                        echo "AppScale repository is already at the"\
+                             "specified release. Building with current code."
+                        UPDATE_REPO="N"
                 fi
         fi
 
@@ -252,7 +255,7 @@ if [ -d /etc/appscale/certs ]; then
 
 
         # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
-        if [ -n "${GIT_TAG}" ]; then
+        if [ -n "${GIT_TAG}" ] && [ "${UPDATE_REPO}" = "Y" ]; then
                 set +e
                 (cd appscale; git checkout "$GIT_TAG")
                 if [ $? -gt 0 ]; then
