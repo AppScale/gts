@@ -961,6 +961,7 @@ class PullQueue(Queue):
       retries_left = retries - 1
       if retries_left <= 0:
         raise
+      logger.warning('Task deletion may have failed. Retrying.')
       return self._delete_task_and_index(task, retries=retries_left)
 
     delete_task_index = SimpleStatement("""
