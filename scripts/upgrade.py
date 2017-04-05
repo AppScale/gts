@@ -1,6 +1,7 @@
 """ This script checks and performs an upgrade (if any) is needed for this deployment. """
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -11,11 +12,13 @@ from datastore_upgrade import run_datastore_upgrade
 from datastore_upgrade import start_cassandra
 from datastore_upgrade import start_zookeeper
 from datastore_upgrade import write_to_json_file
+from kazoo.client import KazooClient
 
 from appscale.datastore.dbconstants import AppScaleDBError
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import LOG_FORMAT
+from constants import CASSANDRA_CONFIG
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
@@ -58,7 +61,12 @@ if __name__ == "__main__":
       utils.ssh(ip, args.keyname, 'service monit start')
 
     start_zookeeper(args.zookeeper, args.keyname)
-    start_cassandra(args.database, args.db_master, args.keyname)
+    conn = KazooClient(hosts=",".join(args.zookeeper))
+    conn.start()
+    if not conn.exists(CASSANDRA_CONFIG):
+      conn.create(CASSANDRA_CONFIG, json.dumps({"num_tokens":256}),
+                  makepath=True)
+    start_cassandra(args.database, args.db_master, args.keyname, args.zookeeper)
     datastore_upgrade.wait_for_quorum(
       args.keyname, len(args.database), args.replication)
     db_access = datastore_upgrade.get_datastore()

@@ -8,12 +8,11 @@ import pkgutil
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-import appscale_info
 from deployment_config import DeploymentConfig
 from deployment_config import InvalidConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
-from appscale.datastore.cassandra_env.cassandra_interface import\
+from appscale.datastore.cassandra_env.cassandra_interface import \
   CASSANDRA_INSTALL_DIR
 
 
@@ -24,9 +23,11 @@ if __name__ == "__main__":
                       help='The private IP address of this machine.')
   parser.add_argument('--master-ip', required=True,
                       help='The private IP address of the database master.')
+  parser.add_argument('--zk-locations', required=True,
+                      help='The location of Zookeeper.')
   args = parser.parse_args()
 
-  deployment_config = DeploymentConfig(appscale_info.get_zk_locations_string())
+  deployment_config = DeploymentConfig(args.zk_locations)
   cassandra_config = deployment_config.get_config('cassandra')
   if 'num_tokens' not in cassandra_config:
     raise InvalidConfig('num_tokens not specified in deployment config.')

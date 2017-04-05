@@ -50,6 +50,9 @@ PUBLIC_IP_LOC = '/etc/appscale/my_public_ip'
 # The location of the file which holds the AppScale secret key.
 SECRET_LOC = '/etc/appscale/secret.key'
 
+# The Cassandra config location.
+CASSANDRA_CONFIG = "/appscale/config/cassandra"
+
 # The location of the file which contains information on the current DB.
 DB_INFO_LOC = '/etc/appscale/database_info.yaml'
 
