@@ -957,11 +957,12 @@ class PullQueue(Queue):
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
     try:
       self.db_access.session.execute(delete_task, parameters=parameters)
-    except TRANSIENT_CASSANDRA_ERRORS:
+    except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
       if retries_left <= 0:
         raise
-      logger.warning('Task deletion may have failed. Retrying.')
+      logger.warning(
+        'Encountered error while deleting task: {}. Retrying.'.format(error))
       return self._delete_task_and_index(task, retries=retries_left)
 
     delete_task_index = SimpleStatement("""
