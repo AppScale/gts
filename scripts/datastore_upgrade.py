@@ -77,13 +77,13 @@ def ensure_app_is_not_running():
     sys.exit(1)
 
 
-def start_cassandra(db_ips, db_master, keyname, zookeeper):
+def start_cassandra(db_ips, db_master, keyname, zookeeper_ips):
   """ Creates a monit configuration file and prompts Monit to start Cassandra.
   Args:
     db_ips: A list of database node IPs to start Cassandra on.
     db_master: The IP address of the DB master.
     keyname: A string containing the deployment's keyname.
-    zookeeper: The IP addresses of the Zookeeper nodes.
+    zookeeper_ips: The IP addresses of the Zookeeper nodes.
   Raises:
     AppScaleDBError if unable to start Cassandra.
   """
@@ -91,8 +91,8 @@ def start_cassandra(db_ips, db_master, keyname, zookeeper):
   for ip in db_ips:
     init_config = '{script} --local-ip {ip} --master-ip {db_master} ' \
                   '--zk-locations {zk_locations}'.format(
-      script=SETUP_CASSANDRA_SCRIPT, ip=ip, db_master=db_master,
-      zk_locations=get_zk_locations_string(zookeeper))
+                  script=SETUP_CASSANDRA_SCRIPT, ip=ip, db_master=db_master,
+                  zk_locations=get_zk_locations_string(zookeeper_ips))
     try:
       utils.ssh(ip, keyname, init_config)
     except subprocess.CalledProcessError:
