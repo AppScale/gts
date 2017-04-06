@@ -43,8 +43,6 @@ if [ "$HOME" != "/root" ]; then
 fi
 echo "Success"
 
-set -e
-
 # Let's get the  command line arguments.
 while [ $# -gt 0 ]; do
         if [ "${1}" = "--repo" ]; then 
@@ -257,9 +255,7 @@ if [ -d /etc/appscale/certs ]; then
         if [ "${UPDATE_REPO}" = "Y" ]; then
                 # Upgrade the repository. If GIT_TAG is empty, we are on HEAD.
                 if [ -n "${GIT_TAG}" ]; then
-                        set +e
-                        (cd appscale; git checkout "$GIT_TAG")
-                        if [ $? -gt 0 ]; then
+                        if ! (cd appscale; git checkout "$GIT_TAG"); then
                                 echo "Please stash your local unsaved changes"\
                                      "and checkout the version of AppScale"\
                                      "you are currently using to fix this "\
@@ -267,8 +263,8 @@ if [ -d /etc/appscale/certs ]; then
                                 echo "e.g.: git stash; git checkout <AppScale-version>"
                                 exit 1
                         fi
-                        (cd appscale-tools; git checkout "$GIT_TAG")
-                        if [ $? -gt 0 ]; then
+
+                        if ! (cd appscale-tools; git checkout "$GIT_TAG"); then
                                 echo "Please stash your local unsaved changes"\
                                      "and checkout the version of "\
                                      "appscale-tools you are currently using"\
@@ -279,7 +275,6 @@ if [ -d /etc/appscale/certs ]; then
                 else
                         (cd appscale; git pull)
                         (cd appscale-tools; git pull)
-                        set -e
                 fi
         fi
 fi
