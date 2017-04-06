@@ -83,6 +83,7 @@ def start_cassandra(db_ips, db_master, keyname, zookeeper):
     db_ips: A list of database node IPs to start Cassandra on.
     db_master: The IP address of the DB master.
     keyname: A string containing the deployment's keyname.
+    zookeeper: The IP addresses of the Zookeeper nodes.
   Raises:
     AppScaleDBError if unable to start Cassandra.
   """
