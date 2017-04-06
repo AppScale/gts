@@ -254,25 +254,33 @@ if [ -d /etc/appscale/certs ]; then
         fi
 
 
-        # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
-        if [ -n "${GIT_TAG}" ] && [ "${UPDATE_REPO}" = "Y" ]; then
-                set +e
-                (cd appscale; git checkout "$GIT_TAG")
-                if [ $? -gt 0 ]; then
-                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
-                    echo "e.g.: git stash; git checkout <AppScale-version>"
-                    exit 1
+        if [ "${UPDATE_REPO}" = "Y" ]; then
+                # Upgrade the repository. If GIT_TAG is empty, we are on HEAD.
+                if [ -n "${GIT_TAG}" ]; then
+                        set +e
+                        (cd appscale; git checkout "$GIT_TAG")
+                        if [ $? -gt 0 ]; then
+                                echo "Please stash your local unsaved changes"\
+                                     "and checkout the version of AppScale"\
+                                     "you are currently using to fix this "\
+                                     "error."
+                                echo "e.g.: git stash; git checkout <AppScale-version>"
+                                exit 1
+                        fi
+                        (cd appscale-tools; git checkout "$GIT_TAG")
+                        if [ $? -gt 0 ]; then
+                                echo "Please stash your local unsaved changes"\
+                                     "and checkout the version of "\
+                                     "appscale-tools you are currently using"\
+                                     "to fix this error."
+                                echo "e.g.: git stash; git checkout <appscale-tools-version>"
+                                exit 1
+                        fi
+                else
+                        (cd appscale; git pull)
+                        (cd appscale-tools; git pull)
+                        set -e
                 fi
-                (cd appscale-tools; git checkout "$GIT_TAG")
-                if [ $? -gt 0 ]; then
-                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
-                    echo "e.g.: git stash; git checkout <AppScale-version>"
-                    exit 1
-                fi
-        else
-                (cd appscale; git pull)
-                (cd appscale-tools; git pull)
-                set -e
         fi
 fi
 
