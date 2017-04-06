@@ -18,7 +18,7 @@ from appscale.datastore.dbconstants import AppScaleDBError
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 from constants import LOG_FORMAT
-from constants import CASSANDRA_CONFIG
+from constants import ZK_CASSANDRA_CONFIG
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     start_zookeeper(args.zookeeper, args.keyname)
     conn = KazooClient(hosts=",".join(args.zookeeper))
     conn.start()
-    if not conn.exists(CASSANDRA_CONFIG):
-      conn.create(CASSANDRA_CONFIG, json.dumps({"num_tokens":256}),
+    if not conn.exists(ZK_CASSANDRA_CONFIG):
+      conn.create(ZK_CASSANDRA_CONFIG, json.dumps({"num_tokens":256}),
                   makepath=True)
     start_cassandra(args.database, args.db_master, args.keyname, args.zookeeper)
     datastore_upgrade.wait_for_quorum(
