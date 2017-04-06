@@ -210,11 +210,6 @@ if [ -d /etc/appscale/certs ]; then
                 exit 1
         fi
 
-        echo
-        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR. An upgrade"
-        echo "to the latest version available will be attempted in 5 seconds."
-        sleep 5
-
         # Make sure AppScale is not running.
         MONIT=$(which monit)
         if $MONIT summary | grep controller > /dev/null ; then
@@ -253,6 +248,11 @@ if [ -d /etc/appscale/certs ]; then
 
 
         if [ "${UPDATE_REPO}" = "Y" ]; then
+                echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR."\
+                     "An upgrade to the latest version available will be"\
+                     "attempted in 5 seconds."
+                sleep 5
+
                 # Upgrade the repository. If GIT_TAG is empty, we are on HEAD.
                 if [ -n "${GIT_TAG}" ]; then
                         if ! (cd appscale; git checkout "$GIT_TAG"); then
