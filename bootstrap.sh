@@ -43,8 +43,6 @@ if [ "$HOME" != "/root" ]; then
 fi
 echo "Success"
 
-set -e
-
 # Let's get the  command line arguments.
 while [ $# -gt 0 ]; do
         if [ "${1}" = "--repo" ]; then 
@@ -156,6 +154,8 @@ fi
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
 if [ -d /etc/appscale/certs ]; then
+        UPDATE_REPO="Y"
+
         # For upgrade, we don't switch across branches.
         if [ "${APPSCALE_BRANCH}" != "master" ]; then
                 echo "Cannot use --branch when upgrading"
@@ -197,8 +197,9 @@ if [ -d /etc/appscale/certs ]; then
            (cd appscale; git tag -l | grep $(git describe)) ; then
                 CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
                 if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
-                        echo "AppScale is already at the specified release."
-                        exit 0
+                        echo "AppScale repository is already at the"\
+                             "specified release. Building with current code."
+                        UPDATE_REPO="N"
                 fi
         fi
 
@@ -208,11 +209,6 @@ if [ -d /etc/appscale/certs ]; then
                 echo "Error: git repository is not 'master' or a released version."
                 exit 1
         fi
-
-        echo
-        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR. An upgrade"
-        echo "to the latest version available will be attempted in 5 seconds."
-        sleep 5
 
         # Make sure AppScale is not running.
         MONIT=$(which monit)
@@ -251,25 +247,35 @@ if [ -d /etc/appscale/certs ]; then
         fi
 
 
-        # Let's upgrade the repository: if GIT_TAG is empty we are on HEAD.
-        if [ -n "${GIT_TAG}" ]; then
-                set +e
-                (cd appscale; git checkout "$GIT_TAG")
-                if [ $? -gt 0 ]; then
-                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
-                    echo "e.g.: git stash; git checkout <AppScale-version>"
-                    exit 1
+        if [ "${UPDATE_REPO}" = "Y" ]; then
+                echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR."\
+                     "An upgrade to the latest version available will be"\
+                     "attempted in 5 seconds."
+                sleep 5
+
+                # Upgrade the repository. If GIT_TAG is empty, we are on HEAD.
+                if [ -n "${GIT_TAG}" ]; then
+                        if ! (cd appscale; git checkout "$GIT_TAG"); then
+                                echo "Please stash your local unsaved changes"\
+                                     "and checkout the version of AppScale"\
+                                     "you are currently using to fix this "\
+                                     "error."
+                                echo "e.g.: git stash; git checkout <AppScale-version>"
+                                exit 1
+                        fi
+
+                        if ! (cd appscale-tools; git checkout "$GIT_TAG"); then
+                                echo "Please stash your local unsaved changes"\
+                                     "and checkout the version of "\
+                                     "appscale-tools you are currently using"\
+                                     "to fix this error."
+                                echo "e.g.: git stash; git checkout <appscale-tools-version>"
+                                exit 1
+                        fi
+                else
+                        (cd appscale; git pull)
+                        (cd appscale-tools; git pull)
                 fi
-                (cd appscale-tools; git checkout "$GIT_TAG")
-                if [ $? -gt 0 ]; then
-                    echo "Please stash your local unsaved changes and checkout the version of AppScale you are currently using to fix this error."
-                    echo "e.g.: git stash; git checkout <AppScale-version>"
-                    exit 1
-                fi
-        else
-                (cd appscale; git pull)
-                (cd appscale-tools; git pull)
-                set -e
         fi
 fi
 
