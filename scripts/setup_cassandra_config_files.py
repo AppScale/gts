@@ -28,8 +28,8 @@ if __name__ == "__main__":
                       help='The location of Zookeeper.')
   args = parser.parse_args()
   zk_locations = args.zk_locations if args.zk_locations else \
-    DeploymentConfig(appscale_info.get_zk_locations_string())
-  deployment_config = DeploymentConfig(args.zk_locations)
+    appscale_info.get_zk_locations_string()
+  deployment_config = DeploymentConfig(zk_locations)
   cassandra_config = deployment_config.get_config('cassandra')
   if 'num_tokens' not in cassandra_config:
     raise InvalidConfig('num_tokens not specified in deployment config.')
