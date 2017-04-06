@@ -1287,7 +1287,7 @@ class Djinn
       end
       STATUS_LOCK.synchronize {
         @cluster_stats = stats['cluster'].nil? ? [] : stats['cluster']
-    }
+      }
     }
   end
 

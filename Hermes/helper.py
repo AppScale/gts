@@ -24,11 +24,9 @@ import appscale_info
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-
-sys.path.append(os.path.dirname(__file__) + '/lib')
-from infrastructure_manager_client import InfrastructureManagerClient
-from datastore_client import DatastoreClient
-from taskqueue_client import TaskQueueClient
+from lib.infrastructure_manager_client import InfrastructureManagerClient
+from lib.datastore_client import DatastoreClient
+from lib.taskqueue_client import TaskQueueClient
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -141,7 +139,6 @@ def urlfetch_async(request, callback=None):
       request.url, str(exception)))
     result = {JSONTags.SUCCESS: False, JSONTags.REASON: exception.message}
 
-  http_client.close()
   return result
 
 

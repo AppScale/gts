@@ -7,7 +7,9 @@ import os
 import re
 import subprocess
 import sys
-import yaml
+
+import json
+from tornado import httpclient, gen
 
 # Hermes imports.
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
@@ -60,20 +62,41 @@ class DatastoreClient:
          the format:
            { Datastore IP: { method: (Success/ErrorCode, Time Taken) } }
     """
+    return self.get_datastore_stats_async().result()
+
+  @gen.coroutine
+  def get_datastore_stats_async(self):
+    async_client = httpclient.AsyncHTTPClient()
     servers = self.get_datastore_servers()
-    datastore_stats = {}
-    for server in servers:
-      request = helper.create_request("http://{ds_server}".format(
-        ds_server=server), method='GET')
-      response = helper.urlfetch(request)
-      if response.get(helper.JSONTags.SUCCESS):
-        json_body = response.get(helper.JSONTags.BODY)
-        logging.info(json_body)
-        db_info = yaml.safe_load(json_body)
-        logging.info(db_info)
-        for method, stats in db_info.items():
-          for k, v in stats.items():
-            error_code = 'Success' if k == '0' else \
-              datastore_pb.Error.ErrorCode_Name(k)
-            datastore_stats[server] = {method: {error_code: v}}
-    return datastore_stats
+
+    @gen.coroutine
+    def get_node_stats_async(server_ip):
+      url = "http://{ip}".format(ip=server_ip)
+      request = helper.create_request(url, method='GET')
+
+      try:
+        response = yield async_client.fetch(request)
+      except httpclient.HTTPError as err:
+        logging.error("Error while trying to fetch {}: {}".format(url, err))
+        # Return nothing but not raise an error
+        raise gen.Return()
+
+      logging.debug(response.body)
+      db_info = json.loads(response.body)
+      # Return node stats (e.g.:{'GET': {'Success': [235, 12.53], ..}, ...})
+      raise gen.Return({
+        method: {
+          db_error_name(error_code): (total_req, total_time)
+          for error_code, (total_req, total_time) in stats.iteritems()
+        }
+        for method, stats in db_info.iteritems()
+      })
+
+    # Do multiple requests asynchronously and wait for all results
+    nodes_stats_dict = yield {
+      ip: get_node_stats_async(ip) for ip in servers
+    }
+    raise gen.Return(nodes_stats_dict)
+
+def db_error_name(error_code):
+  return datastore_pb.Error.ErrorCode_Name(error_code) or 'Success'
