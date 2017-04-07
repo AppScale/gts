@@ -1,20 +1,26 @@
 """ Handlers for accepting HTTP requests. """
 
+import Queue
 import json
 import logging
-import Queue
+import os
+import sys
 import threading
+
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
-import hermes_constants
 import helper
+import hermes_constants
 from helper import JSONTags
 from helper import NodeInfoTags
 from helper import TASK_STATUS
 from helper import TASK_STATUS_LOCK
+from lib.stats_collector import StatsCollector
 
-# Statistics cache.
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import appscale_info
+
 STATS = {}
 
 class TaskStatus(object):
@@ -26,18 +32,12 @@ class TaskStatus(object):
 class MainHandler(RequestHandler):
   """ Main handler class. """
 
-  # The path for this handler.
-  PATH = "/"
-
   def get(self):
     """ Main GET method. Reports the status of the server. """
     self.write(json.dumps({'status': 'up'}))
 
 class TaskHandler(RequestHandler):
   """ Handler that starts operations to complete a task. """
-
-  # The path for this handler.
-  PATH = "/do_task"
 
   def post(self):
     """ POST method that sends a request for action to the
@@ -147,21 +147,42 @@ class TaskHandler(RequestHandler):
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
 
-class StatsHandler(RequestHandler):
-  """ Main handler class. """
 
-  # The path for this handler.
-  PATH = "/stats"
+class NodeStatsHandler(RequestHandler):
+  """ Handler for getting current node stats
+  """
+  # TODO update djinn.rb to use new response structure
+  def __init__(self, *args, **kwargs):
+    super(NodeStatsHandler, self).__init__(*args, **kwargs)
+    self.stats_collector = StatsCollector.instance()
+    self.secret = appscale_info.get_secret()
 
-  def initialize(self, STATS, secret):
-    self.STATS = STATS
-    self.secret = secret
-    self.BAD_SECRET_MESSAGE = {'success': False, 'reason': 'bad secret'}
-
-  def post(self):
-    """ Main GET method. Reports the status of the server. """
+  def get(self):
     if self.get_argument('secret') != self.secret:
-      logging.error(json.dumps(self.BAD_SECRET_MESSAGE))
-      self.write(json.dumps(self.BAD_SECRET_MESSAGE))
+      logging.warn("Received bad secret from {client}"
+                   .format(client=self.request.remote_ip))
+      self.set_status(401, "Bad secret")
     else:
-      self.write(json.dumps(self.STATS))
+      self.write(json.dumps(self.stats_collector.cluster_stats.my_node))
+
+
+class ClusterStatsHandler(RequestHandler):
+  """ Handler for getting cluster stats:
+      Nodes stats + Services stats
+  """
+  # TODO update djinn.rb to use new response structure
+  def __init__(self, *args, **kwargs):
+    super(ClusterStatsHandler, self).__init__(*args, **kwargs)
+    self.stats_collector = StatsCollector.instance()
+    self.secret = appscale_info.get_secret()
+
+  def get(self):
+    if self.get_argument('secret') != self.secret:
+      logging.warn("Received bad secret from {client}"
+                   .format(client=self.request.remote_ip))
+      self.set_status(401, "Bad secret")
+    else:
+      self.write(json.dumps({
+        'nodes': self.stats_collector.cluster_stats.nodes,
+        'services': self.stats_collector.cluster_stats.services
+      }))

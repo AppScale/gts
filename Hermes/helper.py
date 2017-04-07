@@ -3,14 +3,10 @@
 import json
 import logging
 import os
-import requests
 import sys
 import threading
 import tornado.httpclient
 import urllib
-import yaml
-
-from socket import error as socket_error
 
 import hermes_constants
 
@@ -24,9 +20,7 @@ import appscale_info
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-from lib.infrastructure_manager_client import InfrastructureManagerClient
-from lib.datastore_client import DatastoreClient
-from lib.taskqueue_client import TaskQueueClient
+from lib.stats_collector import StatsCollector
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -254,68 +248,6 @@ def delete_task_from_mem(task_id):
     del TASK_STATUS[task_id]
   TASK_STATUS_LOCK.release()
 
-
-def get_cluster_stats():
-  """ Collects platform stats from all deployment nodes.
-
-  Returns:
-    A dictionary containing all the monitoring stats, if all nodes are
-    accessible. {"success": False, "error": message} otherwise.
-  """
-  acc = appscale_info.get_appcontroller_client()
-  nodes_stats = acc.get_cluster_stats()
-  return {node["public_ip"]: node for node in nodes_stats}
-
-def update_node_cache():
-  """ Collects stats from this node.
-
-  Returns:
-    A dictionary containing all the monitoring stats.
-  Raises:
-    AppControllerException if we cannot talk to our AppController,
-    InfrastructureManagerException if we cannot talk to the
-    InfrastructureManagerService.
-  """
-  acc = appscale_info.get_appcontroller_client(head_node=False)
-  stats = acc.get_node_stats()
-  secret = appscale_info.get_secret()
-  my_priv_ip = appscale_info.get_private_ip()
-  imc = InfrastructureManagerClient(my_priv_ip, secret)
-  sys = imc.get_system_stats()
-  stats.update(sys)
-
-  # Load Balancer nodes run the appscale-datastore_server, so they need to get
-  # the Datastore info.
-  if "load_balancer" in stats.get('roles'):
-    dsc = DatastoreClient()
-    ds_stats = dsc.get_datastore_stats()
-    stats['datastore_stats'] = ds_stats
-    tqc = TaskQueueClient()
-    tq_stats = tqc.get_taskqueue_stats()
-    stats['taskqueue_stats'] = tq_stats
-  return stats
-
-def update_cluster_cache():
-  """ Collects stats from all deployment nodes.
-
-  Returns:
-    A dictionary containing all the monitoring stats, for all nodes that are
-    accessible.
-  """
-  cluster_stats = []
-  my_private = appscale_info.get_private_ip()
-  secret = {'secret': appscale_info.get_secret()}
-  for ip in appscale_info.get_all_ips():
-    if ip == my_private:
-      continue
-    request = create_request("http://{ip}:{port}/stats"
-                             .format(ip=ip, port=hermes_constants.HERMES_PORT),
-                             method='POST', body=urllib.urlencode(secret))
-    response = urlfetch(request)
-    if response.get(JSONTags.SUCCESS):
-      node_info = json.loads(response.get(JSONTags.BODY))
-      cluster_stats.append(node_info['node'])
-  return cluster_stats
 
 def report_status(task, task_id, status):
   """ Sends a status report for the given task to the AppScale Portal.

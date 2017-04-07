@@ -2,18 +2,15 @@
 initiates actions accordingly. """
 
 import datetime
-import hashlib
 import helper
 import hermes_constants
 import json
 import logging
 import os
-import random
 import re
 import signal
 import SOAPpy
 import socket
-import string
 import sys
 import tarfile
 import tornado.escape
@@ -21,9 +18,9 @@ import tornado.httpclient
 import tornado.web
 import urllib
 
-from handlers import MainHandler
-from handlers import StatsHandler
-from handlers import TaskHandler
+from handlers import (
+  MainHandler, NodeStatsHandler, ClusterStatsHandler, TaskHandler
+)
 from helper import JSONTags
 
 from tornado.ioloop import IOLoop
@@ -31,6 +28,8 @@ from tornado.ioloop import PeriodicCallback
 from tornado.options import define
 from tornado.options import options
 from tornado.options import parse_command_line
+
+from lib.stats_collector import StatsCollector
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -132,7 +131,7 @@ def send_cluster_stats():
 
   # Get all stats from this deployment.
   logging.debug("Getting all stats from every deployment node.")
-  cluster_stats = helper.get_cluster_stats()
+  cluster_stats = StatsCollector.instance().cluster_stats
 
   # Send request to AppScale Portal.
   portal_path = hermes_constants.PORTAL_STATS_PATH.format(deployment_id)
@@ -140,7 +139,12 @@ def send_cluster_stats():
   data = {
     JSONTags.DEPLOYMENT_ID: deployment_id,
     JSONTags.TIMESTAMP: datetime.datetime.utcnow(),
-    JSONTags.ALL_STATS: json.dumps(cluster_stats)
+    JSONTags.ALL_STATS: json.dumps({
+      # TODO check compatibility of Portal with the new format
+      "cluster": cluster_stats.nodes,
+      "node": cluster_stats.my_node,
+      "services": cluster_stats.services
+    })
   }
   logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".
     format(data))
@@ -241,6 +245,7 @@ def shutdown():
   logging.warning("Hermes is shutting down.")
   IOLoop.instance().stop()
 
+
 def main():
   """ Main. """
 
@@ -255,10 +260,10 @@ def main():
   parse_command_line()
 
   app = tornado.web.Application([
-    (MainHandler.PATH, MainHandler),
-    (TaskHandler.PATH, TaskHandler),
-    (StatsHandler.PATH, StatsHandler, {'STATS': STATS,
-                                       'secret': appscale_info.get_secret()})
+    ("/", MainHandler),
+    ("/do_task", TaskHandler),
+    ("/stats/node", NodeStatsHandler),
+    ("/stats/cluster", ClusterStatsHandler),
   ], debug=False)
 
   try:
@@ -275,20 +280,23 @@ def main():
   master = appscale_info.get_private_ip() in \
            appscale_info.get_load_balancer_ips()
 
+  stats_collector = StatsCollector().instance()
+
   # Cache this node's statistics immediately so that the master Hermes nodes
   # can use it as soon as possible.
-  cache_node_stats()
+  stats_collector.update_node_stats()
 
   # Periodically collect and cache this node's statistics.
-  PeriodicCallback(cache_node_stats, hermes_constants.STATS_INTERVAL).start()
+  PeriodicCallback(stats_collector.update_node_stats,
+                   hermes_constants.STATS_INTERVAL).start()
 
   if master:
     # Cache the deployment's stats immediately so that the AppController can
     # use it as soon as possible.
-    cache_cluster_stats()
+    stats_collector.update_cluster_stats()
 
     # Periodically collect and cache the deployment's statistics.
-    PeriodicCallback(cache_cluster_stats,
+    PeriodicCallback(stats_collector.update_cluster_stats,
                      hermes_constants.STATS_INTERVAL).start()
 
     # Periodically send all available stats from each deployment node to the
