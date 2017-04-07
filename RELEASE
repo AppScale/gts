@@ -7,7 +7,7 @@
 AppScale version 3.2.1, released April, 2017
 Highlights of features/bugs in this release:
 - Fixed appscale upgrade from 3.1.0
-- Add dependency python-twisted
+- Added dependency python-twisted
 - Build when repo update is not required
 
 AppScale version 3.2.0, released April, 2017
