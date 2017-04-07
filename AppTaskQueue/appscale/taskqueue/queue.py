@@ -4,7 +4,10 @@ import re
 import sys
 
 from cassandra.concurrent import execute_concurrent
-from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
+from appscale.datastore.cassandra_env.retry_policies import (
+  BASIC_RETRIES,
+  NO_RETRIES
+)
 from appscale.datastore.dbconstants import TRANSIENT_CASSANDRA_ERRORS
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
@@ -265,33 +268,25 @@ class PullQueue(Queue):
     self.index_cache_lock = Lock()
     super(PullQueue, self).__init__(queue_info, app)
 
-  def add_task(self, task):
+  def add_task(self, task, retries=5):
     """ Adds a task to the queue.
 
     Args:
       task: A Task object.
+      retries: The number of times to retry adding the task.
     Raises:
       InvalidTaskInfo if the task ID already exists in the queue.
     """
     if not hasattr(task, 'payloadBase64'):
       raise InvalidTaskInfo('{} is missing a payload.'.format(task))
 
-    insert_task = SimpleStatement("""
-      INSERT INTO pull_queue_tasks (
-        app, queue, id, payload,
-        enqueued, lease_expires, retry_count, tag
-      )
-      VALUES (
-        %(app)s, %(queue)s, %(id)s, %(payload)s,
-        dateof(now()), %(lease_expires)s, 0, %(tag)s
-      )
-      IF NOT EXISTS
-    """, retry_policy=BASIC_RETRIES)
     parameters = {
       'app': self.app,
       'queue': self.name,
       'id': task.id,
-      'payload': task.payloadBase64
+      'payload': task.payloadBase64,
+      'enqueued': datetime.datetime.utcnow(),
+      'retry_count': 0
     }
 
     try:
@@ -304,9 +299,7 @@ class PullQueue(Queue):
     except AttributeError:
       parameters['lease_expires'] = 0
 
-    result = self.db_access.session.execute(insert_task, parameters)[0]
-    if not result.applied:
-      raise InvalidTaskInfo('Task name already taken: {}'.format(task.id))
+    self._insert_task(parameters)
 
     # Retrieve the date values that Cassandra generated.
     select_task = """
@@ -406,27 +399,15 @@ class PullQueue(Queue):
       A Task object.
     """
     new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
-
-    update_task = """
-      UPDATE pull_queue_tasks
-      SET lease_expires = %(new_eta)s
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-      IF lease_expires = %(old_eta)s
-      AND lease_expires > dateof(now())
-    """
     parameters = {
       'app': self.app,
       'queue': self.name,
       'id': task.id,
       'old_eta': task.get_eta(),
-      'new_eta': new_eta
+      'new_eta': new_eta,
+      'current_time': datetime.datetime.utcnow()
     }
-    result = self.db_access.session.execute(update_task, parameters)[0]
-
-    # If the lease has expired or the provided ETA does not match, do not
-    # update the lease. GAE does not differentiate between the two conditions.
-    if not result.applied:
-      raise InvalidLeaseRequest('The task lease has expired.')
+    self._update_lease(parameters)
 
     task.leaseTimestamp = new_eta
     return task
@@ -440,30 +421,18 @@ class PullQueue(Queue):
         represents the number of seconds from now.
     """
     new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
-
-    check_lease = ''
-    if hasattr(task, 'leaseTimestamp'):
-      check_lease = 'AND lease_expires = %(old_eta)s'
-
-    update_task = """
-      UPDATE pull_queue_tasks
-      SET lease_expires = %(new_eta)s
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-      IF lease_expires > dateof(now())
-      {check_lease}
-    """.format(check_lease=check_lease)
     parameters = {
       'app': self.app,
       'queue': self.name,
       'id': task.id,
-      'new_eta': new_eta
+      'new_eta': new_eta,
+      'current_time': datetime.datetime.utcnow()
     }
-    if check_lease:
+    if hasattr(task, 'leaseTimestamp'):
       parameters['old_eta'] = task.get_eta()
-    result = self.db_access.session.execute(update_task, parameters)[0]
-
-    if not result.applied:
-      raise InvalidLeaseRequest('The task lease has expired.')
+      self._update_lease(parameters)
+    else:
+      self._update_lease(parameters, check_lease=False)
 
     task.leaseTimestamp = new_eta
     return task
@@ -675,6 +644,109 @@ class PullQueue(Queue):
 
     return json.dumps(queue)
 
+  def _task_matches_params(self, parameters):
+    """ Checks if the task entry matches the given parameters.
+
+    Args:
+      parameters: A dictionary specifying the task parameters.
+    Returns:
+      A boolean indicating whether or not the task matches the parameters.
+    """
+    parameters.update({'app': self.app, 'queue': self.name})
+    select_statement = SimpleStatement("""
+      SELECT * FROM pull_queue_tasks
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+    """, consistency_level=ConsistencyLevel.SERIAL)
+    try:
+      result = self.db_access.session.execute(select_statement, parameters)[0]
+    except IndexError:
+      return False
+
+    for parameter in parameters:
+      if parameters[parameter] != getattr(result, parameter):
+        return False
+
+    return True
+
+  def _insert_task(self, parameters, retries=5):
+    """ Insert task entry into pull_queue_tasks.
+
+    Args:
+      parameters: A dictionary specifying the task parameters.
+      retries: The number of times to try the insert.
+    Raises:
+      InvalidTaskInfo if the task ID already exists in the queue.
+    """
+    insert_statement = SimpleStatement("""
+      INSERT INTO pull_queue_tasks (
+        app, queue, id, payload,
+        enqueued, lease_expires, retry_count, tag
+      )
+      VALUES (
+        %(app)s, %(queue)s, %(id)s, %(payload)s,
+        %(enqueued)s, %(lease_expires)s, %(retry_count)s, %(tag)s
+      )
+      IF NOT EXISTS
+    """, retry_policy=NO_RETRIES)
+    try:
+      result = self.db_access.session.execute(insert_statement, parameters)
+    except TRANSIENT_CASSANDRA_ERRORS as error:
+      retries_left = retries - 1
+      if retries_left <= 0:
+        raise
+      logger.warning(
+        'Encountered error while inserting task: {}. Retrying.'.format(error))
+      return self._insert_task(parameters, retries=retries_left)
+
+    if result.was_applied:
+      return
+
+    if not self._task_matches_params(parameters):
+      raise InvalidTaskInfo(
+        'Task name already taken: {}'.format(parameters['id']))
+
+  def _update_lease(self, parameters, check_lease=True, retries=5):
+    """ Update lease expiration on a task entry.
+
+    Args:
+      parameters: A dictionary specifying the new parameters.
+      check_lease: A boolean specifying that the old lease_expires field must
+        match the one provided.
+      retries: The number of times to try the update.
+    Raises:
+      InvalidLeaseRequest if the lease has already expired.
+    """
+    update_task = """
+      UPDATE pull_queue_tasks
+      SET lease_expires = %(new_eta)s
+      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
+      IF lease_expires > %(current_time)s
+    """
+
+    # When reporting errors, GCP does not differentiate between a lease
+    # expiration and the client providing the wrong old_eta.
+    if check_lease:
+      update_task += 'AND lease_expires = %(old_eta)s'
+
+    update_statement = SimpleStatement(update_task, retry_policy=NO_RETRIES)
+    try:
+      result = self.db_access.session.execute(update_statement, parameters)
+    except TRANSIENT_CASSANDRA_ERRORS as error:
+      retries_left = retries - 1
+      if retries_left <= 0:
+        raise
+      logger.warning(
+        'Encountered error while updating lease: {}. Retrying.'.format(error))
+      return self._update_lease(parameters, check_lease=check_lease,
+                                retries=retries_left)
+
+    if result.was_applied:
+      return
+
+    to_check = {'id': parameters['id'], 'lease_expires': parameters['new_eta']}
+    if not self._task_matches_params(to_check):
+      raise InvalidLeaseRequest('The task lease has expired.')
+
   def _query_index(self, num_tasks, group_by_tag=False, tag=None):
     """ Query the index table for available tasks.
 
@@ -787,12 +859,12 @@ class PullQueue(Queue):
     Args:
       task: A Task object.
     """
-    update_count = """
+    update_count = SimpleStatement("""
       UPDATE pull_queue_tasks
       SET retry_count = %(new_count)s
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
       IF retry_count = %(old_count)s
-    """
+    """, retry_policy=NO_RETRIES)
     params = {
       'app': self.app,
       'queue': self.name,
@@ -819,15 +891,17 @@ class PullQueue(Queue):
       UPDATE pull_queue_tasks
       SET lease_expires = ?
       WHERE app = ? AND queue = ? AND id = ?
-      IF lease_expires < dateof(now())
+      IF lease_expires < ?
     """
     if self.task_retry_limit != 0:
       lease_statement += 'AND retry_count < {}'.format(self.task_retry_limit)
     lease_task = session.prepare(lease_statement)
+    lease_task.retry_policy = NO_RETRIES
+    current_time = datetime.datetime.utcnow()
 
     statements_and_params = []
     for index in indexes:
-      params = (new_eta, self.app, self.name, index.id)
+      params = (new_eta, self.app, self.name, index.id, current_time)
       statements_and_params.append((lease_task, params))
     results = execute_concurrent(session, statements_and_params,
                                  raise_on_first_error=False)
