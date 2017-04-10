@@ -314,10 +314,6 @@ defaults
   # Log details about HTTP requests
   #option httplog
 
-  # Check if a "Connection: close" header is already set in each direction,
-  # and will add one if missing.
-  option httpclose
-
   # If sending a request fails, try to send it to another, 3 times
   # before aborting the request
   retries 3
