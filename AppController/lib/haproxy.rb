@@ -89,6 +89,10 @@ module HAProxy
   HAPROXY_ERROR_PREFIX = "No such"
 
 
+  # The number of seconds HAProxy should wait for a server response.
+  HAPROXY_SERVER_TIMEOUT = 600
+
+
   def self.start()
     start_cmd = "/usr/sbin/service haproxy start"
     stop_cmd = "/usr/sbin/service haproxy stop"
@@ -329,7 +333,7 @@ defaults
   timeout client 50000ms
 
   # The maximum inactivity time allowed for a server.
-  timeout server 50000ms
+  timeout server #{HAPROXY_SERVER_TIMEOUT}s
 
   # Enable the statistics page
   stats enable
