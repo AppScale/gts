@@ -16,7 +16,7 @@ from helper import JSONTags
 from helper import NodeInfoTags
 from helper import TASK_STATUS
 from helper import TASK_STATUS_LOCK
-from lib.stats_collector import StatsCollector
+from lib.stats_collector import StatsManager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -151,14 +151,13 @@ class TaskHandler(RequestHandler):
 class NodeStatsHandler(RequestHandler):
   """ Handler for getting current node stats
   """
-  # TODO update djinn.rb to use new response structure
   def __init__(self, *args, **kwargs):
     super(NodeStatsHandler, self).__init__(*args, **kwargs)
-    self.stats_collector = StatsCollector.instance()
+    self.stats_collector = StatsManager.instance()
     self.secret = appscale_info.get_secret()
 
   def get(self):
-    if self.get_argument('secret') != self.secret:
+    if self.request.headers.get('Appscale-Secret') != self.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(401, "Bad secret")
@@ -170,14 +169,13 @@ class ClusterStatsHandler(RequestHandler):
   """ Handler for getting cluster stats:
       Nodes stats + Services stats
   """
-  # TODO update djinn.rb to use new response structure
   def __init__(self, *args, **kwargs):
     super(ClusterStatsHandler, self).__init__(*args, **kwargs)
-    self.stats_collector = StatsCollector.instance()
+    self.stats_collector = StatsManager.instance()
     self.secret = appscale_info.get_secret()
 
   def get(self):
-    if self.get_argument('secret') != self.secret:
+    if self.request.headers.get('Appscale-Secret') != self.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(401, "Bad secret")

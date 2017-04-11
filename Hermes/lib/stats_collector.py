@@ -40,7 +40,7 @@ class AppScaleStats(object):
     self.nodes[appscale_info.get_private_ip()] = new_stats
 
 
-class StatsCollector(object):
+class StatsManager(object):
 
   _instance = None
 
@@ -110,10 +110,10 @@ class StatsCollector(object):
       accessible.
     """
     my_private = appscale_info.get_private_ip()
-    cluster_stats = yield [
-      self.get_node_stats_async(ip)
+    cluster_stats = yield {
+      ip: self.get_node_stats_async(ip)
       for ip in appscale_info.get_all_ips() if ip != my_private
-    ]
+    }
     cluster_stats[my_private] = self._cluster_stats.my_node
     raise gen.Return(cluster_stats)
 

@@ -29,7 +29,7 @@ from tornado.options import define
 from tornado.options import options
 from tornado.options import parse_command_line
 
-from lib.stats_collector import StatsCollector
+from lib.stats_collector import StatsManager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -131,7 +131,7 @@ def send_cluster_stats():
 
   # Get all stats from this deployment.
   logging.debug("Getting all stats from every deployment node.")
-  cluster_stats = StatsCollector.instance().cluster_stats
+  cluster_stats = StatsManager.instance().cluster_stats
 
   # Send request to AppScale Portal.
   portal_path = hermes_constants.PORTAL_STATS_PATH.format(deployment_id)
@@ -280,7 +280,7 @@ def main():
   master = appscale_info.get_private_ip() in \
            appscale_info.get_load_balancer_ips()
 
-  stats_collector = StatsCollector().instance()
+  stats_collector = StatsManager().instance()
 
   # Cache this node's statistics immediately so that the master Hermes nodes
   # can use it as soon as possible.

@@ -20,7 +20,7 @@ import appscale_info
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-from lib.stats_collector import StatsCollector
+from lib.stats_collector import StatsManager
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.

@@ -1275,19 +1275,23 @@ class Djinn
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache()
     Thread.new {
-      ip = get_shadow.private_ip
-      uri = URI("http://#{ip}:#{HermesService.getport()}/stats")
-      string_stats = (Net::HTTP.post_form(uri, 'secret' => @@secret))
-      stats = JSON.load(string_stats.body)
-      Djinn.log_info("Stats as a #{stats.class}: #{stats['cluster']}")
-      if stats.key?("success") and stats['success'] == false
-        Djinn.log_warn("Invalid secret when trying to communicate with Hermes" +
-          " stats")
-        return
-      end
-      STATUS_LOCK.synchronize {
-        @cluster_stats = stats['cluster'].nil? ? [] : stats['cluster']
-      }
+      begin
+        ip = get_shadow.private_ip
+        http = Net::HTTP.new("#{ip}", "#{HermesService.getport()}")
+        header = {'Appscale-Secret' => @@secret}
+        resp = http.get('/stats/cluster', initheader=header)
+        if resp.code != '200'
+          Djinn.log_warn("Received '#{resp.code} #{resp.msg}' when trying " +
+            "to communicate with Hermes stats")
+          return
+        end
+        stats = JSON.load(resp.body)
+        STATUS_LOCK.synchronize {
+          @cluster_stats = stats['nodes'].values
+        }
+      rescue Exception => e
+        Djinn.log_error("Error while syncing cluster stats: \n#{e.inspect}\n" +
+          #{e.message}")
     }
   end
 
@@ -2222,19 +2226,19 @@ class Djinn
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
         ip = my_node.private_ip
-        uri = URI("http://#{ip}:#{HermesService.getport()}/stats")
-        string_stats = (Net::HTTP.post_form(uri, 'secret' => @@secret))
-        stats = JSON.load(string_stats.body)
-        Djinn.log_info("Stats as a #{stats.class}: #{stats['node']}")
-        if stats.key?("success") and stats['success'] == false
-          Djinn.log_warn("Invalid secret when trying to communicate with" +
-                             "Hermes stats")
+        http = Net::HTTP.new("#{ip}", "#{HermesService.getport()}")
+        header = {'Appscale-Secret' => @@secret}
+        resp = http.get('/stats/node', initheader=header)
+        if resp.code != '200'
+          Djinn.log_warn("Received '#{resp.code} #{resp.msg}' when trying " +
+            "to communicate with Hermes stats")
         else
-          node_stats = stats['node']
+          node_stats = JSON.load(resp.body)
+          Djinn.log_info("Node stats as a #{node_stats.class}: #{node_stats}")
           available_memory = node_stats['memory']['available']/MEGABYTE_DIVISOR
-          Djinn.log_info("--- Node at #{stats['public_ip']} has " +
+          Djinn.log_info("--- Node at #{node_stats['public_ip']} has " +
                              "#{available_memory} MB memory available " +
-                             "and knows about these apps #{stats['apps']}.")
+                             "and knows about these apps #{node_stats['apps']}.")
           last_print = Time.now.to_i
         end
       end
