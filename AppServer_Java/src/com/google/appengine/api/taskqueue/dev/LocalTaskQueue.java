@@ -289,7 +289,10 @@ public final class LocalTaskQueue extends AbstractLocalRpcService {
         if (!addRequest.hasBody()) {
             return TaskQueuePb.TaskQueueServiceError.ErrorCode.INVALID_REQUEST;
         }
-        return TaskQueuePb.TaskQueueServiceError.ErrorCode.OK;
+
+        // Should return OK, once Pull Queues are implemented.
+        // return TaskQueuePb.TaskQueueServiceError.ErrorCode.OK;
+        return TaskQueuePb.TaskQueueServiceError.ErrorCode.UNKNOWN_QUEUE;
     }
 
     TaskQueuePb.TaskQueueServiceError.ErrorCode validateAddPushRequest(TaskQueuePb.TaskQueueAddRequest addRequest) {
