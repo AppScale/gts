@@ -211,7 +211,8 @@ EOF
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
-        cp ${APPSCALE_HOME}/lib/templates/appscale-logrotate.conf /etc/logrotate.d/appscale
+        cp ${APPSCALE_HOME}/common/appscale/common/templates/appscale-logrotate.conf \
+            /etc/logrotate.d/appscale
     fi
 
     # Logrotate AppScale logs hourly.
@@ -559,6 +560,12 @@ preplogserver()
     FILE_SRC="$APPSCALE_HOME_RUNTIME/LogService/logging.capnp"
     FILE_DEST="$APPSCALE_HOME_RUNTIME/AppServer/google/appengine/api/logservice/logging.capnp"
     cp ${FILE_SRC} ${FILE_DEST}
+}
+
+installcommon()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/common
+    pip install ${APPSCALE_HOME}/common
 }
 
 installtaskqueue()

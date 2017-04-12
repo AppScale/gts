@@ -66,6 +66,7 @@ case "$1" in
         installpsutil
         installapiclient
         installgosdk
+        installcommon
         installtaskqueue
         installdatastore
         preplogserver

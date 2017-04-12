@@ -548,7 +548,8 @@ class Djinn
 
 
   # Template used for rsyslog configuration files.
-  RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
+  RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/common/appscale/common/" +
+    "templates/rsyslog-app.conf"
 
 
   # Instance variables that we need to restore from the head node.
@@ -4656,7 +4657,8 @@ HOSTS
   # This method is called only when the appengine role does not run
   # on the head node.
   def write_app_logrotate()
-    template_dir = File.join(File.dirname(__FILE__), "../lib/templates")
+    template_dir = File.join(File.dirname(__FILE__),
+                             "../common/appscale/common/templates")
     FileUtils.cp("#{template_dir}/#{APPSCALE_APP_LOGROTATE}",
       "#{LOGROTATE_DIR}/appscale-app")
   end

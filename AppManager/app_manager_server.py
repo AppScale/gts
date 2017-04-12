@@ -1,6 +1,5 @@
 """ This service starts and stops application servers of a given application. """
 
-import argparse
 import fnmatch
 import glob
 import json
@@ -18,18 +17,20 @@ from xml.etree import ElementTree
 
 from M2Crypto import SSL
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
-import constants
-import file_io
-import monit_app_configuration
-import monit_interface
-import misc
-from deployment_config import DeploymentConfig
-from deployment_config import ConfigInaccessible
-from monit_app_configuration import MONIT_CONFIG_DIR
+from appscale.common import (
+  appscale_info,
+  constants,
+  file_io,
+  monit_app_configuration,
+  monit_interface,
+  misc
+)
+from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.deployment_config import ConfigInaccessible
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
 # The amount of seconds to wait for an application to start up.

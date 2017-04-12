@@ -7,10 +7,9 @@ import os
 import pkgutil
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-import appscale_info
-from deployment_config import DeploymentConfig
-from deployment_config import InvalidConfig
+from appscale.common import appscale_info
+from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.deployment_config import InvalidConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppDB'))
 from appscale.datastore.cassandra_env.cassandra_interface import\

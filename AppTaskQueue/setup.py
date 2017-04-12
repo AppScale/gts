@@ -11,6 +11,7 @@ setup(
   keywords='appscale google-app-engine python',
   platforms='Posix',
   install_requires=[
+    'appscale-common',
     'cassandra-driver',
     'celery<4.0.0',
     'PyYaml',

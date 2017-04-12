@@ -18,8 +18,8 @@ watch('InfrastructureManager/(.*).py') { |md|
   system "rake infrastructuremanager:test"
 }
 
-watch('(lib)/(.*).py') { |md|
-  system "rake lib:test"
+watch('common/appscale/common/(.*).py') { |md|
+  system "rake common:test"
 }
 
 watch('XMPPReceiver/(.*).py') { |md|

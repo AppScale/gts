@@ -2,18 +2,15 @@
 initiates actions accordingly. """
 
 import datetime
-import hashlib
 import helper
 import hermes_constants
 import json
 import logging
 import os
-import random
 import re
 import signal
 import SOAPpy
 import socket
-import string
 import sys
 import tarfile
 import tornado.escape
@@ -34,9 +31,9 @@ from tornado.options import parse_command_line
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
-import appscale_utils
+from appscale.common import appscale_info
+from appscale.common import appscale_utils
+
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
 

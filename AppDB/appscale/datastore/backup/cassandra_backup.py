@@ -7,6 +7,10 @@ import subprocess
 import sys
 import time
 
+from appscale.common import appscale_info
+from appscale.common import monit_interface
+from appscale.common.constants import APPSCALE_DATA_DIR
+from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from subprocess import CalledProcessError
 from . import backup_recovery_helper
 from .backup_exceptions import BRException
@@ -16,13 +20,6 @@ from .br_constants import SERVICE_RETRIES
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import INFRASTRUCTURE_MANAGER_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import monit_interface
-from constants import APPSCALE_DATA_DIR
 
 sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils import utils

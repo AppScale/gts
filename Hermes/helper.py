@@ -3,13 +3,10 @@
 import json
 import logging
 import os
-import SOAPpy
 import sys
 import threading
 import tornado.httpclient
 import urllib
-
-from socket import error as socket_error
 
 import hermes_constants
 
@@ -17,8 +14,7 @@ from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
 from custom_hermes_exceptions import MissingRequestArgs
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
+from appscale.common import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException

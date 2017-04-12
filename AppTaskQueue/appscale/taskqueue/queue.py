@@ -3,6 +3,7 @@ import json
 import re
 import sys
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from cassandra.concurrent import execute_concurrent
 from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
 from appscale.datastore.dbconstants import TRANSIENT_CASSANDRA_ERRORS
@@ -13,7 +14,6 @@ from collections import deque
 from task import InvalidTaskInfo
 from task import Task
 from threading import Lock
-from unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)

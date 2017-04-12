@@ -12,6 +12,7 @@ import threading
 import time
 import urllib
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .inspectable_counter import InspectableCounter
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.large_batch import (FailedBatch,
@@ -19,7 +20,6 @@ from ..cassandra_env.large_batch import (FailedBatch,
 from ..dbconstants import (AppScaleDBConnectionError,
                            MAX_GROUPS_FOR_XG,
                            MAX_TX_DURATION)
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 
 from cassandra.policies import FallthroughRetryPolicy
 from kazoo.exceptions import (NoNodeError,
