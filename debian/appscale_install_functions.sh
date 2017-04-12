@@ -339,7 +339,9 @@ installcassandra()
     rm -rf ${APPSCALE_HOME}/AppDB/cassandra
 
     CASSANDRA_DIR="/opt/cassandra"
+    CASSANDRA_DATA_DIR="/opt/appscale/cassandra"
     mkdir -p ${CASSANDRA_DIR}
+    mkdir -p ${CASSANDRA_DATA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
     mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} \
@@ -349,6 +351,7 @@ installcassandra()
         useradd cassandra
     fi
     chown -R cassandra ${CASSANDRA_DIR}
+    chown -R cassandra ${CASSANDRA_DATA_DIR}
 }
 
 postinstallcassandra()
