@@ -4,12 +4,11 @@ import logging
 import subprocess
 import sys
 
-from appscale.datastore.cassandra_env import cassandra_interface
-from appscale.datastore.zkappscale import zktransaction as zk
-
 from appscale.common import monit_app_configuration
 from appscale.common import monit_interface
 from appscale.common.constants import APPSCALE_HOME
+from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.zkappscale import zktransaction as zk
 
 import datastore_upgrade
 
