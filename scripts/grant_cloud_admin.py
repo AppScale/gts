@@ -1,21 +1,10 @@
 """ Grants cloud admin access to a user. """
 
-import SOAPpy
 import sys
 
 from appscale.common import appscale_info
-from appscale.common import constants
+from appscale.common.ua_client import UAClient
 
-
-def get_soap_accessor():
-  """ Returns the SOAP server accessor to deal with application and users.
-
-  Returns:
-    A soap server accessor.
-  """
-  db_ip = appscale_info.get_db_master_ip()
-  bindport = constants.UA_SERVER_PORT
-  return SOAPpy.SOAPProxy("https://{0}:{1}".format(db_ip, bindport))
 
 def usage():
   """ Prints the usage of this script. """
@@ -37,18 +26,14 @@ if __name__ == "__main__":
   email = sys.argv[1]
 
   secret = appscale_info.get_secret()
-  server = get_soap_accessor()
+  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
 
-  if server.does_user_exist(email, secret) == "false":
+  if not ua_client.does_user_exist(email):
     print "User does not exist."
     sys.exit(1)
 
-  ret = server.set_cloud_admin_status(email, "true", secret)
-  if ret == "true":
-    print "{0} granted cloud admin access.".format(email)
-  else:
-    print "Error with user: {0} -- {1}".format(email, ret)
+  ua_client.set_cloud_admin_status(email, True)
+  print('{} granted cloud admin access.'.format(email))
 
   # Verify cloud admin status.
-  if server.is_user_cloud_admin(email, secret) != "true":
-    print "ERROR! Unable to verify that the user is now a cloud admin!"
+  assert ua_client.is_user_cloud_admin(email), 'Unable to verify admin status'
