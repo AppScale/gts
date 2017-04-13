@@ -73,11 +73,11 @@ cachepackage() {
 # at next boot. AppScale manages those services.
 disableservice() {
     if [ -n "$1" ]; then
-      update-rc.d "${1}" disable || true
-      # The following to make sure we disable it for upstart.
-      if [ -d "/etc/init" ]; then
-          echo "manual" > /etc/init/"${1}".override
-      fi
+        update-rc.d "${1}" disable || true
+        # The following to make sure we disable it for upstart.
+        if [ -d "/etc/init" ]; then
+            echo "manual" > /etc/init/"${1}".override
+        fi
     else
         echo "Need a service name to disable!"
         exit 1
