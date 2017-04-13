@@ -26,20 +26,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import appscale_info
 
 
-class AppScaleStats(object):
-  def __init__(self):
-    self.nodes = {}
-    self.services = {}
-
-  @property
-  def my_node(self):
-    return self.nodes.get(appscale_info.get_private_ip(), {})
-
-  @my_node.setter
-  def my_node(self, new_stats):
-    self.nodes[appscale_info.get_private_ip()] = new_stats
-
-
 class StatsManager(object):
 
   _instance = None

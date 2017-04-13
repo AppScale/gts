@@ -5,13 +5,13 @@ import logging
 import os
 import sys
 import threading
-import tornado.httpclient
 import urllib
 
-import hermes_constants
-
+import tornado.httpclient
 from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
+
+import hermes_constants
 from custom_hermes_exceptions import MissingRequestArgs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
@@ -19,8 +19,6 @@ import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
-
-from lib.stats_collector import StatsManager
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.

@@ -16,7 +16,7 @@ from helper import JSONTags
 from helper import NodeInfoTags
 from helper import TASK_STATUS
 from helper import TASK_STATUS_LOCK
-from lib.stats_collector import StatsManager
+from stats.stats_collector import StatsManager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info

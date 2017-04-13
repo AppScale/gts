@@ -2,34 +2,33 @@
 initiates actions accordingly. """
 
 import datetime
-import helper
-import hermes_constants
 import json
 import logging
 import os
 import re
 import signal
-import SOAPpy
 import socket
 import sys
 import tarfile
+import urllib
+
+import SOAPpy
 import tornado.escape
 import tornado.httpclient
 import tornado.web
-import urllib
-
-from handlers import (
-  MainHandler, NodeStatsHandler, ClusterStatsHandler, TaskHandler
-)
-from helper import JSONTags
-
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback
 from tornado.options import define
 from tornado.options import options
 from tornado.options import parse_command_line
 
-from lib.stats_collector import StatsManager
+import helper
+import hermes_constants
+from handlers import (
+  MainHandler, NodeStatsHandler, ClusterStatsHandler, TaskHandler
+)
+from helper import JSONTags
+from stats.stats_collector import StatsManager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
