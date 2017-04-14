@@ -2188,11 +2188,7 @@ class Djinn
           # Ensure we have a proper number of ApServers for each app.
           scale_appservers_within_nodes
         }
-        if SCALE_LOCK.locked?
-          Djinn.log_debug("Another thread is already working with the" +
-              " InfrastructureManager.")
-        else
-          scale_deployment
+        scale_deployment
       elsif !restore_appcontroller_state
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
