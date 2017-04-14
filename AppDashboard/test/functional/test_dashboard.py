@@ -37,24 +37,110 @@ class FunctionalTestAppDashboard(unittest.TestCase):
   def setUp(self):
     acc = flexmock(AppControllerClient)
     acc.should_receive('get_uaserver_host').and_return('public1')
-    acc.should_receive('get_stats').and_return([
-        {'ip' : '1.1.1.1',
-         'cpu' : '50',
-         'memory' : '50',
-         'disk' : '50',
-         'cloud' : 'cloud1',
-         'roles' : 'roles1',
-         'apps':{ 'app1':True, 'app2':False }
+    acc.should_receive('get_cluster_stats').and_return([
+      # TODO make up example of cluster stats
+      # TODO and make sure that this change doesn't break tests
+      {
+        # System stats provided by infrastucture manager
+        "cpu": {
+          "idle": 50.0,
+          "system": 28.2,
+          "user": 10.5,
+          "count": 2,
         },
-        {'ip' : '2.2.2.2',
-         'cpu' : '50',
-         'memory' : '50',
-         'disk' : '50',
-         'cloud' : 'cloud1',
-         'roles' : 'roles1'}
-      ])
+        "disk": [
+          # For each partition
+          {"total": 30965743616,
+           "free": 15482871808,
+           "used": 15482871808},
+          {"total": 7309782470,
+           "free": 3654891235,
+           "used": 3654891235},
+        ],
+        "memory": {
+          "total": 12365412865,
+          "available": 6472179712,
+          "used": 8186245120
+        },
+        "swap": {
+          "total": 2097147904,
+          "free": 1210527744,
+          "used": 886620160
+        },
+        "services": {
+          # For each Process monitored by monit
+          "cassandra": "Running",
+        },
+        "loadavg": {
+           "last_1_min": 0.08,
+           "last_5_min": 0.27,
+           "last_15_min": 0.33,
+           "runnable_entities": 3,
+           "scheduling_entities": 383
+        },
+        # Node information provided by AppController itself
+        "apps": {
+          # This hash is empty for non-shadow nodes
+          "language": "python",
+          "appservers": 4,
+          "pending_appservers": 2,
+          "http": 8080,
+          "https": 4380,
+          "reqs_enqueued": 15,
+          "total_reqs": 6513
+        },
+        "cloud": "cloud1",
+        "state": "Done starting up AppScale, now in heartbeat mode",
+        "db_location": "192.168.33.10",
+        "public_ip": "1.1.1.1",
+        "private_ip": "10.10.105.18",
+        "roles": ["shadow", "zookeeper", "datastore", "taskqueue"],
+      },
+      {
+        # System stats provided by infrastucture manager
+        "cpu": {
+          "idle": 50.0,
+          "system": 28.2,
+          "user": 10.5,
+          "count": 2,
+        },
+        "disk": [
+          # For each partition
+          {"free": 15482871808,
+           "used": 15482871808}
+        ],
+        "memory": {
+          "total": 12365412865,
+          "available": 6472179712,
+          "used": 8186245120
+        },
+        "swap": {
+          "free": 0,
+          "used": 0
+        },
+        "services": {
+          # For each Process monitored by monit
+          # TODO
+        },
+        "loadavg": {
+           "last_1_min": 0.08,
+           "last_5_min": 0.27,
+           "last_15_min": 0.33,
+           "runnable_entities": 3,
+           "scheduling_entities": 383
+        },
+        # Node information provided by AppController itself
+        "apps": {},
+        "cloud": "cloud1",
+        "state": "Done starting up AppScale, now in heartbeat mode",
+        "db_location": "192.168.33.10",
+        "public_ip": "2.2.2.2",
+        "private_ip": "10.10.105.19",
+        "roles": ["appengine"],
+      }
+    ])
     acc.should_receive('get_role_info').and_return(
-     [{'jobs':['shadow', 'login'], 'public_ip':'1.1.1.1'} ]
+     [{'jobs': ['shadow', 'login'], 'public_ip':'1.1.1.1'} ]
      )
     acc.should_receive('get_database_information').and_return(
       {'table':'fake_database', 'replication':1}
@@ -147,66 +233,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     flexmock(AppDashboardData).should_receive('get_all')\
       .with_args(app_dashboard_data.APIstatus)\
       .and_return(fake_api_q)
-
-    fake_server1 = flexmock(name='ServerStatus')
-    fake_server1.ip = '1.1.1.1'
-    fake_server1.cpu = '25'
-    fake_server1.memory = '50'
-    fake_server1.disk = '100'
-    fake_server1.cloud = 'cloud1'
-    fake_server1.roles = 'roles2'
-    fake_server1.should_receive('put').and_return()
-    fake_server2 = flexmock(name='ServerStatus')
-    fake_server2.ip = '2.2.2.2'
-    fake_server2.cpu = '75'
-    fake_server2.memory = '55'
-    fake_server2.disk = '100'
-    fake_server2.cloud = 'cloud1'
-    fake_server2.roles = 'roles2'
-    fake_server2.should_receive('put').and_return()
-    flexmock(app_dashboard_data).should_receive('ServerStatus')\
-      .and_return(fake_server1)
-    fake_server_q = flexmock()
-    fake_server_q.should_receive('ancestor').and_return()
-    fake_server_q.should_receive('run')\
-      .and_yield(fake_server1, fake_server2)
-    fake_server_q.should_receive('get')\
-      .and_return(fake_server1)\
-      .and_return(fake_server2)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.ServerStatus)\
-      .and_return(fake_server_q)
-    flexmock(AppDashboardData).should_receive('get_one')\
-      .with_args(app_dashboard_data.ServerStatus, re.compile('\d'))\
-      .and_return(fake_server1)\
-      .and_return(fake_server2)
-
-    fake_app1 = flexmock(name='AppStatus')
-    fake_app1.name = 'app1'
-    fake_app1.url = 'http://1.1.1.1:8080'
-    fake_app1.should_receive('put').and_return()
-    fake_app1.should_receive('delete').and_return()
-    fake_app2 = flexmock(name='AppStatus')
-    fake_app2.name = 'app2'
-    fake_app2.url = None
-    fake_app2.should_receive('put').and_return()
-    fake_app2.should_receive('delete').and_return()
-    flexmock(app_dashboard_data).should_receive('AppStatus')\
-      .and_return(fake_app1)
-    fake_app_q = flexmock()
-    fake_app_q.should_receive('ancestor').and_return()
-    fake_app_q.should_receive('run')\
-      .and_yield(fake_app1, fake_app2)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.AppStatus)\
-      .and_return(fake_app_q)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.AppStatus, keys_only=True)\
-      .and_return(fake_app_q)
-    flexmock(AppDashboardData).should_receive('get_one')\
-      .with_args(app_dashboard_data.AppStatus, re.compile('app'))\
-      .and_return(fake_app1)\
-      .and_return(fake_app2)
 
     user_info1 = flexmock(name='UserInfo')
     user_info1.email = 'a@a.com'

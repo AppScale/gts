@@ -2,18 +2,15 @@
 initiates actions accordingly. """
 
 import datetime
-import hashlib
 import helper
 import hermes_constants
 import json
 import logging
 import os
-import random
 import re
 import signal
 import SOAPpy
 import socket
-import string
 import sys
 import tarfile
 import tornado.escape
@@ -34,9 +31,9 @@ from tornado.options import parse_command_line
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
-import appscale_utils
+from appscale.common import appscale_info
+from appscale.common import appscale_utils
+
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
 
@@ -100,8 +97,8 @@ def poll():
   # The poller can move forward without waiting for a response here.
   helper.urlfetch_async(request)
 
-def send_all_stats():
-  """ Calls get_all_stats and sends the deployment monitoring stats to the
+def send_cluster_stats():
+  """ Calls get_cluster_stats and sends the deployment monitoring stats to the
   AppScale Portal. """
   deployment_id = helper.get_deployment_id()
   # If the deployment is not registered, skip.
@@ -110,7 +107,7 @@ def send_all_stats():
 
   # Get all stats from this deployment.
   logging.debug("Getting all stats from every deployment node.")
-  all_stats = helper.get_all_stats()
+  cluster_stats = helper.get_cluster_stats()
 
   # Send request to AppScale Portal.
   portal_path = hermes_constants.PORTAL_STATS_PATH.format(deployment_id)
@@ -118,7 +115,7 @@ def send_all_stats():
   data = {
     JSONTags.DEPLOYMENT_ID: deployment_id,
     JSONTags.TIMESTAMP: datetime.datetime.utcnow(),
-    JSONTags.ALL_STATS: json.dumps(all_stats)
+    JSONTags.ALL_STATS: json.dumps(cluster_stats)
   }
   logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".
     format(data))
@@ -255,7 +252,7 @@ def main():
 
   # Periodically send all available stats from each deployment node to the
   # AppScale Portal.
-  PeriodicCallback(send_all_stats, hermes_constants.STATS_INTERVAL).start()
+  PeriodicCallback(send_cluster_stats, hermes_constants.STATS_INTERVAL).start()
 
   # Periodically checks if the deployment is registered and uploads the
   # appscalesensor app for registered deployments.

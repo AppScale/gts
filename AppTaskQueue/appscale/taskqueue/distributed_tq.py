@@ -13,7 +13,17 @@ import sys
 import time
 import tq_lib
 
-from cassandra import OperationTimedOut
+from appscale.common import (
+  appscale_info,
+  constants,
+  file_io,
+  monit_app_configuration,
+  monit_interface
+)
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from cassandra import (InvalidRequest,
+                       OperationTimedOut)
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from distutils.spawn import find_executable
@@ -22,16 +32,8 @@ from queue import PullQueue
 from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
-from .unpackaged import APPSCALE_LIB_DIR
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
+from .queue import TransientError
 from .utils import logger
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import constants
-import file_io
-import monit_app_configuration
-import monit_interface
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
@@ -70,12 +72,12 @@ def create_pull_queue_tables(cluster, session):
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_tasks. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_tasks_index')
@@ -92,19 +94,27 @@ def create_pull_queue_tables(cluster, session):
   """
   statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_tasks_index.'
-      ' Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      ' Waiting {} seconds for schema to settle.'
+        .format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   logger.info('Trying to create pull_queue_tags index')
   create_index = """
     CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
   """
-  session.execute(create_index)
+  try:
+    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except (OperationTimedOut, InvalidRequest):
+    logger.warning(
+      'Encountered error while creating pull_queue_tags index. Waiting {} '
+      'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
+    raise
 
   # This additional index is needed for groupByTag=true,tag=None queries
   # because Cassandra can only do '=' queries on secondary indices.
@@ -113,7 +123,14 @@ def create_pull_queue_tables(cluster, session):
     CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
     ON pull_queue_tasks_index (tag_exists);
   """
-  session.execute(create_index)
+  try:
+    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except (OperationTimedOut, InvalidRequest):
+    logger.warning(
+      'Encountered error while creating pull_queue_tag_exists index. '
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
+    raise
 
   logger.info('Trying to create pull_queue_leases')
   create_leases_table = """
@@ -126,12 +143,12 @@ def create_pull_queue_tables(cluster, session):
   """
   statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
       'Encountered an operation timeout while creating pull_queue_leases. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
@@ -228,8 +245,8 @@ class DistributedTaskQueue():
     # Cache all queue information in memory.
     self.__queue_info_cache = {}
 
-    master_db_ip = appscale_info.get_db_master_ip()
-    connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
+    db_proxy = appscale_info.get_db_proxy()
+    connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
     ds_distrib = datastore_distributed.DatastoreDistributed(
       constants.DASHBOARD_APP_ID, connection_str, require_indexes=False)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
@@ -548,8 +565,13 @@ class DistributedTaskQueue():
     if request.has_tag():
       tag = request.tag()
 
-    tasks = queue.lease_tasks(request.max_tasks(), request.lease_seconds(),
-                              group_by_tag=request.group_by_tag(), tag=tag)
+    try:
+      tasks = queue.lease_tasks(request.max_tasks(), request.lease_seconds(),
+                                group_by_tag=request.group_by_tag(), tag=tag)
+    except TransientError as lease_error:
+      pb_error = taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR
+      return response.Encode(), pb_error, str(lease_error)
+
     for task in tasks:
       task_pb = response.add_task()
       task_pb.MergeFrom(task.encode_lease_pb())

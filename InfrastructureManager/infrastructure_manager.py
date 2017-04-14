@@ -328,7 +328,7 @@ class InfrastructureManager:
     try:
       security_configured = agent.configure_instance_security(parameters)
       instance_info = agent.run_instances(num_vms, parameters,
-        security_configured)
+        security_configured, public_ip_needed=False)
       ids = instance_info[0]
       public_ips = instance_info[1]
       private_ips = instance_info[2]

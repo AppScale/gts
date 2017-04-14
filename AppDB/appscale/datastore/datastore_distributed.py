@@ -11,11 +11,11 @@ import time
 import dbconstants
 import helper_functions
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
 from .utils import encode_entity_table_key
 from .utils import encode_index_pb
@@ -441,7 +441,7 @@ class DatastoreDistributed():
         start_inclusive=start_inclusive,
       )
 
-      pb_entities = self.__fetch_entities(references, app_id)
+      pb_entities = self.__fetch_entities(references)
       entities = [entity_pb.EntityProto(entity) for entity in pb_entities]
 
       self.insert_composite_indexes(entities, [index])
@@ -496,18 +496,16 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app, entities, txn_hash, composite_indexes=()):
+  def put_entities(self, app, entities, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
       app: A string containing the application ID.
       entities: List of entities.
-      txn_hash: A mapping of root keys to transaction IDs.
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
-    self.logger.debug('Inserting {} entities with transaction hash {}'.
-                      format(len(entities), txn_hash))
+    self.logger.debug('Inserting {} entities'.format(len(entities)))
     entity_keys = []
     for entity in entities:
       prefix = self.get_table_prefix(entity)
@@ -530,6 +528,8 @@ class DatastoreDistributed():
       txid = self.zookeeper.get_transaction_id(app, False)
       try:
         with lock:
+          batch = []
+          entity_changes = []
           for entity in entity_list:
             prefix = self.get_table_prefix(entity)
             entity_key = get_entity_key(prefix, entity.key().path())
@@ -539,17 +539,16 @@ class DatastoreDistributed():
               current_value = entity_pb.EntityProto(
                 current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-            batch = cassandra_interface.mutations_for_entity(
-              entity, txid, current_value, composite_indexes)
+            batch.extend(cassandra_interface.mutations_for_entity(
+              entity, txid, current_value, composite_indexes))
 
             batch.append({'table': 'group_updates',
                           'key': bytearray(encoded_group_key),
                           'last_update': txid})
 
-            entity_change = {'key': entity.key(),
-                             'old': current_value, 'new': entity}
-            self.datastore_batch.batch_mutate(
-              app, batch, [entity_change], txid)
+            entity_changes.append(
+              {'key': entity.key(), 'old': current_value, 'new': entity})
+          self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
       finally:
         self.zookeeper.remove_tx_node(app, txid)
 
@@ -632,8 +631,10 @@ class DatastoreDistributed():
       self.datastore_batch.put_entities_tx(
         app_id, put_request.transaction().handle(), entities)
     else:
-      self.put_entities(app_id, entities, '',
-                        put_request.composite_index_list())
+      try:
+        self.put_entities(app_id, entities, put_request.composite_index_list())
+      except entity_lock.LockTimeout as timeout_error:
+        raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
       self.logger.debug('Updated {} entities'.format(len(entities)))
 
     put_response.key_list().extend([e.key() for e in entities])
@@ -929,6 +930,8 @@ class DatastoreDistributed():
               composite_indexes=filtered_indexes
             )
           self.logger.debug('Removed {} entities'.format(len(key_list)))
+        except entity_lock.LockTimeout as timeout_error:
+          raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
         finally:
           self.zookeeper.remove_tx_node(app_id, txid)
 
@@ -1046,12 +1049,11 @@ class DatastoreDistributed():
 
     return True
 
-  def __fetch_entities_from_row_list(self, rowkeys, app_id):
+  def __fetch_entities_from_row_list(self, rowkeys):
     """ Given a list of keys fetch the entities from the entity table.
     
     Args:
       rowkeys: A list of strings which are keys to the entitiy table.
-      app_id: A string, the application identifier.
     Returns:
       A list of entities.
     """
@@ -1084,38 +1086,35 @@ class DatastoreDistributed():
         rowkeys.append(ent)
     return rowkeys
 
-  def __fetch_entities(self, refs, app_id):
+  def __fetch_entities(self, refs):
     """ Given a list of references, get the entities.
 
     Args:
       refs: key/value pairs where the values contain a reference to
             the entitiy table.
-      app_id: A string, the application identifier.
     Returns:
       A list of validated entities.
     """
     rowkeys = self.__extract_rowkeys_from_refs(refs)
-    return self.__fetch_entities_from_row_list(rowkeys, app_id)
+    return self.__fetch_entities_from_row_list(rowkeys)
 
-  def __fetch_entities_dict(self, refs, app_id):
+  def __fetch_entities_dict(self, refs):
     """ Given a list of references, return the entities as a dictionary.
 
     Args:
       refs: key/value pairs where the values contain a reference to
             the entitiy table.
-      app_id: A string, the application identifier.
     Returns:
       A dictionary of validated entities.
     """
     rowkeys = self.__extract_rowkeys_from_refs(refs)
-    return self.__fetch_entities_dict_from_row_list(rowkeys, app_id)
+    return self.__fetch_entities_dict_from_row_list(rowkeys)
 
-  def __fetch_entities_dict_from_row_list(self, rowkeys, app_id):
+  def __fetch_entities_dict_from_row_list(self, rowkeys):
     """ Given a list of rowkeys, return the entities as a dictionary.
 
     Args:
       rowkeys: A list of strings which are keys to the entitiy table.
-      app_id: A string, the application identifier.
     Returns:
       A dictionary of validated entities.
     """
@@ -1156,7 +1155,7 @@ class DatastoreDistributed():
       if len(refs_to_fetch) == 0:
         return results[:limit]
 
-      entities = self.__fetch_entities_dict_from_row_list(refs_to_fetch, app_id)
+      entities = self.__fetch_entities_dict_from_row_list(refs_to_fetch)
 
       # Prevent duplicate entities across queries with a cursor.
       entity_keys = entities.keys()
@@ -1587,7 +1586,7 @@ class DatastoreDistributed():
         end_inclusive=end_inclusive
       )
 
-      new_entities = self.__fetch_entities(references, clean_app_id(query.app()))
+      new_entities = self.__fetch_entities(references)
       entities.extend(new_entities)
 
       # If we have enough valid entities to satisfy the query, we're done.
@@ -1762,7 +1761,7 @@ class DatastoreDistributed():
         end_compiled_cursor=end_compiled_cursor
       )
 
-      potential_entities = self.__fetch_entities_dict(references, app_id)
+      potential_entities = self.__fetch_entities_dict(references)
 
       # Since the entities may be out of order due to invalid references,
       # we construct a new list in order of valid references.
@@ -2604,8 +2603,7 @@ class DatastoreDistributed():
         potential_entities = self.__extract_entities_from_composite_indexes(
           query, references)
       else:
-        potential_entities = self.__fetch_entities(
-          references, clean_app_id(query.app()))
+        potential_entities = self.__fetch_entities(references)
 
       if len(multiple_equality_filters) > 0:
         self.logger.debug('Detected multiple equality filters on a repeated '
@@ -3298,8 +3296,7 @@ class DatastoreDistributed():
     except dbconstants.TxTimeoutException as timeout:
       return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
-      self.logger.exception('DB connection error during {}'.
-                            format(http_request_data))
+      self.logger.exception('DB connection error during commit')
       return (commitres_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               'Datastore connection error on Commit request.')
     except dbconstants.ConcurrentModificationException as error:

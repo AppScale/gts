@@ -11,18 +11,20 @@ import unittest
 import urllib2
 from xml.etree import ElementTree
 
+from appscale.common import (
+  file_io,
+  appscale_info,
+  misc,
+  monit_interface,
+  testing
+)
 from flexmock import flexmock
+
+from appscale.common import monit_app_configuration
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
-import monit_app_configuration
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
-import appscale_info
-import misc
-import monit_interface
-import testing
 
 class TestAppManager(unittest.TestCase):
   def test_bad_convert_config_from_json(self):
@@ -37,9 +39,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -65,9 +66,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'badName!@#$%^&*([]/.,',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -80,15 +80,18 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
     }
     configuration = json.dumps(configuration)
 
+    flexmock(appscale_info).should_receive('get_db_proxy').\
+      and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_tq_proxy').\
+      and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
     flexmock(monit_app_configuration).should_receive('create_config_file').\
@@ -111,15 +114,18 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
     }
     configuration = json.dumps(configuration)
 
+    flexmock(appscale_info).should_receive('get_db_proxy').\
+      and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_tq_proxy').\
+      and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
     flexmock(monit_app_configuration).should_receive('create_config_file').\
@@ -147,9 +153,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'max_memory': 500
     }
@@ -229,6 +234,10 @@ class TestAppManager(unittest.TestCase):
     assert 'appscale' in env_vars['APPSCALE_HOME']
 
   def test_create_java_start_cmd(self): 
+    flexmock(appscale_info).should_receive('get_db_proxy').\
+      and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_tq_proxy').\
+      and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
     flexmock(app_manager_server).should_receive('locate_dir').\

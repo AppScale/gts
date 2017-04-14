@@ -1,14 +1,10 @@
 """ Provides a service which periodically runs the groomer. """
 import logging
-import sys
 
+from appscale.common import appscale_info
+from appscale.common.constants import LOG_FORMAT
 from .. import groomer
-from ..unpackaged import APPSCALE_LIB_DIR
 from ..zkappscale import zktransaction as zk
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-from constants import LOG_FORMAT
 
 # Location to find the datastore service.
 LOCAL_DATASTORE = "localhost:8888"

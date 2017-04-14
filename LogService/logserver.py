@@ -193,7 +193,7 @@ class AppRegistry(object):
 
   def iter(self):
     yield self._writer
-    for alf in reversed(self._log_files):
+    for alf in self._log_files:
       yield alf
 
   def get(self, requestIds):
@@ -281,6 +281,7 @@ class Protocol(protocol.Protocol):
 
   def processActionQuery(self, query):
     query = logging_capnp.Query.from_bytes(query)
+    log.msg("Received Query: {}".format(query))
     if len(query.requestIds) > 0:
       self.processActionQueryRequestIds(query.requestIds)
     else:
@@ -336,7 +337,7 @@ class Protocol(protocol.Protocol):
         break
       previousALF = alf
       previousPosition = position
-    results.sort(key=lambda entry: entry[1].endTime, reverse=True)
+    results.sort(key=lambda entry: entry[1].endTime, reverse=query.reverse)
     self.sendQueryResult([b for b, _ in results])
 
   def processActionQueryRequestIds(self, requestIds):
@@ -346,6 +347,7 @@ class Protocol(protocol.Protocol):
     self.sendQueryResult([results.get(ri) for ri in requestIds])
 
   def sendQueryResult(self, records):
+    log.msg("Sending {} Result(s)".format(len(records)))
     stream = StringIO()
     stream.write(struct.pack('I', len(records)))
     for record in records:

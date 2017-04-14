@@ -1,14 +1,10 @@
 import json
-import os
-import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import appscale_info
+from appscale.common import appscale_info
+from appscale.common import file_io
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
 
 class TestAppScaleInfo(unittest.TestCase):
   def test_get_num_cpus(self):
@@ -46,6 +42,16 @@ class TestAppScaleInfo(unittest.TestCase):
 
     flexmock(file_io).should_receive("read").and_return("")
     self.assertEquals(appscale_info.get_taskqueue_nodes(), [])
+
+  def test_get_db_proxy(self):
+    flexmock(file_io).should_receive("read").\
+      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    self.assertEquals("192.168.0.1", appscale_info.get_db_proxy())
+
+  def test_get_tq_proxy(self):
+    flexmock(file_io).should_receive("read").\
+      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    self.assertEquals("192.168.0.1", appscale_info.get_db_proxy())
 
   def test_get_zk_node_ips(self):
     flexmock(file_io).should_receive("read").\

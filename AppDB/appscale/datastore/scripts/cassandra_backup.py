@@ -5,15 +5,12 @@ import logging
 import os
 import sys
 
+from appscale.common.constants import LOG_FORMAT
+from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from ..backup.backup_exceptions import AmbiguousKeyException
 from ..backup.backup_exceptions import NoKeyException
 from ..backup.cassandra_backup import backup_data
 from ..backup.cassandra_backup import restore_data
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import INFRASTRUCTURE_MANAGER_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils.utils import KEY_DIRECTORY

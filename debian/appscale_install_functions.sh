@@ -73,11 +73,11 @@ cachepackage() {
 # at next boot. AppScale manages those services.
 disableservice() {
     if [ -n "$1" ]; then
-      update-rc.d "${1}" disable || true
-      # The following to make sure we disable it for upstart.
-      if [ -d "/etc/init" ]; then
-          echo "manual" > /etc/init/"${1}".override
-      fi
+        update-rc.d "${1}" disable || true
+        # The following to make sure we disable it for upstart.
+        if [ -d "/etc/init" ]; then
+            echo "manual" > /etc/init/"${1}".override
+        fi
     else
         echo "Need a service name to disable!"
         exit 1
@@ -211,7 +211,8 @@ EOF
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
-        cp ${APPSCALE_HOME}/lib/templates/appscale-logrotate.conf /etc/logrotate.d/appscale
+        cp ${APPSCALE_HOME}/common/appscale/common/templates/appscale-logrotate.conf \
+            /etc/logrotate.d/appscale
     fi
 
     # Logrotate AppScale logs hourly.
@@ -338,7 +339,9 @@ installcassandra()
     rm -rf ${APPSCALE_HOME}/AppDB/cassandra
 
     CASSANDRA_DIR="/opt/cassandra"
+    CASSANDRA_DATA_DIR="/opt/appscale/cassandra"
     mkdir -p ${CASSANDRA_DIR}
+    mkdir -p ${CASSANDRA_DATA_DIR}
     rm -rf ${CASSANDRA_DIR}/cassandra
     tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
     mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} \
@@ -348,6 +351,7 @@ installcassandra()
         useradd cassandra
     fi
     chown -R cassandra ${CASSANDRA_DIR}
+    chown -R cassandra ${CASSANDRA_DATA_DIR}
 }
 
 postinstallcassandra()
@@ -556,6 +560,12 @@ preplogserver()
     FILE_SRC="$APPSCALE_HOME_RUNTIME/LogService/logging.capnp"
     FILE_DEST="$APPSCALE_HOME_RUNTIME/AppServer/google/appengine/api/logservice/logging.capnp"
     cp ${FILE_SRC} ${FILE_DEST}
+}
+
+installcommon()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/common
+    pip install ${APPSCALE_HOME}/common
 }
 
 installtaskqueue()

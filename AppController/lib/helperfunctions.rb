@@ -478,6 +478,14 @@ module HelperFunctions
     end
   end
 
+
+  # Prepare the application code to be run by AppServers.
+  #
+  # Args:
+  #   app_name: A String containing the application id.
+  # Raise:
+  #   AppScaleException: if the setup failed for whatever reason (ie bad
+  #     tarball). The exception message would indicate the error.
   def self.setup_app(app_name)
     meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
@@ -488,8 +496,12 @@ module HelperFunctions
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
 
-    self.shell("tar --file #{tar_path} --force-local --no-same-owner " +
-      "-C #{tar_dir} -zx")
+    cmd = "tar -xzf #{tar_path} --force-local --no-same-owner -C #{tar_dir}"
+    unless system(cmd)
+      Djinn.log_warn("setup_app: #{cmd} failed.")
+      FileUtils.rm_f(tar_dir)
+      raise AppScaleException.new("Failed to untar #{tar_path}.")
+    end
 
     # Separate extra dependencies for Go applications.
     begin
@@ -497,6 +509,8 @@ module HelperFunctions
     rescue Errno::ENOENT
       Djinn.log_debug("#{app_name} does not have a gopath directory")
     end
+
+    return true
   end
 
 
@@ -839,31 +853,6 @@ module HelperFunctions
     }
 
     self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
-  end
-
-  def self.get_usage
-    top_results = `top -n1 -d0 -b`
-    usage = {}
-    usage['cpu'] = 0.0
-    usage['mem'] = 0.0
-
-    top_results.each_line { |line|
-      cpu_and_mem_usage = line.split()
-      # Skip any lines that don't list the CPU and memory for a process.
-      next if cpu_and_mem_usage.length != 12
-      next if cpu_and_mem_usage[8] == "average:"
-      next if cpu_and_mem_usage[8] == "%CPU"
-      usage['cpu'] += cpu_and_mem_usage[8].to_f
-      usage['mem'] += cpu_and_mem_usage[9].to_i
-    }
-
-    usage['cpu'] /= self.get_num_cpus()
-    usage['num_cpu'] = self.get_num_cpus()
-    usage['disk'] = (`df /`.scan(/(\d+)%/) * "").to_i
-    usage['load'] = self.get_avg_load()
-    usage['free_mem'] = ((100 - Integer(Float(usage['mem']).truncate())) * self.get_total_mem()) / 100
-
-    return usage
   end
 
   def self.generate_location_config handler
@@ -1309,19 +1298,6 @@ module HelperFunctions
 
     Djinn.log_debug(env)
   end
-
-  def self.get_avg_load()
-    return IO.read(PROC_LOAD_FILE).split[0].to_i
-  end
-
-  def self.get_total_mem()
-    return (IO.read(PROC_MEM_FILE).split[1].to_i / 1024)
-  end
-
-  def self.get_num_cpus()
-    return Integer(`cat /proc/cpuinfo | grep 'processor' | wc -l`.chomp)
-  end
-
 
   # Finds the configuration file for the given Google App Engine application to
   # see if any environment variables should be set for it.
