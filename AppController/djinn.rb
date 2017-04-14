@@ -4236,7 +4236,7 @@ class Djinn
     my_private = my_node.private_ip
 
     # Populate the appropriate list.
-    num_nodes = 0
+    num_of_nodes = 0
     @state_change_lock.synchronize {
       num_of_nodes = @nodes.length.to_s
       @nodes.each { |node|
