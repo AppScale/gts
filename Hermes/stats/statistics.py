@@ -1,8 +1,12 @@
-from collections import namedtuple
-from datetime import datetime
+import StringIO
+import csv
+import logging
 import os
-import time
+import subprocess
 import sys
+import time
+from collections import namedtuple, defaultdict
+from datetime import datetime
 
 import psutil
 
@@ -11,20 +15,20 @@ import appscale_info
 
 
 # Lightweight data structures for describing resource usage:
-_NodeCPU = namedtuple('NodeCPU', ['user', 'system', 'idle', 'percent', 'count'])
-_NodeLoadAvg = namedtuple(
+NodeCPU = namedtuple('NodeCPU', ['user', 'system', 'idle', 'percent', 'count'])
+NodeLoadAvg = namedtuple(
   'NodeLoadAvg', ['last_1min', 'last_5min', 'last_15min']
 )
-_NodeMemory = namedtuple('NodeMemory', ['total', 'available', 'used'])
-_NodeSwap = namedtuple('NodeSwap', ['total', 'free', 'used'])
-_NodeDiskIO = namedtuple(
+NodeMemory = namedtuple('NodeMemory', ['total', 'available', 'used'])
+NodeSwap = namedtuple('NodeSwap', ['total', 'free', 'used'])
+NodeDiskIO = namedtuple(
   'NodeDiskIO', ['read_count', 'write_count', 'read_bytes', 'write_bytes',
                  'read_time', 'write_time']
 )
-_NodePartition = namedtuple(
+NodePartition = namedtuple(
   'NodePartition', ['mountpoint', 'total', 'free', 'used']
 )
-_NodeNetwork = namedtuple(
+NodeNetwork = namedtuple(
   'NodeNetwork', ['bytes_sent', 'bytes_recv', 'packets_sent', 'packets_recv',
                   'errin', 'errout', 'dropin', 'dropout', 'connections_num']
 )
@@ -44,19 +48,19 @@ class NodeStats(object):
     self.private_ip = private_ip
     self.timestamp = timestamp
     self.cpu = cpu
-    """ :type _NodeCPU """
+    """ :type NodeCPU """
     self.memory = memory
-    """ :type _NodeMemory """
+    """ :type NodeMemory """
     self.swap = swap
-    """ :type _NodeSwap """
+    """ :type NodeSwap """
     self.disk_io = disk_io
-    """ :type _NodeDiskIO """
+    """ :type NodeDiskIO """
     self.partitions_dict = partitions_dict
-    """ :type dict[str, _NodePartition] """
+    """ :type dict[str, NodePartition] """
     self.network = network
-    """ :type _NodeNetwork """
+    """ :type NodeNetwork """
     self.loadavg = loadavg
-    """ :type _NodeLoadAvg """
+    """ :type NodeLoadAvg """
 
   @staticmethod
   def describe_node():
@@ -71,22 +75,22 @@ class NodeStats(object):
 
     # CPU usage
     cpu_times = psutil.cpu_times()
-    cpu = _NodeCPU(
+    cpu = NodeCPU(
       user=cpu_times.user, system=cpu_times.system, idle=cpu_times.idle,
       percent=psutil.cpu_percent(), count=psutil.cpu_count()
     )
 
     # AvgLoad
-    loadavg = _NodeLoadAvg(os.getloadavg())
+    loadavg = NodeLoadAvg(os.getloadavg())
 
     # Memory usage
     virtual = psutil.virtual_memory()
-    memory = _NodeMemory(
+    memory = NodeMemory(
       total=virtual.total, available=virtual.available, used=virtual.used)
 
     # Swap usage
     swap_mem = psutil.swap_memory()
-    swap = _NodeSwap(
+    swap = NodeSwap(
       total=swap_mem.total, free=swap_mem.free, used=swap_mem.used
     )
 
@@ -95,11 +99,11 @@ class NodeStats(object):
     partitions_dict = {}
     for part in partitions:
       usage = psutil.disk_usage(part.mountpoint)
-      partitions_dict[part.mountpoint] = _NodePartition(
+      partitions_dict[part.mountpoint] = NodePartition(
         total=usage.total, used=usage.used, free=usage.free
       )
     io_counters = psutil.disk_io_counters()
-    disk_io = _NodeDiskIO(
+    disk_io = NodeDiskIO(
       read_count=io_counters.read_count, write_count=io_counters.write_count,
       read_bytes=io_counters.read_bytes, write_bytes=io_counters.write_bytes,
       read_time=io_counters.read_time, write_time=io_counters.write_time
@@ -107,7 +111,7 @@ class NodeStats(object):
 
     # Network usage
     network_io = psutil.net_io_counters()
-    network = _NodeNetwork(
+    network = NodeNetwork(
       bytes_sent=network_io.bytes_sent, bytes_recv=network_io.bytes_recv,
       packets_sent=network_io.packets_sent, packets_recv=network_io.packets_recv,
       errin=network_io.errin, errout=network_io.errout, dropin=network_io.dropin,
@@ -122,13 +126,13 @@ class NodeStats(object):
 
 
 # Lightweight data structures for describing resource usage:
-_ProcessCPU = namedtuple('ProcessCPU', ['user', 'system', 'percent'])
-_ProcessMemory = namedtuple('ProcessMemory', ['resident', 'virtual', 'unique'])
-_ProcessDiskIO = namedtuple(
+ProcessCPU = namedtuple('ProcessCPU', ['user', 'system', 'percent'])
+ProcessMemory = namedtuple('ProcessMemory', ['resident', 'virtual', 'unique'])
+ProcessDiskIO = namedtuple(
   'ProcessDiskIO', ['read_count', 'write_count', 'read_bytes', 'write_bytes']
 )
-_ProcessNetwork = namedtuple('ProcessNetwork', ['connections_num'])
-_ProcessChildrenSum = namedtuple(
+ProcessNetwork = namedtuple('ProcessNetwork', ['connections_num'])
+ProcessChildrenSum = namedtuple(
   'ProcessChildrenSum', ['cpu', 'memory', 'disk_io', 'network', 'threads_num']
 )
 
@@ -144,23 +148,24 @@ class ProcessStats(object):
   All processes started by monit should be profiled.
   """
 
-  def __init__(self, pid, service_name, cmdline, timestamp, cpu, memory, disk_io,
-               network, threads_num, children_stats_sum, children_num):
+  def __init__(self, pid, appscale_service_name, cmdline, timestamp, cpu,
+               memory, disk_io, network, threads_num, children_stats_sum,
+               children_num):
      self.pid = pid
-     self.service_name = service_name
+     self.appscale_service_name = appscale_service_name
      self.cmdline = cmdline
      self.timestamp = timestamp
      self.cpu = cpu
-     """ :type _ProcessCPU """
+     """ :type ProcessCPU """
      self.memory = memory
-     """ :type _ProcessMemory """
+     """ :type ProcessMemory """
      self.disk_io = disk_io
-     """ :type _ProcessDiskIO """
+     """ :type ProcessDiskIO """
      self.network = network
-     """ :type _ProcessNetwork """
+     """ :type ProcessNetwork """
      self.threads_num = threads_num
      self.children_stats_sum = children_stats_sum
-     """ :type _ProcessChildrenSum """
+     """ :type ProcessChildrenSum """
      self.children_num = children_num
 
   @staticmethod
@@ -186,16 +191,16 @@ class ProcessStats(object):
 
     # CPU usage
     raw_cpu= process_info.cpu_times()
-    cpu = _ProcessCPU(user=raw_cpu.user, system=raw_cpu.system)
-    children_cpu = _ProcessCPU(user=raw_cpu.children_user,
+    cpu = ProcessCPU(user=raw_cpu.user, system=raw_cpu.system)
+    children_cpu = ProcessCPU(user=raw_cpu.children_user,
                                system=raw_cpu.children_system)
 
     # Memory usage
     raw_mem = process_info.memory_full_info()
-    memory = _ProcessMemory(resident=raw_mem.rss, virtual=raw_mem.vms,
+    memory = ProcessMemory(resident=raw_mem.rss, virtual=raw_mem.vms,
                             unique=raw_mem.uss)
     children_raw_mem = [child.memory_full_info() for child in children_info]
-    children_memory = _ProcessMemory(
+    children_memory = ProcessMemory(
       resident=sum(m.rss for m in children_raw_mem),
       virtual=sum(m.vms for m in children_raw_mem),
       unique=sum(m.uss for m in children_raw_mem)
@@ -203,12 +208,12 @@ class ProcessStats(object):
 
     # Summarized values of DiskIO usage
     raw_disk = process_info.io_counters()
-    disk_io = _ProcessDiskIO(read_count=raw_disk.read_count,
+    disk_io = ProcessDiskIO(read_count=raw_disk.read_count,
                              write_count=raw_disk.write_count,
                              read_bytes=raw_disk.read_bytes,
                              write_bytes=raw_disk.write_bytes)
     children_raw_disk = [child.io_counters() for child in children_info]
-    children_disk_io = _ProcessDiskIO(
+    children_disk_io = ProcessDiskIO(
       read_count=sum(d.read_count for d in children_raw_disk),
       write_count=sum(d.write_count for d in children_raw_disk),
       read_bytes=sum(d.read_bytes for d in children_raw_disk),
@@ -216,8 +221,8 @@ class ProcessStats(object):
     )
 
     # Summarized values of Network usage
-    network = _ProcessNetwork(connections_num=len(process_info.connections()))
-    children_network = _ProcessNetwork(
+    network = ProcessNetwork(connections_num=len(process_info.connections()))
+    children_network = ProcessNetwork(
       connections_num=sum(len(child.connections()) for child in children_info)
     )
 
@@ -225,30 +230,195 @@ class ProcessStats(object):
     threads_num = len(process_info.thread())
     children_threads_num = sum(len(child.threads()) for child in children_info)
 
-    children_sum = _ProcessChildrenSum(
+    children_sum = ProcessChildrenSum(
       cpu=children_cpu, memory=children_memory, disk_io=children_disk_io,
       network=children_network, threads_num=children_threads_num
     )
 
     return ProcessStats(
-      pid=pid, service_name=service_name, cmdline=process_info.cmdline(),
+      pid=pid, appscale_service_name=service_name, cmdline=process_info.cmdline(),
       timestamp=timestamp, cpu=cpu, memory=memory, disk_io=disk_io,
       network=network, threads_num=threads_num, children_stats_sum=children_sum,
       children_num=len(children_info)
     )
 
 
-class ServiceRequestsStats(object):
+# List of fields was got from HAProxy v1.5 documentation:
+# https://cbonte.github.io/haproxy-dconv/1.5/configuration.html#9.1
+
+HAPROXY_LISTENER_FIELDS = [
+  'pxname', 'svname', 'scur', 'smax', 'slim', 'stot', 'bin', 'bout', 'dreq',
+  'dresp', 'ereq', 'status', 'pid', 'iid', 'sid', 'type'
+]
+
+HAPROXY_FRONTEND_FIELDS = [
+  'pxname', 'svname', 'scur', 'smax', 'slim', 'stot', 'bin', 'bout', 'dreq',
+  'dresp', 'ereq', 'status', 'pid', 'iid', 'type', 'rate', 'rate_lim',
+  'rate_max', 'hrsp_1xx', 'hrsp_2xx', 'hrsp_3xx', 'hrsp_4xx', 'hrsp_5xx',
+  'hrsp_other', 'req_rate', 'req_rate_max', 'req_tot', 'comp_in', 'comp_out',
+  'comp_byp', 'comp_rsp'
+]
+
+HAPROXY_BACKEND_FIELDS = [
+  'pxname', 'svname', 'qcur', 'qmax', 'scur', 'smax', 'slim', 'stot', 'bin',
+  'bout', 'dreq', 'dresp', 'econ', 'eresp', 'wretr', 'wredis', 'status',
+  'weight', 'act', 'bck', 'chkdown', 'lastchg', 'downtime', 'pid', 'iid',
+  'lbtot', 'type', 'rate', 'rate_max', 'hrsp_1xx', 'hrsp_2xx', 'hrsp_3xx',
+  'hrsp_4xx', 'hrsp_5xx', 'hrsp_other', 'cli_abrt', 'srv_abrt', 'comp_in',
+  'comp_out', 'comp_byp', 'comp_rsp', 'lastsess', 'qtime', 'ctime', 'rtime',
+  'ttime'
+]
+
+HAPROXY_SERVER_FIELDS = [
+  'pxname', 'svname', 'qcur', 'qmax', 'scur', 'smax', 'slim', 'stot', 'bin',
+  'bout', 'dresp', 'econ', 'eresp', 'wretr', 'wredis', 'status', 'weight',
+  'act', 'bck', 'chkfail', 'chkdown', 'lastchg', 'downtime', 'qlimit', 'pid',
+  'iid', 'sid', 'throttle', 'lbtot', 'tracked', 'type', 'rate', 'rate_max',
+  'check_status', 'check_code', 'check_duration', 'hrsp_1xx', 'hrsp_2xx',
+  'hrsp_3xx', 'hrsp_4xx', 'hrsp_5xx', 'hrsp_other', 'hanafail', 'cli_abrt',
+  'srv_abrt', 'lastsess', 'last_chk', 'last_agt', 'qtime', 'ctime', 'rtime',
+  'ttime'
+]
+
+ALL_HAPROXY_FIELDS = set(
+  HAPROXY_LISTENER_FIELDS + HAPROXY_FRONTEND_FIELDS
+  + HAPROXY_BACKEND_FIELDS + HAPROXY_SERVER_FIELDS
+)
+INTEGER_FIELDS = set(ALL_HAPROXY_FIELDS) - {'pxname', 'svname',
+                                            'status', 'check_status'}
+
+class _UnknownValue(object):
   """
-  Instance of this class stores structured information about service usage.
+  Instance of this private class denotes unknown value.
+  It's used to denote values of stats properties which are missed
+  in haproxy stats csv
+  """
+  def __nonzero__(self):
+    return False
+  def __repr__(self):
+    return "-"
+
+UNKNOWN_VALUE = _UnknownValue()
+
+HAProxyListenerStats = namedtuple('HAProxyListenerStats', HAPROXY_LISTENER_FIELDS)
+HAProxyFrontendStats = namedtuple('HAProxyFrontendStats', HAPROXY_FRONTEND_FIELDS)
+HAProxyBackendStats = namedtuple('HAProxyBackendStats', HAPROXY_BACKEND_FIELDS)
+HAProxyServerStats = namedtuple('HAProxyServerStats', HAPROXY_SERVER_FIELDS)
+
+
+class InvalidHAProxyStats(ValueError):
+  pass
+
+
+class ProxyStats(object):
+  """
+  Object of ProxyStats is kind of structured container for all haproxy stats
+  provided for the specific proxy (e.g.: TaskQueue, UserAppServer, ...)
   
-  This kind of statistics is supposed to be collected only on LoadBalancer node
-  where haproxy is run
+  Only those Hermes nodes which are collocated with HAProxy collects this stats.
   """
-  def __init__(self):
-    pass
+
+  def __init__(self, name, appscale_service_name, timestamp,
+               frontend, backend, servers, listeners):
+    self.name = name
+    self.appscale_service_name = appscale_service_name
+    self.timestamp = timestamp
+    self.frontend = frontend
+    """ :type HAProxyFrontendStats """
+    self.backend = backend
+    """ :type HAProxyBackendStats """
+    self.servers = servers
+    """ :type list[HAProxyServerStats] """
+    self.servers = listeners
+    """ :type list[HAProxyListenerStats] """
 
   @staticmethod
-  def describe_service(haproxy_backend_name):
-    # TODO
-    pass
+  def _get_field_value(row, field_name):
+    """ Private method for getting value from csv cell """
+    if field_name not in row:
+      return UNKNOWN_VALUE
+    value = row[field_name]
+    if not value:
+      return None
+    if field_name in INTEGER_FIELDS:
+      return int(value)
+    return value
+
+  @staticmethod
+  def describe_proxies(stats_socket_path, appscale_names_mapper):
+    """ Static method which parses haproxy stats and returns detailed
+    proxy statistics for all proxies.
+    
+    Args:
+      stats_socket_path: a str representing path to haproxy stats socket
+      appscale_names_mapper: an object with method 'from_proxy_name' which
+                             returns standard appscale name for the proxy 
+    Returns:
+      dict[<proxy_name>, ProxyStats]
+    """
+    # Get CSV table with haproxy stats
+    csv_text = subprocess.check_output(
+      "echo 'show stat' | socat stdio unix-connect:{}"
+      .format(stats_socket_path), shell=True
+    ).replace("# ", "", 1)
+    csv_buffer = StringIO.StringIO(csv_text)
+    table = csv.DictReader(csv_buffer, delimiter=',')
+    missed_fields = ALL_HAPROXY_FIELDS - set(table.fieldnames)
+    if missed_fields:
+      logging.warning("HAProxy stats fields {} are missed. Old version of "
+                      "HAProxy is probably used (v1.5+ is expected)"
+                      .format(list(missed_fields)))
+
+    timestamp = time.mktime(datetime.utcnow().timetuple())
+
+    # Parse haproxy stats output line by line
+    parsed_objects = defaultdict(list)
+    for row in table:
+      proxy_name = row['pxname']
+      svname = row['svname']
+      if svname == 'FRONTEND':
+        stats_type = HAProxyFrontendStats
+      elif svname == 'BACKEND':
+        stats_type = HAProxyBackendStats
+      elif row['qcur']:
+        # Listener stats doesn't have "current queued requests" property
+        stats_type = HAProxyServerStats
+      else:
+        stats_type = HAProxyListenerStats
+
+      stats_values = {
+        field: ProxyStats._get_field_value(row, field)
+        for field in stats_type._fields
+      }
+
+      stats = stats_type(**stats_values)
+      parsed_objects[proxy_name].append(stats)
+
+    # Attempt to merge separate stats object to ProxyStats instances
+    proxy_stats_dict = {}
+    for proxy_name, stats_objects in parsed_objects.iteritems():
+      frontends = [stats for stats in stats_objects
+                   if isinstance(stats, HAProxyFrontendStats)]
+      backends = [stats for stats in stats_objects
+                  if isinstance(stats, HAProxyBackendStats)]
+      servers = [stats for stats in stats_objects
+                 if isinstance(stats, HAProxyServerStats)]
+      listeners = [stats for stats in stats_objects
+                   if isinstance(stats, HAProxyListenerStats)]
+      if len(frontends) != 1 or len(backends) != 1:
+        raise InvalidHAProxyStats(
+          "Exactly one FRONTEND and one BACKEND line should correspond to "
+          "a single proxy. Proxy '{}' has {} frontends and {} backends"
+          .format(proxy_name, len(frontends), len(backends))
+        )
+
+      # Create ProxyStats object which contains all stats related to the proxy
+      appscale_name = appscale_names_mapper.from_proxy_name(proxy_name)
+      proxy_stats = ProxyStats(
+        name=proxy_name, appscale_service_name=appscale_name,
+        timestamp=timestamp, frontend=frontends[0], backend=backends[0],
+        servers=servers, listeners=listeners
+      )
+      proxy_stats_dict[proxy_name] = proxy_stats
+
+    return proxy_stats_dict

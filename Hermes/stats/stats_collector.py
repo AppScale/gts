@@ -124,84 +124,10 @@ class StatsManager(object):
     raise gen.Return(json.loads(response.body))
 
 
-class ServiceStatsCollector(object):
-  def __init__(self, service_name):
-    self.service_name = service_name
-
-  @gen.coroutine
-  def get_all_servers_stats_async(self):
-    """Makes a request to each server to get their stats.
-
-    Returns:
-      Future object which will have a result with
-      dicts hierarchy containing statistics about service performance:
-      > { serverIP-Port: {
-      >       method: {
-      >           SUCCESS/ErrorName: (totalReqsSeen, totalTimeTaken) }}}
-    """
-    # Do multiple requests asynchronously and wait for all results
-    servers_stats_dict = yield {
-      ip_port: self.get_server_stats_async(ip_port)
-      for ip_port in self.list_servers()
-    }
-    raise gen.Return(servers_stats_dict)
-
-  def list_servers(self):
-    haproxy_stats_socket = "/etc/haproxy/stats"
-    servers = subprocess.check_output(
-      "echo 'show stat' | socat stdio unix-connect:{} | grep {}"
-      .format(haproxy_stats_socket, self.service_name), shell=True
-    )
-    # Match all IP:port and return as a list of strings
-    pattern = r"{server}-([\d.]+:\d+)".format(server=self.service_name)
-    return re.findall(pattern, str(servers))
-
-  @gen.coroutine
-  def get_server_stats_async(self, server_ip_port):
-    url = "http://{ip_port}".format(ip_port=server_ip_port)
-    request = helper.create_request(url, method='GET')
-    async_client = httpclient.AsyncHTTPClient()
-
-    try:
-      # Send Future object to coroutine and suspend till result is ready
-      response = yield async_client.fetch(request)
-    except httpclient.HTTPError as err:
-      logging.error("Error while trying to fetch {}: {}".format(url, err))
-      # Return nothing but don't raise an error
-      raise gen.Return({})
-
-    db_info = json.loads(response.body)
-    # Return node stats (e.g.:{'Commit': {'Success': (235, 12.53), ..}, ...})
-    raise gen.Return({
-      method: {
-        self.error_name(error_code): (total_req, total_time)
-        for error_code, (total_req, total_time) in stats.iteritems()
-      }
-      for method, stats in db_info.iteritems()
-    })
-
-  @staticmethod
-  def error_name(error_code):
-    raise NotImplemented
-
-
-class TaskQueueStatsCollector(ServiceStatsCollector):
-  def __init__(self):
-    super(TaskQueueStatsCollector, self).__init__("TaskQueue")
-
-  @staticmethod
-  def error_name(error_code):
-    if error_code == '0':
-      return 'SUCCESS'
-    return taskqueue_service_pb.Error.ErrorCode_Name(error_code)
-
-
-class DatastoreStatsCollector(ServiceStatsCollector):
-  def __init__(self):
-    super(DatastoreStatsCollector, self).__init__("appscale-datastore_server")
-
-  @staticmethod
-  def error_name(error_code):
-    if error_code == '0':
-      return 'SUCCESS'
-    return datastore_pb.Error.ErrorCode_Name(error_code)
+class AppScaleNamesMapper(object):
+  def from_proxy_name(self, proxy_name):
+    # TODO
+    pass
+  def from_monit_name(self, monit_name):
+    # TODO
+    pass
