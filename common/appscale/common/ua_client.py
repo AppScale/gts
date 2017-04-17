@@ -76,7 +76,7 @@ class UAClient(object):
       raise UAException(response)
 
   def does_app_exist(self, app_id):
-    """ Checks if a user exists.
+    """ Checks if an application exists.
 
     Args:
       app_id: A string specifying an application ID.
