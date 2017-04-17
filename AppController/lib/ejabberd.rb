@@ -281,7 +281,7 @@ SCRIPT
 			{access, c2s},
 			{shaper, c2s_shaper},
 			{max_stanza_size, 65536},
-			starttls, {certfile, "#{Djinn.APPSCALE_CONFIG_DIR}/ejabberd.pem"}
+			starttls, {certfile, "#{Djinn::APPSCALE_CONFIG_DIR}/ejabberd.pem"}
 		       ]},
 
   {5269, ejabberd_s2s_in, [
@@ -298,7 +298,7 @@ SCRIPT
  ]}.
 
 {s2s_use_starttls, true}.
-{s2s_certfile, "#{Djinn.APPSCALE_CONFIG_DIR}/ejabberd.pem"}.
+{s2s_certfile, "#{Djinn::APPSCALE_CONFIG_DIR}/ejabberd.pem"}.
 
 %%%   ==============
 %%%   AUTHENTICATION
