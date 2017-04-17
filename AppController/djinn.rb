@@ -4142,7 +4142,9 @@ class Djinn
     secret_key_loc = "#{APPSCALE_CONFIG_DIR}/secret.key"
     cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
     key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
-
+    Djinn.log_run("cat #{cert_loc} > "\
+                  "#{APPSCALE_CONFIG_DIR}/ejabberd.pem && cat #{key_loc} >> "\
+                  "#{APPSCALE_CONFIG_DIR}/ejabberd.pem")
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
     HelperFunctions.scp_file(cert_loc, cert_loc, ip, ssh_key)
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)

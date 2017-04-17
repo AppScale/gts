@@ -101,6 +101,11 @@ case "$DIST" in
         ;;
 esac
 
+# Ejabberd fails creating a cert on Azure because of domain name length, if
+# the file exists already it will skip creating it and not fail. We change
+# the value of /etc/ejabberd/ejabberd.pem later during start_ejabberd.
+mkdir -p /etc/ejabberd && touch /etc/ejabberd/ejabberd.pem
+
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +)"
