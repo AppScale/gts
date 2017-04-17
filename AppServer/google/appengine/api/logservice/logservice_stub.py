@@ -21,10 +21,8 @@ import base64
 import capnp # pylint: disable=unused-import
 import logging
 import logging_capnp
-import os
 import socket
 import struct
-import sys
 import time
 
 
@@ -35,8 +33,7 @@ from google.appengine.runtime import apiproxy_errors
 from Queue import Queue, Empty
 
 # Add path to import file_io
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../lib"))
-import file_io
+from appscale.common import file_io
 
 _I_SIZE = struct.calcsize('I')
 

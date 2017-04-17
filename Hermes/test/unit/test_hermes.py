@@ -9,8 +9,7 @@ import unittest
 import SOAPpy
 import tarfile
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import appscale_info
+from appscale.common import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import helper

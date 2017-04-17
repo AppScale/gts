@@ -11,6 +11,9 @@ import sys
 import time
 import uuid
 
+from appscale.common import appscale_info
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
 from cassandra.query import BatchStatement
@@ -27,8 +30,6 @@ from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import Operations
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..utils import clean_app_id
 from ..utils import create_key
 from ..utils import encode_index_pb
@@ -40,10 +41,6 @@ from ..utils import get_index_kv_from_tuple
 from ..utils import get_kind_key
 from ..utils import get_write_time
 from ..utils import tx_partition
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-from constants import SCHEMA_CHANGE_TIMEOUT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb

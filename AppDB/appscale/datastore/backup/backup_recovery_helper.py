@@ -13,6 +13,9 @@ from os.path import getsize
 
 import gcs_helper
 
+from appscale.common import appscale_info
+from appscale.common.constants import APPSCALE_DATA_DIR
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup.br_constants import APP_BACKUP_DIR_LOCATION
 from appscale.datastore.backup.br_constants import APP_DIR_LOCATION
@@ -20,12 +23,8 @@ from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
 from appscale.datastore.backup.br_constants import BACKUP_ROLLBACK_SUFFIX
 from appscale.datastore.backup.br_constants import PADDING_PERCENTAGE
 from appscale.datastore.backup.br_constants import StorageTypes
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-from constants import APPSCALE_DATA_DIR
-
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
 # The port that the SOAP server listens to.
