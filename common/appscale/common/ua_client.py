@@ -82,8 +82,14 @@ class UAClient(object):
       app_id: A string specifying an application ID.
     Returns:
       A boolean indicating whether or not the application exists.
+    Raises:
+      UAException when unable to determine if app exists.
     """
     response = self.server.does_app_exist(app_id, self.secret)
+
+    if response.lower() not in ['true', 'false']:
+      raise UAException(response)
+
     return response.lower() == 'true'
 
   def does_user_exist(self, email):
@@ -93,8 +99,14 @@ class UAClient(object):
       email: A string specifying an email address.
     Returns:
       A boolean indicating whether or not the user exists.
+    Raises:
+      UAException when unable to determine if user exist.
     """
     response = self.server.does_user_exist(email, self.secret)
+
+    if response.lower() not in ['true', 'false']:
+      raise UAException(response)
+
     return response.lower() == 'true'
 
   def get_all_users(self):
@@ -123,9 +135,17 @@ class UAClient(object):
       app_id: A string specifying an application ID.
     Returns:
       A dictionary containing application metadata.
+    Raises:
+      UAException if unable to retrieve application metadata.
     """
     response = self.server.get_app_data(app_id, self.secret)
-    return json.loads(response)
+
+    try:
+      data = json.loads(response)
+    except ValueError:
+      raise UAException(response)
+
+    return data
 
   def get_user_data(self, email):
     """ Retrieves user metadata.
