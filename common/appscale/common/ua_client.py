@@ -33,7 +33,7 @@ class UAClient(object):
       UAException if the operation was not successful.
     """
     response = self.server.add_admin_for_app(email, app_id, self.secret)
-    if response.lower != 'true':
+    if response.lower() != 'true':
       raise UAException(response)
 
   def commit_new_user(self, email, hashed_pwd, type):
