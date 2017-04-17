@@ -342,31 +342,28 @@ CONFIG
     end
   end
 
-
-  # Creates an Nginx configuration file for the Users/Apps soap server.
+  # Creates an Nginx configuration file for a service.
   #
   # Args:
-  #   all_private_ips: A list of strings, the IPs on which the datastore is running. 
-  def self.create_uaserver_config(my_ip)
+  #   service_name: A string specifying the service name.
+  #   service_host: A string specifying the location of the service.
+  #   service_port: An integer specifying the service port.
+  #   nginx_port: An integer specifying the port for Nginx to listen on.
+  #   location: A string specifying an Nginx location match.
+  def self.create_service_config(service_name, service_host, service_port,
+    nginx_port, location='/')
+
     config = <<CONFIG
-upstream uaserver {
-CONFIG
-      config += <<CONFIG
-    server #{my_ip}:#{UserAppClient::HAPROXY_SERVER_PORT};
-CONFIG
-    config += <<CONFIG
-}
- 
 server {
-    listen #{UserAppClient::SSL_SERVER_PORT};
+    listen #{nginx_port};
+
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate     #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
-    root        /root/appscale/AppDB/public;
-    #access_log #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.error.log;
+    #access_log #{NGINX_LOG_PATH}/#{service_name}.access.log upstream;
+    #error_log  #{NGINX_LOG_PATH}/#{service_name}.error.log;
     access_log  off;
     error_log   /dev/null crit;
 
@@ -379,72 +376,19 @@ server {
 
     error_page 502 /502.html;
 
-    location / {
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect  off;
-      proxy_next_upstream error timeout invalid_header http_500;
-      proxy_pass            http://uaserver;
-      proxy_connect_timeout 5;
+    location #{location} {
+      proxy_pass            http://#{service_host}:#{service_port};
       proxy_read_timeout    600;
-      client_body_timeout   600;
-      #Increase file size so larger applications can be uploaded
-      client_max_body_size  30M;
-    }
-}
-CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "appscale-uaserver.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    Nginx.reload()
-  end
-
-  # Creates an Nginx configuration file for TaskQueue REST API.
-  #
-  # Args:
-  #   my_ip: The private IP of the current host.
-  def self.create_taskqueue_rest_config(my_ip)
-    config = <<CONFIG
-upstream taskqueue_rest_api_endpoint {
-    server #{my_ip}:#{TaskQueue::HAPROXY_PORT};
-}
-
-server {
-    listen #{TaskQueue::TASKQUEUE_SERVER_SSL_PORT};
-
-    ssl on;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate     #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
-
-    #access_log #{NGINX_LOG_PATH}/appscale-taskqueue_endpoint_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/appscale-taskqueue_endpoint_encrypt.error.log;
-    access_log  off;
-    error_log   /dev/null crit;
-
-    ignore_invalid_headers off;
-    rewrite_log off;
-
-    # If they come here using HTTP, bounce them to the correct scheme.
-    error_page 400 https://$host:$server_port$request_uri;
-    error_page 497 https://$host:$server_port$request_uri;
-
-    error_page 502 /502.html;
-
-    location ~ /taskqueue/v1beta2/projects/.* {
-      proxy_pass            http://taskqueue_rest_api_endpoint;
-      proxy_connect_timeout 600;
-      proxy_read_timeout    600;
-      client_body_timeout   600;
       client_max_body_size  2G;
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "appscale-taskqueue.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    Nginx.reload()
+    config_path = File.join(SITES_ENABLED_PATH,
+                            "#{service_name}.#{CONFIG_EXTENSION}")
+    File.open(config_path, 'w') { |dest_file| dest_file.write(config) }
+
+    Nginx.reload
   end
 
   # Set up the folder structure and creates the configuration files necessary for nginx

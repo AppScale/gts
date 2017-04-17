@@ -3094,7 +3094,9 @@ class Djinn
     }
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
-    Nginx.create_uaserver_config(my_node.private_ip)
+    Nginx.create_service_config(
+      'appscale-uaserver', my_node.private_ip,
+      UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
 
   def configure_db_haproxy()
@@ -3121,7 +3123,10 @@ class Djinn
 
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
-    Nginx.create_taskqueue_rest_config(my_node.private_ip)
+    rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
+    Nginx.create_service_config(
+      'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
+      TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
   end
 
   def remove_tq_endpoints
