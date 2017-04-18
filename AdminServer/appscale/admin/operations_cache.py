@@ -15,7 +15,7 @@ class OperationsCache(dict):
 
   def __setitem__(self, key, value):
     """ Adds a new operation to the cache.
-    
+
     Args:
       key: A string specifying the operation ID.
       value: A dictionary containing the operation details.

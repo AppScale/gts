@@ -42,7 +42,7 @@ operations = OperationsCache()
 @gen.coroutine
 def wait_for_port_definition(operation_id, deadline, acc):
   """ Waits until port is defined for version.
-  
+
   Args:
     operation_id: A string specifying an operation ID.
     deadline: A float containing a unix timestamp.
@@ -77,7 +77,7 @@ def wait_for_port_definition(operation_id, deadline, acc):
 @gen.coroutine
 def wait_for_port_to_open(http_port, operation_id, deadline):
   """ Waits until port is open.
-  
+
   Args:
     http_port: An integer specifying the version's port number.
     operation_id: A string specifying an operation ID.
@@ -106,7 +106,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 @gen.coroutine
 def wait_for_deploy(operation_id, acc):
   """ Tracks the progress of a deployment.
-  
+
   Args:
     operation_id: A string specifying the operation ID.
     acc: An AppControllerClient instance.

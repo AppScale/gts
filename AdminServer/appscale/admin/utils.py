@@ -8,7 +8,7 @@ from .constants import Types
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
   """ Ensures the resource contains the required fields.
-  
+
   Args:
     required_fields: An iterable specifying the required fields.
     resource_name: A string specifying the resource name.
@@ -85,7 +85,7 @@ def format_operation(operation):
 
 def format_version(operation, status, create_time, http_port):
   """ Formmats a version for the client.
-  
+
   Args:
     operation: A dictionary containing operation details.
     status: A string specifying the serving status of the version.
