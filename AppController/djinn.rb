@@ -3706,6 +3706,14 @@ class Djinn
       stop_backup_service
     end
 
+    if my_node.is_shadow?
+      threads << Thread.new {
+        start_admin_server
+      }
+    else
+      stop_admin_server
+    end
+
     if my_node.is_memcache?
       threads << Thread.new {
         start_memcache
@@ -4779,6 +4787,25 @@ HOSTS
       HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
     end
     Djinn.log_info("Parameters set on node at #{ip} returned #{result}.")
+  end
+
+  def start_admin_server
+    Djinn.log_info('Starting AdminServer')
+    script = `which appscale-admin`.chomp
+    nginx_port = 17441
+    service_port = 17442
+    start_cmd = "/usr/bin/python2 #{script} -p #{service_port}"
+    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      "#{script} #{service_port}"
+    MonitInterface.start(:admin_server, start_cmd, stop_cmd, nil, nil,
+                         start_cmd, nil, nil, nil)
+    Nginx.create_service_config('appscale-admin', my_node.private_ip,
+                                service_port, nginx_port)
+  end
+
+  def stop_admin_server
+    MonitInterface.stop(:admin_server)
   end
 
   def start_memcache()
