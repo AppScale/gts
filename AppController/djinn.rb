@@ -2184,9 +2184,6 @@ class Djinn
           apps_to_load.each { |app|
             setup_appengine_application(app)
           }
-
-          # Ensure we have a proper number of ApServers for each app.
-          scale_appservers_within_nodes
         }
         scale_deployment
       elsif !restore_appcontroller_state
