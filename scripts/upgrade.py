@@ -16,9 +16,8 @@ from kazoo.client import KazooClient
 
 from appscale.datastore.dbconstants import AppScaleDBError
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-from constants import LOG_FORMAT
-from constants import ZK_CASSANDRA_CONFIG
+from appscale.common.constants import LOG_FORMAT
+from appscale.common.constants import ZK_CASSANDRA_CONFIG
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))

@@ -73,11 +73,11 @@ cachepackage() {
 # at next boot. AppScale manages those services.
 disableservice() {
     if [ -n "$1" ]; then
-      update-rc.d "${1}" disable || true
-      # The following to make sure we disable it for upstart.
-      if [ -d "/etc/init" ]; then
-          echo "manual" > /etc/init/"${1}".override
-      fi
+        update-rc.d "${1}" disable || true
+        # The following to make sure we disable it for upstart.
+        if [ -d "/etc/init" ]; then
+            echo "manual" > /etc/init/"${1}".override
+        fi
     else
         echo "Need a service name to disable!"
         exit 1
@@ -211,7 +211,8 @@ EOF
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
-        cp ${APPSCALE_HOME}/lib/templates/appscale-logrotate.conf /etc/logrotate.d/appscale
+        cp ${APPSCALE_HOME}/common/appscale/common/templates/appscale-logrotate.conf \
+            /etc/logrotate.d/appscale
     fi
 
     # Logrotate AppScale logs hourly.
@@ -289,7 +290,7 @@ installgems()
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
     gem install soap4r-ruby1.9 ${GEMOPT}
-    gem install httparty ${GEMOPT} -v 0.13.7
+    gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
     gem install simplecov ${GEMOPT}
@@ -559,6 +560,12 @@ preplogserver()
     FILE_SRC="$APPSCALE_HOME_RUNTIME/LogService/logging.capnp"
     FILE_DEST="$APPSCALE_HOME_RUNTIME/AppServer/google/appengine/api/logservice/logging.capnp"
     cp ${FILE_SRC} ${FILE_DEST}
+}
+
+installcommon()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/common
+    pip install ${APPSCALE_HOME}/common
 }
 
 installtaskqueue()

@@ -13,6 +13,15 @@ import sys
 import time
 import tq_lib
 
+from appscale.common import (
+  appscale_info,
+  constants,
+  file_io,
+  monit_app_configuration,
+  monit_interface
+)
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from cassandra import (InvalidRequest,
                        OperationTimedOut)
 from cassandra.cluster import SimpleStatement
@@ -24,17 +33,7 @@ from queue import PushQueue
 from task import Task
 from tq_config import TaskQueueConfig
 from .queue import TransientError
-from .unpackaged import APPSCALE_LIB_DIR
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import constants
-import file_io
-import monit_app_configuration
-import monit_interface
-from constants import SCHEMA_CHANGE_TIMEOUT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map

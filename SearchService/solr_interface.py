@@ -13,8 +13,7 @@ from datetime import datetime
 
 from query_parser import Document
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import appscale_info
+from appscale.common import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.datastore.document_pb import FieldValue

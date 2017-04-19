@@ -3,6 +3,7 @@ import json
 import re
 import sys
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from cassandra.concurrent import execute_concurrent
 from appscale.datastore.cassandra_env.retry_policies import (
   BASIC_RETRIES,
@@ -16,7 +17,6 @@ from collections import deque
 from task import InvalidTaskInfo
 from task import Task
 from threading import Lock
-from unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -280,13 +280,20 @@ class PullQueue(Queue):
     if not hasattr(task, 'payloadBase64'):
       raise InvalidTaskInfo('{} is missing a payload.'.format(task))
 
+    enqueue_time = datetime.datetime.utcnow()
+    try:
+      lease_expires = task.leaseTimestamp
+    except AttributeError:
+      lease_expires = datetime.datetime.utcfromtimestamp(0)
+
     parameters = {
       'app': self.app,
       'queue': self.name,
       'id': task.id,
       'payload': task.payloadBase64,
-      'enqueued': datetime.datetime.utcnow(),
-      'retry_count': 0
+      'enqueued': enqueue_time,
+      'retry_count': 0,
+      'lease_expires': lease_expires
     }
 
     try:
@@ -294,23 +301,11 @@ class PullQueue(Queue):
     except AttributeError:
       parameters['tag'] = None
 
-    try:
-      parameters['lease_expires'] = task.leaseTimestamp
-    except AttributeError:
-      parameters['lease_expires'] = 0
-
     self._insert_task(parameters, retries)
 
-    # Retrieve the date values that Cassandra generated.
-    select_task = """
-      SELECT enqueued, lease_expires FROM pull_queue_tasks
-      WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """
-    parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
-    response = self.db_access.session.execute(select_task, parameters)[0]
     task.queueName = self.name
-    task.enqueueTimestamp = response.enqueued
-    task.leaseTimestamp = response.lease_expires
+    task.enqueueTimestamp = enqueue_time
+    task.leaseTimestamp = lease_expires
 
     # Create an index entry so the task can be queried by ETA. This can't be
     # done in a batch because the payload from the previous insert can be up

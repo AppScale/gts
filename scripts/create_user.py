@@ -2,14 +2,12 @@
 
 import hashlib
 import M2Crypto
-import os
-import SOAPpy
 import string
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import appscale_info
-import constants
+from appscale.common import appscale_info
+from appscale.common.ua_client import UAClient
+
 
 def random_password(length=10):
   """ Generates a random password.
@@ -24,42 +22,6 @@ def random_password(length=10):
   for i in range(length):
     password += chars[ord(M2Crypto.m2.rand_bytes(1)) % len(chars)]
   return password
-
-def get_soap_accessor():
-  """ Returns the SOAP server accessor to deal with application and users.
-
-  Returns:
-    A soap server accessor.
-  """
-  db_ip = appscale_info.get_db_master_ip()
-  bindport = constants.UA_SERVER_PORT
-  return SOAPpy.SOAPProxy("https://{0}:{1}".format(db_ip, bindport))
-
-def create_new_user(server, email, password):
-  """ Creates a new user.
-
-  Args:
-    server: A SOAP server accessor.
-    email: A str, the user email.
-    password: A str, the user password. 
-  Returns:
-    True on success, False otherwise.
-  """
-  secret = appscale_info.get_secret()
-  ret = server.commit_new_user(email, password, "user", secret)
-  return not ret.startswith("Error:")
-
-def does_user_exist(email, server):
-  """ Checks to see if a user already exists. 
-
-  Args:
-    email: A str, an email address to check.
-    server: A SOAP server accessor.
-  Returns:
-    True if the user exists, False otherwise.
-  """
-  secret = appscale_info.get_secret()
-  return server.does_user_exist(email, secret) == "true"
 
 def usage():
   print ""
@@ -94,14 +56,16 @@ if __name__ == "__main__":
  
   new_password = random_password()
 
-  server = get_soap_accessor()
-  if does_user_exist(email, server):
+  secret = appscale_info.get_secret()
+  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
+
+  if ua_client.does_user_exist(email):
     print "User already exists."
     sys.exit(1)
 
   print "Creating user..."
   hash_password = hashlib.sha1(email + new_password).hexdigest()
-  create_new_user(server, email, hash_password)
+  ua_client.commit_new_user(email, hash_password, 'user')
 
   print "The new password for {0} is: {1}".format(email, new_password)
   print "Store this password in a safe place."

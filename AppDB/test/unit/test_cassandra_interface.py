@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan
 
-import sys
 import unittest
 
+from appscale.common import file_io
 from appscale.datastore.cassandra_env import cassandra_interface
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
 from flexmock import flexmock
-
-sys.path.append(APPSCALE_LIB_DIR)
-import file_io
 
 
 class TestCassandra(unittest.TestCase):

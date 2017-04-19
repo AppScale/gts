@@ -548,7 +548,8 @@ class Djinn
 
 
   # Template used for rsyslog configuration files.
-  RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/lib/templates/rsyslog-app.conf"
+  RSYSLOG_TEMPLATE_LOCATION = "#{APPSCALE_HOME}/common/appscale/common/" +
+    "templates/rsyslog-app.conf"
 
 
   # Instance variables that we need to restore from the head node.
@@ -859,11 +860,6 @@ class Djinn
       locations = JSON.load(layout)
     rescue JSON::ParserError
       msg = "Error: got exception parsing JSON structure layout."
-      Djinn.log_error(msg)
-      raise AppScaleException.new(msg)
-    end
-    if locations.nil? || locations.empty?
-      msg = "Error: layout is empty."
       Djinn.log_error(msg)
       raise AppScaleException.new(msg)
     end
@@ -2511,7 +2507,13 @@ class Djinn
   def start_roles_on_nodes(ips_hash, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    ips_hash = JSON.load(ips_hash)
+    begin
+      ips_hash = JSON.load(ips_hash)
+    rescue JSON::ParserError
+      Djinn.log_warn("ips_hash must be valid JSON")
+      return BAD_INPUT_MSG
+    end
+
     if ips_hash.class != Hash
       Djinn.log_warn("Was expecting ips_hash to be a Hash, not " +
         "a #{ips_hash.class}")
@@ -4656,7 +4658,8 @@ HOSTS
   # This method is called only when the appengine role does not run
   # on the head node.
   def write_app_logrotate()
-    template_dir = File.join(File.dirname(__FILE__), "../lib/templates")
+    template_dir = File.join(File.dirname(__FILE__),
+                             "../common/appscale/common/templates")
     FileUtils.cp("#{template_dir}/#{APPSCALE_APP_LOGROTATE}",
       "#{LOGROTATE_DIR}/appscale-app")
   end

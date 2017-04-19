@@ -135,61 +135,61 @@ esac
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
 if [ -d ${CONFIG_DIR}/certs ]; then
-        # Version 2.3.1 and prior didn't have /etc/appscale/VERSION.
-        WHERE_IS_VERSION="${CONFIG_DIR}/VERSION"
-        if [ ! -e ${WHERE_IS_VERSION} ]; then
-                WHERE_IS_VERSION="appscale/VERSION"
-        fi
-        APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' ${WHERE_IS_VERSION})"
-        APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' ${WHERE_IS_VERSION})"
-        if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
-                echo "Cannot determine version of AppScale!"
-                exit 1
-        fi
-        echo
-        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR: upgrading it."
-        # Make sure AppScale is not running.
-        MONIT=$(which monit)
-        if $MONIT summary |grep controller > /dev/null ; then
-                echo "AppScale is still running: please stop it"
-                [ "$FORCE_UPGRADE" = "Y" ] || exit 1
-        elif echo $MONIT |grep local > /dev/null ; then
-                # AppScale is not running but there is a monit
-                # leftover from the custom install.
-                $MONIT quit
-        fi
+    # Version 2.3.1 and prior didn't have /etc/appscale/VERSION.
+    WHERE_IS_VERSION="${CONFIG_DIR}/VERSION"
+    if [ ! -e ${WHERE_IS_VERSION} ]; then
+        WHERE_IS_VERSION="appscale/VERSION"
+    fi
+    APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' ${WHERE_IS_VERSION})"
+    APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' ${WHERE_IS_VERSION})"
+    if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
+        echo "Cannot determine version of AppScale!"
+        exit 1
+    fi
+    echo
+    echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR: upgrading it."
+    # Make sure AppScale is not running.
+    MONIT=$(which monit)
+    if $MONIT summary |grep controller > /dev/null ; then
+        echo "AppScale is still running: please stop it"
+        [ "$FORCE_UPGRADE" = "Y" ] || exit 1
+    elif echo $MONIT |grep local > /dev/null ; then
+        # AppScale is not running but there is a monit
+        # leftover from the custom install.
+        $MONIT quit
+    fi
 
-        # This sleep is to allow the user to Ctrl-C in case an upgrade is
-        # not wanted.
-        echo "Upgrading AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR ..."
-        sleep 5
+    # This sleep is to allow the user to Ctrl-C in case an upgrade is
+    # not wanted.
+    echo "Upgrading AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR ..."
+    sleep 5
 
-        # Let's keep a copy of the old config: we need to move it to avoid
-        # questions from dpkg.
-        if [ -e /etc/haproxy/haproxy.cfg ]; then
-                mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
+    # Let's keep a copy of the old config: we need to move it to avoid
+    # questions from dpkg.
+    if [ -e /etc/haproxy/haproxy.cfg ]; then
+        mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
+    fi
+
+    # Remove outdated appscale-controller and appscale-progenitor.
+    if [ $APPSCALE_MAJOR -le 2 -a $APPSCALE_MINOR -le 2 ]; then
+        rm -f /etc/init.d/appscale-controller
+        rm -f /etc/init.d/appscale-progenitor
+        update-rc.d -f appscale-progenitor remove || true
+    fi
+
+    # Remove control files we added before 1.14, and re-add the
+    # default ones.
+    if [ $APPSCALE_MAJOR -le 1 -a $APPSCALE_MINOR -le 14 ]; then
+        rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
+        if dpkg-query -l haproxy > /dev/null 2> /dev/null ; then
+            ${PKG_CMD} -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
         fi
-
-        # Remove outdated appscale-controller and appscale-progenitor.
-        if [ $APPSCALE_MAJOR -le 2 -a $APPSCALE_MINOR -le 2 ]; then
-                rm -f /etc/init.d/appscale-controller
-                rm -f /etc/init.d/appscale-progenitor
-                update-rc.d -f appscale-progenitor remove || true
+        if dpkg-query -l monit > /dev/null 2> /dev/null ; then
+            ${PKG_CMD} -o DPkg::Options::="--force-confmiss" --reinstall install monit
         fi
+    fi
 
-        # Remove control files we added before 1.14, and re-add the
-        # default ones.
-        if [ $APPSCALE_MAJOR -le 1 -a $APPSCALE_MINOR -le 14 ]; then
-                rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
-                if dpkg-query -l haproxy > /dev/null 2> /dev/null ; then
-                        ${PKG_CMD} -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
-                fi
-                if dpkg-query -l monit > /dev/null 2> /dev/null ; then
-                        ${PKG_CMD} -o DPkg::Options::="--force-confmiss" --reinstall install monit
-                fi
-        fi
-
-        # In version past 2.3.1 we are incompatible with ruby1.8.
+    # In version past 2.3.1 we are incompatible with ruby1.8.
 fi
 
 if [ $1 ]; then
