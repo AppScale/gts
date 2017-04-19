@@ -18,9 +18,9 @@ from .br_constants import CASSANDRA_DATA_SUBDIRS
 from .br_constants import PADDING_PERCENTAGE
 from .br_constants import SERVICE_RETRIES
 from ..cassandra_env import cassandra_interface
+from ..cassandra_env import rebalance
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
-from ..cassandra_env.rebalance import get_status
 
 sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils import utils
@@ -245,7 +245,7 @@ def restore_data(path, keyname, force=False):
     if time.time() > deadline:
       break
 
-    if all(node['state'] == 'UN' for node in get_status()):
+    if all(node['state'] == 'UN' for node in rebalance.get_status()):
       break
 
     time.sleep(1)
