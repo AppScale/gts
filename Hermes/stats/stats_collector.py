@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-
-
-# General-purpose Python library imports.
 import json
 import logging
 import os
@@ -10,32 +6,27 @@ import subprocess
 import sys
 
 import urllib
+
+import attr
 from tornado import httpclient, gen
 
 # Hermes imports.
 import helper
 import hermes_constants
-from lib.infrastructure_manager_client import InfrastructureManagerClient
-
-# AppServer imports.
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
-from google.appengine.api.taskqueue import taskqueue_service_pb
-from google.appengine.api.datastore import datastore_pb
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import appscale_info
 
 
-class StatsManager(object):
+class StatsMaster(object):
 
   _instance = None
 
   def __init__(self):
-    self._cluster_stats = AppScaleStats()
-    self._services = {
-      'datastore_stats': TaskQueueStatsCollector(),
-      'taskqueue_stats': DatastoreStatsCollector()
-    }
+    self._node_resources = {}    # dict[private_ip, NodeStats]
+    self._node_processes = {}    # dict[private_ip, list[ProcessStats]]
+    self._lb_services = {}       # dict[lb_ip, list[ProxyStats]]
+    self._is_profiling_enabled = False
 
   @classmethod
   def instance(cls):
@@ -44,22 +35,26 @@ class StatsManager(object):
     return cls._instance
 
   @property
-  def cluster_stats(self):
-    return self._cluster_stats
+  def node_resources(self):
+    return self._node_resources
 
-  def update_node_stats(self):
-    acc = appscale_info.get_appcontroller_client(head_node=False)
-    stats = acc.get_node_stats()
-    secret = appscale_info.get_secret()
-    my_priv_ip = appscale_info.get_private_ip()
-    imc = InfrastructureManagerClient(my_priv_ip, secret)
-    sys = imc.get_system_stats()
-    stats.update(sys)
-    self._cluster_stats.my_node = stats
-    logging.debug("Updated stats of my node: {}".format(stats))
+  @property
+  def node_processes(self):
+    return self._node_processes
 
-  def update_cluster_stats(self):
-    nodes_stats = self.get_cluster_stats_async().result()
+  @property
+  def services(self):
+    return self._services
+
+  @property
+  def is_profiling_enabled(self):
+    return self._is_profiling_enabled
+
+  def enable_profiling(self):
+    self._is_profiling_enabled = True
+
+  def update_stats(self):
+    nodes_stats = self.get_stats_async().result()
     self._cluster_stats.nodes = nodes_stats
     logging.debug("Updated cluster stats: {}".format(nodes_stats))
 
@@ -124,10 +119,115 @@ class StatsManager(object):
     raise gen.Return(json.loads(response.body))
 
 
-class AppScaleNamesMapper(object):
-  def from_proxy_name(self, proxy_name):
-    # TODO
+
+class _AppScaleNamesMapper(object):
+  @attr.s(cmp=False, hash=False, slots=True, frozen=True)
+  class Service(object):
+    service_name = attr.ib()
+    monit_matcher = attr.ib(default=None, convert=re.compile)
+    haproxy_proxy_matcher = attr.ib(default=None, convert=re.compile)
+    haproxy_server_matcher = attr.ib(default=None, convert=re.compile)
+
+    def recognize_monit_process(self, monit_process_name):
+      return self.monit_matcher.find(monit_process_name) is not None
+
+    def recognize_haproxy_proxy(self, proxy_name):
+      return self.haproxy_proxy_matcher.find(proxy_name) is not None
+    
+    def server_name_by_haproxy_svname(self, svname):
+      match = self.haproxy_server_matcher.find(svname)
+      if not match:
+        return svname
+      ip = match.group('ip')
+      port = match.group('port')
+      application = match.group('app')
+      # TODO
+
+    def server_name_by_monit_process_name(self, process_name, private_ip):
+      # TODO
+      pass
+
+  services = [
+    Service(service_name='zookeeper',
+                 monit_pattern=),
+    Service(service_name='uaserver',
+                 monit_pattern=),
+    Service(service_name='taskqueue',
+                 monit_pattern=),
+    Service(service_name='rabbitmq',
+                 monit_pattern=),
+    Service(service_name='nginx',
+                 monit_pattern=),
+    Service(service_name='log_service',
+                 monit_pattern=),
+    Service(service_name='iaas_manager',
+                 monit_pattern=),
+    Service(service_name='hermes',
+                 monit_pattern=),
+    Service(service_name='haproxy',
+                 monit_pattern=),
+    Service(service_name='groomer',
+                 monit_pattern=),
+    Service(service_name='flower',
+                 monit_pattern=),
+    Service(service_name='ejabberd',
+                 monit_pattern=),
+    Service(service_name='datastore',
+                 monit_pattern=),
+    Service(service_name='controller',
+                 monit_pattern=),
+    Service(service_name='celery',
+                 monit_pattern=),
+    Service(service_name='cassandra',
+                 monit_pattern=),
+    Service(service_name='backup_recovery_service',
+                 monit_pattern=),
+    Service(service_name='memcached',
+                 monit_pattern=),
+    Service(service_name='blobstore',
+                 monit_pattern=),
+    Service(service_name='appmanager',
+                 monit_pattern=),
+    Service(service_name='application',
+                 monit_pattern=),
+  ]
+  r'(?P<prefix>uaserver)'
+  r'(?P<prefix>taskqueue)-(?P<port>\d+)'
+  r'(?P<prefix>rabbitmq)'
+  r'(?P<prefix>nginx)'
+  r'(?P<prefix>log_service)'
+  r'(?P<prefix>iaas_manager)'
+  r'(?P<prefix>hermes)'
+  r'(?P<prefix>haproxy)'
+  r'(?P<prefix>groomer_service)'
+  r'(?P<prefix>flower)'
+  r'(?P<prefix>ejabberd)'
+  r'(?P<prefix>datastore_server)-(?P<port>\d+)'
+  r'(?P<prefix>controller)'
+  r'(?P<prefix>celery)-(?P<app>[a-zA-Z]\w+[a-zA-Z\d])-(?P<port>\d+)'
+  r'(?P<prefix>cassandra)'
+  r'(?P<prefix>backup_recovery_service)'
+  r'(?P<prefix>memcached)'
+  r'(?P<prefix>blobstore)'
+  r'(?P<prefix>appmanagerserver)'
+  r'(?P<prefix>app___)(?P<app>[a-zA-Z]\w+[a-zA-Z\d])-(?P<port>\d+)'
+  'TaskQueue'
+  'UserAppServer'
+  'appscale-datastore_server'
+  'as_blob_server'
+  'gae_appscaledashboard'
+  'gae_guestbook27'
+
+
+class MonitNames(object):
+  def get_service_name(self, ...):
     pass
-  def from_monit_name(self, monit_name):
-    # TODO
+  def get_server_name(self, ...):
+    pass
+
+
+class HAProxyNames(object):
+  def get_service_name(self, ...):
+    pass
+  def get_server_name(self, ...):
     pass

@@ -25,8 +25,9 @@ from tornado.options import parse_command_line
 import helper
 import hermes_constants
 from handlers import (
-  MainHandler, NodeStatsHandler, ClusterStatsHandler, TaskHandler
+  MainHandler, TaskHandler
 )
+from stats.handlers import NodeStatsHandler, ClusterStatsHandler
 from helper import JSONTags
 from stats.stats_collector import StatsManager
 
