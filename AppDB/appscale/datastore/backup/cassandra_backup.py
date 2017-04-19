@@ -240,12 +240,18 @@ def restore_data(path, keyname, force=False):
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
 
   logging.info('Waiting for all nodes in cluster to start')
-  deadline = time.time() + 10
+  deadline = time.time() + 20
   while True:
     if time.time() > deadline:
       break
 
-    if all(node['state'] == 'UN' for node in rebalance.get_status()):
+    try:
+      nodes = rebalance.get_status()
+    except CalledProcessError:
+      time.sleep(1)
+      continue
+
+    if all(node['state'] == 'UN' for node in nodes):
       break
 
     time.sleep(1)
