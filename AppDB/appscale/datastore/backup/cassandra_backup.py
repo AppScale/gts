@@ -20,6 +20,7 @@ from .br_constants import SERVICE_RETRIES
 from ..cassandra_env import cassandra_interface
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
+from ..cassandra_env.rebalance import get_status
 
 sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils import utils
@@ -237,5 +238,16 @@ def restore_data(path, keyname, force=False):
 
     utils.ssh(db_ip, keyname,
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
+
+  logging.info('Waiting for all nodes in cluster to start')
+  deadline = time.time() + 10
+  while True:
+    if time.time() > deadline:
+      break
+
+    if all(node['state'] == 'UN' for node in get_status()):
+      break
+
+    time.sleep(1)
 
   logging.info("Done with db restore.")
