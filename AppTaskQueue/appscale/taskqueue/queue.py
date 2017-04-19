@@ -299,7 +299,7 @@ class PullQueue(Queue):
     except AttributeError:
       parameters['lease_expires'] = 0
 
-    self._insert_task(parameters)
+    self._insert_task(parameters, retries)
 
     # Retrieve the date values that Cassandra generated.
     select_task = """
@@ -388,13 +388,14 @@ class PullQueue(Queue):
     if task is not None:
       self._delete_task_and_index(task)
 
-  def update_lease(self, task, new_lease_seconds):
+  def update_lease(self, task, new_lease_seconds, retries=5):
     """ Updates the duration of a task lease.
 
     Args:
       task: A Task object.
       new_lease_seconds: An integer specifying when to set the new ETA. It
         represents the number of seconds from now.
+      retries: The number of times to try the update.
     Returns:
       A Task object.
     """
@@ -407,18 +408,19 @@ class PullQueue(Queue):
       'new_eta': new_eta,
       'current_time': datetime.datetime.utcnow()
     }
-    self._update_lease(parameters)
+    self._update_lease(parameters, retries)
 
     task.leaseTimestamp = new_eta
     return task
 
-  def update_task(self, task, new_lease_seconds):
+  def update_task(self, task, new_lease_seconds, retries=5):
     """ Updates leased tasks.
 
     Args:
       task: A task object.
       new_lease_seconds: An integer specifying when to set the new ETA. It
         represents the number of seconds from now.
+      retries: The number of times to try the update.
     """
     new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
     parameters = {
@@ -428,11 +430,12 @@ class PullQueue(Queue):
       'new_eta': new_eta,
       'current_time': datetime.datetime.utcnow()
     }
+
     if hasattr(task, 'leaseTimestamp'):
       parameters['old_eta'] = task.get_eta()
-      self._update_lease(parameters)
+      self._update_lease(parameters, retries)
     else:
-      self._update_lease(parameters, check_lease=False)
+      self._update_lease(parameters, retries, check_lease=False)
 
     task.leaseTimestamp = new_eta
     return task
@@ -668,7 +671,7 @@ class PullQueue(Queue):
 
     return True
 
-  def _insert_task(self, parameters, retries=5):
+  def _insert_task(self, parameters, retries):
     """ Insert task entry into pull_queue_tasks.
 
     Args:
@@ -696,7 +699,7 @@ class PullQueue(Queue):
         raise
       logger.warning(
         'Encountered error while inserting task: {}. Retrying.'.format(error))
-      return self._insert_task(parameters, retries=retries_left)
+      return self._insert_task(parameters, retries_left)
 
     if result.was_applied:
       return
@@ -705,14 +708,14 @@ class PullQueue(Queue):
       raise InvalidTaskInfo(
         'Task name already taken: {}'.format(parameters['id']))
 
-  def _update_lease(self, parameters, check_lease=True, retries=5):
+  def _update_lease(self, parameters, retries, check_lease=True):
     """ Update lease expiration on a task entry.
 
     Args:
       parameters: A dictionary specifying the new parameters.
+      retries: The number of times to try the update.
       check_lease: A boolean specifying that the old lease_expires field must
         match the one provided.
-      retries: The number of times to try the update.
     Raises:
       InvalidLeaseRequest if the lease has already expired.
     """
@@ -737,8 +740,8 @@ class PullQueue(Queue):
         raise
       logger.warning(
         'Encountered error while updating lease: {}. Retrying.'.format(error))
-      return self._update_lease(parameters, check_lease=check_lease,
-                                retries=retries_left)
+      return self._update_lease(parameters, retries_left,
+                                check_lease=check_lease)
 
     if result.was_applied:
       return
