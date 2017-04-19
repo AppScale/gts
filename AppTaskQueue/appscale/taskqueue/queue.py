@@ -426,8 +426,15 @@ class PullQueue(Queue):
       'current_time': datetime.datetime.utcnow()
     }
 
-    if hasattr(task, 'leaseTimestamp'):
-      parameters['old_eta'] = task.get_eta()
+    try:
+      old_eta = task.leaseTimestamp
+    except AttributeError:
+      old_eta = None
+    if old_eta == datetime.datetime.utcfromtimestamp(0):
+      old_eta = None
+
+    if old_eta is not None:
+      parameters['old_eta'] = old_eta
       self._update_lease(parameters, retries)
     else:
       self._update_lease(parameters, retries, check_lease=False)
