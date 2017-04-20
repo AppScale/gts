@@ -8,6 +8,8 @@ from datetime import datetime
 
 import attr
 
+from stats.unified_service_names import find_service_by_proxy_name
+
 
 class _UnknownValue(object):
   """
@@ -149,7 +151,8 @@ class HAProxyServerStats(object):
   For more details see
   https://cbonte.github.io/haproxy-dconv/1.5/configuration.html#9.1
   """
-  unified_server_name = attr.ib()  # reference for linking with process stats
+  private_ip = attr.ib()
+  port = attr.ib()
   pxname = attr.ib()  # proxy name
   svname = attr.ib()  # service name (FRONTEND, BACKEND or name of server/listener)
   qcur = attr.ib()  # current queued reqs. For the backend this reports the
@@ -227,7 +230,8 @@ class ProxyStats(object):
   Only those Hermes nodes which are collocated with HAProxy collects this stats.
   """
   name = attr.ib()
-  unified_service_name = attr.ib()
+  unified_service_name = attr.ib()  # taskqueue, appserver, datastore, ...
+  application_id = attr.ib()  # application ID for appserver and None for others
   utc_timestamp = attr.ib()
   frontend = attr.ib()  # HAProxyFrontendStats
   backend = attr.ib()  # HAProxyBackendStats
@@ -247,15 +251,12 @@ class ProxyStats(object):
     return value
 
   @staticmethod
-  def current_proxies(stats_socket_path, names_mapper):
+  def current_proxies(stats_socket_path):
     """ Static method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
 
     Args:
       stats_socket_path: a str representing path to haproxy stats socket
-      names_mapper: an object with method 'from_haproxy_name' which
-                             returns a tuple
-                             (<appscale-service-group>, <appscale-service-name>) 
     Returns:
       list[ProxyStats]
     """
@@ -278,6 +279,7 @@ class ProxyStats(object):
     parsed_objects = defaultdict(list)
     for row in table:
       proxy_name = row['pxname']
+      service = find_service_by_proxy_name(proxy_name)
       svname = row['svname']
       if svname == 'FRONTEND':
         stats_type = HAProxyFrontendStats
@@ -294,8 +296,8 @@ class ProxyStats(object):
         for field in stats_type.__slots__
       }
 
-      server_name = names_mapper.get_server_name(proxy_name, svname)
-      stats = stats_type(unified_server_name=server_name, **stats_values)
+      private_ip, port = service.get_ip_port_by_svname(svname)
+      stats = stats_type(private_ip=private_ip, port=int(port), **stats_values)
       parsed_objects[proxy_name].append(stats)
 
     # Attempt to merge separate stats object to ProxyStats instances
@@ -317,11 +319,13 @@ class ProxyStats(object):
         )
 
       # Create ProxyStats object which contains all stats related to the proxy
-      service_name = names_mapper.get_service_name(proxy_name)
+      service_name = service.name
+      application_id = service.get_application_id_by_pxname()
       proxy_stats = ProxyStats(
         name=proxy_name, unified_service_name=service_name,
-        utc_timestamp=utc_timestamp, frontend=frontends[0], backend=backends[0],
-        servers=servers, listeners=listeners
+        application_id=application_id, utc_timestamp=utc_timestamp,
+        frontend=frontends[0], backend=backends[0], servers=servers,
+        listeners=listeners
       )
       proxy_stats_list.append(proxy_stats)
 
