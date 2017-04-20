@@ -4086,9 +4086,8 @@ class Djinn
   end
 
   def configure_ejabberd_cert
-    # Replace APPSCALE_CONFIG_DIR/ejabberd.pem with private key and cert
-    # copied from tools. APPSCALE_CONFIG_DIR/ejabberd.pem is not the default
-    # ejabberd.pem file, so we are overwriting changes that we have made.
+    # Update APPSCALE_CONFIG_DIR/ejabberd.pem with private key and cert from
+    # deployment.
     cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
     key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
     File.open("#{APPSCALE_CONFIG_DIR}/ejabberd.pem", 'w') do |ejabberd_cert|
