@@ -4091,9 +4091,14 @@ class Djinn
     # ejabberd.pem file, so we are overwriting changes that we have made.
     cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
     key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
-    Djinn.log_run("cat #{cert_loc} > "\
-                  "#{APPSCALE_CONFIG_DIR}/ejabberd.pem && cat #{key_loc} >> "\
-                  "#{APPSCALE_CONFIG_DIR}/ejabberd.pem")
+    File.open("#{APPSCALE_CONFIG_DIR}/ejabberd.pem", 'w') do |ejabberd_cert|
+        File.open("#{cert_loc}", 'r') do |cert|
+          ejabberd_cert.write(cert.read)
+        end
+        File.open("#{key_loc}", 'r') do |key|
+          ejabberd_cert.write(key.read)
+        end
+      end
   end
 
   def initialize_nodes_in_parallel(node_info)
