@@ -863,11 +863,6 @@ class Djinn
       Djinn.log_error(msg)
       raise AppScaleException.new(msg)
     end
-    if locations.nil? || locations.empty?
-      msg = "Error: layout is empty."
-      Djinn.log_error(msg)
-      raise AppScaleException.new(msg)
-    end
     if locations.class != Array
       msg = "Error: layout is not an Array."
       Djinn.log_error(msg)
@@ -2499,7 +2494,13 @@ class Djinn
   def start_roles_on_nodes(ips_hash, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    ips_hash = JSON.load(ips_hash)
+    begin
+      ips_hash = JSON.load(ips_hash)
+    rescue JSON::ParserError
+      Djinn.log_warn("ips_hash must be valid JSON")
+      return BAD_INPUT_MSG
+    end
+
     if ips_hash.class != Hash
       Djinn.log_warn("Was expecting ips_hash to be a Hash, not " +
         "a #{ips_hash.class}.")

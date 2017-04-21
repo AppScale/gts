@@ -213,8 +213,8 @@ class ZKInterface
     end
 
     info = self.run_zookeeper_operation {
-      @@zk.create(:path => APPCONTROLLER_LOCK_PATH, 
-        :ephemeral => EPHEMERAL, :data => JSON.dump(@@client_ip))
+      @@zk.create(:path => APPCONTROLLER_LOCK_PATH,  :ephemeral => EPHEMERAL,
+                  :data => @@client_ip)
     }
     if info[:rc].zero? 
       return true
@@ -431,8 +431,8 @@ class ZKInterface
     end
 
     begin
-      json_contents = self.get(loading_file)
-      return JSON.load(json_contents)
+      contents = self.get(loading_file)
+      return contents == "true"
     rescue FailedZooKeeperOperationException
       return false
     end
@@ -454,8 +454,9 @@ class ZKInterface
   # node is done loading (if they have finished starting/stopping roles), or is
   # not done loading (if they have roles they need to start or stop).
   def self.set_done_loading(ip, val)
-    return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading", 
-      JSON.dump(val), NOT_EPHEMERAL)
+    zk_value = val ? "true" : "false"
+    return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading",
+                    zk_value, NOT_EPHEMERAL)
   end
 
 
