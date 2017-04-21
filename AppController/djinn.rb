@@ -5340,7 +5340,7 @@ HOSTS
       Djinn.log_debug("Need to start VMs for #{needed_appservers} more AppServers.")
     end
 
-    # Here we cound the number of machines we need to spawn, and the roles
+    # Here we count the number of machines we need to spawn, and the roles
     # we need.
     vms_to_spawn = 0
     roles_needed = {}
@@ -5350,7 +5350,7 @@ HOSTS
         vms_to_spawn += 1
         if vm_scaleup_capacity < vms_to_spawn
           Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" + 
-            " vms, so spawning only maximum possible nodes.")
+            " vms, so spawning only maximum allowable nodes.")
           break
         end
         roles_needed["appengine"] = [] unless roles_needed["appengine"]
