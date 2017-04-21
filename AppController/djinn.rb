@@ -5344,9 +5344,15 @@ HOSTS
     # we need.
     vms_to_spawn = 0
     roles_needed = {}
+    vm_scaleup_capacity = Integer(@options['max_images']) - @nodes.length
     if needed_appservers > 0
       Integer(needed_appservers/3).downto(0) {
         vms_to_spawn += 1
+        if vm_scaleup_capacity < vms_to_spawn
+          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" + 
+            " vms, so spawning only maximum possible nodes.")
+          break
+        end
         roles_needed["appengine"] = [] unless roles_needed["appengine"]
         roles_needed["appengine"] << "node-#{vms_to_spawn}"
       }
@@ -5370,15 +5376,6 @@ HOSTS
             "up or down.")
           return
         end
-
-        @state_change_lock.synchronize {
-          allowed_vms = Integer(@options['max_images']) - @nodes.length
-          if allowed_vms < vms_to_spawn
-            Djinn.log_warn("Requested #{vms_to_spawn} VMs, but we can only" +
-              " start #{allowed_vms}, so not spawning more nodes.")
-            return
-          end
-        }
 
         result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
         if result != "OK"
