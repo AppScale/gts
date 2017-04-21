@@ -2114,7 +2114,7 @@ class Djinn
     # nodes to start up.
     if my_node.is_shadow?
       build_uncommitted_changes
-
+      configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
       initialize_nodes_in_parallel(@nodes)
     end
@@ -4086,6 +4086,21 @@ class Djinn
     build_java_appserver if status.include?('AppServer_Java')
   end
 
+  def configure_ejabberd_cert
+    # Update APPSCALE_CONFIG_DIR/ejabberd.pem with private key and cert from
+    # deployment.
+    cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
+    key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
+    File.open("#{APPSCALE_CONFIG_DIR}/ejabberd.pem", 'w') do |ejabberd_cert|
+        File.open("#{cert_loc}", 'r') do |cert|
+          ejabberd_cert.write(cert.read)
+        end
+        File.open("#{key_loc}", 'r') do |key|
+          ejabberd_cert.write(key.read)
+        end
+      end
+  end
+
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
@@ -4143,10 +4158,12 @@ class Djinn
     secret_key_loc = "#{APPSCALE_CONFIG_DIR}/secret.key"
     cert_loc = "#{APPSCALE_CONFIG_DIR}/certs/mycert.pem"
     key_loc = "#{APPSCALE_CONFIG_DIR}/certs/mykey.pem"
+    ejabberd_cert_loc = "#{APPSCALE_CONFIG_DIR}/ejabberd.pem"
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
     HelperFunctions.scp_file(cert_loc, cert_loc, ip, ssh_key)
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
+    HelperFunctions.scp_file(ejabberd_cert_loc, ejabberd_cert_loc, ip, ssh_key)
 
     cloud_keys_dir = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/cloud1")
     make_dir = "mkdir -p #{cloud_keys_dir}"
