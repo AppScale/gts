@@ -2179,8 +2179,8 @@ class Djinn
           apps_to_load.each { |app|
             setup_appengine_application(app)
           }
+          scale_deployment
         }
-        scale_deployment
       elsif !restore_appcontroller_state
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
