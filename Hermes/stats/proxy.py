@@ -8,7 +8,7 @@ from datetime import datetime
 
 import attr
 
-from stats.unified_service_names import find_service_by_proxy_name
+from stats.unified_service_names import find_service_by_pxname
 
 
 class _UnknownValue(object):
@@ -25,7 +25,7 @@ class _UnknownValue(object):
     return "-"
 
 
-UNKNOWN_VALUE = _UnknownValue()
+UNKNOWN = _UnknownValue()
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -210,7 +210,9 @@ class HAProxyServerStats(object):
 ALL_HAPROXY_FIELDS = set(
   HAProxyListenerStats.__slots__ + HAProxyFrontendStats.__slots__
   + HAProxyBackendStats.__slots__ + HAProxyServerStats.__slots__
-)
+) - {'private_ip', 'port'}    # HAProxy stats doesn't include IP/Port columns
+                              # But we add these values by ourselves
+
 KNOWN_NON_INTEGER_FIELDS = {
   'pxname', 'svname', 'status', 'check_status', 'last_chk', 'last_agt'
 }
@@ -242,7 +244,7 @@ class ProxyStats(object):
   def _get_field_value(row, field_name):
     """ Private method for getting value from csv cell """
     if field_name not in row:
-      return UNKNOWN_VALUE
+      return UNKNOWN
     value = row[field_name]
     if not value:
       return None
@@ -267,11 +269,10 @@ class ProxyStats(object):
     ).replace("# ", "", 1)
     csv_buffer = StringIO.StringIO(csv_text)
     table = csv.DictReader(csv_buffer, delimiter=',')
-    missed_fields = ALL_HAPROXY_FIELDS - set(table.fieldnames)
-    if missed_fields:
-      logging.warning("HAProxy stats fields {} are missed. Old version of "
-                      "HAProxy is probably used (v1.5+ is expected)"
-                      .format(list(missed_fields)))
+    missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
+    if missed:
+      logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
+                   "is probably used (v1.5+ is expected)".format(list(missed)))
 
     utc_timestamp = time.mktime(datetime.utcnow().timetuple())
 
@@ -279,8 +280,9 @@ class ProxyStats(object):
     parsed_objects = defaultdict(list)
     for row in table:
       proxy_name = row['pxname']
-      service = find_service_by_proxy_name(proxy_name)
+      service = find_service_by_pxname(proxy_name)
       svname = row['svname']
+      extra_values = {}
       if svname == 'FRONTEND':
         stats_type = HAProxyFrontendStats
       elif svname == 'BACKEND':
@@ -288,6 +290,9 @@ class ProxyStats(object):
       elif row['qcur']:
         # Listener stats doesn't have "current queued requests" property
         stats_type = HAProxyServerStats
+        private_ip, port = service.get_ip_port_by_svname(svname)
+        extra_values['private_ip'] = private_ip
+        extra_values['port'] = port
       else:
         stats_type = HAProxyListenerStats
 
@@ -295,9 +300,9 @@ class ProxyStats(object):
         field: ProxyStats._get_field_value(row, field)
         for field in stats_type.__slots__
       }
+      stats_values.update(**extra_values)
 
-      private_ip, port = service.get_ip_port_by_svname(svname)
-      stats = stats_type(private_ip=private_ip, port=int(port), **stats_values)
+      stats = stats_type(**stats_values)
       parsed_objects[proxy_name].append(stats)
 
     # Attempt to merge separate stats object to ProxyStats instances
@@ -320,7 +325,7 @@ class ProxyStats(object):
 
       # Create ProxyStats object which contains all stats related to the proxy
       service_name = service.name
-      application_id = service.get_application_id_by_pxname()
+      application_id = service.get_application_id_by_pxname(proxy_name)
       proxy_stats = ProxyStats(
         name=proxy_name, unified_service_name=service_name,
         application_id=application_id, utc_timestamp=utc_timestamp,

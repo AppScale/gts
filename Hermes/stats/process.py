@@ -107,8 +107,9 @@ class ProcessStats(object):
       monit_name = match.group('name')
       pid = int(match.group('pid'))
       service = find_service_by_monit_name(monit_name)
+      private_ip = appscale_info.get_private_ip()
       try:
-        stats = ProcessStats._process_stats(pid, service, monit_name)
+        stats = ProcessStats._process_stats(pid, service, monit_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
         logging.warn("Unable to get process stats for {monit_name} ({err})"
@@ -116,7 +117,7 @@ class ProcessStats(object):
     return processes_stats
 
   @staticmethod
-  def _process_stats(pid, service, monit_name):
+  def _process_stats(pid, service, monit_name, private_ip):
     """ Static method for building an instance of ProcessStats.
     It summarize stats of the specified process and its children.
 
@@ -136,7 +137,6 @@ class ProcessStats(object):
     process_info = process.as_dict(ProcessStats.PROCESS_ATTRS)
 
     utc_timestamp = time.mktime(datetime.utcnow().timetuple())
-    private_ip = appscale_info.get_private_ip()
 
     # CPU usage
     raw_cpu = process_info['cpu_times']
@@ -190,7 +190,7 @@ class ProcessStats(object):
     return ProcessStats(
       pid=pid, monit_name=monit_name, unified_service_name=service.name,
       application_id=service.get_application_id_by_monit_name(monit_name),
-      port=int(service.get_port_by_monit_name(monit_name)), private_ip=private_ip,
+      port=service.get_port_by_monit_name(monit_name), private_ip=private_ip,
       cmdline=process_info['cmdline'], utc_timestamp=utc_timestamp, cpu=cpu,
       memory=memory, disk_io=disk_io, network=network, threads_num=threads_num,
       children_stats_sum=children_sum, children_num=len(children_info)

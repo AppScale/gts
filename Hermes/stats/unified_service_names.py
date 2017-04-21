@@ -52,7 +52,8 @@ class Service(object):
     """ Parses monit_name and returns port if it was found """
     match = self.monit_matcher.match(monit_name)
     try:
-      return match.group('port') if match else None
+      port_group = match.group('port') if match else None
+      return int(port_group) if port_group else None
     except IndexError:
       return None
 
@@ -70,13 +71,14 @@ class Service(object):
     """ Parses haproxy proxy and returns private IP and port if it was found """
     match = self.haproxy_server_matcher.match(svname)
     if not match:
-      return None
+      return None, None
     try:
       ip = match.group('ip')
     except IndexError:
       ip = None
     try:
-      port = match.group('port')
+      port_group = match.group('port')
+      port = int(port_group) if port_group else None
     except IndexError:
       port = None
     return ip, port
@@ -108,8 +110,8 @@ class ServicesEnum(object):
   APPLICATION = Service(
     name='application',
     monit_matcher=r'^app___(?P<app>[\w_-]+)-(?P<port>\d+)$',
-    haproxy_proxy_matcher=r'^gae_(?P<app>\w+)$',
-    haproxy_server_matcher=r'^gae_(?P<app>\w+)-(?P<ip>[\d.]+):(?P<port>\d+)$'
+    haproxy_proxy_matcher=r'^gae_(?P<app>[\w_-]+)$',
+    haproxy_server_matcher=r'^gae_(?P<app>[\w_-]+)-(?P<ip>[\d.]+):(?P<port>\d+)$'
   )
 
   # Known only on Monit side
@@ -125,7 +127,7 @@ class ServicesEnum(object):
   EJABBERD = Service(name='ejabberd', monit_matcher='^ejabberd$')
   CONTROLLER = Service(name='controller', monit_matcher='^controller$')
   CELERY = Service(name='celery',
-                   monit_matcher=r'^celery-(?P<app>\w+)-(?P<port>\d+)$')
+                   monit_matcher=r'^celery-(?P<app>[\w_-]+)-(?P<port>\d+)$')
   CASSANDRA = Service(name='cassandra', monit_matcher='^cassandra$')
   BACKUP_RECOVERY_SERVICE = Service(name='backup_recovery_service',
                                     monit_matcher='^backup_recovery_service$')

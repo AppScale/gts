@@ -1,9 +1,13 @@
 import os
+import sys
 import time
 from datetime import datetime
 
 import attr
 import psutil
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+import appscale_info
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -77,6 +81,7 @@ class NodeStats(object):
   requests this statistics of all nodes in cluster.
   """
   utc_timestamp = attr.ib()
+  private_ip = attr.ib()
   cpu = attr.ib()  # NodeCPU
   memory = attr.ib()  # NodeMemory
   swap = attr.ib()  # NodeSwap
@@ -95,6 +100,7 @@ class NodeStats(object):
       on the machine
     """
     utc_timestamp = time.mktime(datetime.utcnow().timetuple())
+    private_ip = appscale_info.get_private_ip()
 
     # CPU usage
     cpu_times = psutil.cpu_times()
@@ -104,7 +110,7 @@ class NodeStats(object):
     )
 
     # AvgLoad
-    loadavg = NodeLoadAvg(os.getloadavg())
+    loadavg = NodeLoadAvg(*os.getloadavg())
 
     # Memory usage
     virtual = psutil.virtual_memory()
@@ -118,7 +124,7 @@ class NodeStats(object):
     )
 
     # Disk usage
-    partitions = psutil.disk_partitions(all=True)
+    partitions = psutil.disk_partitions()
     partitions_dict = {}
     for part in partitions:
       usage = psutil.disk_usage(part.mountpoint)
@@ -144,9 +150,9 @@ class NodeStats(object):
     )
 
     return NodeStats(
-      utc_timestamp=utc_timestamp, cpu=cpu, memory=memory, swap=swap,
-      disk_io=disk_io, partitions_dict=partitions_dict, network=network,
-      loadavg=loadavg
+      utc_timestamp=utc_timestamp, private_ip=private_ip, cpu=cpu,
+      memory=memory, swap=swap, disk_io=disk_io,
+      partitions_dict=partitions_dict, network=network, loadavg=loadavg
     )
 
   @staticmethod
