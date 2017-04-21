@@ -183,7 +183,7 @@ class InfrastructureManagerClient
   #   options: a hash containing information needed by the agent
   #     (credentials etc ...).
   #   jobs: an Array containing the roles for each VM to be created.
-  #     disks: an Array specifying the disks to be associated with the VMs
+  #   disks: an Array specifying the disks to be associated with the VMs
   #     (if any, it can be nil).
   #
   # Returns
