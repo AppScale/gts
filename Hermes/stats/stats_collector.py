@@ -1,18 +1,18 @@
 import json
 import logging
 import os
-import re
-import subprocess
 import sys
-
+import threading
 import urllib
 
 import attr
+from datetime import datetime
 from tornado import httpclient, gen
 
 # Hermes imports.
 import helper
 import hermes_constants
+from stats import proxy
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import appscale_info
@@ -20,19 +20,11 @@ import appscale_info
 
 class StatsMaster(object):
 
-  _instance = None
-
   def __init__(self):
     self._node_resources = {}    # dict[private_ip, NodeStats]
     self._node_processes = {}    # dict[private_ip, list[ProcessStats]]
     self._lb_services = {}       # dict[lb_ip, list[ProxyStats]]
     self._is_profiling_enabled = False
-
-  @classmethod
-  def instance(cls):
-    if not cls._instance:
-      cls._instance = cls()
-    return cls._instance
 
   @property
   def node_resources(self):
@@ -117,3 +109,34 @@ class StatsMaster(object):
       raise gen.Return({})
 
     raise gen.Return(json.loads(response.body))
+
+
+class HAProxyStatsCollector(object):
+
+  SNAPSHOTS_BUFFER_SIZE = 50
+
+  def __init__(self, stats_socket_path):
+    self._stats_socket_path = stats_socket_path
+    self._stats_snapshots_buffer = []
+    self._buffer_lock = threading.Lock()
+
+  def update_proxies_stats(self):
+    snapshot_order_id = time.mktime(datetime.utcnow().timetuple())
+    proxies_stats = proxy.ProxyStats.current_proxies(self._stats_socket_path)
+    self._buffer_lock.acquire()
+    if len(self._stats_snapshots_buffer) > self.SNAPSHOTS_BUFFER_SIZE:
+      del self._stats_snapshots_buffer[0]
+    snapshot = (snapshot_order_id, proxies_stats)
+    self._stats_snapshots_buffer.append(snapshot)
+    self._buffer_lock.release()
+
+  def get_stats_after(self, last_snapshot_id, clean_older=True):
+    self._buffer_lock.acquire()
+    if not last_snapshot_id:
+      snapshots = ... FRIDAY!!!
+
+
+
+
+
+
