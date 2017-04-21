@@ -5347,6 +5347,10 @@ HOSTS
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_images']) - @nodes.length
     if needed_appservers > 0
+      # TODO: Here we use 3 as an arbitrary number to calculate the number of machines 
+      # needed to run those number of appservers. That will change in the next step 
+      # to improve autoscaling/downscaling by using the capacity as a measure.
+
       Integer(needed_appservers/3).downto(0) {
         vms_to_spawn += 1
         if vm_scaleup_capacity < vms_to_spawn
