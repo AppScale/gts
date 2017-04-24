@@ -2,6 +2,7 @@ import datetime
 import json
 import re
 import sys
+import uuid
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from cassandra.concurrent import execute_concurrent
@@ -293,7 +294,8 @@ class PullQueue(Queue):
       'payload': task.payloadBase64,
       'enqueued': enqueue_time,
       'retry_count': 0,
-      'lease_expires': lease_expires
+      'lease_expires': lease_expires,
+      'op_id': uuid.uuid4()
     }
 
     try:
@@ -401,7 +403,8 @@ class PullQueue(Queue):
       'id': task.id,
       'old_eta': task.get_eta(),
       'new_eta': new_eta,
-      'current_time': datetime.datetime.utcnow()
+      'current_time': datetime.datetime.utcnow(),
+      'op_id': uuid.uuid4()
     }
     self._update_lease(parameters, retries)
 
@@ -423,7 +426,8 @@ class PullQueue(Queue):
       'queue': self.name,
       'id': task.id,
       'new_eta': new_eta,
-      'current_time': datetime.datetime.utcnow()
+      'current_time': datetime.datetime.utcnow(),
+      'op_id': uuid.uuid4()
     }
 
     try:
@@ -649,29 +653,31 @@ class PullQueue(Queue):
 
     return json.dumps(queue)
 
-  def _task_matches_params(self, parameters):
-    """ Checks if the task entry matches the given parameters.
+  def _task_mutated_by_id(self, task_id, op_id):
+    """ Checks if the task entry was last mutated with the given ID.
 
     Args:
-      parameters: A dictionary specifying the task parameters.
+      task_id: A string specifying the task ID.
+      op_id: A uuid identifying a process that tried to mutate the task.
     Returns:
-      A boolean indicating whether or not the task matches the parameters.
+      A boolean indicating that the task was last mutated with the ID.
     """
-    parameters.update({'app': self.app, 'queue': self.name})
     select_statement = SimpleStatement("""
-      SELECT * FROM pull_queue_tasks
+      SELECT op_id FROM pull_queue_tasks
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
     """, consistency_level=ConsistencyLevel.SERIAL)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'id': task_id,
+      'op_id': op_id
+    }
     try:
       result = self.db_access.session.execute(select_statement, parameters)[0]
     except IndexError:
       return False
 
-    for parameter in parameters:
-      if parameters[parameter] != getattr(result, parameter):
-        return False
-
-    return True
+    return result.op_id == op_id
 
   def _insert_task(self, parameters, retries):
     """ Insert task entry into pull_queue_tasks.
@@ -685,11 +691,11 @@ class PullQueue(Queue):
     insert_statement = SimpleStatement("""
       INSERT INTO pull_queue_tasks (
         app, queue, id, payload,
-        enqueued, lease_expires, retry_count, tag
+        enqueued, lease_expires, retry_count, tag, op_id
       )
       VALUES (
         %(app)s, %(queue)s, %(id)s, %(payload)s,
-        %(enqueued)s, %(lease_expires)s, %(retry_count)s, %(tag)s
+        %(enqueued)s, %(lease_expires)s, %(retry_count)s, %(tag)s, %(op_id)s
       )
       IF NOT EXISTS
     """, retry_policy=NO_RETRIES)
@@ -706,7 +712,7 @@ class PullQueue(Queue):
     if result.was_applied:
       return
 
-    if not self._task_matches_params(parameters):
+    if not self._task_mutated_by_id(parameters['id'], parameters['op_id']):
       raise InvalidTaskInfo(
         'Task name already taken: {}'.format(parameters['id']))
 
@@ -723,7 +729,7 @@ class PullQueue(Queue):
     """
     update_task = """
       UPDATE pull_queue_tasks
-      SET lease_expires = %(new_eta)s
+      SET lease_expires = %(new_eta)s, op_id = %(op_id)s
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
       IF lease_expires > %(current_time)s
     """
@@ -748,8 +754,7 @@ class PullQueue(Queue):
     if result.was_applied:
       return
 
-    to_check = {'id': parameters['id'], 'lease_expires': parameters['new_eta']}
-    if not self._task_matches_params(to_check):
+    if not self._task_mutated_by_id(parameters['id'], parameters['op_id']):
       raise InvalidLeaseRequest('The task lease has expired.')
 
   def _query_index(self, num_tasks, group_by_tag=False, tag=None):
@@ -891,10 +896,11 @@ class PullQueue(Queue):
     """
     leased = [None for _ in indexes]
     session = self.db_access.session
+    op_id = uuid.uuid4()
 
     lease_statement = """
       UPDATE pull_queue_tasks
-      SET lease_expires = ?
+      SET lease_expires = ?, op_id = ?
       WHERE app = ? AND queue = ? AND id = ?
       IF lease_expires < ?
     """
@@ -906,14 +912,14 @@ class PullQueue(Queue):
 
     statements_and_params = []
     for index in indexes:
-      params = (new_eta, self.app, self.name, index.id, current_time)
+      params = (new_eta, op_id, self.app, self.name, index.id, current_time)
       statements_and_params.append((lease_task, params))
     results = execute_concurrent(session, statements_and_params,
                                  raise_on_first_error=False)
 
     # Check which lease operations succeeded.
     select = SimpleStatement("""
-      SELECT payload, enqueued, retry_count, tag
+      SELECT payload, enqueued, retry_count, tag, op_id
       FROM pull_queue_tasks
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
     """, consistency_level=ConsistencyLevel.SERIAL)
@@ -935,8 +941,8 @@ class PullQueue(Queue):
       except (TRANSIENT_CASSANDRA_ERRORS, IndexError):
         raise TransientError('Unable to read task {}'.format(index.id))
 
-      # It would be better to use an ID here to check if the lease succeeded.
-      if lease_timed_out and read_result.lease_expires != new_eta:
+      # If the operation IDs do not match, the lease was not successful.
+      if lease_timed_out and read_result.op_id != op_id:
         continue
 
       task_info = {
