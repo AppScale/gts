@@ -9,6 +9,7 @@ import logging
 import psutil
 import subprocess
 
+from stats.tools import stats_reader
 from unified_service_names import find_service_by_monit_name
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
@@ -52,6 +53,12 @@ class ProcessChildrenSum(object):
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
+class ProcessesStatsSnapshot(object):
+  utc_timestamp = attr.ib()  # UTC timestamp
+  processes_stats = attr.ib()  # ProcessStats
+
+
+@attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessStats(object):
   """
   Object of ProcessStats is kind of structured container for all info related 
@@ -72,7 +79,6 @@ class ProcessStats(object):
                                     #| - port can be missed if it is not
                                     #|   mentioned in monit process name
   cmdline = attr.ib()
-  utc_timestamp = attr.ib()
   cpu = attr.ib()  # ProcessCPU
   memory = attr.ib()  # ProcessMemory
   disk_io = attr.ib()  # ProcessDiskIO
@@ -93,13 +99,14 @@ class ProcessStats(object):
   )
 
   @staticmethod
+  @stats_reader("ProcessesStats")
   def current_processes():
     """ Static method for building a list of ProcessStats.
     It parses output of `monit status` and generates ProcessStats object
     for each monitored service
 
     Returns:
-      A list of ProcessStats
+      ProcessesStatsSnapshot
     """
     monit_status = subprocess.check_output('monit status')
     processes_stats = []
@@ -114,7 +121,10 @@ class ProcessStats(object):
       except psutil.Error as err:
         logging.warn("Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
-    return processes_stats
+    return ProcessesStatsSnapshot(
+      utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
+      processes_stats=processes_stats
+    )
 
   @staticmethod
   def _process_stats(pid, service, monit_name, private_ip):
@@ -135,8 +145,6 @@ class ProcessStats(object):
     children_info = [child.as_dict(ProcessStats.PROCESS_ATTRS)
                      for child in process.children()]
     process_info = process.as_dict(ProcessStats.PROCESS_ATTRS)
-
-    utc_timestamp = time.mktime(datetime.utcnow().timetuple())
 
     # CPU usage
     raw_cpu = process_info['cpu_times']
@@ -191,9 +199,9 @@ class ProcessStats(object):
       pid=pid, monit_name=monit_name, unified_service_name=service.name,
       application_id=service.get_application_id_by_monit_name(monit_name),
       port=service.get_port_by_monit_name(monit_name), private_ip=private_ip,
-      cmdline=process_info['cmdline'], utc_timestamp=utc_timestamp, cpu=cpu,
-      memory=memory, disk_io=disk_io, network=network, threads_num=threads_num,
-      children_stats_sum=children_sum, children_num=len(children_info)
+      cmdline=process_info['cmdline'], cpu=cpu, memory=memory, disk_io=disk_io,
+      network=network, threads_num=threads_num, children_stats_sum=children_sum,
+      children_num=len(children_info)
     )
 
   @staticmethod

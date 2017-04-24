@@ -2,7 +2,7 @@ import unittest
 
 import os
 
-from stats import process
+from stats import process_stats
 from stats.unified_service_names import ServicesEnum
 
 from mock import patch, call
@@ -65,9 +65,9 @@ System 'appscale-image0'
 
 class TestCurrentProcessesStats(unittest.TestCase):
 
-  @patch.object(process.appscale_info, 'get_private_ip')
-  @patch.object(process.ProcessStats, '_process_stats')
-  @patch.object(process.subprocess, 'check_output')
+  @patch.object(process_stats.appscale_info, 'get_private_ip')
+  @patch.object(process_stats.ProcessStats, '_process_stats')
+  @patch.object(process_stats.subprocess, 'check_output')
   def test_reading_monit_status(self, mock_check_output, mock_process_stats,
                                 mock_get_private_ip):
     # Mocking `monit status` output and appscale_info.get_private_ip
@@ -75,7 +75,7 @@ class TestCurrentProcessesStats(unittest.TestCase):
     mock_get_private_ip.return_value = '1.1.1.1'
 
     # Calling method under test
-    process.ProcessStats.current_processes()
+    process_stats.ProcessStats.current_processes()
 
     # Checking expectations
     mock_process_stats.assert_has_calls([
@@ -83,9 +83,9 @@ class TestCurrentProcessesStats(unittest.TestCase):
       call(5045, ServicesEnum.APPLICATION, 'app___my-25app-20003', '1.1.1.1')
     ])
 
-  @patch.object(process.appscale_info, 'get_private_ip')
-  @patch.object(process.subprocess, 'check_output')
-  @patch.object(process.logging, 'warn')
+  @patch.object(process_stats.appscale_info, 'get_private_ip')
+  @patch.object(process_stats.subprocess, 'check_output')
+  @patch.object(process_stats.logging, 'warn')
   def test_process_stats(self, mock_logging_warn, mock_check_output,
                                mock_get_private_ip):
     # Mocking `monit status` output and appscale_info.get_private_ip
@@ -98,16 +98,18 @@ class TestCurrentProcessesStats(unittest.TestCase):
     mock_get_private_ip.return_value = '10.10.11.12'
 
     # Calling method under test
-    processes_stats = process.ProcessStats.current_processes()
+    stats_snapshot = process_stats.ProcessStats.current_processes()
 
-    # Checking expectations
+    # Verifying outcomes
+    self.assertIsInstance(stats_snapshot.utc_timestamp, float)
+    processes_stats = stats_snapshot.processes_stats
     mock_logging_warn.assert_called_once_with(
       "Unable to get process stats for proc-with-invalid-PID "
       "(psutil.NoSuchProcess no process found with pid 70000)"
     )
     self.assertEqual(len(processes_stats), 1)
     stats = processes_stats[0]
-    self.assertIsInstance(stats, process.ProcessStats)
+    self.assertIsInstance(stats, process_stats.ProcessStats)
     self.assertEqual(stats.pid, os.getpid())
     self.assertEqual(stats.monit_name, 'app___fakeapp-testprocess-321')
     self.assertEqual(stats.unified_service_name, 'application')
@@ -115,11 +117,10 @@ class TestCurrentProcessesStats(unittest.TestCase):
     self.assertEqual(stats.private_ip, '10.10.11.12')
     self.assertEqual(stats.port, 321)
     self.assertIsInstance(stats.cmdline, list)
-    self.assertIsInstance(stats.utc_timestamp, float)
-    self.assertIsInstance(stats.cpu, process.ProcessCPU)
-    self.assertIsInstance(stats.memory, process.ProcessMemory)
-    self.assertIsInstance(stats.disk_io, process.ProcessDiskIO)
-    self.assertIsInstance(stats.network, process.ProcessNetwork)
+    self.assertIsInstance(stats.cpu, process_stats.ProcessCPU)
+    self.assertIsInstance(stats.memory, process_stats.ProcessMemory)
+    self.assertIsInstance(stats.disk_io, process_stats.ProcessDiskIO)
+    self.assertIsInstance(stats.network, process_stats.ProcessNetwork)
     self.assertIsInstance(stats.threads_num, int)
-    self.assertIsInstance(stats.children_stats_sum, process.ProcessChildrenSum)
+    self.assertIsInstance(stats.children_stats_sum, process_stats.ProcessChildrenSum)
     self.assertIsInstance(stats.children_num, int)

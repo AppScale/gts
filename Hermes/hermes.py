@@ -29,7 +29,12 @@ from handlers import (
 )
 from stats.handlers import NodeStatsHandler, ClusterStatsHandler
 from helper import JSONTags
-from stats.stats_collector import StatsManager
+from stats.node_stats import NodeStatsSnapshot
+from stats.process_stats import ProcessesStatsSnapshot, ProcessStats
+from stats.profile_log import NodeStatsProfileLog, ProcessesStatsProfileLog, \
+  ProxiesStatsProfileLog
+from stats.proxy_stats import ProxyStats
+from stats.tools import StatsPublisher, StatsBuffer
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -246,6 +251,55 @@ def shutdown():
   IOLoop.instance().stop()
 
 
+def initialize_stats_management(is_profiling_enabled, is_lb, is_master):
+
+  stats_publishers = []
+
+  # Configure node stats publishing, ...
+  node_stats_publisher = StatsPublisher(NodeStatsSnapshot.current)
+  stats_publishers.append(node_stats_publisher)
+  #  ...  buffering
+  node_stats_buffer = StatsBuffer(50)
+  node_stats_publisher.subscribe(node_stats_buffer.append_stats_snapshot)
+
+  if is_lb:
+    # Configure proxies stats publishing, ...
+    proxies_stats_publisher = StatsPublisher(ProxyStats.current_proxies)
+    stats_publishers.append(proxies_stats_publisher)
+    #  ... buffering
+    proxies_stats_buffer = StatsBuffer(50)
+    proxies_stats_publisher.subscribe(proxies_stats_buffer.append_stats_snapshot)
+
+  if is_master:
+    pass
+
+  if is_profiling_enabled:
+    #  ... profiling for node stats
+    node_stats_profiler = NodeStatsProfileLog()
+    node_stats_publisher.subscribe(node_stats_profiler.write_snapshot)
+    if is_lb:
+      #  ... profiling for proxies stats
+      proxies_stats_profiler = ProxiesStatsProfileLog()
+      proxies_stats_publisher.subscribe(proxies_stats_profiler.write_snapshot)
+
+    # Configure processes stats publishing, ...
+    processes_stats_publisher = StatsPublisher(ProcessStats.current_processes)
+    stats_publishers.append(processes_stats_publisher)
+    #  ... buffering
+    processes_stats_buffer = StatsBuffer(50)
+    processes_stats_publisher.subscribe(
+      processes_stats_buffer.append_stats_snapshot
+    )
+    #  ... and profiling
+    processes_stats_profiler = ProcessesStatsProfileLog()
+    processes_stats_publisher.subscribe(processes_stats_profiler.write_snapshot)
+
+  # Periodically collect and cache statistics
+  for publisher in stats_publishers:
+    PeriodicCallback(publisher.read_and_publish,
+                     hermes_constants.STATS_INTERVAL).start()
+
+
 def main():
   """ Main. """
 
@@ -253,6 +307,8 @@ def main():
   if hermes_constants.DEBUG:
     logging_level = logging.DEBUG
   logging.getLogger().setLevel(logging_level)
+
+  is_profiling_enabled = hermes_constants.IS_PROFILING_ENABLED
 
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)
@@ -279,16 +335,6 @@ def main():
 
   master = appscale_info.get_private_ip() in \
            appscale_info.get_load_balancer_ips()
-
-  stats_collector = StatsManager().instance()
-
-  # Cache this node's statistics immediately so that the master Hermes nodes
-  # can use it as soon as possible.
-  stats_collector.update_node_stats()
-
-  # Periodically collect and cache this node's statistics.
-  PeriodicCallback(stats_collector.update_node_stats,
-                   hermes_constants.STATS_INTERVAL).start()
 
   if master:
     # Cache the deployment's stats immediately so that the AppController can

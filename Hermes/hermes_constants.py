@@ -76,6 +76,18 @@ UA_SERVER_PORT = 4343
 # The username for deploying the appscalesensor app.
 USER_EMAIL = "appscale_user@appscale.local"
 
+# Determines whether profile log should be written
+IS_PROFILING_ENABLED = False
+
+# Determines whether local profile log should be written into local files
+STORE_LOCAL_PROFILE_LOG = False
+
+# Determines whether cluster profile log should be written on master node
+CENTRALIZED_CLUSTER_PROFILE_LOG = False
+
+# Path to haproxy stats socket
+HAPROXY_STATS_SOCKET_PATH = "/etc/haproxy/stats"
+
 
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """

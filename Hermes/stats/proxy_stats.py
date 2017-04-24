@@ -8,6 +8,8 @@ from datetime import datetime
 
 import attr
 
+import hermes_constants
+from stats.tools import stats_reader
 from stats.unified_service_names import find_service_by_pxname
 
 
@@ -224,6 +226,12 @@ class InvalidHAProxyStats(ValueError):
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
+class ProxiesStatsSnapshot(object):
+  utc_timestamp = attr.ib()  # UTC timestamp
+  proxies_stats = attr.ib()  # ProxyStats
+
+
+@attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProxyStats(object):
   """
   Object of ProxyStats is kind of structured container for all haproxy stats
@@ -234,7 +242,6 @@ class ProxyStats(object):
   name = attr.ib()
   unified_service_name = attr.ib()  # taskqueue, appserver, datastore, ...
   application_id = attr.ib()  # application ID for appserver and None for others
-  utc_timestamp = attr.ib()
   frontend = attr.ib()  # HAProxyFrontendStats
   backend = attr.ib()  # HAProxyBackendStats
   servers = attr.ib()  # list[HAProxyServerStats]
@@ -253,19 +260,18 @@ class ProxyStats(object):
     return value
 
   @staticmethod
-  def current_proxies(stats_socket_path):
+  @stats_reader("HAProxyStats")
+  def current_proxies():
     """ Static method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
 
-    Args:
-      stats_socket_path: a str representing path to haproxy stats socket
     Returns:
-      list[ProxyStats]
+      ProxiesStatsSnapshot
     """
     # Get CSV table with haproxy stats
     csv_text = subprocess.check_output(
       "echo 'show stat' | socat stdio unix-connect:{}"
-        .format(stats_socket_path), shell=True
+        .format(hermes_constants.HAPROXY_STATS_SOCKET_PATH), shell=True
     ).replace("# ", "", 1)
     csv_buffer = StringIO.StringIO(csv_text)
     table = csv.DictReader(csv_buffer, delimiter=',')
@@ -273,8 +279,6 @@ class ProxyStats(object):
     if missed:
       logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
                    "is probably used (v1.5+ is expected)".format(list(missed)))
-
-    utc_timestamp = time.mktime(datetime.utcnow().timetuple())
 
     # Parse haproxy stats output line by line
     parsed_objects = defaultdict(list)
@@ -328,13 +332,15 @@ class ProxyStats(object):
       application_id = service.get_application_id_by_pxname(proxy_name)
       proxy_stats = ProxyStats(
         name=proxy_name, unified_service_name=service_name,
-        application_id=application_id, utc_timestamp=utc_timestamp,
-        frontend=frontends[0], backend=backends[0], servers=servers,
-        listeners=listeners
+        application_id=application_id, frontend=frontends[0],
+        backend=backends[0], servers=servers, listeners=listeners
       )
       proxy_stats_list.append(proxy_stats)
 
-    return proxy_stats_list
+    return ProxiesStatsSnapshot(
+      utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
+      proxies_stats=proxy_stats_list
+    )
 
   @staticmethod
   def fromdict(dictionary):

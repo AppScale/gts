@@ -6,6 +6,8 @@ from datetime import datetime
 import attr
 import psutil
 
+from stats.tools import stats_reader
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import appscale_info
 
@@ -71,9 +73,9 @@ class NodeNetwork(object):
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeStats(object):
+class NodeStatsSnapshot(object):
   """
-  Object of NodeStats is kind of structured container for all info related 
+  Object of NodeStatsSnapshot is kind of structured container for all info related 
   to resources used on the machine. Additionally it stores UTC timestamp
   which reflects the moment when stats were taken.
 
@@ -91,12 +93,13 @@ class NodeStats(object):
   loadavg = attr.ib()  # NodeLoadAvg
 
   @staticmethod
+  @stats_reader("NodeStats")
   def current():
-    """ Static method for building an instance of NodeStats.
+    """ Static method for building an instance of NodeStatsSnapshot.
     It collects information about usage of main resource on the machine.
 
     Returns:
-      An object of NodeStats with detailed explanation of resources used
+      An object of NodeStatsSnapshot with detailed explanation of resources used
       on the machine
     """
     utc_timestamp = time.mktime(datetime.utcnow().timetuple())
@@ -149,7 +152,7 @@ class NodeStats(object):
       dropout=network_io.dropout, connections_num=len(psutil.net_connections())
     )
 
-    return NodeStats(
+    return NodeStatsSnapshot(
       utc_timestamp=utc_timestamp, private_ip=private_ip, cpu=cpu,
       memory=memory, swap=swap, disk_io=disk_io,
       partitions_dict=partitions_dict, network=network, loadavg=loadavg
@@ -159,8 +162,8 @@ class NodeStats(object):
   def fromdict(dictionary):
     """ Addition to attr.asdict function.
     Args:
-      dictionary: a dict containing all fields required to build NodeStats obj. 
+      dictionary: a dict containing all fields required to build NodeStatsSnapshot obj. 
     Returns:
-      an instance of NodeStats
+      an instance of NodeStatsSnapshot
     """
 
