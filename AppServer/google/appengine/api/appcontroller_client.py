@@ -53,6 +53,10 @@ class AppControllerClient():
       secret: A str containing the secret key, used to authenticate this client
         when talking to remote AppControllers.
     """
+    # Disable certificate verification for Python >= 2.7.9.
+    if hasattr(ssl, '_create_unverified_context'):
+      ssl._create_default_https_context = ssl._create_unverified_context
+
     self.host = host
     self.server = SOAPpy.SOAPProxy('https://{0}:{1}'.format(host, self.PORT))
     self.secret = secret
