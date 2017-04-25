@@ -9,25 +9,9 @@ from datetime import datetime
 import attr
 
 import hermes_constants
+from hermes_constants import UNKNOWN
 from stats.tools import stats_reader
 from stats.unified_service_names import find_service_by_pxname
-
-
-class _UnknownValue(object):
-  """
-  Instance of this private class denotes unknown value.
-  It's used to denote values of stats properties which are missed
-  in haproxy stats csv
-  """
-
-  def __nonzero__(self):
-    return False
-
-  def __repr__(self):
-    return "-"
-
-
-UNKNOWN = _UnknownValue()
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -228,7 +212,35 @@ class InvalidHAProxyStats(ValueError):
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProxiesStatsSnapshot(object):
   utc_timestamp = attr.ib()  # UTC timestamp
-  proxies_stats = attr.ib()  # ProxyStats
+  proxies_stats = attr.ib()  # list[ProxyStats]
+
+  @staticmethod
+  def fromdict(dictionary, strict=False):
+    """ Addition to attr.asdict function.
+    Args:
+      dictionary: a dict containing fields for building ProxiesStatsSnapshot obj.
+      strict: a boolean. If True, any missed field will result in IndexError.
+              If False, all missed values will be replaced with UNKNOWN.
+    Returns:
+      an instance of ProxiesStatsSnapshot
+    Raises:
+      IndexError if strict is set to True and dictionary is lacking any fields
+    """
+    if strict:
+      return ProxiesStatsSnapshot(
+        utc_timestamp=dictionary['utc_timestamp'],
+        proxies_stats=[
+          ProxyStats.fromdict(proxy_stats, strict)
+          for proxy_stats in dictionary['proxies_stats']
+        ]
+      )
+    return ProxiesStatsSnapshot(
+      utc_timestamp=dictionary.get('utc_timestamp', UNKNOWN),
+      proxies_stats=[
+        ProxyStats.fromdict(proxy_stats, strict)
+        for proxy_stats in dictionary.get('proxies_stats', [])
+      ]
+    )
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -260,7 +272,7 @@ class ProxyStats(object):
     return value
 
   @staticmethod
-  @stats_reader("HAProxyStats")
+  @stats_reader("ProxiesStats")
   def current_proxies():
     """ Static method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
@@ -343,11 +355,62 @@ class ProxyStats(object):
     )
 
   @staticmethod
-  def fromdict(dictionary):
+  def fromdict(dictionary, strict=False):
     """ Addition to attr.asdict function.
     Args:
-      dictionary: a dict with all fields required to build ProxyStats obj. 
+      dictionary: a dict containing fields for building ProxyStats obj.
+      strict: a boolean. If True, any missed field will result in IndexError.
+              If False, all missed values will be replaced with UNKNOWN.
     Returns:
       an instance of ProxyStats
+    Raises:
+      IndexError if strict is set to True and dictionary is lacking any fields
     """
-    pass
+    frontend = dictionary.get('frontend', {})
+    backend = dictionary.get('backend', {})
+    servers = dictionary.get('servers', [])
+    listeners = dictionary.get('listeners', [])
+
+    if strict:
+      return ProxyStats(
+        name=dictionary['name'],
+        unified_service_name=dictionary['unified_service_name'],
+        application_id=dictionary['application_id'],
+        frontend=HAProxyFrontendStats(
+          **{frontend[field] for field in HAProxyFrontendStats.__slots__}),
+        backend=HAProxyBackendStats(
+          **{backend[field] for field in HAProxyBackendStats.__slots__}),
+        servers=[
+          HAProxyServerStats(
+            **{server[field] for field in HAProxyServerStats.__slots__})
+          for server in servers
+        ],
+        listeners=[
+          HAProxyListenerStats(
+            **{listener[field] for field in HAProxyListenerStats.__slots__})
+          for listener in listeners
+        ]
+      )
+    return ProxyStats(
+      name=dictionary.get('name', UNKNOWN),
+      unified_service_name=dictionary.get('unified_service_name', UNKNOWN),
+      application_id=dictionary.get('application_id', UNKNOWN),
+      frontend=HAProxyFrontendStats(
+        **{frontend.get(field, UNKNOWN)
+           for field in HAProxyFrontendStats.__slots__}),
+      backend=HAProxyBackendStats(
+        **{backend.get(field, UNKNOWN)
+           for field in HAProxyBackendStats.__slots__}),
+      servers=[
+        HAProxyServerStats(
+          **{server.get(field, UNKNOWN)
+             for field in HAProxyServerStats.__slots__})
+        for server in servers
+      ],
+      listeners=[
+        HAProxyListenerStats(
+          **{listener.get(field, UNKNOWN)
+             for field in HAProxyListenerStats.__slots__})
+        for listener in listeners
+      ]
+    )

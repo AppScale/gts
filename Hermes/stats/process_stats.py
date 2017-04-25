@@ -9,6 +9,7 @@ import logging
 import psutil
 import subprocess
 
+from hermes_constants import UNKNOWN
 from stats.tools import stats_reader
 from unified_service_names import find_service_by_monit_name
 
@@ -55,7 +56,35 @@ class ProcessChildrenSum(object):
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessesStatsSnapshot(object):
   utc_timestamp = attr.ib()  # UTC timestamp
-  processes_stats = attr.ib()  # ProcessStats
+  processes_stats = attr.ib()  # list[ProcessStats]
+
+  @staticmethod
+  def fromdict(dictionary, strict=False):
+    """ Addition to attr.asdict function.
+    Args:
+      dictionary: a dict containing fields for building ProcessesStatsSnapshot obj.
+      strict: a boolean. If True, any missed field will result in IndexError.
+              If False, all missed values will be replaced with UNKNOWN.
+    Returns:
+      an instance of ProcessesStatsSnapshot
+    Raises:
+      IndexError if strict is set to True and dictionary is lacking any fields
+    """
+    if strict:
+      return ProcessesStatsSnapshot(
+        utc_timestamp=dictionary['utc_timestamp'],
+        processes_stats=[
+          ProcessStats.fromdict(process_stats, strict)
+          for process_stats in dictionary['processes_stats']
+        ]
+      )
+    return ProcessesStatsSnapshot(
+      utc_timestamp=dictionary.get('utc_timestamp', UNKNOWN),
+      processes_stats=[
+        ProcessStats.fromdict(process_stats, strict)
+        for process_stats in dictionary.get('processes_stats', [])
+      ]
+    )
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -119,7 +148,7 @@ class ProcessStats(object):
         stats = ProcessStats._process_stats(pid, service, monit_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
-        logging.warn("Unable to get process stats for {monit_name} ({err})"
+        logging.warn(u"Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
     return ProcessesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
@@ -205,11 +234,64 @@ class ProcessStats(object):
     )
 
   @staticmethod
-  def fromdict(dictionary):
+  def fromdict(dictionary, strict=False):
     """ Addition to attr.asdict function.
     Args:
-      dictionary: a dict with all fields required to build ProcessStats obj. 
+      dictionary: a dict containing fields for building ProcessStats obj.
+      strict: a boolean. If True, any missed field will result in IndexError.
+              If False, all missed values will be replaced with UNKNOWN.
     Returns:
       an instance of ProcessStats
+    Raises:
+      IndexError if strict is set to True and dictionary is lacking any fields
     """
-    pass
+    cpu = dictionary.get('cpu', {})
+    memory = dictionary.get('memory', {})
+    disk_io = dictionary.get('disk_io', {})
+    network = dictionary.get('network', {})
+    children_stats_sum = dictionary.get('children_stats_sum', {})
+    
+    if strict:
+      return ProcessStats(
+        pid=dictionary['pid'],
+        monit_name=dictionary['monit_name'],
+        unified_service_name=dictionary['unified_service_name'],
+        application_id=dictionary['application_id'],
+        private_ip=dictionary['private_ip'],
+        port=dictionary['port'],
+        cmdline=dictionary['cmdline'],
+        cpu=ProcessCPU(**{cpu[field] for field in ProcessCPU.__slots__}),
+        memory=ProcessMemory(
+          **{memory[field] for field in ProcessMemory.__slots__}),
+        disk_io=ProcessDiskIO(
+          **{disk_io[field] for field in ProcessDiskIO.__slots__}),
+        network=ProcessNetwork(
+          **{network[field] for field in ProcessNetwork.__slots__}),
+        threads_num=dictionary['threads_num'],
+        children_stats_sum=ProcessChildrenSum(
+          **{children_stats_sum[field]
+             for field in ProcessChildrenSum.__slots__}),
+        children_num=dictionary['children_num']
+      )
+    return ProcessStats(
+      pid=dictionary.get('pid', UNKNOWN),
+      monit_name=dictionary.get('monit_name', UNKNOWN),
+      unified_service_name=dictionary.get('unified_service_name', UNKNOWN),
+      application_id=dictionary.get('application_id', UNKNOWN),
+      private_ip=dictionary.get('private_ip', UNKNOWN),
+      port=dictionary.get('port', UNKNOWN),
+      cmdline=dictionary.get('cmdline', UNKNOWN),
+      cpu=ProcessCPU(
+        **{cpu.get(field, UNKNOWN) for field in ProcessCPU.__slots__}),
+      memory=ProcessMemory(
+        **{memory.get(field, UNKNOWN) for field in ProcessMemory.__slots__}),
+      disk_io=ProcessDiskIO(
+        **{disk_io.get(field, UNKNOWN) for field in ProcessDiskIO.__slots__}),
+      network=ProcessNetwork(
+        **{network.get(field, UNKNOWN) for field in ProcessNetwork.__slots__}),
+      threads_num=dictionary.get('threads_num', UNKNOWN),
+      children_stats_sum=ProcessChildrenSum(
+        **{children_stats_sum.get(field, UNKNOWN)
+           for field in ProcessChildrenSum.__slots__}),
+      children_num=dictionary.get('children_num', UNKNOWN)
+    )

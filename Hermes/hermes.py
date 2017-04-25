@@ -43,7 +43,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import appscale_utils
 
-from lib.custom_exceptions import InfrastructureManagerException
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
 # Determines whether this node is a master Hermes node. A slave Hermes node

@@ -5,7 +5,9 @@ from datetime import datetime
 
 import attr
 import psutil
+from cassandra.metadata import defaultdict
 
+from hermes_constants import UNKNOWN
 from stats.tools import stats_reader
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
@@ -159,11 +161,73 @@ class NodeStatsSnapshot(object):
     )
 
   @staticmethod
-  def fromdict(dictionary):
+  def fromdict(dictionary, strict=False):
     """ Addition to attr.asdict function.
     Args:
-      dictionary: a dict containing all fields required to build NodeStatsSnapshot obj. 
+      dictionary: a dict containing fields for building NodeStatsSnapshot obj.
+      strict: a boolean. If True, any missed field will result in IndexError.
+              If False, all missed values will be replaced with UNKNOWN.
     Returns:
       an instance of NodeStatsSnapshot
+    Raises:
+      IndexError if strict is set to True and dictionary is lacking any fields
     """
+    cpu = dictionary.get('cpu', {})
+    memory = dictionary.get('memory', {})
+    swap = dictionary.get('swap', {})
+    disk_io = dictionary.get('disk_io', {})
+    partitions_dict = dictionary.get('partitions_dict', {})
+    network = dictionary.get('network', {})
+    loadavg = dictionary.get('loadavg', {})
+    
+    if strict:
+      return NodeStatsSnapshot(
+        utc_timestamp=dictionary['utc_timestamp'],
+        private_ip=dictionary['private_ip'],
+        cpu=NodeCPU(**{cpu[field] for field in NodeCPU.__slots__}),
+        memory=NodeMemory(**{memory[field] for field in NodeMemory.__slots__}),
+        swap=NodeSwap(**{swap[field] for field in NodeSwap.__slots__}),
+        disk_io=NodeDiskIO(
+          **{disk_io[field] for field in NodeDiskIO.__slots__}),
+        partitions_dict={
+          mount: NodePartition(
+            **{part[field] for field in NodePartition.__slots__})
+          for mount, part in partitions_dict.iteritems()
+        },
+        network=NodeNetwork(
+          **{network[field] for field in NodeNetwork.__slots__}),
+        loadavg=NodeLoadAvg(
+          **{loadavg[field] for field in NodeLoadAvg.__slots__})
+      )
+    
+    return NodeStatsSnapshot(
+        utc_timestamp=dictionary.get('utc_timestamp', UNKNOWN),
+        private_ip=dictionary.get('private_ip', UNKNOWN),
+        cpu=NodeCPU(**{cpu.get(field, UNKNOWN) for field in NodeCPU.__slots__}),
+        memory=NodeMemory(
+          **{memory.get(field, UNKNOWN) for field in NodeMemory.__slots__}),
+        swap=NodeSwap(
+          **{swap.get(field, UNKNOWN) for field in NodeSwap.__slots__}),
+        disk_io=NodeDiskIO(
+          **{disk_io.get(field, UNKNOWN) for field in NodeDiskIO.__slots__}),
+        partitions_dict={
+          mount: NodePartition(
+            **{part.get(field, UNKNOWN) for field in NodePartition.__slots__})
+          for mount, part in partitions_dict.iteritems()
+        },
+        network=NodeNetwork(
+          **{network.get(field, UNKNOWN) for field in NodeNetwork.__slots__}),
+        loadavg=NodeLoadAvg(
+          **{loadavg.get(field, UNKNOWN) for field in NodeLoadAvg.__slots__})
+      )
+
+  @classmethod
+  def todict(cls, stats, include=None):
+    full = attr.asdict(stats)
+    if include:
+      return {
+        field: value for field, value in full.iteritems() if field in include
+      }
+    else:
+      return full
 

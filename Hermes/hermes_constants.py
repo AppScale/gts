@@ -88,6 +88,9 @@ CENTRALIZED_CLUSTER_PROFILE_LOG = False
 # Path to haproxy stats socket
 HAPROXY_STATS_SOCKET_PATH = "/etc/haproxy/stats"
 
+# Name of header where secret should be passed
+SECRET_HEADER = 'Appscale-Secret'
+
 
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
@@ -101,3 +104,19 @@ class TaskTypes(object):
   """ A class containing supported task types. """
   CASSANDRA_BACKUP = 'cassandra_backup'
   CASSANDRA_RESTORE = 'cassandra_restore'
+
+
+class _UnknownValue(object):
+  """
+  Instance of this private class denotes unknown value.
+  It's used to denote values of stats properties which are missed
+  in haproxy stats csv
+  """
+
+  def __nonzero__(self):
+    return False
+
+  def __repr__(self):
+    return ""
+
+UNKNOWN = _UnknownValue()

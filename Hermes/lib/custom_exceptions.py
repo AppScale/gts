@@ -1,3 +1,0 @@
-
-class InfrastructureManagerException(Exception):
-  pass
