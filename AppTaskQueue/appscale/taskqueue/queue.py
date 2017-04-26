@@ -1025,20 +1025,27 @@ class PullQueue(Queue):
                   'id': task_id}
     self.db_access.session.execute(delete_index, parameters)
 
-  def _delete_task_and_index(self, task):
+  def _delete_task_and_index(self, task, retries=5):
     """ Deletes a task and its index atomically.
 
     Args:
       task: A Task object.
     """
-    batch_delete = BatchStatement(retry_policy=BASIC_RETRIES)
-
     delete_task = SimpleStatement("""
       DELETE FROM pull_queue_tasks
       WHERE app = %(app)s AND queue = %(queue)s AND id = %(id)s
-    """)
+      IF EXISTS
+    """, retry_policy=NO_RETRIES)
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
-    batch_delete.add(delete_task, parameters=parameters)
+    try:
+      self.db_access.session.execute(delete_task, parameters=parameters)
+    except TRANSIENT_CASSANDRA_ERRORS as error:
+      retries_left = retries - 1
+      if retries_left <= 0:
+        raise
+      logger.warning(
+        'Encountered error while deleting task: {}. Retrying.'.format(error))
+      return self._delete_task_and_index(task, retries=retries_left)
 
     delete_task_index = SimpleStatement("""
       DELETE FROM pull_queue_tasks_index
@@ -1053,9 +1060,7 @@ class PullQueue(Queue):
       'eta': task.get_eta(),
       'id': task.id
     }
-    batch_delete.add(delete_task_index, parameters=parameters)
-
-    self.db_access.session.execute(batch_delete)
+    self.db_access.session.execute(delete_task_index, parameters=parameters)
 
   def _resolve_task(self, index):
     """ Cleans up expired tasks and indices.
