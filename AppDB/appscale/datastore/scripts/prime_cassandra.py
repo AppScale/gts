@@ -2,13 +2,9 @@
 
 import argparse
 import logging
-import sys
 
+from appscale.common.constants import LOG_FORMAT
 from ..cassandra_env import schema
-from ..unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 # The data layout version to set after removing the journal table.
 POST_JOURNAL_VERSION = 1.0

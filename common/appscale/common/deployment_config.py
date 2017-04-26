@@ -1,7 +1,5 @@
 import json
 import logging
-import os
-import sys
 import time
 
 from kazoo.client import KazooClient
@@ -11,9 +9,8 @@ from kazoo.client import NoNodeError
 from kazoo.exceptions import ZookeeperError
 from threading import Lock
 
-sys.path.append(os.path.dirname(__file__))
-from constants import SMALL_WAIT
-from constants import TINY_WAIT
+from .constants import SMALL_WAIT
+from .constants import TINY_WAIT
 
 
 class ConfigInaccessible(Exception):

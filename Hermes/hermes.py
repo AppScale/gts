@@ -2,18 +2,14 @@
 initiates actions accordingly. """
 
 import datetime
-import hashlib
 import helper
 import hermes_constants
 import json
 import logging
 import os
-import random
 import re
 import signal
-import SOAPpy
 import socket
-import string
 import sys
 import tarfile
 import tornado.escape
@@ -21,6 +17,10 @@ import tornado.httpclient
 import tornado.web
 import urllib
 
+from appscale.common import appscale_info
+from appscale.common import appscale_utils
+from appscale.common.ua_client import UAClient
+from appscale.common.ua_client import UAException
 from handlers import MainHandler
 from handlers import TaskHandler
 from helper import JSONTags
@@ -34,9 +34,6 @@ from tornado.options import parse_command_line
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
-import appscale_utils
 # Tornado web server options.
 define("port", default=hermes_constants.HERMES_PORT, type=int)
 
@@ -139,18 +136,16 @@ def deploy_sensor_app():
   if not deployment_id:
     return
 
-  uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
-    appscale_info.get_db_master_ip(), hermes_constants.UA_SERVER_PORT))
+  secret = appscale_info.get_secret()
+  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
 
   # If the appscalesensor app is already running, then do nothing.
-  is_app_enabled = uaserver.is_app_enabled(hermes_constants.APPSCALE_SENSOR,
-    appscale_info.get_secret())
-  if is_app_enabled == "true":
+  if ua_client.is_app_enabled(hermes_constants.APPSCALE_SENSOR):
     return
 
   pwd = appscale_utils.encrypt_password(hermes_constants.USER_EMAIL,
     appscale_utils.random_password_generator())
-  if create_appscale_user(pwd, uaserver) and create_xmpp_user(pwd, uaserver):
+  if create_appscale_user(pwd, ua_client) and create_xmpp_user(pwd, ua_client):
     logging.debug("Created new user and now tarring app to be deployed.")
     file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
     app_dir_location = os.path.join(hermes_constants.APP_DIR_LOCATION,
@@ -173,19 +168,18 @@ def deploy_sensor_app():
 
 def create_appscale_user(password, uaserver):
   """ Creates the user account with the email address and password provided. """
-  does_user_exist = uaserver.does_user_exist(hermes_constants.USER_EMAIL,
-    appscale_info.get_secret())
-  if does_user_exist == "true":
+  if uaserver.does_user_exist(hermes_constants.USER_EMAIL):
     logging.debug("User {0} already exists, so not creating it again.".
       format(hermes_constants.USER_EMAIL))
     return True
-  else:
-    if uaserver.commit_new_user(hermes_constants.USER_EMAIL, password,
-        hermes_constants.ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
-      return True
-    else:
-      logging.error("Error while creating an Appscale user.")
-      return False
+
+  try:
+    uaserver.commit_new_user(hermes_constants.USER_EMAIL, password,
+                             hermes_constants.ACCOUNT_TYPE)
+    return True
+  except UAException as error:
+    logging.error('Error while creating an Appscale user: {}'.format(error))
+    return False
 
 def create_xmpp_user(password, uaserver):
   """ Creates the XMPP account. If the user's email is a@a.com, then that
@@ -194,20 +188,19 @@ def create_xmpp_user(password, uaserver):
   username = username_regex.match(hermes_constants.USER_EMAIL).groups()[0]
   xmpp_user = "{0}@{1}".format(username, appscale_info.get_login_ip())
   xmpp_pass = appscale_utils.encrypt_password(xmpp_user, password)
-  does_user_exist = uaserver.does_user_exist(xmpp_user,
-    appscale_info.get_secret())
-  if does_user_exist == "true":
+  if uaserver.does_user_exist(xmpp_user):
     logging.debug("XMPP User {0} already exists, so not creating it again.".
       format(xmpp_user))
     return True
-  else:
-    if uaserver.commit_new_user(xmpp_user, xmpp_pass,
-        hermes_constants.ACCOUNT_TYPE, appscale_info.get_secret()) == "true":
-      logging.info("XMPP username is {0}".format(xmpp_user))
-      return True
-    else:
-      logging.error("Error while creating an XMPP user.")
-      return False
+
+  try:
+    uaserver.commit_new_user(xmpp_user, xmpp_pass,
+                             hermes_constants.ACCOUNT_TYPE)
+    logging.info("XMPP username is {0}".format(xmpp_user))
+    return True
+  except UAException as error:
+    logging.error('Error while creating an XMPP user: {}'.format(error))
+    return False
 
 def signal_handler(signal, frame):
   """ Signal handler for graceful shutdown. """

@@ -19,7 +19,6 @@ def setup_environment():
   env = yaml.load(FILE.read())
   APPSCALE_HOME = env["APPSCALE_HOME"]
   sys.path.append(APPSCALE_HOME + "/AppServer")
-  sys.path.append(APPSCALE_HOME + "/lib")
 
 setup_environment()
 from celery import Celery
@@ -28,9 +27,8 @@ from httplib import BadStatusLine
 from socket import error as SocketError
 from urlparse import urlparse
 
-import appscale_info
-import constants
-
+from appscale.common import appscale_info
+from appscale.common import constants
 from appscale.taskqueue.brokers import rabbitmq
 from appscale.taskqueue.distributed_tq import TaskName
 from appscale.taskqueue.tq_config import TaskQueueConfig

@@ -176,7 +176,20 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, options, job, disks)
+  # Create new VMs.
+  #
+  # Args:
+  #   num_vms: the number of VMs to create.
+  #   options: a hash containing information needed by the agent
+  #     (credentials etc ...).
+  #   jobs: an Array containing the roles for each VM to be created.
+  #   disks: an Array specifying the disks to be associated with the VMs
+  #     (if any, it can be nil).
+  #
+  # Returns
+  #   An Array containing the nodes information, suitable to be converted
+  #   into Node. 
+  def spawn_vms(num_vms, options, jobs, disks)
     parameters = get_parameters_from_credentials(options)
     parameters['num_vms'] = num_vms.to_s
     parameters['cloud'] = 'cloud1'
@@ -204,15 +217,6 @@ class InfrastructureManagerClient
       Kernel.sleep(10)
     }
 
-    # now, turn this info back into the format we normally use
-    jobs = []
-    if job.is_a?(String)
-      # We only got one job, so just repeat it for each one of the nodes
-      jobs = Array.new(size=vm_info['public_ips'].length, obj=job)
-    else
-      jobs = job
-    end
-    
     # ip:job:instance-id
     instances_created = []
     vm_info['public_ips'].each_index { |index|

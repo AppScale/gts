@@ -2,9 +2,9 @@
 Cassandra Interface for AppScale
 """
 import cassandra
-import sys
 import time
 
+from appscale.common import appscale_info
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
@@ -19,10 +19,6 @@ from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import SCHEMA_TABLE
 from ..dbconstants import SCHEMA_TABLE_SCHEMA
 from ..dbinterface import AppDBInterface
-from ..unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA
 

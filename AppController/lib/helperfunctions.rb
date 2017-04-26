@@ -583,13 +583,20 @@ module HelperFunctions
   # private IP address from its private FQDN is to use dig. This method
   # attempts to resolve IPs in that method, deferring to other methods if that
   # fails.
+  #
+  # Args:
+  #   host: the String containing the IP or hostname.
+  # Returns:
+  #   A String with the IP address.
+  # Raises:
+  #   AppScaleException: if host cannot be translated to IP.
   def self.convert_fqdn_to_ip(host)
     return host if host =~ /#{IP_REGEX}/
 
     ip = `dig #{host} +short`.chomp
     if ip.empty?
-      Djinn.log_debug("couldn't use dig to resolve [#{host}]")
-      self.log_and_crash("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
+      Djinn.log_warn("Couldn't use dig to resolve #{host}.")
+      raise AppScaleException.new("Couldn't convert #{host}: result of dig was \n#{ip}.")
     end
 
     return ip

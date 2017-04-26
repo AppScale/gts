@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 import logging
-import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
-import monit_interface
+from appscale.common import monit_interface
+
 
 def stop_service(service_name):
   logging.info("Stopping " + service_name)

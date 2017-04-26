@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import shutil
-import SOAPpy
 import statvfs
 import sys
 import tarfile
@@ -13,6 +12,10 @@ from os.path import getsize
 
 import gcs_helper
 
+from appscale.common import appscale_info
+from appscale.common.constants import APPSCALE_DATA_DIR
+from appscale.common.ua_client import UAClient
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup.br_constants import APP_BACKUP_DIR_LOCATION
 from appscale.datastore.backup.br_constants import APP_DIR_LOCATION
@@ -20,16 +23,9 @@ from appscale.datastore.backup.br_constants import BACKUP_DIR_LOCATION
 from appscale.datastore.backup.br_constants import BACKUP_ROLLBACK_SUFFIX
 from appscale.datastore.backup.br_constants import PADDING_PERCENTAGE
 from appscale.datastore.backup.br_constants import StorageTypes
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-from constants import APPSCALE_DATA_DIR
-
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
-
-# The port that the SOAP server listens to.
-UA_SERVER_PORT = 4343
 
 
 def delete_local_backup_file(local_file):
@@ -361,11 +357,9 @@ def deploy_apps(app_paths):
   Returns:
     True on success, False otherwise.
   """
-  uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(
-    appscale_info.get_db_master_ip(), UA_SERVER_PORT))
-
-  acc = AppControllerClient(appscale_info.get_headnode_ip(),
-    appscale_info.get_secret())
+  secret = appscale_info.get_secret()
+  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
+  acc = AppControllerClient(appscale_info.get_headnode_ip(), secret)
 
   # Wait for Cassandra to come up after a restore.
   time.sleep(15)
@@ -379,11 +373,10 @@ def deploy_apps(app_paths):
       return False
 
     # Retrieve app admin via uaserver.
-    app_data = uaserver.get_app_data(app_id, appscale_info.get_secret())
+    app_data = ua_client.get_app_data(app_id)
 
-    app_admin_re = re.search("\napp_owner:(.+)\n", app_data)
-    if app_admin_re:
-      app_admin = app_admin_re.group(1)
+    if 'owner' in app_data:
+      app_admin = app_data['owner']
     else:
       logging.error("Missing application data. Cannot complete application "
         "recovery for '{}'. Aborting...".format(app_id))
