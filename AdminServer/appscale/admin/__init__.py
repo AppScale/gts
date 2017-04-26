@@ -40,8 +40,8 @@ operations = OperationsCache()
 
 
 @gen.coroutine
-def wait_for_port_definition(operation_id, deadline, acc):
-  """ Waits until port is defined for version.
+def wait_for_port_assignment(operation_id, deadline, acc):
+  """ Waits until port is assigned for version.
 
   Args:
     operation_id: A string specifying an operation ID.
@@ -115,7 +115,7 @@ def wait_for_deploy(operation_id, acc):
   start_time = time.time()
   deadline = start_time + MAX_DEPLOY_TIME
 
-  http_port = yield wait_for_port_definition(operation_id, deadline, acc)
+  http_port = yield wait_for_port_assignment(operation_id, deadline, acc)
   yield wait_for_port_to_open(http_port, operation_id, deadline)
 
   operation['done'] = True
