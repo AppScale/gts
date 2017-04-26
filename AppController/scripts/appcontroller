@@ -33,7 +33,7 @@ do_start()
    rm -rf /etc/monit/conf.d/appscale*cfg
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE\
+   start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE\
      --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
      "$DAEMON >> $LOG_FILE 2>&1"
    log_end_msg $?
@@ -43,6 +43,7 @@ do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
    start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   rm $PIDFILE
    log_end_msg $?
 }
 

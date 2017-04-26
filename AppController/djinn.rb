@@ -488,10 +488,6 @@ class Djinn
   LOG_FILE = "/var/log/appscale/controller-17443.log"
 
 
-  # Where to put the pid of the controller.
-  PID_FILE = "/var/run/appscale/controller.pid"
-
-
   # Default memory to allocate to each AppServer.
   DEFAULT_MEMORY = 400
 
@@ -2026,9 +2022,6 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
-
-    # This pid is used to control this deployment using the init script.
-    HelperFunctions.write_file(PID_FILE, "#{Process.pid}")
 
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
