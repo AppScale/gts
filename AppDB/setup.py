@@ -10,6 +10,7 @@ setup(
   keywords='appscale google-app-engine python',
   platforms='Posix',
   install_requires=[
+    'appscale-common',
     'cassandra-driver',
     'kazoo',
     'M2Crypto',

@@ -32,14 +32,14 @@ export HOME="/root"
 
 # Print help screen.
 usage() {
-        echo "Usage: $0 [--user <email> --passwd <password>][--no-demo-app]"
-        echo
-        echo "Options:"
-        echo "  --user <email>          administrator's email"
-        echo "  --passwd <password>     administrator's password"
-        echo "  --no-demo-app           don't start the demo application"
-        echo "  --force-private         don't use public IP (needed for marketplace)"
-        echo
+    echo "Usage: $0 [--user <email> --passwd <password>][--no-demo-app]"
+    echo
+    echo "Options:"
+    echo "  --user <email>          administrator's email"
+    echo "  --passwd <password>     administrator's password"
+    echo "  --no-demo-app           don't start the demo application"
+    echo "  --force-private         don't use public IP (needed for marketplace)"
+    echo
 }
 
 # We need to be root. Usually we login as ubuntu, then sudo.

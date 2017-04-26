@@ -1,14 +1,10 @@
 import json
-import os
-import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import appscale_info
+from appscale.common import appscale_info
+from appscale.common import file_io
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
 
 class TestAppScaleInfo(unittest.TestCase):
   def test_get_num_cpus(self):

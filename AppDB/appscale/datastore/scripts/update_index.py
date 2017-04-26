@@ -1,10 +1,10 @@
-import appscale_info
 import getopt
 import sys
 
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .. import appscale_datastore_batch
 from ..datastore_distributed import DatastoreDistributed
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..zkappscale import zktransaction as zk
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)

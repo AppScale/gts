@@ -26,8 +26,11 @@ import tornado.web
 import urllib
 import urllib2
 
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.common import appscale_info
+from appscale.common.constants import LOG_FORMAT
+from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.deployment_config import ConfigInaccessible
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from StringIO import StringIO
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -38,12 +41,6 @@ from google.appengine.api import datastore
 from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
 from google.appengine.tools import dev_appserver_upload
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-from constants import LOG_FORMAT
-from deployment_config import DeploymentConfig
-from deployment_config import ConfigInaccessible
 
 # The URL path used for uploading blobs
 UPLOAD_URL_PATH = '_ah/upload/'

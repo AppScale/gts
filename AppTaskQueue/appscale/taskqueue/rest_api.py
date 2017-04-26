@@ -1,23 +1,19 @@
 """ Handlers for implementing v1beta2 of the taskqueue REST API. """
 import json
 import re
-import sys
 import tornado.escape
 
+from appscale.common.constants import HTTPCodes
 from task import InvalidTaskInfo
 from task import Task
 from task import TASK_FIELDS
 from tornado.web import MissingArgumentError
 from tornado.web import RequestHandler
-from unpackaged import APPSCALE_LIB_DIR
 from .queue import (InvalidLeaseRequest,
                     LONG_QUEUE_FORM,
                     PullQueue,
                     QUEUE_FIELDS,
                     TransientError)
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import HTTPCodes
 
 # The prefix for all of the handlers of the pull queue REST API.
 REST_PREFIX = '/taskqueue/v1beta2/projects/(?:.~)?([a-z0-9-]+)/taskqueues'

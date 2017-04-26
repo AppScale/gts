@@ -21,8 +21,8 @@ echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
 
 # Let's make sure we got at least one input.
 if [ -z "$1" ]; then
-        echo "ERROR: need to have at least one target!"
-        exit 1
+    echo "ERROR: need to have at least one target!"
+    exit 1
 fi
 
 case "$1" in
@@ -66,6 +66,7 @@ case "$1" in
         installpsutil
         installapiclient
         installgosdk
+        installcommon
         installtaskqueue
         installdatastore
         preplogserver

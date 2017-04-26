@@ -1,11 +1,6 @@
 """ Constants and helper functions for the RabbitMQ broker. """
 
-import sys
-
-from ..unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-import file_io
+from appscale.common import file_io
 
 # The FS location which contains the nearest RabbitMQ server
 RABBITMQ_LOCATION_FILE = '/etc/appscale/taskqueue_nodes'
