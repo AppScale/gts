@@ -2593,7 +2593,7 @@ class Djinn
 
     # If we have an already running node with the same IP, we change its
     # roles list.
-    new_nodes_info << node_roles unless node_roles.empty?
+    new_nodes_info += node_roles unless node_roles.empty?
     @state_change_lock.synchronize {
       @nodes.each { |node|
         delete_index = nil
