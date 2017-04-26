@@ -3895,7 +3895,7 @@ class Djinn
   # Starts the Log Server service on this machine
   def start_log_server
     log_server_pid = '/var/run/appscale/log_service.pid'
-    log_server_file = "/var/log/appscale/log_service-7422.log"
+    log_server_file = "/var/log/appscale/log_service.log"
     start_cmd = "twistd --pidfile=#{log_server_pid}  --logfile " +
                 "#{log_server_file} appscale-logserver"
     stop_cmd = "/bin/bash -c 'kill $(cat #{log_server_pid})'"

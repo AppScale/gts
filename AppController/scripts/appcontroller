@@ -25,7 +25,7 @@ do_start()
 {
    if [ ! -e $SECRET_FILE ]; then
      log_begin_msg "AppScale not configured: not starting."
-     exit 0
+     exit 1
    fi
 
    # If we start from boot, we need to clear the monit state. The
