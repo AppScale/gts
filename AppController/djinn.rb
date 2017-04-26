@@ -4661,15 +4661,17 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
-    stop = "/usr/sbin/service appscale-controller stop"
+    service = `which service`.chomp
+    start_cmd = "#{service} appscale-controller start"
+    stop_cmd = "#{service} appscale-controller stop"
+    pidfile = '/var/run/appscale/controller.pid'
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
-      MonitInterface.start(:controller, start, stop, nil, env,
-                           start, nil, nil, nil)
+      MonitInterface.start(:controller, start_cmd, stop_cmd, nil, env,
+                           nil, nil, pidfile, nil)
     rescue
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
