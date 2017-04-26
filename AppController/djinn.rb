@@ -489,7 +489,7 @@ class Djinn
 
 
   # Where to put the pid of the controller.
-  PID_FILE = "/var/run/appscale-controller.pid"
+  PID_FILE = "/var/run/appscale/controller.pid"
 
 
   # Default memory to allocate to each AppServer.
@@ -3901,7 +3901,7 @@ class Djinn
 
   # Starts the Log Server service on this machine
   def start_log_server
-    log_server_pid = "/var/run/appscale-logserver.pid"
+    log_server_pid = '/var/run/appscale/log_service.pid'
     log_server_file = "/var/log/appscale/log_service-7422.log"
     start_cmd = "twistd --pidfile=#{log_server_pid}  --logfile " +
                 "#{log_server_file} appscale-logserver"
