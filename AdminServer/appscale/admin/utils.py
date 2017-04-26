@@ -84,7 +84,7 @@ def format_operation(operation):
 
 
 def format_version(operation, status, create_time, http_port):
-  """ Formmats a version for the client.
+  """ Formats a version for the client.
 
   Args:
     operation: A dictionary containing operation details.
