@@ -68,8 +68,8 @@ def format_operation(operation):
       'method': operation['method'],
       'insertTime': operation['start_time'].isoformat() + 'Z',
       'target': 'apps/{}/services/{}/versions/{}'.format(
-          operation['project_id'], operation['service_id'],
-          operation['version_id'])
+        operation['project_id'], operation['service_id'],
+        operation['version_id'])
     },
     'done': operation['done']
   }
