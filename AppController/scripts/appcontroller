@@ -32,6 +32,9 @@ do_start()
    # AppController will rebuild it.
    rm -rf /etc/monit/conf.d/appscale*cfg
 
+   # The run directory is cleared on every reboot.
+   mkdir -p /var/run/appscale
+
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
    start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE\
      --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\

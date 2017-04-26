@@ -371,9 +371,6 @@ installservice()
     # Make sure the init script runs each time, so that it can start the
     # AppController on system reboots.
     update-rc.d -f appscale-controller defaults
-
-    # Make sure AppScale pidfile directory exists.
-    mkdir -p /var/run/appscale
 }
 
 postinstallservice()
