@@ -206,7 +206,7 @@ class VersionsHandler(BaseHandler):
 
   def version_from_payload(self):
     """ Constructs version from payload.
-    
+
     Returns:
       A dictionary containing version details.
     Raises:

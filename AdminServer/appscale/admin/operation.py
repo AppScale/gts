@@ -53,7 +53,7 @@ class CreateVersionOperation(object):
 
   def set_error(self, message):
     """ Marks the operation as failed.
-    
+
     Args:
       message: A string specifying the reason the operation failed.
     """
