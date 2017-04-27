@@ -14,6 +14,7 @@ setup(
     'appscale-common',
     'cassandra-driver',
     'celery<4.0.0',
+    'eventlet==0.20.1',
     'PyYaml',
     'tornado==4.2.0'
   ],
