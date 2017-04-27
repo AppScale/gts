@@ -12,7 +12,11 @@ from tornado.web import HTTPError
 class CustomHTTPError(HTTPError):
   """ An HTTPError that keeps track of keyword arguments. """
   def __init__(self, status_code=500, **kwargs):
-    super(CustomHTTPError, self).__init__(status_code)
+    # Pass standard HTTPError arguments along.
+    log_message = kwargs.get('log_message', None)
+    reason = kwargs.get('reason', None)
+    super(CustomHTTPError, self).__init__(status_code, log_message=log_message,
+                                          reason=reason)
     self.kwargs = kwargs
 
 
