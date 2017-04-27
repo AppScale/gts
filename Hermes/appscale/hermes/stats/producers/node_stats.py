@@ -5,10 +5,11 @@ from datetime import datetime
 import attr
 import psutil
 from appscale.common import appscale_info
-from hermes_constants import MISSED
 
-from appscale.hermes.stats import StatsSource
-from appscale.hermes.stats import WrongIncludeLists, stats_entity_to_dict
+from appscale.hermes.constants import MISSED
+from appscale.hermes.stats.producers.shared import WrongIncludeLists, \
+  stats_entity_to_dict
+from appscale.hermes.stats.pubsub_base import StatsSource
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)

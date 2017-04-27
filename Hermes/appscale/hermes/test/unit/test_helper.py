@@ -10,7 +10,7 @@ import tornado.httpclient
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from appscale.hermes import helper, hermes_constants
+from appscale.hermes import helper, constants
 from appscale.hermes.helper import MissingRequestArgs
 
 from appscale.common import appscale_info
@@ -96,8 +96,8 @@ class TestHelper(unittest.TestCase):
     self.assertIsNotNone(helper.urlfetch, fake_request)
 
   def test_get_br_service_url(self):
-    fake_url = 'http://host:{0}{1}'.format(hermes_constants.BR_SERVICE_PORT,
-                                           hermes_constants.BR_SERVICE_PATH)
+    fake_url = 'http://host:{0}{1}'.format(constants.BR_SERVICE_PORT,
+                                           constants.BR_SERVICE_PATH)
     self.assertEquals(fake_url, helper.get_br_service_url('host'))
 
   def test_get_deployment_id(self):

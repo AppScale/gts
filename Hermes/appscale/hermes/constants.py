@@ -64,26 +64,46 @@ REQUEST_TIMEOUT = 12*60*60
 # The list of supported tasks.
 SUPPORTED_TASKS = ['backup', 'restore']
 
-# The interval for sending deployment stats.
-STATS_INTERVAL = 60*1000    # 60 seconds.
-
 # The interval for checking for registered deployments.
 UPLOAD_SENSOR_INTERVAL = 60*1000    # 60 seconds.
 
 # The username for deploying the appscalesensor app.
 USER_EMAIL = "appscale_user@appscale.local"
 
-# Determines whether profile log should be written
-IS_PROFILING_ENABLED = False
 
-# Determines whether local profile log should be written into local files
-STORE_LOCAL_PROFILE_LOG = False
+################ STATS CONSTANTS ################
+
+# The intervals for updating local stats
+UPDATE_NODE_STATS_INTERVAL = 10*1000    # 10 seconds
+UPDATE_PROCESSES_STATS_INTERVAL = 20*1000    # 20 seconds
+UPDATE_PROXIES_STATS_INTERVAL = 10*1000    # 10 seconds
+# The intervals for updating cluster stats
+UPDATE_CLUSTER_NODES_STATS_INTERVAL = 10*1000    # 10 seconds
+UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL = 20*1000    # 20 seconds
+UPDATE_CLUSTER_PROXIES_STATS_INTERVAL = 10*1000    # 10 seconds
+
+# The intervals for updating local stats
+NODE_STATS_CACHE_SIZE = 50
+PROCESSES_STATS_CACHE_SIZE = 50
+PROXIES_STATS_CACHE_SIZE = 50
+# The intervals for updating cluster stats
+CLUSTER_NODES_STATS_CACHE_SIZE = 1
+CLUSTER_PROCESSES_STATS_CACHE_SIZE = 1
+CLUSTER_PROXIES_STATS_CACHE_SIZE = 1
 
 # Determines whether cluster profile log should be written on master node
-CENTRALIZED_CLUSTER_PROFILE_LOG = False
+WRITE_PROFILE_LOG = False
+
+# Determines whether processes stats should be collected
+TRACK_PROCESSES_STATS = False
+
+# Determines whether cluster stats should include only important fields
+MINIMIZE_CLUSTER_STATS = True
 
 # Path to haproxy stats socket
 HAPROXY_STATS_SOCKET_PATH = "/etc/haproxy/stats"
+
+#################################################
 
 # Name of header where secret should be passed
 SECRET_HEADER = 'Appscale-Secret'
@@ -96,6 +116,7 @@ class HTTP_Codes(object):
   HTTP_DENIED = 403
   HTTP_INTERNAL_ERROR = 500
   HTTP_NOT_IMPLEMENTED = 501
+
 
 class TaskTypes(object):
   """ A class containing supported task types. """

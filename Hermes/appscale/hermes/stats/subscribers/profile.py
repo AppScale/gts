@@ -1,4 +1,4 @@
-from appscale.hermes.stats import StatsSubscriber
+from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 
 class ClusterNodesProfileLog(StatsSubscriber):

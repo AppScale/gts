@@ -7,12 +7,11 @@ from collections import defaultdict
 from datetime import datetime
 
 import attr
-import hermes_constants
-from hermes_constants import MISSED
 
-from appscale.hermes.stats import StatsSource
-from appscale.hermes.stats import WrongIncludeLists, stats_entity_to_dict
-from appscale.hermes.stats import find_service_by_pxname
+from appscale.hermes.constants import MISSED, HAPROXY_STATS_SOCKET_PATH
+from appscale.hermes.stats.pubsub_base import StatsSource
+from appscale.hermes.stats.producers.shared import WrongIncludeLists, stats_entity_to_dict
+from appscale.hermes.stats.unified_service_names import find_service_by_pxname
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -262,7 +261,7 @@ class ProxiesStatsSource(StatsSource):
     # Get CSV table with haproxy stats
     csv_text = subprocess.check_output(
       "echo 'show stat' | socat stdio unix-connect:{}"
-        .format(hermes_constants.HAPROXY_STATS_SOCKET_PATH), shell=True
+        .format(HAPROXY_STATS_SOCKET_PATH), shell=True
     ).replace("# ", "", 1)
     csv_cache = StringIO.StringIO(csv_text)
     table = csv.DictReader(csv_cache, delimiter=',')

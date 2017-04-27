@@ -2,11 +2,15 @@ import json
 import sys
 
 from appscale.common import appscale_info
-from hermes_constants import REQUEST_TIMEOUT, HERMES_PORT, SECRET_HEADER
+from appscale.hermes.constants import (
+  REQUEST_TIMEOUT, HERMES_PORT, SECRET_HEADER
+)
 from tornado import gen, httpclient
 
-from appscale.hermes.stats import StatsSource
-from appscale.hermes.stats import proxy_stats, node_stats, process_stats
+from appscale.hermes.stats.pubsub_base import StatsSource
+from appscale.hermes.stats.producers import (
+  proxy_stats, node_stats, process_stats
+)
 
 
 class BadStatsListFormat(ValueError):
@@ -93,10 +97,10 @@ class ClusterProcessesStatsSource(StatsSource):
     raise gen.Return(new_snapshots)
 
 
-class ClusterProxiesStatsReader(StatsSource):
+class ClusterProxiesStatsSource(StatsSource):
 
   def __init__(self, local_cache, include_lists=None, limit=None):
-    super(ClusterProxiesStatsReader, self).__init__('ClusterProxiesStats')
+    super(ClusterProxiesStatsSource, self).__init__('ClusterProxiesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists
@@ -164,8 +168,8 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
       fromdict_convertor(stats_dict)
       for stats_dict in stats_dictionaries
     ]
-  except (ValueError, TypeError, IndexError) as err:
-    msg = u"Can parse stats snapshot ({})".format(err)
+  except (ValueError, TypeError, KeyError) as err:
+    msg = u"Can't parse stats snapshot ({})".format(err)
     raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 
   raise gen.Return(snapshots)

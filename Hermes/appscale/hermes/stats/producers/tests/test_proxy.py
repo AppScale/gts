@@ -1,10 +1,10 @@
 import os
 import unittest
 
-from hermes_constants import MISSED
 from mock import patch
 
-from appscale.hermes.stats import proxy_stats
+from appscale.hermes.constants import MISSED
+from appscale.hermes.stats.producers import proxy_stats
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')

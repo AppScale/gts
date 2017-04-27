@@ -1,8 +1,6 @@
 """ Web server/client that polls the AppScale Portal for new tasks and
 initiates actions accordingly. """
 
-import helper
-import hermes_constants
 import json
 import logging
 import os
@@ -11,20 +9,15 @@ import signal
 import socket
 import sys
 import tarfile
+import urllib
 
 import tornado.escape
 import tornado.httpclient
 import tornado.web
-import urllib
-
 from appscale.common import appscale_info
 from appscale.common import appscale_utils
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
-from handlers import MainHandler
-from handlers import TaskHandler
-from helper import JSONTags
-
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback
 from tornado.options import define
@@ -32,24 +25,24 @@ from tornado.options import options
 from tornado.options import parse_command_line
 
 import helper
-import hermes_constants
-from handlers import (
-  MainHandler, TaskHandler
-)
+from appscale.hermes.constants import WRITE_PROFILE_LOG, TRACK_PROCESSES_STATS, \
+  MINIMIZE_CLUSTER_STATS, HERMES_PORT
+from handlers import MainHandler, TaskHandler
 from helper import JSONTags
-from stats.handlers import CachedStatsHandler, CurrentStatsHandler, \
-  Respond404Handler
-from stats.subscribers.cache import StatsCache
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+sys.path.append('../../../AppServer')
 from google.appengine.api.appcontroller_client import AppControllerException
 
-
 # Tornado web server options.
-define("port", default=hermes_constants.HERMES_PORT, type=int)
-# Determines whether this node is a master Hermes node. A slave Hermes node
-# will only collect its node's statistics.
-define("master", default=False, type=bool)
+define("port", default=HERMES_PORT, type=int)
+# Determines whether this node is a master node (head node is master by default)
+define("master", default=None, type=bool)
+# Determines whether profile log should be written (only for master node)
+define("write-profile-log", default=WRITE_PROFILE_LOG, type=bool)
+# Determines whether processes stats should be collected
+define("track-processes-stats", default=TRACK_PROCESSES_STATS, type=bool)
+# Determines whether processes stats should be collected
+define("minimize-cluster-stats", default=MINIMIZE_CLUSTER_STATS, type=bool)
 
 # Statistics cache.
 
@@ -81,8 +74,8 @@ def poll():
   logging.info("Polling for new task.")
 
   # Send request to AppScale Portal.
-  url = "{0}{1}".format(hermes_constants.PORTAL_URL,
-      hermes_constants.PORTAL_POLL_PATH)
+  url = "{0}{1}".format(constants.PORTAL_URL,
+                        constants.PORTAL_POLL_PATH)
   data = urllib.urlencode({JSONTags.DEPLOYMENT_ID: deployment_id})
   request = helper.create_request(url=url, method='POST', body=data)
   response = helper.urlfetch(request)
@@ -102,13 +95,13 @@ def poll():
     return
 
   # Verify all necessary fields are present in the request.
-  if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)):
+  if not set(data.keys()).issuperset(set(constants.REQUIRED_KEYS)):
     logging.error("Missing args in response: {0}".format(response))
     return
 
   logging.debug("Task to run: {0}".format(data))
   logging.info("Redirecting task request to TaskHandler.")
-  url = "{0}{1}".format(hermes_constants.HERMES_URL, TaskHandler.PATH)
+  url = "{0}{1}".format(constants.HERMES_URL, TaskHandler.PATH)
   request = helper.create_request(url, method='POST', body=json.dumps(data))
 
   # The poller can move forward without waiting for a response here.
@@ -127,25 +120,25 @@ def deploy_sensor_app():
   ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
 
   # If the appscalesensor app is already running, then do nothing.
-  if ua_client.is_app_enabled(hermes_constants.APPSCALE_SENSOR):
+  if ua_client.is_app_enabled(constants.APPSCALE_SENSOR):
     return
 
-  pwd = appscale_utils.encrypt_password(hermes_constants.USER_EMAIL,
-    appscale_utils.random_password_generator())
+  pwd = appscale_utils.encrypt_password(constants.USER_EMAIL,
+                                        appscale_utils.random_password_generator())
   if create_appscale_user(pwd, ua_client) and create_xmpp_user(pwd, ua_client):
     logging.debug("Created new user and now tarring app to be deployed.")
     file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
-    app_dir_location = os.path.join(hermes_constants.APP_DIR_LOCATION,
-      hermes_constants.APPSCALE_SENSOR)
+    app_dir_location = os.path.join(constants.APP_DIR_LOCATION,
+                                    constants.APPSCALE_SENSOR)
     archive = tarfile.open(app_dir_location, "w|gz")
-    archive.add(file_path, arcname= hermes_constants.APPSCALE_SENSOR)
+    archive.add(file_path, arcname= constants.APPSCALE_SENSOR)
     archive.close()
 
     try:
       logging.info("Deploying the sensor app for registered deployments.")
       acc = appscale_info.get_appcontroller_client()
-      acc.upload_app(app_dir_location, hermes_constants.FILE_SUFFIX,
-        hermes_constants.USER_EMAIL)
+      acc.upload_app(app_dir_location, constants.FILE_SUFFIX,
+                     constants.USER_EMAIL)
     except AppControllerException:
       logging.exception("AppControllerException while trying to deploy "
         "appscalesensor app.")
@@ -156,14 +149,14 @@ def deploy_sensor_app():
 
 def create_appscale_user(password, uaserver):
   """ Creates the user account with the email address and password provided. """
-  if uaserver.does_user_exist(hermes_constants.USER_EMAIL):
+  if uaserver.does_user_exist(constants.USER_EMAIL):
     logging.debug("User {0} already exists, so not creating it again.".
-      format(hermes_constants.USER_EMAIL))
+                  format(constants.USER_EMAIL))
     return True
 
   try:
-    uaserver.commit_new_user(hermes_constants.USER_EMAIL, password,
-                             hermes_constants.ACCOUNT_TYPE)
+    uaserver.commit_new_user(constants.USER_EMAIL, password,
+                             constants.ACCOUNT_TYPE)
     return True
   except UAException as error:
     logging.error('Error while creating an Appscale user: {}'.format(error))
@@ -174,7 +167,7 @@ def create_xmpp_user(password, uaserver):
   """ Creates the XMPP account. If the user's email is a@a.com, then that
   means their XMPP account name is a@login_ip. """
   username_regex = re.compile('\A(.*)@')
-  username = username_regex.match(hermes_constants.USER_EMAIL).groups()[0]
+  username = username_regex.match(constants.USER_EMAIL).groups()[0]
   xmpp_user = "{0}@{1}".format(username, appscale_info.get_login_ip())
   xmpp_pass = appscale_utils.encrypt_password(xmpp_user, password)
   if uaserver.does_user_exist(xmpp_user):
@@ -184,7 +177,7 @@ def create_xmpp_user(password, uaserver):
 
   try:
     uaserver.commit_new_user(xmpp_user, xmpp_pass,
-                             hermes_constants.ACCOUNT_TYPE)
+                             constants.ACCOUNT_TYPE)
     logging.info("XMPP username is {0}".format(xmpp_user))
     return True
   except UAException as error:
@@ -207,16 +200,30 @@ def main():
   """ Main. """
 
   logging_level = logging.INFO
-  if hermes_constants.DEBUG:
+  if constants.DEBUG:
     logging_level = logging.DEBUG
   logging.getLogger().setLevel(logging_level)
-
-  is_profiling_enabled = hermes_constants.IS_PROFILING_ENABLED
 
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)
 
   parse_command_line()
+
+  logging.info("Hermes is up and listening on port: {0}.".
+    format(options.port))
+
+  master = appscale_info.get_private_ip() == appscale_info.get_headnode_ip()
+
+  if master:
+    # Periodically checks if the deployment is registered and uploads the
+    # appscalesensor app for registered deployments.
+    PeriodicCallback(deploy_sensor_app,
+                     constants.UPLOAD_SENSOR_INTERVAL).start()
+
+    # Periodically check with the portal for new tasks.
+    # Note: Currently, any active handlers from the tornado app will block
+    # polling until they complete.
+    PeriodicCallback(poll, constants.POLLING_INTERVAL).start()
 
   app = tornado.web.Application([
     ("/", MainHandler),
@@ -230,36 +237,6 @@ def main():
       format(options.port))
     shutdown()
     return
-
-  logging.info("Hermes is up and listening on port: {0}.".
-    format(options.port))
-
-  master = appscale_info.get_private_ip() in \
-           appscale_info.get_load_balancer_ips()
-
-  if master:
-    # Cache the deployment's stats immediately so that the AppController can
-    # use it as soon as possible.
-    stats_collector.update_cluster_stats()
-
-    # Periodically collect and cache the deployment's statistics.
-    PeriodicCallback(stats_collector.update_cluster_stats,
-                     hermes_constants.STATS_INTERVAL).start()
-
-    # Periodically send all available stats from each deployment node to the
-    # AppScale Portal.
-    PeriodicCallback(send_cluster_stats,
-                     hermes_constants.STATS_INTERVAL).start()
-
-    # Periodically checks if the deployment is registered and uploads the
-    # appscalesensor app for registered deployments.
-    PeriodicCallback(deploy_sensor_app,
-                     hermes_constants.UPLOAD_SENSOR_INTERVAL).start()
-
-    # Periodically check with the portal for new tasks.
-    # Note: Currently, any active handlers from the tornado app will block
-    # polling until they complete.
-    PeriodicCallback(poll, hermes_constants.POLLING_INTERVAL).start()
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()

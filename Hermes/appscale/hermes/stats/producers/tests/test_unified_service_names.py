@@ -1,6 +1,6 @@
 import unittest
 
-from appscale.hermes.stats import (
+from appscale.hermes.stats.unified_service_names import (
   ServicesEnum, find_service_by_monit_name, find_service_by_pxname, Service
 )
 

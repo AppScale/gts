@@ -2,11 +2,9 @@ import json
 import logging
 import urllib
 
-import hermes_constants
-from stats.pubsub_base import StatsSubscriber
-
-from appscale.hermes import helper
+from appscale.hermes import helper, constants
 from appscale.hermes.helper import JSONTags
+from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 
 class NodeStatsPortalSender(StatsSubscriber):
@@ -22,7 +20,7 @@ class NodeStatsPortalSender(StatsSubscriber):
 
     # Send request to AppScale Portal.
     portal_path = self._portal_method.format(deployment_id=deployment_id)
-    url = "{0}{1}".format(hermes_constants.PORTAL_URL, portal_path)
+    url = "{0}{1}".format(constants.PORTAL_URL, portal_path)
     data = {
       'deployment_id': deployment_id,
       'nodes_stats': json.dumps({

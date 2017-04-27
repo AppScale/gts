@@ -2,7 +2,7 @@ import threading
 import time
 from datetime import datetime
 
-from appscale.hermes.stats import StatsSubscriber
+from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 BIG_BANG_TIMESTAMP = 0
 

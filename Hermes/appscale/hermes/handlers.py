@@ -9,7 +9,7 @@ from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
 import helper
-import hermes_constants
+import constants
 from helper import JSONTags
 from helper import NodeInfoTags
 from helper import TASK_STATUS
@@ -39,7 +39,7 @@ class TaskHandler(RequestHandler):
 
     if not self.request.body:
       logging.info("Response from the AppScale Portal empty. No tasks to run.")
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+      self.set_status(constants.HTTP_Codes.HTTP_OK)
       return
 
     try:
@@ -47,23 +47,23 @@ class TaskHandler(RequestHandler):
     except (TypeError, ValueError) as error:
       logging.exception(error)
       logging.error("Unable to parse: {0}".format(self.request.body))
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     # Verify all necessary fields are present in request.body.
     logging.debug("Verifying all necessary parameters are present.")
-    if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)):
+    if not set(data.keys()).issuperset(set(constants.REQUIRED_KEYS)):
       logging.error("Missing args in request: " + self.request.body)
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     # Gather information for sending the requests to start off the current
     # task at hand.
     nodes = helper.get_node_info()
 
-    if data[JSONTags.TYPE] not in hermes_constants.SUPPORTED_TASKS:
+    if data[JSONTags.TYPE] not in constants.SUPPORTED_TASKS:
       logging.error("Unsupported task type: '{0}'".format(data[JSONTags.TYPE]))
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     tasks = [data[JSONTags.TYPE]]
@@ -137,4 +137,4 @@ class TaskHandler(RequestHandler):
                              ))
       TASK_STATUS_LOCK.release()
 
-    self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+    self.set_status(constants.HTTP_Codes.HTTP_OK)

@@ -4,7 +4,7 @@ import logging
 from appscale.common import appscale_info
 from tornado.web import RequestHandler
 
-from appscale.hermes.hermes_constants import SECRET_HEADER
+from appscale.hermes.constants import SECRET_HEADER
 
 
 class Respond404Handler(RequestHandler):
@@ -69,17 +69,23 @@ class ClusterStatsHandler(RequestHandler):
   """ Handler for getting cluster stats:
       Node stats, Processes stats and Proxies stats for all nodes
   """
-  def initialize(self, current_cluster_stats):
-    self.current_cluster_stats = current_cluster_stats
-    self.secret = appscale_info.get_secret()
+  def initialize(self, cluster_stats_cache):
+    self._cluster_stats_cache = cluster_stats_cache
+    self._secret = appscale_info.get_secret()
 
   def get(self):
-    if self.request.headers.get(SECRET_HEADER) != self.secret:
+    if self.request.headers.get(SECRET_HEADER) != self._secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(401, "Bad secret")
       return
-    self.write(json.dumps({
-      'nodes': self.stats_collector.cluster_stats.nodes,
-      'services': self.stats_collector.cluster_stats.services
-    }))
+    payload = json.loads(self.request.body)
+    include_lists = payload.get('include_lists')
+
+    nodes_stats = self._cluster_stats_cache.get_latest()
+
+    rendered_dictionaries = {
+      node_ip: snapshot.todict(include_lists)
+      for node_ip, snapshot in nodes_stats.iteritems()
+    }
+    json.dump(rendered_dictionaries, self)
