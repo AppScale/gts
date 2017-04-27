@@ -51,7 +51,10 @@ def wait_for_port_assignment(operation_id, deadline, acc):
     OperationTimeout if the deadline is exceeded.
   """
   operation = operations[operation_id]
-  project_id = operation['project_id']
+  try:
+    project_id = operation['project_id']
+  except KeyError:
+    raise OperationTimeout('Operation no longer in cache')
 
   while True:
     if time.time() > deadline:
@@ -86,7 +89,10 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
     OperationTimeout if the deadline is exceeded.
   """
   logging.debug('Waiting for {} to open'.format(http_port))
-  operation = operations[operation_id]
+  try:
+    operation = operations[operation_id]
+  except KeyError:
+    raise OperationTimeout('Operation no longer in cache')
 
   while True:
     if time.time() > deadline:
@@ -110,8 +116,14 @@ def wait_for_deploy(operation_id, acc):
   Args:
     operation_id: A string specifying the operation ID.
     acc: An AppControllerClient instance.
+  Raises:
+    OperationTimeout if the deadline is exceeded.
   """
-  operation = operations[operation_id]
+  try:
+    operation = operations[operation_id]
+  except KeyError:
+    raise OperationTimeout('Operation no longer in cache')
+
   start_time = time.time()
   deadline = start_time + MAX_DEPLOY_TIME
 
