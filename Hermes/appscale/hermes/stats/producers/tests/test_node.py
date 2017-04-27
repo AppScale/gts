@@ -1,8 +1,8 @@
 import unittest
 
-from stats import node_stats
-
 from mock import patch
+
+from appscale.hermes.stats import node_stats
 
 
 class TestCurrentNodeStats(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestCurrentNodeStats(unittest.TestCase):
     mock_get_private_ip.return_value = '10.10.11.12'
 
     # Calling method under test
-    stats = node_stats.NodeStatsSnapshot.current()
+    stats = node_stats.NodeStatsSource().get_current()
 
     # Asserting expectations
     self.assertIsInstance(stats, node_stats.NodeStatsSnapshot)

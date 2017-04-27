@@ -106,9 +106,9 @@ class TaskTypes(object):
   CASSANDRA_RESTORE = 'cassandra_restore'
 
 
-class _UnknownValue(object):
+class _MissedValue(object):
   """
-  Instance of this private class denotes unknown value.
+  Instance of this private class denotes missed value.
   It's used to denote values of stats properties which are missed
   in haproxy stats csv
   """
@@ -119,4 +119,4 @@ class _UnknownValue(object):
   def __repr__(self):
     return ""
 
-UNKNOWN = _UnknownValue()
+MISSED = _MissedValue()

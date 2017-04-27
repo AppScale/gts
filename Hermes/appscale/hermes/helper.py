@@ -8,14 +8,12 @@ import threading
 import urllib
 
 import tornado.httpclient
+from appscale.common import appscale_info
 from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
 
 import hermes_constants
 from custom_hermes_exceptions import MissingRequestArgs
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -77,7 +75,7 @@ def create_request(url=None, method=None, body=None):
   if not url or not method:
     raise MissingRequestArgs
   return tornado.httpclient.HTTPRequest(url=url, method=method, body=body,
-    validate_cert=False, request_timeout=hermes_constants.REQUEST_TIMEOUT)
+                                        validate_cert=False, request_timeout=hermes_constants.REQUEST_TIMEOUT)
 
 
 def urlfetch(request):
@@ -97,7 +95,7 @@ def urlfetch(request):
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
     result = {JSONTags.SUCCESS: False,
-      JSONTags.REASON: hermes_constants.HTTPError}
+              JSONTags.REASON: hermes_constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
@@ -125,7 +123,7 @@ def urlfetch_async(request, callback=None):
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
     result = {JSONTags.SUCCESS: False,
-      JSONTags.REASON: hermes_constants.HTTPError}
+              JSONTags.REASON: hermes_constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
@@ -143,7 +141,7 @@ def get_br_service_url(node):
     A str, the complete URL of a br_service instance.
   """
   return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
-    hermes_constants.BR_SERVICE_PATH)
+                                    hermes_constants.BR_SERVICE_PATH)
 
 
 def get_deployment_id():
@@ -222,11 +220,11 @@ def create_br_json_data(role, type, bucket_name, index, storage):
   if role == 'db_master':
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
     data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-      hermes_constants.DB_MASTER_OBJECT_NAME)
+                                                      hermes_constants.DB_MASTER_OBJECT_NAME)
   elif role == 'db_slave':
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
     data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-      hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
+                                                      hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
   else:
     return None
 
@@ -260,7 +258,7 @@ def report_status(task, task_id, status):
     logging.debug("Sending task status to the AppScale Portal. Task: {0}, "
       "Status: {1}".format(task, status))
     url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
-      hermes_constants.PORTAL_STATUS_PATH)
+                          hermes_constants.PORTAL_STATUS_PATH)
     data = urllib.urlencode({
       JSONTags.TASK_ID: task_id,
       JSONTags.DEPLOYMENT_ID: get_deployment_id(),

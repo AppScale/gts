@@ -1,7 +1,6 @@
 """ Web server/client that polls the AppScale Portal for new tasks and
 initiates actions accordingly. """
 
-import datetime
 import json
 import logging
 import os
@@ -16,6 +15,8 @@ import SOAPpy
 import tornado.escape
 import tornado.httpclient
 import tornado.web
+from stats.node_stats import current_node_stats
+from stats.process_stats import current_processes_stats
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback
 from tornado.options import define
@@ -27,20 +28,15 @@ import hermes_constants
 from handlers import (
   MainHandler, TaskHandler
 )
-from stats.handlers import NodeStatsHandler, ClusterStatsHandler
 from helper import JSONTags
-from stats.node_stats import NodeStatsSnapshot
-from stats.process_stats import ProcessesStatsSnapshot, ProcessStats
-from stats.profile_log import NodeStatsProfileLog, ProcessesStatsProfileLog, \
-  ProxiesStatsProfileLog
-from stats.proxy_stats import ProxyStats
-from stats.tools import StatsPublisher, StatsBuffer
+from stats.handlers import CachedStatsHandler, CurrentStatsHandler, \
+  Respond404Handler
+from stats.subscribers.cache import StatsCache
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
+from appscale.common import appscale_info
 import appscale_utils
 
 # Tornado web server options.
@@ -50,7 +46,7 @@ define("port", default=hermes_constants.HERMES_PORT, type=int)
 define("master", default=False, type=bool)
 
 # Statistics cache.
-STATS = {}
+
 
 def poll():
   """ Callback function that polls for new tasks based on a schedule. """
@@ -112,54 +108,6 @@ def poll():
   # The poller can move forward without waiting for a response here.
   helper.urlfetch_async(request)
 
-def cache_node_stats():
-  try:
-    STATS['node'] = helper.update_node_cache()
-  except (AppControllerException, InfrastructureManagerException) as e:
-    logging.error("Saw exception while trying to update node statistics cache: "
-                  "{}".format(e))
-  logging.info("Updated my node's stats: {}".format(STATS))
-
-def cache_cluster_stats():
-  STATS['cluster'] = helper.update_cluster_cache()
-  STATS['cluster'].append(STATS['node'])
-  logging.info("Updated deployment stats: {}".format(STATS['cluster']))
-
-def send_cluster_stats():
-  """ Calls get_cluster_stats and sends the deployment monitoring stats to the
-  AppScale Portal. """
-  deployment_id = helper.get_deployment_id()
-  # If the deployment is not registered, skip.
-  if not deployment_id:
-    return
-
-  # Get all stats from this deployment.
-  logging.debug("Getting all stats from every deployment node.")
-  cluster_stats = StatsManager.instance().cluster_stats
-
-  # Send request to AppScale Portal.
-  portal_path = hermes_constants.PORTAL_STATS_PATH.format(deployment_id)
-  url = "{0}{1}".format(hermes_constants.PORTAL_URL, portal_path)
-  data = {
-    JSONTags.DEPLOYMENT_ID: deployment_id,
-    JSONTags.TIMESTAMP: datetime.datetime.utcnow(),
-    JSONTags.ALL_STATS: json.dumps({
-      # TODO check compatibility of Portal with the new format
-      "cluster": cluster_stats.nodes,
-      "node": cluster_stats.my_node,
-      "services": cluster_stats.services
-    })
-  }
-  logging.debug("Sending all stats to the AppScale Portal. Data: \n{}".
-    format(data))
-
-  request = helper.create_request(url=url, method='POST',
-    body=urllib.urlencode(data))
-  response = helper.urlfetch(request)
-
-  if not response[JSONTags.SUCCESS]:
-    logging.error("Inaccessible resource: {}".format(url))
-    return
 
 def deploy_sensor_app():
   """ Uploads the sensor app for registered deployments. """
@@ -201,6 +149,7 @@ def deploy_sensor_app():
     logging.error("Error while creating or accessing the user to deploy "
       "appscalesensor app.")
 
+
 def create_appscale_user(password, uaserver):
   """ Creates the user account with the email address and password provided. """
   does_user_exist = uaserver.does_user_exist(hermes_constants.USER_EMAIL,
@@ -216,6 +165,7 @@ def create_appscale_user(password, uaserver):
     else:
       logging.error("Error while creating an Appscale user.")
       return False
+
 
 def create_xmpp_user(password, uaserver):
   """ Creates the XMPP account. If the user's email is a@a.com, then that
@@ -239,10 +189,12 @@ def create_xmpp_user(password, uaserver):
       logging.error("Error while creating an XMPP user.")
       return False
 
+
 def signal_handler(signal, frame):
   """ Signal handler for graceful shutdown. """
   logging.warning("Caught signal: {0}".format(signal))
   IOLoop.instance().add_callback(shutdown)
+
 
 def shutdown():
   """ Shuts down the server. """
@@ -250,53 +202,46 @@ def shutdown():
   IOLoop.instance().stop()
 
 
-def initialize_stats_management(is_profiling_enabled, is_lb, is_master):
+def configure_master_node(cache_size):
+  node_stats = StatsSource('NodeStats', current_node_stats)
+  node_stats_cache = StatsCache(cache_size)
+  node_stats_profile_log = NodeStatsProfileLog()
 
-  stats_publishers = []
+  processes_stats = StatsSource('ProcessesStats', current_processes_stats)
+  processes_stats_cache = StatsCache(cache_size)
+  processes_stats_profile_log = ProcessesStatsProfileLog()
 
-  # Configure node stats publishing, ...
-  node_stats_publisher = StatsPublisher(NodeStatsSnapshot.current)
-  stats_publishers.append(node_stats_publisher)
-  #  ...  buffering
-  node_stats_buffer = StatsBuffer(50)
-  node_stats_publisher.subscribe(node_stats_buffer.append_stats_snapshot)
+  ClusterNodesStatsReader()
+  processes_stats = StatsSource('ClusterNode', current_processes_stats)
+  processes_stats_cache = StatsCache(cache_size)
+  processes_stats_profile_log = ProcessesStatsProfileLog()
 
-  if is_lb:
-    # Configure proxies stats publishing, ...
-    proxies_stats_publisher = StatsPublisher(ProxyStats.current_proxies)
-    stats_publishers.append(proxies_stats_publisher)
-    #  ... buffering
-    proxies_stats_buffer = StatsBuffer(50)
-    proxies_stats_publisher.subscribe(proxies_stats_buffer.append_stats_snapshot)
+  pubsub = {
+    node_stats: [node_stats_cache, node_stats_profile_log],
+    processes_stats: [processes_stats_cache, processes_stats_profile_log],
+  }
 
-  if is_master:
-    pass
-
-  if is_profiling_enabled:
-    #  ... profiling for node stats
-    node_stats_profiler = NodeStatsProfileLog()
-    node_stats_publisher.subscribe(node_stats_profiler.write_snapshot)
-    if is_lb:
-      #  ... profiling for proxies stats
-      proxies_stats_profiler = ProxiesStatsProfileLog()
-      proxies_stats_publisher.subscribe(proxies_stats_profiler.write_snapshot)
-
-    # Configure processes stats publishing, ...
-    processes_stats_publisher = StatsPublisher(ProcessStats.current_processes)
-    stats_publishers.append(processes_stats_publisher)
-    #  ... buffering
-    processes_stats_buffer = StatsBuffer(50)
-    processes_stats_publisher.subscribe(
-      processes_stats_buffer.append_stats_snapshot
-    )
-    #  ... and profiling
-    processes_stats_profiler = ProcessesStatsProfileLog()
-    processes_stats_publisher.subscribe(processes_stats_profiler.write_snapshot)
-
-  # Periodically collect and cache statistics
-  for publisher in stats_publishers:
-    PeriodicCallback(publisher.read_and_publish,
-                     hermes_constants.STATS_INTERVAL).start()
+  routes = [
+    ('stats/local/node/cache',
+     CachedStatsHandler, dict(stats_cache=node_stats_cache)),
+    ('stats/local/node/current',
+     CurrentStatsHandler, dict(stats_source=node_stats)),
+    ('stats/local/processes/cache',
+     CachedStatsHandler, dict(stats_cache=processes_stats_cache)),
+    ('stats/local/processes/current',
+     CurrentStatsHandler, dict(stats_source=processes_stats)),
+    ('stats/local/proxies/cache',
+     Respond404Handler, dict(reason='Only LB nodes has this endpoint')),
+    ('stats/local/proxies/current',
+     Respond404Handler, dict(reason='Only LB nodes has this endpoint')),
+    ('stats/cluster/node',
+     Respond404Handler, dict(reason='Only master node has this endpoint')),
+    ('stats/cluster/processes',
+     Respond404Handler, dict(reason='Only master node has this endpoint')),
+    ('stats/cluster/proxies',
+     Respond404Handler, dict(reason='Only master node has this endpoint')),
+  ]
+  return pubsub, routes
 
 
 def main():
@@ -317,8 +262,6 @@ def main():
   app = tornado.web.Application([
     ("/", MainHandler),
     ("/do_task", TaskHandler),
-    ("/stats/node", NodeStatsHandler),
-    ("/stats/cluster", ClusterStatsHandler),
   ], debug=False)
 
   try:

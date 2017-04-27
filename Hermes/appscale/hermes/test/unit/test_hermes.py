@@ -4,28 +4,26 @@ import json
 import os
 import socket
 import sys
-import tornado.httpclient
-import unittest
-import SOAPpy
 import tarfile
+import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import appscale_info
+import SOAPpy
+import tornado.httpclient
+from appscale.common import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import helper
-import hermes
+from appscale.hermes import hermes, helper
 
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerClient
 
-from hermes import deploy_sensor_app
-from hermes import poll
-from hermes import send_cluster_stats
-from hermes import shutdown
-from hermes import signal_handler
+from appscale.hermes.hermes import deploy_sensor_app
+from appscale.hermes.hermes import poll
+from appscale.hermes.hermes import send_cluster_stats
+from appscale.hermes.hermes import shutdown
+from appscale.hermes.hermes import signal_handler
 from tornado.ioloop import IOLoop
 
 class TestHelper(unittest.TestCase):

@@ -7,11 +7,12 @@ from collections import defaultdict
 from datetime import datetime
 
 import attr
-
 import hermes_constants
-from hermes_constants import UNKNOWN
-from stats.tools import stats_reader
-from stats.unified_service_names import find_service_by_pxname
+from hermes_constants import MISSED
+
+from appscale.hermes.stats import StatsSource
+from appscale.hermes.stats import WrongIncludeLists, stats_entity_to_dict
+from appscale.hermes.stats import find_service_by_pxname
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -214,33 +215,8 @@ class ProxiesStatsSnapshot(object):
   utc_timestamp = attr.ib()  # UTC timestamp
   proxies_stats = attr.ib()  # list[ProxyStats]
 
-  @staticmethod
-  def fromdict(dictionary, strict=False):
-    """ Addition to attr.asdict function.
-    Args:
-      dictionary: a dict containing fields for building ProxiesStatsSnapshot obj.
-      strict: a boolean. If True, any missed field will result in IndexError.
-              If False, all missed values will be replaced with UNKNOWN.
-    Returns:
-      an instance of ProxiesStatsSnapshot
-    Raises:
-      IndexError if strict is set to True and dictionary is lacking any fields
-    """
-    if strict:
-      return ProxiesStatsSnapshot(
-        utc_timestamp=dictionary['utc_timestamp'],
-        proxies_stats=[
-          ProxyStats.fromdict(proxy_stats, strict)
-          for proxy_stats in dictionary['proxies_stats']
-        ]
-      )
-    return ProxiesStatsSnapshot(
-      utc_timestamp=dictionary.get('utc_timestamp', UNKNOWN),
-      proxies_stats=[
-        ProxyStats.fromdict(proxy_stats, strict)
-        for proxy_stats in dictionary.get('proxies_stats', [])
-      ]
-    )
+  def todict(self, include_lists):
+    return proxies_stats_snapshot_to_dict(self, include_lists)
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -259,24 +235,27 @@ class ProxyStats(object):
   servers = attr.ib()  # list[HAProxyServerStats]
   listeners = attr.ib()  # list[HAProxyListenerStats]
 
-  @staticmethod
-  def _get_field_value(row, field_name):
-    """ Private method for getting value from csv cell """
-    if field_name not in row:
-      return UNKNOWN
-    value = row[field_name]
-    if not value:
-      return None
-    if field_name in INTEGER_FIELDS:
-      return int(value)
-    return value
 
-  @staticmethod
-  @stats_reader("ProxiesStats")
-  def current_proxies():
-    """ Static method which parses haproxy stats and returns detailed
+def _get_field_value(row, field_name):
+  """ Private method for getting value from csv cell """
+  if field_name not in row:
+    return MISSED
+  value = row[field_name]
+  if not value:
+    return None
+  if field_name in INTEGER_FIELDS:
+    return int(value)
+  return value
+
+
+class ProxiesStatsSource(StatsSource):
+  def __init__(self):
+    super(ProxiesStatsSource, self).__init__("ProxiesStats")
+
+  def get_current(self):
+    """ Method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
-
+  
     Returns:
       ProxiesStatsSnapshot
     """
@@ -285,8 +264,8 @@ class ProxyStats(object):
       "echo 'show stat' | socat stdio unix-connect:{}"
         .format(hermes_constants.HAPROXY_STATS_SOCKET_PATH), shell=True
     ).replace("# ", "", 1)
-    csv_buffer = StringIO.StringIO(csv_text)
-    table = csv.DictReader(csv_buffer, delimiter=',')
+    csv_cache = StringIO.StringIO(csv_text)
+    table = csv.DictReader(csv_cache, delimiter=',')
     missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
     if missed:
       logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
@@ -313,7 +292,7 @@ class ProxyStats(object):
         stats_type = HAProxyListenerStats
 
       stats_values = {
-        field: ProxyStats._get_field_value(row, field)
+        field: _get_field_value(row, field)
         for field in stats_type.__slots__
       }
       stats_values.update(**extra_values)
@@ -354,63 +333,144 @@ class ProxyStats(object):
       proxies_stats=proxy_stats_list
     )
 
-  @staticmethod
-  def fromdict(dictionary, strict=False):
-    """ Addition to attr.asdict function.
-    Args:
-      dictionary: a dict containing fields for building ProxyStats obj.
-      strict: a boolean. If True, any missed field will result in IndexError.
-              If False, all missed values will be replaced with UNKNOWN.
-    Returns:
-      an instance of ProxyStats
-    Raises:
-      IndexError if strict is set to True and dictionary is lacking any fields
-    """
-    frontend = dictionary.get('frontend', {})
-    backend = dictionary.get('backend', {})
-    servers = dictionary.get('servers', [])
-    listeners = dictionary.get('listeners', [])
 
-    if strict:
-      return ProxyStats(
-        name=dictionary['name'],
-        unified_service_name=dictionary['unified_service_name'],
-        application_id=dictionary['application_id'],
-        frontend=HAProxyFrontendStats(
-          **{frontend[field] for field in HAProxyFrontendStats.__slots__}),
-        backend=HAProxyBackendStats(
-          **{backend[field] for field in HAProxyBackendStats.__slots__}),
-        servers=[
-          HAProxyServerStats(
-            **{server[field] for field in HAProxyServerStats.__slots__})
-          for server in servers
-        ],
-        listeners=[
-          HAProxyListenerStats(
-            **{listener[field] for field in HAProxyListenerStats.__slots__})
-          for listener in listeners
-        ]
-      )
+def proxy_stats_from_dict(dictionary, strict=False):
+  """ Addition to attr.asdict function.
+  Args:
+    dictionary: a dict containing fields for building ProxyStats obj.
+    strict: a boolean. If True, any missed field will result in IndexError.
+            If False, all missed values will be replaced with MISSED.
+  Returns:
+    an instance of ProxyStats
+  Raises:
+    IndexError if strict is set to True and dictionary is lacking any fields
+  """
+  frontend = dictionary.get('frontend', {})
+  backend = dictionary.get('backend', {})
+  servers = dictionary.get('servers', [])
+  listeners = dictionary.get('listeners', [])
+
+  if strict:
     return ProxyStats(
-      name=dictionary.get('name', UNKNOWN),
-      unified_service_name=dictionary.get('unified_service_name', UNKNOWN),
-      application_id=dictionary.get('application_id', UNKNOWN),
+      name=dictionary['name'],
+      unified_service_name=dictionary['unified_service_name'],
+      application_id=dictionary['application_id'],
       frontend=HAProxyFrontendStats(
-        **{frontend.get(field, UNKNOWN)
-           for field in HAProxyFrontendStats.__slots__}),
+        **{frontend[field] for field in HAProxyFrontendStats.__slots__}),
       backend=HAProxyBackendStats(
-        **{backend.get(field, UNKNOWN)
-           for field in HAProxyBackendStats.__slots__}),
+        **{backend[field] for field in HAProxyBackendStats.__slots__}),
       servers=[
         HAProxyServerStats(
-          **{server.get(field, UNKNOWN)
-             for field in HAProxyServerStats.__slots__})
+          **{server[field] for field in HAProxyServerStats.__slots__})
         for server in servers
       ],
       listeners=[
         HAProxyListenerStats(
-          **{listener.get(field, UNKNOWN)
-             for field in HAProxyListenerStats.__slots__})
+          **{listener[field] for field in HAProxyListenerStats.__slots__})
         for listener in listeners
       ]
     )
+  return ProxyStats(
+    name=dictionary.get('name', MISSED),
+    unified_service_name=dictionary.get('unified_service_name', MISSED),
+    application_id=dictionary.get('application_id', MISSED),
+    frontend=HAProxyFrontendStats(
+      **{frontend.get(field, MISSED)
+         for field in HAProxyFrontendStats.__slots__}),
+    backend=HAProxyBackendStats(
+      **{backend.get(field, MISSED)
+         for field in HAProxyBackendStats.__slots__}),
+    servers=[
+      HAProxyServerStats(
+        **{server.get(field, MISSED)
+           for field in HAProxyServerStats.__slots__})
+      for server in servers
+    ],
+    listeners=[
+      HAProxyListenerStats(
+        **{listener.get(field, MISSED)
+           for field in HAProxyListenerStats.__slots__})
+      for listener in listeners
+    ]
+  )
+
+
+def proxies_stats_snapshot_from_dict(dictionary, strict=False):
+  """ Addition to attr.asdict function.
+  Args:
+    dictionary: a dict containing fields for building ProxiesStatsSnapshot obj.
+    strict: a boolean. If True, any missed field will result in IndexError.
+            If False, all missed values will be replaced with MISSED.
+  Returns:
+    an instance of ProxiesStatsSnapshot
+  Raises:
+    IndexError if strict is set to True and dictionary is lacking any fields
+  """
+  if strict:
+    return ProxiesStatsSnapshot(
+      utc_timestamp=dictionary['utc_timestamp'],
+      proxies_stats=[
+        ProxyStats.fromdict(proxy_stats, strict)
+        for proxy_stats in dictionary['proxies_stats']
+      ]
+    )
+  return ProxiesStatsSnapshot(
+    utc_timestamp=dictionary.get('utc_timestamp', MISSED),
+    proxies_stats=[
+      ProxyStats.fromdict(proxy_stats, strict)
+      for proxy_stats in dictionary.get('proxies_stats', [])
+    ]
+  )
+
+
+def proxies_stats_snapshot_to_dict(stats, include_lists=None):
+  if include_lists and not isinstance(include_lists, dict):
+    raise WrongIncludeLists('include_lists should be dict, actual type is {}'
+                            .format(type(include_lists)))
+  
+  include = include_lists or {}
+  proxy_stats_fields = set(include.pop('proxy', ProxyStats.__slots__))
+  nested_entities = {
+    'frontend': set(include.pop('proxy.frontend',
+                                HAProxyFrontendStats.__slots__)),
+    'backend': set(include.pop('proxy.backend', HAProxyBackendStats.__slots__)),
+  }
+  nested_lists = {
+    'servers': set(include.pop('proxy.servers', HAProxyServerStats.__slots__)),
+    'listeners': set(include.pop('proxy.listeners',
+                                 HAProxyListenerStats.__slots__)),
+  }
+
+  if include:
+    # All known include lists were popped
+    raise WrongIncludeLists(u'Following include lists are not recognized: {}'
+                            .format(include))
+
+  try:
+    rendered_proxies = []
+    for proxy in stats.proxies_stats:
+      rendered_proxy = {}
+
+      for field in proxy_stats_fields:
+        value = getattr(proxy, field)
+        if field in nested_entities:
+          # render nested entity like HAProxyFrontendStats
+          rendered_proxy[field] = \
+            stats_entity_to_dict(value, nested_entities[field])
+        elif field in nested_lists:
+          # render nested list like list of HAProxyServerStats
+          rendered_proxy[field] = [
+            stats_entity_to_dict(entity, nested_lists[field])
+            for entity in value
+          ]
+        else:
+          rendered_proxy[field] = value
+
+      rendered_proxies.append(rendered_proxy)
+  except AttributeError as err:
+    raise WrongIncludeLists(u'Unknown field in include lists ({})'.format(err))
+
+  return {
+    'utc_timestamp': stats.utc_timestamp,
+    'proxies_stats': rendered_proxies
+  }

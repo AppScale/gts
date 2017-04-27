@@ -88,7 +88,7 @@ class TaskHandler(RequestHandler):
           task, data[JSONTags.BUCKET_NAME],
           node[NodeInfoTags.INDEX], data[JSONTags.STORAGE])
         request = helper.create_request(url=node[NodeInfoTags.HOST],
-          method='POST', body=json_data)
+                                        method='POST', body=json_data)
 
         # Start a thread for the request.
         thread = threading.Thread(
@@ -135,8 +135,8 @@ class TaskHandler(RequestHandler):
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
       IOLoop.instance().add_callback(callback=lambda:
         helper.report_status(task, data[JSONTags.TASK_ID],
-        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
-      ))
+                             TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
+                             ))
       TASK_STATUS_LOCK.release()
 
     self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)

@@ -1,9 +1,10 @@
 import os
 import unittest
 
+from hermes_constants import MISSED
 from mock import patch
 
-from stats import proxy_stats
+from appscale.hermes.stats import proxy_stats
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')
@@ -19,7 +20,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     mock_check_output.return_value = raw_stats
 
     # Running method under test
-    stats_snapshot = proxy_stats.ProxyStats.current_proxies('/etc/blablabla')
+    stats_snapshot = proxy_stats.ProxiesStatsSource().get_current()
 
     # Verifying outcomes
     self.assertIsInstance(stats_snapshot.utc_timestamp, float)
@@ -72,7 +73,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     mock_check_output.return_value = raw_stats
 
     # Running method under test
-    stats_snapshot = proxy_stats.ProxyStats.current_proxies('/etc/blablabla')
+    stats_snapshot = proxy_stats.ProxiesStatsSource().get_current()
 
     # Verifying outcomes
     self.assertIsInstance(stats_snapshot.utc_timestamp, float)
@@ -103,7 +104,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
       self.assertIsNotNone(getattr(frontend, field))
     # New columns should be highlighted
     for new_in_v1_5 in ('comp_byp', 'comp_rsp', 'comp_out', 'comp_in'):
-      self.assertIs(getattr(frontend, new_in_v1_5), proxy_stats.UNKNOWN)
+      self.assertIs(getattr(frontend, new_in_v1_5), MISSED)
 
     # Backend stats shouldn't have Nones
     backend = dashboard.backend
@@ -112,7 +113,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     # New columns should be highlighted
     for new_in_v1_5 in ('comp_byp', 'lastsess', 'comp_rsp', 'comp_out',
                         'comp_in', 'ttime', 'rtime', 'ctime', 'qtime'):
-      self.assertIs(getattr(backend, new_in_v1_5), proxy_stats.UNKNOWN)
+      self.assertIs(getattr(backend, new_in_v1_5), MISSED)
 
     # Backend stats can have Nones only in some fields
     servers = dashboard.servers
@@ -127,7 +128,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
       # New columns should be highlighted
       for new_in_v1_5 in ('lastsess', 'last_chk', 'ttime', 'last_agt',
                           'rtime', 'ctime', 'qtime'):
-        self.assertIs(getattr(server, new_in_v1_5), proxy_stats.UNKNOWN)
+        self.assertIs(getattr(server, new_in_v1_5), MISSED)
 
     # We don't have listeners on stats
     self.assertEqual(dashboard.listeners, [])
