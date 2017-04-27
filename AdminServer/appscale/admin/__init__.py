@@ -1,12 +1,10 @@
 """ A server that handles application deployments. """
 
 import argparse
-import datetime
 import logging
 import socket
 import sys
 import time
-import uuid
 
 from appscale.common import appscale_info
 from appscale.common.constants import HTTPCodes
@@ -29,6 +27,7 @@ from .constants import (
   REDEPLOY_WAIT,
   VALID_RUNTIMES
 )
+from .operation import CreateVersionOperation
 from .operations_cache import OperationsCache
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -50,17 +49,17 @@ def wait_for_port_assignment(operation_id, deadline, acc):
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
-  operation = operations[operation_id]
   try:
-    project_id = operation['project_id']
+    operation = operations[operation_id]
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
+
+  project_id = operation.project_id
 
   while True:
     if time.time() > deadline:
       message = 'Deploy operation took too long.'
-      operation['done'] = True
-      operation['error'] = {'message': message}
+      operation.set_error(message)
       raise OperationTimeout(message)
 
     try:
@@ -97,8 +96,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
   while True:
     if time.time() > deadline:
       message = 'Deploy operation took too long.'
-      operation['done'] = True
-      operation['error'] = {'message': message}
+      operation.set_error(message)
       raise OperationTimeout(message)
 
     sock = socket.socket()
@@ -130,10 +128,9 @@ def wait_for_deploy(operation_id, acc):
   http_port = yield wait_for_port_assignment(operation_id, deadline, acc)
   yield wait_for_port_to_open(http_port, operation_id, deadline)
 
-  operation['done'] = True
-  create_time = datetime.datetime.utcnow()
-  operation['response'] = utils.format_version(
-    operation, constants.ServingStatus.SERVING, create_time, http_port)
+  url = 'http://{}:{}'.format(options.login_ip, http_port)
+  operation.finish(url)
+
   logging.info('Finished operation {}'.format(operation_id))
 
 
@@ -340,31 +337,16 @@ class VersionsHandler(BaseHandler):
 
     self.begin_deploy(project_id, source_path)
 
-    operation_id = str(uuid.uuid4())
-    insert_time = datetime.datetime.utcnow()
-
-    operations[operation_id] = {
-      'id': operation_id,
-      'project_id': project_id,
-      'method': constants.Methods.CREATE_VERSION,
-      'start_time': insert_time,
-      'service_id': service_id,
-      'version_id': version['id'],
-      'runtime': version['runtime'],
-      'source': version['deployment']['zip']['sourceUrl'],
-      'done': False
-    }
-    if 'threadsafe' in version:
-      operations[operation_id]['threadsafe'] = version['threadsafe']
+    operation = CreateVersionOperation(project_id, service_id, version)
+    operations[operation.id] = operation
 
     pre_wait = REDEPLOY_WAIT if project_exists else 0
     logging.debug(
-      'Starting operation {} in {}s'.format(operation_id, pre_wait))
-    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation_id,
+      'Starting operation {} in {}s'.format(operation.id, pre_wait))
+    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,
                                 self.acc)
 
-    output = utils.format_operation(operations[operation_id])
-    self.write(json_encode(output))
+    self.write(json_encode(operation.rest_repr()))
 
 
 class OperationsHandler(BaseHandler):
@@ -377,12 +359,14 @@ class OperationsHandler(BaseHandler):
       operation_id: A string specifying an operation ID.
     """
     self.authenticate()
-    if operation_id not in operations:
+
+    try:
+      operation = operations[operation_id]
+    except KeyError:
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                             message='Operation not found.')
 
-    output = utils.format_operation(operations[operation_id])
-    self.write(json_encode(output))
+    self.write(json_encode(operation.rest_repr()))
 
 
 def main():
