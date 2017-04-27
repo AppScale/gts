@@ -35,13 +35,12 @@ class CreateVersionOperation(object):
     Args:
       url: A string specifying the location of the version.
     """
-    self.done = True
     create_time = datetime.datetime.utcnow()
     self.response = {
       '@type': Types.VERSION,
       'name': 'apps/{}/services/{}/versions/{}'.format(
         self.project_id, self.service_id, self.version['id']),
-      'id': self.version.id,
+      'id': self.version['id'],
       'runtime': self.version['runtime'],
       'servingStatus': ServingStatus.SERVING,
       'createTime': create_time.isoformat() + 'Z',
@@ -50,6 +49,8 @@ class CreateVersionOperation(object):
 
     if 'threadsafe' in self.version:
       self.response['threadsafe'] = self.version['threadsafe']
+
+    self.done = True
 
   def set_error(self, message):
     """ Marks the operation as failed.
