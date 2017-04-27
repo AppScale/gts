@@ -46,8 +46,13 @@ do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
    start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
-   rm $PIDFILE
-   log_end_msg $?
+   RETVAL="$?"
+
+   if [ "${RETVAL}" = "0" ]; then
+       rm ${PIDFILE}
+   fi
+
+   return "$RETVAL"
 }
 
 case "$1" in
@@ -62,6 +67,11 @@ case "$1" in
         
     stop)
         do_stop
+        case "$?" in
+            # The start-stop-daemon returns "1" if service is already stopped.
+            0|1) log_end_msg 0 ;;
+            *) log_end_msg 1 ;;
+        esac
         ;;
         
     restart|reload|force-reload)
