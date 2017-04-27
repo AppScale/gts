@@ -1,15 +1,11 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import os
-import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import monit_app_configuration
+from appscale.common import file_io
+from appscale.common import monit_app_configuration
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
 
 class TestGodAppInterface(unittest.TestCase):
   def test_create_config_file(self):

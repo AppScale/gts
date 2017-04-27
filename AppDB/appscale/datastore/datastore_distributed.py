@@ -11,11 +11,11 @@ import time
 import dbconstants
 import helper_functions
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import clean_app_id
 from .utils import encode_entity_table_key
 from .utils import encode_index_pb

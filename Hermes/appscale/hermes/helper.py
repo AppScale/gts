@@ -2,21 +2,16 @@
 
 import json
 import logging
-import os
-import sys
 import threading
 import urllib
 
 import tornado.httpclient
 from appscale.common import appscale_info
+from appscale.common.appscale_info import AppControllerException
 from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
 
 import hermes_constants
-from custom_hermes_exceptions import MissingRequestArgs
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
-from google.appengine.api.appcontroller_client import AppControllerException
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.
@@ -30,6 +25,11 @@ TASK_STATUS_LOCK = threading.Lock()
 
 # A list of tasks that we report status for.
 REPORT_TASKS = ['backup', 'restore']
+
+
+class MissingRequestArgs(Exception):
+  """ An exception when HTTP Request parameters are missing. """
+  pass
 
 
 class JSONTags(object):

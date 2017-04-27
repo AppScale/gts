@@ -11,7 +11,7 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from appscale.hermes import helper, hermes_constants
-from appscale.hermes.custom_hermes_exceptions import MissingRequestArgs
+from appscale.hermes.helper import MissingRequestArgs
 
 from appscale.common import appscale_info
 

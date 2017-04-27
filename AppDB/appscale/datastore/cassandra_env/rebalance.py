@@ -3,15 +3,12 @@ import logging
 import os
 import sys
 
+from appscale.common.constants import LOG_FORMAT
+from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from subprocess import (CalledProcessError,
                         check_output)
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import KEYSPACE
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import INFRASTRUCTURE_MANAGER_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
 from utils.utils import KEY_DIRECTORY

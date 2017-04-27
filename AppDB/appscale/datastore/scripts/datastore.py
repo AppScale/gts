@@ -16,18 +16,15 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
 from ..utils import (clean_app_id,
                      logger,
                      UnprocessedQueryResult)
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..zkappscale import zktransaction
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb

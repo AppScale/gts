@@ -15,8 +15,6 @@ from helper import NodeInfoTags
 from helper import TASK_STATUS
 from helper import TASK_STATUS_LOCK
 
-STATS = {}
-
 class TaskStatus(object):
   """ A class containing all possible task states. """
   PENDING = 'pending'

@@ -4,15 +4,12 @@ import os
 # The location of the AppScale git repository.
 APPSCALE_HOME = os.path.join('/root', 'appscale')
 
-# The location of the lib directory.
-APPSCALE_LIB_DIR = os.path.join(APPSCALE_HOME, 'lib')
-
 # The location of the Python AppServer.
 APPSCALE_PYTHON_APPSERVER = os.path.join(APPSCALE_HOME, 'AppServer')
+
+# The location of the dashboard.
+DASHBOARD_DIR = os.path.join(APPSCALE_HOME, 'AppDashboard')
 
 # The location of the InfrastructureManager.
 INFRASTRUCTURE_MANAGER_DIR = os.path.join(APPSCALE_HOME,
                                           'InfrastructureManager')
-
-# The location of the dashboard.
-DASHBOARD_DIR = os.path.join(APPSCALE_HOME, 'AppDashboard')

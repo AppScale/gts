@@ -97,10 +97,10 @@ namespace :appserver do
 end
 
 
-namespace :lib do
+namespace :common do
 
   task :test do
-    sh 'python -m unittest discover -b -v -s lib/test/unit'
+    sh 'python -m unittest discover -b -v -s common/test/unit'
   end
 
 end
@@ -144,9 +144,9 @@ python_tests = [
   'appmanager:test',
   'appserver:test',
   'apptaskqueue:test',
+  'common:test',
   'hermes:test',
   'infrastructuremanager:test',
-  'lib:test',
   'searchservice:test',
   'xmppreceiver:test',
   'apps:test'

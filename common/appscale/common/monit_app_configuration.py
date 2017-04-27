@@ -1,20 +1,19 @@
 import os
-import subprocess
 import sys
-import random
-import logging 
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import file_io
+from . import file_io
+
+# Directory with the task templates.
+TEMPLATE_DIR = os.path.join(
+  os.path.dirname(sys.modules['appscale.common'].__file__), 'templates')
 
 # Template used for monit configuration files.
-TEMPLATE_LOCATION_SYSLOG = os.path.join(os.path.dirname(__file__)) +\
-                    "/templates/monit_template_syslog.conf"
-TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
-                    "/templates/monit_template.conf"
+TEMPLATE_LOCATION_SYSLOG = os.path.join(TEMPLATE_DIR,
+                                        'monit_template_syslog.conf')
+TEMPLATE_LOCATION = os.path.join(TEMPLATE_DIR, 'monit_template.conf')
 
-TEMPLATE_LOCATION_FOR_UPGRADE = os.path.join(os.path.dirname(__file__)) + \
-                    "/templates/monit_template_for_upgrade.conf"
+TEMPLATE_LOCATION_FOR_UPGRADE = os.path.join(TEMPLATE_DIR,
+                                             'monit_template_for_upgrade.conf')
 # The directory used when storing a service's config file.
 MONIT_CONFIG_DIR = '/etc/monit/conf.d'
 

@@ -4,8 +4,8 @@ given restore.
 import argparse
 import logging
 import os
-import sys
 
+from appscale.common import appscale_info
 from ..backup.datastore_restore import DatastoreRestore
 from ..dbconstants import APP_ENTITY_SCHEMA
 from ..dbconstants import APP_ENTITY_TABLE
@@ -16,12 +16,8 @@ from ..dbconstants import COMPOSITE_SCHEMA
 from ..dbconstants import COMPOSITE_TABLE
 from ..dbconstants import DSC_PROPERTY_TABLE
 from ..dbconstants import PROPERTY_SCHEMA
-from ..unpackaged import APPSCALE_LIB_DIR
 from ..utils import fetch_and_delete_entities
 from ..zkappscale import zktransaction as zk
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 # Where to look to verify the app is deployed.
 _APPS_LOCATION = '/var/apps/'
