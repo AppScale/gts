@@ -9,7 +9,6 @@ import unittest
 import tornado.httpclient
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from appscale.hermes import helper, constants
 from appscale.hermes.helper import MissingRequestArgs
 

@@ -1,8 +1,8 @@
 import json
 import logging
 
-from appscale.common import appscale_info
 from tornado.web import RequestHandler
+from tornado.options import options
 
 from appscale.hermes.constants import SECRET_HEADER
 
@@ -21,10 +21,9 @@ class CachedStatsHandler(RequestHandler):
 
   def initialize(self, stats_cache):
     self._stats_cache = stats_cache
-    self._secret = appscale_info.get_secret()
 
   def get(self):
-    if self.request.headers.get(SECRET_HEADER) != self._secret:
+    if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(401, "Bad secret")
@@ -49,10 +48,9 @@ class CurrentStatsHandler(RequestHandler):
   """
   def initialize(self, stats_source):
     self._stats_source = stats_source
-    self._secret = appscale_info.get_secret()
 
   def get(self):
-    if self.request.headers.get(SECRET_HEADER) != self._secret:
+    if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(401, "Bad secret")
@@ -71,10 +69,9 @@ class ClusterStatsHandler(RequestHandler):
   """
   def initialize(self, cluster_stats_cache):
     self._cluster_stats_cache = cluster_stats_cache
-    self._secret = appscale_info.get_secret()
 
   def get(self):
-    if self.request.headers.get(SECRET_HEADER) != self._secret:
+    if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(401, "Bad secret")

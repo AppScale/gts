@@ -14,8 +14,12 @@ setup(
     'tornado',
     'psutil==5.1.3',
     'attrs',
-    'mock'
   ],
+  tests_require=[
+    'flexmock',
+    'mock',
+  ],
+  test_suite='appscale.hermes',
   classifiers=[
     'Development Status :: 3 - Alpha',
     'Intended Audience :: Developers',
@@ -25,6 +29,9 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale',
-            'appscale.harmes'],
+            'appscale.hermes',
+            'appscale.hermes.stats',
+            'appscale.hermes.stats.producers',
+            'appscale.hermes.stats.subscribers'],
   entry_points={'console_scripts': ['appscale-hermes=appscale.hermes:main']}
 )

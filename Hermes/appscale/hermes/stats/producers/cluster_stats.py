@@ -6,6 +6,7 @@ from appscale.hermes.constants import (
   REQUEST_TIMEOUT, HERMES_PORT, SECRET_HEADER
 )
 from tornado import gen, httpclient
+from tornado.options import options
 
 from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.producers import (
@@ -141,7 +142,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
                                     last_utc_timestamp=None, limit=None,
                                     include_lists=None):
   # Security header
-  headers = {SECRET_HEADER: appscale_info.get_secret()}
+  headers = {SECRET_HEADER: options.secret}
   # Build query arguments
   arguments = {}
   if last_utc_timestamp is not None:

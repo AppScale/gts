@@ -11,40 +11,27 @@ import sys
 import tarfile
 import urllib
 
+import argparse
 import tornado.escape
 import tornado.httpclient
 import tornado.web
 from appscale.common import appscale_info
 from appscale.common import appscale_utils
+from appscale.common.constants import LOG_FORMAT
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback
-from tornado.options import define
 from tornado.options import options
-from tornado.options import parse_command_line
 
 import helper
-from appscale.hermes.constants import WRITE_PROFILE_LOG, TRACK_PROCESSES_STATS, \
-  MINIMIZE_CLUSTER_STATS, HERMES_PORT
+from appscale.hermes.constants import HERMES_PORT
+from appscale.hermes.stats.stats_app import StatsApp
 from handlers import MainHandler, TaskHandler
 from helper import JSONTags
 
 sys.path.append('../../../AppServer')
 from google.appengine.api.appcontroller_client import AppControllerException
-
-# Tornado web server options.
-define("port", default=HERMES_PORT, type=int)
-# Determines whether this node is a master node (head node is master by default)
-define("master", default=None, type=bool)
-# Determines whether profile log should be written (only for master node)
-define("write-profile-log", default=WRITE_PROFILE_LOG, type=bool)
-# Determines whether processes stats should be collected
-define("track-processes-stats", default=TRACK_PROCESSES_STATS, type=bool)
-# Determines whether processes stats should be collected
-define("minimize-cluster-stats", default=MINIMIZE_CLUSTER_STATS, type=bool)
-
-# Statistics cache.
 
 
 def poll():
@@ -101,7 +88,7 @@ def poll():
 
   logging.debug("Task to run: {0}".format(data))
   logging.info("Redirecting task request to TaskHandler.")
-  url = "{0}{1}".format(constants.HERMES_URL, TaskHandler.PATH)
+  url = "{0}{1}".format(constants.HERMES_URL, '/do_task')
   request = helper.create_request(url, method='POST', body=json.dumps(data))
 
   # The poller can move forward without waiting for a response here.
@@ -116,8 +103,7 @@ def deploy_sensor_app():
   if not deployment_id:
     return
 
-  secret = appscale_info.get_secret()
-  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
+  ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
 
   # If the appscalesensor app is already running, then do nothing.
   if ua_client.is_app_enabled(constants.APPSCALE_SENSOR):
@@ -196,21 +182,32 @@ def shutdown():
   logging.warning("Hermes is shutting down.")
   IOLoop.instance().stop()
 
+
 def main():
   """ Main. """
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-p', '--port', type=int, default=HERMES_PORT,
+                      help='The port to listen on')
+  parser.add_argument('-v', '--verbose', action='store_true',
+                      help='Output debug-level logging')
+  parser.add_argument('--write-profile-log', action='store_true',
+                      help='Write CSV tables with stats on master node')
+  parser.add_argument('--track-processes-stats', action='store_true',
+                      help='Track resources used by monit processes')
+  parser.add_argument('--verbose-cluster-stats', action='store_true',
+                      help='Collect all available stats on master. By default '
+                           'master node requests only the most important stats '
+                           'fields.')
+  args = parser.parse_args()
 
-  logging_level = logging.INFO
-  if constants.DEBUG:
-    logging_level = logging.DEBUG
-  logging.getLogger().setLevel(logging_level)
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  if args.verbose:
+    logging.getLogger().setLevel(logging.DEBUG)
+
+  options.define('secret', appscale_info.get_secret())
 
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)
-
-  parse_command_line()
-
-  logging.info("Hermes is up and listening on port: {0}.".
-    format(options.port))
 
   master = appscale_info.get_private_ip() == appscale_info.get_headnode_ip()
 
@@ -225,21 +222,27 @@ def main():
     # polling until they complete.
     PeriodicCallback(poll, constants.POLLING_INTERVAL).start()
 
+  # Configure stats app
+  stats_app = StatsApp(master, track_processes=args.track_processes_stats,
+                       write_profile=args.write_profile_log,
+                       verbose_cluster_stats=args.verbose_cluster_stats)
+  stats_app.configure()
+  stats_app.start_publishers()
+
   app = tornado.web.Application([
     ("/", MainHandler),
     ("/do_task", TaskHandler),
-  ], debug=False)
+  ] + stats_app.get_routes(), debug=False)
 
   try:
-    app.listen(options.port)
+    app.listen(args.port)
   except socket.error:
     logging.error("ERROR on Hermes initialization: Port {0} already in use.".
-      format(options.port))
+      format(args.port))
     shutdown()
-    return
+    exit(1)
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()
 
-if __name__ == "__main__":
-  main()
+  logging.info("Hermes is up and listening on port: {}.".format(args.port))

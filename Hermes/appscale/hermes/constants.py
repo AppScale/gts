@@ -91,15 +91,6 @@ CLUSTER_NODES_STATS_CACHE_SIZE = 1
 CLUSTER_PROCESSES_STATS_CACHE_SIZE = 1
 CLUSTER_PROXIES_STATS_CACHE_SIZE = 1
 
-# Determines whether cluster profile log should be written on master node
-WRITE_PROFILE_LOG = False
-
-# Determines whether processes stats should be collected
-TRACK_PROCESSES_STATS = False
-
-# Determines whether cluster stats should include only important fields
-MINIMIZE_CLUSTER_STATS = True
-
 # Path to haproxy stats socket
 HAPROXY_STATS_SOCKET_PATH = "/etc/haproxy/stats"
 

@@ -13,8 +13,8 @@ from appscale.common import appscale_info
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from appscale.hermes import hermes, helper
+from appscale import hermes
+from appscale.hermes import helper
 
 from flexmock import flexmock
 
@@ -26,6 +26,7 @@ from appscale.hermes import poll
 from appscale.hermes import shutdown
 from appscale.hermes import signal_handler
 from tornado.ioloop import IOLoop
+
 
 class TestHelper(unittest.TestCase):
   """ A set of test cases for Hermes top level functions. """
@@ -94,8 +95,8 @@ class TestHelper(unittest.TestCase):
     # Test sensor app is not deployed when it is already running.
     flexmock(helper).should_receive('get_deployment_id').and_return(
       self.DEPLOYMENT_ID)
-    flexmock(appscale_info).should_receive('get_secret').and_return(
-      "fake_secret")
+    fake_options = flexmock(secret="fake_secret")
+    hermes.options = fake_options
     flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
     # Assume appscalesensor app already running.
     flexmock(UAClient).should_receive('is_app_enabled').and_return(True)

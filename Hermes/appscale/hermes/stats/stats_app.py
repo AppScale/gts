@@ -42,10 +42,16 @@ class ClusterStats(object):
   included_field_lists = attr.ib(default=None)
 
 
+@attr.s
+class Handler(object):
+  handler_class = attr.ib()
+  init_kwargs = attr.ib()
+
+
 class StatsApp(object):
 
   def __init__(self, master, track_processes, write_profile,
-               minimize_cluster_stats):
+               verbose_cluster_stats):
     my_ip = appscale_info.get_private_ip()
     lb_ips = appscale_info.get_load_balancer_ips()
 
@@ -77,7 +83,7 @@ class StatsApp(object):
       cache_size=CLUSTER_PROXIES_STATS_CACHE_SIZE,
       update_interval=UPDATE_CLUSTER_PROXIES_STATS_INTERVAL)
 
-    if minimize_cluster_stats:
+    if not verbose_cluster_stats:
       # To reduce slave-to-master traffic and verbosity of cluster stats
       # you can select which fields of stats to collect on master
       self._cluster_nodes_stats.included_field_lists = {
@@ -102,7 +108,7 @@ class StatsApp(object):
       'stats/cluster/processes': None,
       'stats/cluster/proxies': None,
     }
-    self._active_publishers = []
+    self._publishers = []
 
   def configure(self):
     self._init_local_node_stats_publisher()
@@ -125,7 +131,15 @@ class StatsApp(object):
     else:
       self._stub_cluster_stats_routes()
 
-    return self._active_publishers, self._routes
+  def start_publishers(self):
+    for publisher in self._publishers:
+      publisher.start()
+
+  def get_routes(self):
+    return [
+      (route, handler.handler_class, handler.init_kwargs)
+      for route, handler in self._routes.iteritems() 
+    ]
 
   def _init_local_node_stats_publisher(self):
     stats = self._local_node_stats
@@ -136,12 +150,16 @@ class StatsApp(object):
     # Configure stats publishing
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
     stats.publisher.subscribe(stats.cache)
-    self._active_publishers.append(stats.publisher)
+    self._publishers.append(stats.publisher)
     # Configure handlers
-    self._routes['stats/local/node/cache'] = (
-      CachedStatsHandler, dict(stats_cache=stats.cache))
-    self._routes['stats/local/node/current'] = (
-      CurrentStatsHandler, dict(stats_source=stats_source))
+    self._routes['stats/local/node/cache'] = Handler(
+      handler_class=CachedStatsHandler,
+      init_kwargs=dict(stats_cache=stats.cache)
+    )
+    self._routes['stats/local/node/current'] = Handler(
+      handler_class=CurrentStatsHandler,
+      init_kwargs=dict(stats_source=stats_source)
+    )
 
   def _init_local_processes_stats_publisher(self):
     stats = self._local_processes_stats
@@ -152,20 +170,30 @@ class StatsApp(object):
     # Configure stats publishing
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
     stats.publisher.subscribe(stats.cache)
-    self._active_publishers.append(stats.publisher)
+    self._publishers.append(stats.publisher)
     # Configure handlers
-    self._routes['stats/local/processes/cache'] = (
-      CachedStatsHandler, dict(stats_cache=stats.cache))
-    self._routes['stats/local/processes/current'] = (
-      CurrentStatsHandler, dict(stats_source=stats_source))
+    self._routes['stats/local/processes/cache'] = Handler(
+      handler_class=CachedStatsHandler,
+      init_kwargs=dict(stats_cache=stats.cache)
+    )
+    self._routes['stats/local/processes/current'] = Handler(
+      handler_class=CurrentStatsHandler,
+      init_kwargs=dict(stats_source=stats_source)
+    )
 
   def _stub_processes_stats_routes(self):
-    self._routes['stats/local/processes/cache'] = (
-      Respond404Handler, dict(reason='Processes stats is disabled'))
-    self._routes['stats/local/processes/current'] = (
-      Respond404Handler, dict(reason='Processes stats is disabled'))
-    self._routes['stats/cluster/processes'] = (
-      Respond404Handler, dict(reason='Processes stats is disabled'))
+    self._routes['stats/local/processes/cache'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Processes stats is disabled')
+    )
+    self._routes['stats/local/processes/current'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Processes stats is disabled')
+    )
+    self._routes['stats/cluster/processes'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Processes stats is disabled')
+    )
 
   def _init_local_proxies_stats_publisher(self):
     stats = self._local_proxies_stats
@@ -176,18 +204,26 @@ class StatsApp(object):
     # Configure stats publishing
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
     stats.publisher.subscribe(stats.cache)
-    self._active_publishers.append(stats.publisher)
+    self._publishers.append(stats.publisher)
     # Configure handlers
-    self._routes['stats/local/proxies/cache'] = (
-      CachedStatsHandler, dict(stats_cache=stats.cache))
-    self._routes['stats/local/proxies/current'] = (
-      CurrentStatsHandler, dict(stats_source=stats_source))
+    self._routes['stats/local/proxies/cache'] = Handler(
+      handler_class=CachedStatsHandler,
+      init_kwargs=dict(stats_cache=stats.cache)
+    )
+    self._routes['stats/local/proxies/current'] = Handler(
+      handler_class=CurrentStatsHandler,
+      init_kwargs=dict(stats_source=stats_source)
+    )
 
   def _stub_proxies_stats_routes(self):
-    self._routes['stats/local/proxies/cache'] = (
-      Respond404Handler, dict(reason='Only LB node provides proxies stats'))
-    self._routes['stats/local/proxies/current'] = (
-      Respond404Handler, dict(reason='Only LB node provides proxies stats'))
+    self._routes['stats/local/proxies/cache'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Only LB node provides proxies stats')
+    )
+    self._routes['stats/local/proxies/current'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Only LB node provides proxies stats')
+    )
 
   def _init_cluster_node_stats_publisher(self):
     stats = self._cluster_nodes_stats
@@ -205,10 +241,12 @@ class StatsApp(object):
     if self._write_profile:
       profile_log = ClusterNodesProfileLog()
       stats.publisher.subscribe(profile_log)
-    self._active_publishers.append(stats.publisher)
+    self._publishers.append(stats.publisher)
     # Configure handler
-    self._routes['stats/cluster/nodes'] = (
-      ClusterStatsHandler, dict(cluster_stats_cache=stats.cache))
+    self._routes['stats/cluster/nodes'] = Handler(
+      handler_class=ClusterStatsHandler,
+      init_kwargs=dict(cluster_stats_cache=stats.cache)
+    )
 
   def _init_cluster_processes_stats_publisher(self):
     stats = self._cluster_processes_stats
@@ -226,10 +264,12 @@ class StatsApp(object):
     if self._write_profile:
       profile_log = ClusterProcessesProfileLog()
       stats.publisher.subscribe(profile_log)
-    self._active_publishers.append(stats.publisher)
+    self._publishers.append(stats.publisher)
     # Configure handler
-    self._routes['stats/cluster/processes'] = (
-      ClusterStatsHandler, dict(cluster_stats_cache=stats.cache))
+    self._routes['stats/cluster/processes'] = Handler(
+      handler_class=ClusterStatsHandler,
+      init_kwargs=dict(cluster_stats_cache=stats.cache)
+    )
 
   def _init_cluster_proxies_stats_publisher(self):
     stats = self._cluster_proxies_stats
@@ -247,15 +287,23 @@ class StatsApp(object):
     if self._write_profile:
       profile_log = ClusterProxiesProfileLog()
       stats.publisher.subscribe(profile_log)
-    self._active_publishers.append(stats.publisher)
+    self._publishers.append(stats.publisher)
     # Configure handler
-    self._routes['stats/cluster/proxies'] = (
-      ClusterStatsHandler, dict(cluster_stats_cache=stats.cache))
+    self._routes['stats/cluster/proxies'] = Handler(
+      handler_class=ClusterStatsHandler,
+      init_kwargs=dict(cluster_stats_cache=stats.cache)
+    )
 
   def _stub_cluster_stats_routes(self):
-    self._routes['stats/cluster/nodes'] = (
-      Respond404Handler, dict(reason='Only master node provides cluster stats'))
-    self._routes['stats/cluster/processes'] = (
-      Respond404Handler, dict(reason='Only master node provides cluster stats'))
-    self._routes['stats/cluster/proxies'] = (
-      Respond404Handler, dict(reason='Only master node provides cluster stats'))
+    self._routes['stats/cluster/nodes'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Only master node provides cluster stats')
+    )
+    self._routes['stats/cluster/processes'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Only master node provides cluster stats')
+    )
+    self._routes['stats/cluster/proxies'] = Handler(
+      handler_class=Respond404Handler,
+      init_kwargs=dict(reason='Only master node provides cluster stats')
+    )
