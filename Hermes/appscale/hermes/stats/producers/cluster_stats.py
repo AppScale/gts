@@ -163,6 +163,7 @@ class ClusterProxiesStatsSource(StatsSource):
     raise gen.Return(new_snapshots)
 
 
+@gen.coroutine
 def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
                                     last_utc_timestamp, limit, include_lists,
                                     fetch_only_latest):
@@ -187,8 +188,11 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
   )
   async_client = httpclient.AsyncHTTPClient()
 
-  # Send Future object to coroutine and suspend till result is ready
-  response = yield async_client.fetch(request)
+  try:
+    # Send Future object to coroutine and suspend till result is ready
+    response = yield async_client.fetch(request)
+  except Exception as e:
+    logging.error("Failed to get stats from slave ({})".format(e))
 
   try:
     stats_dictionaries = json.loads(response.body)
