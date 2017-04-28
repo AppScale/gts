@@ -5,14 +5,14 @@ to AppScale and the current node/machine.
 import json
 import logging
 import multiprocessing
-import os
 import sys
 import yaml
 
-import constants
-import file_io
+from . import constants
+from . import file_io
+from .unpackaged import APPSCALE_PYTHON_APPSERVER
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
 def read_file_contents(path):
@@ -49,17 +49,23 @@ def get_all_ips():
   nodes = nodes.split('\n')
   return filter(None, nodes)
 
+def get_headnode_ip():
+  """ Get the private IP of the head node. NOTE: it can change if node
+  crashes.
+
+  Returns:
+    String containing the private IP of the head node.
+  """
+  return file_io.read(constants.HEADNODE_IP_LOC).rstrip()
+
 def get_login_ip():
-  """ Get the public IP of the head node. Since there can be more than one
-  public IP for this deployment, we return the first one. NOTE: it can
-  change if node crashes.
+  """ Get the public IP of the head node. NOTE: it can change if node
+  crashes.
 
   Returns:
     String containing the public IP of the head node.
   """
-  raw_ips = file_io.read(constants.LOGIN_IP_LOC)
-  ips = raw_ips.split('\n')
-  return ips[0]
+  return file_io.read(constants.LOGIN_IP_LOC).rstrip()
 
 def get_db_proxy():
   """ Get the IP of an active DB load balancer. Since there can be

@@ -9,16 +9,13 @@ import time
 import dbconstants
 import helper_functions
 
+from appscale.common.constants import LOG_FORMAT
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .appscale_datastore_batch import DatastoreFactory
 from .dbconstants import AppScaleDBConnectionError
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import METADATA_TABLE
 from .dbconstants import TERMINATING_STRING
-from .unpackaged import (APPSCALE_LIB_DIR,
-                         APPSCALE_PYTHON_APPSERVER)
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import appscale_stub_util

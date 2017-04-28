@@ -1,16 +1,12 @@
 #!/usr/bin/env python2
 
-import sys
 import unittest
 
+from appscale.common import appscale_info
 from appscale.datastore import dbconstants
 from cassandra.cluster import Cluster
 from appscale.datastore.cassandra_env import schema
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from flexmock import flexmock
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 
 class TestCassandraPrimer(unittest.TestCase):

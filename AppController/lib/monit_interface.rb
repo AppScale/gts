@@ -56,22 +56,6 @@ module MonitInterface
     self.run_cmd("#{MONIT} start -g #{watch}")
   end
 
-  def self.start_file(watch, path, action, hours=12)
-    contents = <<BOO
-check file #{watch} path "#{path}" every 2 cycles
-  group #{watch}
-  if timestamp > 12 hours then exec "#{action}"
-BOO
-    monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
-    HelperFunctions.write_file(monit_file, contents)
-    self.run_cmd('service monit reload', true)
-
-    Djinn.log_info("Watching file #{path} for #{watch}" +
-      " with exec action [#{action}]")
-
-    self.run_cmd('#{MONIT} start -g #{watch}')
-  end
-
   def self.restart(watch)
     self.run_cmd("#{MONIT} restart -g #{watch}")
   end

@@ -15,17 +15,14 @@ import SOAPpy
 import sys
 import time
 
+from appscale.common import appscale_info
+from appscale.common.constants import LOG_FORMAT
 from .. import appscale_datastore
 from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import APPS_SCHEMA
 from ..dbconstants import APPS_TABLE
 from ..dbconstants import USERS_SCHEMA
 from ..dbconstants import USERS_TABLE
-from ..unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
-import appscale_info
 
 # Name of the application table which stores AppScale application information.
 APP_TABLE = APPS_TABLE

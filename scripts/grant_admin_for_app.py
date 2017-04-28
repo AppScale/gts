@@ -1,22 +1,10 @@
 """ Grants admin access to a user. """
 
-import os
-import SOAPpy
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import appscale_info
-import constants
+from appscale.common import appscale_info
+from appscale.common.ua_client import UAClient
 
-def get_soap_accessor():
-  """ Returns the SOAP server accessor to deal with application and users.
-
-  Returns:
-    A soap server accessor.
-  """
-  db_ip = appscale_info.get_db_master_ip()
-  bindport = constants.UA_SERVER_PORT
-  return SOAPpy.SOAPProxy("https://{0}:{1}".format(db_ip, bindport))
 
 def usage():
   """ Prints the usage of this script. """
@@ -39,16 +27,15 @@ if __name__ == "__main__":
   app_id = sys.argv[2]
 
   secret = appscale_info.get_secret()
-  server = get_soap_accessor()
+  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
 
-  if server.does_user_exist(email, secret) == "false":
+  if not ua_client.does_user_exist(email):
     print "User does not exist."
     sys.exit(1)
-  if server.does_app_exist(app_id, secret) == "false":
+
+  if not ua_client.does_app_exist(app_id):
     print "Application ID does not exist."
     sys.exit(1)
-  ret = server.add_admin_for_app(email, app_id, secret)
-  if ret == "true":
-    print "{0} granted admin access to {1}".format(email, app_id)
-  else:
-    print "Error with application: {0} -- {1}".format(app_id, ret)
+
+  ua_client.add_admin_for_app(email, app_id)
+  print('{} granted admin access to {}'.format(email, app_id))

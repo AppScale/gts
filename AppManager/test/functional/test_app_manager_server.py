@@ -2,13 +2,11 @@
 
 import json
 import os 
-import sys
 import SOAPpy
 import time
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import constants
+from appscale.common import constants
 
 server = SOAPpy.SOAPProxy("http://127.0.0.1:" + str(constants.APP_MANAGER_PORT))
 

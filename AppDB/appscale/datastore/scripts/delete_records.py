@@ -3,6 +3,7 @@
 import logging
 import sys
 
+from appscale.common.constants import LOG_FORMAT
 from ..dbconstants import APP_ENTITY_SCHEMA
 from ..dbconstants import APP_ENTITY_TABLE
 from ..dbconstants import APP_KIND_SCHEMA
@@ -14,11 +15,7 @@ from ..dbconstants import DSC_PROPERTY_TABLE
 from ..dbconstants import METADATA_SCHEMA
 from ..dbconstants import METADATA_TABLE
 from ..dbconstants import PROPERTY_SCHEMA
-from ..unpackaged import APPSCALE_LIB_DIR
 from ..utils import fetch_and_delete_entities
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 
 def main():

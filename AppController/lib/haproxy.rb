@@ -89,6 +89,10 @@ module HAProxy
   HAPROXY_ERROR_PREFIX = "No such"
 
 
+  # The number of seconds HAProxy should wait for a server response.
+  HAPROXY_SERVER_TIMEOUT = 600
+
+
   def self.start()
     start_cmd = "/usr/sbin/service haproxy start"
     stop_cmd = "/usr/sbin/service haproxy stop"
@@ -165,7 +169,8 @@ module HAProxy
   #   name        : the name of the server
   def self.create_app_config(servers, my_private_ip, listen_port, name)
     config = "# Create a load balancer for the #{name} application\n"
-    config << "listen #{name} #{my_private_ip}:#{listen_port}\n"
+    config << "listen #{name}\n"
+    config << "  bind #{my_private_ip}:#{listen_port}\n"
     servers.each do |server|
       config << HAProxy.server_config(name, "#{server['ip']}:#{server['port']}") + "\n"
     end
@@ -241,7 +246,8 @@ module HAProxy
     end
 
     config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
+    config << "listen #{full_app_name}\n"
+    config << "  bind #{private_ip}:#{listen_port}\n"
     config << servers.join("\n")
 
     config_path = File.join(SITES_ENABLED_PATH,
@@ -314,14 +320,6 @@ defaults
   # Log details about HTTP requests
   #option httplog
 
-  # Abort request if client closes its output channel while waiting for the
-  # request. HAProxy documentation has a long explanation for this option.
-  option abortonclose
-
-  # Check if a "Connection: close" header is already set in each direction,
-  # and will add one if missing.
-  option httpclose
-
   # If sending a request fails, try to send it to another, 3 times
   # before aborting the request
   retries 3
@@ -330,15 +328,14 @@ defaults
   # any Mongrel, not just the one that started the session
   option redispatch
 
-  # Timeout a request if the client did not read any data for 600 seconds
-  timeout client 600000
+  # Time to wait for a connection attempt to a server.
+  timeout connect 5000ms
 
-  # Timeout a request if Mongrel does not accept a connection for 600 seconds
-  timeout connect 600000
+  # The maximum inactivity time allowed for a client.
+  timeout client 50000ms
 
-  # Timeout a request if Mongrel does not accept the data on the connection,
-  # or does not send a response back in 10 minutes.
-  timeout server 600000
+  # The maximum inactivity time allowed for a server.
+  timeout server #{HAPROXY_SERVER_TIMEOUT}s
 
   # Enable the statistics page
   stats enable

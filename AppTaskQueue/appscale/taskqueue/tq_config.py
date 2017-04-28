@@ -4,21 +4,19 @@ file given with an application 'queue.yaml' or 'queue.xml'. """
 import os
 import sys
 
+from appscale.common import appscale_info
+from appscale.common import file_io
+from appscale.common import xmltodict
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from queue import InvalidQueueConfiguration
 from queue import PullQueue
 from queue import PushQueue
-from unpackaged import APPSCALE_LIB_DIR
-from unpackaged import APPSCALE_PYTHON_APPSERVER
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import queueinfo
 from google.appengine.runtime import apiproxy_errors
 
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import file_io
-import xmltodict
 
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """

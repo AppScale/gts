@@ -21,10 +21,8 @@ import base64
 import capnp # pylint: disable=unused-import
 import logging
 import logging_capnp
-import os
 import socket
 import struct
-import sys
 import time
 
 
@@ -35,8 +33,7 @@ from google.appengine.runtime import apiproxy_errors
 from Queue import Queue, Empty
 
 # Add path to import file_io
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../lib"))
-import file_io
+from appscale.common import file_io
 
 _I_SIZE = struct.calcsize('I')
 
@@ -297,7 +294,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       else:
         count = self._DEFAULT_READ_COUNT
       query.count = count
-
+      # GAE presents logs in reverse chronological order. This is not an
+      # option available to users in GAE, so we always set it to True.
+      query.reverse = True
       # Perform query to logserver
       buf = query.to_bytes()
       packet = 'q%s%s' % (struct.pack('I', len(buf)), buf)

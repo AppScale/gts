@@ -11,18 +11,20 @@ import unittest
 import urllib2
 from xml.etree import ElementTree
 
+from appscale.common import (
+  file_io,
+  appscale_info,
+  misc,
+  monit_interface,
+  testing
+)
 from flexmock import flexmock
+
+from appscale.common import monit_app_configuration
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
-import monit_app_configuration
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
-import appscale_info
-import misc
-import monit_interface
-import testing
 
 class TestAppManager(unittest.TestCase):
   def test_bad_convert_config_from_json(self):
@@ -37,9 +39,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -65,9 +66,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'badName!@#$%^&*([]/.,',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -80,9 +80,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'python27',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -115,9 +114,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'env_vars': {},
       'max_memory': 500
@@ -155,9 +153,8 @@ class TestAppManager(unittest.TestCase):
       'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
-      'load_balancer_ip': '127.0.0.1',
+      'login_ip': '127.0.0.1',
       'load_balancer_port': 8080,
-      'xmpp_ip': '127.0.0.1',
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'max_memory': 500
     }

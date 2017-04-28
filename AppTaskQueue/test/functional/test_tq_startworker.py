@@ -3,12 +3,10 @@
 import json
 import os
 import socket
-import sys
 import unittest
 import urllib2
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
-import file_io
+from appscale.common import file_io
 
 FILE_LOC = "/var/apps/test_app/app/queue.yaml"
 def create_test_yaml():

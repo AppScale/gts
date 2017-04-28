@@ -70,9 +70,6 @@ STATS_INTERVAL = 60*1000    # 60 seconds.
 # The interval for checking for registered deployments.
 UPLOAD_SENSOR_INTERVAL = 60*1000    # 60 seconds.
 
-# The port that the SOAP server listens to.
-UA_SERVER_PORT = 4343
-
 # The username for deploying the appscalesensor app.
 USER_EMAIL = "appscale_user@appscale.local"
 

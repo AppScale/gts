@@ -53,6 +53,10 @@ class AppControllerClient():
       secret: A str containing the secret key, used to authenticate this client
         when talking to remote AppControllers.
     """
+    # Disable certificate verification for Python >= 2.7.9.
+    if hasattr(ssl, '_create_unverified_context'):
+      ssl._create_default_https_context = ssl._create_unverified_context
+
     self.host = host
     self.server = SOAPpy.SOAPProxy('https://{0}:{1}'.format(host, self.PORT))
     self.secret = secret
@@ -388,3 +392,20 @@ class AppControllerClient():
     """
     return self.call(self.MAX_RETRIES, self.server.set_read_only, read_only,
       self.secret)
+
+
+  def get_property(self, property_regex):
+    """Queries the AppController for a dictionary of its instance variables
+    whose names match the given regular expression, along with their associated
+    values.
+
+    Args:
+      property_regex: A str that names a regex of instance variables whose
+        values should be retrieved from the AppController.
+    Returns:
+      A dict mapping each instance variable matched by the given regex to its
+      value. This dict is empty when (1) no matches are found, or (2) if the
+      SOAP call times out.
+    """
+    return json.loads(self.call(self.MAX_RETRIES,
+      self.server.get_property, property_regex, self.secret))

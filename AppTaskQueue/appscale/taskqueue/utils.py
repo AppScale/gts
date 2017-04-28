@@ -1,10 +1,6 @@
 import logging
-import sys
 
-from .unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
+from appscale.common.constants import LOG_FORMAT
 
 
 logging.basicConfig(format=LOG_FORMAT)

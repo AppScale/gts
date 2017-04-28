@@ -6,6 +6,8 @@ import random
 import sys
 import unittest
 
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import dbconstants
 from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
@@ -21,9 +23,6 @@ from appscale.datastore.cassandra_env.cassandra_interface import (
   index_deletions,
   mutations_for_entity
 )
-
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 from appscale.datastore.utils import (
   get_entity_key,
@@ -43,9 +42,6 @@ from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 
 class Item(db.Model):

@@ -33,6 +33,9 @@ LOAD_BALANCER_IPS_LOC = '/etc/appscale/load_balancer_ips'
 ALL_IPS_LOC = '/etc/appscale/all_ips'
 
 # The location of the file which specifies the public IP of the head node.
+HEADNODE_IP_LOC = '/etc/appscale/head_node_private_ip'
+
+# The location of the file which specifies the public IP of the head node.
 LOGIN_IP_LOC = '/etc/appscale/login_ip'
 
 # The size for the random password to be created for the appscalesensor app user.
@@ -46,6 +49,9 @@ PUBLIC_IP_LOC = '/etc/appscale/my_public_ip'
 
 # The location of the file which holds the AppScale secret key.
 SECRET_LOC = '/etc/appscale/secret.key'
+
+# The Cassandra config location in Zookeeper.
+ZK_CASSANDRA_CONFIG = "/appscale/config/cassandra"
 
 # The location of the file which contains information on the current DB.
 DB_INFO_LOC = '/etc/appscale/database_info.yaml'
