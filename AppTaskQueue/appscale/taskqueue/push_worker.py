@@ -6,25 +6,25 @@ import logging
 import os
 import sys
 
+from appscale.common import appscale_info
+from appscale.common import constants
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from celery.utils.log import get_task_logger
 from httplib import BadStatusLine
 from socket import error as SocketError
 from urlparse import urlparse
 from .distributed_tq import TaskName
-from .unpackaged import (APPSCALE_LIB_DIR,
-                         APPSCALE_PYTHON_APPSERVER)
-from .utils import (create_celery_for_app,
-                    get_celery_configuration_path,
-                    get_queue_function_name)
+from .utils import (
+  create_celery_for_app,
+  get_celery_configuration_path,
+  get_queue_function_name
+)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.ext import db
 
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import constants
 
 app_id = os.environ['APP_ID']
 remote_host = os.environ['HOST']
