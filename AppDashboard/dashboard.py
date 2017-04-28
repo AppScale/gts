@@ -22,7 +22,6 @@ import sys
 import time
 import urllib
 import webapp2
-import yaml
 
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
@@ -34,9 +33,7 @@ sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
-from app_dashboard_data import InstanceInfo
 from app_dashboard_data import RequestInfo
-from app_dashboard_data import AppStatus
 
 from dashboard_logs import AppLogLine
 from dashboard_logs import RequestLogLine
@@ -104,7 +101,7 @@ class AppDashboard(webapp2.RequestHandler):
       values = {}
 
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.dstore.get_application_info()
+    apps_user_is_admin_on = self.helper.get_application_info()
     if not is_cloud_admin:
       apps_user_owns = self.helper.get_owned_apps()
       new_app_dict = {}
@@ -193,9 +190,9 @@ class DashPage(AppDashboard):
       self.dstore.update_all()
 
     self.render_page(page='dash', template_file=self.TEMPLATE, values={
-      'server_info': self.dstore.get_status_info(),
+      'server_info': self.helper.get_status_info(),
       'dbinfo': self.dstore.get_database_info(),
-      'apps': self.dstore.get_application_info().keys(),
+      'apps': self.helper.get_application_info().keys(),
       'monitoring_url': self.dstore.get_monitoring_url(),
     })
 
@@ -237,9 +234,9 @@ class StatusPage(AppDashboard):
       self.dstore.update_all()
 
     self.render_app_page(page='status', values={
-      'server_info': self.dstore.get_status_info(),
+      'server_info': self.helper.get_status_info(),
       'dbinfo': self.dstore.get_database_info(),
-      'apps': self.dstore.get_application_info(),
+      'apps': self.helper.get_application_info(),
       'monitoring_url': self.dstore.get_monitoring_url(),
       'page_content': self.TEMPLATE,
     })
@@ -252,7 +249,7 @@ class StatusAsJSONPage(webapp2.RequestHandler):
   def get(self):
     """ Retrieves the cached information about machine-level statistics as a
     JSON-encoded dict. """
-    self.response.out.write(json.dumps(AppDashboardData().get_status_info()))
+    self.response.out.write(json.dumps(AppDashboardHelper().get_status_info()))
 
 
 class NewUserPage(AppDashboard):
@@ -756,7 +753,7 @@ class AppsAsJSONPage(webapp2.RequestHandler):
     """ Retrieves the cached information about applications running in this
     AppScale deployment as a JSON-encoded dict. """
     is_cloud_admin = AppDashboardHelper().is_user_cloud_admin()
-    apps_user_is_admin_on = AppDashboardData().get_application_info()
+    apps_user_is_admin_on = AppDashboardHelper().get_application_info()
     if not is_cloud_admin:
       apps_user_owns = AppDashboardHelper().get_owned_apps()
       new_app_dict = {}
@@ -765,26 +762,6 @@ class AppsAsJSONPage(webapp2.RequestHandler):
           new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
       apps_user_is_admin_on = new_app_dict
     self.response.out.write(json.dumps(apps_user_is_admin_on))
-
-  def post(self, app_id):
-    """ Saves profiling information about a Google App Engine application to the
-    Datastore, for viewing by the GET method.
-
-    Args:
-      app_id: A str that uniquely identifies the Google App Engine application
-        we are storing data for.
-    """
-    encoded_data = self.request.body
-    data = json.loads(encoded_data)
-
-    the_time = int(data['timestamp'])
-    reversed_time = (2 ** 34 - the_time) * 1000000
-    request_info = RequestInfo(
-      id=app_id + str(reversed_time),  # puts entities time descending.
-      app_id=app_id,
-      timestamp=datetime.datetime.fromtimestamp(data['timestamp']),
-      num_of_requests=data['request_rate'])
-    request_info.put()
 
 
 class LogMainPage(AppDashboard):
@@ -991,7 +968,7 @@ class CronConsolePage(AppDashboard):
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if is_cloud_admin:
-      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+      apps_user_is_admin_on = self.helper.get_application_info().keys()
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
@@ -1073,7 +1050,7 @@ class CronRun(AppDashboard):
     if not api_url or not app_id:
       return
 
-    app_url = self.dstore.get_application_info()[app_id][1]
+    app_url = self.helper.get_application_info()[app_id][1]
     response = urllib.urlopen(app_url + api_url)
     self.redirect("/cron/view?" + urllib.urlencode({"appid": app_id}), response)
 
@@ -1168,14 +1145,27 @@ class RequestsStats(AppDashboard):
       requests per second.
     """
     query = RequestInfo.query(RequestInfo.app_id == app_id)
-    requests = query.fetch(MAX_REQUESTS_DATA_POINTS)
     request_info = []
-    for request in requests:
+    for request in query.iter():
       request_info.append({
         'timestamp': int(request.timestamp.strftime('%s')),
-        'num_of_requests': request.num_of_requests
+        'num_of_requests': request.num_of_requests,
+        'avg_request_rate': request.avg_request_rate
       })
     return request_info
+
+
+class RequestRefreshPage(AppDashboard):
+  """ Class that stores request statistics about every application in the
+  datastore relating to the number of requests an application gets per second.
+  """
+
+  def get(self):
+    """ Handler for GET request for the requests statistics. """
+    for app_id in self.helper.get_application_info().keys():
+      self.dstore.update_request_info(app_id=app_id)
+
+    self.response.out.write('request info updated')
 
 
 class InstanceStats(AppDashboard):
@@ -1194,58 +1184,8 @@ class InstanceStats(AppDashboard):
       self.response.out.write(response)
       return
 
-    appid = self.request.get("appid")
-    self.response.out.write(json.dumps(InstanceStats.fetch_request_info(appid)))
-
-  def post(self):
-    """ Adds information about one or more instances to the Datastore, for
-    later viewing.
-    """
-    encoded_data = self.request.body
-    data = json.loads(encoded_data)
-
-    for instance in data:
-      # TODO: Consider only doing a put if it doesn't exist
-      instance = InstanceInfo(id=instance['appid'] + instance['host'] + \
-                              str(instance['port']),
-                              appid=instance['appid'],
-                              host=instance['host'],
-                              port=instance['port'],
-                              language=instance['language'])
-      instance.put()
-
-    self.response.out.write('put completed successfully!')
-
-  def delete(self):
-    """ Removes information about one or more instances from the Datastore. """
-    encoded_data = self.request.body
-    data = json.loads(encoded_data)
-
-    for instance in data:
-      instance = InstanceInfo.get_by_id(instance['appid'] + instance['host'] + \
-                                        str(instance['port']))
-      instance.key.delete()
-
-    self.response.out.write('delete completed successfully!')
-
-  @staticmethod
-  def fetch_request_info(appid):
-    """ Retrieves information about the AppServer processes running the
-    application associated with the named application.
-
-    Args:
-      appid: A str, the application identifier.
-    Returns:
-      A list of dicts, where each dict has information about a single AppServer
-      process running the named application.
-    """
-    query = InstanceInfo.query(InstanceInfo.appid == appid)
-    instances = query.fetch()
-    return [{
-              'host': instance.host,
-              'port': instance.port,
-              'language': instance.language
-            } for instance in instances]
+    instance_info = self.helper.get_instance_info(app_id=app_name)
+    self.response.out.write(json.dumps(instance_info))
 
 
 class MemcacheStats(AppDashboard):
@@ -1274,7 +1214,7 @@ class StatsPage(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
 
     if is_cloud_admin:
-      apps_user_is_admin_on = self.dstore.get_application_info().keys()
+      apps_user_is_admin_on = self.helper.get_application_info().keys()
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
@@ -1284,19 +1224,9 @@ class StatsPage(AppDashboard):
     if app_id not in apps_user_is_admin_on:
       self.redirect(DashPage.PATH, self.response)
 
-    instance_info = InstanceStats.fetch_request_info(app_id)
-
-    app_status = AppStatus.get_by_id(app_id)
-    if app_status and app_status.url:
-      url = app_status.url
-    else:
-      url = None
-
     self.render_app_page(page='stats', values={
       'appid': app_id,
       'all_apps_this_user_owns': apps_user_is_admin_on,
-      'instance_info': instance_info,
-      'app_url': url,
       'page_content': self.TEMPLATE,
     })
 
@@ -1365,6 +1295,7 @@ dashboard_pages = [
   ('/status/refresh', DashRefreshPage),
   ('/status/cloud', StatusPage),
   ('/status/json', StatusAsJSONPage),
+  ('/status/requests', RequestRefreshPage),
   ('/logout', LogoutPage),
   ('/users/logout', LogoutPage),
   ('/users/verify', LoginVerify),

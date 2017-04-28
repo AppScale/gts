@@ -1,5 +1,4 @@
 """ Different tests done against App Engine Datastore API. """
-import abc
 import logging
 import os
 import sys

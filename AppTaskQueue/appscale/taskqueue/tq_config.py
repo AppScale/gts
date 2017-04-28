@@ -5,25 +5,27 @@ import json
 import os
 import sys
 
-from .queue import (InvalidQueueConfiguration,
-                    PullQueue,
-                    PushQueue)
-from .unpackaged import (APPSCALE_LIB_DIR,
-                         APPSCALE_PYTHON_APPSERVER)
-from .utils import (CELERY_CONFIG_DIR,
-                    CELERY_WORKER_DIR,
-                    create_celery_for_app,
-                    get_celery_configuration_path,
-                    logger)
+from .queue import (
+  InvalidQueueConfiguration,
+  PullQueue,
+  PushQueue
+)
+from .utils import (
+  CELERY_CONFIG_DIR,
+  CELERY_WORKER_DIR,
+  create_celery_for_app,
+  get_celery_configuration_path,
+  logger
+)
+from appscale.common import appscale_info
+from appscale.common import file_io
+from appscale.common import xmltodict
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import queueinfo
 from google.appengine.runtime import apiproxy_errors
 
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
-import file_io
-import xmltodict
 
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """

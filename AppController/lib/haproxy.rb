@@ -89,11 +89,15 @@ module HAProxy
   HAPROXY_ERROR_PREFIX = "No such"
 
 
+  # The number of seconds HAProxy should wait for a server response.
+  HAPROXY_SERVER_TIMEOUT = 600
+
+
   def self.start()
     start_cmd = "/usr/sbin/service haproxy start"
     stop_cmd = "/usr/sbin/service haproxy stop"
     match_cmd = "/usr/sbin/haproxy"
-    MonitInterface.start(:haproxy, start_cmd, stop_cmd, [9999], nil, match_cmd,
+    MonitInterface.start(:haproxy, start_cmd, stop_cmd, nil, nil, match_cmd,
                          nil, nil, nil)
   end
 
@@ -126,16 +130,6 @@ module HAProxy
     self.create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
   end
 
-  # Create the config file for TaskQueue REST API endpoints.
-  def self.create_tq_endpoint_config(server_ips, my_ip, listen_port)
-    servers = []
-    server_ips.each{ |server|
-      servers << {'ip' => server,
-                  'port' => TaskQueue::HAPROXY_PORT}
-    }
-    self.create_app_config(servers, my_ip, listen_port, TaskQueue::REST_NAME)
-  end
-
   # Remove the configuration for TaskQueue REST API endpoints.
   def self.remove_tq_endpoints
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
@@ -143,21 +137,25 @@ module HAProxy
   end
 
   # Create the config file for Datastore Server.
-  def self.create_datastore_server_config(my_ip, listen_port, table)
+  def self.create_datastore_server_config(server_ips, my_ip, listen_port)
     # For the Datastore servers we have a list of local ports the servers
     # are listening to, and we need to create the list of local IPs.
     servers = []
-    DatastoreServer.get_server_ports().each { |port|
-      servers << {'ip' => my_ip, 'port' => port}
+    server_ips.each{ |server|
+      DatastoreServer.get_server_ports().each { |port|
+        servers << {'ip' => server, 'port' => port}
+      }
     }
-    self.create_app_config(servers, my_ip, listen_port, DatastoreServer::NAME)
+    self.create_app_config(servers, '*', listen_port, DatastoreServer::NAME)
   end
 
   # Create the config file for TaskQueue servers.
-  def self.create_tq_server_config(my_ip, listen_port)
+  def self.create_tq_server_config(server_ips, my_ip, listen_port)
     servers = []
-    TaskQueue.get_server_ports().each { |port|
-      servers << {'ip' => my_ip, 'port' => port}
+    server_ips.each{ |server|
+      TaskQueue.get_server_ports().each { |port|
+        servers << {'ip' => server, 'port' => port}
+      }
     }
     self.create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
   end
@@ -171,7 +169,8 @@ module HAProxy
   #   name        : the name of the server
   def self.create_app_config(servers, my_private_ip, listen_port, name)
     config = "# Create a load balancer for the #{name} application\n"
-    config << "listen #{name} #{my_private_ip}:#{listen_port}\n"
+    config << "listen #{name}\n"
+    config << "  bind #{my_private_ip}:#{listen_port}\n"
     servers.each do |server|
       config << HAProxy.server_config(name, "#{server['ip']}:#{server['port']}") + "\n"
     end
@@ -247,7 +246,8 @@ module HAProxy
     end
 
     config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name} #{private_ip}:#{listen_port} \n"
+    config << "listen #{full_app_name}\n"
+    config << "  bind #{private_ip}:#{listen_port}\n"
     config << servers.join("\n")
 
     config_path = File.join(SITES_ENABLED_PATH,
@@ -320,14 +320,6 @@ defaults
   # Log details about HTTP requests
   #option httplog
 
-  # Abort request if client closes its output channel while waiting for the
-  # request. HAProxy documentation has a long explanation for this option.
-  option abortonclose
-
-  # Check if a "Connection: close" header is already set in each direction,
-  # and will add one if missing.
-  option httpclose
-
   # If sending a request fails, try to send it to another, 3 times
   # before aborting the request
   retries 3
@@ -336,15 +328,14 @@ defaults
   # any Mongrel, not just the one that started the session
   option redispatch
 
-  # Timeout a request if the client did not read any data for 600 seconds
-  timeout client 600000
+  # Time to wait for a connection attempt to a server.
+  timeout connect 5000ms
 
-  # Timeout a request if Mongrel does not accept a connection for 600 seconds
-  timeout connect 600000
+  # The maximum inactivity time allowed for a client.
+  timeout client 50000ms
 
-  # Timeout a request if Mongrel does not accept the data on the connection,
-  # or does not send a response back in 10 minutes.
-  timeout server 600000
+  # The maximum inactivity time allowed for a server.
+  timeout server #{HAPROXY_SERVER_TIMEOUT}s
 
   # Enable the statistics page
   stats enable

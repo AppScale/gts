@@ -5,13 +5,13 @@ import datetime
 import sys
 import unittest
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
 from appscale.datastore import groomer
 from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -210,21 +210,6 @@ class TestGroomer(unittest.TestCase):
     stats.should_receive("KindStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertRaises(Exception, dsg.create_kind_stat_entry, 0, 0, 0)
-
-  def test_remove_deprecated_dashboard_data(self):
-    zookeeper = flexmock()
-    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    dsg = flexmock(dsg)
-    dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
-    self.assertRaises(Exception, dsg.remove_deprecated_dashboard_data, FakeEntity)
-
-  def test_remove_old_dashboard_data(self):
-    zookeeper = flexmock()
-    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    dsg = flexmock(dsg)
-    dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
-    dsg.DASHBOARD_DATA_MODELS = [FakeEntity]
-    self.assertRaises(Exception, dsg.remove_old_dashboard_data)
 
 
 if __name__ == "__main__":

@@ -2,24 +2,22 @@
 
 import cassandra
 import logging
-import sys
 import time
 
 import cassandra_interface
 
+from appscale.common import appscale_info
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
+from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
 from .. import dbconstants
-from ..unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 # The data layout version to set after removing the journal table.
 POST_JOURNAL_VERSION = 1.0
@@ -76,18 +74,18 @@ def create_batch_tables(cluster, session):
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating batches table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
   keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
   if ('batch_status' in keyspace_metadata.tables and
       'txid_hash' not in keyspace_metadata.tables['batch_status'].columns):
-    session.execute('DROP TABLE batch_status')
+    session.execute('DROP TABLE batch_status', timeout=SCHEMA_CHANGE_TIMEOUT)
 
   logging.info('Trying to create batch_status')
   create_table = """
@@ -99,12 +97,12 @@ def create_batch_tables(cluster, session):
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating batch_status table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 def create_groups_table(session):
@@ -116,12 +114,12 @@ def create_groups_table(session):
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating group_updates table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
@@ -147,12 +145,12 @@ def create_transactions_table(session):
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(statement)
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
     logging.warning(
       'Encountered an operation timeout while creating transactions table. '
-      'Waiting 1 minute for schema to settle.')
-    time.sleep(60)
+      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+    time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
 
@@ -194,7 +192,8 @@ def prime_cassandra(replication):
   """.format(keyspace=KEYSPACE)
   keyspace_replication = {'class': 'SimpleStrategy',
                           'replication_factor': replication}
-  session.execute(create_keyspace, {'replication': keyspace_replication})
+  session.execute(create_keyspace, {'replication': keyspace_replication},
+                  timeout=SCHEMA_CHANGE_TIMEOUT)
   session.set_keyspace(KEYSPACE)
 
   for table in dbconstants.INITIAL_TABLES:
@@ -213,12 +212,12 @@ def prime_cassandra(replication):
 
     logging.info('Trying to create {}'.format(table))
     try:
-      session.execute(statement)
+      session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
       logging.warning(
-        'Encountered an operation timeout while creating {} table. '
-        'Waiting 1 minute for schema to settle.'.format(table))
-      time.sleep(60)
+        'Encountered an operation timeout while creating {} table. Waiting {} '
+        'seconds for schema to settle.'.format(table, SCHEMA_CHANGE_TIMEOUT))
+      time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise
 
   create_batch_tables(cluster, session)
@@ -246,6 +245,12 @@ def prime_cassandra(replication):
     parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
                   'column': cassandra_interface.VERSION_INFO_KEY,
                   'value': bytearray(str(POST_JOURNAL_VERSION))}
+    session.execute(metadata_insert, parameters)
+
+    # Mark the newly created indexes as clean.
+    parameters = {'key': bytearray(cassandra_interface.INDEX_STATE_KEY),
+                  'column': cassandra_interface.INDEX_STATE_KEY,
+                  'value': bytearray(str(IndexStates.CLEAN))}
     session.execute(metadata_insert, parameters)
 
   # Indicate that the database has been successfully primed.

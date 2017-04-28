@@ -17,7 +17,7 @@ from apiclient import discovery
 from flexmock import flexmock
 
 # AppScale-specific imports
-from agents.gce_agent import GCEAgent
+from appscale.tools.agents.gce_agent import GCEAgent
 from infrastructure_manager import InfrastructureManager
 from utils import utils
 
@@ -53,7 +53,9 @@ class TestGCEAgent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '1',
       'use_spot_instances': False,
-      'zone' : 'my-zone-1b'
+      'zone' : 'my-zone-1b',
+      'autoscale_agent' : True,
+      'IS_VERBOSE' : False
     }
 
 
@@ -61,6 +63,7 @@ class TestGCEAgent(TestCase):
     # mock out interactions with GCE
     # first, mock out the oauth library calls
     fake_credentials = flexmock(name='fake_credentials')
+    fake_credentials.should_receive('invalid').and_return(False)
     fake_storage = flexmock(name='fake_storage')
     fake_storage.should_receive('get').and_return(fake_credentials)
 
@@ -129,14 +132,13 @@ class TestGCEAgent(TestCase):
 
     fake_list_instance_request = flexmock(name='fake_list_instance_request')
     fake_list_instance_request.should_receive('execute').with_args(
-      fake_authorized_http).and_return(no_instance_info).and_return(
-        list_instance_info)
+      http=fake_authorized_http).and_return(no_instance_info).and_return(list_instance_info)
 
     fake_instances = flexmock(name='fake_instances')
     fake_gce = flexmock(name='fake_gce')
     fake_gce.should_receive('instances').and_return(fake_instances)
     fake_instances.should_receive('list').with_args(project=self.project,
-      filter="name eq appscale-boogroup-.*", zone='my-zone-1b') \
+      filter="name eq boogroup-.*", zone='my-zone-1b') \
       .and_return(fake_list_instance_request)
 
     # we only need to create one node, so set up mocks for that
@@ -158,7 +160,7 @@ class TestGCEAgent(TestCase):
 
     fake_add_instance_request = flexmock(name='fake_add_instance_request')
     fake_add_instance_request.should_receive('execute').with_args(
-      fake_authorized_http).and_return(add_instance_info)
+      http=fake_authorized_http).and_return(add_instance_info)
 
     fake_instances.should_receive('insert').with_args(project=self.project,
       body=dict, zone=str).and_return(fake_add_instance_request)
@@ -224,6 +226,7 @@ class TestGCEAgent(TestCase):
     # mock out interactions with GCE
     # first, mock out the oauth library calls
     fake_credentials = flexmock(name='fake_credentials')
+    fake_credentials.should_receive('invalid').and_return(False)
     fake_storage = flexmock(name='fake_storage')
     fake_storage.should_receive('get').and_return(fake_credentials)
 

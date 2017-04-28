@@ -420,11 +420,21 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
           if not _CONNECTION_SUPPORTS_TIMEOUT:
             socket.setdefaulttimeout(orig_timeout)
           connection.close()
-      except (_fancy_urllib_InvalidCertException,
-              _fancy_urllib_SSLError), e:
+      except _fancy_urllib_InvalidCertException, e:
         raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.SSL_CERTIFICATE_ERROR,
           str(e))
+      except _fancy_urllib_SSLError, e:
+
+
+
+
+
+        app_error = (
+            urlfetch_service_pb.URLFetchServiceError.DEADLINE_EXCEEDED
+            if 'timed out' in e.message else
+            urlfetch_service_pb.URLFetchServiceError.SSL_CERTIFICATE_ERROR)
+        raise apiproxy_errors.ApplicationError(app_error, str(e))
       except socket.timeout, e:
         raise apiproxy_errors.ApplicationError(
           urlfetch_service_pb.URLFetchServiceError.DEADLINE_EXCEEDED, str(e))

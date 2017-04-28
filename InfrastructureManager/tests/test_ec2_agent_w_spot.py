@@ -31,7 +31,8 @@ class TestEC2Agent(TestCase):
       'use_spot_instances': 'True',
       'max_spot_price' : '1.23',
       'region' : 'my-zone-1',
-      'zone' : 'my-zone-1b'
+      'zone' : 'my-zone-1b',
+      'autoscale_agent': True
     }
 
     id = '0000000000'  # no longer randomly generated
@@ -47,9 +48,9 @@ class TestEC2Agent(TestCase):
     self.assertEquals(InfrastructureManager.STATE_RUNNING,
       i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
-    self.assertEquals(['public-ip'], vm_info['public_ips'])
-    self.assertEquals(['private-ip'], vm_info['private_ips'])
-    self.assertEquals(['i-id'], vm_info['instance_ids'])
+    self.assertEquals(['new-public-ip'], vm_info['public_ips'])
+    self.assertEquals(['new-private-ip'], vm_info['private_ips'])
+    self.assertEquals(['new-i-id'], vm_info['instance_ids'])
 
   def setUp(self):
     fake_ec2 = flexmock(name='fake_ec2')
@@ -64,12 +65,19 @@ class TestEC2Agent(TestCase):
 
     reservation = Reservation()
     instance = flexmock(name='instance', private_dns_name='private-ip',
-      public_dns_name='public-ip', id='i-id', state='running',
-      key_name='bookeyname')
+                        public_dns_name='public-ip', id='i-id', state='running',
+                        key_name='bookeyname', ip_address='public-ip',
+                        private_ip_address='private-ip')
+    new_instance = flexmock(name='new-instance', private_dns_name='new-private-ip',
+                            public_dns_name='new-public-ip', id='new-i-id', state='running',
+                            key_name='bookeyname', ip_address='new-public-ip',
+                            private_ip_address='new-private-ip')
     reservation.instances = [instance]
-
+    new_reservation = Reservation()
+    new_reservation.instances = [instance, new_instance]
     fake_ec2.should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation])
+      .and_return([reservation]).and_return([new_reservation])
+
     fake_ec2.should_receive('terminate_instances').and_return([instance])
     fake_ec2.should_receive('request_spot_instances')
 

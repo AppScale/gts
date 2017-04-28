@@ -29,9 +29,6 @@ module Search
   # The python executable path.
   PYTHON_EXEC = "python"
 
-  # Stop command for search server.
-  SEARCH_STOP_CMD = "/bin/kill -9 `ps aux | grep search_server.py | awk {'print $2'}`"
-
   # Search location file.
   SEARCH_LOCATION_FILE = "/etc/appscale/search_ip"
 
@@ -65,7 +62,7 @@ module Search
     Djinn.log_run("cp -r /root/appscale/SearchService/templates/schemaless-appscale /opt/appscale/solr/")
     start_cmd = "/root/appscale/SearchService/solr/solr/bin/solr start -noprompt -s /opt/appscale/solr/schemaless-appscale/solr/"
     stop_cmd = "/root/appscale/SearchService/solr/solr/bin/solr stop -all"
-    MonitInterface.start(:solr, start_cmd, stop_cmd, [SOLR_SERVER_PORT], nil,
+    MonitInterface.start(:solr, start_cmd, stop_cmd, nil, nil,
                          "solr", nil, nil, nil)
     HelperFunctions.sleep_until_port_is_open("localhost", SOLR_SERVER_PORT)
     Djinn.log_debug("Done starting SOLR.")
@@ -76,9 +73,10 @@ module Search
     Djinn.log_debug("Starting search server on this node.")
     script = "#{APPSCALE_HOME}/SearchService/search_server.py"
     start_cmd = "#{PYTHON_EXEC} #{script}"
-    stop_cmd = SEARCH_STOP_CMD
+    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
+      "#{script} #{PYTHON_EXEC}"
     env_vars = {}
-    MonitInterface.start(:search, start_cmd, stop_cmd, [SEARCH_SERVER_PORT],
+    MonitInterface.start(:search, start_cmd, stop_cmd, nil,
                          env_vars, start_cmd, nil, nil, nil)
     HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
     Djinn.log_debug("Done starting search_server on this node.")

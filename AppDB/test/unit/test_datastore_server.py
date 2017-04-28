@@ -5,6 +5,8 @@ import datetime
 import sys
 import unittest
 
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import dbconstants
 from appscale.datastore import utils
 from appscale.datastore.datastore_distributed import DatastoreDistributed
@@ -18,9 +20,6 @@ from appscale.datastore.cassandra_env.cassandra_interface import (
   index_deletions,
   mutations_for_entity
 )
-
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
-from appscale.datastore.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 from appscale.datastore.utils import (
   get_entity_key,
@@ -40,9 +39,6 @@ from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 
 class Item(db.Model):
@@ -378,14 +374,11 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('batch_mutate')
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
 
-    # Make sure it does not throw an exception
-    txn_hash = {entity_key1: 1, entity_key2: 1}
-
     entity_lock = flexmock(EntityLock)
     entity_lock.should_receive('acquire')
     entity_lock.should_receive('release')
 
-    dd.put_entities(app_id, entity_list, txn_hash)
+    dd.put_entities(app_id, entity_list)
 
   def test_acquire_locks_for_trans(self):
     db_batch = flexmock()

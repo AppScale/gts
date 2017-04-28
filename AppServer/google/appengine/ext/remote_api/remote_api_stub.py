@@ -92,7 +92,7 @@ else:
   from google.appengine.runtime import apiproxy_errors
 
 from google.appengine.tools import appengine_rpc
-from google.appengine.api.urlfetch_stub import URLFetchServiceStub
+
 
 _REQUEST_ID_HEADER = 'HTTP_X_APPENGINE_REQUEST_ID'
 
@@ -204,7 +204,10 @@ class RemoteStub(object):
   @classmethod
   def _GetRequestId(cls):
     """Returns the id of the request associated with the current thread."""
-    return cls._local.request_id
+    try:
+      return cls._local.request_id
+    except AttributeError:
+      return None
 
   @classmethod
   def _SetRequestId(cls, request_id):
@@ -240,6 +243,14 @@ class RemoteStub(object):
 
   def CreateRPC(self):
     return apiproxy_rpc.RPC(stub=self)
+
+
+class RuntimeRemoteStub(RemoteStub):
+  """ A RemoteStub that uses a separate thread for RPCs. """
+
+  def CreateRPC(self):
+    """ Create an RPC that can be used asynchronously. """
+    return apiproxy_rpc.RealRPC(stub=self)
 
 
 class RemoteDatastoreStub(RemoteStub):
@@ -522,6 +533,14 @@ class RemoteDatastoreStub(RemoteStub):
         'The remote datastore does not support index manipulation.')
 
 
+class RuntimeDatastoreStub(RemoteDatastoreStub):
+  """ A datastore stub that uses a separate thread for RPCs. """
+
+  def CreateRPC(self):
+    """ Create an RPC that can be used asynchronously. """
+    return apiproxy_rpc.RealRPC(stub=self)
+
+
 ALL_SERVICES = set(remote_api_services.SERVICE_PB_MAP)
 
 
@@ -559,7 +578,8 @@ def GetRemoteAppIdFromServer(server, path, remote_token=None):
 
 def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
                                  default_auth_domain=None,
-                                 use_remote_datastore=True):
+                                 use_remote_datastore=True,
+                                 use_async_rpc=False):
   """Does necessary setup to allow easy remote access to App Engine APIs.
 
   Args:
@@ -574,6 +594,8 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
       through datastore requests. RemoteDatastoreStub batches transactional
       datastore requests since, in production, datastore requires are scoped to
       a single request.
+    use_async_rpc: A boolean indicating whether or not to make RPC calls in a
+      separate thread.
 
   Raises:
     urllib2.HTTPError: if app_id is not provided and there is an error while
@@ -594,13 +616,16 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
   apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
   if 'datastore_v3' in services and use_remote_datastore:
     services.remove('datastore_v3')
-    datastore_stub = RemoteDatastoreStub(server, path)
+    if use_async_rpc:
+      datastore_stub = RuntimeDatastoreStub(server, path)
+    else:
+      datastore_stub = RemoteDatastoreStub(server, path)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
-  if 'urlfetch' in services:
-    services.remove('urlfetch')
-    stub = URLFetchServiceStub()
-    apiproxy_stub_map.apiproxy.RegisterStub('urlfetch', stub)
-  stub = RemoteStub(server, path)
+
+  if use_async_rpc:
+    stub = RuntimeRemoteStub(server, path)
+  else:
+    stub = RemoteStub(server, path)
   for service in services:
     apiproxy_stub_map.apiproxy.RegisterStub(service, stub)
 
@@ -652,7 +677,8 @@ def ConfigureRemoteApi(app_id,
                        services=None,
                        default_auth_domain=None,
                        save_cookies=False,
-                       use_remote_datastore=True):
+                       use_remote_datastore=True,
+                       use_async_rpc=False):
   """Does necessary setup to allow easy remote access to App Engine APIs.
 
   Either servername must be provided or app_id must not be None.  If app_id
@@ -686,6 +712,8 @@ def ConfigureRemoteApi(app_id,
       through datastore requests. RemoteDatastoreStub batches transactional
       datastore requests since, in production, datastore requires are scoped to
       a single request.
+    use_async_rpc: A boolean indicating whether or not to make RPC calls in a
+      separate thread.
 
   Returns:
     server, the server created by rpc_server_factory, which may be useful for
@@ -707,7 +735,8 @@ def ConfigureRemoteApi(app_id,
     app_id = GetRemoteAppIdFromServer(server, path, rtok)
 
   ConfigureRemoteApiFromServer(server, path, app_id, services,
-                               default_auth_domain, use_remote_datastore)
+                               default_auth_domain, use_remote_datastore,
+                               use_async_rpc)
   return server
 
 

@@ -1,11 +1,11 @@
 # pylint: disable-msg=W0703
 # pylint: disable-msg=E1103
 
+import datetime
 import logging
 from google.appengine.ext import ndb
 from google.appengine.api import users
 from app_dashboard_helper import AppDashboardHelper
-from app_dashboard_helper import AppHelperException
 
 
 class DashboardDataRoot(ndb.Model):
@@ -28,28 +28,6 @@ class DashboardDataRoot(ndb.Model):
   timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
-class ServerStatus(ndb.Model):
-  """ A Datastore Model that contains information about a single virtual machine
-  running in this AppScale deployment.
-
-  Fields:
-    id: The hostname (IP or FQDN) corresponding to this machine. This field
-      isn't explicitly defined because all ndb.Models have a str id that
-      uniquely identifies them in the Datastore.
-    cpu: The percent of CPU currently in use on this machine.
-    memory: The percent of RAM currently in use on this machine.
-    disk: The percent of hard disk space in use on this machine.
-    roles: A list of strs, where each str corresponds to a service that this
-      machine runs.
-    timestamp: A timestamp of when this entity was created.
-  """
-  cpu = ndb.StringProperty()
-  memory = ndb.StringProperty()
-  disk = ndb.StringProperty()
-  roles = ndb.StringProperty(repeated=True)
-  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
-
-
 class RequestInfo(ndb.Model):
   """ A Datastore Model that stores a single measurement of the average number
   of requests per second that reach a Google App Engine application.
@@ -63,22 +41,8 @@ class RequestInfo(ndb.Model):
   """
   app_id = ndb.StringProperty(required=True)
   num_of_requests = ndb.FloatProperty()
+  avg_request_rate = ndb.FloatProperty()
   timestamp = ndb.DateTimeProperty()
-
-
-class AppStatus(ndb.Model):
-  """ A Datastore Model that contains information about where an application
-  hosted in AppScale can be located, to display to users.
-
-  Fields:
-    name: The application ID associated with this Google App Engine app.
-    url: A URL that points to an nginx server, which serves a full proxy to
-      this Google App Engine app.
-    timestamp: A timestamp of when this entity was created.
-  """
-  name = ndb.StringProperty()
-  url = ndb.StringProperty(repeated=True)
-  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
 
 
 class UserInfo(ndb.Model):
@@ -106,31 +70,6 @@ class UserInfo(ndb.Model):
   dash_layout_settings = ndb.JsonProperty(default=None)
 
 
-class InstanceInfo(ndb.Model):
-  """ A Datastore Model that contains information about AppServer processes that
-  are running Google App Engine applications in this AppScale deployment.
-
-  Fields:
-    appid: A str that names that application ID this instance is running an app
-      for. We avoid setting the appid as the Model's id here because multiple
-      AppServers can run for the same appid.
-    host: A str that names the IP address or FQDN of the machine that runs this
-      instance.
-    port: An int that indicates what port this AppServer process is bound to
-      on the given hostname. Note that this port is firewalled off to outside
-      traffic, so users cannot access the AppServer by visiting host:port in a
-      browser.
-    language: A str that indicates if this instance is running a Python, Java,
-      Go, or PHP App Engine application.
-    timestamp: A timestamp of when this entity was created.
-  """
-  appid = ndb.StringProperty()
-  host = ndb.StringProperty()
-  port = ndb.IntegerProperty()
-  language = ndb.StringProperty()
-  timestamp = ndb.DateTimeProperty(auto_now=True, auto_now_add=True)
-
-
 class AppDashboardData():
   """ AppDashboardData leverages ndb (which itself utilizes Memcache and the
   Datastore) to implement a cache in front of SOAP-exposed services provided
@@ -148,10 +87,6 @@ class AppDashboardData():
 
   # The port that the Monit Dashboard runs on, by default.
   MONIT_PORT = 2812
-
-  # The sentinel app name that indicates that no apps are running on a given
-  # machine.
-  NO_APPS_RUNNING = "none"
 
   def __init__(self, helper=None):
     """ Creates a new AppDashboard, which will cache SOAP-exposed information
@@ -281,9 +216,7 @@ class AppDashboardData():
     the Datastore, to speed up future accesses to this data.
     """
     self.update_head_node_ip()
-    self.update_database_info()
-    self.update_status_info()
-    self.update_application_info()
+    self.get_database_info()
     self.update_users()
 
   def get_monitoring_url(self):
@@ -351,80 +284,41 @@ class AppDashboardData():
     try:
       if dashboard_root is None:
         dashboard_root = DashboardDataRoot(id=self.ROOT_KEYNAME)
-      dashboard_root.head_node_ip = self.helper.get_host_with_role('shadow')
+      dashboard_root.head_node_ip = self.helper.get_head_node_ip()
       dashboard_root.put()
       return dashboard_root.head_node_ip
     except Exception as err:
       logging.exception(err)
       return None
 
-  def get_status_info(self):
-    """ Retrieves the current status of each machine in this AppScale deployment
-    from the Datastore.
+  def update_request_info(self, app_id):
+    """ Queries the AppController to get request information for the given
+    application, storing it in the Datastore for later viewing.
 
-    Returns:
-      A list of dicts, where each dict contains information about one machine
-        in this AppScale deployment.
-    """
-    servers = self.get_all(ServerStatus)
-    return [{'ip': server.key.id(), 'cpu': server.cpu,
-             'memory': server.memory, 'disk': server.disk,
-             'roles': server.roles,
-             'key': server.key.id().translate(None, '.')} for server in servers]
-
-  def update_status_info(self):
-    """ Queries the AppController to get status information for all servers in
-    this deployment, storing it in the Datastore for later viewing.
+    Args:
+      app_id: A string, the application identifier.
     """
     try:
-      nodes = self.helper.get_appcontroller_client().get_stats()
-      updated_statuses = []
-      for node in nodes:
-        status = self.get_by_id(ServerStatus, node['ip'])
-        if status:
-          # Make sure that at least one field changed before we decide to
-          # update this ServerStatus.
-          if status.cpu != str(node['cpu']) or \
-                  status.memory != str(node['memory']) or \
-                  status.disk != str(node['disk']) or status.roles != node[
-                  'roles']:
-            status.cpu = str(node['cpu'])
-            status.memory = str(node['memory'])
-            status.disk = str(node['disk'])
-            status.roles = node['roles']
-            updated_statuses.append(status)
-        else:
-          status = ServerStatus(id=node['ip'])
-          status.cpu = str(node['cpu'])
-          status.memory = str(node['memory'])
-          status.disk = str(node['disk'])
-          status.roles = node['roles']
-          updated_statuses.append(status)
-      ndb.put_multi(updated_statuses)
+      request_info = self.helper.get_appcontroller_client()\
+                                  .get_request_info(app_id)
+      timestamp = datetime.datetime.fromtimestamp(request_info.get('timestamp'))
+      lastHourDateTime = timestamp - datetime.timedelta(hours=1)
+      old_requests_query = RequestInfo.query(RequestInfo.timestamp <
+                                             lastHourDateTime)
+      old_requests = []
+      for key in old_requests_query.iter(keys_only=True):
+        old_requests.append(key)
+      ndb.delete_multi(old_requests)
+      request_stats = RequestInfo(
+                      app_id=app_id,
+                      timestamp=timestamp,
+                      avg_request_rate=request_info.get('avg_request_rate'),
+                      num_of_requests=request_info.get('num_of_requests'))
+      request_stats.put()
     except Exception as err:
       logging.exception(err)
 
   def get_database_info(self):
-    """ Retrieves the name of the database used to implement the Datastore API
-    in this AppScale deployment, as well as the number of replicas stored for
-    each piece of data.
-
-    Returns:
-      A dict containing the name of the database used (a str), as well as the
-      number of replicas for each piece of data (an int).
-    """
-    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
-    if dashboard_root and dashboard_root.table is not None and \
-            dashboard_root.replication is not None:
-
-      return {
-        'table': dashboard_root.table,
-        'replication': dashboard_root.replication
-      }
-    else:
-      return self.update_database_info()
-
-  def update_database_info(self):
     """ Queries the AppController for information about what datastore is used
     to implement support for the Google App Engine Datastore API, placing this
     info in the Datastore for later viewing.
@@ -462,137 +356,6 @@ class AppDashboardData():
         'table': 'unknown',
         'replication': 0
       }
-
-  def get_application_info(self):
-    """ Retrieves a list of Google App Engine applications running in this
-      AppScale deployment, along with the URL that users can access them at.
-
-    Returns:
-      A dict, where each key is a str indicating the name of a Google App Engine
-      application, and each value is either a str, indicating the URL where the
-      application is running, or None, if the application has been uploaded but
-      is not yet running (e.g., it is loading).
-    """
-    return dict((app.name, app.url) for app in self.get_all(AppStatus))
-
-  def delete_app_from_datastore(self, app, email=None):
-    """ Removes information about the named app from the datastore and, if
-      necessary, the list of applications that this user owns.
-
-    Args:
-      app: A str that corresponds to the appid of the app to delete.
-      email: A str that indicates the e-mail address of the administrator of
-        this application, or None if the currently logged-in user is the admin.
-    Returns:
-      A UserInfo object for the user with the specified e-mail address, or if
-        None was provided, the currently logged in user.
-    """
-    if email is None:
-      user = users.get_current_user()
-      if not user:
-        return None
-      email = user.email()
-
-    try:
-      app_status = self.get_by_id(AppStatus, app)
-      if app_status:
-        app_status.key.delete()
-      user_info = self.get_by_id(UserInfo, email)
-      if user_info:
-        if app in user_info.owned_apps:
-          user_info.owned_apps.remove(app)
-          user_info.put()
-      return user_info
-    except Exception as err:
-      logging.exception(err)
-      return None
-
-  def update_application_info(self):
-    """ Queries the AppController for information about which Google App Engine
-    applications are currently running, and if they are done loading, the URL
-    that they can be accessed at, storing this info in the Datastore for later
-    viewing.
-
-    Returns:
-      A dict, where each key is a str indicating the name of a Google App Engine
-      application running in this deployment, and each value is either a str
-      indicating the URL that the app can be found at, or None, if the
-      application is still loading.
-    """
-    try:
-      status_on_all_nodes = self.helper.get_status_info()
-      app_names_and_urls = {}
-
-      if not status_on_all_nodes:
-        return {}
-
-      for status in status_on_all_nodes:
-        for app, done_loading in status['apps'].iteritems():
-          if app == self.NO_APPS_RUNNING:
-            continue
-          if done_loading:
-            try:
-              host_url = self.helper.get_login_host()
-              ports = self.helper.get_app_ports(app)
-              app_names_and_urls[app] = [
-                "http://{0}:{1}".format(host_url, ports[0]),
-                "https://{0}:{1}".format(host_url, ports[1])]
-            except AppHelperException:
-              app_names_and_urls[app] = None
-          else:
-            app_names_and_urls[app] = None
-
-      # To make sure that we only update apps that have been recently uploaded
-      # or removed, we grab a list of all the apps that were running before we
-      # asked the AppController and compare it against the list of apps that the
-      # AppController reports are now running.
-      all_apps = self.get_all(AppStatus)
-      all_app_names_were_running = [app.key.id() for app in all_apps]
-      all_app_names_are_running = [app for app in app_names_and_urls.keys()]
-
-      # Delete any apps that are no longer running.
-      app_names_to_delete = []
-      for app_name in all_app_names_were_running:
-        if app_name not in all_app_names_are_running:
-          app_names_to_delete.append(app_name)
-        elif not app_names_and_urls[app_name]:
-          app_names_to_delete.append(app_name)
-
-      if app_names_to_delete:
-        apps_to_delete = []
-        for app in all_apps:
-          if app.name in app_names_to_delete:
-            apps_to_delete.append(app.key)
-        ndb.delete_multi(apps_to_delete)
-
-      # Add in new apps that are now running.
-      app_names_to_add = []
-      for app_name in all_app_names_are_running:
-        if app_name not in all_app_names_were_running:
-          app_names_to_add.append(app_name)
-        elif app_names_and_urls[app_name]:
-          app_names_to_add.append(app_name)
-
-      # Also add in apps that have been relocated, since we need to update the
-      # URL that the user can access the app at.
-      for app in all_apps:
-        if app.key.id() in all_app_names_are_running and \
-          app.url != app_names_and_urls[app.key.id()]:
-          app_names_to_add.append(app.name)
-
-      if app_names_to_add:
-        apps_to_add = []
-        for app in app_names_to_add:
-          appstatus_entity = AppStatus(id=app, name=app,
-                                       url=app_names_and_urls[app])
-          if appstatus_entity:
-            apps_to_add.append(appstatus_entity)
-        ndb.put_multi(apps_to_add)
-
-      return app_names_and_urls
-    except Exception as err:
-      logging.exception(err)
-      return {}
 
   def update_users(self):
     """ Queries the UserAppServer for information every user account registered

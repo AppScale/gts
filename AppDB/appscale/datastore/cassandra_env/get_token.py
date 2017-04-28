@@ -1,7 +1,7 @@
 from __future__ import division
 import argparse
-import sys
 
+from appscale.common import appscale_info
 from cassandra.cluster import Cluster
 from random import choice
 from random import shuffle
@@ -14,10 +14,6 @@ from ..dbconstants import APP_ENTITY_TABLE
 from ..dbconstants import APP_ENTITY_SCHEMA
 from ..dbconstants import KEY_DELIMITER
 from ..dbconstants import KIND_SEPARATOR
-from ..unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 
 def is_entity(key):

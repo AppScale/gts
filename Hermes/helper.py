@@ -3,13 +3,10 @@
 import json
 import logging
 import os
-import SOAPpy
 import sys
 import threading
 import tornado.httpclient
 import urllib
-
-from socket import error as socket_error
 
 import hermes_constants
 
@@ -17,8 +14,7 @@ from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
 from custom_hermes_exceptions import MissingRequestArgs
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
+from appscale.common import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -251,37 +247,16 @@ def delete_task_from_mem(task_id):
   TASK_STATUS_LOCK.release()
 
 
-def get_all_stats():
+def get_cluster_stats():
   """ Collects platform stats from all deployment nodes.
 
   Returns:
     A dictionary containing all the monitoring stats, if all nodes are
     accessible. {"success": False, "error": message} otherwise.
   """
-  all_stats = {}
-
-  secret = appscale_info.get_secret()
-  logging.debug("Retrieved deployment secret: {}".format(secret))
-  for ip in appscale_info.get_all_ips():
-    appcontroller_endpoint = "https://{}:{}".format(ip,
-      hermes_constants.APPCONTROLLER_PORT)
-    logging.debug("Connecting to AC at: {}".format(appcontroller_endpoint))
-    # Do a SOAP call to the AppController on that IP to get stats.
-    server = SOAPpy.SOAPProxy(appcontroller_endpoint)
-    try:
-      all_stats[ip] = json.loads(server.get_all_stats(secret))
-    except SOAPpy.SOAPException as soap_exception:
-      logging.exception("Exception while performing SOAP call to "
-        "{}".format(appcontroller_endpoint))
-      logging.exception(soap_exception)
-      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
-    except socket_error as serr:
-      logging.error("Socket error while performing SOAP call to "
-        "{}".format(appcontroller_endpoint))
-      logging.error(serr)
-      all_stats[ip] = {JSONTags.ERROR: JSONTags.UNREACHABLE}
-
-  return all_stats
+  acc = appscale_info.get_appcontroller_client()
+  nodes_stats = acc.get_cluster_stats()
+  return {node["public_ip"]: node for node in nodes_stats}
 
 
 def report_status(task, task_id, status):

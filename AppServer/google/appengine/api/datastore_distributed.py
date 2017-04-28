@@ -132,6 +132,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       buffers.
 
   """
+  _ACCEPTS_REQUEST_ID = True
 
   _PROPERTY_TYPE_TAGS = {
     datastore_types.Blob: entity_pb.PropertyValue.kstringValue,
@@ -326,7 +327,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if not auth_domain:
       os.environ['AUTH_DOMAIN'] = "appscale.com"
 
-  def _RemoteSend(self, request, response, method):
+  def _RemoteSend(self, request, response, method, request_id=None):
     """Sends a request remotely to the datstore server. """
     tag = self.__app_id
     self._maybeSetDefaultAuthDomain() 
@@ -339,6 +340,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     api_request.set_method(method)
     api_request.set_service_name("datastore_v3")
     api_request.set_request(request.Encode())
+    if request_id is not None:
+      api_request.set_request_id(request_id)
 
     api_response = remote_api_pb.Response()
     api_response = api_request.sendCommand(self.__datastore_location,
@@ -364,7 +367,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
    
     response.ParseFromString(api_response.response())
 
-  def _Dynamic_Put(self, put_request, put_response):
+  def _Dynamic_Put(self, put_request, put_response, request_id=None):
     """Send a put request to the datastore server. """
     put_request.set_trusted(self.__trusted)
     
@@ -381,21 +384,22 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
           new_composite = put_request.add_composite_index()
           new_composite.CopyFrom(index)
 
-    self._RemoteSend(put_request, put_response, "Put")
+    self._RemoteSend(put_request, put_response, "Put", request_id)
     return put_response 
 
-  def _Dynamic_Get(self, get_request, get_response):
+  def _Dynamic_Get(self, get_request, get_response, request_id=None):
     """Send a get request to the datastore server. """
-    self._RemoteSend(get_request, get_response, "Get")
+    self._RemoteSend(get_request, get_response, "Get", request_id)
     return get_response
 
 
-  def _Dynamic_Delete(self, delete_request, delete_response):
+  def _Dynamic_Delete(self, delete_request, delete_response, request_id=None):
     """Send a delete request to the datastore server. 
   
     Args:
       delete_request: datastore_pb.DeleteRequest.
       delete_response: datastore_pb.DeleteResponse.
+      request_id: A string specifying the request ID.
     Returns:
       A datastore_pb.DeleteResponse from the AppScale datastore server.
     """
@@ -419,10 +423,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       delete_request.set_mark_changes(True)
 
     delete_request.set_trusted(self.__trusted)
-    self._RemoteSend(delete_request, delete_response, "Delete")
+    self._RemoteSend(delete_request, delete_response, "Delete", request_id)
     return delete_response
 
-  def _Dynamic_RunQuery(self, query, query_result):
+  def _Dynamic_RunQuery(self, query, query_result, request_id=None):
     """Send a query request to the datastore server. """
     if query.has_transaction():
       if not query.has_ancestor():
@@ -450,7 +454,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       new_index = query.add_composite_index()
       new_index.MergeFrom(index_to_use)
 
-    self._RemoteSend(query, query_result, "RunQuery")
+    self._RemoteSend(query, query_result, "RunQuery", request_id)
     results = query_result.result_list()
     for result in results:
       old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
@@ -472,7 +476,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       compiled_query.set_keys_only(query.keys_only())
       compiled_query.mutable_primaryscan().set_index_name(query.Encode())
 
-  def _Dynamic_Next(self, next_request, query_result):
+  def _Dynamic_Next(self, next_request, query_result, request_id=None):
     """Get the next set of entities from a previously run query. """
     self.__ValidateAppId(next_request.cursor().app())
 
@@ -520,7 +524,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     query.mutable_compiled_cursor().CopyFrom(last_cursor)
 
-    self._RemoteSend(query, query_result, "RunQuery")
+    self._RemoteSend(query, query_result, "RunQuery", request_id)
     results = query_result.result_list()
     for result in results:
       old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
@@ -549,27 +553,32 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       cursor.set_app(self.__app_id)                                                  
       cursor.set_cursor(cursor_handle)
 
-  def _Dynamic_Count(self, query, integer64proto):
+  def _Dynamic_Count(self, query, integer64proto, request_id=None):
     """Get the number of entities for a query. """
     query_result = datastore_pb.QueryResult()
-    self._Dynamic_RunQuery(query, query_result)
+    self._Dynamic_RunQuery(query, query_result, request_id)
     count = query_result.result_size()
     integer64proto.set_value(count)
 
-  def _Dynamic_BeginTransaction(self, request, transaction):
+  def _Dynamic_BeginTransaction(self, request, transaction, request_id=None):
     """Send a begin transaction request from the datastore server. """
     request.set_app(self.__app_id)
-    self._RemoteSend(request, transaction, "BeginTransaction")
+    self._RemoteSend(request, transaction, "BeginTransaction", request_id)
     self.__tx_actions[transaction.handle()] = []
     return transaction
 
-  def _Dynamic_AddActions(self, request, _):
+  def _Dynamic_AddActions(self, request, response, request_id=None):
     """Associates the creation of one or more tasks with a transaction.
 
     Args:
       request: A taskqueue_service_pb.TaskQueueBulkAddRequest containing the
           tasks that should be created when the transaction is comitted.
+      response: A taskqueue_service_pb.TaskQueueBulkAddResponse.
+      request_id: A string specifying the request ID.
     """
+    # These are not used, but they are required for the method signature.
+    del response, request_id
+
     transaction = request.add_request_list()[0].transaction()
     txn_actions = self.__tx_actions[transaction.handle()]
     if ((len(txn_actions) + request.add_request_size()) >
@@ -588,12 +597,13 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     txn_actions.extend(new_actions)
 
 
-  def _Dynamic_Commit(self, transaction, transaction_response):
+  def _Dynamic_Commit(self, transaction, transaction_response,
+                      request_id=None):
     """ Send a transaction request to commit a transaction to the 
         datastore server. """
     transaction.set_app(self.__app_id)
 
-    self._RemoteSend(transaction, transaction_response, "Commit")
+    self._RemoteSend(transaction, transaction_response, "Commit", request_id)
 
     response = taskqueue_service_pb.TaskQueueAddResponse()
     try:
@@ -611,7 +621,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       except KeyError:
         pass
    
-  def _Dynamic_Rollback(self, transaction, transaction_response):
+  def _Dynamic_Rollback(self, transaction, transaction_response,
+                        request_id=None):
     """ Send a rollback request to the datastore server. """
     transaction.set_app(self.__app_id)
 
@@ -620,64 +631,70 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     except KeyError:
       pass
 
-    self._RemoteSend(transaction, transaction_response, "Rollback")
+    self._RemoteSend(transaction, transaction_response, "Rollback", request_id)
  
     return transaction_response
 
-  def _Dynamic_GetSchema(self, req, schema):
+  def _Dynamic_GetSchema(self, req, schema, request_id=None):
     """ Get the schema of a particular kind of entity. """
+    # This is not used, but it is required for the method signature.
+    del request_id
+
     app_str = req.app()
     self.__ValidateAppId(app_str)
     schema.set_more_results(False)
 
-  def _Dynamic_AllocateIds(self, allocate_ids_request, allocate_ids_response):
+  def _Dynamic_AllocateIds(self, request, response, request_id=None):
     """Send a request for allocation of IDs to the datastore server. """
-    self._RemoteSend(allocate_ids_request, allocate_ids_response, "AllocateIds")
-    return  allocate_ids_response
+    self._RemoteSend(request, response, "AllocateIds", request_id)
+    return response
 
-  def _Dynamic_CreateIndex(self, index, id_response):
+  def _Dynamic_CreateIndex(self, index, id_response, request_id=None):
     """ Create a new index. Currently stubbed out."""
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              'New index id must be 0.')
-    self._RemoteSend(index, id_response, "CreateIndex")
+    self._RemoteSend(index, id_response, "CreateIndex", request_id)
     return id_response
 
-  def _Dynamic_GetIndices(self, app_str, composite_indices):
+  def _Dynamic_GetIndices(self, app_str, composite_indices, request_id=None):
     """ Gets the indices of the current app.
 
     Args:
       app_str: A api_base_pb.StringProto, the application identifier.
       composite_indices: datastore_pb.CompositeIndices protocol buffer.
+      request_id: A string specifying the request ID.
 
     Returns:
       A datastore_pb.CompositesIndices containing the current indexes 
       used by this application.
     """
-    self._RemoteSend(app_str, composite_indices, "GetIndices")
+    self._RemoteSend(app_str, composite_indices, "GetIndices", request_id)
     return composite_indices
 
-  def _Dynamic_UpdateIndex(self, index, void):
+  def _Dynamic_UpdateIndex(self, index, void, request_id=None):
     """ Updates the indices of the current app. Tells the AppScale datastore
       server to build out the new index with existing data.
 
     Args:
       index: A datastore_pb.CompositeIndex, the composite index to update.
       void: A entity_pb.VoidProto.
+      request_id: A string specifying the request ID.
     """
-    self._RemoteSend(index, void, "UpdateIndex")
-    return 
+    self._RemoteSend(index, void, "UpdateIndex", request_id)
+    return
     
-  def _Dynamic_DeleteIndex(self, index, void):
+  def _Dynamic_DeleteIndex(self, index, void, request_id=None):
     """ Deletes an index of the current app.
 
     Args:
       index: A entity_pb.CompositeIndex, the composite index to delete.
       void: A entity_pb.VoidProto.
+      request_id: A string specifying the request ID.
     Returns:
       A entity_pb.VoidProto. 
     """
-    self._RemoteSend(index, void, "DeleteIndex")
+    self._RemoteSend(index, void, "DeleteIndex", request_id)
     return void
 
   def _SetupIndexes(self, _open=open):

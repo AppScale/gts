@@ -13,8 +13,7 @@ from datetime import datetime
 
 from query_parser import Document
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import appscale_info
+from appscale.common import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.datastore.document_pb import FieldValue
@@ -400,7 +399,8 @@ class Solr():
     """
     new_doc = new_result.mutable_document()
     new_doc.set_id(doc['id'])
-    new_doc.set_language(doc[Document.INDEX_LOCALE][0])
+    if Document.INDEX_LOCALE in doc:
+      new_doc.set_language(doc[Document.INDEX_LOCALE][0])
     for key in doc.keys():
       if not key.startswith(index.name):
         continue

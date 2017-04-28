@@ -1,15 +1,13 @@
 import logging
 import os
-import sys
 
+from appscale.common.constants import LOG_FORMAT
 from celery import Celery
-from kombu import (Exchange,
-                   Queue as KombuQueue)
+from kombu import (
+  Exchange,
+  Queue as KombuQueue
+)
 from .brokers import rabbitmq
-from .unpackaged import APPSCALE_LIB_DIR
-
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import LOG_FORMAT
 
 
 logging.basicConfig(format=LOG_FORMAT)
