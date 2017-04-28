@@ -25,7 +25,7 @@ module HermesService
   end
 
   def self.scriptname()
-    return "#{APPSCALE_HOME}/Hermes/hermes.py"
+    return "appscale-hermes --verbose --track-processes-stats --verbose-cluster-stats"
   end
 
 end

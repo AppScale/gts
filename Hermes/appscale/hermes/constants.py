@@ -3,9 +3,6 @@
 # The user account type for deploying the appscalesensor app.
 ACCOUNT_TYPE = "user"
 
-# The AppController port.
-APPCONTROLLER_PORT = "17443"
-
 # Location where deployed app source code resides in an AppScale deployment.
 APP_DIR_LOCATION = "/opt/appscale/apps"
 
@@ -13,7 +10,7 @@ APP_DIR_LOCATION = "/opt/appscale/apps"
 APPSCALE_SENSOR = 'appscalesensor'
 
 # The port br_service listens to.
-BR_SERVICE_PORT = "8423"
+BR_SERVICE_PORT = 8423
 
 # The br_service path for starting a new task.
 BR_SERVICE_PATH = "/"
@@ -32,10 +29,7 @@ DB_SLAVE_OBJECT_NAME = '/cassandra/db_slave_{0}.tar.gz'
 FILE_SUFFIX = "tar.gz"
 
 # The port Hermes listens to.
-HERMES_PORT = "4378"
-
-# The URL for Hermes web server.
-HERMES_URL = "http://localhost:{0}".format(HERMES_PORT)
+DEFAULT_HERMES_PORT = 4378
 
 # A constant representing the Tornado HTTPError.
 HTTPError = 'HTTPError'

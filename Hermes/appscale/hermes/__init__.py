@@ -25,7 +25,7 @@ from tornado.ioloop import PeriodicCallback
 from tornado.options import options
 
 import helper
-from appscale.hermes.constants import HERMES_PORT
+from appscale.hermes.constants import DEFAULT_HERMES_PORT
 from appscale.hermes.stats.stats_app import StatsApp
 from handlers import MainHandler, TaskHandler
 from helper import JSONTags
@@ -88,7 +88,7 @@ def poll():
 
   logging.debug("Task to run: {0}".format(data))
   logging.info("Redirecting task request to TaskHandler.")
-  url = "{0}{1}".format(constants.HERMES_URL, '/do_task')
+  url = "http://localhost:{}{}".format(options.port, '/do_task')
   request = helper.create_request(url, method='POST', body=json.dumps(data))
 
   # The poller can move forward without waiting for a response here.
@@ -186,7 +186,7 @@ def shutdown():
 def main():
   """ Main. """
   parser = argparse.ArgumentParser()
-  parser.add_argument('-p', '--port', type=int, default=HERMES_PORT,
+  parser.add_argument('-p', '--port', type=int, default=DEFAULT_HERMES_PORT,
                       help='The port to listen on')
   parser.add_argument('-v', '--verbose', action='store_true',
                       help='Output debug-level logging')
@@ -205,6 +205,7 @@ def main():
     logging.getLogger().setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
+  options.define('port', args.port)
 
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)

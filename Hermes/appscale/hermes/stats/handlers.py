@@ -32,10 +32,14 @@ class CachedStatsHandler(RequestHandler):
     last_utc_timestamp = payload.get('last_utc_timestamp')
     limit = payload.get('limit')
     include_lists = payload.get('include_lists')
+    fetch_only_latest = payload.get('fetch_only_latest')
 
     snapshots = self._stats_cache.get_stats_after(last_utc_timestamp)
     if limit:
-      snapshots = snapshots[:limit]
+      if fetch_only_latest and len(snapshots) > limit:
+        snapshots = snapshots[len(snapshots)-limit:]
+      else:
+        snapshots = snapshots[:limit]
 
     rendered_dictionaries = [
       snapshot.todict(include_lists) for snapshot in snapshots
