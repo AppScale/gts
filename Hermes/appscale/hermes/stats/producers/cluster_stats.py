@@ -20,7 +20,7 @@ class BadStatsListFormat(ValueError):
 
 
 class ClusterNodesStatsSource(StatsSource):
-  """ StatsSource which can read stats from  """
+  """ Gets node stats from all nodes in the cluster """
 
   def __init__(self, local_cache, include_lists=None, limit=None,
                fetch_only_latest=False):
@@ -194,6 +194,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
     response = yield async_client.fetch(request)
   except Exception as e:
     logging.error("Failed to get stats from slave ({})".format(e))
+    raise gen.Return([])
 
   try:
     stats_dictionaries = json.loads(response.body)
