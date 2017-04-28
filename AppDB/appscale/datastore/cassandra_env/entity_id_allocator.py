@@ -1,13 +1,13 @@
 import sys
 import uuid
 
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .retry_policies import NO_RETRIES
 from ..dbconstants import (
   AppScaleBadArg,
   AppScaleDBConnectionError,
   TRANSIENT_CASSANDRA_ERRORS
 )
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..utils import logger
 from cassandra.query import (
   ConsistencyLevel,
