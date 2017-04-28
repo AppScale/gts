@@ -18,7 +18,6 @@ from .br_constants import CASSANDRA_DATA_SUBDIRS
 from .br_constants import PADDING_PERCENTAGE
 from .br_constants import SERVICE_RETRIES
 from ..cassandra_env import cassandra_interface
-from ..cassandra_env import rebalance
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import CASSANDRA_MONIT_WATCH_NAME
 
@@ -238,22 +237,5 @@ def restore_data(path, keyname, force=False):
 
     utils.ssh(db_ip, keyname,
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
-
-  logging.info('Waiting for all nodes in cluster to start')
-  deadline = time.time() + 20
-  while True:
-    if time.time() > deadline:
-      break
-
-    try:
-      nodes = rebalance.get_status()
-    except CalledProcessError:
-      time.sleep(1)
-      continue
-
-    if all(node['state'] == 'UN' for node in nodes):
-      break
-
-    time.sleep(1)
 
   logging.info("Done with db restore.")
