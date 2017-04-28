@@ -11,6 +11,9 @@ import sys
 import time
 import uuid
 
+from appscale.common import appscale_info
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent
 from cassandra.query import BatchStatement
@@ -27,8 +30,6 @@ from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import Operations
 from ..dbconstants import TxnActions
 from ..dbinterface import AppDBInterface
-from ..unpackaged import APPSCALE_LIB_DIR
-from ..unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..utils import clean_app_id
 from ..utils import create_key
 from ..utils import encode_index_pb
@@ -40,9 +41,6 @@ from ..utils import get_index_kv_from_tuple
 from ..utils import get_kind_key
 from ..utils import get_write_time
 from ..utils import tx_partition
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -59,7 +57,7 @@ NODE_TOOL = '{}/cassandra/bin/nodetool'.format(CASSANDRA_INSTALL_DIR)
 KEYSPACE = "Keyspace1"
 
 # Cassandra watch name.
-CASSANDRA_MONIT_WATCH_NAME = "cassandra-9999"
+CASSANDRA_MONIT_WATCH_NAME = "cassandra"
 
 # The number of times to retry connecting to Cassandra.
 INITIAL_CONNECT_RETRIES = 20
@@ -730,11 +728,12 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
-      self.session.execute(query)
+      self.session.execute(query, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
-      logging.warning('Encountered an operation timeout while creating a '
-                      'table. Waiting 1 minute for schema to settle.')
-      time.sleep(60)
+      logging.warning(
+        'Encountered an operation timeout while creating a table. Waiting {} '
+        'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+      time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise AppScaleDBConnectionError('Exception during create_table')
     except (error for error in dbconstants.TRANSIENT_CASSANDRA_ERRORS
             if error != cassandra.OperationTimedOut):

@@ -4,8 +4,6 @@ require 'djinn'
 # The location on the local filesystem where we should store ZooKeeper data.
 DATA_LOCATION = "/opt/appscale/zookeeper"
 
-ZOOKEEPER_PORT="2181"
-
 # The path in ZooKeeper where the deployment ID is stored.
 DEPLOYMENT_ID_PATH = '/appscale/deployment_id'
 
@@ -18,7 +16,7 @@ syncLimit=5
 dataDir=#{DATA_LOCATION}
 clientPort=2181
 leaderServes=yes
-maxClientsCnxns=0
+maxClientCnxns=0
 forceSync=no
 skipACL=yes
 autopurge.snapRetainCount=5
@@ -96,7 +94,7 @@ def start_zookeeper(clear_datastore)
   start_cmd = "/usr/sbin/service #{zk_server} start"
   stop_cmd = "/usr/sbin/service #{zk_server} stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, [ZOOKEEPER_PORT], nil,
+  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, nil, nil,
                        match_cmd, nil, nil, nil)
 end
 

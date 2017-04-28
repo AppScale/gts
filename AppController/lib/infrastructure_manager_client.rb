@@ -67,6 +67,7 @@ class InfrastructureManagerClient
     @conn.add_method("get_memory_usage", "secret")
     @conn.add_method("get_service_summary", "secret")
     @conn.add_method("get_swap_usage", "secret")
+    @conn.add_method("get_loadavg", "secret")
   end
   
 
@@ -175,12 +176,27 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, options, job, disks)
+  # Create new VMs.
+  #
+  # Args:
+  #   num_vms: the number of VMs to create.
+  #   options: a hash containing information needed by the agent
+  #     (credentials etc ...).
+  #   jobs: an Array containing the roles for each VM to be created.
+  #   disks: an Array specifying the disks to be associated with the VMs
+  #     (if any, it can be nil).
+  #
+  # Returns
+  #   An Array containing the nodes information, suitable to be converted
+  #   into Node. 
+  def spawn_vms(num_vms, options, jobs, disks)
     parameters = get_parameters_from_credentials(options)
     parameters['num_vms'] = num_vms.to_s
     parameters['cloud'] = 'cloud1'
     parameters['zone'] = options['zone']
     parameters['region'] = options['region']
+    parameters['autoscale_agent'] = true
+    parameters['IS_VERBOSE'] = options['verbose']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
@@ -201,15 +217,6 @@ class InfrastructureManagerClient
       Kernel.sleep(10)
     }
 
-    # now, turn this info back into the format we normally use
-    jobs = []
-    if job.is_a?(String)
-      # We only got one job, so just repeat it for each one of the nodes
-      jobs = Array.new(size=vm_info['public_ips'].length, obj=job)
-    else
-      jobs = job
-    end
-    
     # ip:job:instance-id
     instances_created = []
     vm_info['public_ips'].each_index { |index|
@@ -278,16 +285,20 @@ class InfrastructureManagerClient
     swap_usage = JSON.parse(@conn.get_swap_usage(@secret))
     Djinn.log_debug("Swap usage: #{swap_usage}")
 
+    loadavg = JSON.parse(@conn.get_loadavg(@secret))
+    Djinn.log_debug("Loadavg: #{loadavg}")
+
     all_stats = cpu_usage
     all_stats = all_stats.merge(disk_usage)
     all_stats = all_stats.merge(memory_usage)
     all_stats = all_stats.merge(swap_usage)
+    all_stats = all_stats.merge(loadavg)
 
     # Service summary is a flat dictionary, while the rest contain nested
     # dictionaries.
     all_stats["services"] = service_summary
 
-    return all_stats
+    return JSON.dump(all_stats)
   end
 
 

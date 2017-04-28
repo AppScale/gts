@@ -1,6 +1,5 @@
 """ This service starts and stops application servers of a given application. """
 
-import argparse
 import fnmatch
 import glob
 import json
@@ -18,18 +17,20 @@ from xml.etree import ElementTree
 
 from M2Crypto import SSL
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import appscale_info
-import constants
-import file_io
-import monit_app_configuration
-import monit_interface
-import misc
-from deployment_config import DeploymentConfig
-from deployment_config import ConfigInaccessible
-from monit_app_configuration import MONIT_CONFIG_DIR
+from appscale.common import (
+  appscale_info,
+  constants,
+  file_io,
+  monit_app_configuration,
+  monit_interface,
+  misc
+)
+from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.deployment_config import ConfigInaccessible
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
 # The amount of seconds to wait for an application to start up.
@@ -58,8 +59,7 @@ REQUIRED_CONFIG_FIELDS = [
   'app_name',
   'app_port',
   'language',
-  'load_balancer_ip',
-  'xmpp_ip',
+  'login_ip',
   'env_vars',
   'max_memory']
 
@@ -78,9 +78,6 @@ TRUSTED_FLAG = "--trusted"
 
 # The location on the filesystem where the PHP executable is installed.
 PHP_CGI_LOCATION = "/usr/bin/php-cgi"
-
-# Load balancing path for datastore.
-DATASTORE_PATH = "localhost"
 
 # The location of the App Engine SDK for Go.
 GO_SDK = os.path.join('/', 'opt', 'go_appengine')
@@ -182,8 +179,7 @@ def start_app(config):
        app_name: Name of the application to start
        app_port: Port to start on
        language: What language the app is written in
-       load_balancer_ip: Public ip of load balancer
-       xmpp_ip: IP of XMPP service
+       login_ip: Public ip of deployment
        env_vars: A dict of environment variables that should be passed to the
         app.
        max_memory: An int that names the maximum amount of memory that this
@@ -219,13 +215,11 @@ def start_app(config):
       config['language'] == constants.PHP:
     start_cmd = create_python27_start_cmd(
       config['app_name'],
-      config['load_balancer_ip'],
-      config['app_port'],
-      config['load_balancer_ip'],
-      config['xmpp_ip'])
+      config['login_ip'],
+      config['app_port'])
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
-      config['load_balancer_ip'],
+      config['login_ip'],
       config['app_name']))
   elif config['language'] == constants.JAVA:
     remove_conflicting_jars(config['app_name'])
@@ -241,7 +235,7 @@ def start_app(config):
     start_cmd = create_java_start_cmd(
       config['app_name'],
       config['app_port'],
-      config['load_balancer_ip'],
+      config['login_ip'],
       max_heap
     )
     match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port']),
@@ -556,20 +550,18 @@ def create_java_app_env(app_name):
 
   return env_vars
 
-def create_python27_start_cmd(app_name,
-  login_ip, port, load_balancer_host, xmpp_ip):
+def create_python27_start_cmd(app_name, login_ip, port):
   """ Creates the start command to run the python application server.
 
   Args:
     app_name: The name of the application to run
-    login_ip: The public IP
+    login_ip: The public IP of this deployment
     port: The local port the application server will bind to
-    load_balancer_host: The host of the load balancer
-    xmpp_ip: The IP of the XMPP service
   Returns:
     A string of the start command.
   """
-  db_location = DATASTORE_PATH
+  db_proxy = appscale_info.get_db_proxy()
+
   cmd = [
     "/usr/bin/python2",
     constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
@@ -577,17 +569,18 @@ def create_python27_start_cmd(app_name,
     "--admin_port " + str(port + 10000),
     "--login_server " + login_ip,
     "--skip_sdk_update_check",
-    "--nginx_host " + str(load_balancer_host),
+    "--nginx_host " + str(login_ip),
     "--require_indexes",
     "--enable_sendmail",
-    "--xmpp_path " + xmpp_ip,
+    "--xmpp_path " + login_ip,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
-    "--uaserver_path " + db_location + ":"\
+    "--uaserver_path " + db_proxy + ":"\
       + str(constants.UA_SERVER_PORT),
-    "--datastore_path " + db_location + ":"\
+    "--datastore_path " + db_proxy + ":"\
       + str(constants.DB_SERVER_PORT),
     "/var/apps/" + app_name + "/app",
     "--host " + appscale_info.get_private_ip(),
+    "--admin_host " + appscale_info.get_private_ip(),
     "--automatic_restart", "no"]
 
   if app_name in TRUSTED_APPS:
@@ -703,7 +696,8 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
   Returns:
     A string of the start command.
   """
-  db_location = DATASTORE_PATH
+  db_proxy = appscale_info.get_db_proxy()
+  tq_proxy = appscale_info.get_tq_proxy()
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
@@ -717,12 +711,13 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     "--disable_update_check",
     "--address=" + appscale_info.get_private_ip(),
-    "--datastore_path=" + db_location,
+    "--datastore_path=" + db_proxy,
     "--login_server=" + load_balancer_host,
     "--appscale_version=1",
     "--APP_NAME=" + app_name,
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--NGINX_PORT=anything",
+    "--TQ_PROXY=" + tq_proxy,
     os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
   ]
 

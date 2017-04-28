@@ -17,7 +17,7 @@ DAEMON_NAME=appscale-controller
 DAEMON_USER=root
 PIDFILE=/var/run/$DAEMON_NAME.pid
 SECRET_FILE=/etc/appscale/secret.key
-LOG_FILE=/var/log/appscale/controller-17443.log
+LOG_FILE=/var/log/appscale/controller.log
 PATH=/usr/local/bin:$PATH
 . /lib/lsb/init-functions
 
@@ -25,7 +25,7 @@ do_start()
 {
    if [ ! -e $SECRET_FILE ]; then
      log_begin_msg "AppScale not configured: not starting."
-     exit 0
+     exit 1
    fi
 
    # If we start from boot, we need to clear the monit state. The

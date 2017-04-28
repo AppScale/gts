@@ -193,7 +193,7 @@ class AppRegistry(object):
 
   def iter(self):
     yield self._writer
-    for alf in reversed(self._log_files):
+    for alf in self._log_files:
       yield alf
 
   def get(self, requestIds):
@@ -337,7 +337,7 @@ class Protocol(protocol.Protocol):
         break
       previousALF = alf
       previousPosition = position
-    results.sort(key=lambda entry: entry[1].endTime, reverse=True)
+    results.sort(key=lambda entry: entry[1].endTime, reverse=query.reverse)
     self.sendQueryResult([b for b, _ in results])
 
   def processActionQueryRequestIds(self, requestIds):

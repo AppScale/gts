@@ -6,6 +6,7 @@ import json
 import socket
 import ssl
 import sys
+import yaml
 
 
 # Third-party imports
@@ -52,6 +53,10 @@ class AppControllerClient():
       secret: A str containing the secret key, used to authenticate this client
         when talking to remote AppControllers.
     """
+    # Disable certificate verification for Python >= 2.7.9.
+    if hasattr(ssl, '_create_unverified_context'):
+      ssl._create_default_https_context = ssl._create_unverified_context
+
     self.host = host
     self.server = SOAPpy.SOAPProxy('https://{0}:{1}'.format(host, self.PORT))
     self.secret = secret
@@ -134,35 +139,6 @@ class AppControllerClient():
       self.secret))
 
 
-  def get_status(self):
-    """Queries the AppController to learn information about the machine it runs
-    on.
-
-    This includes information about the CPU, memory, and disk of that machine,
-    as well as what machine that AppController connects to for database access
-    (via the UserAppServer).
-
-    Returns:
-      A str containing information about the CPU, memory, and disk usage of that
-      machine, as well as where the UserAppServer is located.
-    """
-    return self.call(self.MAX_RETRIES, self.server.status, self.secret)
-
-
-  def get_api_status(self):
-    """Queries the AppController to see what the status of Google App Engine
-    APIs are in this AppScale deployment, reported to it by the API Checker.
-
-    APIs can be either 'running', 'failed', or 'unknown' (which typically
-    occurs when AppScale is first starting up).
-
-    Returns:
-      A dict that maps each API name (a str) to its status (also a str).
-    """
-    return json.loads(self.call(self.MAX_RETRIES, self.server.get_api_status,
-      self.secret))
-
-
   def get_database_information(self):
     """Queries the AppController to see what database is being used to implement
     support for the Google App Engine Datastore API, and how many replicas are
@@ -228,7 +204,32 @@ class AppControllerClient():
       reservation_id, self.secret)
 
 
-  def get_stats(self):
+  def get_request_info(self, app_id):
+    """Queries the AppController to get request statistics for a given
+    application.
+    Args:
+      app_id: A String that indicates which application id we are querying for.
+    Returns:
+      A list of dicts, where each dict contains the average request rate,
+        timestamp, and total requests seen for the given application.
+    """
+    return yaml.safe_load(self.call(self.MAX_RETRIES,
+                                    self.server.get_request_info,
+                                    app_id, self.secret))
+
+  def get_instance_info(self):
+    """Queries the AppController to get server-level statistics and a list of
+    App Engine apps running in this cloud deployment across all machines.
+
+    Returns:
+      A list of dicts, where each dict contains information about the
+        AppServer processes hosting App Engine apps.
+    """
+    return yaml.safe_load(self.call(self.MAX_RETRIES,
+                                    self.server.get_instance_info,
+                                    self.secret))
+
+  def get_cluster_stats(self):
     """Queries the AppController to get server-level statistics and a list of
     App Engine apps running in this cloud deployment across all machines.
 
@@ -236,8 +237,9 @@ class AppControllerClient():
       A list of dicts, where each dict contains server-level statistics (e.g.,
         CPU, memory, disk usage) about one machine.
     """
-    return json.loads(self.call(self.MAX_RETRIES, self.server.get_stats_json,
-      self.secret))
+    return yaml.safe_load(self.call(self.MAX_RETRIES,
+                                    self.server.get_cluster_stats_json,
+                                    self.secret))
 
   def get_application_cron_info(self, app_id):
     """Queries the AppController to get application cron info (from cron.yaml and /etc/cron.d/).
@@ -390,3 +392,20 @@ class AppControllerClient():
     """
     return self.call(self.MAX_RETRIES, self.server.set_read_only, read_only,
       self.secret)
+
+
+  def get_property(self, property_regex):
+    """Queries the AppController for a dictionary of its instance variables
+    whose names match the given regular expression, along with their associated
+    values.
+
+    Args:
+      property_regex: A str that names a regex of instance variables whose
+        values should be retrieved from the AppController.
+    Returns:
+      A dict mapping each instance variable matched by the given regex to its
+      value. This dict is empty when (1) no matches are found, or (2) if the
+      SOAP call times out.
+    """
+    return json.loads(self.call(self.MAX_RETRIES,
+      self.server.get_property, property_regex, self.secret))

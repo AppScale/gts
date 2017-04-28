@@ -34,7 +34,7 @@ module Ejabberd
     start_cmd = "bash #{START_EJABBERD_SCRIPT}"
     stop_cmd = "/etc/init.d/ejabberd stop"
     match_cmd = "sname ejabberd"
-    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, [9999], nil,
+    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, nil, nil,
                          match_cmd, nil, nil, nil)
   end
 
@@ -281,7 +281,7 @@ SCRIPT
 			{access, c2s},
 			{shaper, c2s_shaper},
 			{max_stanza_size, 65536},
-			starttls, {certfile, "/etc/ejabberd/ejabberd.pem"}
+			starttls, {certfile, "#{Djinn::APPSCALE_CONFIG_DIR}/ejabberd.pem"}
 		       ]},
 
   {5269, ejabberd_s2s_in, [
@@ -298,7 +298,7 @@ SCRIPT
  ]}.
 
 {s2s_use_starttls, true}.
-{s2s_certfile, "/etc/ejabberd/ejabberd.pem"}.
+{s2s_certfile, "#{Djinn::APPSCALE_CONFIG_DIR}/ejabberd.pem"}.
 
 %%%   ==============
 %%%   AUTHENTICATION

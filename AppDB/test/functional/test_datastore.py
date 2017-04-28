@@ -8,20 +8,17 @@ import os
 import sys
 import unittest
 
+from appscale.common.constants import APPSCALE_HOME
 from appscale.datastore import appscale_datastore
 from appscale.datastore import helper_functions as hf
 from appscale.datastore.dbconstants import APPS_SCHEMA
 from appscale.datastore.dbconstants import APPS_TABLE
 from appscale.datastore.dbconstants import USERS_SCHEMA
 from appscale.datastore.dbconstants import USERS_TABLE
-from appscale.datastore.unpackaged import APPSCALE_LIB_DIR
 from test import test_support
 from threading import Thread
 
-sys.path.append(APPSCALE_LIB_DIR)
-from constants import APPSCALE_HOME
-
-USERS_VALUES = ["suwanny@gmail.com", "11", "2009", "2009", "2009", 
+USERS_VALUES = ["suwanny@gmail.com", "11", "2009", "2009", "2009",
     "bbs", "xxx", "xxx", "1", "yyy", 
     "0.0.0.0", "2009", "zzz", "yes"]
 

@@ -1,11 +1,8 @@
 import logging
-import os 
 import subprocess
-import sys
 import time
 
-import file_io
-import misc 
+from . import misc
 
 """ 
 This file contains top level functions for starting and stopping 

@@ -47,7 +47,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'azure_group_tag' => nil,
         'azure_storage_account' => nil,
         'region' => 'my-zone-1',
-        'zone' => 'my-zone-1b'
+        'zone' => 'my-zone-1b',
+        'autoscale_agent' => true,
+        'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -105,7 +107,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       "instance_id" => "i-id",
       "disk" => nil
     }]
-    actual = imc.spawn_vms(1, options, "open", [nil])
+    actual = imc.spawn_vms(1, options, ["open"], [nil])
     assert_equal(expected, actual)
   end
 
@@ -138,7 +140,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'azure_group_tag' => nil,
         'azure_storage_account' => nil,
         'region' => 'my-zone-1',
-        'zone' => 'my-zone-1b'
+        'zone' => 'my-zone-1b',
+        'autoscale_agent' => true,
+        'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -185,7 +189,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_url' => 'booec2url',
       'use_spot_instances' => false,
       'region' => 'my-zone-1',
-      'zone' => 'my-zone-1b'
+      'zone' => 'my-zone-1b',
+      'autoscale_agent' => true,
+      'IS_VERBOSE' => nil
     }
   
     expected = [{
@@ -241,7 +247,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'azure_group_tag' => nil,
         'azure_storage_account' => nil,
         'region' => nil,
-        'zone' => 'my-zone-1b'
+        'zone' => 'my-zone-1b',
+        'autoscale_agent' => true,
+        'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -343,7 +351,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'azure_group_tag' => 'boogrouptag',
         'azure_storage_account' => 'boostorageaccount',
         'region' => nil,
-        'zone' => 'my-zone-1b'
+        'zone' => 'my-zone-1b',
+        'autoscale_agent' => true,
+        'IS_VERBOSE' => nil
       }).and_return({
           'success' => true,
           'reservation_id' => "0000000000",
@@ -401,7 +411,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'instance_id' => 'i-id',
       'disk' => nil
     }]
-    actual = imc.spawn_vms(1, options, 'open', [nil])
+    actual = imc.spawn_vms(1, options, ['open'], [nil])
     assert_equal(expected, actual)
   end
 

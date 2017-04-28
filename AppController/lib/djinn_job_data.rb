@@ -40,7 +40,8 @@ class DjinnJobData
     end
 
     @cloud = "cloud1"
-    @instance_id = json_data['instance_id']
+    @instance_id = 'i-APPSCALE'
+    @instance_id = json_data['instance_id'] if json_data['instance_id']
     @disk = json_data['disk']
     @ssh_key = File.expand_path("/etc/appscale/keys/#{@cloud}/#{keyname}.key")
   end

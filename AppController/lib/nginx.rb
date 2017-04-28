@@ -57,7 +57,7 @@ module Nginx
     start_cmd = "#{service_bin} nginx start"
     stop_cmd = "#{service_bin} nginx stop"
     match_cmd = "nginx: (.*) process"
-    MonitInterface.start(:nginx, start_cmd, stop_cmd, [9999], nil, match_cmd,
+    MonitInterface.start(:nginx, start_cmd, stop_cmd, nil, nil, match_cmd,
                          nil, nil, nil)
   end
 
@@ -342,91 +342,6 @@ CONFIG
     end
   end
 
-  # Create the configuration file for the datastore_server.
-  def self.create_datastore_server_config(all_private_ips, proxy_port)
-    config = <<CONFIG
-upstream #{DatastoreServer::NAME} {
-CONFIG
-    all_private_ips.each { |ip|
-      config += <<CONFIG 
-    server #{ip}:#{proxy_port};
-CONFIG
-    }
-    config += <<CONFIG
-}
-    
-server {
-    listen #{DatastoreServer::LISTEN_PORT_NO_SSL};
-    root   /root/appscale/AppDB/;
-
-    # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/appscale-datastore_server.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/appscale-datastore_server.error.log;
-    access_log  off;
-    error_log   /dev/null crit;
-
-    ignore_invalid_headers off;
-    rewrite_log off;
-
-    error_page 404 = /404.html;
-
-    location / {
-      proxy_set_header      X-Real-IP $remote_addr;
-      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header      Host $http_host;
-      proxy_redirect        off;
-      proxy_next_upstream   error timeout invalid_header http_500;
-      proxy_pass            http://#{DatastoreServer::NAME};
-      proxy_connect_timeout 5;
-      proxy_read_timeout    600;
-      client_body_timeout   600;
-      client_max_body_size  30M;
-    }
-}
-
-server {
-    listen #{DatastoreServer::LISTEN_PORT_WITH_SSL};
-    ssl on;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate     #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
-    root /root/appscale/AppDB/public;
-
-    # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.access.log upstream;
-    #error_log  #{NGINX_LOG_PATH}/appscale-datastore_server_encrypt.error.log;
-    access_log  off;
-    error_log   /dev/null crit;
-
-    ignore_invalid_headers off;
-    rewrite_log off;
-
-    # If they come here using HTTP, bounce them to the correct scheme.
-    error_page 400 https://$host:$server_port$request_uri;
-    error_page 497 https://$host:$server_port$request_uri;
-
-    error_page 502 /502.html;
-
-    location / {
-      proxy_set_header      X-Real-IP $remote_addr;
-      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header      Host $http_host;
-      proxy_redirect        off;
-      proxy_next_upstream   error timeout invalid_header http_500;
-      proxy_pass            http://#{DatastoreServer::NAME};
-      proxy_connect_timeout 5;
-      proxy_read_timeout    600;
-      client_body_timeout   600;
-      #Increase file size so larger applications can be uploaded
-      client_max_body_size  30M;
-    }
-}
-CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-
-    Nginx.reload()
-  end
 
   # Creates an Nginx configuration file for the Users/Apps soap server.
   #

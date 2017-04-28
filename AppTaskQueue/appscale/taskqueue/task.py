@@ -6,7 +6,7 @@ import string
 import sys
 
 import queue
-from unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb

@@ -8,8 +8,7 @@ import sys
 import time
 import uuid
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../lib'))
-from constants import SERVICES_DIR
+from appscale.common.constants import SERVICES_DIR
 
 # The directory that contains the deployment's private SSH key.
 KEY_DIRECTORY = '/etc/appscale/keys/cloud1'

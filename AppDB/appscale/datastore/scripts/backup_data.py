@@ -3,14 +3,10 @@ given app ID to the local filesystem.
 """
 import argparse
 import logging
-import sys
 
+from appscale.common import appscale_info
 from ..backup.datastore_backup import DatastoreBackup
-from ..unpackaged import APPSCALE_LIB_DIR
 from ..zkappscale import zktransaction as zk
-
-sys.path.append(APPSCALE_LIB_DIR)
-import appscale_info
 
 # The location to look at in order to verify that an app is deployed.
 _SOURCE_LOCATION = '/opt/appscale/apps/'
