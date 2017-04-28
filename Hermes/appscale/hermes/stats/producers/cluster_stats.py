@@ -5,6 +5,7 @@ import logging
 from appscale.common import appscale_info
 from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
 from tornado import gen, httpclient
+from tornado.ioloop import IOLoop
 from tornado.options import options
 
 from appscale.hermes.stats.pubsub_base import StatsSource
@@ -31,7 +32,7 @@ class ClusterNodesStatsSource(StatsSource):
     self._fetch_only_latest = fetch_only_latest
 
   def get_current(self):
-    return self.new_nodes_stats_async().result()
+    return IOLoop.current().run_sync(self.new_nodes_stats_async)
 
   @gen.coroutine
   def new_nodes_stats_async(self):
@@ -79,7 +80,7 @@ class ClusterProcessesStatsSource(StatsSource):
     self._fetch_only_latest = fetch_only_latest
 
   def get_current(self):
-    return self.new_processes_stats_async().result()
+    return IOLoop.current().run_sync(self.new_processes_stats_async)
 
   @gen.coroutine
   def new_processes_stats_async(self):
@@ -127,7 +128,7 @@ class ClusterProxiesStatsSource(StatsSource):
     self._fetch_only_latest = fetch_only_latest
 
   def get_current(self):
-    return self.new_proxies_stats_async().result()
+    return IOLoop.current().run_sync(self.new_proxies_stats_async)
 
   @gen.coroutine
   def new_proxies_stats_async(self):
