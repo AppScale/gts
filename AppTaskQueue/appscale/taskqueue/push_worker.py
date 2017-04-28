@@ -37,8 +37,8 @@ celery = create_celery_for_app(app_id, rates)
 logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)
 
-master_db_ip = appscale_info.get_db_master_ip()
-connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
+db_proxy = appscale_info.get_db_proxy()
+connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
 ds_distrib = datastore_distributed.DatastoreDistributed(
   'appscaledashboard', connection_str, require_indexes=False)
 apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
