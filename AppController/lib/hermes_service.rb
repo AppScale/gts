@@ -7,8 +7,6 @@ require 'monit_interface'
 # Starts and stops the Hermes (messenger) service.
 module HermesService
 
-  HERMES_PORT = 4378
-
   # Starts the Hermes service on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
@@ -16,7 +14,7 @@ module HermesService
     start_cmd = "/usr/bin/python2 #{hermes}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
           "#{hermes} /usr/bin/python2"
-    MonitInterface.start(:hermes, start_cmd, stop_cmd, [HERMES_PORT], {},
+    MonitInterface.start(:hermes, start_cmd, stop_cmd, nil, {},
                          start_cmd, nil, nil, nil)
   end
 
@@ -30,7 +28,4 @@ module HermesService
     return "#{APPSCALE_HOME}/Hermes/hermes.py"
   end
 
-  def self.getport()
-    return HERMES_PORT
-  end
 end

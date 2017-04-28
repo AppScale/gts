@@ -56,9 +56,6 @@ NO_OUTPUT = false
 # concurrently, preventing race conditions.
 APPS_LOCK = Monitor.new()
 
-# This lock makes it so that global variables related to apps are not updated
-# concurrently, preventing race conditions.
-STATUS_LOCK = Monitor.new()
 
 # This lock is to ensure that only one thread is trying to start/stop
 # applications.
@@ -1270,24 +1267,26 @@ class Djinn
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache()
+    new_stats = []
+
     Thread.new {
-      begin
-        ip = get_shadow.private_ip
-        http = Net::HTTP.new("#{ip}", "#{HermesService.getport()}")
-        header = {'Appscale-Secret' => @@secret}
-        resp = http.get('/stats/cluster', initheader=header)
-        if resp.code != '200'
-          Djinn.log_warn("Received '#{resp.code} #{resp.msg}' when trying " +
-            "to communicate with Hermes stats")
-          return
+      @nodes.each { |node|
+        ip = node.private_ip
+        if ip == my_node.private_ip
+          node_stats = JSON.load(get_node_stats_json(@@secret))
+        else
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            node_stats = JSON.load(acc.get_node_stats_json())
+          rescue FailedNodeException
+            Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
+              "not adding it to our cached info.")
+            next
+          end
         end
-        stats = JSON.load(resp.body)
-        STATUS_LOCK.synchronize {
-          @cluster_stats = stats['nodes'].values
-        }
-      rescue Exception => e
-        Djinn.log_error("Error while syncing cluster stats: \n#{e.inspect}\n" +
-          #{e.message}")
+        new_stats << node_stats
+      }
+      @cluster_stats = new_stats
     }
   end
 
@@ -2209,22 +2208,11 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        ip = my_node.private_ip
-        http = Net::HTTP.new("#{ip}", "#{HermesService.getport()}")
-        header = {'Appscale-Secret' => @@secret}
-        resp = http.get('/stats/node', initheader=header)
-        if resp.code != '200'
-          Djinn.log_warn("Received '#{resp.code} #{resp.msg}' when trying " +
-            "to communicate with Hermes stats")
-        else
-          node_stats = JSON.load(resp.body)
-          Djinn.log_info("Node stats as a #{node_stats.class}: #{node_stats}")
-          available_memory = node_stats['memory']['available']/MEGABYTE_DIVISOR
-          Djinn.log_info("--- Node at #{node_stats['public_ip']} has " +
-                             "#{available_memory} MB memory available " +
-                             "and knows about these apps #{node_stats['apps']}.")
-          last_print = Time.now.to_i
-        end
+        stats = JSON.parse(get_node_stats_json(secret))
+        Djinn.log_info("--- Node at #{stats['public_ip']} has " +
+          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
+          "and knows about these apps #{stats['apps']}.")
+        last_print = Time.now.to_i
       end
 
       Kernel.sleep(DUTY_CYCLE)
@@ -3717,13 +3705,14 @@ class Djinn
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
 
-    start_hermes()
     # Leader node starts additional services.
     if my_node.is_shadow?
       update_node_info_cache()
+      start_hermes()
       TaskQueue.start_flower(@options['flower_password'])
     else
       TaskQueue.stop_flower
+      stop_hermes
     end
   end
 
@@ -4165,7 +4154,6 @@ class Djinn
     server_java = "#{APPSCALE_HOME}/AppServer_Java"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
     log_service = "#{APPSCALE_HOME}/LogService"
-    hermes = "#{APPSCALE_HOME}/Hermes"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -4183,8 +4171,6 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
-    HelperFunctions.shell("rsync #{options} #{hermes}/* root@#{ip}:#{hermes}")
-
     if dest_node.is_appengine?
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
@@ -5609,44 +5595,42 @@ HOSTS
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
     get_all_appengine_nodes.each { |host|
-      STATUS_LOCK.synchronize {
-        @cluster_stats.each { |node|
-          next if node['private_ip'] != host
+      @cluster_stats.each { |node|
+        next if node['private_ip'] != host
 
-          # Convert total memory to MB
-          total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
+        # Convert total memory to MB
+        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
 
-          # Check how many new AppServers of this app, we can run on this
-          # node (as theoretical maximum memory usage goes).
-          max_memory[host] = 0 if max_memory[host].nil?
-          max_new_total = Integer((total - max_memory[host] - SAFE_MEM)/ max_app_mem)
-          Djinn.log_debug("Check for total memory usage: #{host} can run #{max_new_total}" +
-            " AppServers for #{app_name}.")
-          break if max_new_total <= 0
+        # Check how many new AppServers of this app, we can run on this
+        # node (as theoretical maximum memory usage goes).
+        max_memory[host] = 0 if max_memory[host].nil?
+        max_new_total = Integer((total - max_memory[host] - SAFE_MEM)/ max_app_mem)
+        Djinn.log_debug("Check for total memory usage: #{host} can run #{max_new_total}" +
+          " AppServers for #{app_name}.")
+        break if max_new_total <= 0
 
-          # Now we do a similar calculation but for the current amount of
-          # available memory on this node. First convert bytes to MB
-          host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
-          max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
-          Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
-            " AppServers for #{app_name}.")
-          break if max_new_free <= 0
+        # Now we do a similar calculation but for the current amount of
+        # available memory on this node. First convert bytes to MB
+        host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
+        max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
+        Djinn.log_debug("Check for free memory usage: #{host} can run #{max_new_free}" +
+          " AppServers for #{app_name}.")
+        break if max_new_free <= 0
 
-          # The host needs to have normalized average load less than MAX_LOAD_AVG.
-          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
-            Djinn.log_debug("#{host} CPUs are too busy.")
-            break
-          end
-
-          # We add the host as many times as AppServers it can run.
-          (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
-            available_hosts << host
-          }
-
-          # Since we already found the stats for this node, no need to look
-          # further.
+        # The host needs to have normalized average load less than MAX_LOAD_AVG.
+        if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+          Djinn.log_debug("#{host} CPUs are too busy.")
           break
+        end
+
+        # We add the host as many times as AppServers it can run.
+        (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
+          available_hosts << host
         }
+
+        # Since we already found the stats for this node, no need to look
+        # further.
+        break
       }
     }
     Djinn.log_debug("Hosts available to scale #{app_name}: #{available_hosts}.")
@@ -6171,8 +6155,14 @@ HOSTS
   #     node.
   def get_node_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    # Get stats from SystemManager.
+    imc = InfrastructureManagerClient.new(secret)
+    system_stats = JSON.load(imc.get_system_stats())
+    Djinn.log_debug("System stats: #{system_stats}")
+
     # Combine all useful stats and return.
-    node_stats = {}
+    node_stats = system_stats
     node_stats["apps"] = {}
     if my_node.is_shadow?
       APPS_LOCK.synchronize {

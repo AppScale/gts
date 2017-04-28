@@ -204,40 +204,6 @@ class SystemManager():
 
     return json.dumps(loadavg_stat)
 
-  def get_system_stats(self, secret):
-    if self.secret != secret:
-      return self.__generate_response(False,
-                                      InfrastructureManager.REASON_BAD_SECRET)
-    cpu_usage = json.loads(self.get_cpu_usage(secret))
-    logging.debug("CPU usage: #{cpu_usage}")
-
-    disk_usage = json.loads(self.get_disk_usage(secret))
-    logging.debug("Disk usage: #{disk_usage}")
-
-    memory_usage = json.loads(self.get_memory_usage(secret))
-    logging.debug("Memory usage: #{memory_usage}")
-
-    service_summary = json.loads(self.get_service_summary(secret))
-    logging.debug("Service summary: #{service_summary}")
-
-    swap_usage = json.loads(self.get_swap_usage(secret))
-    logging.debug("Swap usage: #{swap_usage}")
-
-    load_average = json.loads(self.get_loadavg(secret))
-    logging.debug("Load Average: #{load_average}")
-
-    all_stats = cpu_usage
-    all_stats.update(disk_usage)
-    all_stats.update(memory_usage)
-    all_stats.update(swap_usage)
-    all_stats.update(load_average)
-
-    # Service summary is a flat dictionary, while the rest contain nested
-    # dictionaries.
-    all_stats["services"] = service_summary
-
-    return json.dumps(all_stats)
-
 
   def __generate_response(self, success, message):
     """ Generate a system manager service response
