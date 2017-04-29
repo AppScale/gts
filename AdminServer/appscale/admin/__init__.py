@@ -135,7 +135,7 @@ def wait_for_deploy(operation_id, acc):
 
 
 class BaseHandler(web.RequestHandler):
-  """ A base handler. """
+  """ A handler with helper functions that other handlers can extend. """
   def authenticate(self):
     """ Ensures requests are authenticated.
 
