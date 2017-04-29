@@ -22,6 +22,7 @@ from appscale.common import (
 )
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
 from cassandra import (InvalidRequest,
                        OperationTimedOut)
 from cassandra.cluster import SimpleStatement
@@ -67,6 +68,7 @@ def create_pull_queue_tables(cluster, session):
       lease_expires timestamp,
       retry_count int,
       tag text,
+      op_id uuid,
       PRIMARY KEY ((app, queue, id))
     )
   """
@@ -79,6 +81,18 @@ def create_pull_queue_tables(cluster, session):
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
+
+  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
+  if 'op_id' not in keyspace_metadata.tables['pull_queue_tasks'].columns:
+    try:
+      session.execute('ALTER TABLE pull_queue_tasks ADD op_id uuid',
+                      timeout=SCHEMA_CHANGE_TIMEOUT)
+    except OperationTimedOut:
+      logger.warning(
+        'Encountered a timeout when altering pull_queue_tasks. Waiting {} '
+        'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+      time.sleep(SCHEMA_CHANGE_TIMEOUT)
+      raise
 
   logger.info('Trying to create pull_queue_tasks_index')
   create_index_table = """

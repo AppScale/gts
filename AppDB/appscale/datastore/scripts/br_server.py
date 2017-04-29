@@ -60,5 +60,5 @@ def main():
   # Start Tornado.
   http_server = tornado.httpserver.HTTPServer(get_application())
   http_server.bind(DEFAULT_PORT)
-  http_server.start(0)
+  http_server.start()
   tornado.ioloop.IOLoop.instance().start()

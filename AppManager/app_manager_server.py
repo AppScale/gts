@@ -580,6 +580,7 @@ def create_python27_start_cmd(app_name, login_ip, port):
       + str(constants.DB_SERVER_PORT),
     "/var/apps/" + app_name + "/app",
     "--host " + appscale_info.get_private_ip(),
+    "--admin_host " + appscale_info.get_private_ip(),
     "--automatic_restart", "no"]
 
   if app_name in TRUSTED_APPS:

@@ -1,29 +1,26 @@
 #!/bin/bash
 #
-# author: g@appscale.com
-#
-# Enable the datastore viewer and reload nginx.
-
-ALLOW=""
-APP_ID=""
-IP="all"
-VIEWER_PORT="8100"
-LOCAL_PORT="30000"
+# Enable the datastore viewer, reload nginx and configure the firewall.
+set -e
+set -u
 
 usage() {
     echo
-    echo "Usage: $0 [app-id ...]"
+    echo "Usage: $0 <APP-ID> [-i <IP>]"
     echo
-    echo "Enable the dataviewer for app-id. If no app-id is specified, enable the viewer for all apps."
+    echo "Enable the datatore viewer for the given application."
     echo "WARNING: the datastore viewer is not protected! Anyone can browse your data."
     echo "WARNING: restricting by IP should be used judiciously."
     echo
     echo "Options:"
-    echo "     -h        this message"
+    echo "     -h    this message"
     echo "     -i <IP>   allow connections only from this IP (default is open)"
     echo
 }
 
+# Parse command line arguments
+APP_ID=""
+TRUSTED_IP=""
 while [ $# -gt 0 ]; do
     if [ "$1" = "-h" -o "$1" = "-help" -o "$1" = "--help" ]; then
         usage
@@ -31,9 +28,7 @@ while [ $# -gt 0 ]; do
     fi
     if [ -n "$1" -a "$1" = "-i" ]; then
         if [ -n "$2" ]; then
-            IP="$2"
-            ALLOW="allow $IP;
-                   deny all;"
+            TRUSTED_IP="$2"
             shift;shift
             continue
         else
@@ -47,6 +42,10 @@ while [ $# -gt 0 ]; do
         continue
     fi
 done
+if [ -z "$APP_ID" ]; then
+    usage
+    exit 1
+fi
 
 # Sanity checks.
 if [ ! -e /etc/nginx/sites-enabled ]; then
@@ -54,6 +53,8 @@ if [ ! -e /etc/nginx/sites-enabled ]; then
     exit 1
 fi
 
+# Find host and port of the admin server
+ADMIN_SERVER_PORT=""
 APPENGINE_IP=""
 for ip in $(cat /etc/appscale/all_ips); do
     OUTPUT=$(ssh $ip -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver \
@@ -64,30 +65,34 @@ for ip in $(cat /etc/appscale/all_ips); do
         if [ "$i" = "$APP_ID" ]; then
             continue
         else
-            port=$i
+            ADMIN_SERVER_PORT=$i
             APPENGINE_IP=$ip
             break
         fi
     done
 done
+if [ -z "$ADMIN_SERVER_PORT" -o -z "$APPENGINE_IP" ]; then
+    echo "ERROR: Cannot find appengine node with admin server running on it"
+    exit 1
+fi
 
+# Find free port for the viewer
+VIEWER_PORT="8100"
 while [[ $(lsof -i :$VIEWER_PORT) ]]; do
     let $((VIEWER_PORT += 1))
 done
 
-while [[ $(lsof -i :$LOCAL_PORT) ]]; do
-    let $((LOCAL_PORT += 1))
-done
-
-NO_OF_IP_LINES=$(wc -l < /etc/appscale/all_ips)
-if [ "$NO_OF_IP_LINES" = "2" ]; then
-    LOCAL_PORT=$port
+# Determine allow statement for the nginx configuration
+if [ -n "$TRUSTED_IP" ]; then
+    ALLOW="allow $TRUSTED_IP; deny all;"
+else
+    ALLOW="allow all;"
 fi
 
 # Prepare the nginx config snippet.
-config="
+CONFIG="
 upstream datastore_viewer_$VIEWER_PORT {
-  server localhost:$LOCAL_PORT;
+  server $APPENGINE_IP:$ADMIN_SERVER_PORT;
 }
 map \$scheme \$ssl {
     default off;
@@ -105,14 +110,15 @@ server {
 "
 
 if [ -e /etc/nginx/sites-enabled/appscale-${APP_ID}.conf ]; then
-    echo "$config" > /etc/nginx/sites-enabled/appscale-${APP_ID}_datastore_viewer.conf
+    echo "$CONFIG" > /etc/nginx/sites-enabled/appscale-${APP_ID}_datastore_viewer.conf
+    nginx -t
     service nginx reload
-    echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}. Allowed IP: $IP."
-    if [ "$NO_OF_IP_LINES" != "2" ]; then
-        echo "Note: For a multi node deployment, you will need to forward the admin port from one of the AppServers on another node to the head node."
-        echo "Modify the appscale/firewall.conf to open ports for the datastore viewer."
-        echo "Run the SSH Tunnelling command: ssh -L ${LOCAL_PORT}:localhost:${port} ${APPENGINE_IP} -N"
-        echo "You might need to type in the password for the app engine node."
+    sed -i "/AppController/ i\
+iptables -A INPUT -p tcp --dport $VIEWER_PORT -j ACCEPT   # Enable datastore viewer" $APPSCALE_HOME/firewall.conf
+    bash $APPSCALE_HOME/firewall.conf
+    echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}"
+    if [ -n "$TRUSTED_IP" ]; then
+        echo "Allowed IP: $TRUSTED_IP."
     fi
 else
     echo "Cannot find configuration for ${APP_ID}."
