@@ -6,6 +6,10 @@ from SOAPpy import SOAPProxy
 from .constants import UA_SERVER_PORT
 
 
+# A message returned by the UAServer to indicate that the project exists.
+EXISTING_PROJECT_MESSAGE = 'Error: appname already exist'
+
+
 class UAException(Exception):
   """ Indicates that there was a problem executing a UAServer operation. """
   pass
@@ -47,7 +51,7 @@ class UAClient(object):
     response = self.server.commit_new_app(app_id, email, language, self.secret)
 
     # If the project already exists, consider the operation a success.
-    if response == 'Error: appname already exist':
+    if response == EXISTING_PROJECT_MESSAGE:
       return
 
     if response.lower() != 'true':

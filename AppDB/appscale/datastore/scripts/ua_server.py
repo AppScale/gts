@@ -17,6 +17,7 @@ import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
+from appscale.common.ua_client import EXISTING_PROJECT_MESSAGE
 from .. import appscale_datastore
 from ..dbconstants import AppScaleDBConnectionError
 from ..dbconstants import APPS_SCHEMA
@@ -417,9 +418,8 @@ def commit_new_app(appname, user, language, secret):
   if re.search(APPNAME_REGEX,appname) is None:
     return error
 
-  error =  "Error: appname already exist"
   if does_app_exist(appname, secret) == "true":
-    return error
+    return EXISTING_PROJECT_MESSAGE
 
   ret = "true"
 
