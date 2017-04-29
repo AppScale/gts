@@ -30,7 +30,7 @@ def assert_fields_in_resource(required_fields, resource_name, resource):
   for group in required_fields:
     field = missing_field(resource_name, group.split('.'), resource)
     if field is not None:
-      missing_fields.append(missing_field)
+      missing_fields.append(field)
 
   if not missing_fields:
     return
