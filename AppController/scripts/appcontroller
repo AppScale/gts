@@ -28,10 +28,6 @@ do_start()
      exit 1
    fi
 
-   # If we start from boot, we need to clear the monit state. The
-   # AppController will rebuild it.
-   rm -rf /etc/monit/conf.d/appscale*cfg
-
    # The run directory is cleared on every reboot.
    mkdir -p /var/run/appscale
 
