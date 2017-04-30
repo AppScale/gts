@@ -5,14 +5,23 @@ from tornado.ioloop import PeriodicCallback
 
 
 class SubscriberIsAlreadyRegistered(Exception):
+  """ Raised when you register single subscriber twice on one publisher """
   pass
 
 
 class SubscriberIsNotRegistered(Exception):
+  """ Raised when you unregister subscriber which is not registered yet """
   pass
 
 
 class StatsSource(object):
+  """
+  Base class for producers of any kind of stats.
+  It's only characteristic is name of stats. It's mostly used for logging
+  purposes.
+  Subclasses should implement method get_current()
+  """
+
   def __init__(self, stats_name):
     self._stats_name = stats_name
   
@@ -21,21 +30,23 @@ class StatsSource(object):
     return self._stats_name
   
   def get_current(self):
+    """
+    Returns:
+      current value of specific kind of stats
+    """
     raise NotImplemented
 
   def __repr__(self):
     return self._stats_name
 
-  def __hash__(self):
-    return self._stats_name.__hash__()
-
-  def __eq__(self, other):
-    return (
-      isinstance(other, StatsSource) and self._stats_name == other._stats_name
-    )
-
 
 class StatsSubscriber(object):
+  """
+  Base class for producers of any kind of stats.
+  It's only characteristic is name of stats. It's mostly used for logging
+  purposes.
+  Subclasses should implement method get_current()
+  """
   def __init__(self, subscriber_name):
     self._subscriber_name = subscriber_name
   
@@ -44,6 +55,11 @@ class StatsSubscriber(object):
     return self._subscriber_name
   
   def receive(self, stats):
+    """ Handlers another one stats entity
+
+    Args:
+      stats: an object containing stats of some kind (node, processes, ...)
+    """
     raise NotImplemented
 
   def __repr__(self):
@@ -51,6 +67,9 @@ class StatsSubscriber(object):
 
 
 class StatsPublisher(object):
+  """
+  TODO
+  """
   def __init__(self, stats_source, publishing_interval):
     self._subscribers = {}
     self._stats_source = stats_source
