@@ -33,7 +33,8 @@ How to set up
      line.
 
 5. Create a file called /etc/appscale/zookeeper_locations.json with the content
-   ``{"locations":["zk-ip-1", "zk-ip-2"]}`` (with real IP addresses).
+   ``{"locations":["zk-ip-1", "zk-ip-2"]}`` (where zk-ip-1 and zk-ip-2 are the
+   locations of the machines in the ZooKeeper cluster).
 5. Run ``appscale-prime-cassandra --replication x`` where "x" is the
    replication factor you want for the datastore's keyspace.
 6. Start the datastore server with ``appscale-datastore -p x`` where "x" is the
