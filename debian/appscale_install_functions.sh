@@ -363,7 +363,7 @@ postinstallcassandra()
 
 installservice()
 {
-    # This must be absolete path of runtime.
+    # This must be absolute path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
     cp ${APPSCALE_HOME_RUNTIME}/AppController/scripts/appcontroller ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${DESTDIR}/etc/init.d/appscale-controller
