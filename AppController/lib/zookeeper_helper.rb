@@ -91,11 +91,11 @@ def start_zookeeper(clear_datastore)
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  start_cmd = "/usr/sbin/service #{zk_server} start"
-  stop_cmd = "/usr/sbin/service #{zk_server} stop"
+  service = `which service`.chomp
+  start_cmd = "#{service} #{zk_server} start"
+  stop_cmd = "#{service} #{zk_server} stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, nil, nil,
-                       match_cmd, nil, nil, nil)
+  MonitInterface.start_custom(:zookeeper, start_cmd, stop_cmd, match_cmd)
 end
 
 def is_zookeeper_running?

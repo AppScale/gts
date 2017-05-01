@@ -89,8 +89,7 @@ module TaskQueue
     start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_taskqueue_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
-    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, nil, nil,
-                         match_cmd, nil, nil, nil)
+    MonitInterface.start_custom(:rabbitmq, start_cmd, stop_cmd, match_cmd)
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -155,8 +154,7 @@ module TaskQueue
 
     tries_left = RABBIT_START_RETRY
     loop {
-      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, nil, nil,
-                           match_cmd, nil, nil, nil)
+      MonitInterface.start_custom(:rabbitmq, full_cmd, stop_cmd, match_cmd)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
@@ -192,13 +190,10 @@ module TaskQueue
     Djinn.log_debug("Starting taskqueue servers on this node")
     ports = self.get_server_ports()
 
-    start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT}"
+    start_cmd = TASKQUEUE_SERVER_SCRIPT
     start_cmd << ' --verbose' if verbose
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-               "#{TASKQUEUE_SERVER_SCRIPT}"
     env_vars = {:PATH => '$PATH:/usr/local/bin'}
-    MonitInterface.start(:taskqueue, start_cmd, stop_cmd, ports, env_vars,
-                         start_cmd, nil, nil, nil)
+    MonitInterface.start(:taskqueue, start_cmd, ports, env_vars)
     Djinn.log_debug("Done starting taskqueue servers on this node")
   end
 
@@ -253,10 +248,7 @@ module TaskQueue
 
     flower_cmd = `which flower`.chomp
     start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "flower #{flower_password}"
-    MonitInterface.start(:flower, start_cmd, stop_cmd, nil,
-                         nil, start_cmd, nil, nil, nil)
+    MonitInterface.start(:flower, start_cmd)
   end
 
 
