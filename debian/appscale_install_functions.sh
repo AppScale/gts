@@ -568,6 +568,12 @@ installcommon()
     pip install ${APPSCALE_HOME}/common
 }
 
+installadminserver()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
+    pip install ${APPSCALE_HOME}/AdminServer
+}
+
 installtaskqueue()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]

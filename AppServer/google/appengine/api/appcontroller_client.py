@@ -409,3 +409,18 @@ class AppControllerClient():
     """
     return json.loads(self.call(self.MAX_RETRIES,
       self.server.get_property, property_regex, self.secret))
+
+  def get_app_info_map(self):
+    """ Retrieves a dictionary of information for each application.
+
+    Returns:
+      A dictionary of information for each application.
+    Raises:
+      AppControllerException if unable to retrieve information.
+    """
+    response = self.call(self.MAX_RETRIES, self.server.get_app_info_map,
+                         self.secret)
+    try:
+      return json.loads(response)
+    except ValueError:
+      raise AppControllerException(response)
