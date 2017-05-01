@@ -5708,7 +5708,7 @@ HOSTS
     # Let's pick the latest appengine node hosting the application and
     # remove the AppServer there, so we can try to reclaim it once it's
     # unloaded.
-    get_all_appengine_nodes.reverse { |node_ip|
+    get_all_appengine_nodes.reverse_each { |node_ip|
       @app_info_map[app_name]['appengine'].each { |location|
         host, port = location.split(":")
         if host == node_ip
