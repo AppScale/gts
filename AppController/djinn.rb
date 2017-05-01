@@ -488,10 +488,6 @@ class Djinn
   LOG_FILE = "/var/log/appscale/controller-17443.log"
 
 
-  # Where to put the pid of the controller.
-  PID_FILE = "/var/run/appscale-controller.pid"
-
-
   # Default memory to allocate to each AppServer.
   DEFAULT_MEMORY = 400
 
@@ -2026,9 +2022,6 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
-
-    # This pid is used to control this deployment using the init script.
-    HelperFunctions.write_file(PID_FILE, "#{Process.pid}")
 
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
@@ -3914,7 +3907,7 @@ class Djinn
 
   # Starts the Log Server service on this machine
   def start_log_server
-    log_server_pid = "/var/run/appscale-logserver.pid"
+    log_server_pid = '/var/run/appscale/log_service.pid'
     log_server_file = "/var/log/appscale/log_service.log"
     start_cmd = "twistd --pidfile=#{log_server_pid}  --logfile " +
                 "#{log_server_file} appscale-logserver"
@@ -4681,15 +4674,17 @@ HOSTS
       'EC2_HOME' => ENV['EC2_HOME'],
       'JAVA_HOME' => ENV['JAVA_HOME']
     }
-    start = "/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb"
-    stop = "/usr/sbin/service appscale-controller stop"
+    service = `which service`.chomp
+    start_cmd = "#{service} appscale-controller start"
+    stop_cmd = "#{service} appscale-controller stop"
+    pidfile = '/var/run/appscale/controller.pid'
 
     # Let's make sure we don't have 2 jobs monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
-      MonitInterface.start(:controller, start, stop, nil, env,
-                           start, nil, nil, nil)
+      MonitInterface.start(:controller, start_cmd, stop_cmd, nil, env,
+                           nil, nil, pidfile, nil)
     rescue
       Djinn.log_warn("Failed to set local AppController monit: retrying.")
       retry
