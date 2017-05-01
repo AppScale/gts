@@ -39,8 +39,8 @@ How to set up
    replication factor you want for the datastore's keyspace.
 6. Start the datastore server with ``appscale-datastore -p x`` where "x" is the
    port you would like to start the server on. You probably want to start more
-   than one since each can currenly only handle one request at a time. AppScale
-   starts 2x the number of cores on the machine.
+   than one since each can currently only handle one request at a time.
+   AppScale starts 2x the number of cores on the machine.
 
 .. _Google Cloud Datastore: https://cloud.google.com/datastore/
 .. _Start a Cassandra cluster:
