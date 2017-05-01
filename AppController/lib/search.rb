@@ -18,7 +18,7 @@ require 'monit_interface'
 module Search
 
   # AppScale install directory.
-  APPSCALE_HOME = ENV["APPSCALE_HOME"]
+  APPSCALE_HOME = ENV["APPSCALE_HOME"] || File.join('/', 'root', 'appscale')
 
   # The port that SOLR server runs on, by default.
   SOLR_SERVER_PORT = 8983
