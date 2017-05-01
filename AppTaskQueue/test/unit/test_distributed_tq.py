@@ -64,7 +64,6 @@ class TestDistributedTaskQueue(unittest.TestCase):
       .and_return('')
     flexmock(monit_interface).should_receive('start').and_return(False)
     flexmock(TaskQueueConfig).should_receive("load_queues_from_file")
-    flexmock(TaskQueueConfig).should_receive("create_celery_worker_scripts")
     flexmock(TaskQueueConfig).should_receive("create_celery_file")
 
     db_access = flexmock()

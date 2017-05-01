@@ -15,9 +15,9 @@ from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from collections import deque
-from task import InvalidTaskInfo
-from task import Task
 from threading import Lock
+from .task import InvalidTaskInfo
+from .task import Task
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -221,6 +221,8 @@ class PushQueue(Queue):
         self.max_backoff_seconds = retry_params['max_backoff_seconds']
       if 'max_doublings' in retry_params:
         self.max_doublings = retry_params['max_doublings']
+
+    self.celery = None
 
     super(PushQueue, self).__init__(queue_info, app)
 
