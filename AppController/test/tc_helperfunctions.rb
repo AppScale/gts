@@ -167,7 +167,6 @@ XML
   end
 
   def test_get_app_thread_safe_with_non_prefixed_appid
-    file = flexmock(File)
     assert_equal(false, HelperFunctions.get_app_thread_safe(@appid))
   end
 

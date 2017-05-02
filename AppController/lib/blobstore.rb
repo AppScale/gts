@@ -38,7 +38,7 @@ module BlobServer
      MonitInterface.stop(:blobstore)
   end
 
-  def self.is_running?(my_ip)
+  def self.is_running?
     output = MonitInterface.is_running?(:blobstore)
     Djinn.log_debug("Checking if blobstore is already monitored: #{output}")
     return output

@@ -97,9 +97,6 @@ class ZKInterface
   TIMEOUT = 60
 
 
-  public
-
-
   # Initializes a new ZooKeeper connection to the IP address specified.
   # Callers should use this when they know exactly which node hosts ZooKeeper.
   def self.init_to_ip(client_ip, ip)
@@ -208,7 +205,7 @@ class ZKInterface
   # APPCONTROLLER_PATH. It returns a boolean that indicates whether or not
   # it was able to acquire the lock or not.
   def self.get_appcontroller_lock()
-    if !self.exists?(APPCONTROLLER_PATH)
+    unless self.exists?(APPCONTROLLER_PATH)
       self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
     end
 
@@ -240,7 +237,7 @@ class ZKInterface
   # they already have it).
   def self.lock_and_run(&block)
     # Create the ZK lock path if it doesn't exist.
-    if !self.exists?(APPCONTROLLER_PATH)
+    unless self.exists?(APPCONTROLLER_PATH)
       self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
     end
 
@@ -328,9 +325,7 @@ class ZKInterface
   # Accesses the list of IP addresses stored in ZooKeeper and removes the
   # given IP address from that list.
   def self.remove_ip_from_ip_list(ip)
-    if !self.exists?(IP_LIST)
-      return
-    end
+    return unless self.exists?(IP_LIST)
 
     data = JSON.load(self.get(IP_LIST))
     data['ips'].delete(ip)
@@ -381,7 +376,7 @@ class ZKInterface
   # failed, and if so, what functionality it was providing at the time.
   def self.write_node_information(node, done_loading)
     # Create the folder for all nodes if it doesn't exist.
-    if !self.exists?(APPCONTROLLER_NODE_PATH)
+    unless self.exists?(APPCONTROLLER_NODE_PATH)
       self.run_zookeeper_operation {
         @@zk.create(:path => APPCONTROLLER_NODE_PATH, 
           :ephemeral => NOT_EPHEMERAL, :data => DUMMY_DATA)
@@ -421,14 +416,10 @@ class ZKInterface
   # Checks ZooKeeper to see if the given node has finished loading its roles,
   # which it indicates via a file in a particular path.
   def self.is_node_done_loading?(ip)
-    if !self.exists?(APPCONTROLLER_NODE_PATH)
-      return false
-    end
+    return false unless self.exists?(APPCONTROLLER_NODE_PATH)
 
     loading_file = "#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading"
-    if !self.exists?(loading_file)
-      return false
-    end
+    return false unless self.exists?(loading_file)
 
     begin
       contents = self.get(loading_file)
@@ -476,9 +467,6 @@ class ZKInterface
     return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data", 
       JSON.dump(job_data), NOT_EPHEMERAL)
   end
-
-
-  private
 
 
   def self.run_zookeeper_operation(&block)
@@ -584,7 +572,7 @@ class ZKInterface
         }
       end
 
-      if !info[:rc].zero?
+      unless info[:rc].zero?
         raise FailedZooKeeperOperationException.new("Failed to set path " +
           "#{key} with data #{val}, ephemeral = #{ephemeral}, saw " +
           "info #{info.inspect}")
@@ -633,7 +621,7 @@ class ZKInterface
     info = self.run_zookeeper_operation {
       @@zk.delete(:path => key)
     }
-    if !info[:rc].zero?
+    unless info[:rc].zero?
       Djinn.log_error("Delete failed - #{info.inspect}")
       raise FailedZooKeeperOperationException.new("Failed to delete " +
         " path #{key}, saw info #{info.inspect}")
