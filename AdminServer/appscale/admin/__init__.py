@@ -7,11 +7,16 @@ import sys
 import time
 
 from appscale.common import appscale_info
-from appscale.common.constants import HTTPCodes
-from appscale.common.constants import LOG_FORMAT
+from appscale.common.constants import (
+  HTTPCodes,
+  LOG_FORMAT,
+  ZK_PERSISTENT_RECONNECTS
+)
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from kazoo.client import KazooClient
+from kazoo.exceptions import NodeExistsError
 from tornado import gen
 from tornado.options import options
 from tornado import web
@@ -168,15 +173,17 @@ class BaseHandler(web.RequestHandler):
 
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
-  def initialize(self, acc, ua_client):
+  def initialize(self, acc, ua_client, zk_client):
     """ Defines an AppControllerClient and UAClient.
 
     Args:
       acc: An AppControllerClient.
       ua_client: A UAClient.
+      zk_client: A KazooClient.
     """
     self.acc = acc
     self.ua_client = ua_client
+    self.zk_client = zk_client
 
   def get_current_user(self):
     """ Retrieves the current user.
@@ -289,19 +296,19 @@ class VersionsHandler(BaseHandler):
       message = 'User is not project owner: {}'.format(user)
       raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
 
-  def begin_deploy(self, project_id, source_path):
+  def begin_deploy(self, project_id):
     """ Triggers the deployment process.
     
     Args:
       project_id: A string specifying a project ID.
-      source_path: A string specifying the location of the version's source.
     Raises:
       CustomHTTPError if unable to start the deployment process.
     """
     try:
-      self.acc.done_uploading(project_id, source_path)
-    except AppControllerException as error:
-      message = 'Error while setting sourceUrl: {}'.format(error)
+      self.ua_client.enable_app(project_id)
+    except UAException:
+      message = 'Unable to enable project'
+      logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     try:
@@ -309,6 +316,28 @@ class VersionsHandler(BaseHandler):
     except AppControllerException as error:
       message = 'Error while updating application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
+  def identify_as_hoster(self, project_id, source_location):
+    """ Marks this machine as having a version's source code.
+
+    Args:
+      project_id: A string specifying a project ID.
+      source_path: A string specifying the location of the version's source.
+    """
+    private_ip = appscale_info.get_private_ip()
+    hoster_node = '/apps/{}/{}'.format(project_id, private_ip)
+
+    try:
+      self.zk_client.create(hoster_node, str(source_location), ephemeral=True,
+                            makepath=True)
+    except NodeExistsError:
+      self.zk_client.set(hoster_node, str(source_location))
+
+    # Remove other hosters that have old code.
+    hosters = self.zk_client.get_children('/apps/{}'.format(project_id))
+    old_hosters = [hoster for hoster in hosters if hoster != private_ip]
+    for hoster in old_hosters:
+      self.zk_client.delete('/apps/{}/{}'.format(project_id, hoster))
 
   def post(self, project_id, service_id):
     """ Creates or updates a version.
@@ -335,7 +364,9 @@ class VersionsHandler(BaseHandler):
     if source_path.startswith(proto_prefix):
       source_path = source_path[len(proto_prefix):]
 
-    self.begin_deploy(project_id, source_path)
+    self.identify_as_hoster(project_id, source_path)
+
+    self.begin_deploy(project_id)
 
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
@@ -388,10 +419,14 @@ def main():
 
   acc = appscale_info.get_appcontroller_client()
   ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
+  zk_client = KazooClient(
+    hosts=','.join(appscale_info.get_zk_node_ips()),
+    connection_retry=ZK_PERSISTENT_RECONNECTS)
+  zk_client.start()
 
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
-     {'acc': acc, 'ua_client': ua_client}),
+     {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client}),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
   ])
   logging.info('Starting AdminServer')
