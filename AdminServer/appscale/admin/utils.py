@@ -1,8 +1,19 @@
 """ Utility functions used by the AdminServer. """
 
+import errno
+import logging
+import os
+import shutil
+import tarfile
+
 from appscale.common.constants import HTTPCodes
-from .constants import CustomHTTPError
-from .constants import Types
+from .constants import (
+  CustomHTTPError,
+  GO,
+  JAVA,
+  Types,
+  UNPACK_ROOT
+)
 
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
@@ -49,3 +60,115 @@ def assert_fields_in_resource(required_fields, resource_name, resource):
     message=message,
     status='INVALID_ARGUMENT',
     details=[{'@type': Types.BAD_REQUEST, 'fieldViolations': violations}])
+
+
+def canonical_path(path):
+  """ Resolves a path, following symlinks.
+
+  Args:
+    path: A string specifying a file system location.
+  Returns:
+    A string specifying a file system location.
+  """
+  return os.path.realpath(os.path.abspath(path))
+
+
+def valid_link(link_name, link_target, base):
+  """ Checks if a link points to a location that resides within base.
+
+  Args:
+    link_name: A string specifying the location of the link.
+    link_target: A string specifying the target of the link.
+    base: A string specifying the root path of the archive.
+  Returns:
+    A boolean indicating whether or not the link is valid.
+  """
+  tip = canonical_path(os.path.join(base, os.path.dirname(link_name)))
+  target = canonical_path(os.path.join(tip, link_target))
+  return target.startswith(base)
+
+
+def ensure_path(path):
+  """ Ensures directory exists.
+
+  Args:
+    path: A string specifying the path to ensure.
+  """
+  try:
+    os.makedirs(os.path.join(path))
+  except OSError as os_error:
+    if os_error.errno == errno.EEXIST and os.path.isdir(path):
+      pass
+    else:
+      raise
+
+
+def resolve_source_path(source_url):
+  """ Extracts file system path from source URL.
+
+  Args:
+    source_url: A string containing the version's source URL.
+  Returns:
+    A string specifying a file system path.
+  """
+  proto_prefix = 'file://'
+  source_path = source_url
+  # Strip protocol prefix.
+  if source_path.startswith(proto_prefix):
+    source_path = source_path[len(proto_prefix):]
+  return source_path
+
+
+def extract_source(version, project_id):
+  """ Unpacks an archive to a given location.
+
+  Args:
+    version: A dictionary containing version details.
+    project_id: A string specifying a project ID.
+  Raises:
+    IOError if version source archive does not exist
+  """
+  source_path = resolve_source_path(version['deployment']['zip']['sourceUrl'])
+  with tarfile.open(source_path, 'r:gz') as archive:
+    # Check if the archive is valid before extracting it.
+    base_path = os.getcwd()
+    has_config = False
+    for file_info in archive:
+      file_name = file_info.name
+      if not canonical_path(file_name).startswith(base_path):
+        message = 'Invalid location in archive: {}'.format(file_name)
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+      if file_info.issym() or file_info.islnk():
+        if not valid_link(file_name, file_info.linkname, base_path):
+          message = 'Invalid link in archive: {}'.format(file_name)
+          raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+      if version['runtime'] == JAVA:
+        if file_name.endswith('appengine-web.xml'):
+          has_config = True
+      else:
+        if canonical_path(file_name) == os.path.join(base_path, 'app.yaml'):
+          has_config = True
+
+    if not has_config:
+      if version['runtime'] == JAVA:
+        missing_file = 'appengine.web.xml'
+      else:
+        missing_file = 'app.yaml'
+      message = 'Archive must have {}'.format(missing_file)
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    source_base = os.path.join(UNPACK_ROOT, project_id)
+    shutil.rmtree(source_base, ignore_errors=True)
+    ensure_path(os.path.join(source_base, 'log'))
+
+    app_path = os.path.join(source_base, 'app')
+    ensure_path(app_path)
+    archive.extractall(path=app_path)
+
+    if version['runtime'] == GO:
+      try:
+        shutil.move(os.path.join(app_path, 'gopath'), source_base)
+      except IOError:
+        logging.debug('{} does not have a gopath directory'.format(project_id))

@@ -349,6 +349,11 @@ class VersionsHandler(BaseHandler):
     self.authenticate()
     user = self.get_current_user()
     version = self.version_from_payload()
+
+    if project_id in constants.RESERVED_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.FORBIDDEN,
+                            message='{} cannot be modified'.format(project_id))
+
     project_exists = self.project_exists(project_id)
     if not project_exists:
       self.create_project(project_id, user, version['runtime'])
@@ -358,11 +363,14 @@ class VersionsHandler(BaseHandler):
 
     self.ensure_user_is_owner(project_id, user)
 
-    # Strip protocol prefix from sourceUrl.
-    proto_prefix = 'file://'
-    source_path = version['deployment']['zip']['sourceUrl']
-    if source_path.startswith(proto_prefix):
-      source_path = source_path[len(proto_prefix):]
+    source_path = utils.resolve_source_path(
+      version['deployment']['zip']['sourceUrl'])
+
+    try:
+      utils.extract_source(version, project_id)
+    except IOError:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} does not exist'.format(source_path))
 
     self.identify_as_hoster(project_id, source_path)
 
