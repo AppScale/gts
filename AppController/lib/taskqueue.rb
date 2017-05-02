@@ -140,17 +140,20 @@ module TaskQueue
       end
     end
 
-    start_cmds = [
+    bash = `which bash`.chomp
+    rabbitmqctl = `which rabbitmqctl`.chomp
+    start_cmd = [
       # Restarting the RabbitMQ server ensures that we read the correct cookie.
-      "service rabbitmq-server restart",
-      "/usr/sbin/rabbitmqctl stop_app",
+      'service rabbitmq-server restart',
+      'rabbitmqctl stop_app',
       # Read master hostname given the master IP.
-      "/usr/sbin/rabbitmqctl join_cluster rabbit@#{master_tq_host}",
-      "/usr/sbin/rabbitmqctl start_app"
-    ]
-    full_cmd = "#{start_cmds.join('; ')}"
-    stop_cmd = "/usr/sbin/rabbitmqctl stop"
-    match_cmd = "sname rabbit"
+      "rabbitmqctl join_cluster rabbit@#{master_tq_host}",
+      'rabbitmqctl start_app'
+    ].join(' && ')
+    log_file = '/var/log/appscale/rabbitmq.log'
+    full_cmd = "#{bash} -c '#{start_cmd} >> #{log_file} 2>&1'"
+    stop_cmd = "#{rabbitmqctl} stop"
+    match_cmd = 'sname rabbit'
 
     tries_left = RABBIT_START_RETRY
     loop {
