@@ -35,15 +35,14 @@ class StatsSource(object):
     Returns:
       current value of specific kind of stats
     """
-    raise NotImplemented
+    raise NotImplementedError()
 
-  @gen.coroutine
   def get_current_async(self):
     """
     Returns:
       Future wrapper for current value of specific kind of stats
     """
-    raise NotImplemented
+    raise NotImplementedError()
 
   def __repr__(self):
     return self._stats_name
@@ -69,7 +68,7 @@ class StatsSubscriber(object):
     Args:
       stats: an object containing stats of some kind (node, processes, ...)
     """
-    raise NotImplemented
+    raise NotImplementedError()
 
   def __repr__(self):
     return self._subscriber_name
@@ -108,7 +107,7 @@ class StatsPublisher(object):
     try:
       stats_future = self._stats_source.get_current_async()
       IOLoop.current().add_future(stats_future, self._publish_callback)
-    except NotImplemented:
+    except NotImplementedError:
       stats = self._stats_source.get_current()
       self._publish(stats)
 
