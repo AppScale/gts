@@ -11,9 +11,9 @@ module HermesService
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
     hermes = self.scriptname()
-    start_cmd = "/usr/bin/python2 #{hermes}"
+    start_cmd = "#{hermes}"
     stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{hermes} /usr/bin/python2"
+          "'#{hermes}' /usr/bin/python2"
     MonitInterface.start(:hermes, start_cmd, stop_cmd, nil, {},
                          start_cmd, nil, nil, nil)
   end
