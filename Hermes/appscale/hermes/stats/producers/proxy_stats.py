@@ -327,10 +327,12 @@ class ProxiesStatsSource(StatsSource):
       )
       proxy_stats_list.append(proxy_stats)
 
-    return ProxiesStatsSnapshot(
+    stats = ProxiesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
       proxies_stats=proxy_stats_list
     )
+    logging.debug(stats)
+    return stats
 
 
 def proxy_stats_from_dict(dictionary, strict=False):

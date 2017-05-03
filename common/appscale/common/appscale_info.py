@@ -52,7 +52,7 @@ def get_all_ips():
 def get_load_balancer_ips():
   raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
   ips = raw_ips.split('\n')
-  return ips
+  return filter(None, ips)
 
 def get_headnode_ip():
   """ Get the private IP of the head node. NOTE: it can change if node

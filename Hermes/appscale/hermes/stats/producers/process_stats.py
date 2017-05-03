@@ -128,10 +128,12 @@ class ProcessesStatsSource(StatsSource):
       except psutil.Error as err:
         logging.warn(u"Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
-    return ProcessesStatsSnapshot(
+    stats = ProcessesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
       processes_stats=processes_stats
     )
+    logging.debug(stats)
+    return stats
 
 
 def _process_stats(pid, service, monit_name, private_ip):

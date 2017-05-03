@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 
 import attr
+import logging
 import psutil
 from appscale.common import appscale_info
 
@@ -158,11 +159,14 @@ class NodeStatsSource(StatsSource):
       dropout=network_io.dropout, connections_num=len(psutil.net_connections())
     )
 
-    return NodeStatsSnapshot(
+    stats = NodeStatsSnapshot(
       utc_timestamp=utc_timestamp, private_ip=private_ip, cpu=cpu,
       memory=memory, swap=swap, disk_io=disk_io,
       partitions_dict=partitions_dict, network=network, loadavg=loadavg
     )
+    logging.debug(stats)
+    return stats
+
 
 
 def node_stats_snapshot_from_dict(dictionary, strict=False):

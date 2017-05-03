@@ -11,7 +11,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
-    'tornado',
+    'tornado==4.2.0',
     'psutil==5.1.3',
     'attrs',
   ],

@@ -288,7 +288,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
     # Send Future object to coroutine and suspend till result is ready
     response = yield async_client.fetch(request)
   except Exception as e:
-    logging.error("Failed to get stats from slave ({})".format(e))
+    logging.error("Failed to get stats from {} ({})".format(node_ip, e))
     raise gen.Return([])
 
   try:
