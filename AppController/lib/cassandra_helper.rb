@@ -138,10 +138,10 @@ def start_cassandra(clear_datastore, needed, desired)
   Djinn.log_run("mkdir -p #{CASSANDRA_DATA_DIR}")
   Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
 
-  start_cmd = %Q[su -c "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}" cassandra]
+  su = `which su`.chomp
+  start_cmd = "#{su} -c '#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}' cassandra"
   stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
-  MonitInterface.start(:cassandra, start_cmd, stop_cmd, nil, nil, nil, nil,
-                       PID_FILE, START_TIMEOUT)
+  MonitInterface.start_daemon(:cassandra, start_cmd, stop_cmd, PID_FILE)
 
   # Ensure enough Cassandra nodes are available.
   Djinn.log_info('Waiting for Cassandra to start')

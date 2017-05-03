@@ -94,11 +94,11 @@ module HAProxy
 
 
   def self.start()
-    start_cmd = "/usr/sbin/service haproxy start"
-    stop_cmd = "/usr/sbin/service haproxy stop"
-    match_cmd = "/usr/sbin/haproxy"
-    MonitInterface.start(:haproxy, start_cmd, stop_cmd, nil, nil, match_cmd,
-                         nil, nil, nil)
+    service = `which service`.chomp
+    start_cmd = "#{service} haproxy start"
+    stop_cmd = "#{service} haproxy stop"
+    pidfile = '/var/run/haproxy.pid'
+    MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, pidfile)
   end
 
   def self.stop()

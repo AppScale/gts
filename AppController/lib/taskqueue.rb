@@ -89,8 +89,7 @@ module TaskQueue
     start_cmd = "/usr/sbin/rabbitmq-server -detached -setcookie #{HelperFunctions.get_taskqueue_secret()}"
     stop_cmd = "/usr/sbin/rabbitmqctl stop"
     match_cmd = "sname rabbit"
-    MonitInterface.start(:rabbitmq, start_cmd, stop_cmd, nil, nil,
-                         match_cmd, nil, nil, nil)
+    MonitInterface.start_custom(:rabbitmq, start_cmd, stop_cmd, match_cmd)
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -141,22 +140,24 @@ module TaskQueue
       end
     end
 
-    start_cmds = [
+    bash = `which bash`.chomp
+    rabbitmqctl = `which rabbitmqctl`.chomp
+    start_cmd = [
       # Restarting the RabbitMQ server ensures that we read the correct cookie.
-      "service rabbitmq-server restart",
-      "/usr/sbin/rabbitmqctl stop_app",
+      'service rabbitmq-server restart',
+      'rabbitmqctl stop_app',
       # Read master hostname given the master IP.
-      "/usr/sbin/rabbitmqctl join_cluster rabbit@#{master_tq_host}",
-      "/usr/sbin/rabbitmqctl start_app"
-    ]
-    full_cmd = "#{start_cmds.join('; ')}"
-    stop_cmd = "/usr/sbin/rabbitmqctl stop"
-    match_cmd = "sname rabbit"
+      "rabbitmqctl join_cluster rabbit@#{master_tq_host}",
+      'rabbitmqctl start_app'
+    ].join(' && ')
+    log_file = '/var/log/appscale/rabbitmq.log'
+    full_cmd = "#{bash} -c '#{start_cmd} >> #{log_file} 2>&1'"
+    stop_cmd = "#{rabbitmqctl} stop"
+    match_cmd = 'sname rabbit'
 
     tries_left = RABBIT_START_RETRY
     loop {
-      MonitInterface.start(:rabbitmq, full_cmd, stop_cmd, nil, nil,
-                           match_cmd, nil, nil, nil)
+      MonitInterface.start_custom(:rabbitmq, full_cmd, stop_cmd, match_cmd)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
@@ -192,13 +193,10 @@ module TaskQueue
     Djinn.log_debug("Starting taskqueue servers on this node")
     ports = self.get_server_ports()
 
-    start_cmd = "/usr/bin/python2 #{TASKQUEUE_SERVER_SCRIPT}"
+    start_cmd = TASKQUEUE_SERVER_SCRIPT
     start_cmd << ' --verbose' if verbose
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-               "#{TASKQUEUE_SERVER_SCRIPT}"
     env_vars = {:PATH => '$PATH:/usr/local/bin'}
-    MonitInterface.start(:taskqueue, start_cmd, stop_cmd, ports, env_vars,
-                         start_cmd, nil, nil, nil)
+    MonitInterface.start(:taskqueue, start_cmd, ports, env_vars)
     Djinn.log_debug("Done starting taskqueue servers on this node")
   end
 
@@ -253,10 +251,7 @@ module TaskQueue
 
     flower_cmd = `which flower`.chomp
     start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "flower #{flower_password}"
-    MonitInterface.start(:flower, start_cmd, stop_cmd, nil,
-                         nil, start_cmd, nil, nil, nil)
+    MonitInterface.start(:flower, start_cmd)
   end
 
 
