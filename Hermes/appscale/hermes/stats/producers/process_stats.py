@@ -240,16 +240,16 @@ def process_stats_from_dict(dictionary, strict=False):
       private_ip=dictionary['private_ip'],
       port=dictionary['port'],
       cmdline=dictionary['cmdline'],
-      cpu=ProcessCPU(**{cpu[field] for field in ProcessCPU.__slots__}),
-      memory=ProcessMemory(
-        **{memory[field] for field in ProcessMemory.__slots__}),
-      disk_io=ProcessDiskIO(
-        **{disk_io[field] for field in ProcessDiskIO.__slots__}),
-      network=ProcessNetwork(
-        **{network[field] for field in ProcessNetwork.__slots__}),
+      cpu=ProcessCPU(**{field: cpu[field] for field in ProcessCPU.__slots__}),
+      memory=ProcessMemory(**{field: memory[field]
+                              for field in ProcessMemory.__slots__}),
+      disk_io=ProcessDiskIO(**{field: disk_io[field]
+                               for field in ProcessDiskIO.__slots__}),
+      network=ProcessNetwork(**{field: network[field]
+                                for field in ProcessNetwork.__slots__}),
       threads_num=dictionary['threads_num'],
       children_stats_sum=ProcessChildrenSum(
-        **{children_stats_sum[field]
+        **{field: children_stats_sum[field]
            for field in ProcessChildrenSum.__slots__}),
       children_num=dictionary['children_num']
     )
@@ -261,17 +261,17 @@ def process_stats_from_dict(dictionary, strict=False):
     private_ip=dictionary.get('private_ip', MISSED),
     port=dictionary.get('port', MISSED),
     cmdline=dictionary.get('cmdline', MISSED),
-    cpu=ProcessCPU(
-      **{cpu.get(field, MISSED) for field in ProcessCPU.__slots__}),
-    memory=ProcessMemory(
-      **{memory.get(field, MISSED) for field in ProcessMemory.__slots__}),
-    disk_io=ProcessDiskIO(
-      **{disk_io.get(field, MISSED) for field in ProcessDiskIO.__slots__}),
-    network=ProcessNetwork(
-      **{network.get(field, MISSED) for field in ProcessNetwork.__slots__}),
+    cpu=ProcessCPU(**{field: cpu.get(field, MISSED)
+                      for field in ProcessCPU.__slots__}),
+    memory=ProcessMemory(**{field: memory.get(field, MISSED)
+                            for field in ProcessMemory.__slots__}),
+    disk_io=ProcessDiskIO(**{field: disk_io.get(field, MISSED)
+                             for field in ProcessDiskIO.__slots__}),
+    network=ProcessNetwork(**{field: network.get(field, MISSED)
+                              for field in ProcessNetwork.__slots__}),
     threads_num=dictionary.get('threads_num', MISSED),
     children_stats_sum=ProcessChildrenSum(
-      **{children_stats_sum.get(field, MISSED)
+      **{field: children_stats_sum.get(field, MISSED)
          for field in ProcessChildrenSum.__slots__}),
     children_num=dictionary.get('children_num', MISSED)
   )

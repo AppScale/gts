@@ -192,41 +192,43 @@ def node_stats_snapshot_from_dict(dictionary, strict=False):
     return NodeStatsSnapshot(
       utc_timestamp=dictionary['utc_timestamp'],
       private_ip=dictionary['private_ip'],
-      cpu=NodeCPU(**{cpu[field] for field in NodeCPU.__slots__}),
-      memory=NodeMemory(**{memory[field] for field in NodeMemory.__slots__}),
-      swap=NodeSwap(**{swap[field] for field in NodeSwap.__slots__}),
-      disk_io=NodeDiskIO(
-        **{disk_io[field] for field in NodeDiskIO.__slots__}),
+      cpu=NodeCPU(**{field: cpu[field] for field in NodeCPU.__slots__}),
+      memory=NodeMemory(**{field: memory[field]
+                           for field in NodeMemory.__slots__}),
+      swap=NodeSwap(**{field: swap[field] for field in NodeSwap.__slots__}),
+      disk_io=NodeDiskIO(**{field: disk_io[field]
+                            for field in NodeDiskIO.__slots__}),
       partitions_dict={
-        mount: NodePartition(
-          **{part[field] for field in NodePartition.__slots__})
+        mount: NodePartition(**{field: part[field]
+                                for field in NodePartition.__slots__})
         for mount, part in partitions_dict.iteritems()
       },
-      network=NodeNetwork(
-        **{network[field] for field in NodeNetwork.__slots__}),
-      loadavg=NodeLoadAvg(
-        **{loadavg[field] for field in NodeLoadAvg.__slots__})
+      network=NodeNetwork(**{field: network[field]
+                             for field in NodeNetwork.__slots__}),
+      loadavg=NodeLoadAvg(**{field: loadavg[field]
+                             for field in NodeLoadAvg.__slots__})
     )
 
   return NodeStatsSnapshot(
       utc_timestamp=dictionary.get('utc_timestamp', MISSED),
       private_ip=dictionary.get('private_ip', MISSED),
-      cpu=NodeCPU(**{cpu.get(field, MISSED) for field in NodeCPU.__slots__}),
-      memory=NodeMemory(
-        **{memory.get(field, MISSED) for field in NodeMemory.__slots__}),
-      swap=NodeSwap(
-        **{swap.get(field, MISSED) for field in NodeSwap.__slots__}),
-      disk_io=NodeDiskIO(
-        **{disk_io.get(field, MISSED) for field in NodeDiskIO.__slots__}),
+      cpu=NodeCPU(**{field: cpu.get(field, MISSED)
+                     for field in NodeCPU.__slots__}),
+      memory=NodeMemory(**{field: memory.get(field, MISSED)
+                           for field in NodeMemory.__slots__}),
+      swap=NodeSwap(**{field: swap.get(field, MISSED)
+                       for field in NodeSwap.__slots__}),
+      disk_io=NodeDiskIO(**{field: disk_io.get(field, MISSED)
+                            for field in NodeDiskIO.__slots__}),
       partitions_dict={
-        mount: NodePartition(
-          **{part.get(field, MISSED) for field in NodePartition.__slots__})
+        mount: NodePartition(**{field: part.get(field, MISSED)
+                                for field in NodePartition.__slots__})
         for mount, part in partitions_dict.iteritems()
       },
-      network=NodeNetwork(
-        **{network.get(field, MISSED) for field in NodeNetwork.__slots__}),
-      loadavg=NodeLoadAvg(
-        **{loadavg.get(field, MISSED) for field in NodeLoadAvg.__slots__})
+      network=NodeNetwork(**{field: network.get(field, MISSED)
+                             for field in NodeNetwork.__slots__}),
+      loadavg=NodeLoadAvg(**{field: loadavg.get(field, MISSED)
+                             for field in NodeLoadAvg.__slots__})
     )
 
 

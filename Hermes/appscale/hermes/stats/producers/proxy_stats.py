@@ -357,17 +357,17 @@ def proxy_stats_from_dict(dictionary, strict=False):
       unified_service_name=dictionary['unified_service_name'],
       application_id=dictionary['application_id'],
       frontend=HAProxyFrontendStats(
-        **{frontend[field] for field in HAProxyFrontendStats.__slots__}),
+        **{field: frontend[field] for field in HAProxyFrontendStats.__slots__}),
       backend=HAProxyBackendStats(
-        **{backend[field] for field in HAProxyBackendStats.__slots__}),
+        **{field: backend[field] for field in HAProxyBackendStats.__slots__}),
       servers=[
         HAProxyServerStats(
-          **{server[field] for field in HAProxyServerStats.__slots__})
+          **{field: server[field] for field in HAProxyServerStats.__slots__})
         for server in servers
       ],
       listeners=[
         HAProxyListenerStats(
-          **{listener[field] for field in HAProxyListenerStats.__slots__})
+          **{field: listener[field] for field in HAProxyListenerStats.__slots__})
         for listener in listeners
       ]
     )
@@ -376,20 +376,20 @@ def proxy_stats_from_dict(dictionary, strict=False):
     unified_service_name=dictionary.get('unified_service_name', MISSED),
     application_id=dictionary.get('application_id', MISSED),
     frontend=HAProxyFrontendStats(
-      **{frontend.get(field, MISSED)
+      **{field: frontend.get(field, MISSED)
          for field in HAProxyFrontendStats.__slots__}),
     backend=HAProxyBackendStats(
-      **{backend.get(field, MISSED)
+      **{field: backend.get(field, MISSED)
          for field in HAProxyBackendStats.__slots__}),
     servers=[
       HAProxyServerStats(
-        **{server.get(field, MISSED)
+        **{field: server.get(field, MISSED)
            for field in HAProxyServerStats.__slots__})
       for server in servers
     ],
     listeners=[
       HAProxyListenerStats(
-        **{listener.get(field, MISSED)
+        **{field: listener.get(field, MISSED)
            for field in HAProxyListenerStats.__slots__})
       for listener in listeners
     ]
