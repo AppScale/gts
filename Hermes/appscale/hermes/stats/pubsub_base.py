@@ -1,7 +1,8 @@
 import logging
 import sys
 
-from tornado.ioloop import PeriodicCallback
+from tornado import gen
+from tornado.ioloop import PeriodicCallback, IOLoop
 
 
 class SubscriberIsAlreadyRegistered(Exception):
@@ -33,6 +34,14 @@ class StatsSource(object):
     """
     Returns:
       current value of specific kind of stats
+    """
+    raise NotImplemented
+
+  @gen.coroutine
+  def get_current_async(self):
+    """
+    Returns:
+      Future wrapper for current value of specific kind of stats
     """
     raise NotImplemented
 
@@ -96,7 +105,17 @@ class StatsPublisher(object):
     del self._subscribers[subscriber.subscriber_name]
 
   def read_and_publish(self):
-    stats = self._stats_source.get_current()
+    try:
+      stats_future = self._stats_source.get_current_async()
+      IOLoop.current().add_future(stats_future, self._publish_callback)
+    except NotImplemented:
+      stats = self._stats_source.get_current()
+      self._publish(stats)
+
+  def _publish_callback(self, future):
+    self._publish(future.result())
+
+  def _publish(self, stats):
     for name, subscriber in self._subscribers.iteritems():
       try:
         logging.debug(

@@ -59,18 +59,14 @@ class ClusterNodesStatsSource(StatsSource):
     self._limit = limit
     self._fetch_latest_only = fetch_latest_only
 
-  def get_current(self):
+  @gen.coroutine
+  def get_current_async(self):
     """ Implements StatsSource.get_current() method. Makes http calls to cluster
     nodes and collects new node stats.
     
     Returns:
       a dict with node IP as key and list of new NodeStatsSnapshot as value
     """
-    return IOLoop.instance().run_sync(self.new_nodes_stats_async)
-
-  @gen.coroutine
-  def new_nodes_stats_async(self):
-    """ Asynchronous version of get_current() method """
     all_ips = appscale_info.get_all_ips()
     # Do multiple requests asynchronously and wait for all results
     per_node_node_stats_dict = yield {
@@ -143,18 +139,14 @@ class ClusterProcessesStatsSource(StatsSource):
     self._limit = limit
     self._fetch_latest_only = fetch_latest_only
 
-  def get_current(self):
+  @gen.coroutine
+  def get_current_async(self):
     """ Implements StatsSource.get_current() method. Makes http calls to cluster
     nodes and collects new processes stats.
     
     Returns:
       a dict with node IP as key and list of new ProcessesStatsSnapshot as value
     """
-    return IOLoop.instance().run_sync(self.new_processes_stats_async)
-
-  @gen.coroutine
-  def new_processes_stats_async(self):
-    """ Asynchronous version of get_current() method """
     all_ips = appscale_info.get_all_ips()
     # Do multiple requests asynchronously and wait for all results
     per_node_processes_stats_dict = yield {
@@ -227,18 +219,14 @@ class ClusterProxiesStatsSource(StatsSource):
     self._limit = limit
     self._fetch_latest_only = fetch_latest_only
 
-  def get_current(self):
+  @gen.coroutine
+  def get_current_async(self):
     """ Implements StatsSource.get_current() method. Makes http calls to cluster
     nodes and collects new proxies stats.
     
     Returns:
       a dict with node IP as key and list of new ProxiesStatsSnapshot as value
     """
-    return IOLoop.instance().run_sync(self.new_proxies_stats_async)
-
-  @gen.coroutine
-  def new_proxies_stats_async(self):
-    """ Asynchronous version of get_current() method """
     lb_ips = appscale_info.get_load_balancer_ips()
     # Do multiple requests asynchronously and wait for all results
     per_node_proxies_stats_dict = yield {
