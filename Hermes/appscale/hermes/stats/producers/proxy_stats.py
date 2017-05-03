@@ -423,6 +423,24 @@ def proxies_stats_snapshot_from_dict(dictionary, strict=False):
 
 
 def proxies_stats_snapshot_to_dict(stats, include_lists=None):
+  """ Converts an instance of ProxiesStatsSnapshot to dictionary. Optionally
+  it can
+  
+  Args:
+    stats: an instance of ProxiesStatsSnapshot to render
+    include_lists: a dictionary containing include lists for rendering
+        ProxyStats entity, HAProxyFrontendStats entity, ...
+        e.g.: {
+          'proxy' ['name', 'unified_service_name', 'application_id', 'frontend',
+                   'backend'],
+          'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
+          'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+        }
+  Returns:
+    a dictionary representing an instance of ProxiesStatsSnapshot
+  Raises:
+    WrongIncludeLists if unknown field was specified in include_lists
+  """
   if include_lists and not isinstance(include_lists, dict):
     raise WrongIncludeLists('include_lists should be dict, actual type is {}'
                             .format(type(include_lists)))

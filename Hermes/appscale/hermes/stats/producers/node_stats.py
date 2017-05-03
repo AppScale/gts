@@ -174,7 +174,7 @@ def node_stats_snapshot_from_dict(dictionary, strict=False):
   Returns:
     an instance of NodeStatsSnapshot
   Raises:
-    IndexError if strict is set to True and dictionary is lacking any fields
+    KeyError if strict is set to True and dictionary is lacking any fields
   """
   cpu = dictionary.get('cpu', {})
   memory = dictionary.get('memory', {})
@@ -227,6 +227,23 @@ def node_stats_snapshot_from_dict(dictionary, strict=False):
 
 
 def node_stats_snapshot_to_dict(stats, include_lists=None):
+  """ Converts an instance of NodeStatsSnapshot to dictionary. Optionally
+  it can
+  
+  Args:
+    stats: an instance of NodeStatsSnapshot to render
+    include_lists: a dictionary containing include lists for root entity 
+        (node stats), for NodeCPU entity, NodeMemory, ...
+        e.g.: {
+          'node' ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
+          'node.memory': ['available'],
+          'node.loadavg': ['last_5min'],
+        }
+  Returns:
+    a dictionary representing an instance of NodeStatsSanpshot
+  Raises:
+    WrongIncludeLists if unknown field was specified in include_lists
+  """
   if include_lists and not isinstance(include_lists, dict):
     raise WrongIncludeLists('include_lists should be dict, actual type is {}'
                             .format(type(include_lists)))

@@ -1,3 +1,4 @@
+""" Implementation of stats sources for cluster stats (node, processes, proxies) """
 import json
 import sys
 
@@ -15,27 +16,61 @@ from appscale.hermes.stats.producers import (
 
 
 class BadStatsListFormat(ValueError):
-  """ Is used when Hermes slave responded with improperly formatted stats """
+  """ Is used when Hermes slave responds with improperly formatted stats """
   pass
 
 
 class ClusterNodesStatsSource(StatsSource):
-  """ Gets node stats from all nodes in the cluster """
+  """
+  Gets node stats from all nodes in the cluster.
+  In verbose mode of Hermes it will 'scroll' cached stats from all nodes
+  using timestamp as a cursor.
+  """
 
   def __init__(self, local_cache, include_lists=None, limit=None,
-               fetch_only_latest=False):
+               fetch_latest_only=False):
+    """ Initialises an instance of ClusterNodeStatsSource.
+     
+    Args:
+      local_cache: an instance of LocalStatsCache where node stats of this node
+          is cached. It's used to avoid HTTP calls to local API
+      include_lists: a dict containing include lists for node stats fields
+          and nested entities. It allows to reduce verbosity of 
+          cluster stats collected e.g:
+          {
+            'node' ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
+            'node.memory': ['available'],
+            'node.loadavg': ['last_5min'],
+          }
+      limit: an integer representing a max number of stats snapshots to fetch
+          from slave node per one call.
+          Be careful with this number, if you plan to scroll all stats 
+          history (instead of tracking latest only) master node should collect
+          stats a bit faster than it's produced on slaves.
+      fetch_latest_only: a boolean determines whether old stats can be ignored.
+          If it's True, master will request latest stats always,
+          otherwise it will request stats snapshots newer than latest read,
+          so if limit is specified, it can get the latest stats with delay.
+    """
     super(ClusterNodesStatsSource, self).__init__('ClusterNodesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists
     self._limit = limit
-    self._fetch_only_latest = fetch_only_latest
+    self._fetch_latest_only = fetch_latest_only
 
   def get_current(self):
-    return IOLoop.current().run_sync(self.new_nodes_stats_async)
+    """ Implements StatsSource.get_current() method. Makes http calls to cluster
+    nodes and collects new node stats.
+    
+    Returns:
+      a dict with node IP as key and list of new NodeStatsSnapshot as value
+    """
+    return IOLoop.instance().run_sync(self.new_nodes_stats_async)
 
   @gen.coroutine
   def new_nodes_stats_async(self):
+    """ Asynchronous version of get_current() method """
     all_ips = appscale_info.get_all_ips()
     # Do multiple requests asynchronously and wait for all results
     per_node_node_stats_dict = yield {
@@ -51,7 +86,7 @@ class ClusterNodesStatsSource(StatsSource):
     if node_ip == appscale_info.get_private_ip():
       new_snapshots = self._local_cache.get_stats_after(last_utc_timestamp)
       if self._limit is not None:
-        if self._fetch_only_latest and len(new_snapshots) > self._limit:
+        if self._fetch_latest_only and len(new_snapshots) > self._limit:
           new_snapshots = new_snapshots[len(new_snapshots)-self._limit:]
         else:
           new_snapshots = new_snapshots[:self._limit]
@@ -61,7 +96,7 @@ class ClusterNodesStatsSource(StatsSource):
         fromdict_convertor=node_stats.node_stats_snapshot_from_dict,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
-        fetch_only_latest=self._fetch_only_latest
+        fetch_latest_only=self._fetch_latest_only
       )
     if new_snapshots:
       self._utc_timestamp_cursors[node_ip] = new_snapshots[-1].utc_timestamp
@@ -69,21 +104,57 @@ class ClusterNodesStatsSource(StatsSource):
 
 
 class ClusterProcessesStatsSource(StatsSource):
+  """
+  Gets processes stats from all nodes in the cluster.
+  In verbose mode of Hermes it will 'scroll' cached stats from all nodes
+  using timestamp as a cursor.
+  """
 
   def __init__(self, local_cache, include_lists=None, limit=None,
-               fetch_only_latest=False):
+               fetch_latest_only=False):
+    """ Initialises an instance of ClusterProcessesStatsSource.
+
+    Args:
+      local_cache: an instance of LocalStatsCache where processes stats of this
+          node is cached. It's used to avoid HTTP calls to local API
+      include_lists: a dict containing include lists for processes stats fields
+          and nested entities. It allows to reduce verbosity of 
+          cluster stats collected e.g:
+          {
+            'process' ['pid', 'monit_name', 'unified_service_name',
+                       'application_id', 'private_ip', 'port', 'cpu', 'memory'],
+            'process.cpu': ['user', 'system'],
+            'process.memory': ['unique'],
+          }
+      limit: an integer representing a max number of stats snapshots to fetch
+          from slave node per one call.
+          Be careful with this number, if you plan to scroll all stats 
+          history (instead of tracking latest only) master node should collect
+          stats a bit faster than it's produced on slaves.
+      fetch_latest_only: a boolean determines whether old stats can be ignored.
+          If it's True, master will request latest stats always,
+          otherwise it will request stats snapshots newer than latest read,
+          so if limit is specified, it can get the latest stats with delay.
+    """
     super(ClusterProcessesStatsSource, self).__init__('ClusterProcessesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists
     self._limit = limit
-    self._fetch_only_latest = fetch_only_latest
+    self._fetch_latest_only = fetch_latest_only
 
   def get_current(self):
-    return IOLoop.current().run_sync(self.new_processes_stats_async)
+    """ Implements StatsSource.get_current() method. Makes http calls to cluster
+    nodes and collects new processes stats.
+    
+    Returns:
+      a dict with node IP as key and list of new ProcessesStatsSnapshot as value
+    """
+    return IOLoop.instance().run_sync(self.new_processes_stats_async)
 
   @gen.coroutine
   def new_processes_stats_async(self):
+    """ Asynchronous version of get_current() method """
     all_ips = appscale_info.get_all_ips()
     # Do multiple requests asynchronously and wait for all results
     per_node_processes_stats_dict = yield {
@@ -99,7 +170,7 @@ class ClusterProcessesStatsSource(StatsSource):
     if node_ip == appscale_info.get_private_ip():
       new_snapshots = self._local_cache.get_stats_after(last_utc_timestamp)
       if self._limit is not None:
-        if self._fetch_only_latest and len(new_snapshots) > self._limit:
+        if self._fetch_latest_only and len(new_snapshots) > self._limit:
           new_snapshots = new_snapshots[len(new_snapshots)-self._limit:]
         else:
           new_snapshots = new_snapshots[:self._limit]
@@ -109,7 +180,7 @@ class ClusterProcessesStatsSource(StatsSource):
         fromdict_convertor=process_stats.processes_stats_snapshot_from_dict,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
-        fetch_only_latest=self._fetch_only_latest
+        fetch_latest_only=self._fetch_latest_only
       )
     if new_snapshots:
       self._utc_timestamp_cursors[node_ip] = new_snapshots[-1].utc_timestamp
@@ -117,21 +188,57 @@ class ClusterProcessesStatsSource(StatsSource):
 
 
 class ClusterProxiesStatsSource(StatsSource):
+  """
+  Gets proxies stats from all nodes in the cluster.
+  In verbose mode of Hermes it will 'scroll' cached stats from all nodes
+  using timestamp as a cursor.
+  """
 
   def __init__(self, local_cache, include_lists=None, limit=None,
-               fetch_only_latest=False):
+               fetch_latest_only=False):
+    """ Initialises an instance of ClusterProxiesStatsSource.
+
+    Args:
+      local_cache: an instance of LocalStatsCache where proxies stats of this
+          node is cached. It's used to avoid HTTP calls to local API
+      include_lists: a dict containing include lists for processes stats fields
+          and nested entities. It allows to reduce verbosity of 
+          cluster stats collected e.g:
+          {
+            'proxy' ['name', 'unified_service_name', 'application_id',
+                     'frontend', 'backend'],
+            'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
+            'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+          }
+      limit: an integer representing a max number of stats snapshots to fetch
+          from slave node per one call.
+          Be careful with this number, if you plan to scroll all stats 
+          history (instead of tracking latest only) master node should collect
+          stats a bit faster than it's produced on slaves.
+      fetch_latest_only: a boolean determines whether old stats can be ignored.
+          If it's True, master will request latest stats always,
+          otherwise it will request stats snapshots newer than latest read,
+          so if limit is specified, it can get the latest stats with delay.
+    """
     super(ClusterProxiesStatsSource, self).__init__('ClusterProxiesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists
     self._limit = limit
-    self._fetch_only_latest = fetch_only_latest
+    self._fetch_latest_only = fetch_latest_only
 
   def get_current(self):
-    return IOLoop.current().run_sync(self.new_proxies_stats_async)
+    """ Implements StatsSource.get_current() method. Makes http calls to cluster
+    nodes and collects new proxies stats.
+    
+    Returns:
+      a dict with node IP as key and list of new ProxiesStatsSnapshot as value
+    """
+    return IOLoop.instance().run_sync(self.new_proxies_stats_async)
 
   @gen.coroutine
   def new_proxies_stats_async(self):
+    """ Asynchronous version of get_current() method """
     lb_ips = appscale_info.get_load_balancer_ips()
     # Do multiple requests asynchronously and wait for all results
     per_node_proxies_stats_dict = yield {
@@ -147,7 +254,7 @@ class ClusterProxiesStatsSource(StatsSource):
     if node_ip == appscale_info.get_private_ip():
       new_snapshots = self._local_cache.get_stats_after(last_utc_timestamp)
       if self._limit is not None:
-        if self._fetch_only_latest and len(new_snapshots) > self._limit:
+        if self._fetch_latest_only and len(new_snapshots) > self._limit:
           new_snapshots = new_snapshots[len(new_snapshots)-self._limit:]
         else:
           new_snapshots = new_snapshots[:self._limit]
@@ -157,7 +264,7 @@ class ClusterProxiesStatsSource(StatsSource):
         fromdict_convertor=proxy_stats.proxies_stats_snapshot_from_dict,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
-        fetch_only_latest=self._fetch_only_latest
+        fetch_latest_only=self._fetch_latest_only
       )
     if new_snapshots:
       self._utc_timestamp_cursors[node_ip] = new_snapshots[-1].utc_timestamp
@@ -167,7 +274,7 @@ class ClusterProxiesStatsSource(StatsSource):
 @gen.coroutine
 def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
                                     last_utc_timestamp, limit, include_lists,
-                                    fetch_only_latest):
+                                    fetch_latest_only):
   # Security header
   headers = {SECRET_HEADER: options.secret}
   # Build query arguments
@@ -178,8 +285,8 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
     arguments['limit'] = limit
   if include_lists is not None:
     arguments['include_lists'] = include_lists
-  if fetch_only_latest:
-    arguments['fetch_only_latest'] = True
+  if fetch_latest_only:
+    arguments['fetch_latest_only'] = True
 
   url = "http://{ip}:{port}/{path}".format(
     ip=node_ip, port=options.port, path=method_path)

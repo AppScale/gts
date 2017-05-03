@@ -75,7 +75,7 @@ class ProcessStats(object):
   pid = attr.ib()
   monit_name = attr.ib()
 
-  unified_service_name = attr.ib()  #| These 3 fields are primary key
+  unified_service_name = attr.ib()  #| These 4 fields are primary key
   application_id = attr.ib()        #| for an instance of appscale service
   private_ip = attr.ib()            #| - Application ID can be None if
   port = attr.ib()                  #|   process is not related to specific app
@@ -284,7 +284,7 @@ def processes_stats_snapshot_from_dict(dictionary, strict=False):
   Returns:
     an instance of ProcessesStatsSnapshot
   Raises:
-    IndexError if strict is set to True and dictionary is lacking any fields
+    KeyError if strict is set to True and dictionary is lacking any fields
   """
   if strict:
     return ProcessesStatsSnapshot(
@@ -304,6 +304,24 @@ def processes_stats_snapshot_from_dict(dictionary, strict=False):
 
 
 def processes_stats_snapshot_to_dict(stats, include_lists=None):
+  """ Converts an instance of ProcessesStatsSnapshot to dictionary. Optionally
+  it can
+  
+  Args:
+    stats: an instance of ProcessesStatsSnapshot to render
+    include_lists: a dictionary containing include lists for rendering
+        ProcessStats entity, ProcessCPU entity, ProcessMemory, ...
+        e.g.: {
+          'process' ['pid', 'monit_name', 'unified_service_name',
+                     'application_id', 'private_ip', 'port', 'cpu', 'memory'],
+          'process.cpu': ['user', 'system'],
+          'process.memory': ['unique'],
+        }
+  Returns:
+    a dictionary representing an instance of ProcessesStatsSnapshot
+  Raises:
+    WrongIncludeLists if unknown field was specified in include_lists
+  """
   if include_lists and not isinstance(include_lists, dict):
     raise WrongIncludeLists('include_lists should be dict, actual type is {}'
                             .format(type(include_lists)))
