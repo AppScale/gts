@@ -876,7 +876,6 @@ class Djinn
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
-        return msg
       elsif node['public_ip'].empty? || node['private_ip'].empty? ||
          node['jobs'].empty? || node['instance_id'].empty?
         msg = "Error: node layout is missing information #{node}."
@@ -1156,7 +1155,7 @@ class Djinn
         HelperFunctions.scp_file(archived_file, remote_file,
                                  get_shadow.private_ip, get_shadow.ssh_key)
         return acc.upload_app(remote_file, file_suffix, email)
-      rescue FailedNodeException => except
+      rescue FailedNodeException
         Djinn.log_warn("Failed to forward upload_app call to shadow (#{get_shadow}).")
         return NOT_READY
       end
@@ -3014,8 +3013,8 @@ class Djinn
         end
       }
     }
-    HAProxy.create_datastore_server_config(
-      all_db_private_ips, my_node.private_ip, DatastoreServer::PROXY_PORT)
+    HAProxy.create_datastore_server_config(all_db_private_ips,
+      DatastoreServer::PROXY_PORT)
   end
 
   # Creates HAProxy configuration for TaskQueue.
@@ -5140,13 +5139,13 @@ HOSTS
           app = no_appservers[0]
           Djinn.log_info("Starting first AppServer for app: #{app}.")
           ret = add_appserver_process(app, @app_info_map[app]['nginx'],
-            @app_info_map[app]['nginx_https'], @app_info_map[app]['language'])
+            @app_info_map[app]['language'])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_start[0].nil?
           app = to_start[0]
           Djinn.log_info("Starting AppServer for app: #{app}.")
           ret = add_appserver_process(app, @app_info_map[app]['nginx'],
-            @app_info_map[app]['nginx_https'], @app_info_map[app]['language'])
+            @app_info_map[app]['language'])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_end[0].nil?
           Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
@@ -5257,7 +5256,7 @@ HOSTS
     # Setup rsyslog to store application logs.
     app_log_config_file = get_rsyslog_conf(app)
     begin
-      existing_app_log_config = File.open(app_log_config_file, 'r').read()
+      existing_app_log_config = HelperFunctions.read_file(app_log_config_file)
     rescue Errno::ENOENT
       existing_app_log_config = ''
     end
@@ -5269,7 +5268,7 @@ HOSTS
       HelperFunctions.shell("service rsyslog restart")
     end
     begin
-      start_xmpp_for_app(app, nginx_port, @app_info_map[app]['language'])
+      start_xmpp_for_app(app, @app_info_map[app]['language'])
     rescue FailedNodeException
       Djinn.log_warn("Failed to start xmpp for application #{app}")
     end
@@ -5599,7 +5598,7 @@ HOSTS
       max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
 
       app_info['appengine'].each { |location|
-        host, port = location.split(":")
+        host, _ = location.split(":")
         if appservers_count[host].nil?
           appservers_count[host] = 1
           max_memory[host] = max_app_mem
@@ -5821,12 +5820,10 @@ HOSTS
   #     be added for.
   #   nginx_port: A String or Fixnum that names the port that should be used to
   #     serve HTTP traffic for this app.
-  #   https_port: A String or Fixnum that names the port that should be used to
-  #     serve HTTPS traffic for this app.
   #   app_language: A String naming the language of the application.
   # Returns:
   #   A Boolean to indicate if the AppServer was successfully started.
-  def add_appserver_process(app, nginx_port, https_port, app_language)
+  def add_appserver_process(app, nginx_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
     # Make sure we have the application setup properly.
@@ -6024,7 +6021,7 @@ HOSTS
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
-    @app_info_map.each { |app_id, info|
+    @app_info_map.each { |_, info|
       next if info['appengine'].nil?
 
       info['appengine'].each { |location|
@@ -6117,7 +6114,7 @@ HOSTS
   end
 
   # This function creates the xmpp account for 'app', as app@login_ip.
-  def start_xmpp_for_app(app, port, app_language)
+  def start_xmpp_for_app(app, app_language)
     watch_name = "xmpp-#{app}"
 
     # If we have it already running, nothing to do

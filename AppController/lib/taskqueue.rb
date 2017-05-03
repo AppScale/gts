@@ -159,7 +159,7 @@ module TaskQueue
                            match_cmd, nil, nil, nil)
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
-        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+        Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
           HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
           Djinn.log_debug("Done starting rabbitmq_slave on this node")
 

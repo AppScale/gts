@@ -32,7 +32,7 @@ class TestDjinn < Test::Unit::TestCase
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
-      with("/etc/appscale/secret.key", true).and_return(@secret)
+      with("/etc/appscale/secret.key").and_return(@secret)
     flexmock(HelperFunctions).should_receive(:shell).
       with("").and_return()
     @app = "app"

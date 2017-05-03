@@ -137,7 +137,7 @@ module HAProxy
   end
 
   # Create the config file for Datastore Server.
-  def self.create_datastore_server_config(server_ips, my_ip, listen_port)
+  def self.create_datastore_server_config(server_ips, listen_port)
     # For the Datastore servers we have a list of local ports the servers
     # are listening to, and we need to create the list of local IPs.
     servers = []
@@ -236,7 +236,7 @@ module HAProxy
     servers = []
     appservers.each { |location|
       # Ignore not-yet started appservers.
-      host, port = location.split(":")
+      _, port = location.split(":")
       next if Integer(port) < 0
       servers << HAProxy.server_config(full_app_name, location)
     }
@@ -424,7 +424,7 @@ CONFIG
   # Returns:
   #   An Array of running AppServers (ip:port).
   #   An Array of failed (marked as DOWN) AppServers (ip:port).
-  def self.list_servers(app, down=false)
+  def self.list_servers(app)
     full_app_name = "gae_#{app}"
     running = []
     failed = []

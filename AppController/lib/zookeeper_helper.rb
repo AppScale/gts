@@ -69,7 +69,7 @@ def start_zookeeper(clear_datastore)
     zk_server="zookeeper"
   end
 
-  if !File.directory?("#{DATA_LOCATION}")
+  unless File.directory?("#{DATA_LOCATION}")
     Djinn.log_info("Initializing ZooKeeper.")
     # Let's stop zookeeper in case it is still running.
     system("/usr/sbin/service #{zk_server} stop")
@@ -80,7 +80,7 @@ def start_zookeeper(clear_datastore)
 
     # Only precise (and zookeeper-server) has an init function.
     if zk_server == "zookeeper-server"
-      if not system("/usr/sbin/service #{zk_server} init")
+      unless system("/usr/sbin/service #{zk_server} init")
         Djinn.log_error("Failed to start zookeeper!")
         raise Exception FailedZooKeeperOperationException.new("Failed to" +
           " start zookeeper!")
