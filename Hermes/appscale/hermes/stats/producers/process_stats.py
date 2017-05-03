@@ -115,7 +115,7 @@ class ProcessesStatsSource(StatsSource):
     Returns:
       ProcessesStatsSnapshot
     """
-    monit_status = subprocess.check_output('monit status')
+    monit_status = subprocess.check_output('monit status', shell=True)
     processes_stats = []
     for match in MONIT_PROCESS_PATTERN.finditer(monit_status):
       monit_name = match.group('name')

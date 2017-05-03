@@ -280,7 +280,8 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
     ip=node_ip, port=options.port, path=method_path)
   request = httpclient.HTTPRequest(
     url=url, method='GET', body=json.dumps(arguments), headers=headers,
-    validate_cert=False, request_timeout=REQUEST_TIMEOUT
+    validate_cert=False, request_timeout=REQUEST_TIMEOUT,
+    allow_nonstandard_methods=True
   )
   async_client = httpclient.AsyncHTTPClient()
 
@@ -288,7 +289,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
     # Send Future object to coroutine and suspend till result is ready
     response = yield async_client.fetch(request)
   except Exception as e:
-    logging.error("Failed to get stats from {} ({})".format(node_ip, e))
+    logging.error("Failed to get stats from {} ({})".format(url, e))
     raise gen.Return([])
 
   try:

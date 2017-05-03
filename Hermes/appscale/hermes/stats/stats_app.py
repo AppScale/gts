@@ -137,15 +137,15 @@ class StatsApp(object):
 
     # All routes (handlers will be assigned during configuration)
     self._routes = {
-      'stats/local/node/cache': None,
-      'stats/local/node/current': None,
-      'stats/local/processes/cache': None,
-      'stats/local/processes/current': None,
-      'stats/local/proxies/cache': None,
-      'stats/local/proxies/current': None,
-      'stats/cluster/nodes': None,
-      'stats/cluster/processes': None,
-      'stats/cluster/proxies': None,
+      '/stats/local/node/cache': None,
+      '/stats/local/node/current': None,
+      '/stats/local/processes/cache': None,
+      '/stats/local/processes/current': None,
+      '/stats/local/proxies/cache': None,
+      '/stats/local/proxies/current': None,
+      '/stats/cluster/nodes': None,
+      '/stats/cluster/processes': None,
+      '/stats/cluster/proxies': None,
     }
     self._publishers = []
 
@@ -178,7 +178,7 @@ class StatsApp(object):
       self._stub_cluster_stats_routes()
 
   def start_publishers(self):
-    """ Starts tornado periodic tasks for each of configured statis publishers
+    """ Starts tornado periodic tasks for each of configured stats publishers
     """
     for publisher in self._publishers:
       publisher.start()
@@ -196,7 +196,7 @@ class StatsApp(object):
 
   def _init_local_node_stats_publisher(self):
     """ Starts node stats publisher, creates cache for local node stats
-        and initializes coresponding API endpoints.
+        and initializes corresponding API endpoints.
     """
     stats = self._local_node_stats
     # Init cache
@@ -208,18 +208,18 @@ class StatsApp(object):
     stats.publisher.subscribe(stats.cache)
     self._publishers.append(stats.publisher)
     # Configure handlers
-    self._routes['stats/local/node/cache'] = HandlerInfo(
+    self._routes['/stats/local/node/cache'] = HandlerInfo(
       handler_class=CachedStatsHandler,
       init_kwargs=dict(stats_cache=stats.cache)
     )
-    self._routes['stats/local/node/current'] = HandlerInfo(
+    self._routes['/stats/local/node/current'] = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs=dict(stats_source=stats_source)
     )
 
   def _init_local_processes_stats_publisher(self):
     """ Starts processes stats publisher, creates cache for local proc. stats
-        and initializes coresponding API endpoints.
+        and initializes corresponding API endpoints.
     """
     stats = self._local_processes_stats
     # Init cache
@@ -231,11 +231,11 @@ class StatsApp(object):
     stats.publisher.subscribe(stats.cache)
     self._publishers.append(stats.publisher)
     # Configure handlers
-    self._routes['stats/local/processes/cache'] = HandlerInfo(
+    self._routes['/stats/local/processes/cache'] = HandlerInfo(
       handler_class=CachedStatsHandler,
       init_kwargs=dict(stats_cache=stats.cache)
     )
-    self._routes['stats/local/processes/current'] = HandlerInfo(
+    self._routes['/stats/local/processes/current'] = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs=dict(stats_source=stats_source)
     )
@@ -243,22 +243,22 @@ class StatsApp(object):
   def _stub_processes_stats_routes(self):
     """ Sets stub handlers to processes stats API endpoints
     """
-    self._routes['stats/local/processes/cache'] = HandlerInfo(
+    self._routes['/stats/local/processes/cache'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Processes stats is disabled')
     )
-    self._routes['stats/local/processes/current'] = HandlerInfo(
+    self._routes['/stats/local/processes/current'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Processes stats is disabled')
     )
-    self._routes['stats/cluster/processes'] = HandlerInfo(
+    self._routes['/stats/cluster/processes'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Processes stats is disabled')
     )
 
   def _init_local_proxies_stats_publisher(self):
     """ Starts proxies stats publisher, creates cache for local proxies stats
-        and initializes coresponding API endpoints.
+        and initializes corresponding API endpoints.
     """
     stats = self._local_proxies_stats
     # Init cache
@@ -270,11 +270,11 @@ class StatsApp(object):
     stats.publisher.subscribe(stats.cache)
     self._publishers.append(stats.publisher)
     # Configure handlers
-    self._routes['stats/local/proxies/cache'] = HandlerInfo(
+    self._routes['/stats/local/proxies/cache'] = HandlerInfo(
       handler_class=CachedStatsHandler,
       init_kwargs=dict(stats_cache=stats.cache)
     )
-    self._routes['stats/local/proxies/current'] = HandlerInfo(
+    self._routes['/stats/local/proxies/current'] = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs=dict(stats_source=stats_source)
     )
@@ -282,11 +282,11 @@ class StatsApp(object):
   def _stub_proxies_stats_routes(self):
     """ Sets stub handlers to proxies stats API endpoints
     """
-    self._routes['stats/local/proxies/cache'] = HandlerInfo(
+    self._routes['/stats/local/proxies/cache'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Only LB node provides proxies stats')
     )
-    self._routes['stats/local/proxies/current'] = HandlerInfo(
+    self._routes['/stats/local/proxies/current'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Only LB node provides proxies stats')
     )
@@ -294,7 +294,7 @@ class StatsApp(object):
   def _init_cluster_node_stats_publisher(self):
     """ Starts cluster node stats publisher,
         creates cache for cluster node stats
-        and initializes coresponding API endpoints.
+        and initializes corresponding API endpoints.
     """
     stats = self._cluster_nodes_stats
     # Init cache
@@ -313,7 +313,7 @@ class StatsApp(object):
       stats.publisher.subscribe(profile_log)
     self._publishers.append(stats.publisher)
     # Configure handler
-    self._routes['stats/cluster/nodes'] = HandlerInfo(
+    self._routes['/stats/cluster/nodes'] = HandlerInfo(
       handler_class=ClusterStatsHandler,
       init_kwargs=dict(cluster_stats_cache=stats.cache)
     )
@@ -321,7 +321,7 @@ class StatsApp(object):
   def _init_cluster_processes_stats_publisher(self):
     """ Starts cluster processes stats publisher,
         creates cache for cluster processes stats
-        and initializes coresponding API endpoints.
+        and initializes corresponding API endpoints.
     """
     stats = self._cluster_processes_stats
     # Init cache
@@ -340,7 +340,7 @@ class StatsApp(object):
       stats.publisher.subscribe(profile_log)
     self._publishers.append(stats.publisher)
     # Configure handler
-    self._routes['stats/cluster/processes'] = HandlerInfo(
+    self._routes['/stats/cluster/processes'] = HandlerInfo(
       handler_class=ClusterStatsHandler,
       init_kwargs=dict(cluster_stats_cache=stats.cache)
     )
@@ -348,7 +348,7 @@ class StatsApp(object):
   def _init_cluster_proxies_stats_publisher(self):
     """ Starts cluster proxies stats publisher,
         creates cache for cluster proxies stats
-        and initializes coresponding API endpoints.
+        and initializes corresponding API endpoints.
     """
     stats = self._cluster_proxies_stats
     # Init cache
@@ -367,7 +367,7 @@ class StatsApp(object):
       stats.publisher.subscribe(profile_log)
     self._publishers.append(stats.publisher)
     # Configure handler
-    self._routes['stats/cluster/proxies'] = HandlerInfo(
+    self._routes['/stats/cluster/proxies'] = HandlerInfo(
       handler_class=ClusterStatsHandler,
       init_kwargs=dict(cluster_stats_cache=stats.cache)
     )
@@ -375,15 +375,15 @@ class StatsApp(object):
   def _stub_cluster_stats_routes(self):
     """ Sets stub handlers to cluster stats API endpoints
     """
-    self._routes['stats/cluster/nodes'] = HandlerInfo(
+    self._routes['/stats/cluster/nodes'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Only master node provides cluster stats')
     )
-    self._routes['stats/cluster/processes'] = HandlerInfo(
+    self._routes['/stats/cluster/processes'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Only master node provides cluster stats')
     )
-    self._routes['stats/cluster/proxies'] = HandlerInfo(
+    self._routes['/stats/cluster/proxies'] = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs=dict(reason='Only master node provides cluster stats')
     )
