@@ -290,14 +290,14 @@ def processes_stats_snapshot_from_dict(dictionary, strict=False):
     return ProcessesStatsSnapshot(
       utc_timestamp=dictionary['utc_timestamp'],
       processes_stats=[
-        ProcessStats.fromdict(process_stats, strict)
+        process_stats_from_dict(process_stats, strict)
         for process_stats in dictionary['processes_stats']
       ]
     )
   return ProcessesStatsSnapshot(
     utc_timestamp=dictionary.get('utc_timestamp', MISSED),
     processes_stats=[
-      ProcessStats.fromdict(process_stats, strict)
+      process_stats_from_dict(process_stats, strict)
       for process_stats in dictionary.get('processes_stats', [])
     ]
   )

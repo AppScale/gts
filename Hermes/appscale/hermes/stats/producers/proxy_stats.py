@@ -409,14 +409,14 @@ def proxies_stats_snapshot_from_dict(dictionary, strict=False):
     return ProxiesStatsSnapshot(
       utc_timestamp=dictionary['utc_timestamp'],
       proxies_stats=[
-        ProxyStats.fromdict(proxy_stats, strict)
+        proxy_stats_from_dict(proxy_stats, strict)
         for proxy_stats in dictionary['proxies_stats']
       ]
     )
   return ProxiesStatsSnapshot(
     utc_timestamp=dictionary.get('utc_timestamp', MISSED),
     proxies_stats=[
-      ProxyStats.fromdict(proxy_stats, strict)
+      proxy_stats_from_dict(proxy_stats, strict)
       for proxy_stats in dictionary.get('proxies_stats', [])
     ]
   )
