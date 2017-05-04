@@ -1,17 +1,19 @@
 """ Implementation of stats sources for cluster stats (node, processes, proxies) """
 import json
-import sys
-
 import logging
+import sys
+import time
+
 from appscale.common import appscale_info
-from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
 from tornado import gen, httpclient
 from tornado.options import options
 
-from appscale.hermes.stats.pubsub_base import AsyncStatsSource
+from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER, \
+  CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
 )
+from appscale.hermes.stats.pubsub_base import AsyncStatsSource
 
 
 class BadStatsListFormat(ValueError):
@@ -29,12 +31,12 @@ class ClusterNodesStatsSource(AsyncStatsSource):
   def __init__(self, local_cache, include_lists=None, limit=None,
                fetch_latest_only=False):
     """ Initialises an instance of ClusterNodeStatsSource.
-     
+
     Args:
       local_cache: an instance of LocalStatsCache where node stats of this node
           is cached. It's used to avoid HTTP calls to local API
       include_lists: a dict containing include lists for node stats fields
-          and nested entities. It allows to reduce verbosity of 
+          and nested entities. It allows to reduce verbosity of
           cluster stats collected e.g:
           {
             'node': ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
@@ -43,7 +45,7 @@ class ClusterNodesStatsSource(AsyncStatsSource):
           }
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
-          Be careful with this number, if you plan to scroll all stats 
+          Be careful with this number, if you plan to scroll all stats
           history (instead of tracking latest only) master node should collect
           stats a bit faster than it's produced on slaves.
       fetch_latest_only: a boolean determines whether old stats can be ignored.
@@ -56,12 +58,13 @@ class ClusterNodesStatsSource(AsyncStatsSource):
     self._include_lists = include_lists
     self._limit = limit
     self._fetch_latest_only = fetch_latest_only
+    self._last_debug = 0
 
   @gen.coroutine
   def get_current_async(self):
-    """ Implements StatsSource.get_current_async() method. Makes concurrent 
+    """ Implements StatsSource.get_current_async() method. Makes concurrent
     asynchronous http calls to cluster nodes and collects new node stats.
-    
+
     Returns:
       A Future object which wraps a dict with node IP as key and list of
       new NodeStatsSnapshot as value
@@ -72,7 +75,9 @@ class ClusterNodesStatsSource(AsyncStatsSource):
       node_ip: self._new_node_stats_from_node_async(node_ip)
       for node_ip in all_ips
     }
-    logging.debug(per_node_node_stats_dict)
+    if time.time() - self._last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
+      self._last_debug = time.time()
+      logging.debug(per_node_node_stats_dict)
     raise gen.Return(per_node_node_stats_dict)
 
   @gen.coroutine
@@ -113,7 +118,7 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
       local_cache: an instance of LocalStatsCache where processes stats of this
           node is cached. It's used to avoid HTTP calls to local API
       include_lists: a dict containing include lists for processes stats fields
-          and nested entities. It allows to reduce verbosity of 
+          and nested entities. It allows to reduce verbosity of
           cluster stats collected e.g:
           {
             'process': ['pid', 'monit_name', 'unified_service_name',
@@ -123,7 +128,7 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
           }
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
-          Be careful with this number, if you plan to scroll all stats 
+          Be careful with this number, if you plan to scroll all stats
           history (instead of tracking latest only) master node should collect
           stats a bit faster than it's produced on slaves.
       fetch_latest_only: a boolean determines whether old stats can be ignored.
@@ -136,12 +141,13 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
     self._include_lists = include_lists
     self._limit = limit
     self._fetch_latest_only = fetch_latest_only
+    self._last_debug = 0
 
   @gen.coroutine
   def get_current_async(self):
-    """ Implements StatsSource.get_current_async() method. Makes concurrent 
+    """ Implements StatsSource.get_current_async() method. Makes concurrent
     asynchronous http calls to cluster nodes and collects new processes stats.
-    
+
     Returns:
       A Future object which wraps a dict with node IP as key and list of
       new ProcessesStatsSnapshot as value
@@ -152,7 +158,9 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
       node_ip: self._new_processes_stats_from_node_async(node_ip)
       for node_ip in all_ips
     }
-    logging.debug(per_node_processes_stats_dict)
+    if time.time() - self._last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
+      self._last_debug = time.time()
+      logging.debug(per_node_processes_stats_dict)
     raise gen.Return(per_node_processes_stats_dict)
 
   @gen.coroutine
@@ -193,7 +201,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
       local_cache: an instance of LocalStatsCache where proxies stats of this
           node is cached. It's used to avoid HTTP calls to local API
       include_lists: a dict containing include lists for processes stats fields
-          and nested entities. It allows to reduce verbosity of 
+          and nested entities. It allows to reduce verbosity of
           cluster stats collected e.g:
           {
             'proxy': ['name', 'unified_service_name', 'application_id',
@@ -203,7 +211,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
           }
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
-          Be careful with this number, if you plan to scroll all stats 
+          Be careful with this number, if you plan to scroll all stats
           history (instead of tracking latest only) master node should collect
           stats a bit faster than it's produced on slaves.
       fetch_latest_only: a boolean determines whether old stats can be ignored.
@@ -216,12 +224,13 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
     self._include_lists = include_lists
     self._limit = limit
     self._fetch_latest_only = fetch_latest_only
+    self._last_debug = 0
 
   @gen.coroutine
   def get_current_async(self):
-    """ Implements StatsSource.get_current_async() method. Makes concurrent 
+    """ Implements StatsSource.get_current_async() method. Makes concurrent
     asynchronous http calls to cluster nodes and collects new proxies stats.
-    
+
     Returns:
       A Future object which wraps a dict with node IP as key and list of
       new ProxiesStatsSnapshot as value
@@ -232,7 +241,9 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
       node_ip: self._new_proxies_stats_from_node_async(node_ip)
       for node_ip in lb_ips
     }
-    logging.debug(per_node_proxies_stats_dict)
+    if time.time() - self._last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
+      self._last_debug = time.time()
+      logging.debug(per_node_proxies_stats_dict)
     raise gen.Return(per_node_proxies_stats_dict)
 
   @gen.coroutine

@@ -9,9 +9,10 @@ module HermesService
 
   # Starts the Hermes service on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
-  def self.start()
+  def self.start(verbose=false)
     script = `which appscale-hermes`.chomp
     start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd << ' --verbose' if verbose
     MonitInterface.start(:hermes, start_cmd)
   end
 

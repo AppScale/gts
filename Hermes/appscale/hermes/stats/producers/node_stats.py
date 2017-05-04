@@ -7,7 +7,7 @@ import logging
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.constants import MISSED
+from appscale.hermes.constants import MISSED, LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers.shared import WrongIncludeLists, \
   stats_entity_to_dict
 from appscale.hermes.stats.pubsub_base import StatsSource
@@ -76,7 +76,7 @@ class NodeNetwork(object):
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class NodeStatsSnapshot(object):
   """
-  Object of NodeStatsSnapshot is kind of structured container for all info related 
+  Object of NodeStatsSnapshot is kind of structured container for all info related
   to resources used on the machine. Additionally it stores UTC timestamp
   which reflects the moment when stats were taken.
 
@@ -99,10 +99,12 @@ class NodeStatsSnapshot(object):
 
 class NodeStatsSource(StatsSource):
 
+  last_debug = 0
+
   def get_current(self):
     """ Method for building an instance of NodeStatsSnapshot.
     It collects information about usage of main resource on the machine.
-  
+
     Returns:
       An object of NodeStatsSnapshot with detailed explanation of resources used
       on the machine
@@ -162,7 +164,9 @@ class NodeStatsSource(StatsSource):
       memory=memory, swap=swap, disk_io=disk_io,
       partitions_dict=partitions_dict, network=network, loadavg=loadavg
     )
-    logging.debug(stats)
+    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
+      NodeStatsSource.last_debug = time.time()
+      logging.debug(stats)
     return stats
 
 
@@ -233,10 +237,10 @@ def node_stats_snapshot_from_dict(dictionary, strict=False):
 def node_stats_snapshot_to_dict(stats, include_lists=None):
   """ Converts an instance of NodeStatsSnapshot to dictionary. Optionally
   it can
-  
+
   Args:
     stats: an instance of NodeStatsSnapshot to render
-    include_lists: a dictionary containing include lists for root entity 
+    include_lists: a dictionary containing include lists for root entity
         (node stats), for NodeCPU entity, NodeMemory, ...
         e.g.: {
           'node': ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],

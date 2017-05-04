@@ -15,8 +15,6 @@ setup(
     'tornado',
     'psutil==5.1.3',
     'attrs',
-  ],
-  tests_require=[
     'flexmock',
     'mock',
   ],

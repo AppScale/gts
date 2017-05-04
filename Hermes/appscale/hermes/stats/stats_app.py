@@ -202,7 +202,7 @@ class StatsApp(object):
     """
     return [
       (route, handler.handler_class, handler.init_kwargs)
-      for route, handler in self._routes.iteritems() 
+      for route, handler in self._routes.iteritems()
     ]
 
   def _init_local_node_stats_publisher(self):

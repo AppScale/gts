@@ -13,7 +13,7 @@ class StatsCache(StatsSubscriber):
   reading method with acknowledgment mechanism.
   Each node has local stats cache for each kind of stats it collects
   (node stats, processes stats and haproxy stats for LB nodes).
-  It is used as a temporary storage for stats which wasn't read by master yet.  
+  It is used as a temporary storage for stats which wasn't read by master yet.
   """
 
   def __init__(self, snapshots_cache_size, ttl=None):
@@ -27,7 +27,7 @@ class StatsCache(StatsSubscriber):
   def receive(self, stats_snapshot):
     """ Appends stats_snapshot to the limited cache.
     If cache size is exceeded removes oldest snapshots.
-    
+
     Args:
       stats_snapshot: an object with utc_timestamp attribute
     """
@@ -45,7 +45,7 @@ class StatsCache(StatsSubscriber):
   def bulk_receive(self, stats_snapshots):
     """ Appends stats_snapshots to the limited cache.
     If cache size is exceeded removes oldest snapshots.
-    
+
     Args:
       stats_snapshots: a list of objects with utc_timestamp attribute
     """
@@ -61,10 +61,10 @@ class StatsCache(StatsSubscriber):
       self._cache_lock.release()
 
   def get_stats_after(self, last_timestamp=BIG_BANG_TIMESTAMP, clean_older=True):
-    """ Gets statistics snapshots which are newer than last_timestamp. 
-    Optionally it can remove older snapshots. In this case last_timestamp 
+    """ Gets statistics snapshots which are newer than last_timestamp.
+    Optionally it can remove older snapshots. In this case last_timestamp
     works like acknowledgment in TCP
-    
+
     Args:
       last_timestamp: unix epoch timestamp of the latest snapshot which was read
       clean_older: determines whether older snapshots should be removed

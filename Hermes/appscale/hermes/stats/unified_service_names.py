@@ -10,11 +10,11 @@ class Service(object):
   """
   An instance of this class correspond to specific family of AppScale services.
   e.g.: taskqueue, datastore, application (user application), cassandra, ...
-  
+
   It's able to recognize itself in monit name and haproxy proxy name.
   Patterns which are used for recognition should also match application id,
   port and ip when possible.
-  
+
   It's aimed to centralize parsing of service names
   in monit output and haproxy stats.
   It helps to define monit and haproxy name formats in a compact way.
@@ -23,10 +23,10 @@ class Service(object):
 
   # monit_matcher have to contain 'app' and 'port' groups when possible
   monit_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
-  
+
   # haproxy_proxy_matcher have to contain 'app' group when possible
   haproxy_proxy_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
-  
+
   # haproxy_server_matcher have to contain 'app', 'ip' and 'port' groups when possible
   haproxy_server_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
 

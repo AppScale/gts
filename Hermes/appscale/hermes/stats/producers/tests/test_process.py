@@ -14,7 +14,7 @@ Process 'haproxy'
   monitoring status                 Monitored
   pid                               8466
   parent pid                        1
-  uptime                            20h 21m 
+  uptime                            20h 21m
   children                          0
   memory kilobytes                  8140
   memory kilobytes total            8140
@@ -23,7 +23,7 @@ Process 'haproxy'
   cpu percent                       0.0%
   cpu percent total                 0.0%
   data collected                    Wed, 19 Apr 2017 14:15:29
-  
+
 File 'groomer_file_check'
   status                            Accessible
   monitoring status                 Monitored
@@ -33,13 +33,13 @@ Process 'appmanagerserver'
   status                            Not monitored
   monitoring status                 Not monitored
   data collected                    Wed, 19 Apr 2017 13:49:44
-  
+
 Process 'app___my-25app-20003'
   status                            Running
   monitoring status                 Monitored
   pid                               5045
   parent pid                        5044
-  uptime                            21h 41m 
+  uptime                            21h 41m
   children                          1
   memory kilobytes                  65508
   memory kilobytes total            132940
@@ -73,13 +73,14 @@ class TestCurrentProcessesStats(unittest.TestCase):
     mock_get_private_ip.return_value = '1.1.1.1'
 
     # Calling method under test
-    process_stats.ProcessesStatsSource().get_current()
+    snapshot = process_stats.ProcessesStatsSource().get_current()
 
     # Checking expectations
     mock_process_stats.assert_has_calls([
       call(8466, ServicesEnum.HAPROXY, 'haproxy', '1.1.1.1'),
       call(5045, ServicesEnum.APPLICATION, 'app___my-25app-20003', '1.1.1.1')
     ])
+    self.assertIsInstance(snapshot, process_stats.ProcessesStatsSnapshot)
 
   @patch.object(process_stats.appscale_info, 'get_private_ip')
   @patch.object(process_stats.subprocess, 'check_output')

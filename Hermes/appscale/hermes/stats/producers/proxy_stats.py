@@ -8,7 +8,8 @@ from datetime import datetime
 
 import attr
 
-from appscale.hermes.constants import MISSED, HAPROXY_STATS_SOCKET_PATH
+from appscale.hermes.constants import MISSED, HAPROXY_STATS_SOCKET_PATH, \
+  LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.producers.shared import WrongIncludeLists, stats_entity_to_dict
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
@@ -249,10 +250,13 @@ def _get_field_value(row, field_name):
 
 class ProxiesStatsSource(StatsSource):
 
+  first_run = True
+  last_debug = 0
+
   def get_current(self):
     """ Method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
-  
+
     Returns:
       ProxiesStatsSnapshot
     """
@@ -263,10 +267,12 @@ class ProxiesStatsSource(StatsSource):
     ).replace("# ", "", 1)
     csv_cache = StringIO.StringIO(csv_text)
     table = csv.DictReader(csv_cache, delimiter=',')
-    missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
-    if missed:
-      logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
-                   "is probably used (v1.5+ is expected)".format(list(missed)))
+    if ProxiesStatsSource.first_run:
+      missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
+      if missed:
+        logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
+                     "is probably used (v1.5+ is expected)".format(list(missed)))
+      ProxiesStatsSource.first_run = False
 
     # Parse haproxy stats output line by line
     parsed_objects = defaultdict(list)
@@ -329,7 +335,9 @@ class ProxiesStatsSource(StatsSource):
       utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
       proxies_stats=proxy_stats_list
     )
-    logging.debug(stats)
+    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
+      ProxiesStatsSource.last_debug = time.time()
+      logging.debug(stats)
     return stats
 
 
@@ -425,7 +433,7 @@ def proxies_stats_snapshot_from_dict(dictionary, strict=False):
 def proxies_stats_snapshot_to_dict(stats, include_lists=None):
   """ Converts an instance of ProxiesStatsSnapshot to dictionary. Optionally
   it can
-  
+
   Args:
     stats: an instance of ProxiesStatsSnapshot to render
     include_lists: a dictionary containing include lists for rendering
@@ -444,7 +452,7 @@ def proxies_stats_snapshot_to_dict(stats, include_lists=None):
   if include_lists and not isinstance(include_lists, dict):
     raise WrongIncludeLists('include_lists should be dict, actual type is {}'
                             .format(type(include_lists)))
-  
+
   include = include_lists or {}
   proxy_stats_fields = set(include.pop('proxy', ProxyStats.__slots__))
   nested_entities = {

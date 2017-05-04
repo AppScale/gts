@@ -26,6 +26,7 @@ from tornado.options import options
 
 import helper
 from appscale.hermes.constants import DEFAULT_HERMES_PORT
+from appscale.hermes.stats.handlers import Respond404Handler
 from appscale.hermes.stats.stats_app import StatsApp
 from handlers import MainHandler, TaskHandler
 from helper import JSONTags
@@ -223,6 +224,12 @@ def main():
     # polling until they complete.
     PeriodicCallback(poll, constants.POLLING_INTERVAL).start()
 
+    # Only master Hermes node handles /do_task route
+    task_route = ('/do_task', TaskHandler)
+  else:
+    task_route = ('/do_task', Respond404Handler,
+                  dict(reason='Hermes slaves do not manage tasks from Portal'))
+
   # Configure stats app
   stats_app = StatsApp(master, track_processes=args.track_processes_stats,
                        write_profile=args.write_profile_log,
@@ -232,14 +239,14 @@ def main():
 
   app = tornado.web.Application([
     ("/", MainHandler),
-    ("/do_task", TaskHandler),
+    task_route,
   ] + stats_app.get_routes(), debug=False)
 
   try:
     app.listen(args.port)
   except socket.error:
-    logging.error("ERROR on Hermes initialization: Port {0} already in use.".
-      format(args.port))
+    logging.error("ERROR on Hermes initialization: Port {} already in use."
+                  .format(args.port))
     shutdown()
     exit(1)
 

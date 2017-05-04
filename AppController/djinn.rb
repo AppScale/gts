@@ -3707,14 +3707,15 @@ class Djinn
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
 
+    # Start Hermes with integrated stats service
+    start_hermes(@options['verbose'])
+
     # Leader node starts additional services.
     if my_node.is_shadow?
       update_node_info_cache()
-      start_hermes()
       TaskQueue.start_flower(@options['flower_password'])
     else
       TaskQueue.stop_flower
-      stop_hermes
     end
   end
 
@@ -3825,10 +3826,10 @@ class Djinn
   end
 
   # Starts the Hermes service on this node.
-  def start_hermes()
+  def start_hermes(verbose)
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start()
+    HermesService.start(verbose)
     Djinn.log_info("Done starting Hermes service.")
   end
 

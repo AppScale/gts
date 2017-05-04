@@ -8,7 +8,7 @@ import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.constants import MISSED
+from appscale.hermes.constants import MISSED, LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers.shared import WrongIncludeLists, \
   stats_entity_to_dict
 from appscale.hermes.stats.pubsub_base import StatsSource
@@ -64,7 +64,7 @@ class ProcessesStatsSnapshot(object):
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessStats(object):
   """
-  Object of ProcessStats is kind of structured container for all info related 
+  Object of ProcessStats is kind of structured container for all info related
   to resources used by specific process. Additionally it stores UTC timestamp
   which reflects the moment when stats were taken.
 
@@ -105,11 +105,13 @@ PROCESS_ATTRS = (
 
 class ProcessesStatsSource(StatsSource):
 
+  last_debug = 0
+
   def get_current(self):
     """ Method for building a list of ProcessStats.
     It parses output of `monit status` and generates ProcessStats object
     for each monitored service
-  
+
     Returns:
       ProcessesStatsSnapshot
     """
@@ -130,7 +132,9 @@ class ProcessesStatsSource(StatsSource):
       utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
       processes_stats=processes_stats
     )
-    logging.debug(stats)
+    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
+      ProcessesStatsSource.last_debug = time.time()
+      logging.debug(stats)
     return stats
 
 
@@ -144,7 +148,7 @@ def _process_stats(pid, service, monit_name, private_ip):
              this process
     monit_name: name of corresponding monit process
   Returns:
-    An object of ProcessStats with detailed explanation of resources used by 
+    An object of ProcessStats with detailed explanation of resources used by
     the specified process and its children
   """
   # Get information about processes hierarchy (the process and its children)
@@ -306,7 +310,7 @@ def processes_stats_snapshot_from_dict(dictionary, strict=False):
 def processes_stats_snapshot_to_dict(stats, include_lists=None):
   """ Converts an instance of ProcessesStatsSnapshot to dictionary. Optionally
   it can
-  
+
   Args:
     stats: an instance of ProcessesStatsSnapshot to render
     include_lists: a dictionary containing include lists for rendering
@@ -325,7 +329,7 @@ def processes_stats_snapshot_to_dict(stats, include_lists=None):
   if include_lists and not isinstance(include_lists, dict):
     raise WrongIncludeLists('include_lists should be dict, actual type is {}'
                             .format(type(include_lists)))
-  
+
   include = include_lists or {}
   process_stats_fields = set(include.pop('process', ProcessStats.__slots__))
   nested_entities = {

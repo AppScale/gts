@@ -60,7 +60,7 @@ class StatsSubscriber(object):
 
   def __repr__(self):
     return self.subscriber_name
-  
+
   def receive(self, stats):
     """ Handlers produced stats entity
     Args:
@@ -79,7 +79,7 @@ class StatsPublisher(object):
     """ Initializes an instance of stats publisher.
     Args:
       stats_source: an instance of subclass of StatsSource or AsyncStatsSource
-      publishing_interval: an integer determines publishing cycle length in ms 
+      publishing_interval: an integer determines publishing cycle length in ms
     """
     self._subscribers = {}
     self._stats_source = stats_source
