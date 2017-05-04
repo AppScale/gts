@@ -5504,7 +5504,7 @@ HOSTS
 
     if total_req_in_queue.zero?
       if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time as passed to scale down app #{app_name}")
+        Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
         return 0
       end
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
@@ -5514,7 +5514,7 @@ HOSTS
 
     if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
       if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time as passed to scale up app #{app_name}")
+        Djinn.log_debug("Not enough time has passed to scale up app #{app_name}")
         return 0
       end
       Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
