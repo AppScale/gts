@@ -140,6 +140,7 @@ class StatsPublisher(object):
         )
 
   def start(self):
+    self._read_and_publish()
     return self._periodic_callback.start()
 
   def stop(self):

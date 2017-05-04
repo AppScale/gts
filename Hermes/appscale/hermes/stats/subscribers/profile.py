@@ -4,7 +4,7 @@ from appscale.hermes.stats.pubsub_base import StatsSubscriber
 class ClusterNodesProfileLog(StatsSubscriber):
 
   def receive(self, nodes_stats_dict):
-    print()
+    pass
 
 
 class ClusterProcessesProfileLog(StatsSubscriber):

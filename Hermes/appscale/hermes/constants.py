@@ -1,10 +1,10 @@
 """ Constants that are used for Hermes functionality (backup/restore/etc.). """
 
 # The user account type for deploying the appscalesensor app.
-ACCOUNT_TYPE = "user"
+ACCOUNT_TYPE = 'user'
 
 # Location where deployed app source code resides in an AppScale deployment.
-APP_DIR_LOCATION = "/opt/appscale/apps"
+APP_DIR_LOCATION = '/opt/appscale/apps'
 
 # The app id for the appscalesensor application.
 APPSCALE_SENSOR = 'appscalesensor'
@@ -13,7 +13,7 @@ APPSCALE_SENSOR = 'appscalesensor'
 BR_SERVICE_PORT = 8423
 
 # The br_service path for starting a new task.
-BR_SERVICE_PATH = "/"
+BR_SERVICE_PATH = '/'
 
 # The suffix for backup files from a DB master node.
 DB_MASTER_OBJECT_NAME = '/cassandra/db_master.tar.gz'
@@ -26,7 +26,7 @@ DEBUG = False
 DB_SLAVE_OBJECT_NAME = '/cassandra/db_slave_{0}.tar.gz'
 
 # The file suffix to match for the tarred file to be deployed.
-FILE_SUFFIX = "tar.gz"
+FILE_SUFFIX = 'tar.gz'
 
 # The port Hermes listens to.
 DEFAULT_HERMES_PORT = 4378
@@ -38,16 +38,16 @@ HTTPError = 'HTTPError'
 POLLING_INTERVAL = 30*1000    # 30 seconds.
 
 # The AppScale Portal URL for getting new tasks.
-PORTAL_URL = "https://portal.appscale.com"
+PORTAL_URL = 'https://portal.appscale.com'
 
 # The AppScale Portal path for getting new tasks.
-PORTAL_POLL_PATH = "/get_appscale_task"
+PORTAL_POLL_PATH = '/get_appscale_task'
 
 # The AppScale Portal path for sending all stats.
-PORTAL_STATS_PATH = "/deployments/{}/all_stats"
+PORTAL_STATS_PATH = '/deployments/{}/all_stats'
 
 # The AppScale Portal path for reporting task status.
-PORTAL_STATUS_PATH = "/report_appscale_task"
+PORTAL_STATUS_PATH = '/report_appscale_task'
 
 # A list of required parameters that define a task.
 REQUIRED_KEYS = ['task_id', 'type', 'bucket_name', 'storage']
@@ -62,7 +62,7 @@ SUPPORTED_TASKS = ['backup', 'restore']
 UPLOAD_SENSOR_INTERVAL = 60*1000    # 60 seconds.
 
 # The username for deploying the appscalesensor app.
-USER_EMAIL = "appscale_user@appscale.local"
+USER_EMAIL = 'appscale_user@appscale.local'
 
 
 ################ STATS CONSTANTS ################
@@ -86,7 +86,7 @@ CLUSTER_PROCESSES_STATS_CACHE_SIZE = 1
 CLUSTER_PROXIES_STATS_CACHE_SIZE = 1
 
 # Path to haproxy stats socket
-HAPROXY_STATS_SOCKET_PATH = "/etc/haproxy/stats"
+HAPROXY_STATS_SOCKET_PATH = '/etc/haproxy/stats'
 
 #################################################
 
@@ -120,6 +120,6 @@ class _MissedValue(object):
     return False
 
   def __repr__(self):
-    return ""
+    return ''
 
 MISSED = _MissedValue()
