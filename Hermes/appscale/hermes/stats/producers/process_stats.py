@@ -327,7 +327,7 @@ def processes_stats_snapshot_to_dict(stats, include_lists=None):
                             .format(type(include_lists)))
   
   include = include_lists or {}
-  proxy_stats_fields = set(include.pop('process', ProcessStats.__slots__))
+  process_stats_fields = set(include.pop('process', ProcessStats.__slots__))
   nested_entities = {
     'cpu': set(include.pop('process.cpu', ProcessCPU.__slots__)),
     'memory': set(include.pop('process.memory', ProcessMemory.__slots__)),
@@ -344,15 +344,25 @@ def processes_stats_snapshot_to_dict(stats, include_lists=None):
 
   try:
     rendered_processes = []
-    for proxy in stats.processes_stats:
+    for process in stats.processes_stats:
       rendered_process = {}
 
-      for field in proxy_stats_fields:
-        value = getattr(proxy, field)
+      for field in process_stats_fields:
+        value = getattr(process, field)
         if field in nested_entities:
-          # render nested entity like ProcessMemory
-          rendered_process[field] = \
-            stats_entity_to_dict(value, nested_entities[field])
+          if field == 'children_stats_sum':
+            # render children_stats_sum with its nested entities
+            children_stats_sum = {}
+            for nested_field in nested_entities['children_stats_sum']:
+              nested_value = getattr(value, nested_field)
+              children_stats_sum[nested_field] = stats_entity_to_dict(
+                nested_value, nested_entities[nested_field]
+              )
+            rendered_process[field] = children_stats_sum
+          else:
+            # render nested entity like ProcessMemory
+            rendered_process[field] = \
+              stats_entity_to_dict(value, nested_entities[field])
         else:
           rendered_process[field] = value
 
