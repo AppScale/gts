@@ -174,7 +174,7 @@ class BaseHandler(web.RequestHandler):
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
   def initialize(self, acc, ua_client, zk_client):
-    """ Defines an AppControllerClient and UAClient.
+    """ Defines an AppControllerClient, UAClient, and KazooClient.
 
     Args:
       acc: An AppControllerClient.
