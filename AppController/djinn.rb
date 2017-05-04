@@ -5378,6 +5378,7 @@ HOSTS
       scale_up_instances(needed_appservers)
       return
     end
+    scale_down_instances
   end
 
   # Adds additional nodes to the deployment, depending on the
@@ -5437,6 +5438,112 @@ HOSTS
     }
   end
 
+  # Removes autoscaled nodes from the deployment as long as they are not running
+  # any AppServers and the minimum number of user specified machines are still
+  # running in the deployment.
+  #
+  # Args:
+  #   max_scale_down_capacity: A Integer containing the maximum number of
+  #     instances we can scale down for this deployment.
+  def scale_down_instances
+
+    Djinn.log_warn("APPS LOADED #{@apps_loaded}")
+    Djinn.log_warn("APP INFO #{@app_info_map}")
+    num_scaled_down = 0
+    # If we are already at the minimum number of machines that the user specified,
+    # then we do not have the capacity to scale down. 
+    max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
+    if max_scale_down_capacity == 0
+      Djinn.log_warn("We are already at the minimum number of user specified machines," +
+        "so will not be scaling down")
+      return
+    end
+
+    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * 
+        SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
+      Djinn.log_info("Not scaling down right now, as we recently scaled " +
+        "up or down.")
+      return
+    end
+
+    get_all_appengine_nodes.reverse_each { |node_ip|
+      # If we have already scaled down to our maximum capacity
+      # then return.
+      if num_scaled_down == max_scale_down_capacity
+        return
+      end 
+      
+      hosted_apps = []
+      @apps_loaded.each { |app_name|
+        @app_info_map[app_name]['appengine'].each { |location|
+          host, port = location.split(":")
+          if host == node_ip
+            hosted_apps << "#{app_name}:#{port}"
+          end
+        }
+      }
+      
+      unless hosted_apps.empty?
+        Djinn.log_debug("The node #{node_ip} has these AppServers " +
+        "running: #{hosted_apps}")
+        next
+      end
+
+      node_to_remove = nil
+      @nodes.each{ |node|
+        if node.private_ip == node_ip && node.jobs == ['appengine']
+          Djinn.log_info("Removing node #{node}")
+          node_to_remove = node
+          break
+        end
+      }
+      terminate_node_from_deployment(node_to_remove)
+      num_scaled_down += 1
+    }
+    @last_scaling_time = Time.now.to_i
+  end
+
+  # Removes the specified node from the deployment and terminates
+  # the instance from the cloud.
+  #
+  # Args:
+  #   node_to_remove: A node instance, to be terminated and removed 
+  #     from this deployment.
+  def terminate_node_from_deployment(node_to_remove)
+    if node_to_remove.nil?
+      Djinn.log_warn("Tried to scale down but couldn't find a node to remove.")
+      return 0
+    end
+
+    remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
+
+    to_remove = {}
+    @app_info_map.each { |app_id, info|
+      next if info['appengine'].nil?
+
+      info['appengine'].each { |location|
+        host, port = location.split(":")
+        if host == node_to_remove.private_ip
+          to_remove[app] = [] if to_remove[app].nil?
+          to_remove[app] << location
+        end
+      }
+    }
+    to_remove.each { |app, locations|
+        locations.each { |location|
+          @app_info_map[app]['appengine'].delete(location)
+        }
+    }
+
+    imc = InfrastructureManagerClient.new(@@secret)
+    begin
+      imc.terminate_instances(@options, node_to_remove.instance_id)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to call terminate_instances")
+    end
+
+    @last_scaling_time = Time.now.to_i
+  end
 
   # Sets up information about the request rate and number of requests in
   # haproxy's queue for the given application.
