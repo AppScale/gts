@@ -5381,9 +5381,11 @@ HOSTS
     scale_down_instances
   end
 
-  # Adds additional nodes to the deployment, depending on the
-  # statistics of the application and the loads of the various
-  # services.
+  # Adds additional nodes to the deployment, depending on the load of the 
+  # application and the additional AppServers we need to accomodate.
+  #
+  # Args:
+  #   needed_appservers: The number of additional AppServers needed.
   def scale_up_instances(needed_appservers)
     # Here we count the number of machines we need to spawn, and the roles
     # we need.
@@ -5441,10 +5443,6 @@ HOSTS
   # Removes autoscaled nodes from the deployment as long as they are not running
   # any AppServers and the minimum number of user specified machines are still
   # running in the deployment.
-  #
-  # Args:
-  #   max_scale_down_capacity: A Integer containing the maximum number of
-  #     instances we can scale down for this deployment.
   def scale_down_instances
 
     Djinn.log_warn("APPS LOADED #{@apps_loaded}")
