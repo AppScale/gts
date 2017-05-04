@@ -355,9 +355,13 @@ def processes_stats_snapshot_to_dict(stats, include_lists=None):
             children_stats_sum = {}
             for nested_field in nested_entities['children_stats_sum']:
               nested_value = getattr(value, nested_field)
-              children_stats_sum[nested_field] = stats_entity_to_dict(
-                nested_value, nested_entities[nested_field]
-              )
+              if nested_value is MISSED:
+                continue
+              if nested_field in nested_entities:
+                children_stats_sum[nested_field] = stats_entity_to_dict(
+                  nested_value, nested_entities[nested_field])
+              else:
+                children_stats_sum[nested_field] = nested_value
             rendered_process[field] = children_stats_sum
           else:
             # render nested entity like ProcessMemory
