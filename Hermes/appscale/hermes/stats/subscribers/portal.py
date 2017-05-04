@@ -9,7 +9,6 @@ from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 class NodeStatsPortalSender(StatsSubscriber):
   def __init__(self):
-    super(NodeStatsPortalSender, self).__init__("NodeStatsPortalSender")
     self._portal_method = '/{deployment_id}/stats/cluster/nodes'
 
   def receive(self, nodes_stats):
@@ -45,7 +44,6 @@ class NodeStatsPortalSender(StatsSubscriber):
 
 class ProcessesStatsPortalSender(StatsSubscriber):
   def __init__(self):
-    super(ProcessesStatsPortalSender, self).__init__("ProcessesStatsPortalSender")
     self._portal_method = '/{deployment_id}/stats/cluster/processes'
 
   def receive(self, nodes_stats):
@@ -55,7 +53,6 @@ class ProcessesStatsPortalSender(StatsSubscriber):
 
 class ProxiesStatsPortalSender(StatsSubscriber):
   def __init__(self):
-    super(ProxiesStatsPortalSender, self).__init__("ProxiesStatsPortalSender")
     self._portal_method = '/{deployment_id}/stats/cluster/proxies'
 
   def receive(self, nodes_stats):

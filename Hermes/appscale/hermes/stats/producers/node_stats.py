@@ -98,8 +98,6 @@ class NodeStatsSnapshot(object):
 
 
 class NodeStatsSource(StatsSource):
-  def __init__(self):
-    super(NodeStatsSource, self).__init__("NodeStats")
 
   def get_current(self):
     """ Method for building an instance of NodeStatsSnapshot.

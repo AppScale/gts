@@ -51,7 +51,6 @@ class ClusterNodesStatsSource(AsyncStatsSource):
           otherwise it will request stats snapshots newer than latest read,
           so if limit is specified, it can get the latest stats with delay.
     """
-    super(ClusterNodesStatsSource, self).__init__('ClusterNodesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists
@@ -132,7 +131,6 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
           otherwise it will request stats snapshots newer than latest read,
           so if limit is specified, it can get the latest stats with delay.
     """
-    super(ClusterProcessesStatsSource, self).__init__('ClusterProcessesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists
@@ -213,7 +211,6 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
           otherwise it will request stats snapshots newer than latest read,
           so if limit is specified, it can get the latest stats with delay.
     """
-    super(ClusterProxiesStatsSource, self).__init__('ClusterProxiesStats')
     self._utc_timestamp_cursors = {}
     self._local_cache = local_cache
     self._include_lists = include_lists

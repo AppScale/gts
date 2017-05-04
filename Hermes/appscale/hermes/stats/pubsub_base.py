@@ -2,7 +2,6 @@
 import logging
 import sys
 
-import attr
 from tornado.ioloop import PeriodicCallback, IOLoop
 
 
@@ -16,13 +15,14 @@ class SubscriberIsNotRegistered(Exception):
   pass
 
 
-@attr.s(frozen=True)
 class StatsSource(object):
   """
   Base class for producers of any kind of stats.
   Subclasses should implement method get_current()
   """
-  stats_name = attr.ib()
+  @property
+  def stats_name(self):
+    return self.__class__.__name__
 
   def __repr__(self):
     return self.stats_name
@@ -32,13 +32,14 @@ class StatsSource(object):
     raise NotImplementedError()
 
 
-@attr.s(frozen=True)
 class AsyncStatsSource(object):
   """
   Base class for asynchronous producers of any kind of stats.
   Subclasses should implement get_current_async()
   """
-  stats_name = attr.ib()
+  @property
+  def stats_name(self):
+    return self.__class__.__name__
 
   def __repr__(self):
     return self.stats_name
@@ -48,16 +49,17 @@ class AsyncStatsSource(object):
     raise NotImplementedError()
 
 
-@attr.s(frozen=True)
 class StatsSubscriber(object):
   """
   Base class for stats consumers.
   Subclasses should implement method receive(stats)
   """
-  subscriber_name = attr.ib()
+  @property
+  def subscriber_name(self):
+      return self.__class__.__name__
 
   def __repr__(self):
-    return self._subscriber_name
+    return self.subscriber_name
   
   def receive(self, stats):
     """ Handlers produced stats entity

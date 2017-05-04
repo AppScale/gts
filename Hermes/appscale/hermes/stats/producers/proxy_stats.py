@@ -248,8 +248,6 @@ def _get_field_value(row, field_name):
 
 
 class ProxiesStatsSource(StatsSource):
-  def __init__(self):
-    super(ProxiesStatsSource, self).__init__("ProxiesStats")
 
   def get_current(self):
     """ Method which parses haproxy stats and returns detailed

@@ -17,7 +17,6 @@ class StatsCache(StatsSubscriber):
   """
 
   def __init__(self, snapshots_cache_size, ttl=None):
-    super(StatsCache, self).__init__("StatsCache")
     self._snapshots_cache = []
     self._cache_lock = threading.Lock()
     if snapshots_cache_size < 1:
@@ -113,7 +112,6 @@ class StatsCache(StatsSubscriber):
 class ClusterStatsCache(StatsSubscriber):
 
   def __init__(self, per_node_cache_size, ttl=None):
-    super(ClusterStatsCache, self).__init__("ClusterStatsCache")
     self._node_caches = {}
     if per_node_cache_size < 1:
       raise ValueError("Per node cache size can be fewer than 1")

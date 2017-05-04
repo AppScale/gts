@@ -104,8 +104,6 @@ PROCESS_ATTRS = (
 
 
 class ProcessesStatsSource(StatsSource):
-  def __init__(self):
-    super(ProcessesStatsSource, self).__init__("ProcessesStats")
 
   def get_current(self):
     """ Method for building a list of ProcessStats.
