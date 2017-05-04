@@ -241,7 +241,7 @@ def node_stats_snapshot_to_dict(stats, include_lists=None):
     include_lists: a dictionary containing include lists for root entity 
         (node stats), for NodeCPU entity, NodeMemory, ...
         e.g.: {
-          'node' ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
+          'node': ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
           'node.memory': ['available'],
           'node.loadavg': ['last_5min'],
         }
@@ -256,6 +256,7 @@ def node_stats_snapshot_to_dict(stats, include_lists=None):
 
   include = include_lists or {}
   node_stats_fields = set(include.pop('node', NodeStatsSnapshot.__slots__))
+  node_stats_fields.add('utc_timestamp')  # timestamp is required
   nested_entities = {
     'cpu': set(include.pop('node.cpu', NodeCPU.__slots__)),
     'memory': set(include.pop('node.memory', NodeMemory.__slots__)),

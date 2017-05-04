@@ -314,8 +314,8 @@ def processes_stats_snapshot_to_dict(stats, include_lists=None):
     include_lists: a dictionary containing include lists for rendering
         ProcessStats entity, ProcessCPU entity, ProcessMemory, ...
         e.g.: {
-          'process' ['pid', 'monit_name', 'unified_service_name',
-                     'application_id', 'private_ip', 'port', 'cpu', 'memory'],
+          'process': ['pid', 'monit_name', 'unified_service_name',
+                      'application_id', 'private_ip', 'port', 'cpu', 'memory'],
           'process.cpu': ['user', 'system'],
           'process.memory': ['unique'],
         }

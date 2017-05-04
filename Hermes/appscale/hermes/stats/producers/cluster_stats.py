@@ -6,10 +6,9 @@ import logging
 from appscale.common import appscale_info
 from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
 from tornado import gen, httpclient
-from tornado.ioloop import IOLoop
 from tornado.options import options
 
-from appscale.hermes.stats.pubsub_base import StatsSource
+from appscale.hermes.stats.pubsub_base import AsyncStatsSource
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
 )
@@ -20,7 +19,7 @@ class BadStatsListFormat(ValueError):
   pass
 
 
-class ClusterNodesStatsSource(StatsSource):
+class ClusterNodesStatsSource(AsyncStatsSource):
   """
   Gets node stats from all nodes in the cluster.
   In verbose mode of Hermes it will 'scroll' cached stats from all nodes
@@ -38,7 +37,7 @@ class ClusterNodesStatsSource(StatsSource):
           and nested entities. It allows to reduce verbosity of 
           cluster stats collected e.g:
           {
-            'node' ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
+            'node': ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
             'node.memory': ['available'],
             'node.loadavg': ['last_5min'],
           }
@@ -61,11 +60,12 @@ class ClusterNodesStatsSource(StatsSource):
 
   @gen.coroutine
   def get_current_async(self):
-    """ Implements StatsSource.get_current() method. Makes http calls to cluster
-    nodes and collects new node stats.
+    """ Implements StatsSource.get_current_async() method. Makes concurrent 
+    asynchronous http calls to cluster nodes and collects new node stats.
     
     Returns:
-      a dict with node IP as key and list of new NodeStatsSnapshot as value
+      A Future object which wraps a dict with node IP as key and list of
+      new NodeStatsSnapshot as value
     """
     all_ips = appscale_info.get_all_ips()
     # Do multiple requests asynchronously and wait for all results
@@ -99,7 +99,7 @@ class ClusterNodesStatsSource(StatsSource):
     raise gen.Return(new_snapshots)
 
 
-class ClusterProcessesStatsSource(StatsSource):
+class ClusterProcessesStatsSource(AsyncStatsSource):
   """
   Gets processes stats from all nodes in the cluster.
   In verbose mode of Hermes it will 'scroll' cached stats from all nodes
@@ -117,8 +117,8 @@ class ClusterProcessesStatsSource(StatsSource):
           and nested entities. It allows to reduce verbosity of 
           cluster stats collected e.g:
           {
-            'process' ['pid', 'monit_name', 'unified_service_name',
-                       'application_id', 'private_ip', 'port', 'cpu', 'memory'],
+            'process': ['pid', 'monit_name', 'unified_service_name',
+                        'application_id', 'private_ip', 'port', 'cpu', 'memory'],
             'process.cpu': ['user', 'system'],
             'process.memory': ['unique'],
           }
@@ -141,11 +141,12 @@ class ClusterProcessesStatsSource(StatsSource):
 
   @gen.coroutine
   def get_current_async(self):
-    """ Implements StatsSource.get_current() method. Makes http calls to cluster
-    nodes and collects new processes stats.
+    """ Implements StatsSource.get_current_async() method. Makes concurrent 
+    asynchronous http calls to cluster nodes and collects new processes stats.
     
     Returns:
-      a dict with node IP as key and list of new ProcessesStatsSnapshot as value
+      A Future object which wraps a dict with node IP as key and list of
+      new ProcessesStatsSnapshot as value
     """
     all_ips = appscale_info.get_all_ips()
     # Do multiple requests asynchronously and wait for all results
@@ -179,7 +180,7 @@ class ClusterProcessesStatsSource(StatsSource):
     raise gen.Return(new_snapshots)
 
 
-class ClusterProxiesStatsSource(StatsSource):
+class ClusterProxiesStatsSource(AsyncStatsSource):
   """
   Gets proxies stats from all nodes in the cluster.
   In verbose mode of Hermes it will 'scroll' cached stats from all nodes
@@ -197,8 +198,8 @@ class ClusterProxiesStatsSource(StatsSource):
           and nested entities. It allows to reduce verbosity of 
           cluster stats collected e.g:
           {
-            'proxy' ['name', 'unified_service_name', 'application_id',
-                     'frontend', 'backend'],
+            'proxy': ['name', 'unified_service_name', 'application_id',
+                      'frontend', 'backend'],
             'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
             'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
           }
@@ -221,11 +222,12 @@ class ClusterProxiesStatsSource(StatsSource):
 
   @gen.coroutine
   def get_current_async(self):
-    """ Implements StatsSource.get_current() method. Makes http calls to cluster
-    nodes and collects new proxies stats.
+    """ Implements StatsSource.get_current_async() method. Makes concurrent 
+    asynchronous http calls to cluster nodes and collects new proxies stats.
     
     Returns:
-      a dict with node IP as key and list of new ProxiesStatsSnapshot as value
+      A Future object which wraps a dict with node IP as key and list of
+      new ProxiesStatsSnapshot as value
     """
     lb_ips = appscale_info.get_load_balancer_ips()
     # Do multiple requests asynchronously and wait for all results

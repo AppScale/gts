@@ -126,13 +126,24 @@ class StatsApp(object):
       # To reduce slave-to-master traffic and verbosity of cluster stats
       # you can select which fields of stats to collect on master
       self._cluster_nodes_stats.included_field_lists = {
-        # TODO
+        'node': ['cpu', 'memory', 'partitions_dict', 'loadavg'],
+        'node.cpu': ['percent', 'count'],
+        'node.memory': ['available'],
+        'node.partition': ['free', 'used'],
+        'node.loadavg': ['last_5min'],
       }
       self._cluster_processes_stats.included_field_lists = {
-        # TODO
+        'process': ['monit_name', 'unified_service_name', 'application_id',
+                    'port', 'cpu', 'memory', 'children_stats_sum'],
+        'process.cpu': ['user', 'system', 'percent'],
+        'process.memory': ['resident', 'virtual', 'unique'],
+        'process.children_stats_sum': ['cpu', 'memory'],
       }
       self._cluster_proxies_stats.included_field_lists = {
-        # TODO
+        'proxy': ['name', 'unified_service_name', 'application_id',
+                  'frontend', 'backend'],
+        'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
+        'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
       }
 
     # All routes (handlers will be assigned during configuration)

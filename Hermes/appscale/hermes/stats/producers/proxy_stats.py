@@ -433,8 +433,8 @@ def proxies_stats_snapshot_to_dict(stats, include_lists=None):
     include_lists: a dictionary containing include lists for rendering
         ProxyStats entity, HAProxyFrontendStats entity, ...
         e.g.: {
-          'proxy' ['name', 'unified_service_name', 'application_id', 'frontend',
-                   'backend'],
+          'proxy': ['name', 'unified_service_name', 'application_id', 'frontend',
+                    'backend'],
           'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
           'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
         }
