@@ -138,7 +138,7 @@ CONFIG
     end
 
     # Now let's find the corresponding configuration file and remove it.
-    config = Dir::glob("#{MONIT_CONFIG}/appscale-#{watch}*")
+    config = Dir.glob("#{MONIT_CONFIG}/appscale-#{watch}*")
     if config.length > 1
       Djinn.log_info("Found multiple monit config matches for #{watch}: #{config}.")
     end
@@ -190,7 +190,7 @@ BOO
     begin
       max_mem = Integer(mem)
       contents += "\n  if totalmem > #{max_mem} MB for 10 cycles then restart"
-    rescue
+    rescue ArgumentError
       # It was not an integer, ignoring it.
     end
 
