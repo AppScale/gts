@@ -5369,11 +5369,21 @@ HOSTS
   # on the statistics of the application and the loads of the various
   # services.
   def scale_deployment
+    # Here, we calculate how many more AppServers we need and try to start them.
+    # If we do not have enough capacity to start all of them, we return the number
+    # of more AppServers needed and spawn new machines to accommodate them.
     needed_appservers = scale_appservers
     if needed_appservers > 0
       Djinn.log_debug("Need to start VMs for #{needed_appservers} more AppServers.")
+      scale_up_instances(needed_appservers)
+      return
     end
+  end
 
+  # Adds additional nodes to the deployment, depending on the
+  # statistics of the application and the loads of the various
+  # services.
+  def scale_up_instances(needed_appservers)
     # Here we count the number of machines we need to spawn, and the roles
     # we need.
     vms_to_spawn = 0
