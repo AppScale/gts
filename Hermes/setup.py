@@ -3,7 +3,8 @@ from setuptools import setup
 setup(
   name='appscale-hermes',
   version='0.0.2',
-  description='TODO',
+  description='AppScale module which takes care about periodical backup and '
+              'restore tasks, collects statistics and can send it outside.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
   license='Apache License 2.0',
@@ -11,7 +12,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
-    'tornado==4.2.0',
+    'tornado',
     'psutil==5.1.3',
     'attrs',
   ],
