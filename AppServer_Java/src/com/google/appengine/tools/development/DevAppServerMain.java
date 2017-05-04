@@ -209,36 +209,36 @@ public class DevAppServerMain
         	}
         }, new DevAppServerOption(main, null, "admin_console_version", false)
         { // changed from admin_console_server
-                    public void apply()
-                    {
-                        this.main.admin_console_version = getValue();
-                        System.setProperty("ADMIN_CONSOLE_VERSION", this.main.admin_console_version);
-                    }
-                }, new DevAppServerOption(main, null, "APP_NAME", false)
-                {
-                    public void apply()
-                    {
-                        System.setProperty("APP_NAME", getValue());
-                    }
-                }, new DevAppServerOption(main, null, "NGINX_ADDRESS", false)
-                {
-                    public void apply()
-                    {
-                        System.setProperty("NGINX_ADDR", getValue());
-                    }
-                }, new DevAppServerOption(main, null, "NGINX_PORT", false)
-                {
-                    public void apply()
-                    {
-                        System.setProperty("NGINX_PORT", getNginxPort());
-                    }
-                }, new DevAppServerOption(main, null, "TQ_PROXY", false)
-                {
-                    public void apply()
-                    {
-                        System.setProperty("TQ_PROXY", getValue());
-                    }
-                } });
+            public void apply()
+            {
+                this.main.admin_console_version = getValue();
+                System.setProperty("ADMIN_CONSOLE_VERSION", this.main.admin_console_version);
+            }
+        }, new DevAppServerOption(main, null, "APP_NAME", false)
+        {
+            public void apply()
+            {
+                System.setProperty("APP_NAME", getValue());
+            }
+        }, new DevAppServerOption(main, null, "NGINX_ADDRESS", false)
+        {
+            public void apply()
+            {
+                System.setProperty("NGINX_ADDR", getValue());
+            }
+        }, new DevAppServerOption(main, null, "NGINX_PORT", false)
+        {
+            public void apply()
+            {
+                System.setProperty("NGINX_PORT", getNginxPort());
+            }
+        }, new DevAppServerOption(main, null, "TQ_PROXY", false)
+        {
+            public void apply()
+            {
+                System.setProperty("TQ_PROXY", getValue());
+            }
+        }});
     }
 
     private static void processInstancePorts(List<String> optionValues) {
