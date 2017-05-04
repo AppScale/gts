@@ -15,7 +15,7 @@ DIR=/root/appscale/AppController
 DAEMON=$DIR/djinnServer.rb
 DAEMON_NAME=appscale-controller
 DAEMON_USER=root
-PIDFILE=/var/run/$DAEMON_NAME.pid
+PIDFILE=/var/run/appscale/controller.pid
 SECRET_FILE=/etc/appscale/secret.key
 LOG_FILE=/var/log/appscale/controller.log
 PATH=/usr/local/bin:$PATH
@@ -28,14 +28,13 @@ do_start()
      exit 1
    fi
 
-   # If we start from boot, we need to clear the monit state. The
-   # AppController will rebuild it.
-   rm -rf /etc/monit/conf.d/appscale*cfg
+   # The run directory is cleared on every reboot.
+   mkdir -p /var/run/appscale
 
    log_daemon_msg "Starting system $DAEMON_NAME daemon"
-   start-stop-daemon --start --background --pidfile $PIDFILE\
+   start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE\
      --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c\
-     "$DAEMON >> $LOG_FILE 2>&1"
+     "exec $DAEMON >> $LOG_FILE 2>&1"
    log_end_msg $?
 }
 
@@ -43,7 +42,13 @@ do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
    start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
-   log_end_msg $?
+   RETVAL="$?"
+
+   if [ "${RETVAL}" = "0" ]; then
+       rm ${PIDFILE}
+   fi
+
+   return "$RETVAL"
 }
 
 case "$1" in
@@ -58,6 +63,11 @@ case "$1" in
         
     stop)
         do_stop
+        case "$?" in
+            # The start-stop-daemon returns "1" if service is already stopped.
+            0|1) log_end_msg 0 ;;
+            *) log_end_msg 1 ;;
+        esac
         ;;
         
     restart|reload|force-reload)

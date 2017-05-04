@@ -15,12 +15,8 @@ module GroomerService
   # Starts the Groomer Service on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
   def self.start()
-    groomer = self.scriptname
-    start_cmd = "/usr/bin/python2 #{groomer}"
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-      "#{groomer} /usr/bin/python"
-    MonitInterface.start(:groomer_service, start_cmd, stop_cmd, nil, {},
-                         start_cmd, MAX_MEM, nil, nil)
+    start_cmd = self.scriptname
+    MonitInterface.start(:groomer_service, start_cmd, nil, nil, MAX_MEM)
   end
 
   # Stops the groomer service running on this machine. Since it's

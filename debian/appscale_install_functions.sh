@@ -363,7 +363,7 @@ postinstallcassandra()
 
 installservice()
 {
-    # This must be absolete path of runtime.
+    # This must be absolute path of runtime.
     mkdir -pv ${DESTDIR}/etc/init.d/
     cp ${APPSCALE_HOME_RUNTIME}/AppController/scripts/appcontroller ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${DESTDIR}/etc/init.d/appscale-controller
@@ -371,6 +371,12 @@ installservice()
     # Make sure the init script runs each time, so that it can start the
     # AppController on system reboots.
     update-rc.d -f appscale-controller defaults
+
+    # Prevent monit from immediately restarting services at boot.
+    cp ${APPSCALE_HOME}/AppController/scripts/appscale-unmonit.sh \
+      /etc/init.d/appscale-unmonit
+    chmod -v a+x /etc/init.d/appscale-unmonit
+    update-rc.d appscale-unmonit defaults 19 21
 }
 
 postinstallservice()
@@ -566,6 +572,12 @@ installcommon()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/common
     pip install ${APPSCALE_HOME}/common
+}
+
+installadminserver()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
+    pip install ${APPSCALE_HOME}/AdminServer
 }
 
 installtaskqueue()

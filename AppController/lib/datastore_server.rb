@@ -46,12 +46,9 @@ module DatastoreServer
       "LOCAL_DB_IP" => db_local_ip 
     }
   
-    start_cmd = "/usr/bin/python2 #{datastore_server} --type #{table}"
+    start_cmd = "#{datastore_server} --type #{table}"
     start_cmd << ' --verbose' if verbose
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{datastore_server}"
-    MonitInterface.start(:datastore_server, start_cmd, stop_cmd, ports,
-                         env_vars, start_cmd, nil, nil, nil)
+    MonitInterface.start(:datastore_server, start_cmd, ports, env_vars)
   end
 
 

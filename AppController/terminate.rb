@@ -31,7 +31,7 @@ module TerminateHelper
 
     # Let's make sure we restart any non-appscale service.
     `service monit restart`
-    `/usr/bin/python2 /root/appscale/scripts/stop_service.py /root/appscale/AppController/djinnServer.rb /usr/bin/ruby`
+    `service appscale-controller stop`
     `monit start all`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 

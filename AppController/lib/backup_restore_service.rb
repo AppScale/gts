@@ -14,10 +14,7 @@ module BackupRecoveryService
   def self.start()
     bk_service = self.scriptname()
     start_cmd = "#{bk_service}"
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-          "#{bk_service} /usr/bin/python"
-    MonitInterface.start(:backup_recovery_service, start_cmd, stop_cmd,
-                         nil, {}, start_cmd, nil, nil, nil)
+    MonitInterface.start(:backup_recovery_service, start_cmd)
   end
 
   # Stops the backup/recovery service running on this machine. Since it's

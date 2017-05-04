@@ -27,18 +27,15 @@ module BlobServer
       "-d #{db_local_ip}:#{db_local_port}",
       "-p #{self::SERVER_PORT}"
     ].join(' ')
-    stop_cmd = "/usr/bin/python2 #{APPSCALE_HOME}/scripts/stop_service.py " +
-      "#{self.scriptname} /usr/bin/python"
 
-    MonitInterface.start(:blobstore, start_cmd, stop_cmd, nil,
-                         nil, start_cmd, nil, nil, nil)
+    MonitInterface.start(:blobstore, start_cmd)
   end
 
   def self.stop()
      MonitInterface.stop(:blobstore)
   end
 
-  def self.is_running?(my_ip)
+  def self.is_running?
     output = MonitInterface.is_running?(:blobstore)
     Djinn.log_debug("Checking if blobstore is already monitored: #{output}")
     return output

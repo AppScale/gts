@@ -6,6 +6,10 @@ from SOAPpy import SOAPProxy
 from .constants import UA_SERVER_PORT
 
 
+# A message returned by the UAServer to indicate that the project exists.
+EXISTING_PROJECT_MESSAGE = 'Error: appname already exist'
+
+
 class UAException(Exception):
   """ Indicates that there was a problem executing a UAServer operation. """
   pass
@@ -33,6 +37,23 @@ class UAClient(object):
       UAException if the operation was not successful.
     """
     response = self.server.add_admin_for_app(email, app_id, self.secret)
+    if response.lower() != 'true':
+      raise UAException(response)
+
+  def commit_new_app(self, app_id, email, language):
+    """ Creates new project.
+
+    Args:
+      app_id: A string specifying an application ID.
+      email: A string specifying the user's email address.
+      language: A string specifying the project's language.
+    """
+    response = self.server.commit_new_app(app_id, email, language, self.secret)
+
+    # If the project already exists, consider the operation a success.
+    if response == EXISTING_PROJECT_MESSAGE:
+      return
+
     if response.lower() != 'true':
       raise UAException(response)
 
@@ -82,8 +103,14 @@ class UAClient(object):
       app_id: A string specifying an application ID.
     Returns:
       A boolean indicating whether or not the application exists.
+    Raises:
+      UAException when unable to determine if app exists.
     """
     response = self.server.does_app_exist(app_id, self.secret)
+
+    if response.lower() not in ['true', 'false']:
+      raise UAException(response)
+
     return response.lower() == 'true'
 
   def does_user_exist(self, email):
@@ -93,8 +120,14 @@ class UAClient(object):
       email: A string specifying an email address.
     Returns:
       A boolean indicating whether or not the user exists.
+    Raises:
+      UAException when unable to determine if user exist.
     """
     response = self.server.does_user_exist(email, self.secret)
+
+    if response.lower() not in ['true', 'false']:
+      raise UAException(response)
+
     return response.lower() == 'true'
 
   def get_all_users(self):
@@ -123,9 +156,17 @@ class UAClient(object):
       app_id: A string specifying an application ID.
     Returns:
       A dictionary containing application metadata.
+    Raises:
+      UAException if unable to retrieve application metadata.
     """
     response = self.server.get_app_data(app_id, self.secret)
-    return json.loads(response)
+
+    try:
+      data = json.loads(response)
+    except ValueError:
+      raise UAException(response)
+
+    return data
 
   def get_user_data(self, email):
     """ Retrieves user metadata.

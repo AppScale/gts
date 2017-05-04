@@ -69,7 +69,7 @@ def start_zookeeper(clear_datastore)
     zk_server="zookeeper"
   end
 
-  if !File.directory?("#{DATA_LOCATION}")
+  unless File.directory?("#{DATA_LOCATION}")
     Djinn.log_info("Initializing ZooKeeper.")
     # Let's stop zookeeper in case it is still running.
     system("/usr/sbin/service #{zk_server} stop")
@@ -80,7 +80,7 @@ def start_zookeeper(clear_datastore)
 
     # Only precise (and zookeeper-server) has an init function.
     if zk_server == "zookeeper-server"
-      if not system("/usr/sbin/service #{zk_server} init")
+      unless system("/usr/sbin/service #{zk_server} init")
         Djinn.log_error("Failed to start zookeeper!")
         raise Exception FailedZooKeeperOperationException.new("Failed to" +
           " start zookeeper!")
@@ -91,11 +91,11 @@ def start_zookeeper(clear_datastore)
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  start_cmd = "/usr/sbin/service #{zk_server} start"
-  stop_cmd = "/usr/sbin/service #{zk_server} stop"
+  service = `which service`.chomp
+  start_cmd = "#{service} #{zk_server} start"
+  stop_cmd = "#{service} #{zk_server} stop"
   match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-  MonitInterface.start(:zookeeper, start_cmd, stop_cmd, nil, nil,
-                       match_cmd, nil, nil, nil)
+  MonitInterface.start_custom(:zookeeper, start_cmd, stop_cmd, match_cmd)
 end
 
 def is_zookeeper_running?

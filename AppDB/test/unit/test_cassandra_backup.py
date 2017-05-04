@@ -10,6 +10,7 @@ from appscale.common import appscale_info
 from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup import cassandra_backup
+from appscale.datastore.cassandra_env import rebalance
 from appscale.datastore.cassandra_env.cassandra_interface import NODE_TOOL
 
 sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
@@ -96,6 +97,8 @@ class TestCassandraBackup(unittest.TestCase):
       keyname, re.compile('^monit start .*'))
     flexmock(utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
+    flexmock(rebalance).should_receive('get_status').and_return(
+      [{'state': 'UN'} for _ in db_ips])
 
     cassandra_backup.restore_data(path, keyname)
 

@@ -25,17 +25,12 @@ module Ejabberd
   ONLINE_USERS_FILE = "/etc/appscale/online_xmpp_users"
 
 
-  # We need some additional logic for the start command hence using 
-  # a script.
-  START_EJABBERD_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "scripts/start_ejabberd.sh"
-
   def self.start
-    start_cmd = "bash #{START_EJABBERD_SCRIPT}"
-    stop_cmd = "/etc/init.d/ejabberd stop"
-    match_cmd = "sname ejabberd"
-    MonitInterface.start(:ejabberd, start_cmd, stop_cmd, nil, nil,
-                         match_cmd, nil, nil, nil)
+    service = `which service`.chomp
+    start_cmd = "#{service} ejabberd start"
+    stop_cmd = "#{service} ejabberd stop"
+    pidfile = '/var/run/ejabberd/ejabberd.pid'
+    MonitInterface.start_daemon(:ejabberd, start_cmd, stop_cmd, pidfile)
   end
 
   def self.stop

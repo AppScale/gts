@@ -2,6 +2,7 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 import datetime
+import random
 import sys
 import unittest
 
@@ -13,6 +14,8 @@ from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
 from appscale.datastore.dbconstants import JOURNAL_SCHEMA
 from appscale.datastore.dbconstants import TOMBSTONE
+from appscale.datastore.cassandra_env.entity_id_allocator import\
+  ScatteredAllocator
 
 from appscale.datastore.cassandra_env.cassandra_interface import (
   DatastoreProxy,
@@ -229,25 +232,6 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     dd.insert_composite_indexes([ent], [composite_index])
 
-  def test_allocate_ids(self):
-    PREFIX = "x"
-    BATCH_SIZE = 1000
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version').and_return(True)
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    self.assertEquals(dd.allocate_ids(PREFIX, BATCH_SIZE), (1, 1000))
-
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    self.assertEquals(dd.allocate_ids(PREFIX, None, max_id=1000), (1, 1000))
-
-    try:
-      # Unable to use self.assertRaises because of the optional argrument max_id
-      ed = DatastoreDistributed(db_batch, self.get_zookeeper())
-      dd.allocate_ids(PREFIX, BATCH_SIZE, max_id=10)
-      raise "Allocate IDs should not let you set max_id and size"
-    except ValueError:
-      pass
-
   def testFetchKeys(self):
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
                                               "prop1val", ns="blah")
@@ -327,7 +311,7 @@ class TestDatastoreServer(unittest.TestCase):
 
   def test_dynamic_put(self):
     PREFIX = "x\x01"
-    db_batch = flexmock()
+    db_batch = flexmock(session=flexmock())
     db_batch.should_receive('valid_data_version').and_return(True)
 
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name",
@@ -352,6 +336,9 @@ class TestDatastoreServer(unittest.TestCase):
     entity_lock = flexmock(EntityLock)
     entity_lock.should_receive('acquire')
     entity_lock.should_receive('release')
+
+    flexmock(ScatteredAllocator).should_receive('next').\
+      and_return(random.randint(1, 500))
 
     dd.dynamic_put('test', putreq_pb, putresp_pb)
     self.assertEquals(len(putresp_pb.key_list()), 2)

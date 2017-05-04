@@ -26,7 +26,6 @@ class TestErrorApp < Test::Unit::TestCase
   end
  
   def test_creation
-    errorapp = flexmock(ErrorApp)
     assert_nothing_raised(Exception) {
       ea_class = ErrorApp.new("testapp", "ERROR")
       ea_class.generate("java")
