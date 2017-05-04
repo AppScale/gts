@@ -16,6 +16,10 @@ import com.google.appengine.tools.util.Parser.ParseResult;
 import java.awt.Toolkit;
 import java.io.File;
 import java.io.PrintStream;
+import java.lang.management.ManagementFactory;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -238,6 +242,12 @@ public class DevAppServerMain
             {
                 System.setProperty("TQ_PROXY", getValue());
             }
+        }, new DevAppServerOption(main, null, "pidfile", false)
+        {
+            public void apply()
+            {
+                System.setProperty("PIDFILE", getValue());
+            }
         }});
     }
 
@@ -434,6 +444,13 @@ public class DevAppServerMain
                     updateCheck.maybePrintNagScreen(System.err);
                 }
                 updateCheck.checkJavaVersion(System.err);
+
+                String pidfile = System.getProperty("PIDFILE");
+                if (pidfile != null) {
+                    String pidString = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+                    Path file = Paths.get(pidfile);
+                    Files.write(file, pidString.getBytes());
+                }
 
                 DevAppServer server = new DevAppServerFactory().createDevAppServer(appDir, externalResourceDir, DevAppServerMain.this.address, DevAppServerMain.this.port, noJavaAgent);
 
