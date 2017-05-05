@@ -5487,6 +5487,9 @@ HOSTS
         next
       end
 
+      # Right now, only the autoscaled machines are started with just the 
+      # appengine role, so we check specifically for that during downscaling
+      # to make sure we only downscale the new machines added.
       node_to_remove = nil
       @nodes.each{ |node|
         if node.private_ip == node_ip && node.jobs == ['appengine']
