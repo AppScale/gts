@@ -5448,7 +5448,7 @@ HOSTS
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down. 
     max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
-    if max_scale_down_capacity == 0
+    if max_scale_down_capacity <= 0
       Djinn.log_warn("We are already at the minimum number of user specified machines," +
         "so will not be scaling down")
       return
@@ -5465,9 +5465,7 @@ HOSTS
     get_all_appengine_nodes.reverse_each { |node_ip|
       # If we have already scaled down to our maximum capacity
       # then return.
-      if num_scaled_down == max_scale_down_capacity
-        return
-      end 
+      break if num_scaled_down == max_scale_down_capacity
       
       hosted_apps = []
       @apps_loaded.each { |app_name|
