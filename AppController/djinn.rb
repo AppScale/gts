@@ -5444,9 +5444,6 @@ HOSTS
   # any AppServers and the minimum number of user specified machines are still
   # running in the deployment.
   def scale_down_instances
-
-    Djinn.log_warn("APPS LOADED #{@apps_loaded}")
-    Djinn.log_warn("APP INFO #{@app_info_map}")
     num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down. 
@@ -5457,6 +5454,7 @@ HOSTS
       return
     end
 
+    # Also, don't scale down if we just scaled up or down.
     if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * 
         SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling down right now, as we recently scaled " +
@@ -5491,12 +5489,14 @@ HOSTS
       # appengine role, so we check specifically for that during downscaling
       # to make sure we only downscale the new machines added.
       node_to_remove = nil
-      @nodes.each{ |node|
-        if node.private_ip == node_ip && node.jobs == ['appengine']
-          Djinn.log_info("Removing node #{node}")
-          node_to_remove = node
-          break
-        end
+      @state_change_lock.synchronize {
+        @nodes.each{ |node|
+          if node.private_ip == node_ip && node.jobs == ['appengine']
+            Djinn.log_info("Removing node #{node}")
+            node_to_remove = node
+            break
+          end
+        }
       }
       terminate_node_from_deployment(node_to_remove)
       num_scaled_down += 1
@@ -6047,116 +6047,6 @@ HOSTS
     })
     return encoded_request_info
   end
-
-
-  # Searches through the requests to scale up and down each application in this
-  # AppScale deployment, and determines if machines need to be terminated due
-  # to excess capacity.
-  #
-  # Args:
-  #   all_scaling_votes: A Hash that maps each appid (a String) to the votes
-  #     received to scale the app up or down (an Array of Strings).
-  # Returns:
-  #   An Integer that indicates how many nodes were added to this AppScale
-  #   deployment. A negative number indicates that that many nodes were
-  #   removed from this AppScale deployment.
-  def examine_scale_down_requests(all_scaling_votes)
-    # First, only scale down in cloud environments.
-    unless is_cloud?
-      Djinn.log_debug("Not scaling down VMs, because we aren't in a cloud.")
-      return 0
-    end
-
-    if @nodes.length <= Integer(@options['min_images']) or @nodes.length <= 1
-      Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
-        "minimum number of nodes the user wants to use.")
-      return 0
-    end
-
-    # Second, only consider scaling down if nobody wants to scale up.
-    @apps_loaded.each { |appid|
-      scale_ups = all_scaling_votes[appid].select { |vote| vote == "scale_up" }
-      if scale_ups.length > 0
-        Djinn.log_debug("Not scaling down VMs, because app #{appid} wants to scale" +
-          " up.")
-        return 0
-      end
-    }
-
-    # Third, only consider scaling down if we get two votes to scale down on
-    # the same app, just like we do for scaling up.
-    scale_down_threshold_reached = false
-    @apps_loaded.each { |appid|
-      scale_downs = all_scaling_votes[appid].select { |vote| vote == "scale_down" }
-      if scale_downs.length > 0
-        Djinn.log_info("Got a vote to scale down app #{appid}, so " +
-          "considering removing VMs.")
-        scale_down_threshold_reached = true
-      end
-    }
-
-    unless scale_down_threshold_reached
-      Djinn.log_debug("Not scaling down VMs right now, as not enough nodes have " +
-        "requested it.")
-      return 0
-    end
-
-    # Also, don't scale down if we just scaled up or down.
-    if Time.now.to_i - @last_scaling_time < (SCALEDOWN_THRESHOLD *
-            SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
-      Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
-        "up or down.")
-      return 0
-    end
-
-    # Finally, find a node to remove and remove it.
-    node_to_remove = nil
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.jobs == ["appengine"]
-          Djinn.log_info("Removing node #{node}")
-          node_to_remove = node
-          break
-        end
-      }
-    }
-
-    if node_to_remove.nil?
-      Djinn.log_warn("Tried to scale down but couldn't find a node to remove.")
-      return 0
-    end
-
-    remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
-
-    to_remove = {}
-    @app_info_map.each { |_, info|
-      next if info['appengine'].nil?
-
-      info['appengine'].each { |location|
-        host, port = location.split(":")
-        if host == node_to_remove.private_ip
-          to_remove[app] = [] if to_remove[app].nil?
-          to_remove[app] << location
-        end
-      }
-    }
-    to_remove.each { |app, locations|
-        locations.each { |location|
-          @app_info_map[app]['appengine'].delete(location)
-        }
-    }
-
-    imc = InfrastructureManagerClient.new(@@secret)
-    begin
-      imc.terminate_instances(@options, node_to_remove.instance_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to call terminate_instances")
-    end
-
-    @last_scaling_time = Time.now.to_i
-    return -1
-  end
-
 
   def stop_appengine()
     Djinn.log_info("Shutting down AppEngine")
