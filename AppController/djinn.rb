@@ -5519,7 +5519,7 @@ HOSTS
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
-    @app_info_map.each { |app_id, info|
+    @app_info_map.each { |_, info|
       next if info['appengine'].nil?
 
       info['appengine'].each { |location|
