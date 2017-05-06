@@ -190,7 +190,7 @@ BOO
     begin
       max_mem = Integer(mem)
       contents += "\n  if totalmem > #{max_mem} MB for 10 cycles then restart"
-    rescue ArgumentError
+    rescue ArgumentError, TypeError
       # It was not an integer, ignoring it.
     end
 
