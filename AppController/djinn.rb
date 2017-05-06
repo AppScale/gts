@@ -2834,6 +2834,17 @@ class Djinn
     return ae_nodes
   end
 
+  # Gets a list of autoscaled nodes by going through the nodes array
+  # and splitting the array from index greater than the 
+  # minimum images specified.
+  def get_autoscaled_nodes()
+    autoscaled_nodes = []
+    min_images = Integer(@options['min_images'])
+    @state_change_lock.synchronize {
+      autoscaled_nodes = @nodes.drop(min_images)
+    }
+  end
+
   def get_load_balancer()
     @state_change_lock.synchronize {
       @nodes.each { |node|
@@ -5461,10 +5472,10 @@ HOSTS
         "up or down.")
       return
     end
-
-    get_all_appengine_nodes.reverse_each { |node_ip|
-      # If we have already scaled down to our maximum capacity
-      # then return.
+    
+    # Look through an array of autoscaled nodes and check if any of the 
+    # machines are not running any AppServers and need to be downscaled.
+    get_autoscaled_nodes.reverse_each { |node|
       break if num_scaled_down == max_scale_down_capacity
       
       hosted_apps = []
@@ -5487,17 +5498,13 @@ HOSTS
       # appengine role, so we check specifically for that during downscaling
       # to make sure we only downscale the new machines added.
       node_to_remove = nil
-      @state_change_lock.synchronize {
-        @nodes.each{ |node|
-          if node.private_ip == node_ip && node.jobs == ['appengine']
-            Djinn.log_info("Removing node #{node}")
-            node_to_remove = node
-            break
-          end
-        }
-      }
-      terminate_node_from_deployment(node_to_remove)
-      num_scaled_down += 1
+      if node.jobs == ['appengine']
+        Djinn.log_info("Removing node #{node}")
+        node_to_remove = node
+      end
+      
+      num_terminated = terminate_node_from_deployment(node_to_remove)
+      num_scaled_down += num_terminated
     }
     @last_scaling_time = Time.now.to_i
   end
@@ -5539,9 +5546,11 @@ HOSTS
       imc.terminate_instances(@options, node_to_remove.instance_id)
     rescue FailedNodeException
       Djinn.log_warn("Failed to call terminate_instances")
+      return 0
     end
 
     @last_scaling_time = Time.now.to_i
+    return 1
   end
 
   # Sets up information about the request rate and number of requests in
