@@ -5482,7 +5482,7 @@ HOSTS
       @apps_loaded.each { |app_name|
         @app_info_map[app_name]['appengine'].each { |location|
           host, port = location.split(":")
-          if host == node_ip
+          if host == node.private_ip
             hosted_apps << "#{app_name}:#{port}"
           end
         }
