@@ -5489,7 +5489,7 @@ HOSTS
       }
       
       unless hosted_apps.empty?
-        Djinn.log_debug("The node #{node_ip} has these AppServers " +
+        Djinn.log_debug("The node #{node.private_ip} has these AppServers " +
         "running: #{hosted_apps}")
         next
       end
