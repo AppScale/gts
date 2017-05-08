@@ -5473,40 +5473,48 @@ HOSTS
       return
     end
     
-    # Look through an array of autoscaled nodes and check if any of the 
-    # machines are not running any AppServers and need to be downscaled.
-    get_autoscaled_nodes.reverse_each { |node|
-      break if num_scaled_down == max_scale_down_capacity
+    if SCALE_LOCK.locked?
+      Djinn.log_debug("Another thread is already working with the InfrastructureManager.")
+      return
+    end
+
+    Thread.new {
+      SCALE_LOCK.synchronize {
+        # Look through an array of autoscaled nodes and check if any of the 
+        # machines are not running any AppServers and need to be downscaled.
+        get_autoscaled_nodes.reverse_each { |node|
+          break if num_scaled_down == max_scale_down_capacity
+
+          hosted_apps = []
+          @apps_loaded.each { |app_name|
+            @app_info_map[app_name]['appengine'].each { |location|
+              host, port = location.split(":")
+              if host == node.private_ip
+                hosted_apps << "#{app_name}:#{port}"
+              end
+            }
+          }
       
-      hosted_apps = []
-      @apps_loaded.each { |app_name|
-        @app_info_map[app_name]['appengine'].each { |location|
-          host, port = location.split(":")
-          if host == node.private_ip
-            hosted_apps << "#{app_name}:#{port}"
+          unless hosted_apps.empty?
+            Djinn.log_debug("The node #{node.private_ip} has these AppServers " +
+              "running: #{hosted_apps}")
+            next
           end
+
+          # Right now, only the autoscaled machines are started with just the 
+          # appengine role, so we check specifically for that during downscaling
+          # to make sure we only downscale the new machines added.
+          node_to_remove = nil
+          if node.jobs == ['appengine']
+            Djinn.log_info("Removing node #{node}")
+            node_to_remove = node
+          end
+      
+          num_terminated = terminate_node_from_deployment(node_to_remove)
+          num_scaled_down += num_terminated
         }
       }
-      
-      unless hosted_apps.empty?
-        Djinn.log_debug("The node #{node.private_ip} has these AppServers " +
-        "running: #{hosted_apps}")
-        next
-      end
-
-      # Right now, only the autoscaled machines are started with just the 
-      # appengine role, so we check specifically for that during downscaling
-      # to make sure we only downscale the new machines added.
-      node_to_remove = nil
-      if node.jobs == ['appengine']
-        Djinn.log_info("Removing node #{node}")
-        node_to_remove = node
-      end
-      
-      num_terminated = terminate_node_from_deployment(node_to_remove)
-      num_scaled_down += num_terminated
     }
-    @last_scaling_time = Time.now.to_i
   end
 
   # Removes the specified node from the deployment and terminates
