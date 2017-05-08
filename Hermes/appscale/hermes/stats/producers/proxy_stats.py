@@ -306,6 +306,7 @@ class ProxiesStatsSource(StatsSource):
     # Attempt to merge separate stats object to ProxyStats instances
     proxy_stats_list = []
     for proxy_name, stats_objects in parsed_objects.iteritems():
+      service = find_service_by_pxname(proxy_name)
       frontends = [stats for stats in stats_objects
                    if isinstance(stats, HAProxyFrontendStats)]
       backends = [stats for stats in stats_objects
