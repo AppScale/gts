@@ -57,7 +57,7 @@ class ProcessesStatsSnapshot(object):
   utc_timestamp = attr.ib()  # UTC timestamp
   processes_stats = attr.ib()  # list[ProcessStats]
 
-  def todict(self, include_lists):
+  def todict(self, include_lists=None):
     return processes_stats_snapshot_to_dict(self, include_lists)
 
 

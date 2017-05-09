@@ -93,7 +93,7 @@ class NodeStatsSnapshot(object):
   network = attr.ib()  # NodeNetwork
   loadavg = attr.ib()  # NodeLoadAvg
 
-  def todict(self, include_lists):
+  def todict(self, include_lists=None):
     return node_stats_snapshot_to_dict(self, include_lists)
 
 

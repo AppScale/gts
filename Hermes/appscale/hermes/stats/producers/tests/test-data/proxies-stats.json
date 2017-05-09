@@ -12,7 +12,7 @@
             {"bin": 0, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 17447, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "TaskQueue", "check_code": null, "sid": 1, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 0, "stot": 0, "wretr": 0, "iid": 1, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 0, "hrsp_2xx": 0, "act": 1, "chkdown": 0, "svname": "TaskQueue-192.168.33.10:17447", "hrsp_3xx": 0},
             {"bin": 0, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 17448, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "TaskQueue", "check_code": null, "sid": 2, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 0, "stot": 0, "wretr": 0, "iid": 1, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 0, "hrsp_2xx": 0, "act": 1, "chkdown": 0, "svname": "TaskQueue-192.168.33.10:17448", "hrsp_3xx": 0}
           ],
-          "listeners": [],
+          "listeners": []
         },
         {
           "name": "as_blob_server",
@@ -62,7 +62,7 @@
           "listeners": []
         }
       ],
-      "utc_timestamp": 1494248091.0
+      "utc_timestamp": 1494248097.0
     }
   ]
 }

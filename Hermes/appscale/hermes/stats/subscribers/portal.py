@@ -46,7 +46,7 @@ class ProcessesStatsPortalSender(StatsSubscriber):
   def __init__(self):
     self._portal_method = '/{deployment_id}/stats/cluster/processes'
 
-  def receive(self, nodes_stats):
+  def receive(self, processes_stats):
     # TODO
     pass
 
@@ -55,6 +55,6 @@ class ProxiesStatsPortalSender(StatsSubscriber):
   def __init__(self):
     self._portal_method = '/{deployment_id}/stats/cluster/proxies'
 
-  def receive(self, nodes_stats):
+  def receive(self, proxies_stats):
     # TODO
     pass

@@ -215,7 +215,7 @@ class ProxiesStatsSnapshot(object):
   utc_timestamp = attr.ib()  # UTC timestamp
   proxies_stats = attr.ib()  # list[ProxyStats]
 
-  def todict(self, include_lists):
+  def todict(self, include_lists=None):
     return proxies_stats_snapshot_to_dict(self, include_lists)
 
 

@@ -193,7 +193,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
   using timestamp as a cursor.
   """
 
-  def __init__(self, local_cache, include_lists=None, limit=None,
+  def __init__(self, local_cache=None, include_lists=None, limit=None,
                fetch_latest_only=False):
     """ Initialises an instance of ClusterProxiesStatsSource.
 
