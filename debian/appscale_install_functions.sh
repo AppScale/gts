@@ -522,6 +522,14 @@ EOF
     disableservice monit
 }
 
+postinstallejabberd()
+{
+    # Install ejabberd authentication script.
+    cp ${APPSCALE_HOME}/AppController/scripts/ejabberd_auth.py /etc/ejabberd
+    chown ejabberd:ejabberd /etc/ejabberd/ejabberd_auth.py
+    chmod +x /etc/ejabberd/ejabberd_auth.py
+}
+
 installpsutil()
 {
     case ${DIST} in
