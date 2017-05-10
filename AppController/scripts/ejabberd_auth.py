@@ -41,16 +41,16 @@ def ejabberd_in():
   return income
 
 
-def ejabberd_out(bool):
-  logging.debug("Ejabberd gets: %s" % bool)
-  token = genanswer(bool)
+def ejabberd_out(result):
+  logging.debug("Ejabberd gets: %s" % result)
+  token = genanswer(result)
   sys.stdout.write(token)
   sys.stdout.flush()
 
 
-def genanswer(bool):
+def genanswer(result):
   answer = 0
-  if bool:
+  if result:
     answer = 1
 
   token = struct.pack('>hh', 2, answer)
@@ -98,8 +98,8 @@ def auth(in_user, in_host, password):
     return False
 
 
-def log_result(op, in_user, bool):
-  if bool:
+def log_result(op, in_user, result):
+  if result:
     logging.info("%s successful for %s"%(op, in_user))
   else:
     logging.info("%s unsuccessful for %s"%(op, in_user))
