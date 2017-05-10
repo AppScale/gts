@@ -128,19 +128,27 @@ def extract_source(version, project_id):
   Raises:
     IOError if version source archive does not exist
   """
+  project_base = os.path.join(UNPACK_ROOT, project_id)
+  shutil.rmtree(project_base, ignore_errors=True)
+  ensure_path(os.path.join(project_base, 'log'))
+
+  app_path = os.path.join(project_base, 'app')
+  ensure_path(app_path)
+  # The working directory must be the target in order to validate paths.
+  os.chdir(app_path)
+
   source_path = resolve_source_path(version['deployment']['zip']['sourceUrl'])
   with tarfile.open(source_path, 'r:gz') as archive:
     # Check if the archive is valid before extracting it.
-    base_path = os.getcwd()
     has_config = False
     for file_info in archive:
       file_name = file_info.name
-      if not canonical_path(file_name).startswith(base_path):
+      if not canonical_path(file_name).startswith(app_path):
         message = 'Invalid location in archive: {}'.format(file_name)
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
       if file_info.issym() or file_info.islnk():
-        if not valid_link(file_name, file_info.linkname, base_path):
+        if not valid_link(file_name, file_info.linkname, app_path):
           message = 'Invalid link in archive: {}'.format(file_name)
           raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
@@ -148,7 +156,7 @@ def extract_source(version, project_id):
         if file_name.endswith('appengine-web.xml'):
           has_config = True
       else:
-        if canonical_path(file_name) == os.path.join(base_path, 'app.yaml'):
+        if canonical_path(file_name) == os.path.join(app_path, 'app.yaml'):
           has_config = True
 
     if not has_config:
@@ -159,16 +167,10 @@ def extract_source(version, project_id):
       message = 'Archive must have {}'.format(missing_file)
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    source_base = os.path.join(UNPACK_ROOT, project_id)
-    shutil.rmtree(source_base, ignore_errors=True)
-    ensure_path(os.path.join(source_base, 'log'))
-
-    app_path = os.path.join(source_base, 'app')
-    ensure_path(app_path)
     archive.extractall(path=app_path)
 
-    if version['runtime'] == GO:
-      try:
-        shutil.move(os.path.join(app_path, 'gopath'), source_base)
-      except IOError:
-        logging.debug('{} does not have a gopath directory'.format(project_id))
+  if version['runtime'] == GO:
+    try:
+      shutil.move(os.path.join(app_path, 'gopath'), project_base)
+    except IOError:
+      logging.debug('{} does not have a gopath directory'.format(project_id))
