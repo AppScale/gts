@@ -82,7 +82,10 @@ Depends: appscale-tools,
          socat,
          ssh,
          unzip,
-         zlib1g-dev
+         zlib1g-dev,
+         zookeeper,
+         zookeeper-bin,
+         zookeeperd
 Conflicts: python-protobuf,
            apache2.2-common,
            apache2.2-bin,
