@@ -24,6 +24,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     watch: A string which identifies this process with monit.
     start_cmd: The start command to start the process.
     pidfile: The location of the pidfile that the process creates.
+    port: An integer specifying the port for the process.
     env_vars: A dictionary specifying environment variables.
     max_memory: An integer that specifies the maximum amount of memory in
       megabytes that the process should use.
