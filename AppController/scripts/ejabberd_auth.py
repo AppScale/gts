@@ -92,10 +92,7 @@ def auth(in_user, in_host, password):
   logging.info("local  password: [%s]" % (local_password))
   logging.info("remote password: [%s]" % (remote_password))
 
-  if local_password == remote_password:
-    return True
-  else:
-    return False
+  return local_password == remote_password
 
 
 def log_result(op, in_user, result):
