@@ -1721,7 +1721,7 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.stop_app(app_name)
-      rescue FailedNodeException => except
+      rescue FailedNodeException
         Djinn.log_warn("Failed to forward stop_app call to shadow (#{get_shadow}).")
         return NOT_READY
       end
@@ -4672,15 +4672,8 @@ HOSTS
     }
   end
 
-  def set_appcontroller_monit()
+  def set_appcontroller_monit
     Djinn.log_debug("Configuring AppController monit.")
-    env = {
-      'HOME' => '/root',
-      'PATH' => '$PATH:/usr/local/bin',
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'EC2_HOME' => ENV['EC2_HOME'],
-      'JAVA_HOME' => ENV['JAVA_HOME']
-    }
     service = `which service`.chomp
     start_cmd = "#{service} appscale-controller start"
     stop_cmd = "#{service} appscale-controller stop"
@@ -5859,7 +5852,7 @@ HOSTS
     # unloaded.
     get_all_appengine_nodes.reverse_each { |node_ip|
       @app_info_map[app_name]['appengine'].each { |location|
-        host, port = location.split(":")
+        host, _ = location.split(":")
         if host == node_ip
           @app_info_map[app_name]['appengine'].delete(location)
           @last_decision[app_name] = Time.now.to_i

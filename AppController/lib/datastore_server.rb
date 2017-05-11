@@ -37,7 +37,7 @@ module DatastoreServer
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
   def self.start(master_ip, db_local_ip, table, verbose=false)
-    datastore_server = self.get_executable_name(table)
+    datastore_server = self.get_executable_name
     ports = self.get_server_ports()
 
     env_vars = { 
@@ -90,7 +90,7 @@ module DatastoreServer
 
   
   # Return the name of the executable of the datastore server.
-  def self.get_executable_name(table)
+  def self.get_executable_name
     return `which appscale-datastore`.chomp
   end
 
