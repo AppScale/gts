@@ -1,13 +1,12 @@
 import StringIO
 import csv
 import logging
-import subprocess
+import socket
 import time
 from collections import defaultdict
 from datetime import datetime
 
 import attr
-import socket
 
 from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, \
   LOCAL_STATS_DEBUG_INTERVAL, MISSED

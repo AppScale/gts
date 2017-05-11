@@ -331,9 +331,9 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
 
     # Read test data from json file
-    raw_test_data, _ = get_stats_from_file(
+    raw_test_data = get_stats_from_file(
       'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
-    )
+    )[0]
 
     # Initialize stats source
     cluster_stats_source = cluster_stats.ClusterProxiesStatsSource()
@@ -380,9 +380,9 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
 
     # Read test data from json file
-    raw_test_data, stats_test_data = get_stats_from_file(
+    raw_test_data = get_stats_from_file(
       'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
-    )
+    )[0]
 
     # Initialize stats source
     include_lists = {

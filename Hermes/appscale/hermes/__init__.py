@@ -239,9 +239,10 @@ def main():
     task_route,
   ] + stats_app.get_routes(), debug=False)
 
-  app.listen(args.port)
+  app.listen(constants.HERMES_PORT)
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()
 
-  logging.info("Hermes is up and listening on port: {}.".format(args.port))
+  logging.info("Hermes is up and listening on port: {}."
+               .format(constants.HERMES_PORT))

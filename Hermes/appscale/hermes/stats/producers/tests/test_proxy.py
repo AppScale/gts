@@ -24,7 +24,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
   def test_haproxy_stats_v1_5(self, mock_socket):
     # Mocking haproxy stats socket with csv file
     self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv'))
-    fake_socket = MagicMock(recv=lambda n: self.stats_file.read(n))
+    fake_socket = MagicMock(recv=self.stats_file.read)
     mock_socket.return_value = fake_socket
 
     # Running method under test
@@ -77,7 +77,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
   def test_haproxy_stats_v1_4(self, mock_logging_warn, mock_socket):
     # Mocking "echo 'show stat' | socat stdio unix-connect:{}" with csv file
     self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.4.csv'))
-    fake_socket = MagicMock(recv=lambda n: self.stats_file.read(n))
+    fake_socket = MagicMock(recv=self.stats_file.read)
     mock_socket.return_value = fake_socket
 
     # Running method under test
