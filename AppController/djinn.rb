@@ -1851,111 +1851,20 @@ class Djinn
   def update(apps, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    # Few sanity checks before acting.
-    return "apps was not an Array but was a #{apps.class}." if apps.class != Array
-    unless my_node.is_shadow?
-       Djinn.log_debug("Sending update call for #{apps} to shadow.")
-       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-       begin
-         return acc.update(apps)
-       rescue FailedNodeException => except
-         Djinn.log_warn("Failed to forward update call to shadow (#{get_shadow}).")
-         return NOT_READY
-       end
-    end
-
-    RESERVED_APPS.each { |reserved_app|
-      if apps.include?(reserved_app)
-        Djinn.log_warn("Cannot update reserved app #{reserved_app}.")
-        apps.delete(reserved_app)
-      end
-    }
-    Djinn.log_info("Received request to update these apps: #{apps.join(', ')}.")
-
-    # Begin by marking the apps that should be running.
     apps_to_restart = []
-    failed_apps = []
     APPS_LOCK.synchronize {
-      # Get a list of the apps we need to restart.
       apps_to_restart = @apps_loaded & apps
-      Djinn.log_debug("Apps to restart are #{apps_to_restart}.")
-
-      # Next, check if the language of the application is correct.
-      apps.each { |app|
-        if @app_info_map[app] && @app_info_map[app]['language'] &&
-          @app_info_map[app]['language'] != get_app_language(app)
-          failed_apps << app
-        end
-      }
     }
-    failed_apps.each { |app|
-      apps_to_restart.delete(app)
-      Djinn.log_error("Ignoring update to #{app} since language doesn't match our records.")
-    }
-
-    # Make sure we have the latest code deployed.
-    apps.each { |appid|
-      next if failed_apps.include?(appid)
-
-      # Let's make sure the application is enabled.
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      RETRIES.downto(0) { |tries|
-        begin
-          result = uac.enable_app(appid)
-          Djinn.log_debug("enable_app returned #{result}.")
-          break
-        rescue FailedNodeException
-          # Failed to talk to the UserAppServer: let's try again.
-          Djinn.log_debug("Failed to talk to UserAppServer for #{appid}.")
-        end
-        if tries <= 0
-          Djinn.log_warn("Couldn't enable application #{appid}!")
-          failed_apps << appid
-          apps_to_restart.delete(appid)
-        else
-          Djinn.log_info("Waiting to enable app named #{appid}.")
-          Kernel.sleep(SMALL_WAIT)
-        end
-      }
-    }
-
-    # Setup the application code. Apps can become failed if the code
-    # cannot be setup properly.
-    (apps - failed_apps).each { |appid|
-      APPS_LOCK.synchronize {
-        setup_app_dir(appid, true)
-      }
-    }
-
-    # For applications with new versions, we have to clear the hosters, so
-    # AppEngine nodes will pull the new code.
-    unless apps_to_restart.empty?
-      apps_to_restart.each { |appid|
-        location = "#{PERSISTENT_MOUNT_POINT}/apps/#{appid}.tar.gz"
-        begin
-          ZKInterface.clear_app_hosters(appid)
-          ZKInterface.add_app_entry(appid, my_node.private_ip, location)
-        rescue FailedZooKeeperOperationException => e
-          Djinn.log_warn("(update) couldn't talk with zookeeper while " +
-            "working on app #{appid} with #{e.message}.")
-        end
-      }
-
-      # Notify nodes, and remove any running AppServer of the application.
-      notify_restart_app_to_nodes(apps_to_restart)
-    end
+    # Notify nodes, and remove any running AppServer of the application.
+    Djinn.log_info("notifying: #{apps_to_restart}")
+    notify_restart_app_to_nodes(apps_to_restart)
+    Djinn.log_info("done notifying")
 
     APPS_LOCK.synchronize {
-      @app_names |= (apps - failed_apps)
+      @app_names |= apps
     }
-    if failed_apps.empty?
-      msg = "OK"
-    else
-      msg = "false: failed to deploy the following applications #{failed_apps}."
-    end
-    Djinn.log_debug("Done updating apps with: #{msg}")
-
-    return msg
+    Djinn.log_info("Done updating apps: #{apps}")
+    return 'OK'
   end
 
   # Adds the list of apps that should be restarted to this node's list of apps
