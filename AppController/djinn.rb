@@ -4776,9 +4776,13 @@ HOSTS
   def start_ejabberd()
     @state = "Starting up XMPP server"
     my_public = my_node.public_ip
-    Ejabberd.stop()
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
     Ejabberd.write_config_file(my_public)
+
+    # Monit does not have an entry for ejabberd yet. This allows a restart
+    # with the new configuration if it is already running.
+    `service ejabberd stop`
+
     Ejabberd.start()
   end
 
