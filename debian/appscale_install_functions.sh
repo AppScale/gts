@@ -525,6 +525,13 @@ postinstallejabberd()
     cp ${APPSCALE_HOME}/AppController/scripts/ejabberd_auth.py /etc/ejabberd
     chown ejabberd:ejabberd /etc/ejabberd/ejabberd_auth.py
     chmod +x /etc/ejabberd/ejabberd_auth.py
+
+    # Disable ejabberd's apparmor profile.
+    EJABBERD_PROFILE="/etc/apparmor.d/usr.sbin.ejabberdctl"
+    if apparmor_status 2> /dev/null | grep "ejabberdctl" > /dev/null; then
+        ln -s ${EJABBERD_PROFILE} /etc/apparmor.d/disable/
+        apparmor_parser -R ${EJABBERD_PROFILE}
+    fi
 }
 
 installpsutil()
