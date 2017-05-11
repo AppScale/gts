@@ -113,7 +113,6 @@ if __name__ == '__main__':
   ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
 
   while True:
-    logging.info("start of infinite loop")
     try:
       ejab_request = ejabberd_in()
     except EjabberdInputError as inst:
