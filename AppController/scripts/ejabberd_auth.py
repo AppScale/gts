@@ -88,7 +88,7 @@ def auth(in_user, in_host, password):
   salted = username + password
   local_password = hashlib.sha1(salted).hexdigest()
 
-  logging.info("local  password: [%s]" % (local_password))
+  logging.info("local password: [%s]" % (local_password))
   logging.info("remote password: [%s]" % (remote_password))
 
   return local_password == remote_password
