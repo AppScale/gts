@@ -1,6 +1,7 @@
 """ A client that makes requests to the UAServer. """
 
 import json
+import ssl
 
 from SOAPpy import SOAPProxy
 from .constants import UA_SERVER_PORT
@@ -24,6 +25,10 @@ class UAClient(object):
       host: A string specifying the location of the UAServer.
       secret: A string specifying the deployment secret.
     """
+    # Disable certificate verification for Python >= 2.7.9.
+    if hasattr(ssl, '_create_unverified_context'):
+      ssl._create_default_https_context = ssl._create_unverified_context
+
     self.secret = secret
     self.server = SOAPProxy('https://{}:{}'.format(host, UA_SERVER_PORT))
 
