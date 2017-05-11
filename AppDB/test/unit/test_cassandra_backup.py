@@ -94,6 +94,8 @@ class TestCassandraBackup(unittest.TestCase):
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
       keyname, re.compile('^tar xf .*'))
     flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
+      keyname, re.compile('^monit start .*'), subprocess.call)
+    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
       keyname, re.compile('^monit start .*'))
     flexmock(utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
