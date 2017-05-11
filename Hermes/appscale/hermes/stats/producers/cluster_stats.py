@@ -7,9 +7,11 @@ import time
 from appscale.common import appscale_info
 from tornado import gen, httpclient
 from tornado.options import options
+from tornado.web import HTTPError
 
-from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER, \
-  CLUSTER_STATS_DEBUG_INTERVAL
+from appscale.hermes import constants
+from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
+from appscale.hermes.stats.constants import CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
 )
@@ -287,7 +289,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
     arguments['fetch_latest_only'] = True
 
   url = "http://{ip}:{port}/{path}".format(
-    ip=node_ip, port=options.port, path=method_path)
+    ip=node_ip, port=constants.HERMES_PORT, path=method_path)
   request = httpclient.HTTPRequest(
     url=url, method='GET', body=json.dumps(arguments), headers=headers,
     validate_cert=False, request_timeout=REQUEST_TIMEOUT,
@@ -298,7 +300,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
   try:
     # Send Future object to coroutine and suspend till result is ready
     response = yield async_client.fetch(request)
-  except Exception as e:
+  except HTTPError as e:
     logging.error("Failed to get stats from {} ({})".format(url, e))
     raise gen.Return([])
 

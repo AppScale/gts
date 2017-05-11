@@ -37,7 +37,6 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_get_all_ips.return_value = ['192.168.33.10', '192.168.33.11']
     # Mock secret
     mock_options.secret = 'secret'
-    mock_options.port = 4378
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
@@ -59,10 +58,11 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     future_response.set_result(response)
     mock_fetch.return_value = future_response
 
+    # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test the first time
     stats = yield cluster_stats_source.get_current_async()
 
-    # Asserting expectations
+    # ASSERTING EXPECTATIONS
     request_to_slave = mock_fetch.call_args[0][0]
     self.assertEqual(json.loads(request_to_slave.body), {})
     self.assertEqual(
@@ -133,7 +133,6 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_get_all_ips.return_value = ['192.168.33.10', '192.168.33.11']
     # Mock secret
     mock_options.secret = 'secret'
-    mock_options.port = 4378
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
@@ -201,7 +200,6 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     mock_get_all_ips.return_value = ['192.168.33.10', '192.168.33.11']
     # Mock secret
     mock_options.secret = 'secret'
-    mock_options.port = 4378
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
@@ -261,7 +259,6 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     mock_get_all_ips.return_value = ['192.168.33.10', '192.168.33.11']
     # Mock secret
     mock_options.secret = 'secret'
-    mock_options.port = 4378
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
@@ -332,10 +329,9 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     mock_get_lb_ips.return_value = ['192.168.33.11']
     # Mock secret
     mock_options.secret = 'secret'
-    mock_options.port = 4378
 
     # Read test data from json file
-    raw_test_data, stats_test_data = get_stats_from_file(
+    raw_test_data, _ = get_stats_from_file(
       'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
     )
 
@@ -382,7 +378,6 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     mock_get_lb_ips.return_value = ['192.168.33.11']
     # Mock secret
     mock_options.secret = 'secret'
-    mock_options.port = 4378
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(

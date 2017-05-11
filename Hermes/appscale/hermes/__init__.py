@@ -1,6 +1,7 @@
 """ Web server/client that polls the AppScale Portal for new tasks and
 initiates actions accordingly. """
 
+import argparse
 import json
 import logging
 import os
@@ -11,7 +12,6 @@ import sys
 import tarfile
 import urllib
 
-import argparse
 import tornado.escape
 import tornado.httpclient
 import tornado.web
@@ -20,18 +20,18 @@ from appscale.common import appscale_utils
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback
 from tornado.options import options
 
-import helper
-from appscale.hermes.constants import DEFAULT_HERMES_PORT
-from appscale.hermes.stats.handlers import Respond404Handler
+from appscale.hermes import constants
+from appscale.hermes import helper
+from appscale.hermes.handlers import MainHandler, TaskHandler, Respond404Handler
+from appscale.hermes.helper import JSONTags
 from appscale.hermes.stats.stats_app import StatsApp
-from handlers import MainHandler, TaskHandler
-from helper import JSONTags
 
-sys.path.append('../../../AppServer')
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
 
 
@@ -89,7 +89,7 @@ def poll():
 
   logging.debug("Task to run: {0}".format(data))
   logging.info("Redirecting task request to TaskHandler.")
-  url = "http://localhost:{}{}".format(options.port, '/do_task')
+  url = "http://localhost:{}{}".format(constants.HERMES_PORT, '/do_task')
   request = helper.create_request(url, method='POST', body=json.dumps(data))
 
   # The poller can move forward without waiting for a response here.
@@ -187,8 +187,6 @@ def shutdown():
 def main():
   """ Main. """
   parser = argparse.ArgumentParser()
-  parser.add_argument('-p', '--port', type=int, default=DEFAULT_HERMES_PORT,
-                      help='The port to listen on')
   parser.add_argument('-v', '--verbose', action='store_true',
                       help='Output debug-level logging')
   parser.add_argument('--write-profile-log', action='store_true',
@@ -206,14 +204,13 @@ def main():
     logging.getLogger().setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
-  options.define('port', args.port)
 
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)
 
-  master = appscale_info.get_private_ip() == appscale_info.get_headnode_ip()
+  is_master = appscale_info.get_private_ip() == appscale_info.get_headnode_ip()
 
-  if master:
+  if is_master:
     # Periodically checks if the deployment is registered and uploads the
     # appscalesensor app for registered deployments.
     PeriodicCallback(deploy_sensor_app,
@@ -231,7 +228,7 @@ def main():
                   dict(reason='Hermes slaves do not manage tasks from Portal'))
 
   # Configure stats app
-  stats_app = StatsApp(master, track_processes=args.track_processes_stats,
+  stats_app = StatsApp(is_master, track_processes=args.track_processes_stats,
                        write_profile=args.write_profile_log,
                        verbose_cluster_stats=args.verbose_cluster_stats)
   stats_app.configure()
@@ -242,13 +239,7 @@ def main():
     task_route,
   ] + stats_app.get_routes(), debug=False)
 
-  try:
-    app.listen(args.port)
-  except socket.error:
-    logging.error("ERROR on Hermes initialization: Port {} already in use."
-                  .format(args.port))
-    shutdown()
-    exit(1)
+  app.listen(args.port)
 
   # Start loop for accepting http requests.
   IOLoop.instance().start()

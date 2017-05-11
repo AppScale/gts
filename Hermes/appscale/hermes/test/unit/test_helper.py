@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 
 import Queue
-import os
 import sys
 import threading
 import unittest
 
 import tornado.httpclient
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
 from appscale.hermes import helper, constants
 from appscale.hermes.helper import MissingRequestArgs
 
-from appscale.common import appscale_info
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
 class FakeAppControllerClient():

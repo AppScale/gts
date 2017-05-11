@@ -8,12 +8,13 @@ import threading
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
-import helper
-import constants
-from helper import JSONTags
-from helper import NodeInfoTags
-from helper import TASK_STATUS
-from helper import TASK_STATUS_LOCK
+from appscale.hermes import constants
+from appscale.hermes import helper
+from appscale.hermes.helper import JSONTags
+from appscale.hermes.helper import NodeInfoTags
+from appscale.hermes.helper import TASK_STATUS
+from appscale.hermes.helper import TASK_STATUS_LOCK
+
 
 class TaskStatus(object):
   """ A class containing all possible task states. """
@@ -21,12 +22,14 @@ class TaskStatus(object):
   FAILED = 'failed'
   COMPLETE = 'complete'
 
+
 class MainHandler(RequestHandler):
   """ Main handler class. """
 
   def get(self):
     """ Main GET method. Reports the status of the server. """
     self.write(json.dumps({'status': 'up'}))
+
 
 class TaskHandler(RequestHandler):
   """ Handler that starts operations to complete a task. """
@@ -138,3 +141,11 @@ class TaskHandler(RequestHandler):
       TASK_STATUS_LOCK.release()
 
     self.set_status(constants.HTTP_Codes.HTTP_OK)
+
+
+class Respond404Handler(RequestHandler):
+  def initialize(self, reason):
+    self.reason = reason
+
+  def get(self):
+    self.set_status(404, self.reason)

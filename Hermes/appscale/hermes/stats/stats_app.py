@@ -2,7 +2,8 @@
 import attr
 from appscale.common import appscale_info
 
-from appscale.hermes.constants import UPDATE_NODE_STATS_INTERVAL, \
+from appscale.hermes import Respond404Handler
+from appscale.hermes.stats.constants import UPDATE_NODE_STATS_INTERVAL, \
   UPDATE_PROCESSES_STATS_INTERVAL, UPDATE_PROXIES_STATS_INTERVAL, \
   UPDATE_CLUSTER_NODES_STATS_INTERVAL, UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL, \
   UPDATE_CLUSTER_PROXIES_STATS_INTERVAL, NODE_STATS_CACHE_SIZE, \
@@ -10,8 +11,7 @@ from appscale.hermes.constants import UPDATE_NODE_STATS_INTERVAL, \
   CLUSTER_NODES_STATS_CACHE_SIZE, CLUSTER_PROCESSES_STATS_CACHE_SIZE, \
   CLUSTER_PROXIES_STATS_CACHE_SIZE
 from appscale.hermes.stats.handlers import CachedStatsHandler, \
-  CurrentStatsHandler, \
-  Respond404Handler
+  CurrentStatsHandler
 from appscale.hermes.stats.handlers import ClusterStatsHandler
 from appscale.hermes.stats.producers.cluster_stats import \
   ClusterNodesStatsSource, ClusterProxiesStatsSource, \
@@ -75,12 +75,12 @@ class StatsApp(object):
      limited number of fields;
   """
 
-  def __init__(self, master, track_processes, write_profile,
+  def __init__(self, is_master, track_processes, write_profile,
                verbose_cluster_stats):
     """ Initializes all properties which will be used to configure stats
 
     Args:
-      master: a boolean indicating whether this node should collect statistics
+      is_master: a boolean indicating whether this node should collect statistics
               from other nodes
       track_processes: a boolean indicating whether process stats should be
               collected and published
@@ -93,8 +93,8 @@ class StatsApp(object):
     lb_ips = appscale_info.get_load_balancer_ips()
 
     self._is_lb = my_ip in lb_ips
-    if master is not None:
-      self._is_master = master
+    if is_master is not None:
+      self._is_master = is_master
     else:
       self._is_master = my_ip == appscale_info.get_headnode_ip()
     self._track_processes = track_processes

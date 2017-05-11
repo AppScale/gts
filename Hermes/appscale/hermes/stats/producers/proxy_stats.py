@@ -7,11 +7,13 @@ from collections import defaultdict
 from datetime import datetime
 
 import attr
+import socket
 
-from appscale.hermes.constants import MISSED, HAPROXY_STATS_SOCKET_PATH, \
-  LOCAL_STATS_DEBUG_INTERVAL
+from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, \
+  LOCAL_STATS_DEBUG_INTERVAL, MISSED
+from appscale.hermes.stats.producers.shared import WrongIncludeLists, \
+  stats_entity_to_dict
 from appscale.hermes.stats.pubsub_base import StatsSource
-from appscale.hermes.stats.producers.shared import WrongIncludeLists, stats_entity_to_dict
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
 
 
@@ -248,6 +250,22 @@ def _get_field_value(row, field_name):
   return value
 
 
+def get_stats():
+  client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+  client.connect(HAPROXY_STATS_SOCKET_PATH)
+  try:
+    stats_output = StringIO.StringIO()
+    client.send('show stat\n')
+    while True:
+      data = client.recv(1024)
+      if not data:
+        break
+      stats_output.write(data)
+    return stats_output
+  finally:
+    client.close()
+
+
 class ProxiesStatsSource(StatsSource):
 
   first_run = True
@@ -261,12 +279,9 @@ class ProxiesStatsSource(StatsSource):
       ProxiesStatsSnapshot
     """
     # Get CSV table with haproxy stats
-    csv_text = subprocess.check_output(
-      "echo 'show stat' | socat stdio unix-connect:{}"
-        .format(HAPROXY_STATS_SOCKET_PATH), shell=True
-    ).replace("# ", "", 1)
-    csv_cache = StringIO.StringIO(csv_text)
-    table = csv.DictReader(csv_cache, delimiter=',')
+    csv_buf = get_stats()
+    csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
+    table = csv.DictReader(csv_buf, delimiter=',')
     if ProxiesStatsSource.first_run:
       missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
       if missed:

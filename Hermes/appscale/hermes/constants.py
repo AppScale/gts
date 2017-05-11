@@ -1,6 +1,7 @@
 """ Constants that are used for Hermes functionality (backup/restore/etc.). """
 
 # The user account type for deploying the appscalesensor app.
+
 ACCOUNT_TYPE = 'user'
 
 # Location where deployed app source code resides in an AppScale deployment.
@@ -29,7 +30,7 @@ DB_SLAVE_OBJECT_NAME = '/cassandra/db_slave_{0}.tar.gz'
 FILE_SUFFIX = 'tar.gz'
 
 # The port Hermes listens to.
-DEFAULT_HERMES_PORT = 4378
+HERMES_PORT = 4378
 
 # A constant representing the Tornado HTTPError.
 HTTPError = 'HTTPError'
@@ -64,36 +65,6 @@ UPLOAD_SENSOR_INTERVAL = 60*1000    # 60 seconds.
 # The username for deploying the appscalesensor app.
 USER_EMAIL = 'appscale_user@appscale.local'
 
-
-################ STATS CONSTANTS ################
-
-# The intervals for updating local stats
-UPDATE_NODE_STATS_INTERVAL = 10*1000    # 10 seconds
-UPDATE_PROCESSES_STATS_INTERVAL = 20*1000    # 20 seconds
-UPDATE_PROXIES_STATS_INTERVAL = 10*1000    # 10 seconds
-# The intervals for updating cluster stats
-UPDATE_CLUSTER_NODES_STATS_INTERVAL = 10*1000    # 10 seconds
-UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL = 20*1000    # 20 seconds
-UPDATE_CLUSTER_PROXIES_STATS_INTERVAL = 10*1000    # 10 seconds
-
-# The intervals for updating local stats
-NODE_STATS_CACHE_SIZE = 50
-PROCESSES_STATS_CACHE_SIZE = 50
-PROXIES_STATS_CACHE_SIZE = 50
-# The intervals for updating cluster stats
-CLUSTER_NODES_STATS_CACHE_SIZE = 1
-CLUSTER_PROCESSES_STATS_CACHE_SIZE = 1
-CLUSTER_PROXIES_STATS_CACHE_SIZE = 1
-
-# Path to haproxy stats socket
-HAPROXY_STATS_SOCKET_PATH = '/etc/haproxy/stats'
-
-# Quite logging intervals
-LOCAL_STATS_DEBUG_INTERVAL = 5*60
-CLUSTER_STATS_DEBUG_INTERVAL = 15*60
-
-#################################################
-
 # Name of header where secret should be passed
 SECRET_HEADER = 'Appscale-Secret'
 
@@ -111,19 +82,3 @@ class TaskTypes(object):
   """ A class containing supported task types. """
   CASSANDRA_BACKUP = 'cassandra_backup'
   CASSANDRA_RESTORE = 'cassandra_restore'
-
-
-class _MissedValue(object):
-  """
-  Instance of this private class denotes missed value.
-  It's used to denote values of stats properties which are missed
-  in haproxy stats csv
-  """
-
-  def __nonzero__(self):
-    return False
-
-  def __repr__(self):
-    return ''
-
-MISSED = _MissedValue()

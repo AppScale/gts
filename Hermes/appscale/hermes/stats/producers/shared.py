@@ -1,4 +1,4 @@
-from appscale.hermes.constants import MISSED
+from appscale.hermes.stats.constants import MISSED
 
 
 class WrongIncludeLists(ValueError):

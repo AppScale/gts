@@ -1,18 +1,10 @@
 import json
 import logging
 
-from tornado.web import RequestHandler
 from tornado.options import options
+from tornado.web import RequestHandler
 
 from appscale.hermes.constants import SECRET_HEADER
-
-
-class Respond404Handler(RequestHandler):
-  def initialize(self, reason):
-    self.reason = reason
-
-  def get(self):
-    self.set_status(404, self.reason)
 
 
 class CachedStatsHandler(RequestHandler):

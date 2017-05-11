@@ -1,9 +1,10 @@
 import os
+from os import path
 import unittest
 
-from mock import patch
+from mock import patch, MagicMock
 
-from appscale.hermes.constants import MISSED
+from appscale.hermes.stats.constants import MISSED
 from appscale.hermes.stats.producers import proxy_stats
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -12,12 +13,19 @@ TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')
 
 class TestCurrentProxiesStats(unittest.TestCase):
 
-  @patch.object(proxy_stats.subprocess, 'check_output')
-  def test_haproxy_stats_v1_5(self, mock_check_output):
-    # Mocking "echo 'show stat' | socat stdio unix-connect:{}" with csv file
-    with open(os.path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv')) as f:
-      raw_stats = f.read()
-    mock_check_output.return_value = raw_stats
+  def setUp(self):
+    self.stats_file = None
+
+  def tearDown(self):
+    if self.stats_file:
+      self.stats_file.close()
+
+  @patch.object(proxy_stats.socket, 'socket')
+  def test_haproxy_stats_v1_5(self, mock_socket):
+    # Mocking haproxy stats socket with csv file
+    self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv'))
+    fake_socket = MagicMock(recv=lambda n: self.stats_file.read(n))
+    mock_socket.return_value = fake_socket
 
     # Running method under test
     stats_snapshot = proxy_stats.ProxiesStatsSource().get_current()
@@ -64,13 +72,13 @@ class TestCurrentProxiesStats(unittest.TestCase):
     # We don't have listeners on stats
     self.assertEqual(dashboard.listeners, [])
 
-  @patch.object(proxy_stats.subprocess, 'check_output')
+  @patch.object(proxy_stats.socket, 'socket')
   @patch.object(proxy_stats.logging, 'warn')
-  def test_haproxy_stats_v1_4(self, mock_logging_warn, mock_check_output):
+  def test_haproxy_stats_v1_4(self, mock_logging_warn, mock_socket):
     # Mocking "echo 'show stat' | socat stdio unix-connect:{}" with csv file
-    with open(os.path.join(TEST_DATA_DIR, 'haproxy-stats-v1.4.csv')) as f:
-      raw_stats = f.read()
-    mock_check_output.return_value = raw_stats
+    self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.4.csv'))
+    fake_socket = MagicMock(recv=lambda n: self.stats_file.read(n))
+    mock_socket.return_value = fake_socket
 
     # Running method under test
     stats_snapshot = proxy_stats.ProxiesStatsSource().get_current()

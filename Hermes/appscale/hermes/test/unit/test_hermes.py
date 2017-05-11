@@ -1,31 +1,28 @@
 #!/usr/bin/env python
 
 import json
-import os
 import socket
 import sys
 import tarfile
 import unittest
 
 import tornado.httpclient
-
 from appscale.common import appscale_info
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from flexmock import flexmock
+from tornado.ioloop import IOLoop
 
 from appscale import hermes
-from appscale.hermes import helper
-
-from flexmock import flexmock
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
-from google.appengine.api.appcontroller_client import AppControllerClient
-
 from appscale.hermes import deploy_sensor_app
+from appscale.hermes import helper
 from appscale.hermes import poll
 from appscale.hermes import shutdown
 from appscale.hermes import signal_handler
-from tornado.ioloop import IOLoop
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.appcontroller_client import AppControllerClient
 
 
 class TestHelper(unittest.TestCase):

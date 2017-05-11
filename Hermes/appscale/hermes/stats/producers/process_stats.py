@@ -8,7 +8,7 @@ import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.constants import MISSED, LOCAL_STATS_DEBUG_INTERVAL
+from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL, MISSED
 from appscale.hermes.stats.producers.shared import WrongIncludeLists, \
   stats_entity_to_dict
 from appscale.hermes.stats.pubsub_base import StatsSource
