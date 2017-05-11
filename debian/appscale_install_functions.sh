@@ -443,6 +443,12 @@ postinstallzookeeper()
 
 postinstallrabbitmq()
 {
+    # Allow guest users to connect from other machines.
+    if [ "${DIST}" = "xenial" ]; then
+        RMQ_CONFIG="[{rabbit, [{loopback_users, []}]}]."
+        echo ${RMQ_CONFIG} > /etc/rabbitmq/rabbitmq.config
+    fi
+
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
     disableservice rabbitmq-server
