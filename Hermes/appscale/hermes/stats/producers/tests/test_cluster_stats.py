@@ -5,19 +5,22 @@ from mock import patch, MagicMock
 from tornado import testing, gen
 
 from appscale.hermes.stats.producers import (
-  cluster_stats, node_stats, process_stats, proxy_stats
-)
+  cluster_stats, node_stats, process_stats, proxy_stats,
+  converter)
 from appscale.hermes.stats.subscribers import cache
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')
 
 
-def get_stats_from_file(json_file_name, from_dict_converter):
+def get_stats_from_file(json_file_name, stats_class):
   with open(os.path.join(TEST_DATA_DIR, json_file_name)) as json_file:
     raw_dict = json.load(json_file)
     stats_dict = {
-      ip: [from_dict_converter(snapshot) for snapshot in snapshots]
+      ip: [
+        converter.stats_from_dict(stats_class, snapshot)
+        for snapshot in snapshots
+      ]
       for ip, snapshots in raw_dict.iteritems()
     }
     return raw_dict, stats_dict
@@ -40,7 +43,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.node_stats_snapshot_from_dict
+      'node-stats.json', node_stats.NodeStatsSnapshot
     )
 
     # Initialize stats source
@@ -136,7 +139,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.node_stats_snapshot_from_dict
+      'node-stats.json', node_stats.NodeStatsSnapshot
     )
 
     # Initialize stats source
@@ -203,7 +206,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'processes-stats.json', process_stats.processes_stats_snapshot_from_dict
+      'processes-stats.json', process_stats.ProcessesStatsSnapshot
     )
 
     # Initialize stats source
@@ -262,7 +265,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'processes-stats.json', process_stats.processes_stats_snapshot_from_dict
+      'processes-stats.json', process_stats.ProcessesStatsSnapshot
     )
 
     # Initialize stats source
@@ -332,7 +335,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data = get_stats_from_file(
-      'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
+      'proxies-stats.json', proxy_stats.ProxiesStatsSnapshot
     )[0]
 
     # Initialize stats source
@@ -381,7 +384,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data = get_stats_from_file(
-      'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
+      'proxies-stats.json', proxy_stats.ProxiesStatsSnapshot
     )[0]
 
     # Initialize stats source

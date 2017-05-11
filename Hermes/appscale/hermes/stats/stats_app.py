@@ -132,7 +132,8 @@ class StatsApp(object):
         # To reduce slave-to-master traffic and verbosity of cluster stats
         # you can select which fields of stats to collect on master
         self._cluster_nodes_stats.included_field_lists = {
-          'node': ['cpu', 'memory', 'partitions_dict', 'loadavg'],
+          'node': ['utc_timestamp', 'cpu', 'memory',
+                 'partitions_dict', 'loadavg'],
           'node.cpu': ['percent', 'count'],
           'node.memory': ['available'],
           'node.partition': ['free', 'used'],

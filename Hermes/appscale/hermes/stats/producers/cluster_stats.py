@@ -13,7 +13,7 @@ from appscale.hermes import constants
 from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
 from appscale.hermes.stats.constants import CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats
+  proxy_stats, node_stats, process_stats, converter
 )
 from appscale.hermes.stats.pubsub_base import AsyncStatsSource
 
@@ -95,7 +95,7 @@ class ClusterNodesStatsSource(AsyncStatsSource):
     else:
       new_snapshots = yield _fetch_remote_stats_cache_async(
         node_ip=node_ip, method_path='stats/local/node/cache',
-        fromdict_convertor=node_stats.node_stats_snapshot_from_dict,
+        stats_class=node_stats.NodeStatsSnapshot,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
         fetch_latest_only=self._fetch_latest_only
@@ -178,7 +178,7 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
     else:
       new_snapshots = yield _fetch_remote_stats_cache_async(
         node_ip=node_ip, method_path='stats/local/processes/cache',
-        fromdict_convertor=process_stats.processes_stats_snapshot_from_dict,
+        stats_class=process_stats.ProcessesStatsSnapshot,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
         fetch_latest_only=self._fetch_latest_only
@@ -261,7 +261,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
     else:
       new_snapshots = yield _fetch_remote_stats_cache_async(
         node_ip=node_ip, method_path='stats/local/proxies/cache',
-        fromdict_convertor=proxy_stats.proxies_stats_snapshot_from_dict,
+        stats_class=proxy_stats.ProxiesStatsSnapshot,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
         fetch_latest_only=self._fetch_latest_only
@@ -272,7 +272,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
 
 
 @gen.coroutine
-def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
+def _fetch_remote_stats_cache_async(node_ip, method_path, stats_class,
                                     last_utc_timestamp, limit, include_lists,
                                     fetch_latest_only):
   # Security header
@@ -307,10 +307,10 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
   try:
     stats_dictionaries = json.loads(response.body)
     snapshots = [
-      fromdict_convertor(stats_dict)
+      converter.stats_from_dict(stats_class, stats_dict)
       for stats_dict in stats_dictionaries
     ]
-  except (ValueError, TypeError, KeyError) as err:
+  except TypeError as err:
     msg = u"Can't parse stats snapshot ({})".format(err)
     raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 

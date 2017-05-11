@@ -4,6 +4,9 @@ import logging
 from tornado.options import options
 from tornado.web import RequestHandler
 
+from appscale.hermes.constants import SECRET_HEADER
+from appscale.hermes.stats.producers.converter import stats_to_dict, \
+  IncludeLists, WrongIncludeLists
 from appscale.hermes.constants import SECRET_HEADER, HTTP_Codes
 
 
@@ -33,8 +36,16 @@ class CachedStatsHandler(RequestHandler):
       else:
         snapshots = snapshots[:limit]
 
+    if include_lists is not None:
+      try:
+        include_lists = IncludeLists(include_lists)
+      except WrongIncludeLists as err:
+        self.set_status(400, 'Wrong include_lists')
+        json.dump({'error': str(err)}, self)
+        return
+
     rendered_dictionaries = [
-      snapshot.todict(include_lists) for snapshot in snapshots
+      stats_to_dict(snapshot, include_lists) for snapshot in snapshots
     ]
     json.dump(rendered_dictionaries, self)
 
@@ -54,9 +65,17 @@ class CurrentStatsHandler(RequestHandler):
     payload = json.loads(self.request.body)
     include_lists = payload.get('include_lists')
 
+    if include_lists is not None:
+      try:
+        include_lists = IncludeLists(include_lists)
+      except WrongIncludeLists as err:
+        self.set_status(400, 'Wrong include_lists')
+        json.dump({'error': str(err)}, self)
+        return
+
     snapshot = self._stats_source.get_current()
 
-    json.dump(snapshot.todict(include_lists), self)
+    json.dump(stats_to_dict(snapshot, include_lists), self)
 
 
 class ClusterStatsHandler(RequestHandler):
@@ -75,10 +94,18 @@ class ClusterStatsHandler(RequestHandler):
     payload = json.loads(self.request.body)
     include_lists = payload.get('include_lists')
 
+    if include_lists is not None:
+      try:
+        include_lists = IncludeLists(include_lists)
+      except WrongIncludeLists as err:
+        self.set_status(400, 'Wrong include_lists')
+        json.dump({'error': str(err)}, self)
+        return
+
     nodes_stats = self._cluster_stats_cache.get_latest()
 
     rendered_dictionaries = {
-      node_ip: snapshot.todict(include_lists)
+      node_ip: stats_to_dict(snapshot, include_lists)
       for node_ip, snapshot in nodes_stats.iteritems()
     }
     json.dump(rendered_dictionaries, self)

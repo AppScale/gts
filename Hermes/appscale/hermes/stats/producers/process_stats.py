@@ -8,14 +8,14 @@ import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL, MISSED
-from appscale.hermes.stats.producers.shared import WrongIncludeLists, \
-  stats_entity_to_dict
+from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL
+from appscale.hermes.stats.producers.converter import Meta, include_list_name
 from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.unified_service_names import \
   find_service_by_monit_name
 
 
+@include_list_name('process.cpu')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessCPU(object):
   user = attr.ib()
@@ -23,6 +23,7 @@ class ProcessCPU(object):
   percent = attr.ib()
 
 
+@include_list_name('process.memory')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessMemory(object):
   resident = attr.ib()
@@ -30,6 +31,7 @@ class ProcessMemory(object):
   unique = attr.ib()
 
 
+@include_list_name('process.disk_io')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessDiskIO(object):
   read_count = attr.ib()
@@ -38,29 +40,23 @@ class ProcessDiskIO(object):
   write_bytes = attr.ib()
 
 
+@include_list_name('process.network')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessNetwork(object):
   connections_num = attr.ib()
 
 
+@include_list_name('process.children_stats_sum')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessChildrenSum(object):
-  cpu = attr.ib()  # ProcessCPU
-  memory = attr.ib()  # ProcessMemory
-  disk_io = attr.ib()  # ProcessDiskIO
-  network = attr.ib()  # ProcessNetwork
+  cpu = attr.ib(metadata={Meta.ENTITY: ProcessCPU})
+  memory = attr.ib(metadata={Meta.ENTITY: ProcessMemory})
+  disk_io = attr.ib(metadata={Meta.ENTITY: ProcessDiskIO})
+  network = attr.ib(metadata={Meta.ENTITY: ProcessNetwork})
   threads_num = attr.ib()
 
 
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessesStatsSnapshot(object):
-  utc_timestamp = attr.ib()  # UTC timestamp
-  processes_stats = attr.ib()  # list[ProcessStats]
-
-  def todict(self, include_lists=None):
-    return processes_stats_snapshot_to_dict(self, include_lists)
-
-
+@include_list_name('process')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class ProcessStats(object):
   """
@@ -82,13 +78,19 @@ class ProcessStats(object):
                                     #| - port can be missed if it is not
                                     #|   mentioned in monit process name
   cmdline = attr.ib()
-  cpu = attr.ib()  # ProcessCPU
-  memory = attr.ib()  # ProcessMemory
-  disk_io = attr.ib()  # ProcessDiskIO
-  network = attr.ib()  # ProcessNetwork
+  cpu = attr.ib(metadata={Meta.ENTITY: ProcessCPU})
+  memory = attr.ib(metadata={Meta.ENTITY: ProcessMemory})
+  disk_io = attr.ib(metadata={Meta.ENTITY: ProcessDiskIO})
+  network = attr.ib(metadata={Meta.ENTITY: ProcessNetwork})
   threads_num = attr.ib()
-  children_stats_sum = attr.ib()  # ProcessChildrenSum
+  children_stats_sum = attr.ib(metadata={Meta.ENTITY: ProcessChildrenSum})
   children_num = attr.ib()
+
+
+@attr.s(cmp=False, hash=False, slots=True, frozen=True)
+class ProcessesStatsSnapshot(object):
+  utc_timestamp = attr.ib()  # UTC timestamp
+  processes_stats = attr.ib(metadata={Meta.ENTITY_LIST: ProcessStats})
 
 
 MONIT_PROCESS_PATTERN = re.compile(
@@ -214,171 +216,3 @@ def _process_stats(pid, service, monit_name, private_ip):
     network=network, threads_num=threads_num, children_stats_sum=children_sum,
     children_num=len(children_info)
   )
-
-
-def process_stats_from_dict(dictionary, strict=False):
-  """ Addition to attr.asdict function.
-  Args:
-    dictionary: a dict containing fields for building ProcessStats obj.
-    strict: a boolean. If True, any missed field will result in IndexError.
-            If False, all missed values will be replaced with MISSED.
-  Returns:
-    an instance of ProcessStats
-  Raises:
-    IndexError if strict is set to True and dictionary is lacking any fields
-  """
-  cpu = dictionary.get('cpu', {})
-  memory = dictionary.get('memory', {})
-  disk_io = dictionary.get('disk_io', {})
-  network = dictionary.get('network', {})
-  children_stats_sum = dictionary.get('children_stats_sum', {})
-
-  if strict:
-    return ProcessStats(
-      pid=dictionary['pid'],
-      monit_name=dictionary['monit_name'],
-      unified_service_name=dictionary['unified_service_name'],
-      application_id=dictionary['application_id'],
-      private_ip=dictionary['private_ip'],
-      port=dictionary['port'],
-      cmdline=dictionary['cmdline'],
-      cpu=ProcessCPU(**{field: cpu[field] for field in ProcessCPU.__slots__}),
-      memory=ProcessMemory(**{field: memory[field]
-                              for field in ProcessMemory.__slots__}),
-      disk_io=ProcessDiskIO(**{field: disk_io[field]
-                               for field in ProcessDiskIO.__slots__}),
-      network=ProcessNetwork(**{field: network[field]
-                                for field in ProcessNetwork.__slots__}),
-      threads_num=dictionary['threads_num'],
-      children_stats_sum=ProcessChildrenSum(
-        **{field: children_stats_sum[field]
-           for field in ProcessChildrenSum.__slots__}),
-      children_num=dictionary['children_num']
-    )
-  return ProcessStats(
-    pid=dictionary.get('pid', MISSED),
-    monit_name=dictionary.get('monit_name', MISSED),
-    unified_service_name=dictionary.get('unified_service_name', MISSED),
-    application_id=dictionary.get('application_id', MISSED),
-    private_ip=dictionary.get('private_ip', MISSED),
-    port=dictionary.get('port', MISSED),
-    cmdline=dictionary.get('cmdline', MISSED),
-    cpu=ProcessCPU(**{field: cpu.get(field, MISSED)
-                      for field in ProcessCPU.__slots__}),
-    memory=ProcessMemory(**{field: memory.get(field, MISSED)
-                            for field in ProcessMemory.__slots__}),
-    disk_io=ProcessDiskIO(**{field: disk_io.get(field, MISSED)
-                             for field in ProcessDiskIO.__slots__}),
-    network=ProcessNetwork(**{field: network.get(field, MISSED)
-                              for field in ProcessNetwork.__slots__}),
-    threads_num=dictionary.get('threads_num', MISSED),
-    children_stats_sum=ProcessChildrenSum(
-      **{field: children_stats_sum.get(field, MISSED)
-         for field in ProcessChildrenSum.__slots__}),
-    children_num=dictionary.get('children_num', MISSED)
-  )
-
-
-def processes_stats_snapshot_from_dict(dictionary, strict=False):
-  """ Addition to attr.asdict function.
-  Args:
-    dictionary: a dict containing fields for building ProcessesStatsSnapshot obj.
-    strict: a boolean. If True, any missed field will result in IndexError.
-            If False, all missed values will be replaced with MISSED.
-  Returns:
-    an instance of ProcessesStatsSnapshot
-  Raises:
-    KeyError if strict is set to True and dictionary is lacking any fields
-  """
-  if strict:
-    return ProcessesStatsSnapshot(
-      utc_timestamp=dictionary['utc_timestamp'],
-      processes_stats=[
-        process_stats_from_dict(process_stats, strict)
-        for process_stats in dictionary['processes_stats']
-      ]
-    )
-  return ProcessesStatsSnapshot(
-    utc_timestamp=dictionary.get('utc_timestamp', MISSED),
-    processes_stats=[
-      process_stats_from_dict(process_stats, strict)
-      for process_stats in dictionary.get('processes_stats', [])
-    ]
-  )
-
-
-def processes_stats_snapshot_to_dict(stats, include_lists=None):
-  """ Converts an instance of ProcessesStatsSnapshot to dictionary. Optionally
-  it can render only fields specified in include_lists.
-
-  Args:
-    stats: an instance of ProcessesStatsSnapshot to render
-    include_lists: a dictionary containing include lists for rendering
-        ProcessStats entity, ProcessCPU entity, ProcessMemory, ...
-        e.g.: {
-          'process': ['pid', 'monit_name', 'unified_service_name',
-                      'application_id', 'private_ip', 'port', 'cpu', 'memory'],
-          'process.cpu': ['user', 'system'],
-          'process.memory': ['unique'],
-        }
-  Returns:
-    a dictionary representing an instance of ProcessesStatsSnapshot
-  Raises:
-    WrongIncludeLists if unknown field was specified in include_lists
-  """
-  if include_lists and not isinstance(include_lists, dict):
-    raise WrongIncludeLists('include_lists should be dict, actual type is {}'
-                            .format(type(include_lists)))
-
-  include = include_lists or {}
-  process_stats_fields = set(include.pop('process', ProcessStats.__slots__))
-  nested_entities = {
-    'cpu': set(include.pop('process.cpu', ProcessCPU.__slots__)),
-    'memory': set(include.pop('process.memory', ProcessMemory.__slots__)),
-    'disk_io': set(include.pop('process.disk_io', ProcessDiskIO.__slots__)),
-    'network': set(include.pop('process.network', ProcessNetwork.__slots__)),
-    'children_stats_sum': set(include.pop('process.children_stats_sum',
-                                          ProcessChildrenSum.__slots__)),
-  }
-
-  if include:
-    # All known include lists were popped
-    raise WrongIncludeLists(u'Following include lists are not recognized: {}'
-                            .format(include))
-
-  try:
-    rendered_processes = []
-    for process in stats.processes_stats:
-      rendered_process = {}
-
-      for field in process_stats_fields:
-        value = getattr(process, field)
-        if field in nested_entities:
-          if field == 'children_stats_sum':
-            # render children_stats_sum with its nested entities
-            children_stats_sum = {}
-            for nested_field in nested_entities['children_stats_sum']:
-              nested_value = getattr(value, nested_field)
-              if nested_value is MISSED:
-                continue
-              if nested_field in nested_entities:
-                children_stats_sum[nested_field] = stats_entity_to_dict(
-                  nested_value, nested_entities[nested_field])
-              else:
-                children_stats_sum[nested_field] = nested_value
-            rendered_process[field] = children_stats_sum
-          else:
-            # render nested entity like ProcessMemory
-            rendered_process[field] = \
-              stats_entity_to_dict(value, nested_entities[field])
-        else:
-          rendered_process[field] = value
-
-      rendered_processes.append(rendered_process)
-  except AttributeError as err:
-    raise WrongIncludeLists(u'Unknown field in include lists ({})'.format(err))
-
-  return {
-    'utc_timestamp': stats.utc_timestamp,
-    'processes_stats': rendered_processes
-  }
