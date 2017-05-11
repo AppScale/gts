@@ -404,14 +404,11 @@ installzookeeper()
         dpkg -i /tmp/${ZK_REPO_PKG}
         apt-get update
         apt-get install -y zookeeper-server
-    else
-        apt-get install -y zookeeper zookeeperd zookeeper-bin
     fi
 
     # Trusty's kazoo version is too old, so use the version in Xenial.
     case "$DIST" in
         precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
-        *) apt-get install python-kazoo ;;
     esac
 }
 
