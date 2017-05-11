@@ -62,7 +62,6 @@ def isuser(in_user, in_host):
 
 
 def auth(in_user, in_host, password):
-  #return True
   username = in_user + "@" + in_host
 
   logging.info("trying to authenticate user [%s]" % (username))
