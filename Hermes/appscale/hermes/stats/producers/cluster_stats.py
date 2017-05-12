@@ -36,7 +36,7 @@ class ClusterNodesStatsSource(AsyncStatsSource):
 
     Args:
       local_cache: an instance of LocalStatsCache where node stats of this node
-          is cached. It's used to avoid HTTP calls to local API
+          are cached. It's used to avoid HTTP calls to local API.
       include_lists: a dict containing include lists for node stats fields
           and nested entities. It allows to reduce verbosity of
           cluster stats collected e.g:

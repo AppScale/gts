@@ -1,4 +1,3 @@
-import threading
 import time
 from datetime import datetime
 
@@ -18,7 +17,6 @@ class StatsCache(StatsSubscriber):
 
   def __init__(self, snapshots_cache_size, ttl=None):
     self._snapshots_cache = []
-    self._cache_lock = threading.Lock()
     if snapshots_cache_size < 1:
       raise ValueError("Snapshots cache size can be fewer than 1")
     self._snapshots_cache_size = snapshots_cache_size
@@ -31,16 +29,12 @@ class StatsCache(StatsSubscriber):
     Args:
       stats_snapshot: an object with utc_timestamp attribute
     """
-    self._cache_lock.acquire()
-    try:
-      self._snapshots_cache.append(stats_snapshot)
-      self._clean_expired()
-      if len(self._snapshots_cache) > self._snapshots_cache_size:
-        # Remove oldest snapshots which exceed cache size
-        diff = len(self._snapshots_cache) - self._snapshots_cache_size
-        self._snapshots_cache = self._snapshots_cache[diff:]
-    finally:
-      self._cache_lock.release()
+    self._snapshots_cache.append(stats_snapshot)
+    self._clean_expired()
+    if len(self._snapshots_cache) > self._snapshots_cache_size:
+      # Remove oldest snapshots which exceed cache size
+      diff = len(self._snapshots_cache) - self._snapshots_cache_size
+      self._snapshots_cache = self._snapshots_cache[diff:]
 
   def bulk_receive(self, stats_snapshots):
     """ Appends stats_snapshots to the limited cache.
@@ -49,16 +43,12 @@ class StatsCache(StatsSubscriber):
     Args:
       stats_snapshots: a list of objects with utc_timestamp attribute
     """
-    self._cache_lock.acquire()
-    try:
-      self._snapshots_cache += stats_snapshots
-      self._clean_expired()
-      if len(self._snapshots_cache) > self._snapshots_cache_size:
-        # Remove oldest snapshots which exceed cache size
-        diff = len(self._snapshots_cache) - self._snapshots_cache_size
-        self._snapshots_cache = self._snapshots_cache[diff:]
-    finally:
-      self._cache_lock.release()
+    self._snapshots_cache += stats_snapshots
+    self._clean_expired()
+    if len(self._snapshots_cache) > self._snapshots_cache_size:
+      # Remove oldest snapshots which exceed cache size
+      diff = len(self._snapshots_cache) - self._snapshots_cache_size
+      self._snapshots_cache = self._snapshots_cache[diff:]
 
   def get_stats_after(self, last_timestamp=BIG_BANG_TIMESTAMP, clean_older=True):
     """ Gets statistics snapshots which are newer than last_timestamp.
@@ -71,32 +61,24 @@ class StatsCache(StatsSubscriber):
     Returns:
       a list of statistic snapshots newer than last_timastamp
     """
-    self._cache_lock.acquire()
+    self._clean_expired()
     try:
-      self._clean_expired()
-      try:
-        # Need to return only snapshots which are newer than last_timestamp
-        start_index = next((
-          i for i in xrange(0, len(self._snapshots_cache))
-          if self._snapshots_cache[i].utc_timestamp > last_timestamp
-        ))
-      except StopIteration:
-        # There are no newer snapshots
-        return []
-      result = self._snapshots_cache[start_index:]
-      if clean_older:
-        self._snapshots_cache = self._snapshots_cache[start_index:]
-      return result
-    finally:
-      self._cache_lock.release()
+      # Need to return only snapshots which are newer than last_timestamp
+      start_index = next((
+        i for i in xrange(0, len(self._snapshots_cache))
+        if self._snapshots_cache[i].utc_timestamp > last_timestamp
+      ))
+    except StopIteration:
+      # There are no newer snapshots
+      return []
+    result = self._snapshots_cache[start_index:]
+    if clean_older:
+      self._snapshots_cache = self._snapshots_cache[start_index:]
+    return result
 
   def get_latest(self):
-    self._cache_lock.acquire()
-    try:
-      self._clean_expired()
-      return self._snapshots_cache[-1]
-    finally:
-      self._cache_lock.release()
+    self._clean_expired()
+    return self._snapshots_cache[-1]
 
   def _clean_expired(self):
     if not self._ttl:

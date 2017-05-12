@@ -447,7 +447,7 @@ def proxies_stats_snapshot_from_dict(dictionary, strict=False):
 
 def proxies_stats_snapshot_to_dict(stats, include_lists=None):
   """ Converts an instance of ProxiesStatsSnapshot to dictionary. Optionally
-  it can
+  it can render only fields specified in include_lists.
 
   Args:
     stats: an instance of ProxiesStatsSnapshot to render

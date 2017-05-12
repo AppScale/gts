@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
   name='appscale-hermes',
   version='0.0.2',
-  description='AppScale module which takes care about periodical backup and '
+  description='AppScale module which takes care of periodical backup and '
               'restore tasks, collects statistics and can send it outside.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',

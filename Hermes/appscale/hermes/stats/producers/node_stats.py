@@ -236,7 +236,7 @@ def node_stats_snapshot_from_dict(dictionary, strict=False):
 
 def node_stats_snapshot_to_dict(stats, include_lists=None):
   """ Converts an instance of NodeStatsSnapshot to dictionary. Optionally
-  it can
+  it can render only fields specified in include_lists.
 
   Args:
     stats: an instance of NodeStatsSnapshot to render

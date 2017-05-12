@@ -78,8 +78,10 @@ def create_request(url=None, method=None, body=None):
   """
   if not url or not method:
     raise MissingRequestArgs
-  return tornado.httpclient.HTTPRequest(url=url, method=method, body=body,
-                                        validate_cert=False, request_timeout=constants.REQUEST_TIMEOUT)
+  return tornado.httpclient.HTTPRequest(
+    url=url, method=method, body=body, validate_cert=False,
+    request_timeout=constants.REQUEST_TIMEOUT
+  )
 
 
 def urlfetch(request):
@@ -223,12 +225,14 @@ def create_br_json_data(role, type, bucket_name, index, storage):
   data = {}
   if role == 'db_master':
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
-    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-                                                      constants.DB_MASTER_OBJECT_NAME)
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(
+      bucket_name, constants.DB_MASTER_OBJECT_NAME
+    )
   elif role == 'db_slave':
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
-    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-                                                      constants.DB_SLAVE_OBJECT_NAME.format(index))
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(
+      bucket_name, constants.DB_SLAVE_OBJECT_NAME.format(index)
+    )
   else:
     return None
 

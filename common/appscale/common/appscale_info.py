@@ -50,6 +50,11 @@ def get_all_ips():
   return filter(None, nodes)
 
 def get_load_balancer_ips():
+  """ Get the IPs for all load balancer nodes in the deployment.
+
+  Returns:
+    A list of LB node IPs.
+  """
   raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
   ips = raw_ips.split('\n')
   return filter(None, ips)

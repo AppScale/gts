@@ -110,7 +110,7 @@ class ProcessesStatsSource(StatsSource):
   def get_current(self):
     """ Method for building a list of ProcessStats.
     It parses output of `monit status` and generates ProcessStats object
-    for each monitored service
+    for each monitored service.
 
     Returns:
       ProcessesStatsSnapshot
@@ -309,7 +309,7 @@ def processes_stats_snapshot_from_dict(dictionary, strict=False):
 
 def processes_stats_snapshot_to_dict(stats, include_lists=None):
   """ Converts an instance of ProcessesStatsSnapshot to dictionary. Optionally
-  it can
+  it can render only fields specified in include_lists.
 
   Args:
     stats: an instance of ProcessesStatsSnapshot to render

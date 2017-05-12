@@ -21,7 +21,7 @@ CLUSTER_PROXIES_STATS_CACHE_SIZE = 1
 # Path to haproxy stats socket
 HAPROXY_STATS_SOCKET_PATH = '/etc/haproxy/stats'
 
-# Quite logging intervals
+# Quiet logging intervals
 LOCAL_STATS_DEBUG_INTERVAL = 5*60
 CLUSTER_STATS_DEBUG_INTERVAL = 15*60
 
@@ -30,7 +30,7 @@ class _MissedValue(object):
   """
   Instance of this private class denotes missed value.
   It's used to denote values of stats properties which are missed
-  in haproxy stats csv
+  in haproxy stats.
   """
 
   def __nonzero__(self):

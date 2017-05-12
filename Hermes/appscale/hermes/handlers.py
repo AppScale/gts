@@ -144,6 +144,15 @@ class TaskHandler(RequestHandler):
 
 
 class Respond404Handler(RequestHandler):
+  """
+  This class is aimed to stub unavailable route.
+  Hermes master has some extra routes which are not available on slaves,
+  also Hermes stats can work in lightweight or verbose mode and verbose
+  mode has extra routes.
+  This handlers is configured with a reason why specific resource
+  is not available on the instance of Hermes.
+  """
+
   def initialize(self, reason):
     self.reason = reason
 
