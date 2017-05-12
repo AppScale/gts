@@ -4,9 +4,9 @@ import os
 from mock import patch, MagicMock
 from tornado import testing, gen
 
+from appscale.hermes.stats import converter
 from appscale.hermes.stats.producers import (
-  cluster_stats, node_stats, process_stats, proxy_stats,
-  converter)
+  cluster_stats, node_stats, process_stats, proxy_stats)
 from appscale.hermes.stats.subscribers import cache
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))

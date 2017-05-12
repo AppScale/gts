@@ -11,9 +11,10 @@ from tornado.web import HTTPError
 
 from appscale.hermes import constants
 from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
+from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats, converter
+  proxy_stats, node_stats, process_stats
 )
 from appscale.hermes.stats.pubsub_base import AsyncStatsSource
 
@@ -37,14 +38,7 @@ class ClusterNodesStatsSource(AsyncStatsSource):
     Args:
       local_cache: an instance of LocalStatsCache where node stats of this node
           are cached. It's used to avoid HTTP calls to local API.
-      include_lists: a dict containing include lists for node stats fields
-          and nested entities. It allows to reduce verbosity of
-          cluster stats collected e.g:
-          {
-            'node': ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
-            'node.memory': ['available'],
-            'node.loadavg': ['last_5min'],
-          }
+      include_lists: an instance of IncludeLists
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
           Be careful with this number, if you plan to scroll all stats
@@ -119,15 +113,7 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
     Args:
       local_cache: an instance of LocalStatsCache where processes stats of this
           node is cached. It's used to avoid HTTP calls to local API
-      include_lists: a dict containing include lists for processes stats fields
-          and nested entities. It allows to reduce verbosity of
-          cluster stats collected e.g:
-          {
-            'process': ['pid', 'monit_name', 'unified_service_name',
-                        'application_id', 'private_ip', 'port', 'cpu', 'memory'],
-            'process.cpu': ['user', 'system'],
-            'process.memory': ['unique'],
-          }
+      include_lists: an instance of IncludeLists
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
           Be careful with this number, if you plan to scroll all stats
@@ -202,15 +188,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
     Args:
       local_cache: an instance of LocalStatsCache where proxies stats of this
           node is cached. It's used to avoid HTTP calls to local API
-      include_lists: a dict containing include lists for processes stats fields
-          and nested entities. It allows to reduce verbosity of
-          cluster stats collected e.g:
-          {
-            'proxy': ['name', 'unified_service_name', 'application_id',
-                      'frontend', 'backend'],
-            'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
-            'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
-          }
+      include_lists: an instance of IncludeLists
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
           Be careful with this number, if you plan to scroll all stats
@@ -284,7 +262,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, stats_class,
   if limit is not None:
     arguments['limit'] = limit
   if include_lists is not None:
-    arguments['include_lists'] = include_lists
+    arguments['include_lists'] = include_lists.to_dict()
   if fetch_latest_only:
     arguments['fetch_latest_only'] = True
 

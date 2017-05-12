@@ -25,6 +25,9 @@ HAPROXY_STATS_SOCKET_PATH = '/etc/haproxy/stats'
 LOCAL_STATS_DEBUG_INTERVAL = 5*60
 CLUSTER_STATS_DEBUG_INTERVAL = 15*60
 
+# Path to dictionary to write profile log
+PROFILE_LOG_DIR = '/var/log/appscale/profile'
+
 
 class _MissedValue(object):
   """

@@ -5,7 +5,7 @@ from tornado.options import options
 from tornado.web import RequestHandler
 
 from appscale.hermes.constants import SECRET_HEADER
-from appscale.hermes.stats.producers.converter import stats_to_dict, \
+from appscale.hermes.stats.converter import stats_to_dict, \
   IncludeLists, WrongIncludeLists
 from appscale.hermes.constants import SECRET_HEADER, HTTP_Codes
 

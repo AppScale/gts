@@ -10,7 +10,7 @@ import attr
 
 from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, \
   LOCAL_STATS_DEBUG_INTERVAL, MISSED
-from appscale.hermes.stats.producers.converter import include_list_name, Meta
+from appscale.hermes.stats.converter import include_list_name, Meta
 from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
 

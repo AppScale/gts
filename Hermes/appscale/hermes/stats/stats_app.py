@@ -11,6 +11,7 @@ from appscale.hermes.stats.constants import (
   CLUSTER_NODES_STATS_CACHE_SIZE, CLUSTER_PROCESSES_STATS_CACHE_SIZE,
   CLUSTER_PROXIES_STATS_CACHE_SIZE
 )
+from appscale.hermes.stats.converter import IncludeLists
 from appscale.hermes.stats.handlers import (
   CachedStatsHandler, CurrentStatsHandler
 )
@@ -131,27 +132,27 @@ class StatsApp(object):
       if not verbose_cluster_stats:
         # To reduce slave-to-master traffic and verbosity of cluster stats
         # you can select which fields of stats to collect on master
-        self._cluster_nodes_stats.included_field_lists = {
+        self._cluster_nodes_stats.included_field_lists = IncludeLists({
           'node': ['utc_timestamp', 'cpu', 'memory',
-                 'partitions_dict', 'loadavg'],
+                   'partitions_dict', 'loadavg'],
           'node.cpu': ['percent', 'count'],
           'node.memory': ['available'],
           'node.partition': ['free', 'used'],
           'node.loadavg': ['last_5min'],
-        }
-        self._cluster_processes_stats.included_field_lists = {
+        })
+        self._cluster_processes_stats.included_field_lists = IncludeLists({
           'process': ['monit_name', 'unified_service_name', 'application_id',
                       'port', 'cpu', 'memory', 'children_stats_sum'],
           'process.cpu': ['user', 'system', 'percent'],
           'process.memory': ['resident', 'virtual', 'unique'],
           'process.children_stats_sum': ['cpu', 'memory'],
-        }
-        self._cluster_proxies_stats.included_field_lists = {
+        })
+        self._cluster_proxies_stats.included_field_lists = IncludeLists({
           'proxy': ['name', 'unified_service_name', 'application_id',
                     'frontend', 'backend'],
           'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
           'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
-        }
+        })
 
     # All routes (handlers will be assigned during configuration)
     self._routes = {
@@ -327,7 +328,8 @@ class StatsApp(object):
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
     stats.publisher.subscribe(stats.cache)
     if self._write_profile:
-      profile_log = ClusterNodesProfileLog()
+      include = self._cluster_nodes_stats.included_field_lists
+      profile_log = ClusterNodesProfileLog(include)
       stats.publisher.subscribe(profile_log)
     self._publishers.append(stats.publisher)
     # Configure handler
@@ -354,7 +356,8 @@ class StatsApp(object):
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
     stats.publisher.subscribe(stats.cache)
     if self._write_profile:
-      profile_log = ClusterProcessesProfileLog()
+      include = self._cluster_processes_stats.included_field_lists
+      profile_log = ClusterProcessesProfileLog(include)
       stats.publisher.subscribe(profile_log)
     self._publishers.append(stats.publisher)
     # Configure handler
@@ -381,7 +384,8 @@ class StatsApp(object):
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
     stats.publisher.subscribe(stats.cache)
     if self._write_profile:
-      profile_log = ClusterProxiesProfileLog()
+      include = self._cluster_proxies_stats.included_field_lists
+      profile_log = ClusterProxiesProfileLog(include)
       stats.publisher.subscribe(profile_log)
     self._publishers.append(stats.publisher)
     # Configure handler
