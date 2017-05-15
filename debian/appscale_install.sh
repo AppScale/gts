@@ -69,6 +69,7 @@ case "$1" in
         installgosdk
         installcommon
         installadminserver
+        installhermes
         installtaskqueue
         installdatastore
         preplogserver

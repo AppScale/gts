@@ -585,6 +585,12 @@ installadminserver()
     pip install ${APPSCALE_HOME}/AdminServer
 }
 
+installhermes()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/Hermes
+    pip install ${APPSCALE_HOME}/Hermes
+}
+
 installtaskqueue()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]

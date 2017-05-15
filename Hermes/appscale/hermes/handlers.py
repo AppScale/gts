@@ -1,18 +1,20 @@
 """ Handlers for accepting HTTP requests. """
 
+import Queue
 import json
 import logging
-import Queue
 import threading
+
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
-import hermes_constants
-import helper
-from helper import JSONTags
-from helper import NodeInfoTags
-from helper import TASK_STATUS
-from helper import TASK_STATUS_LOCK
+from appscale.hermes import constants
+from appscale.hermes import helper
+from appscale.hermes.helper import JSONTags
+from appscale.hermes.helper import NodeInfoTags
+from appscale.hermes.helper import TASK_STATUS
+from appscale.hermes.helper import TASK_STATUS_LOCK
+
 
 class TaskStatus(object):
   """ A class containing all possible task states. """
@@ -20,21 +22,17 @@ class TaskStatus(object):
   FAILED = 'failed'
   COMPLETE = 'complete'
 
+
 class MainHandler(RequestHandler):
   """ Main handler class. """
-
-  # The path for this handler.
-  PATH = "/"
 
   def get(self):
     """ Main GET method. Reports the status of the server. """
     self.write(json.dumps({'status': 'up'}))
 
+
 class TaskHandler(RequestHandler):
   """ Handler that starts operations to complete a task. """
-
-  # The path for this handler.
-  PATH = "/do_task"
 
   def post(self):
     """ POST method that sends a request for action to the
@@ -44,7 +42,7 @@ class TaskHandler(RequestHandler):
 
     if not self.request.body:
       logging.info("Response from the AppScale Portal empty. No tasks to run.")
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+      self.set_status(constants.HTTP_Codes.HTTP_OK)
       return
 
     try:
@@ -52,23 +50,23 @@ class TaskHandler(RequestHandler):
     except (TypeError, ValueError) as error:
       logging.exception(error)
       logging.error("Unable to parse: {0}".format(self.request.body))
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     # Verify all necessary fields are present in request.body.
     logging.debug("Verifying all necessary parameters are present.")
-    if not set(data.keys()).issuperset(set(hermes_constants.REQUIRED_KEYS)):
+    if not set(data.keys()).issuperset(set(constants.REQUIRED_KEYS)):
       logging.error("Missing args in request: " + self.request.body)
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     # Gather information for sending the requests to start off the current
     # task at hand.
     nodes = helper.get_node_info()
 
-    if data[JSONTags.TYPE] not in hermes_constants.SUPPORTED_TASKS:
+    if data[JSONTags.TYPE] not in constants.SUPPORTED_TASKS:
       logging.error("Unsupported task type: '{0}'".format(data[JSONTags.TYPE]))
-      self.set_status(hermes_constants.HTTP_Codes.HTTP_BAD_REQUEST)
+      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
       return
 
     tasks = [data[JSONTags.TYPE]]
@@ -91,7 +89,7 @@ class TaskHandler(RequestHandler):
           task, data[JSONTags.BUCKET_NAME],
           node[NodeInfoTags.INDEX], data[JSONTags.STORAGE])
         request = helper.create_request(url=node[NodeInfoTags.HOST],
-          method='POST', body=json_data)
+                                        method='POST', body=json_data)
 
         # Start a thread for the request.
         thread = threading.Thread(
@@ -138,8 +136,25 @@ class TaskHandler(RequestHandler):
         TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
       IOLoop.instance().add_callback(callback=lambda:
         helper.report_status(task, data[JSONTags.TASK_ID],
-        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
-      ))
+                             TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
+                             ))
       TASK_STATUS_LOCK.release()
 
-    self.set_status(hermes_constants.HTTP_Codes.HTTP_OK)
+    self.set_status(constants.HTTP_Codes.HTTP_OK)
+
+
+class Respond404Handler(RequestHandler):
+  """
+  This class is aimed to stub unavailable route.
+  Hermes master has some extra routes which are not available on slaves,
+  also Hermes stats can work in lightweight or verbose mode and verbose
+  mode has extra routes.
+  This handlers is configured with a reason why specific resource
+  is not available on the instance of Hermes.
+  """
+
+  def initialize(self, reason):
+    self.reason = reason
+
+  def get(self):
+    self.set_status(404, self.reason)

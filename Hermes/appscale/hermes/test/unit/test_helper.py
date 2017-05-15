@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 
-import os
 import Queue
 import sys
 import threading
-import tornado.httpclient
 import unittest
+
+import tornado.httpclient
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
-from appscale.common import appscale_info
+from appscale.hermes import helper, constants
+from appscale.hermes.helper import MissingRequestArgs
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import helper
-import hermes_constants
-from custom_hermes_exceptions import MissingRequestArgs
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
 class FakeAppControllerClient():
@@ -96,8 +94,8 @@ class TestHelper(unittest.TestCase):
     self.assertIsNotNone(helper.urlfetch, fake_request)
 
   def test_get_br_service_url(self):
-    fake_url = 'http://host:{0}{1}'.format(hermes_constants.BR_SERVICE_PORT,
-      hermes_constants.BR_SERVICE_PATH)
+    fake_url = 'http://host:{0}{1}'.format(constants.BR_SERVICE_PORT,
+                                           constants.BR_SERVICE_PATH)
     self.assertEquals(fake_url, helper.get_br_service_url('host'))
 
   def test_get_deployment_id(self):
