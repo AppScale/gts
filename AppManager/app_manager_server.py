@@ -87,6 +87,9 @@ HTTP_OK = 200
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
 
+PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
+                                'app___{project}-{port}.pid')
+
 # A DeploymentConfig accessor.
 deployment_config = None
 
@@ -201,6 +204,8 @@ def start_app(config):
     config['language'], config['app_name']))
 
   env_vars = config['env_vars']
+  pidfile = PIDFILE_TEMPLATE.format(project=config['app_name'],
+                                    port=config['app_port'])
 
   if config['language'] == constants.GO:
     env_vars['GOPATH'] = os.path.join('/var', 'apps', config['app_name'],
@@ -216,7 +221,8 @@ def start_app(config):
     start_cmd = create_python27_start_cmd(
       config['app_name'],
       config['login_ip'],
-      config['app_port'])
+      config['app_port'],
+      pidfile)
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
       config['login_ip'],
@@ -236,7 +242,8 @@ def start_app(config):
       config['app_name'],
       config['app_port'],
       config['login_ip'],
-      max_heap
+      max_heap,
+      pidfile
     )
     match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port']),
       os.path.dirname(locate_dir("/var/apps/" + config['app_name'] + "/app/",
@@ -258,15 +265,14 @@ def start_app(config):
   if 'syslog_server' in config:
     syslog_server = config['syslog_server']
   monit_app_configuration.create_config_file(
-    str(watch),
-    str(start_cmd),
-    str(stop_cmd),
-    [config['app_port']],
+    watch,
+    start_cmd,
+    pidfile,
+    config['app_port'],
     env_vars,
     config['max_memory'],
     syslog_server,
-    appscale_info.get_private_ip(),
-    match_cmd=match_cmd)
+    check_port=True)
 
   # We want to tell monit to start the single process instead of the
   # group, since monit can get slow if there are quite a few processes in
@@ -550,13 +556,14 @@ def create_java_app_env(app_name):
 
   return env_vars
 
-def create_python27_start_cmd(app_name, login_ip, port):
+def create_python27_start_cmd(app_name, login_ip, port, pidfile):
   """ Creates the start command to run the python application server.
 
   Args:
     app_name: The name of the application to run
     login_ip: The public IP of this deployment
     port: The local port the application server will bind to
+    pidfile: A string specifying the pidfile location.
   Returns:
     A string of the start command.
   """
@@ -581,7 +588,8 @@ def create_python27_start_cmd(app_name, login_ip, port):
     "/var/apps/" + app_name + "/app",
     "--host " + appscale_info.get_private_ip(),
     "--admin_host " + appscale_info.get_private_ip(),
-    "--automatic_restart", "no"]
+    "--automatic_restart", "no",
+    "--pidfile", pidfile]
 
   if app_name in TRUSTED_APPS:
     cmd.extend([TRUSTED_FLAG])
@@ -685,7 +693,8 @@ def copy_files_matching_pattern(file_path_pattern, dest):
   for file in glob.glob(file_path_pattern):
     shutil.copy(file, dest)
 
-def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
+def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
+                          pidfile):
   """ Creates the start command to run the java application server.
 
   Args:
@@ -693,17 +702,20 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
     max_heap: An integer specifying the max heap size in MB.
+    pidfile: A string specifying the pidfile location.
   Returns:
     A string of the start command.
   """
   db_proxy = appscale_info.get_db_proxy()
   tq_proxy = appscale_info.get_tq_proxy()
+  java_start_script = os.path.join(
+    constants.JAVA_APPSERVER, 'appengine-java-sdk-repacked', 'bin',
+    'dev_appserver.sh')
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
   cmd = [
-    "cd " + constants.JAVA_APPSERVER + " &&",
-    "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
+    java_start_script,
     "--port=" + str(port),
     #this jvm flag allows javax.email to connect to the smtp server
     "--jvm_flag=-Dsocket.permit_connect=true",
@@ -718,6 +730,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap):
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--NGINX_PORT=anything",
     "--TQ_PROXY=" + tq_proxy,
+    "--pidfile={}".format(pidfile),
     os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
   ]
 

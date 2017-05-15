@@ -12,6 +12,7 @@ import threading
 import time
 import urllib
 
+from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .inspectable_counter import InspectableCounter
 from ..cassandra_env import cassandra_interface
@@ -144,9 +145,6 @@ class ZKTransaction:
   # How long to wait before retrying an operation.
   ZK_RETRY_TIME = .5
 
-  # The maximum number of seconds to wait before retrying to connect.
-  MAX_RECONNECT_DELAY = 30
-
   def __init__(self, host=DEFAULT_HOST, start_gc=False, db_access=None,
                log_level=logging.INFO):
     """ Creates a new ZKTransaction, which will communicate with Zookeeper
@@ -159,8 +157,6 @@ class ZKTransaction:
       db_access: A DatastoreProxy instance.
       log_level: A logging constant that specifies the instance logging level.
     """
-    reconnect_policy = KazooRetry(max_tries=-1,
-                                  max_delay=self.MAX_RECONNECT_DELAY)
     retry_policy = KazooRetry(max_tries=5)
 
     class_name = self.__class__.__name__
@@ -171,7 +167,7 @@ class ZKTransaction:
     # Connection instance variables.
     self.host = host
     self.handle = kazoo.client.KazooClient(
-      hosts=host, connection_retry=reconnect_policy,
+      hosts=host, connection_retry=ZK_PERSISTENT_RECONNECTS,
       command_retry=retry_policy)
     self.run_with_retry = self.handle.retry
     self.handle.start()

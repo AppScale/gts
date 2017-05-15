@@ -404,14 +404,11 @@ installzookeeper()
         dpkg -i /tmp/${ZK_REPO_PKG}
         apt-get update
         apt-get install -y zookeeper-server
-    else
-        apt-get install -y zookeeper zookeeperd zookeeper-bin
     fi
 
     # Trusty's kazoo version is too old, so use the version in Xenial.
     case "$DIST" in
         precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
-        *) apt-get install python-kazoo ;;
     esac
 }
 
@@ -522,6 +519,14 @@ EOF
     disableservice monit
 }
 
+postinstallejabberd()
+{
+    # Install ejabberd authentication script.
+    cp ${APPSCALE_HOME}/AppController/scripts/ejabberd_auth.py /etc/ejabberd
+    chown ejabberd:ejabberd /etc/ejabberd/ejabberd_auth.py
+    chmod +x /etc/ejabberd/ejabberd_auth.py
+}
+
 installpsutil()
 {
     case ${DIST} in
@@ -578,6 +583,12 @@ installadminserver()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
     pip install ${APPSCALE_HOME}/AdminServer
+}
+
+installhermes()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/Hermes
+    pip install ${APPSCALE_HOME}/Hermes
 }
 
 installtaskqueue()

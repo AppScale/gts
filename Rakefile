@@ -72,7 +72,7 @@ end
 namespace :hermes do
 
   task :test do
-    sh 'python -m unittest discover -b -v -s Hermes/test/unit'
+    sh 'python -m unittest discover -b -v -s Hermes/appscale/hermes'
   end
 
 end

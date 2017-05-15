@@ -2,6 +2,7 @@
 This file contains constants used throughout AppScale.
 """
 import os
+from kazoo.retry import KazooRetry
 
 
 class HTTPCodes(object):
@@ -92,6 +93,9 @@ ZK_LOCATIONS_JSON_FILE = "/etc/appscale/zookeeper_locations.json"
 
 # Default location for connecting to ZooKeeper.
 ZK_DEFAULT_CONNECTION_STR = "localhost:2181"
+
+# A ZooKeeper reconnect policy that never stops retrying to connect.
+ZK_PERSISTENT_RECONNECTS = KazooRetry(max_tries=-1, max_delay=30)
 
 # Default location for the datastore master.
 MASTERS_FILE_LOC = "/etc/appscale/masters"

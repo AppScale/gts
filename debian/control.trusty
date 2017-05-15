@@ -91,7 +91,10 @@ Depends: appscale-tools,
          ssh,
          unzip,
          wget,
-         zlib1g-dev
+         zlib1g-dev,
+         zookeeper,
+         zookeeper-bin,
+         zookeeperd
 Conflicts: apache2.2-bin,
            apache2.2-common,
            apache2-utils,

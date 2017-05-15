@@ -49,6 +49,16 @@ def get_all_ips():
   nodes = nodes.split('\n')
   return filter(None, nodes)
 
+def get_load_balancer_ips():
+  """ Get the IPs for all load balancer nodes in the deployment.
+
+  Returns:
+    A list of LB node IPs.
+  """
+  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
+  ips = raw_ips.split('\n')
+  return filter(None, ips)
+
 def get_headnode_ip():
   """ Get the private IP of the head node. NOTE: it can change if node
   crashes.

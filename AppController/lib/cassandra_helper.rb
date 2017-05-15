@@ -83,7 +83,7 @@ def start_db_slave(clear_datastore, needed, desired)
   @state = "Waiting for Cassandra seed node at #{seed_node} to start"
   Djinn.log_info(@state)
   acc = AppControllerClient.new(seed_node, HelperFunctions.get_secret())
-  while true
+  loop do
     begin
       break if acc.primary_db_is_up() == "true"
     rescue FailedNodeException
@@ -99,7 +99,7 @@ end
 # Waits for enough database nodes to be up.
 def wait_for_desired_nodes(needed, desired)
   sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
-  while true
+  loop do
     ready = nodes_ready
     Djinn.log_debug("#{ready} nodes are up. #{needed} are needed.")
     break if ready >= needed

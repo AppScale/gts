@@ -1,0 +1,68 @@
+{
+  "192.168.33.11": [
+    {
+      "proxies_stats": [
+        {
+          "name": "TaskQueue",
+          "unified_service_name": "taskqueue",
+          "application_id": null,
+          "frontend": {"bin": 0, "slim": 64000, "pid": 1, "rate": 0, "req_rate": 0, "rate_max": 0, "hrsp_1xx": 0, "ereq": 0, "pxname": "TaskQueue", "stot": 0, "req_tot": 0, "bout": 0, "dresp": 0, "type": 0, "hrsp_other": 0, "status": "OPEN", "hrsp_5xx": 0, "dreq": 0, "req_rate_max": 0, "iid": 1, "hrsp_4xx": 0, "smax": 0, "scur": 0, "rate_lim": 0, "hrsp_2xx": 0, "svname": "FRONTEND", "hrsp_3xx": 0},
+          "backend": {"bin": 0, "lastchg": 8399, "weight": 2, "hrsp_5xx": 0, "pid": 1, "rate": 0, "wredis": 0, "slim": 64000, "rate_max": 0, "dresp": 0, "pxname": "TaskQueue", "stot": 0, "cli_abrt": 0, "hrsp_1xx": 0, "type": 1, "hrsp_other": 0, "status": "UP", "econ": 0, "lbtot": 0, "dreq": 0, "wretr": 0, "iid": 1, "hrsp_4xx": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "scur": 0, "bck": 0, "qmax": 0, "hrsp_2xx": 0, "act": 2, "chkdown": 0, "svname": "BACKEND", "hrsp_3xx": 0},
+          "servers": [
+            {"bin": 0, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 17447, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "TaskQueue", "check_code": null, "sid": 1, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 0, "stot": 0, "wretr": 0, "iid": 1, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 0, "hrsp_2xx": 0, "act": 1, "chkdown": 0, "svname": "TaskQueue-192.168.33.10:17447", "hrsp_3xx": 0},
+            {"bin": 0, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 17448, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "TaskQueue", "check_code": null, "sid": 2, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 0, "stot": 0, "wretr": 0, "iid": 1, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 0, "hrsp_2xx": 0, "act": 1, "chkdown": 0, "svname": "TaskQueue-192.168.33.10:17448", "hrsp_3xx": 0}
+          ],
+          "listeners": []
+        },
+        {
+          "name": "as_blob_server",
+          "unified_service_name": "blobstore",
+          "application_id": null,
+          "frontend": {"bin": 0, "slim": 64000, "pid": 1, "rate": 0, "req_rate": 0, "rate_max": 0, "hrsp_1xx": 0, "ereq": 0, "pxname": "as_blob_server", "stot": 0, "req_tot": 0, "bout": 0, "dresp": 0, "type": 0, "hrsp_other": 0, "status": "OPEN", "hrsp_5xx": 0, "dreq": 0, "req_rate_max": 0, "iid": 4, "hrsp_4xx": 0, "smax": 0, "scur": 0, "rate_lim": 0, "hrsp_2xx": 0, "svname": "FRONTEND", "hrsp_3xx": 0},
+          "backend": {"bin": 0, "lastchg": 8399, "weight": 1, "hrsp_5xx": 0, "pid": 1, "rate": 0, "wredis": 0, "slim": 64000, "rate_max": 0, "dresp": 0, "pxname": "as_blob_server", "stot": 0, "cli_abrt": 0, "hrsp_1xx": 0, "type": 1, "hrsp_other": 0, "status": "UP", "econ": 0, "lbtot": 0, "dreq": 0, "wretr": 0, "iid": 4, "hrsp_4xx": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "scur": 0, "bck": 0, "qmax": 0, "hrsp_2xx": 0, "act": 1, "chkdown": 0, "svname": "BACKEND", "hrsp_3xx": 0},
+          "servers": [
+            {"bin": 0, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 6107, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "as_blob_server", "check_code": null, "sid": 1, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 0, "stot": 0, "wretr": 0, "iid": 4, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 0, "qcur": 0, "eresp": 0, "bout": 0, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 0, "hrsp_2xx": 0, "act": 1, "chkdown": 0, "svname": "as_blob_server-192.168.33.10:6107", "hrsp_3xx": 0}
+          ],
+          "listeners": []
+        },
+        {
+          "name": "appscale-datastore_server",
+          "unified_service_name": "datastore",
+          "application_id": null,
+          "frontend": {"bin": 107869, "slim": 64000, "pid": 1, "rate": 0, "req_rate": 0, "rate_max": 7, "hrsp_1xx": 0, "ereq": 0, "pxname": "appscale-datastore_server", "stot": 345, "req_tot": 345, "bout": 71324, "dresp": 0, "type": 0, "hrsp_other": 0, "status": "OPEN", "hrsp_5xx": 0, "dreq": 0, "req_rate_max": 7, "iid": 3, "hrsp_4xx": 0, "smax": 2, "scur": 0, "rate_lim": 0, "hrsp_2xx": 345, "svname": "FRONTEND", "hrsp_3xx": 0},
+          "backend": {"bin": 107869, "lastchg": 8399, "weight": 2, "hrsp_5xx": 0, "pid": 1, "rate": 0, "wredis": 0, "slim": 64000, "rate_max": 7, "dresp": 0, "pxname": "appscale-datastore_server", "stot": 345, "cli_abrt": 0, "hrsp_1xx": 0, "type": 1, "hrsp_other": 0, "status": "UP", "econ": 0, "lbtot": 345, "dreq": 0, "wretr": 0, "iid": 3, "hrsp_4xx": 0, "downtime": 0, "smax": 2, "qcur": 0, "eresp": 0, "bout": 71324, "srv_abrt": 0, "scur": 0, "bck": 0, "qmax": 0, "hrsp_2xx": 345, "act": 2, "chkdown": 0, "svname": "BACKEND", "hrsp_3xx": 0},
+          "servers": [
+            {"bin": 54767, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 4000, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "appscale-datastore_server", "check_code": null, "sid": 1, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 172, "stot": 172, "wretr": 0, "iid": 3, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 1, "qcur": 0, "eresp": 0, "bout": 36301, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 3, "hrsp_2xx": 172, "act": 1, "chkdown": 0, "svname": "appscale-datastore_server-192.168.33.10:4000", "hrsp_3xx": 0},
+            {"bin": 53102, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 4001, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "appscale-datastore_server", "check_code": null, "sid": 2, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 173, "stot": 173, "wretr": 0, "iid": 3, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 1, "qcur": 0, "eresp": 0, "bout": 35023, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 4, "hrsp_2xx": 173, "act": 1, "chkdown": 0, "svname": "appscale-datastore_server-192.168.33.10:4001", "hrsp_3xx": 0}
+          ],
+          "listeners": []
+        },
+        {
+          "name": "gae_appscaledashboard",
+          "unified_service_name": "application",
+          "application_id": "appscaledashboard",
+          "frontend": {"bin": 87780, "slim": 64000, "pid": 1, "rate": 0, "req_rate": 0, "rate_max": 2, "hrsp_1xx": 0, "ereq": 0, "pxname": "gae_appscaledashboard", "stot": 280, "req_tot": 280, "bout": 52500, "dresp": 0, "type": 0, "hrsp_other": 0, "status": "OPEN", "hrsp_5xx": 0, "dreq": 0, "req_rate_max": 2, "iid": 5, "hrsp_4xx": 0, "smax": 2, "scur": 0, "rate_lim": 0, "hrsp_2xx": 280, "svname": "FRONTEND", "hrsp_3xx": 0},
+          "backend": {"bin": 87780, "lastchg": 8399, "weight": 3, "hrsp_5xx": 0, "pid": 1, "rate": 0, "wredis": 0, "slim": 64000, "rate_max": 2, "dresp": 0, "pxname": "gae_appscaledashboard", "stot": 280, "cli_abrt": 0, "hrsp_1xx": 0, "type": 1, "hrsp_other": 0, "status": "UP", "econ": 0, "lbtot": 280, "dreq": 0, "wretr": 0, "iid": 5, "hrsp_4xx": 0, "downtime": 0, "smax": 2, "qcur": 0, "eresp": 0, "bout": 52500, "srv_abrt": 0, "scur": 0, "bck": 0, "qmax": 0, "hrsp_2xx": 280, "act": 3, "chkdown": 0, "svname": "BACKEND", "hrsp_3xx": 0},
+          "servers": [
+            {"bin": 29468, "lastchg": 8399, "weight": 1, "slim": 7, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 20000, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "gae_appscaledashboard", "check_code": null, "sid": 1, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 94, "stot": 94, "wretr": 0, "iid": 5, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 1, "qcur": 0, "eresp": 0, "bout": 17622, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 1, "hrsp_2xx": 94, "act": 1, "chkdown": 0, "svname": "gae_appscaledashboard-192.168.33.10:20000", "hrsp_3xx": 0},
+            {"bin": 29163, "lastchg": 8399, "weight": 1, "slim": 7, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 20001, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "gae_appscaledashboard", "check_code": null, "sid": 2, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 93, "stot": 93, "wretr": 0, "iid": 5, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 1, "qcur": 0, "eresp": 0, "bout": 17460, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 1, "hrsp_2xx": 93, "act": 1, "chkdown": 0, "svname": "gae_appscaledashboard-192.168.33.10:20001", "hrsp_3xx": 0},
+            {"bin": 29149, "lastchg": 8399, "weight": 1, "slim": 7, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 20002, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "gae_appscaledashboard", "check_code": null, "sid": 3, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 93, "stot": 93, "wretr": 0, "iid": 5, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 1, "qcur": 0, "eresp": 0, "bout": 17418, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 1, "hrsp_2xx": 93, "act": 1, "chkdown": 0, "svname": "gae_appscaledashboard-192.168.33.10:20002", "hrsp_3xx": 0}
+          ],
+          "listeners": []
+        },
+        {
+          "name": "UserAppServer",
+          "unified_service_name": "uaserver",
+          "application_id": null,
+          "frontend": {"bin": 1284555, "slim": 64000, "pid": 1, "rate": 0, "req_rate": 0, "rate_max": 7, "hrsp_1xx": 0, "ereq": 0, "pxname": "UserAppServer", "stot": 1613, "req_tot": 1613, "bout": 1288157, "dresp": 0, "type": 0, "hrsp_other": 0, "status": "OPEN", "hrsp_5xx": 0, "dreq": 0, "req_rate_max": 7, "iid": 2, "hrsp_4xx": 0, "smax": 2, "scur": 0, "rate_lim": 0, "hrsp_2xx": 1613, "svname": "FRONTEND", "hrsp_3xx": 0},
+          "backend": {"bin": 1284555, "lastchg": 8399, "weight": 1, "hrsp_5xx": 0, "pid": 1, "rate": 0, "wredis": 0, "slim": 64000, "rate_max": 7, "dresp": 0, "pxname": "UserAppServer", "stot": 1613, "cli_abrt": 0, "hrsp_1xx": 0, "type": 1, "hrsp_other": 0, "status": "UP", "econ": 0, "lbtot": 1533, "dreq": 0, "wretr": 0, "iid": 2, "hrsp_4xx": 0, "downtime": 0, "smax": 2, "qcur": 0, "eresp": 0, "bout": 1288157, "srv_abrt": 0, "scur": 0, "bck": 0, "qmax": 1, "hrsp_2xx": 1613, "act": 1, "chkdown": 0, "svname": "BACKEND", "hrsp_3xx": 0},
+          "servers": [
+            {"bin": 1284555, "lastchg": 8399, "weight": 1, "slim": 1, "pid": 1, "check_duration": 0, "rate": 0, "private_ip": "192.168.33.10", "check_status": "L4OK", "wredis": 0, "port": 4342, "hrsp_1xx": 0, "chkfail": 0, "tracked": null, "pxname": "UserAppServer", "check_code": null, "sid": 1, "cli_abrt": 0, "dresp": 0, "qlimit": null, "hrsp_other": 0, "status": "UP", "hrsp_5xx": 0, "lbtot": 1533, "stot": 1613, "wretr": 0, "iid": 2, "hrsp_4xx": 0, "hanafail": 0, "downtime": 0, "smax": 1, "qcur": 0, "eresp": 0, "bout": 1288157, "srv_abrt": 0, "throttle": null, "scur": 0, "type": 2, "bck": 0, "econ": 0, "qmax": 0, "rate_max": 7, "hrsp_2xx": 1613, "act": 1, "chkdown": 0, "svname": "UserAppServer-192.168.33.10:4342", "hrsp_3xx": 0}
+          ],
+          "listeners": []
+        }
+      ],
+      "utc_timestamp": 1494248097.0
+    }
+  ]
+}

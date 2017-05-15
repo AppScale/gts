@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
+import argparse
 import logging
-import subprocess
-import sys
 
 from appscale.common import monit_app_configuration
 from appscale.common import monit_interface
-from appscale.common.constants import APPSCALE_HOME
 from appscale.datastore.cassandra_env import cassandra_interface
-from appscale.datastore.zkappscale import zktransaction as zk
+from distutils.spawn import find_executable
+from subprocess import check_output
 
 import datastore_upgrade
 
@@ -20,51 +19,64 @@ CASSANDRA_EXECUTABLE = cassandra_interface.CASSANDRA_INSTALL_DIR \
 # that Cassandra runs on.
 PID_FILE = "/tmp/appscale-cassandra.pid"
 
-# The default port to connect to Cassandra.
-CASSANDRA_PORT = 9999
 
-def start_service(service_name):
+def start_cassandra():
+  logging.info('Starting Cassandra')
+
+  bash = find_executable('bash')
+  su = find_executable('su')
+
+  cassandra_cmd = ' '.join([CASSANDRA_EXECUTABLE, '-p', PID_FILE])
+  start_cmd = "{} -c '{}' cassandra".format(su, cassandra_cmd)
+  stop_cmd = "{} -c 'kill $(cat {})'".format(bash, PID_FILE)
+
+  watch = datastore_upgrade.CASSANDRA_WATCH_NAME
+  monit_app_configuration.create_daemon_config(
+    watch, start_cmd, stop_cmd, PID_FILE)
+
+  if not monit_interface.start(watch):
+    logging.error('Monit was unable to start Cassandra')
+    return 1
+  else:
+    logging.info('Monit configured for Cassandra')
+    return 0
+
+
+def start_zookeeper():
   """ Creates a monit configuration file and prompts Monit to start service.
   Args:
     service_name: The name of the service to start.
   """
-  logging.info("Starting " + service_name)
-  watch_name = ""
-  if service_name == datastore_upgrade.CASSANDRA_WATCH_NAME:
-    cassandra_cmd = CASSANDRA_EXECUTABLE + " -p " + PID_FILE
-    start_cmd = 'su -c "{0}" cassandra'.format(cassandra_cmd)
-    stop_cmd = "/usr/bin/python2 " + APPSCALE_HOME + "/scripts/stop_service.py java cassandra"
-    watch_name = datastore_upgrade.CASSANDRA_WATCH_NAME
-    ports = [CASSANDRA_PORT]
-    match_cmd = cassandra_interface.CASSANDRA_INSTALL_DIR
+  logging.info('Starting ZooKeeper')
 
-  if service_name == datastore_upgrade.ZK_WATCH_NAME:
-    zk_server="zookeeper-server"
-    command = 'service --status-all|grep zookeeper$'
-    if subprocess.call(command, shell=True) == 0:
-      zk_server = "zookeeper"
+  service = find_executable('service')
+  zk_service = 'zookeeper-server'
+  if 'zookeeper\n' in check_output('service --status-all', shell=True):
+    zk_service = 'zookeeper'
 
-    start_cmd = "/usr/sbin/service " + zk_server + " start"
-    stop_cmd = "/usr/sbin/service " + zk_server + " stop"
-    watch_name = datastore_upgrade.ZK_WATCH_NAME
-    match_cmd = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-    ports = [zk.DEFAULT_PORT]
+  start_cmd = ' '.join([service, zk_service, 'start'])
+  stop_cmd = ' '.join([service, zk_service, 'stop'])
 
-  monit_app_configuration.create_config_file(watch_name, start_cmd, stop_cmd,
-    ports, upgrade_flag=True, match_cmd=match_cmd)
+  watch = datastore_upgrade.ZK_WATCH_NAME
+  match_cmd = 'org.apache.zookeeper.server.quorum.QuorumPeerMain'
 
-  if not monit_interface.start(watch_name):
-    logging.error("Monit was unable to start " + service_name)
+  monit_app_configuration.create_custom_config(
+    watch, start_cmd, stop_cmd, match_cmd)
+
+  if not monit_interface.start(watch):
+    logging.error('Monit was unable to start ZooKeeper')
     return 1
   else:
-    logging.info('Monit configured for {}'.format(service_name))
+    logging.info('Monit configured for ZooKeeper')
     return 0
 
 
 if __name__ == "__main__":
-  args_length = len(sys.argv)
-  if args_length < 2:
-    sys.exit(1)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('service', choices=['cassandra', 'zookeeper'])
+  args = parser.parse_args()
 
-  service_name = (str(sys.argv[1]))
-  start_service(service_name)
+  if args.service == 'cassandra':
+    start_cassandra()
+  elif args.service == 'zookeeper':
+    start_zookeeper()

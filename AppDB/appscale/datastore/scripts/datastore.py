@@ -139,7 +139,7 @@ class MainHandler(tornado.web.RequestHandler):
     """ Handles get request for the web server. Returns that it is currently
         up in json.
     """
-    self.write(str(STATS))
+    self.write(json.dumps(STATS))
     self.finish() 
 
   def remote_request(self, app_id, http_request_data):
