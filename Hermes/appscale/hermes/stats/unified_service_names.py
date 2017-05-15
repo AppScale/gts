@@ -30,16 +30,37 @@ class Service(object):
   # haproxy_server_matcher have to contain 'app', 'ip' and 'port' groups when possible
   haproxy_server_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
 
-  def recognize_monit_process(self, monit_process_name):
-    """ Checks whether monit process corresponds to this service """
-    return self.monit_matcher.match(monit_process_name) is not None
+  def recognize_monit_process(self, monit_name):
+    """ Checks whether monit process corresponds to this service.
+
+    Args:
+      monit_name: a string, name of process as it's shown in monit status
+
+    Returns:
+      True if monit_name corresponds to this service, False otherwise
+    """
+    return self.monit_matcher.match(monit_name) is not None
 
   def recognize_haproxy_proxy(self, proxy_name):
-    """ Checks whether haproxy proxy corresponds to this service """
+    """ Checks whether haproxy proxy corresponds to this service.
+
+    Args:
+      proxy_name: a string, name of proxy as it's shown in haproxy stats
+
+    Returns:
+      True if proxy_name corresponds to this service, False otherwise
+    """
     return self.haproxy_proxy_matcher.match(proxy_name) is not None
 
   def get_application_id_by_monit_name(self, monit_name):
-    """ Parses monit_name and returns application ID if it was found """
+    """ Parses monit_name and returns application ID if it was found.
+
+    Args:
+      monit_name: a string, name of process as it's shown in monit status
+
+    Returns:
+      a string representing App ID, or None if it wasn't found
+    """
     match = self.monit_matcher.match(monit_name)
     if not match:
       return None
@@ -49,7 +70,14 @@ class Service(object):
       return None
 
   def get_port_by_monit_name(self, monit_name):
-    """ Parses monit_name and returns port if it was found """
+    """ Parses monit_name and returns port if it was found.
+
+    Args:
+      monit_name: a string, name of process as it's shown in monit status
+
+    Returns:
+      an integer representing port, or None if it wasn't found
+    """
     match = self.monit_matcher.match(monit_name)
     try:
       port_group = match.group('port') if match else None
@@ -58,7 +86,14 @@ class Service(object):
       return None
 
   def get_application_id_by_pxname(self, pxname):
-    """ Parses haproxy proxy and returns application ID if it was found """
+    """ Parses haproxy proxy and returns application ID if it was found.
+
+    Args:
+      pxname: a string, name of proxy as it's shown in haproxy stats
+
+    Returns:
+      a string representing App ID, or None if it wasn't found
+    """
     match = self.haproxy_proxy_matcher.match(pxname)
     if not match:
       return None
@@ -68,7 +103,14 @@ class Service(object):
       return None
 
   def get_ip_port_by_svname(self, svname):
-    """ Parses haproxy proxy and returns private IP and port if it was found """
+    """ Parses haproxy proxy and returns private IP and port if it was found.
+
+    Args:
+      svname: a string, name of server as it's shown in haproxy stats
+
+    Returns:
+      a tuple (str:ip, int:port), None is used if IP or port wasn't found
+    """
     match = self.haproxy_server_matcher.match(svname)
     if not match:
       return None, None

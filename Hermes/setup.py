@@ -4,7 +4,7 @@ setup(
   name='appscale-hermes',
   version='0.0.2',
   description='AppScale module which takes care of periodical backup and '
-              'restore tasks, collects statistics and can send it outside.',
+              'restore tasks and collects statistics.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
   license='Apache License 2.0',

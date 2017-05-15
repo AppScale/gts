@@ -3719,7 +3719,7 @@ class Djinn
     Djinn.log_info("API services have started on this node")
 
     # Start Hermes with integrated stats service
-    start_hermes(@options['verbose'])
+    start_hermes()
 
     # Leader node starts additional services.
     if my_node.is_shadow?
@@ -3837,10 +3837,10 @@ class Djinn
   end
 
   # Starts the Hermes service on this node.
-  def start_hermes(verbose)
+  def start_hermes()
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start(verbose)
+    HermesService.start(@options['verbose'])
     Djinn.log_info("Done starting Hermes service.")
   end
 

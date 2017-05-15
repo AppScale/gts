@@ -4,7 +4,7 @@ import logging
 from tornado.options import options
 from tornado.web import RequestHandler
 
-from appscale.hermes.constants import SECRET_HEADER
+from appscale.hermes.constants import SECRET_HEADER, HTTP_Codes
 
 
 class CachedStatsHandler(RequestHandler):
@@ -18,7 +18,7 @@ class CachedStatsHandler(RequestHandler):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
-      self.set_status(401, "Bad secret")
+      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
     payload = json.loads(self.request.body)
     last_utc_timestamp = payload.get('last_utc_timestamp')
@@ -49,7 +49,7 @@ class CurrentStatsHandler(RequestHandler):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
-      self.set_status(401, "Bad secret")
+      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
     payload = json.loads(self.request.body)
     include_lists = payload.get('include_lists')
@@ -70,7 +70,7 @@ class ClusterStatsHandler(RequestHandler):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
-      self.set_status(401, "Bad secret")
+      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
     payload = json.loads(self.request.body)
     include_lists = payload.get('include_lists')
