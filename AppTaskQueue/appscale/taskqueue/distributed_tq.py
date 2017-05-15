@@ -29,7 +29,6 @@ from cassandra import (
 )
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
-from distutils.spawn import find_executable
 from .queue import (
   InvalidLeaseRequest,
   PullQueue,
@@ -461,35 +460,41 @@ class DistributedTaskQueue():
       logger.exception('Unknown exception')
       return json.dumps({'error': True, 'reason': config_error.message})
    
-    log_file = self.LOG_DIR + app_id + ".log"
-    celery_bin = find_executable('celery')
-    command = [celery_bin,
-               "worker",
-               "--app={}".format(TaskQueueConfig.WORKER_MODULE),
-               "--hostname=%h." + app_id,
-               "--workdir=" + CELERY_WORKER_DIR,
-               "--logfile=" + log_file,
-               "--time-limit=" + str(self.HARD_TIME_LIMIT),
-               "--autoscale={max},{min}".format(
-                 max=TaskQueueConfig.MAX_CELERY_CONCURRENCY,
-                 min=TaskQueueConfig.MIN_CELERY_CONCURRENCY),
-               "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
-               "--pidfile=" + self.PID_FILE_LOC + 'celery___' + \
-                             app_id + ".pid",
-               "--statedb=" + TaskQueueConfig.CELERY_STATE_DIR + 'worker___' + \
-                             app_id + ".db",
-               "--autoreload -Ofair"]
-    start_command = str(' '.join(command))
-    stop_command = self.get_worker_stop_command(app_id)
-    watch = "celery-" + str(app_id)
+    log_file = os.path.join(self.LOG_DIR, '{}.log'.format(app_id))
+    pidfile = os.path.join('/', 'var', 'run', 'appscale',
+                           'celery-{}.pid'.format(app_id))
+    state_db = os.path.join(TaskQueueConfig.CELERY_STATE_DIR,
+                            'worker___{}.db'.format(app_id))
+    max_memory = self.CELERY_SAFE_MEMORY * \
+                 TaskQueueConfig.MAX_CELERY_CONCURRENCY
+
     env_vars = {'APP_ID': app_id, 'HOST': appscale_info.get_login_ip()}
     env_vars.update(self.CELERY_ENV_VARS)
-    monit_app_configuration.create_config_file(watch,
-                                               start_command, 
-                                               stop_command, 
-                                               [self.CELERY_PORT],
-                                               max_memory=self.CELERY_SAFE_MEMORY*TaskQueueConfig.MAX_CELERY_CONCURRENCY,
-                                               env_vars=env_vars)
+
+    start_cmd = ' '.join([
+      'celery', 'worker',
+      '--app', TaskQueueConfig.WORKER_MODULE,
+      '--hostname', app_id,
+      '--workdir', CELERY_WORKER_DIR,
+      '--logfile', log_file,
+      '--pidfile', pidfile,
+      '--time-limit', str(self.HARD_TIME_LIMIT),
+      '--autoscale', '{max},{min}'.format(
+        max=TaskQueueConfig.MAX_CELERY_CONCURRENCY,
+        min=TaskQueueConfig.MIN_CELERY_CONCURRENCY),
+      '--soft-time-limit', str(self.TASK_SOFT_TIME_LIMIT),
+      '--statedb', state_db,
+      '-Ofair'
+    ])
+
+    watch = "celery-" + str(app_id)
+    monit_app_configuration.create_config_file(
+      watch,
+      start_cmd,
+      pidfile,
+      env_vars=env_vars,
+      max_memory=max_memory)
+
     if monit_interface.start(watch):
       json_response = {'error': False}
     else:

@@ -436,9 +436,7 @@ CRON
               end
 
               mins = (first_of_hour..last_of_hour).step(increment).to_a.join(',')
-              if !mins.empty?
-                crons.push({"hour" => "#{h}", "min" => mins})
-              end
+              crons.push({"hour" => "#{h}", "min" => mins}) unless mins.empty?
 
               # Set up next loop.
               first_of_hour = 0   # If no remainder, start at the top.

@@ -457,6 +457,7 @@ def create_command_line_parser():
     const=True,
     default=False,
     help='if this application can read data stored by other applications.')
+  appscale_group.add_argument('--pidfile', help='create pidfile at location')
 
   return parser
 
@@ -716,6 +717,11 @@ def main():
   os.environ['MY_PORT'] = str(options.port)
   os.environ['COOKIE_SECRET'] = appscale_info.get_secret()
   os.environ['NGINX_HOST'] = options.nginx_host
+
+  if options.pidfile:
+    with open(options.pidfile, 'w') as pidfile:
+      pidfile.write(str(os.getpid()))
+
   dev_server = DevelopmentServer()
   try:
     dev_server.start(options)

@@ -1,6 +1,9 @@
 """ Constants used by AdminServer. """
 
+import os
+
 from appscale.common.constants import (
+  DASHBOARD_APP_ID,
   PYTHON27,
   JAVA,
   GO,
@@ -43,6 +46,9 @@ class Types(object):
   VERSION = 'type.googleapis.com/google.appengine.v1.Version'
 
 
+# The parent directory for source code extraction.
+UNPACK_ROOT = os.path.join('/', 'var', 'apps')
+
 # The default port for the AdminServer.
 DEFAULT_PORT = 17442
 
@@ -60,3 +66,6 @@ VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
 
 # The seconds to wait for redeploys.
 REDEPLOY_WAIT = 20
+
+# A list of projects that cannot be used or modified by users.
+RESERVED_PROJECTS = [DASHBOARD_APP_ID]

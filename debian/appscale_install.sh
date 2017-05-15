@@ -56,6 +56,7 @@ case "$1" in
         installservice
         postinstallservice
         postinstallmonit
+        postinstallejabberd
         sethosts
         setulimits
         increaseconnections

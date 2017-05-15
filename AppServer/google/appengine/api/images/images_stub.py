@@ -586,7 +586,7 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
 
     degrees = 360 - degrees
-    return image.rotate(degrees)
+    return image.rotate(degrees, expand=True)
 
   def _Crop(self, image, transform):
     """Use PIL to crop the given image with the given transform.

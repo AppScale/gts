@@ -244,8 +244,9 @@ class TestAppManager(unittest.TestCase):
       and_return('/path/to/dir/')
     app_id = 'testapp'
     max_heap = 260
+    pidfile = 'testpid'
     cmd = app_manager_server.create_java_start_cmd(
-      app_id, '20000', '127.0.0.2', max_heap)
+      app_id, '20000', '127.0.0.2', max_heap, pidfile)
     assert app_id in cmd
 
   def test_create_java_stop_cmd(self): 
