@@ -3,27 +3,32 @@ import attr
 from appscale.common import appscale_info
 
 from appscale.hermes import Respond404Handler
-from appscale.hermes.stats.constants import UPDATE_NODE_STATS_INTERVAL, \
-  UPDATE_PROCESSES_STATS_INTERVAL, UPDATE_PROXIES_STATS_INTERVAL, \
-  UPDATE_CLUSTER_NODES_STATS_INTERVAL, UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL, \
-  UPDATE_CLUSTER_PROXIES_STATS_INTERVAL, NODE_STATS_CACHE_SIZE, \
-  PROCESSES_STATS_CACHE_SIZE, PROXIES_STATS_CACHE_SIZE, \
-  CLUSTER_NODES_STATS_CACHE_SIZE, CLUSTER_PROCESSES_STATS_CACHE_SIZE, \
+from appscale.hermes.stats.constants import (
+  UPDATE_NODE_STATS_INTERVAL, UPDATE_PROCESSES_STATS_INTERVAL,
+  UPDATE_PROXIES_STATS_INTERVAL, UPDATE_CLUSTER_NODES_STATS_INTERVAL,
+  UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL, UPDATE_CLUSTER_PROXIES_STATS_INTERVAL,
+  NODE_STATS_CACHE_SIZE, PROCESSES_STATS_CACHE_SIZE, PROXIES_STATS_CACHE_SIZE,
+  CLUSTER_NODES_STATS_CACHE_SIZE, CLUSTER_PROCESSES_STATS_CACHE_SIZE,
   CLUSTER_PROXIES_STATS_CACHE_SIZE
-from appscale.hermes.stats.handlers import CachedStatsHandler, \
-  CurrentStatsHandler
+)
+from appscale.hermes.stats.handlers import (
+  CachedStatsHandler, CurrentStatsHandler
+)
 from appscale.hermes.stats.handlers import ClusterStatsHandler
-from appscale.hermes.stats.producers.cluster_stats import \
-  ClusterNodesStatsSource, ClusterProxiesStatsSource, \
+from appscale.hermes.stats.producers.cluster_stats import (
+  ClusterNodesStatsSource, ClusterProxiesStatsSource,
   ClusterProcessesStatsSource
+)
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
 from appscale.hermes.stats.pubsub_base import StatsPublisher
-from appscale.hermes.stats.subscribers.cache import StatsCache, \
-  ClusterStatsCache
-from appscale.hermes.stats.subscribers.profile import ClusterNodesProfileLog, \
-  ClusterProxiesProfileLog, ClusterProcessesProfileLog
+from appscale.hermes.stats.subscribers.cache import (
+  StatsCache, ClusterStatsCache
+)
+from appscale.hermes.stats.subscribers.profile import (
+  ClusterNodesProfileLog, ClusterProxiesProfileLog, ClusterProcessesProfileLog
+)
 
 
 @attr.s
@@ -111,40 +116,41 @@ class StatsApp(object):
       cache_size=PROXIES_STATS_CACHE_SIZE,
       update_interval=UPDATE_PROXIES_STATS_INTERVAL)
 
-    # And 3 same kinds of cluster stats
-    self._cluster_nodes_stats = ClusterStats(
-      cache_size=CLUSTER_NODES_STATS_CACHE_SIZE,
-      update_interval=UPDATE_CLUSTER_NODES_STATS_INTERVAL)
-    self._cluster_processes_stats = ClusterStats(
-      cache_size=CLUSTER_PROCESSES_STATS_CACHE_SIZE,
-      update_interval=UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL)
-    self._cluster_proxies_stats = ClusterStats(
-      cache_size=CLUSTER_PROXIES_STATS_CACHE_SIZE,
-      update_interval=UPDATE_CLUSTER_PROXIES_STATS_INTERVAL)
+    if self._is_master:
+      # And 3 same kinds of cluster stats
+      self._cluster_nodes_stats = ClusterStats(
+        cache_size=CLUSTER_NODES_STATS_CACHE_SIZE,
+        update_interval=UPDATE_CLUSTER_NODES_STATS_INTERVAL)
+      self._cluster_processes_stats = ClusterStats(
+        cache_size=CLUSTER_PROCESSES_STATS_CACHE_SIZE,
+        update_interval=UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL)
+      self._cluster_proxies_stats = ClusterStats(
+        cache_size=CLUSTER_PROXIES_STATS_CACHE_SIZE,
+        update_interval=UPDATE_CLUSTER_PROXIES_STATS_INTERVAL)
 
-    if not verbose_cluster_stats:
-      # To reduce slave-to-master traffic and verbosity of cluster stats
-      # you can select which fields of stats to collect on master
-      self._cluster_nodes_stats.included_field_lists = {
-        'node': ['cpu', 'memory', 'partitions_dict', 'loadavg'],
-        'node.cpu': ['percent', 'count'],
-        'node.memory': ['available'],
-        'node.partition': ['free', 'used'],
-        'node.loadavg': ['last_5min'],
-      }
-      self._cluster_processes_stats.included_field_lists = {
-        'process': ['monit_name', 'unified_service_name', 'application_id',
-                    'port', 'cpu', 'memory', 'children_stats_sum'],
-        'process.cpu': ['user', 'system', 'percent'],
-        'process.memory': ['resident', 'virtual', 'unique'],
-        'process.children_stats_sum': ['cpu', 'memory'],
-      }
-      self._cluster_proxies_stats.included_field_lists = {
-        'proxy': ['name', 'unified_service_name', 'application_id',
-                  'frontend', 'backend'],
-        'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
-        'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
-      }
+      if not verbose_cluster_stats:
+        # To reduce slave-to-master traffic and verbosity of cluster stats
+        # you can select which fields of stats to collect on master
+        self._cluster_nodes_stats.included_field_lists = {
+          'node': ['cpu', 'memory', 'partitions_dict', 'loadavg'],
+          'node.cpu': ['percent', 'count'],
+          'node.memory': ['available'],
+          'node.partition': ['free', 'used'],
+          'node.loadavg': ['last_5min'],
+        }
+        self._cluster_processes_stats.included_field_lists = {
+          'process': ['monit_name', 'unified_service_name', 'application_id',
+                      'port', 'cpu', 'memory', 'children_stats_sum'],
+          'process.cpu': ['user', 'system', 'percent'],
+          'process.memory': ['resident', 'virtual', 'unique'],
+          'process.children_stats_sum': ['cpu', 'memory'],
+        }
+        self._cluster_proxies_stats.included_field_lists = {
+          'proxy': ['name', 'unified_service_name', 'application_id',
+                    'frontend', 'backend'],
+          'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
+          'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+        }
 
     # All routes (handlers will be assigned during configuration)
     self._routes = {
